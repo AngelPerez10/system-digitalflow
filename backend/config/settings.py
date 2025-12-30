@@ -114,8 +114,12 @@ CSRF_TRUSTED_ORIGINS = [
 # Add production frontend URL if set
 FRONTEND_URL = os.environ.get('FRONTEND_URL')
 if FRONTEND_URL:
-    CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
-    CSRF_TRUSTED_ORIGINS.append(FRONTEND_URL)
+    # Ensure no trailing slash for CORS
+    clean_url = FRONTEND_URL.rstrip('/')
+    if clean_url not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(clean_url)
+    if clean_url not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(clean_url)
 
 ROOT_URLCONF = 'config.urls'
 
@@ -204,13 +208,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # =====================
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        # Recomendación: deja IsAuthenticated si tu API es privada.
-        # Cambia a AllowAny si quieres endpoints públicos por defecto.
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        # Mantengo SessionAuthentication por si quieres usar el admin / browsable API.
         'rest_framework.authentication.SessionAuthentication',
     ],
 }
