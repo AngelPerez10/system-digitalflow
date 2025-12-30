@@ -31,7 +31,7 @@ services:
     staticPublishPath: "./frontend/dist"
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://system-digitalflow-rrdb.onrender.com
+        value: https://system-digitalflow.onrender.com
 
 databases:
   - name: system-digitalflow-db
