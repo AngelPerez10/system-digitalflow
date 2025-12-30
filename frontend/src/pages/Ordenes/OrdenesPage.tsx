@@ -577,14 +577,18 @@ export default function Ordenes() {
     const defaultServicios = [
       'ALARMAS',
       'VIDEOVIGILANCIA',
-      'CONTROL DE ACCESO',
-      'REDES',
-      'CERCO ELECTRIFICADO',
-      'RASTREO SATELITAL GPS',
-      'PANELES SOLARES',
+      'CONTROLES DE ACCESO',
+      'CERCOS ELECTRIFICADOS',
+      'REDES DE COMUNICACIÓN',
+      'AIRES ACONDICIONADOS',
       'CALENTADORES SOLARES',
+      'PANELES SOLARES',
+      'TIERRA FÍSICA',
       'TRABAJOS ELÉCTRICOS',
-      'AIRES ACONDICIONADOS'
+      'TORRE ARRIOSTRADA',
+      'RASTREADOR GPS',
+      'DASHCAM',
+      'VENTA DE PRODUCTO',
     ];
     setServiciosDisponibles(defaultServicios);
     localStorage.setItem('servicios_disponibles', JSON.stringify(defaultServicios));

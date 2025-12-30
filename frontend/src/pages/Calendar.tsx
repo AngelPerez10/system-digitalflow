@@ -142,14 +142,18 @@ const Calendar: React.FC = () => {
       const defaultServicios = [
         'ALARMAS',
         'VIDEOVIGILANCIA',
-        'CONTROL DE ACCESO',
-        'REDES',
-        'CERCO ELECTRIFICADO',
-        'RASTREO SATELITAL GPS',
-        'PANELES SOLARES',
-        'CALENTADORES SOLARES',
-        'TRABAJOS ELÉCTRICOS',
+        'CONTROLES DE ACCESO',
+        'CERCOS ELECTRIFICADOS',
+        'REDES DE COMUNICACIÓN',
         'AIRES ACONDICIONADOS',
+        'CALENTADORES SOLARES',
+        'PANELES SOLARES',
+        'TIERRA FÍSICA',
+        'TRABAJOS ELÉCTRICOS',
+        'TORRE ARRIOSTRADA',
+        'RASTREADOR GPS',
+        'DASHCAM',
+        'VENTA DE PRODUCTO',
       ];
 
       try {
