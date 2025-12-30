@@ -1,12 +1,12 @@
 """Django settings for config.
- 
- Listo para desarrollo local y despliegue en Render.
- - Producción: configura variables de entorno (SECRET_KEY, DATABASE_URL, FRONTEND_URL).
- - Estáticos: WhiteNoise (Render requiere collectstatic).
- - API: Django REST Framework + JWT SimpleJWT.
- - CORS/CSRF: pensado para Vite en LAN y frontend en producción.
- """
- 
+
+Listo para desarrollo local y despliegue en Render.
+- Producción: configura variables de entorno (SECRET_KEY, DATABASE_URL, FRONTEND_URL).
+- Estáticos: WhiteNoise (Render requiere collectstatic).
+- API: Django REST Framework + JWT SimpleJWT.
+- CORS/CSRF: pensado para Vite en LAN y frontend en producción.
+"""
+
 from datetime import timedelta
 from pathlib import Path
 import os
@@ -89,7 +89,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
 
     'django.middleware.security.SecurityMiddleware',
-
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -111,6 +111,12 @@ CSRF_TRUSTED_ORIGINS = [
     'http://10.0.0.14:5173',
 ]
 
+# Add production frontend URL if set
+FRONTEND_URL = os.environ.get('FRONTEND_URL')
+if FRONTEND_URL:
+    CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
+    CSRF_TRUSTED_ORIGINS.append(FRONTEND_URL)
+
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
@@ -130,17 +136,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if not DEBUG and os.environ.get("DATABASE_URL"):
+    DATABASES = {
+        "default": dj_database_url.parse(os.environ.get("DATABASE_URL"))
     }
-}
-
-# Configuración para producción (PostgreSQL en Render)
-#DATABASES = {
-#    "default": dj_database_url.parse(os.environ.get("DATABASE_URL"))
-#}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # =====================
