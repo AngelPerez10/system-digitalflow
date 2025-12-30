@@ -1,0 +1,83 @@
+# ---- Python / Django ----
+venv/
+.env
+.env.*
+*.py[cod]
+__pycache__/
+**/__pycache__/ 
+*.log
+*.pid
+*.sqlite3
+*.sqlite3-journal
+# Local DB backups
+backup_*.sql
+*.dump
+
+# Django media uploads (mantén solo si necesitas subirlas)
+media/
+# Static build artifacts (recolectados por collectstatic)
+staticfiles/
+
+# Coverage / cache / tooling
+.coverage
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.dmypy.json
+
+# ---- Node / Frontend (Vite / React) ----
+frontend/node_modules/
+node_modules/
+frontend/dist/
+dist/
+# Environment vars frontend
+frontend/.env
+frontend/.env.*
+!.env.example
+
+# Build outputs (si generas otros)
+*.tar.gz
+*.zip
+
+# ---- Editors / IDE ----
+.vscode/
+.idea/
+*.iml
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ---- OS / Misc ----
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+*.bak
+*~
+
+# ---- Logs / Reports ----
+logs/
+report.xml
+junit.xml
+pytest-report.html
+
+# ---- Misc project specific ----
+# Cache de ESLint / TypeScript
+.eslintcache
+.tsbuildinfo
+
+# ---- Keep lockfiles (NO ignorar) ----
+# package-lock.json
+# pnpm-lock.yaml
+# yarn.lock
+# requirements.txt SE DEBE SUBIR
+
+# ---- Allow examples / templates ----
+!.env.example
+
+# Fin
