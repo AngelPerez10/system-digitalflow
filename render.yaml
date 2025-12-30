@@ -15,7 +15,7 @@ services:
           name: system-digitalflow-db
           property: connectionString
       - key: FRONTEND_URL
-        value: https://system-digitalflow.onrender.com # Cambiar por tu URL final de frontend
+        value: https://system-digitalflow.onrender.com
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
