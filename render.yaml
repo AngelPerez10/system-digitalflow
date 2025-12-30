@@ -32,6 +32,10 @@ services:
     envVars:
       - key: VITE_API_BASE_URL
         value: https://system-digitalflow.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
 
 databases:
   - name: system-digitalflow-db
