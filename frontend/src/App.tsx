@@ -36,6 +36,7 @@ export default function App() {
           {/* Dashboard Layout - Protegido */}
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
             <Route index path="/" element={<Home />} />
+            <Route path="/operador/dashboard" element={<Home />} />
 
             {/* Dashboard Pages */}
             <Route path="/ordenes" element={<Ordenes />} />
