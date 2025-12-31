@@ -24,10 +24,10 @@ def import_clientes():
     with transaction.atomic():
         for block in blocks:
             lines = [line.strip() for line in block.strip().split('\n') if line.strip()]
-            if len(lines) >= 3:
+            if len(lines) >= 2:
                 nombre = lines[0]
                 direccion = lines[1]
-                telefono = lines[2]
+                telefono = lines[2] if len(lines) >= 3 else ""
                 
                 # Idempotent check
                 if not Cliente.objects.filter(nombre=nombre).exists():
@@ -42,7 +42,8 @@ def import_clientes():
                     except Exception as e:
                         print(f"Error importing {nombre}: {e}")
                 else:
-                    print(f"Skipped (exists): {nombre}")
+                    # Optional: Update existing if needed, but for now just skip
+                    pass
 
     print(f"Finished. Imported {count} new clients.")
 
