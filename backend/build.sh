@@ -24,3 +24,8 @@ if not User.objects.filter(username='AngelPerez10').exists():
 else:
     print("El superusuario 'AngelPerez10' ya existe.")
 EOF
+# Importar clientes desde el archivo
+python manage.py shell <<EOF
+from import_clientes import import_clientes
+import_clientes()
+EOF
