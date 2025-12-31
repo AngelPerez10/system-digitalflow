@@ -58,25 +58,33 @@ export default function SignInForm() {
     if (!token) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('username');
       sessionStorage.removeItem('auth_token');
       sessionStorage.removeItem('token');
+      sessionStorage.removeItem('refresh_token');
       sessionStorage.removeItem('username');
       return;
     }
     if (remember) {
       localStorage.setItem('auth_token', token);
       localStorage.setItem('token', token);
+      const refresh = sessionStorage.getItem('refresh_token');
+      if (refresh) localStorage.setItem('refresh_token', refresh);
       if (username) localStorage.setItem('username', username);
       sessionStorage.removeItem('auth_token');
       sessionStorage.removeItem('token');
+      sessionStorage.removeItem('refresh_token');
       sessionStorage.removeItem('username');
     } else {
       sessionStorage.setItem('auth_token', token);
       sessionStorage.setItem('token', token);
+      const refresh = localStorage.getItem('refresh_token');
+      if (refresh) sessionStorage.setItem('refresh_token', refresh);
       if (username) sessionStorage.setItem('username', username);
       localStorage.removeItem('auth_token');
       localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('username');
     }
   }, [token, username, remember]);
@@ -89,36 +97,39 @@ export default function SignInForm() {
       const data = await login(loginValue, password);
       // Persist token immediately so RequireAuth sees it when navigating
       try {
-        // determine role from backend flags
-        const computedRole = (data.is_superuser || data.is_staff) ? 'admin' : 'operator';
+        // Use role from backend, fallback to computed role
+        const backendRole = (data.role || '').toLowerCase();
+        const computedRole = backendRole || ((data.is_superuser || data.is_staff) ? 'admin' : 'operator');
 
         // Always write to both storages to avoid mobile tab discard losing state
         localStorage.setItem('auth_token', data.token);
         localStorage.setItem('token', data.token);
+        if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
         if (data.username) localStorage.setItem('username', data.username);
         localStorage.setItem('is_superuser', String(!!data.is_superuser));
         localStorage.setItem('role', computedRole);
 
         sessionStorage.setItem('auth_token', data.token);
         sessionStorage.setItem('token', data.token);
+        if (data.refresh) sessionStorage.setItem('refresh_token', data.refresh);
         if (data.username) sessionStorage.setItem('username', data.username);
         sessionStorage.setItem('is_superuser', String(!!data.is_superuser));
         sessionStorage.setItem('role', computedRole);
-
-        if (data.permissions) {
-          const p = JSON.stringify(data.permissions);
-          localStorage.setItem('permissions', p);
-          sessionStorage.setItem('permissions', p);
-        } else {
-          localStorage.removeItem('permissions');
-          sessionStorage.removeItem('permissions');
-        }
       } catch { }
       setToken(data.token);
       setUsername(data.username);
-      // guardar objeto usuario con flags admin
+      // guardar objeto usuario con flags admin y nombre completo
       try {
-        localStorage.setItem('user', JSON.stringify({ id: data.id, username: data.username, email: data.email, is_staff: data.is_staff, is_superuser: data.is_superuser }));
+        const userObj = {
+          username: data.username,
+          email: data.email,
+          is_staff: data.is_staff,
+          is_superuser: data.is_superuser,
+          first_name: data.first_name || '',
+          last_name: data.last_name || '',
+        };
+        localStorage.setItem('user', JSON.stringify(userObj));
+        sessionStorage.setItem('user', JSON.stringify(userObj));
       } catch { }
       setMessage(null);
 
@@ -127,12 +138,12 @@ export default function SignInForm() {
       const from = location?.state?.from?.pathname;
 
       let to = '/';
-      if (!isAdmin) {
-        // Operadores siempre van al dashboard de operador
+      if (isAdmin) {
+        // Admins van a la ruta original si existe o al dashboard principal
+        to = from && from !== '/' ? from : '/';
+      } else {
+        // Operadores van al dashboard de operador por defecto
         to = '/operador/dashboard';
-      } else if (from && from !== '/') {
-        // Admins van a la ruta original si existe
-        to = from;
       }
 
       navigate(to, { replace: true });

@@ -58,6 +58,8 @@ def login_view(request):
             'email': getattr(user, 'email', None),
             'is_staff': bool(getattr(user, 'is_staff', False)),
             'is_superuser': bool(getattr(user, 'is_superuser', False)),
+            'first_name': getattr(user, 'first_name', ''),
+            'last_name': getattr(user, 'last_name', ''),
             'id': user.id,
             'permissions': perms,
         }

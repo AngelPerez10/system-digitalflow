@@ -79,6 +79,7 @@ MIDDLEWARE = [
 # IMPORTANT: If your frontend uses session authentication you must include credentials:
 # fetch(url, { method, credentials: 'include', ... })
 CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
@@ -93,6 +94,12 @@ CSRF_TRUSTED_ORIGINS = [
     'http://10.0.0.14:5173',
     'https://sistema-intrax-seguridad-y-rastreo.onrender.com',
 ]
+
+# CSRF cookie settings for production
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
 
 ROOT_URLCONF = 'config.urls'
 

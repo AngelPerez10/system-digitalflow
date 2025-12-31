@@ -1,12 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  </head>
-  <body class="dark:bg-gray-900">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+
+<body class="dark:bg-gray-900">
+  <script>
+    (function () {
+      try {
+        var p = window.location.pathname;
+        var isRoot = (p === '/' || p === '/index.html');
+        var isSignin = (p === '/signin' || p === '/signin/');
+        var userRaw = localStorage.getItem('user');
+        var token = localStorage.getItem('auth_token');
+        var userObj = null;
+        if (userRaw) { try { userObj = JSON.parse(userRaw); } catch (e) { } }
+
+        // Si está en /signin y YA es admin autenticado -> mandar a root
+        if (isSignin && userObj && (userObj.is_staff || userObj.is_superuser) && token) {
+          window.history.replaceState(null, '', '/');
+          return;
+        }
+
+        // Solo permitir root si admin (is_staff o is_superuser)
+        if (isRoot) {
+          if (!(userObj && (userObj.is_staff || userObj.is_superuser))) {
+            if (!token) {
+              window.history.replaceState(null, '', '/signin');
+            } else {
+              window.history.replaceState(null, '', '/signin');
+            }
+          }
+        }
+      } catch (e) { }
+    })();
+  </script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>
