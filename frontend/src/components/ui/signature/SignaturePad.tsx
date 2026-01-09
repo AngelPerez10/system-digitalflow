@@ -28,6 +28,27 @@ export default function SignaturePad({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const drawImageContain = (img: HTMLImageElement) => {
+      // Clear first
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const cw = canvas.width;
+      const ch = canvas.height;
+      const iw = img.naturalWidth || img.width;
+      const ih = img.naturalHeight || img.height;
+      if (!iw || !ih) {
+        ctx.drawImage(img, 0, 0);
+        return;
+      }
+
+      const scale = Math.min(cw / iw, ch / ih);
+      const w = Math.max(1, Math.floor(iw * scale));
+      const h = Math.max(1, Math.floor(ih * scale));
+      const x = Math.floor((cw - w) / 2);
+      const y = Math.floor((ch - h) / 2);
+      ctx.drawImage(img, x, y, w, h);
+    };
+
     // Configurar canvas
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2;
@@ -39,7 +60,7 @@ export default function SignaturePad({
       const img = new Image();
       img.crossOrigin = 'anonymous'; // Allow cross-origin images
       img.onload = () => {
-        ctx.drawImage(img, 0, 0);
+        drawImageContain(img);
         setIsEmpty(false);
       };
       img.src = value;

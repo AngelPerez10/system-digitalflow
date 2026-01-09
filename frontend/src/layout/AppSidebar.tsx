@@ -115,6 +115,17 @@ const AppSidebar: React.FC = () => {
       path: "/calendar",
     });
 
+    // KPI'S (Admin only)
+    if (isAdmin) {
+      items.push({
+        icon: <PieChartIcon />,
+        name: "KPI’S",
+        subItems: [
+          { name: "KPI de ventas", path: "/kpis/ventas", pro: false },
+        ],
+      });
+    }
+
     // Admin extras
     if (isAdmin) {
       items.push({

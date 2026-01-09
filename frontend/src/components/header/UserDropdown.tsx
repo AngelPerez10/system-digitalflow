@@ -11,6 +11,12 @@ export default function UserDropdown() {
   const [me, setMe] = useState<any>(null);
   const navigate = useNavigate();
 
+  const isAdmin = useMemo(() => {
+    const role = (localStorage.getItem('role') || sessionStorage.getItem('role') || '').toLowerCase();
+    const isSuperuser = (localStorage.getItem('is_superuser') || sessionStorage.getItem('is_superuser') || '').toLowerCase() === 'true';
+    return role === 'admin' || isSuperuser;
+  }, []);
+
   const token = useMemo(
     () => localStorage.getItem('token') || sessionStorage.getItem('token') || '',
     []
@@ -131,6 +137,7 @@ export default function UserDropdown() {
         </div>
 
         <ul className="flex flex-col gap-1 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">
+          {isAdmin && (
           <li>
             <DropdownItem
               onItemClick={closeDropdown}
@@ -156,7 +163,9 @@ export default function UserDropdown() {
               Editar perfil
             </DropdownItem>
           </li>
+          )}
 
+          {isAdmin && (
           <li>
             <DropdownItem
               onItemClick={closeDropdown}
@@ -179,10 +188,12 @@ export default function UserDropdown() {
                   fill=""
                 />
               </svg>
-              Configuración de cuenta
+              Configuración
             </DropdownItem>
           </li>
+          )}
 
+          {isAdmin && (
           <li>
             <DropdownItem
               onItemClick={closeDropdown}
@@ -208,6 +219,7 @@ export default function UserDropdown() {
               Soporte
             </DropdownItem>
           </li>
+          )}
         </ul>
 
         <button

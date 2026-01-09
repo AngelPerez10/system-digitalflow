@@ -493,6 +493,7 @@ const Calendar: React.FC = () => {
             }}
             allDayText="Todo el día"
             moreLinkText={(n) => `+${n} más`}
+            dayMaxEvents={1}
             noEventsText="No hay eventos para mostrar"
             events={events}
             eventClick={handleEventClick}

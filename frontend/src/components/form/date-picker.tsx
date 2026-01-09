@@ -150,7 +150,9 @@ export default function DatePicker({
   useEffect(() => {
     if (instanceRef.current && defaultDate) {
       try {
-        instanceRef.current.setDate(defaultDate as any, true);
+        // Do not trigger onChange when syncing external value; otherwise it can
+        // create render loops in controlled forms.
+        instanceRef.current.setDate(defaultDate as any, false);
       } catch { }
     }
   }, [defaultDate]);

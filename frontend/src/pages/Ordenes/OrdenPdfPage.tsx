@@ -78,9 +78,15 @@ export default function OrdenPdfPage() {
           return;
         }
 
+        const ct = (resp.headers.get("content-type") || "").toLowerCase();
+
         const dispo = resp.headers.get("content-disposition") || "";
         const m = dispo.match(/filename="?([^";]+)"?/i);
-        const nextFilename = m?.[1] ? String(m[1]) : `Orden_Servicio_${ordenId}.pdf`;
+
+        const isPdf = ct.includes("application/pdf");
+        const nextFilename = m?.[1]
+          ? String(m[1])
+          : (isPdf ? `Orden_Servicio_${ordenId}.pdf` : `Orden_Servicio_${ordenId}.html`);
         setFilename(nextFilename);
 
         const blob = await resp.blob();

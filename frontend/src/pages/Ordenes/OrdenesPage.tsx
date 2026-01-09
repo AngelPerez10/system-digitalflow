@@ -147,6 +147,23 @@ export default function Ordenes() {
     return `${dd}/${mm}/${yy}`;
   };
 
+  const isGoogleMapsUrl = (value: string | null | undefined) => {
+    if (!value) return false;
+    const s = String(value).trim();
+    if (!s) return false;
+    if (!(s.startsWith('http://') || s.startsWith('https://'))) return false;
+    try {
+      const u = new URL(s);
+      const host = (u.hostname || '').toLowerCase();
+      const href = u.href.toLowerCase();
+      if (host === 'maps.app.goo.gl') return true;
+      if (host.endsWith('google.com') && href.includes('/maps')) return true;
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
   // Cerrar dropdown de filtros al hacer click fuera
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -388,9 +405,6 @@ export default function Ordenes() {
     fotos_urls: [] as string[]
   });
 
-  // Estado para cliente pendiente de crear
-  const [pendingNewClient, setPendingNewClient] = useState<{ nombre: string, telefono: string, direccion: string } | null>(null);
-
   // Estado para modal de mapa
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lng: number } | null>(null);
@@ -520,8 +534,7 @@ export default function Ordenes() {
   const [comentarioModal, setComentarioModal] = useState<{ open: boolean; content: string }>({ open: false, content: '' });
   const validateForm = () => {
     const missing: string[] = [];
-    // Aceptar cliente si hay cliente seleccionado (cliente_id) o si hay uno pendiente por crear
-    if (!formData.cliente_id && !(pendingNewClient && pendingNewClient.nombre?.trim())) missing.push('Cliente');
+    if (!formData.cliente_id) missing.push('Cliente');
 
     if (!formData.telefono_cliente?.trim()) missing.push('Teléfono');
     if (!Array.isArray(formData.servicios_realizados) || formData.servicios_realizados.length === 0) missing.push('Servicios Realizados');
@@ -640,6 +653,7 @@ export default function Ordenes() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = getToken();
+
     // Reglas: Cliente, Dirección, Teléfono, Servicios Realizados y Fecha de Inicio son requeridos
     const { ok, missing } = validateForm();
     if (!ok) {
@@ -658,47 +672,6 @@ export default function Ordenes() {
     const isEditing = !!editingOrden;
 
     try {
-      // Si hay un cliente pendiente de crear, crearlo primero
-      if (pendingNewClient && !formData.cliente_id) {
-        // Usar los datos del formulario (teléfono y dirección que el usuario llenó)
-        const clienteData = {
-          nombre: pendingNewClient.nombre,
-          telefono: formData.telefono_cliente?.trim() || '0000000000',
-          direccion: formData.direccion?.trim() || 'Sin dirección'
-        };
-
-        const responseCliente = await fetch(apiUrl("/api/clientes/"), {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(clienteData)
-        });
-
-        if (responseCliente.ok) {
-          const newCliente = await responseCliente.json();
-          formData.cliente_id = newCliente.id;
-          await fetchClientes();
-          setPendingNewClient(null);
-        } else {
-          let msg = 'No se pudo crear el cliente. Verifica los datos e intenta nuevamente.';
-          try {
-            const ct = responseCliente.headers.get('content-type') || '';
-            if (ct.includes('application/json')) {
-              const err = await responseCliente.json();
-              msg = (err?.detail || JSON.stringify(err)) || msg;
-            } else {
-              msg = (await responseCliente.text()) || msg;
-            }
-          } catch { }
-          console.error("Error al crear cliente", msg, clienteData);
-          setAlert({ show: true, variant: "error", title: "Error al crear cliente", message: String(msg) });
-          setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
-          return;
-        }
-      }
-
       const url = editingOrden
         ? apiUrl(`/api/ordenes/${editingOrden.id}/`)
         : apiUrl("/api/ordenes/");
@@ -737,22 +710,6 @@ export default function Ordenes() {
       });
 
       if (response.ok) {
-        const cid = payload?.cliente_id;
-        if (cid && (payload?.direccion || payload?.telefono_cliente)) {
-          await fetch(apiUrl(`/api/clientes/${cid}/`), {
-            method: 'PUT',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              nombre: (formData.cliente || '').toString(),
-              direccion: (payload?.direccion || '').toString(),
-              telefono: (payload?.telefono_cliente || '').toString(),
-            }),
-          }).catch(() => null);
-        }
-
         // Recargar la lista completa de órdenes
         await fetchOrdenes();
         setShowModal(false);
@@ -794,7 +751,7 @@ export default function Ordenes() {
         try {
           const errorData = await response.json();
           console.error('Error del servidor:', errorData);
-          errorMsg = JSON.stringify(errorData, null, 2);
+          errorMsg = (errorData?.detail || JSON.stringify(errorData)) || errorMsg;
         } catch {
           errorMsg = await response.text();
         }
@@ -917,7 +874,6 @@ export default function Ordenes() {
       fotos_urls: []
     });
     setEditingOrden(null);
-    setPendingNewClient(null);
     // Limpiar estados de búsqueda de dropdowns
     setClienteSearch('');
     setTecnicoSearch('');
@@ -967,9 +923,14 @@ export default function Ordenes() {
     };
     // Más recientes arriba
     return list.slice().sort((a, b) => {
-      const at = toTs((a as any).fecha_creacion || (a as any).fecha_inicio) || 0;
-      const bt = toTs((b as any).fecha_creacion || (b as any).fecha_inicio) || 0;
-      if (bt !== at) return bt - at;
+      const ai = toTs((a as any).fecha_inicio) || 0;
+      const bi = toTs((b as any).fecha_inicio) || 0;
+      if (bi !== ai) return bi - ai;
+
+      const ac = toTs((a as any).fecha_creacion) || 0;
+      const bc = toTs((b as any).fecha_creacion) || 0;
+      if (bc !== ac) return bc - ac;
+
       const aid = Number((a as any).id || 0);
       const bid = Number((b as any).id || 0);
       return bid - aid;
@@ -998,8 +959,6 @@ export default function Ordenes() {
         telefono_cliente: cliente.telefono
       });
       setClienteSearch(cliente.nombre);
-      // Si se selecciona uno existente, limpiar cualquier cliente pendiente
-      setPendingNewClient(null);
     } else {
       setFormData({
         ...formData,
@@ -1011,36 +970,6 @@ export default function Ordenes() {
       });
       setClienteSearch('');
     }
-    setClienteOpen(false);
-  };
-
-  // Marcar cliente como pendiente de crear (se creará al guardar la orden)
-  const markClienteAsPending = (nombre: string) => {
-    const name = (nombre || '').trim();
-    if (!name) {
-      setAlert({ show: true, variant: 'warning', title: 'Nombre requerido', message: 'Escribe el nombre del cliente para crearlo.' });
-      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-      return;
-    }
-
-    // Marcar como pendiente de crear
-    setPendingNewClient({
-      nombre: name,
-      telefono: '0000000000',
-      direccion: 'Sin dirección'
-    });
-
-    // Actualizar formulario
-    setFormData({
-      ...formData,
-      cliente_id: null,
-      cliente: name,
-      nombre_cliente: '',
-      direccion: '',
-      telefono_cliente: ''
-    });
-
-    setClienteSearch('');
     setClienteOpen(false);
   };
 
@@ -1198,7 +1127,7 @@ export default function Ordenes() {
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M20 6 9 17l-5-5" strokeLinecap="round" />
               </svg>
             </span>
             <div className="flex flex-col">
@@ -1230,14 +1159,14 @@ export default function Ordenes() {
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:flex-1 sm:min-w-[260px] sm:justify-end">
           <div className="relative w-full sm:max-w-xs md:max-w-sm">
-            <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none">
+            <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none">
               <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar"
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 pl-8 pr-3 py-2 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
+              className="w-full rounded-lg border border-gray-300 bg-white pl-8 pr-3 py-2 text-[13px] text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-white/90"
             />
             {searchTerm && (
               <button
@@ -1273,7 +1202,7 @@ export default function Ordenes() {
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              <path d="M12 5v14M5 12h14M4 12h16" strokeLinecap="round" />
             </svg>
             Nueva Orden
           </button>
@@ -1285,11 +1214,11 @@ export default function Ordenes() {
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
             {/* Filtro desplegable */}
-            <div className="relative w-full sm:w-auto" ref={filterRef}>
+            <div className="relative w-full" ref={filterRef}>
               <button
                 type="button"
                 onClick={() => setFilterOpen(v => !v)}
-                className="shadow-theme-xs flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 sm:min-w-[80px] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                className="shadow-theme-xs flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 sm:min-w-[80px] text-xs leading-none whitespace-nowrap"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none">
                   <path d="M14.6537 5.90414C14.6537 4.48433 13.5027 3.33331 12.0829 3.33331C10.6631 3.33331 9.51206 4.48433 9.51204 5.90415M14.6537 5.90414C14.6537 7.32398 13.5027 8.47498 12.0829 8.47498C10.663 8.47498 9.51204 7.32398 9.51204 5.90415M14.6537 5.90414L17.7087 5.90411M9.51204 5.90415L2.29199 5.90411M5.34694 14.0958C5.34694 12.676 6.49794 11.525 7.91777 11.525C9.33761 11.525 10.4886 12.676 10.4886 14.0958M5.34694 14.0958C5.34694 15.5156 6.49794 16.6666 7.91778 16.6666C9.33761 16.6666 10.4886 15.5156 10.4886 14.0958M5.34694 14.0958L2.29199 14.0958M10.4886 14.0958L17.7087 14.0958" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1376,7 +1305,7 @@ export default function Ordenes() {
               type="button"
               onClick={handleReindexIdx}
               disabled={reindexing}
-              className="shadow-theme-xs flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 sm:min-w-[100px] hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="shadow-theme-xs flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 sm:min-w-[100px] disabled:opacity-60 disabled:cursor-not-allowed text-xs leading-none whitespace-nowrap"
               title="Reasigna IDX a 1..N para quitar huecos"
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1413,14 +1342,20 @@ export default function Ordenes() {
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
                   const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
-                  const tecnicoNombre = tecnico ? (tecnico.first_name && tecnico.last_name ? `${tecnico.first_name} ${tecnico.last_name}` : tecnico.email) : '-';
+                  const tecnicoNombre = tecnico
+                    ? (tecnico.first_name && tecnico.last_name ? `${tecnico.first_name} ${tecnico.last_name}` : tecnico.email)
+                    : ((orden as any).nombre_encargado || '-');
                   return (
                     <TableRow key={orden.id ?? idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
                       <TableCell className="px-2 py-2 whitespace-nowrap w-[70px] min-w-[60px]">{orden.idx ?? (startIndex + idx + 1)}</TableCell>
                       <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
                         {orden.direccion && (
-                          <a href={orden.direccion} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-600 dark:text-blue-400 hover:underline truncate">{orden.direccion}</a>
+                          isGoogleMapsUrl(orden.direccion) ? (
+                            <a href={orden.direccion} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-600 dark:text-blue-400 hover:underline truncate">{orden.direccion}</a>
+                          ) : (
+                            <span className="block text-[11px] text-gray-600 dark:text-gray-400 truncate" title={orden.direccion}>{orden.direccion}</span>
+                          )
                         )}
                         {orden.telefono_cliente && (
                           <a href={`tel:${orden.telefono_cliente}`} className="inline-block text-[11px] text-gray-600 dark:text-gray-400">{orden.telefono_cliente}</a>
@@ -1480,7 +1415,7 @@ export default function Ordenes() {
                           <button
                             type="button"
                             onClick={() => navigate(`/ordenes/${orden.id}/pdf`)}
-                            className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 transition"
+                            className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 transition"
                             title="Ver PDF"
                           >
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1493,7 +1428,7 @@ export default function Ordenes() {
                           {canOrdenesEdit && (
                             <button
                               onClick={() => handleEdit(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
                               title="Editar"
                             >
                               <PencilIcon className="w-4 h-4" />
@@ -1502,7 +1437,7 @@ export default function Ordenes() {
                           {canOrdenesDelete && (
                             <button
                               onClick={() => handleDeleteClick(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
                               title="Eliminar"
                             >
                               <TrashBinIcon className="w-4 h-4" />
@@ -1531,7 +1466,7 @@ export default function Ordenes() {
           {/* Paginación */}
           {!loading && (
             <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 flex-wrap">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between sm:gap-4 flex-wrap">
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   Mostrando <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
                   <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
@@ -1676,7 +1611,7 @@ export default function Ordenes() {
             <div className="flex items-center gap-4">
               <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10">
                 <svg className="w-6 h-6 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" />
                 </svg>
               </span>
               <div className="min-w-0">
@@ -1705,7 +1640,7 @@ export default function Ordenes() {
             <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" />
                 </svg>
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
               </div>
@@ -1725,7 +1660,7 @@ export default function Ordenes() {
                       />
                       <div className='absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5'>
                         {(formData.cliente_id || formData.cliente) && (
-                          <button type='button' onClick={() => { selectCliente(null); setPendingNewClient(null); }} className='h-8 px-2 rounded-md text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition'>Limpiar</button>
+                          <button type='button' onClick={() => { selectCliente(null); }} className='h-8 px-2 rounded-md text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition'>Limpiar</button>
                         )}
                         <button type='button' onClick={() => setClienteOpen(o => !o)} className='h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition'>
                           <svg className={`w-3.5 h-3.5 transition-transform ${clienteOpen ? 'rotate-180' : ''}`} viewBox='0 0 20 20' fill='none'><path d='M5.25 7.5 10 12.25 14.75 7.5' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' /></svg>
@@ -1748,16 +1683,8 @@ export default function Ordenes() {
                             </div>
                           </button>
                         ))}
-                        {clienteSearch.trim() && !clientes.some(c => c.nombre.toLowerCase() === clienteSearch.trim().toLowerCase()) && (
-                          <button type='button' onClick={() => markClienteAsPending(clienteSearch.trim())} className='w-full text-left px-3 py-2 hover:bg-brand-50 dark:hover:bg-brand-500/15 text-brand-600 dark:text-brand-400 transition'>
-                            <div className='flex items-center gap-2'>
-                              <svg className='w-4 h-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><path d='M12 5v14M5 12h14' /></svg>
-                              <span className='text-[12px] font-medium'>Crear "{clienteSearch.trim()}"</span>
-                            </div>
-                          </button>
-                        )}
-                        {filteredClientes.length === 0 && !clienteSearch.trim() && (
-                          <div className='px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400'>Escribe para buscar o crear</div>
+                        {filteredClientes.length === 0 && (
+                          <div className='px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400'>Sin resultados</div>
                         )}
                       </div>
                     )}

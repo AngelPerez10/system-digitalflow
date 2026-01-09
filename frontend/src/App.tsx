@@ -18,11 +18,13 @@ import AppLayout from "@/layout/AppLayout";
 import { ScrollToTop } from "@/components/common/ScrollToTop";
 import Home from "@/pages/Dashboard/Home";
 import RequireAuth from "@/components/auth/RequireAuth";
+import RequireAdmin from "@/components/auth/RequireAdmin";
 import Ordenes from "@/pages/Ordenes/OrdenesPage";
 import OrdenPdfPage from "@/pages/Ordenes/OrdenPdfPage";
 import OrdenesTecnico from "@/pages/Ordenes/OrdenesTecnicoPage";
 import Clientes from "@/pages/Clientes/ClientesPage";
 import Inventario from "@/pages/Inventario/InventarioPage";
+import KpiVentasPage from "@/pages/Kpis/KpiVentasPage";
 
 export default function App() {
   return (
@@ -39,15 +41,16 @@ export default function App() {
             <Route path="/operador/dashboard" element={<Home />} />
 
             {/* Dashboard Pages */}
-            <Route path="/ordenes" element={<Ordenes />} />
-            <Route path="/ordenes/:id/pdf" element={<OrdenPdfPage />} />
+            <Route path="/ordenes" element={<RequireAdmin><Ordenes /></RequireAdmin>} />
+            <Route path="/ordenes/:id/pdf" element={<RequireAdmin><OrdenPdfPage /></RequireAdmin>} />
             <Route path="/ordenes-tecnico" element={<OrdenesTecnico />} />
-            <Route path="/clientes" element={<Clientes />} />
-            <Route path="/inventario" element={<Inventario />} />
+            <Route path="/clientes" element={<RequireAdmin><Clientes /></RequireAdmin>} />
+            <Route path="/inventario" element={<RequireAdmin><Inventario /></RequireAdmin>} />
 
             {/* Others Page */}
-            <Route path="/profile" element={<UserProfiles />} />
+            <Route path="/profile" element={<RequireAdmin><UserProfiles /></RequireAdmin>} />
             <Route path="/calendar" element={<Calendar />} />
+            <Route path="/kpis/ventas" element={<RequireAdmin><KpiVentasPage /></RequireAdmin>} />
             <Route path="/blank" element={<Blank />} />
 
             {/* Forms */}

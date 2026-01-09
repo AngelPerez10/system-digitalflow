@@ -28,6 +28,23 @@ SECRET_KEY = os.environ.get('SECRET_KEY', default='your secret key')
 # SECRET_KEY from env; in production it must be set
 DEBUG = 'RENDER' not in os.environ
 
+# Cargar variables desde .env en desarrollo local (sin dependencias externas)
+if DEBUG:
+    env_path = BASE_DIR / '.env'
+    if env_path.exists():
+        try:
+            for raw_line in env_path.read_text(encoding='utf-8', errors='ignore').splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                k, v = line.split('=', 1)
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+        except Exception:
+            pass
+
 ALLOWED_HOSTS = ["*"]
 
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
@@ -56,6 +73,7 @@ INSTALLED_APPS = [
     'apps.users',
     'apps.clientes',
     'apps.ordenes',
+    'apps.kpis',
 ]
 
 # Evitar duplicados accidentales en INSTALLED_APPS (mantiene el primer orden)
@@ -84,14 +102,16 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-    'http://10.0.0.14:5173',
+    'http://10.0.0.6:5173',
+    'http://192.168.10.134:5173',
     'https://sistema-grupo-atr.onrender.com',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-    'http://10.0.0.14:5173',
+    'http://10.0.0.6:5173',
+    'http://192.168.10.134:5173',
     'https://sistema-grupo-atr.onrender.com',
 ]
 
