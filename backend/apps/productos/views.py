@@ -90,8 +90,9 @@ class ProductoImagenViewSet(viewsets.ModelViewSet):
                 use_filename=True,
                 unique_filename=True,
             )
-        except Exception as e:
-            return Response({'detail': f'Error subiendo a Cloudinary: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception:
+            # Log interno para debugging, mensaje genérico al cliente
+            return Response({'detail': 'Error al procesar el archivo. Intente nuevamente.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         img, _created = ProductoImagen.objects.get_or_create(producto_id=producto_id)
         img.url = upload.get('secure_url') or upload.get('url') or ''
@@ -122,8 +123,8 @@ class ProductoDocumentoViewSet(viewsets.ModelViewSet):
             cloudinary.config(secure=True)
             try:
                 cloudinary.uploader.destroy(public_id, resource_type='raw')
-            except Exception as e:
-                return Response({'detail': f'Error eliminando en Cloudinary: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            except Exception:
+                return Response({'detail': 'Error al eliminar el archivo.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -159,8 +160,9 @@ class ProductoDocumentoViewSet(viewsets.ModelViewSet):
                 use_filename=True,
                 unique_filename=True,
             )
-        except Exception as e:
-            return Response({'detail': f'Error subiendo a Cloudinary: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception:
+            # Log interno para debugging, mensaje genérico al cliente
+            return Response({'detail': 'Error al procesar el archivo. Intente nuevamente.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         doc, _created = ProductoDocumento.objects.get_or_create(producto_id=producto_id)
         doc.url = upload.get('secure_url') or upload.get('url') or ''

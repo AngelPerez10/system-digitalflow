@@ -25,6 +25,8 @@ import OrdenesTecnico from "@/pages/Ordenes/OrdenesTecnicoPage";
 import Clientes from "@/pages/Clientes/ClientesPage";
 import Productos from "@/pages/Productos/ProductosPage";
 import KpiVentasPage from "@/pages/Kpis/KpiVentasPage";
+import CotizacionesPage from "@/pages/Cotizacion/CotizacionesPage";
+import NuevaCotizacionPage from "@/pages/Cotizacion/NuevaCotizacionPage";
 
 export default function App() {
   return (
@@ -46,6 +48,9 @@ export default function App() {
             <Route path="/ordenes-tecnico" element={<OrdenesTecnico />} />
             <Route path="/clientes" element={<RequireAdmin><Clientes /></RequireAdmin>} />
             <Route path="/productos" element={<RequireAdmin><Productos /></RequireAdmin>} />
+            <Route path="/cotizacion" element={<RequireAdmin><CotizacionesPage /></RequireAdmin>} />
+            <Route path="/cotizacion/nueva" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />
+            <Route path="/cotizacion/:id/editar" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />
 
             {/* Others Page */}
             <Route path="/profile" element={<RequireAdmin><UserProfiles /></RequireAdmin>} />

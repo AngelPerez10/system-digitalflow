@@ -93,8 +93,8 @@ class ClienteDocumentoViewSet(viewsets.ModelViewSet):
                 use_filename=True,
                 unique_filename=True,
             )
-        except Exception as e:
-            return Response({'detail': f'Error subiendo a Cloudinary: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception:
+            return Response({'detail': 'Error al procesar el archivo. Intente nuevamente.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         doc, _created = ClienteDocumento.objects.get_or_create(cliente_id=cliente_id)
         doc.url = upload.get('secure_url') or upload.get('url') or ''

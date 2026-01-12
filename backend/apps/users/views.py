@@ -2,11 +2,14 @@ import os
 
 from django.contrib.auth import authenticate, get_user_model
 from django.db.models import Q
+from django.conf import settings
 from rest_framework import status, viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from .throttling import LoginRateThrottle
 
 from .models import UserPermissions, UserSignature
 from .serializers import UserAccountSerializer, UserPermissionsSerializer, UserSignatureSerializer
@@ -65,6 +68,7 @@ class UserAccountViewSet(viewsets.ModelViewSet):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([LoginRateThrottle])
 def login_view(request):
     username = request.data.get('username')
     email = request.data.get('email')
@@ -94,7 +98,7 @@ def login_view(request):
     perms_obj = UserPermissions.objects.filter(user=user).first()
     perms = perms_obj.permissions if perms_obj else {}
 
-    return Response(
+    resp = Response(
         {
             # compat con frontend (espera data.token)
             'token': str(access),
@@ -111,6 +115,31 @@ def login_view(request):
             'permissions': perms,
         }
     )
+
+    # Cookie-based auth (httpOnly). Frontend should use fetch with credentials: 'include'.
+    # For local dev over http, keep Secure=False; in production enforce Secure=True.
+    secure_cookie = not settings.DEBUG
+    same_site = 'None' if secure_cookie else 'Lax'
+    resp.set_cookie(
+        'access_token',
+        str(access),
+        httponly=True,
+        secure=secure_cookie,
+        samesite=same_site,
+        max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()),
+        path='/',
+    )
+    return resp
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    resp = Response({'detail': 'ok'})
+    secure_cookie = not settings.DEBUG
+    same_site = 'None' if secure_cookie else 'Lax'
+    resp.delete_cookie('access_token', path='/', samesite=same_site)
+    return resp
 
 
 @api_view(['GET'])
@@ -161,8 +190,9 @@ def my_signature(request):
         obj.public_id = public_id
         obj.save(update_fields=['url', 'public_id', 'updated_at'])
         return Response(UserSignatureSerializer(obj).data)
-    except Exception as e:
-        return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        # No exponer detalles internos al cliente
+        return Response({'detail': 'Error al procesar la firma. Intente nuevamente.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET', 'PUT'])
@@ -228,5 +258,6 @@ def user_signature(request, user_id: int):
         obj.public_id = public_id
         obj.save(update_fields=['url', 'public_id', 'updated_at'])
         return Response(UserSignatureSerializer(obj).data)
-    except Exception as e:
-        return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        # No exponer detalles internos al cliente
+        return Response({'detail': 'Error al procesar la firma. Intente nuevamente.'}, status=status.HTTP_400_BAD_REQUEST)

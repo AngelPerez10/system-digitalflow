@@ -23,10 +23,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 """Security & environment"""
 # Allow overriding via DEBUG env, otherwise auto-detect Render (DEBUG False on Render)
-SECRET_KEY = os.environ.get('SECRET_KEY', default='your secret key')
+SECRET_KEY = os.environ.get('SECRET_KEY', default='')
 
-# SECRET_KEY from env; in production it must be set
+# SECRET_KEY must be set in production
 DEBUG = 'RENDER' not in os.environ
+
+# In development, Django/SimpleJWT require SECRET_KEY to be non-empty.
+# In production (DEBUG False), enforce that it must come from env.
+if DEBUG and not SECRET_KEY:
+    SECRET_KEY = 'dev-only-insecure-secret-key-change-me'
+if not DEBUG and not SECRET_KEY:
+    raise RuntimeError('SECRET_KEY environment variable must be set in production')
 
 # Cargar variables desde .env en desarrollo local (sin dependencias externas)
 if DEBUG:
@@ -45,10 +52,21 @@ if DEBUG:
         except Exception:
             pass
 
-ALLOWED_HOSTS = ["*"]
+_allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '').strip()
+if _allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
+else:
+    # Safe defaults: explicit dev hosts only.
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
+if DEBUG:
+    # Allow common LAN hosts for local development when running on 0.0.0.0
+    for h in ['0.0.0.0', '10.0.0.6', '10.0.0.5', '192.168.10.134']:
+        if h not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(h)
 
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
-if RENDER_EXTERNAL_HOSTNAME:
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # =====================
@@ -75,6 +93,7 @@ INSTALLED_APPS = [
     'apps.productos',
     'apps.ordenes',
     'apps.kpis',
+    'apps.cotizaciones',
 ]
 
 # Evitar duplicados accidentales en INSTALLED_APPS (mantiene el primer orden)
@@ -100,27 +119,39 @@ MIDDLEWARE = [
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://10.0.0.5:5173',
-    'http://10.0.0.6:5173',
-    'http://192.168.10.134:5173',
-    'https://sistema-grupo-atr.onrender.com',
-]
+# CORS: restrictivo en producción, permisivo en desarrollo
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        'http://localhost:5173',
+        'http://10.0.0.5:5173',
+        'http://10.0.0.6:5173',
+        'http://192.168.10.134:5173',
+    ]
+    CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+else:
+    CORS_ALLOWED_ORIGINS = [
+        'https://sistema-grupo-atr.onrender.com',
+    ]
+    CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:5173',
-    'http://10.0.0.5:5173',
-    'http://10.0.0.6:5173',
-    'http://192.168.10.134:5173',
-    'https://sistema-grupo-atr.onrender.com',
-]
+# CSRF/Session cookie settings: Secure solo en producción (HTTPS)
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
+SESSION_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
 
-# CSRF cookie settings for production
-CSRF_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
+# If behind a reverse proxy (Render), respect X-Forwarded-Proto for HTTPS detection
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+if not DEBUG:
+    # Security headers / HTTPS hardening
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '31536000'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'same-origin'
+    X_FRAME_OPTIONS = 'DENY'
 
 ROOT_URLCONF = 'config.urls'
 
@@ -209,16 +240,26 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # =====================
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        # Recomendación: deja IsAuthenticated si tu API es privada.
-        # Cambia a AllowAny si quieres endpoints públicos por defecto.
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'apps.users.authentication.CookieJWTAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        # Mantengo SessionAuthentication por si quieres usar el admin / browsable API.
         'rest_framework.authentication.SessionAuthentication',
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour',
+    },
 }
+
+# Límites de tamaño de uploads
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 
 SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),

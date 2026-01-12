@@ -28,14 +28,14 @@ export default function UserDropdown() {
       if (raw) setMe(JSON.parse(raw));
     } catch {}
 
-    if (!token) return;
     if (userDropdownMeLoadedOnce) return;
     userDropdownMeLoadedOnce = true;
     const load = async () => {
       try {
         const res = await fetch(apiUrl('/api/me/'), {
           method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           cache: 'no-store' as RequestCache,
         });
         const data = await res.json().catch(() => null);

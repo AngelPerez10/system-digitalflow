@@ -45,12 +45,12 @@ const AppSidebar: React.FC = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) return;
     const load = async () => {
       try {
         const res = await fetch(apiUrl('/api/me/permissions/'), {
           method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         const data = await res.json().catch(() => null);
         if (res.ok && data?.permissions) {
@@ -88,6 +88,7 @@ const AppSidebar: React.FC = () => {
           { name: "Órdenes de Servicios", path: "/ordenes", pro: false },
           { name: "Clientes", path: "/clientes", pro: false },
           { name: "Productos", path: "/productos", pro: false },
+          { name: "Cotización", path: "/cotizacion", pro: false},
         ],
       });
     } else {
