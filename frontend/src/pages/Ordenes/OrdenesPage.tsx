@@ -135,6 +135,29 @@ export default function Ordenes() {
     load();
   }, []);
 
+  const [mySignatureUrl, setMySignatureUrl] = useState<string>('');
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    const load = async () => {
+      try {
+        const res = await fetch(apiUrl('/api/me/signature/'), {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store' as RequestCache,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) return;
+        const url = data?.url || '';
+        setMySignatureUrl(url);
+      } catch {
+        return;
+      }
+    };
+    load();
+  }, []);
+
   const formatYmdToDMY = (ymd: string | null | undefined) => {
     if (!ymd) return '-';
     const s = ymd.toString().slice(0, 10);
@@ -366,7 +389,6 @@ export default function Ordenes() {
     },
   });
 
-
   // Alert state
   const [alert, setAlert] = useState<{
     show: boolean;
@@ -528,10 +550,45 @@ export default function Ordenes() {
   const [servicioOpen, setServicioOpen] = useState(false);
   const [servicioSearch, setServicioSearch] = useState('');
 
+  const [tecnicoSignatureUrl, setTecnicoSignatureUrl] = useState<string>('');
+  const tecnicoSignatureCacheRef = useRef<Record<number, string>>({});
+
   // Modales de detalles
   const [problematicaModal, setProblematicaModal] = useState<{ open: boolean, content: string }>({ open: false, content: '' });
   const [serviciosModal, setServiciosModal] = useState<{ open: boolean; content: string[] }>({ open: false, content: [] });
   const [comentarioModal, setComentarioModal] = useState<{ open: boolean; content: string }>({ open: false, content: '' });
+
+  const loadTecnicoSignature = async (userId: number | null) => {
+    if (!userId) {
+      setTecnicoSignatureUrl('');
+      return;
+    }
+
+    const cached = tecnicoSignatureCacheRef.current[userId];
+    if (typeof cached === 'string') {
+      setTecnicoSignatureUrl(cached);
+      return;
+    }
+
+    try {
+      const token = getToken();
+      if (!token) return;
+
+      const res = await fetch(apiUrl(`/api/users/accounts/${userId}/signature/`), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store' as RequestCache,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) return;
+      const url = (data as any)?.url || '';
+      tecnicoSignatureCacheRef.current[userId] = url;
+      setTecnicoSignatureUrl(url);
+    } catch {
+      return;
+    }
+  };
+
   const validateForm = () => {
     const missing: string[] = [];
     if (!formData.cliente_id) missing.push('Cliente');
@@ -679,6 +736,8 @@ export default function Ordenes() {
 
       // Construir payload, omitiendo tecnico_asignado si es null
       const payload: any = { ...formData };
+      // Firma del encargado se maneja desde el perfil del usuario (no enviar base64 desde órdenes)
+      delete payload.firma_encargado_url;
       if (payload.tecnico_asignado == null) {
         delete payload.tecnico_asignado;
       }
@@ -695,7 +754,6 @@ export default function Ordenes() {
       payload.hora_termino = toNullIfEmpty(payload.hora_termino);
       payload.nombre_encargado = toNullIfEmpty(payload.nombre_encargado);
       payload.nombre_cliente = toNullIfEmpty(payload.nombre_cliente);
-      payload.firma_encargado_url = toNullIfEmpty(payload.firma_encargado_url);
       payload.firma_cliente_url = toNullIfEmpty(payload.firma_cliente_url);
       // Asegurar arreglo para servicios_realizados
       if (!Array.isArray(payload.servicios_realizados)) payload.servicios_realizados = [];
@@ -844,7 +902,7 @@ export default function Ordenes() {
       fecha_finalizacion: orden.fecha_finalizacion || "",
       hora_termino: orden.hora_termino || "",
       tecnico_asignado: orden.tecnico_asignado ? Number(orden.tecnico_asignado) : null,
-      firma_encargado_url: orden.firma_encargado_url || "",
+      firma_encargado_url: mySignatureUrl || orden.firma_encargado_url || "",
       firma_cliente_url: orden.firma_cliente_url || "",
       fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : []
     });
@@ -869,7 +927,7 @@ export default function Ordenes() {
       hora_termino: "",
       nombre_encargado: "",
       tecnico_asignado: null,
-      firma_encargado_url: "",
+      firma_encargado_url: mySignatureUrl || "",
       firma_cliente_url: "",
       fotos_urls: []
     });
@@ -987,12 +1045,23 @@ export default function Ordenes() {
       setFormData({ ...formData, tecnico_asignado: usuario.id });
       const nombre = usuario.first_name && usuario.last_name ? `${usuario.first_name} ${usuario.last_name}` : usuario.email;
       setTecnicoSearch(nombre);
+      loadTecnicoSignature(usuario.id);
     } else {
       setFormData({ ...formData, tecnico_asignado: null });
       setTecnicoSearch('');
+      setTecnicoSignatureUrl('');
     }
     setTecnicoOpen(false);
   };
+
+  useEffect(() => {
+    const tecnicoId = formData?.tecnico_asignado != null ? Number(formData.tecnico_asignado) : null;
+    if (!tecnicoId) {
+      setTecnicoSignatureUrl('');
+      return;
+    }
+    loadTecnicoSignature(tecnicoId);
+  }, [formData?.tecnico_asignado]);
 
   const filteredServicios = serviciosDisponibles.filter(s => {
     const q = servicioSearch.trim().toLowerCase();
@@ -1113,7 +1182,7 @@ export default function Ordenes() {
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 012-2h2a2 2 0 0 012 2" />
               </svg>
             </span>
             <div className="flex flex-col">
@@ -1369,7 +1438,7 @@ export default function Ordenes() {
                             className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
                             title="Ver problemática"
                           >
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 8v4l3 3" /><circle cx="12" cy="12" r="9" /></svg>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             Problemática
                           </button>
                           <button
@@ -1515,7 +1584,7 @@ export default function Ordenes() {
                     title="Mes siguiente"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 18l6-6-6-6" />
+                      <path d="M9 18l6-6 6 6" />
                     </svg>
                   </button>
                 </div>
@@ -1610,12 +1679,12 @@ export default function Ordenes() {
           <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-white/10">
             <div className="flex items-center gap-4">
               <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10">
-                <svg className="w-6 h-6 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" />
+                <svg className="w-6 h-6 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
               <div className="min-w-0">
-                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100 truncate">
+                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">
                   {editingOrden ? 'Editar Orden' : 'Nueva Orden'}
                 </h5>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
@@ -1640,7 +1709,7 @@ export default function Ordenes() {
             <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" />
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
               </div>
@@ -1717,7 +1786,7 @@ export default function Ordenes() {
                           onChange={(e) => { setTecnicoSearch(e.target.value); setTecnicoOpen(true); }}
                           onFocus={() => setTecnicoOpen(true)}
                           placeholder='Buscar técnico...'
-                          className='block w-full rounded-lg border border-gray-300 bg-white pl-8 pr-20 py-2.5 text-[13px] text-gray-800 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                          className='block w-full rounded-lg border border-gray-300 bg-white pl-8 pr-12 py-2.5 text-[13px] text-gray-800 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
                         />
                         <div className='absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5'>
                           {formData.tecnico_asignado && (
@@ -1911,7 +1980,7 @@ export default function Ordenes() {
                             <button key={idx} type='button' onClick={() => addServicio(s)} className='w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition'>
                               <div className='flex items-center gap-2'>
                                 <svg className='w-4 h-4 text-brand-500' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' /></svg>
-                                <span className='text-[12px] font-medium text-gray-800 dark:text-gray-100'>{s}</span>
+                                <span>{s}</span>
                               </div>
                             </button>
                           ))}
@@ -2073,11 +2142,13 @@ export default function Ordenes() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <SignaturePad
                     label="Firma del Encargado"
-                    value={formData.firma_encargado_url}
-                    onChange={(signature) => setFormData({ ...formData, firma_encargado_url: signature })}
+                    value={tecnicoSignatureUrl || mySignatureUrl || formData.firma_encargado_url}
+                    disabled={true}
+                    onChange={() => { }}
                     width={400}
                     height={250}
                   />
+
                   <SignaturePad
                     label="Firma del Cliente"
                     value={formData.firma_cliente_url}

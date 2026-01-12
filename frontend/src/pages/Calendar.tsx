@@ -5,11 +5,11 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { EventInput, EventClickArg } from "@fullcalendar/core";
 import esLocale from "@fullcalendar/core/locales/es";
-import { Modal } from "../components/ui/modal";
-import { useModal } from "../hooks/useModal";
-import PageMeta from "../components/common/PageMeta";
-import { apiUrl } from "../config/api";
-import DatePicker from "../components/form/date-picker";
+import { Modal } from "@/components/ui/modal";
+import { useModal } from "@/hooks/useModal";
+import PageMeta from "@/components/common/PageMeta";
+import { apiUrl } from "@/config/api";
+import DatePicker from "@/components/form/date-picker";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {

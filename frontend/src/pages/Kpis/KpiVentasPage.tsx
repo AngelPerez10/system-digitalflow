@@ -384,8 +384,8 @@ export default function KpiVentasPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-4 overflow-x-hidden">
-      <PageMeta title="KPI de Ventas | Sistema Intrax" description="KPI de ventas" />
-      <PageBreadcrumb pageTitle="KPI de ventas" />
+      <PageMeta title="KPI Ventas | Sistema Intrax" description="KPI Ventas" />
+      <PageBreadcrumb pageTitle="KPI Ventas" />
 
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
@@ -453,7 +453,7 @@ export default function KpiVentasPage() {
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">KPI de ventas</h2>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">KPI Ventas</h2>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:flex-1 sm:min-w-[260px] sm:justify-end">
           <div className="relative w-full sm:max-w-xs md:max-w-sm">
@@ -594,7 +594,7 @@ export default function KpiVentasPage() {
                   {editingRow ? "Editar KPI" : "Nuevo KPI"}
                 </h5>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  KPI de ventas
+                  KPI Ventas
                 </p>
               </div>
             </div>

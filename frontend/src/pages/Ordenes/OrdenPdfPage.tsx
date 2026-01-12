@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import PageMeta from "../../components/common/PageMeta";
-import Alert from "../../components/ui/alert/Alert";
-import { Modal } from "../../components/ui/modal";
-import { apiUrl } from "../../config/api";
+import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import PageMeta from "@/components/common/PageMeta";
+import Alert from "@/components/ui/alert/Alert";
+import { Modal } from "@/components/ui/modal";
+import { apiUrl } from "@/config/api";
 
 export default function OrdenPdfPage() {
   const params = useParams();

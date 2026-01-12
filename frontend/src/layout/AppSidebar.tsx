@@ -87,7 +87,7 @@ const AppSidebar: React.FC = () => {
         subItems: [
           { name: "Órdenes de Servicios", path: "/ordenes", pro: false },
           { name: "Clientes", path: "/clientes", pro: false },
-          { name: "Inventario", path: "/inventario", pro: false },
+          { name: "Productos", path: "/productos", pro: false },
         ],
       });
     } else {
@@ -121,7 +121,7 @@ const AppSidebar: React.FC = () => {
         icon: <PieChartIcon />,
         name: "KPI’S",
         subItems: [
-          { name: "KPI de ventas", path: "/kpis/ventas", pro: false },
+          { name: "KPI Ventas", path: "/kpis/ventas", pro: false },
         ],
       });
     }

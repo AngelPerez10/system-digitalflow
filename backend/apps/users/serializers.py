@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import UserPermissions
+from .models import UserPermissions, UserSignature
 
 
 User = get_user_model()
@@ -49,3 +49,10 @@ class UserPermissionsSerializer(serializers.ModelSerializer):
         model = UserPermissions
         fields = ['user', 'permissions', 'updated_at']
         read_only_fields = ['user', 'updated_at']
+
+
+class UserSignatureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserSignature
+        fields = ['user', 'url', 'public_id', 'updated_at']
+        read_only_fields = ['user', 'public_id', 'updated_at']

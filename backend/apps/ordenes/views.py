@@ -18,6 +18,7 @@ from PIL import Image
 
 from .models import Orden
 from .serializers import OrdenSerializer
+from apps.users.models import UserSignature
 
 # Cloudinary setup (enabled if credentials are provided)
 try:
@@ -511,10 +512,10 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         data = serializer.validated_data
-        # Upload signatures if base64
-        firma_tecnico = data.get('firma_encargado_url')
-        if isinstance(firma_tecnico, str) and _is_data_url(firma_tecnico):
-            data['firma_encargado_url'] = _upload_data_url(firma_tecnico, folder='ordenes/firmas')
+        # Firma del encargado: siempre se toma desde el perfil del usuario (no subir desde órdenes)
+        sig = UserSignature.objects.filter(user=self.request.user).first()
+        if sig and sig.url:
+            data['firma_encargado_url'] = sig.url
         firma_cliente = data.get('firma_cliente_url')
         if isinstance(firma_cliente, str) and _is_data_url(firma_cliente):
             data['firma_cliente_url'] = _upload_data_url(firma_cliente, folder='ordenes/firmas')
@@ -532,25 +533,16 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         instance = serializer.instance
-        old_firma_encargado = instance.firma_encargado_url
         old_firma_cliente = instance.firma_cliente_url
         old_fotos = list(instance.fotos_urls) if instance.fotos_urls else []
         old_pdf_url = instance.pdf_url
         
         data = serializer.validated_data
-        
-        # Handle signature updates - delete old if being replaced
-        firma_tecnico = data.get('firma_encargado_url')
-        if isinstance(firma_tecnico, str) and _is_data_url(firma_tecnico):
-            # Delete old signature from Cloudinary if exists
-            if old_firma_encargado and old_firma_encargado.startswith('http'):
-                _delete_cloudinary_resource(old_firma_encargado)
-            # Upload new optimized signature (50KB max)
-            data['firma_encargado_url'] = _upload_data_url(firma_tecnico, folder='ordenes/firmas', max_size_kb=50)
-        elif firma_tecnico == '' or firma_tecnico is None:
-            # Signature was cleared - delete from Cloudinary
-            if old_firma_encargado and old_firma_encargado.startswith('http'):
-                _delete_cloudinary_resource(old_firma_encargado)
+
+        # Firma del encargado: siempre se toma desde el perfil del usuario (no subir/borrar desde órdenes)
+        sig = UserSignature.objects.filter(user=self.request.user).first()
+        if sig and sig.url:
+            data['firma_encargado_url'] = sig.url
         
         firma_cliente = data.get('firma_cliente_url')
         if isinstance(firma_cliente, str) and _is_data_url(firma_cliente):

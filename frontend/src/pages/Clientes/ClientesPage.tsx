@@ -12,6 +12,16 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import FileInput from "@/components/form/input/FileInput";
 
+import {
+  estadosPorPais,
+  formatPhoneE164,
+  giroOptions,
+  onlyDigits10,
+  paisOptions,
+  parsePhoneToForm,
+  phoneCountryOptions,
+} from "./clientesCatalogos";
+
 interface Cliente {
   id: number;
   idx: number;
@@ -70,7 +80,11 @@ type ClienteDocumento = {
   size_bytes: number | null;
 };
 
-const onlyDigits10 = (v: string): string => (v || "").replace(/\D/g, "").slice(0, 10);
+const inputLikeClassName =
+  "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
+
+const selectLikeClassName =
+  "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
 
 const formatApiErrors = (txt: string) => {
   if (!txt) return "";
@@ -89,6 +103,23 @@ const formatApiErrors = (txt: string) => {
     // ignore
   }
   return txt;
+};
+
+const isGoogleMapsLink = (value: string | null | undefined) => {
+  if (!value) return false;
+  const s = String(value).trim();
+  if (!s) return false;
+  if (!(s.startsWith('http://') || s.startsWith('https://'))) return false;
+  try {
+    const u = new URL(s);
+    const host = (u.hostname || '').toLowerCase();
+    const href = u.href.toLowerCase();
+    if (host === 'maps.app.goo.gl') return true;
+    if (host.endsWith('google.com') && href.includes('/maps')) return true;
+    return false;
+  } catch {
+    return false;
+  }
 };
 
 export default function Clientes() {
@@ -135,8 +166,16 @@ export default function Clientes() {
     { nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" },
   ]);
 
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const zoomRef = useRef<number>(15);
+  const mapContainerId = "clientes-leaflet-map";
+
   const [formData, setFormData] = useState<any>({
     nombre: "",
+    telefono_pais: "MX",
     telefono: "",
     direccion: "",
 
@@ -148,7 +187,7 @@ export default function Clientes() {
     colonia: "",
     codigo_postal: "",
     ciudad: "",
-    pais: "",
+    pais: "México",
     estado: "",
     notas: "",
     descuento_pct: null,
@@ -162,17 +201,17 @@ export default function Clientes() {
     numero_envio: "",
     colonia_envio: "",
     codigo_postal_envio: "",
-    pais_envio: "",
+    pais_envio: "México",
     estado_envio: "",
     ciudad_envio: "",
   });
 
-  const [showMapModal, setShowMapModal] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lng: number } | null>(null);
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-  const zoomRef = useRef<number>(15);
-  const mapContainerId = 'leaflet-map-clientes';
+  const estadosOptions = estadosPorPais[formData.pais || "México"] || estadosPorPais["México"] || [];
+  const estadosEnvioOptions = estadosPorPais[formData.pais_envio || "México"] || estadosPorPais["México"] || [];
+
+  const getToken = () => {
+    return localStorage.getItem("token") || sessionStorage.getItem("token");
+  };
 
   const isGoogleMapsUrl = (value: string | null | undefined) => {
     if (!value) return false;
@@ -301,10 +340,6 @@ export default function Clientes() {
   }, [selectedLocation]);
 
   useEffect(() => {
-    fetchClientes();
-  }, []);
-
-  useEffect(() => {
     const sync = () => setPermissions(getPermissionsFromStorage());
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
@@ -333,56 +368,42 @@ export default function Clientes() {
     load();
   }, []);
 
-  const getToken = () => {
-    return localStorage.getItem("token") || sessionStorage.getItem("token");
-  };
-
   const fetchClientes = async () => {
+    const token = getToken();
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
-      if (!canClientesView) {
-        setClientes([]);
-        setLoading(false);
-        return;
-      }
-      const token = getToken();
-      if (!token) {
-        console.warn("No hay token de autenticación");
-        setClientes([]);
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch(apiUrl("/api/clientes/"), {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
+      const res = await fetch(apiUrl('/api/clientes/'), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store' as RequestCache,
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        setClientes(Array.isArray(data) ? data : []);
-      } else if (response.status === 401) {
-        console.error("Token inválido o expirado");
+      const data = await res.json().catch(() => []);
+      if (!res.ok) {
         setClientes([]);
-      } else if (response.status === 403) {
-        console.error("Acceso prohibido");
-        setClientes([]);
-      } else {
-        console.error("Error al cargar clientes:", response.status);
-        setClientes([]);
+        return;
       }
-    } catch (error) {
-      console.error("Error al cargar clientes:", error);
+      setClientes(Array.isArray(data) ? data : []);
+    } catch {
       setClientes([]);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (!canClientesView) {
+      setLoading(false);
+      return;
+    }
+    fetchClientes();
+  }, [canClientesView]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     setModalError("");
 
     if (!editingCliente && !canClientesCreate) {
@@ -396,13 +417,10 @@ export default function Clientes() {
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
       return;
     }
-    const token = getToken();
-    const url = editingCliente
-      ? apiUrl(`/api/clientes/${editingCliente.id}/`)
-      : apiUrl("/api/clientes/");
-    const method = editingCliente ? "PUT" : "POST";
 
-    // Guardar el nombre antes de limpiar el formulario
+    const token = getToken();
+    const url = editingCliente ? apiUrl(`/api/clientes/${editingCliente.id}/`) : apiUrl('/api/clientes/');
+    const method = editingCliente ? 'PUT' : 'POST';
     const clienteNombre = formData.nombre;
     const isEditing = !!editingCliente;
 
@@ -410,150 +428,141 @@ export default function Clientes() {
       const response = await fetch(url, {
         method,
         headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           ...formData,
-          telefono: onlyDigits10(formData.telefono || ""),
-          descuento_pct: formData.descuento_pct === "" ? null : formData.descuento_pct,
+          telefono: formatPhoneE164(formData.telefono_pais, formData.telefono),
+          descuento_pct: formData.descuento_pct === '' ? null : formData.descuento_pct,
         })
       });
 
       if (!response.ok) {
-        const txt = await response.text().catch(() => "");
-        setModalError(formatApiErrors(txt) || "No se pudo guardar el cliente.");
+        const txt = await response.text().catch(() => '');
+        setModalError(formatApiErrors(txt) || 'No se pudo guardar el cliente.');
         return;
       }
 
-      if (response.ok) {
-        const saved = await response.json().catch(() => null);
-        const clienteId = saved?.id || editingCliente?.id;
-        if (!clienteId) {
-          setModalError("No se pudo obtener el ID del cliente guardado.");
+      const saved = await response.json().catch(() => null);
+      const clienteId = saved?.id || editingCliente?.id;
+      if (!clienteId) {
+        setModalError('No se pudo obtener el ID del cliente guardado.');
+        return;
+      }
+
+      for (const id of deletedContactIds) {
+        await fetch(apiUrl(`/api/cliente-contactos/${id}/`), {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => null);
+      }
+
+      for (const c of contactos) {
+        const payload = {
+          nombre_apellido: (c.nombre_apellido || '').trim(),
+          titulo: c.titulo || '',
+          area_puesto: c.area_puesto || '',
+          celular: onlyDigits10(c.celular || ''),
+          correo: c.correo || '',
+        };
+        if (c.id) {
+          await fetch(apiUrl(`/api/cliente-contactos/${c.id}/`), {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ...payload, cliente: clienteId }),
+          }).catch(() => null);
+        } else {
+          await fetch(apiUrl('/api/cliente-contactos/'), {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ...payload, cliente: clienteId }),
+          }).catch(() => null);
+        }
+      }
+
+      if (documentFile) {
+        const allowed = ['pdf', 'xls', 'xlsx', 'doc', 'docs', 'odt', 'ods'];
+        const ext = (documentFile.name.split('.').pop() || '').toLowerCase();
+        if (!allowed.includes(ext)) {
+          setModalError('Formato no permitido para Documento.');
+          return;
+        }
+        if (documentFile.size > 15 * 1024 * 1024) {
+          setModalError('El documento excede 15MB.');
           return;
         }
 
-        // Sync contactos
-        for (const id of deletedContactIds) {
-          await fetch(apiUrl(`/api/cliente-contactos/${id}/`), {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          }).catch(() => null);
-        }
+        const fd = new FormData();
+        fd.append('cliente', String(clienteId));
+        fd.append('archivo', documentFile);
 
-        for (const c of contactos) {
-          const payload = {
-            nombre_apellido: (c.nombre_apellido || "").trim(),
-            titulo: c.titulo || "",
-            area_puesto: c.area_puesto || "",
-            celular: onlyDigits10(c.celular || ""),
-            correo: c.correo || "",
-          };
-          if (c.id) {
-            await fetch(apiUrl(`/api/cliente-contactos/${c.id}/`), {
-              method: 'PUT',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ ...payload, cliente: clienteId }),
-            }).catch(() => null);
-          } else {
-            await fetch(apiUrl('/api/cliente-contactos/'), {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ ...payload, cliente: clienteId }),
-            }).catch(() => null);
-          }
-        }
-
-        // Upload documento (1 archivo)
-        if (documentFile) {
-          const allowed = ["pdf", "xls", "xlsx", "doc", "docs", "odt", "ods"];
-          const ext = (documentFile.name.split('.').pop() || "").toLowerCase();
-          if (!allowed.includes(ext)) {
-            setModalError("Formato no permitido para Documento.");
-            return;
-          }
-          if (documentFile.size > 15 * 1024 * 1024) {
-            setModalError("El documento excede 15MB.");
-            return;
-          }
-
-          const fd = new FormData();
-          fd.append('cliente', String(clienteId));
-          fd.append('archivo', documentFile);
-
-          const up = await fetch(apiUrl('/api/cliente-documentos/'), {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-            body: fd,
-          });
-          if (!up.ok) {
-            const txt = await up.text().catch(() => "");
-            setModalError(formatApiErrors(txt) || "No se pudo subir el documento.");
-            return;
-          }
-        }
-
-        // Recargar la lista completa de clientes
-        await fetchClientes();
-        setShowModal(false);
-        setFormData({
-          nombre: "",
-          telefono: "",
-          direccion: "",
-          giro: "",
-          correo: "",
-          calle: "",
-          numero_exterior: "",
-          interior: "",
-          colonia: "",
-          codigo_postal: "",
-          ciudad: "",
-          pais: "",
-          estado: "",
-          notas: "",
-          descuento_pct: null,
-          portal_web: "",
-          nombre_facturacion: "",
-          numero_facturacion: "",
-          domicilio_facturacion: "",
-          calle_envio: "",
-          numero_envio: "",
-          colonia_envio: "",
-          codigo_postal_envio: "",
-          pais_envio: "",
-          estado_envio: "",
-          ciudad_envio: "",
+        const up = await fetch(apiUrl('/api/cliente-documentos/'), {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
         });
-        setContactos([{ nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }]);
-        setDeletedContactIds([]);
-        setDocumentFile(null);
-        setActiveTab("general");
-        setEditingCliente(null);
-
-        // Show success alert
-        setAlert({
-          show: true,
-          variant: "success",
-          title: isEditing ? "Cliente Actualizado" : "Cliente Creado",
-          message: isEditing
-            ? `El cliente "${clienteNombre}" ha sido actualizado exitosamente.`
-            : `El cliente "${clienteNombre}" ha sido creado exitosamente.`
-        });
-
-        // Hide alert after 3 seconds
-        setTimeout(() => {
-          setAlert(prev => ({ ...prev, show: false }));
-        }, 3000);
+        if (!up.ok) {
+          const txt = await up.text().catch(() => '');
+          setModalError(formatApiErrors(txt) || 'No se pudo subir el documento.');
+          return;
+        }
       }
+
+      await fetchClientes();
+      setShowModal(false);
+      setFormData({
+        nombre: "",
+        telefono_pais: "MX",
+        telefono: "",
+        direccion: "",
+        giro: "",
+        correo: "",
+        calle: "",
+        numero_exterior: "",
+        interior: "",
+        colonia: "",
+        codigo_postal: "",
+        ciudad: "",
+        pais: "México",
+        estado: "",
+        notas: "",
+        descuento_pct: null,
+        portal_web: "",
+        nombre_facturacion: "",
+        numero_facturacion: "",
+        domicilio_facturacion: "",
+        calle_envio: "",
+        numero_envio: "",
+        colonia_envio: "",
+        codigo_postal_envio: "",
+        pais_envio: "México",
+        estado_envio: "",
+        ciudad_envio: "",
+      });
+      setContactos([{ nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }]);
+      setDeletedContactIds([]);
+      setDocumentFile(null);
+      setActiveTab('general');
+      setEditingCliente(null);
+
+      setAlert({
+        show: true,
+        variant: 'success',
+        title: isEditing ? 'Cliente Actualizado' : 'Cliente Creado',
+        message: isEditing
+          ? `El cliente "${clienteNombre}" ha sido actualizado exitosamente.`
+          : `El cliente "${clienteNombre}" ha sido creado exitosamente.`,
+      });
+      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
     } catch (error) {
-      console.error("Error al guardar cliente:", error);
+      console.error('Error al guardar cliente:', error);
       setModalError(String(error));
     }
   };
@@ -570,34 +579,23 @@ export default function Clientes() {
 
   const handleConfirmDelete = async () => {
     if (!clienteToDelete) return;
-
     const token = getToken();
     try {
       const response = await fetch(apiUrl(`/api/clientes/${clienteToDelete.id}/`), {
         method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
+        headers: { "Authorization": `Bearer ${token}` }
       });
-
       if (response.ok) {
         await fetchClientes();
         setShowDeleteModal(false);
-
-        // Show success alert
         setAlert({
           show: true,
           variant: "success",
           title: "Cliente Eliminado",
           message: `El cliente "${clienteToDelete?.nombre}" ha sido eliminado exitosamente.`
         });
-
         setClienteToDelete(null);
-
-        // Hide alert after 3 seconds
-        setTimeout(() => {
-          setAlert(prev => ({ ...prev, show: false }));
-        }, 3000);
+        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
       }
     } catch (error) {
       console.error("Error al eliminar cliente:", error);
@@ -620,10 +618,13 @@ export default function Clientes() {
     setActiveTab("general");
     setDeletedContactIds([]);
     setDocumentFile(null);
+
+    const phoneParsed = parsePhoneToForm(cliente.telefono);
     setFormData({
       ...formData,
       nombre: cliente.nombre || "",
-      telefono: cliente.telefono || "",
+      telefono_pais: phoneParsed.phoneCountry,
+      telefono: phoneParsed.phoneNational,
       direccion: cliente.direccion || "",
       giro: cliente.giro || "",
       correo: cliente.correo || "",
@@ -633,7 +634,7 @@ export default function Clientes() {
       colonia: cliente.colonia || "",
       codigo_postal: cliente.codigo_postal || "",
       ciudad: cliente.ciudad || "",
-      pais: cliente.pais || "",
+      pais: cliente.pais || "México",
       estado: cliente.estado || "",
       notas: cliente.notas || "",
       descuento_pct: (cliente.descuento_pct as any) ?? null,
@@ -645,18 +646,19 @@ export default function Clientes() {
       numero_envio: cliente.numero_envio || "",
       colonia_envio: cliente.colonia_envio || "",
       codigo_postal_envio: cliente.codigo_postal_envio || "",
-      pais_envio: cliente.pais_envio || "",
+      pais_envio: cliente.pais_envio || "México",
       estado_envio: cliente.estado_envio || "",
       ciudad_envio: cliente.ciudad_envio || "",
     });
-    const cs = (cliente.contactos || []).map(c => ({
-      id: (c as any).id,
-      nombre_apellido: (c as any).nombre_apellido || "",
-      titulo: (c as any).titulo || "",
-      area_puesto: (c as any).area_puesto || "",
-      celular: (c as any).celular || "",
-      correo: (c as any).correo || "",
-      is_principal: (c as any).is_principal,
+
+    const cs = (cliente.contactos || []).map((c: any) => ({
+      id: c.id,
+      nombre_apellido: c.nombre_apellido || "",
+      titulo: c.titulo || "",
+      area_puesto: c.area_puesto || "",
+      celular: c.celular || "",
+      correo: c.correo || "",
+      is_principal: c.is_principal,
     }));
     setContactos(cs.length ? cs : [{ nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }]);
     setShowModal(true);
@@ -672,6 +674,7 @@ export default function Clientes() {
     setContactos([{ nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }]);
     setFormData({
       nombre: "",
+      telefono_pais: "MX",
       telefono: "",
       direccion: "",
       giro: "",
@@ -682,7 +685,7 @@ export default function Clientes() {
       colonia: "",
       codigo_postal: "",
       ciudad: "",
-      pais: "",
+      pais: "México",
       estado: "",
       notas: "",
       descuento_pct: null,
@@ -694,7 +697,7 @@ export default function Clientes() {
       numero_envio: "",
       colonia_envio: "",
       codigo_postal_envio: "",
-      pais_envio: "",
+      pais_envio: "México",
       estado_envio: "",
       ciudad_envio: "",
     });
@@ -709,6 +712,7 @@ export default function Clientes() {
     setContactos([{ nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }]);
     setFormData({
       nombre: "",
+      telefono_pais: "MX",
       telefono: "",
       direccion: "",
       giro: "",
@@ -719,7 +723,7 @@ export default function Clientes() {
       colonia: "",
       codigo_postal: "",
       ciudad: "",
-      pais: "",
+      pais: "México",
       estado: "",
       notas: "",
       descuento_pct: null,
@@ -731,7 +735,7 @@ export default function Clientes() {
       numero_envio: "",
       colonia_envio: "",
       codigo_postal_envio: "",
-      pais_envio: "",
+      pais_envio: "México",
       estado_envio: "",
       ciudad_envio: "",
     });
@@ -739,34 +743,34 @@ export default function Clientes() {
   };
 
   const shownList = useMemo(() => {
-    // Asegurar que clientes sea un array
     if (!Array.isArray(clientes)) return [];
-
     const q = (searchTerm || '').trim().toLowerCase();
     if (!q) return clientes;
-
-    return clientes.filter(c =>
+    return clientes.filter((c: Cliente) =>
       c.nombre.toLowerCase().includes(q) ||
-      c.telefono.includes(q) ||
-      c.direccion.toLowerCase().includes(q)
+      String(c.telefono || '').includes(q) ||
+      String(c.direccion || '').toLowerCase().includes(q)
     );
   }, [clientes, searchTerm]);
 
-  // Paginación
   const totalPages = Math.ceil(shownList.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentClientes = shownList.slice(startIndex, endIndex);
 
-  // Detectar si es un link de Google Maps
-  const isGoogleMapsLink = (text: string) => {
-    return text.includes('google.com/maps') || text.includes('maps.app.goo.gl');
-  };
-
-  // Resetear página al buscar
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
+
+  const handleConfirmMap = () => {
+    if (!selectedLocation) {
+      setShowMapModal(false);
+      return;
+    }
+    const { lat, lng } = selectedLocation;
+    setFormData({ ...formData, direccion: `https://www.google.com/maps?q=${lat},${lng}` });
+    setShowMapModal(false);
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
@@ -871,7 +875,7 @@ export default function Clientes() {
               <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
                 {currentClientes.map((cliente, idx) => (
                   <TableRow key={cliente.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                    <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">{startIndex + idx + 1}</TableCell>
+                    <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">{startIndex + idx + 1001}</TableCell>
                     <TableCell className="px-2 py-1.5 w-1/4 text-gray-900 dark:text-white">{cliente.nombre}</TableCell>
                     <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">
                       {(() => {
@@ -917,7 +921,7 @@ export default function Clientes() {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 text-brand-600 hover:underline"
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                             <circle cx="12" cy="10" r="3" />
                           </svg>
@@ -955,8 +959,8 @@ export default function Clientes() {
                   <TableRow>
                     <TableCell className="px-2 py-2"> </TableCell>
                     <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
                     <TableCell className="px-2 py-2 text-center text-sm text-gray-500">Sin clientes</TableCell>
+                    <TableCell className="px-2 py-2"> </TableCell>
                     <TableCell className="px-2 py-2"> </TableCell>
                     <TableCell className="px-2 py-2"> </TableCell>
                     <TableCell className="px-2 py-2"> </TableCell>
@@ -1111,11 +1115,29 @@ export default function Clientes() {
                     </div>
                     <div>
                       <Label>Giro</Label>
-                      <Input value={formData.giro} onChange={(e) => setFormData({ ...formData, giro: e.target.value })} />
+                      <select
+                        value={formData.giro || ""}
+                        onChange={(e) => setFormData({ ...formData, giro: e.target.value })}
+                        className={selectLikeClassName}
+                      >
+                        <option value="">Seleccione</option>
+                        {giroOptions.map((g) => (
+                          <option key={g} value={g}>{g}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <Label>Teléfono</Label>
                       <div className="flex items-center gap-2">
+                        <select
+                          value={formData.telefono_pais || "MX"}
+                          onChange={(e) => setFormData({ ...formData, telefono_pais: e.target.value })}
+                          className={selectLikeClassName}
+                        >
+                          {phoneCountryOptions.map((opt) => (
+                            <option key={opt.code} value={opt.code}>{opt.label}</option>
+                          ))}
+                        </select>
                         <input
                           type="tel"
                           value={formData.telefono}
@@ -1128,7 +1150,7 @@ export default function Clientes() {
                               e.preventDefault();
                             }
                           }}
-                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                          className={inputLikeClassName}
                           placeholder="Teléfono del cliente"
                           maxLength={10}
                         />
@@ -1186,11 +1208,33 @@ export default function Clientes() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <Label>País *</Label>
-                      <Input value={formData.pais} onChange={(e) => setFormData({ ...formData, pais: e.target.value })} />
+                      <select
+                        value={formData.pais || "México"}
+                        onChange={(e) => {
+                          const pais = e.target.value;
+                          const nextEstados = estadosPorPais[pais] || estadosPorPais["México"] || [];
+                          const nextEstado = nextEstados.includes(formData.estado) ? formData.estado : "";
+                          setFormData({ ...formData, pais, estado: nextEstado });
+                        }}
+                        className={selectLikeClassName}
+                      >
+                        {paisOptions.map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <Label>Estado *</Label>
-                      <Input value={formData.estado} onChange={(e) => setFormData({ ...formData, estado: e.target.value })} />
+                      <select
+                        value={formData.estado || ""}
+                        onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
+                        className={selectLikeClassName}
+                      >
+                        <option value="">Seleccione</option>
+                        {estadosOptions.map((est) => (
+                          <option key={est} value={est}>{est}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -1510,13 +1554,35 @@ export default function Clientes() {
                     </div>
                     <div>
                       <Label>Estado de envío</Label>
-                      <Input value={formData.estado_envio} onChange={(e) => setFormData({ ...formData, estado_envio: e.target.value })} />
+                      <select
+                        value={formData.estado_envio || ""}
+                        onChange={(e) => setFormData({ ...formData, estado_envio: e.target.value })}
+                        className={selectLikeClassName}
+                      >
+                        <option value="">Seleccione</option>
+                        {estadosEnvioOptions.map((est) => (
+                          <option key={est} value={est}>{est}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <Label>País de envío</Label>
-                      <Input value={formData.pais_envio} onChange={(e) => setFormData({ ...formData, pais_envio: e.target.value })} />
+                      <select
+                        value={formData.pais_envio || "México"}
+                        onChange={(e) => {
+                          const pais_envio = e.target.value;
+                          const nextEstados = estadosPorPais[pais_envio] || estadosPorPais["México"] || [];
+                          const nextEstadoEnvio = nextEstados.includes(formData.estado_envio) ? formData.estado_envio : "";
+                          setFormData({ ...formData, pais_envio, estado_envio: nextEstadoEnvio });
+                        }}
+                        className={selectLikeClassName}
+                      >
+                        {paisOptions.map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -1530,7 +1596,7 @@ export default function Clientes() {
                 onClick={handleCloseModal}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
                 </svg>
                 Cancelar
@@ -1540,12 +1606,64 @@ export default function Clientes() {
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M5 12l4 4L19 6" strokeLinecap="round" />
                 </svg>
                 {editingCliente ? "Actualizar" : "Guardar"}
               </button>
             </div>
           </form>
+        </div>
+      </Modal>
+
+      {/* Modal Mapa */}
+      <Modal isOpen={showMapModal} onClose={() => setShowMapModal(false)} className="w-[94vw] max-w-3xl p-0 overflow-hidden">
+        <div>
+          <div className="px-5 pt-5 pb-4 border-b border-gray-100 dark:border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30">
+                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div>
+                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">Seleccionar Ubicación</h5>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Haz clic en el mapa para seleccionar la ubicación</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4">
+            <div className="rounded-lg border border-gray-200 dark:border-white/10 overflow-hidden">
+              <div id={mapContainerId} className="w-full" style={{ height: 420 }} />
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <div className="text-xs text-gray-600 dark:text-gray-300">
+                {selectedLocation ? (
+                  <span>Lat: {selectedLocation.lat.toFixed(6)} | Lng: {selectedLocation.lng.toFixed(6)}</span>
+                ) : (
+                  <span>Selecciona un punto en el mapa</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowMapModal(false)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedLocation}
+                  onClick={handleConfirmMap}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Usar ubicación
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </Modal>
 
@@ -1607,108 +1725,6 @@ export default function Clientes() {
           </div>
         </Modal>
       )}
-
-      <Modal
-        isOpen={showMapModal}
-        onClose={() => {
-          setShowMapModal(false);
-          setSelectedLocation(null);
-        }}
-        className="w-[96vw] sm:w-[90vw] md:w-[80vw] max-w-3xl mx-0 sm:mx-auto"
-      >
-        <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-3xl">
-          <div className="px-4 sm:px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30">
-                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div>
-                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">Seleccionar Ubicación</h5>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Haz clic en el mapa para seleccionar la ubicación</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 sm:p-5 flex-1 overflow-auto">
-            <div className="space-y-4">
-              <div className="relative w-full h-[50vh] sm:h-[55vh] md:h-[60vh] rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                <div id="leaflet-map-clientes" className="absolute inset-0" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">O ingresa las coordenadas manualmente</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <input
-                      type="text"
-                      placeholder="Latitud (ej: 19.0653)"
-                      value={selectedLocation?.lat || ''}
-                      onChange={(e) => {
-                        const lat = parseFloat(e.target.value);
-                        if (!isNaN(lat)) {
-                          setSelectedLocation({
-                            lat,
-                            lng: selectedLocation?.lng || -104.2831
-                          });
-                        }
-                      }}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      placeholder="Longitud (ej: -104.2831)"
-                      value={selectedLocation?.lng || ''}
-                      onChange={(e) => {
-                        const lng = parseFloat(e.target.value);
-                        if (!isNaN(lng)) {
-                          setSelectedLocation({
-                            lat: selectedLocation?.lat || 19.0653,
-                            lng
-                          });
-                        }
-                      }}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
-                    />
-                  </div>
-                </div>
-                {selectedLocation && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">URL: https://www.google.com/maps?q={selectedLocation.lat},{selectedLocation.lng}</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="px-4 sm:px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setShowMapModal(false);
-                setSelectedLocation(null);
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const loc = selectedLocation || { lat: 19.0653, lng: -104.2831 };
-                const url = `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
-                setFormData({ ...formData, direccion: url });
-                setShowMapModal(false);
-                setSelectedLocation(null);
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30"
-            >
-              Guardar ubicación
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

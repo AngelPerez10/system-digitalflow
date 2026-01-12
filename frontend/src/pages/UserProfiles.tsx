@@ -6,6 +6,7 @@ import Label from '@/components/form/Label';
 import Input from '@/components/form/input/InputField';
 import Alert from '@/components/ui/alert/Alert';
 import { Modal } from '@/components/ui/modal';
+import SignaturePad from '@/components/ui/signature/SignaturePad';
 import { apiUrl } from '@/config/api';
 import { EyeCloseIcon, EyeIcon, MoreDotIcon } from '@/icons';
 
@@ -16,6 +17,13 @@ type CrudPerms = {
   create: boolean;
   edit: boolean;
   delete: boolean;
+};
+
+type UserSignaturePayload = {
+  user: number;
+  url: string;
+  public_id: string;
+  updated_at: string;
 };
 
 type PermissionsPayload = {
@@ -188,6 +196,13 @@ export default function UserProfiles() {
   const [editing, setEditing] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [showEditPassword2, setShowEditPassword2] = useState(false);
+
+  const [signatureLoading, setSignatureLoading] = useState(false);
+  const [signatureSaving, setSignatureSaving] = useState(false);
+  const [signatureError, setSignatureError] = useState<string | null>(null);
+  const [signatureValue, setSignatureValue] = useState<string>('');
+
+  const [confirmDeleteSignature, setConfirmDeleteSignature] = useState(false);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -399,9 +414,11 @@ export default function UserProfiles() {
     const isAdmin = u.is_superuser || u.is_staff;
     setEditUser(u);
     setEditError(null);
+    setSignatureError(null);
+    setSignatureValue('');
     setSuccess(null);
     setEditForm({
-      username: u.username || '',
+      username: u.username,
       first_name: u.first_name || '',
       last_name: u.last_name || '',
       email: u.email || '',
@@ -412,12 +429,29 @@ export default function UserProfiles() {
     setShowEditPassword(false);
     setShowEditPassword2(false);
     setIsEditOpen(true);
+
+    setSignatureLoading(true);
+    fetch(apiUrl(`/api/users/accounts/${u.id}/signature/`), {
+      method: 'GET',
+      credentials: 'include',
+      headers: { ...getAuthHeaders() },
+      cache: 'no-store' as RequestCache,
+    })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => null)) as UserSignaturePayload | null;
+        if (!res.ok) throw new Error((data as any)?.detail || 'No se pudo cargar la firma');
+        setSignatureValue(data?.url || '');
+      })
+      .catch((e: any) => setSignatureError(e?.message || 'Error'))
+      .finally(() => setSignatureLoading(false));
   };
 
   const closeEdit = () => {
     if (editing) return;
     setIsEditOpen(false);
     setEditUser(null);
+    setSignatureValue('');
+    setSignatureError(null);
   };
 
   const validateClient = (): string | null => {
@@ -511,6 +545,8 @@ export default function UserProfiles() {
     }
     setEditing(true);
     try {
+      const hasNewSignature = !!signatureValue && signatureValue.startsWith('data:') && signatureValue.includes(';base64,');
+
       const payload: any = {
         username: editForm.username.trim(),
         first_name: (editForm.first_name || '').trim(),
@@ -535,6 +571,21 @@ export default function UserProfiles() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || 'Error al actualizar usuario');
+
+      if (hasNewSignature) {
+        const resSig = await fetch(apiUrl(`/api/users/accounts/${editUser.id}/signature/`), {
+          method: 'PUT',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({ signature: signatureValue }),
+        });
+        const dataSig = (await resSig.json().catch(() => null)) as UserSignaturePayload | null;
+        if (!resSig.ok) throw new Error((dataSig as any)?.detail || 'Error al guardar la firma');
+        setSignatureValue(dataSig?.url || '');
+      }
 
       const wasAdmin = !!editUser.is_superuser || !!editUser.is_staff;
       const willBeAdmin = editForm.role === 'admin';
@@ -1067,16 +1118,22 @@ export default function UserProfiles() {
         </div>
       </Modal>
 
-      <Modal isOpen={isEditOpen} onClose={closeEdit} className="max-w-2xl">
+      <Modal isOpen={isEditOpen} onClose={closeEdit} className="w-[94vw] max-w-2xl">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-white/10">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Editar usuario</h3>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Actualiza datos del usuario y (opcional) cambia la contraseña.</p>
         </div>
 
-        <div className="p-5">
+        <div className="p-5 max-h-[80vh] overflow-y-auto">
           {editError && (
             <div className="mb-4">
               <Alert variant="error" title="Revisa" message={editError} />
+            </div>
+          )}
+
+          {signatureError && (
+            <div className="mb-4">
+              <Alert variant="error" title="Firma" message={signatureError} />
             </div>
           )}
 
@@ -1130,12 +1187,116 @@ export default function UserProfiles() {
             </div>
           </div>
 
+          <div className="mt-5 rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-white/3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-gray-800 dark:text-white/90">Firma</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Esta firma se guardará y se usará como "Firma del Encargado" en Órdenes.</p>
+              </div>
+              {!!signatureValue && !signatureValue.startsWith('data:') ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!editUser) return;
+                    setConfirmDeleteSignature(true);
+                  }}
+                  disabled={signatureSaving || signatureLoading || !editUser}
+                  className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white p-2 text-gray-700 shadow-theme-xs hover:bg-gray-50 disabled:opacity-60 dark:border-white/10 dark:bg-gray-900/40 dark:text-gray-200 dark:hover:bg-white/5"
+                  aria-label="Eliminar firma"
+                  title="Eliminar firma"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-3">
+              {signatureLoading ? (
+                <div className="py-6 text-center text-xs text-gray-500 dark:text-gray-400">Cargando firma...</div>
+              ) : !!signatureValue && !signatureValue.startsWith('data:') ? (
+                <div className="flex items-center justify-center">
+                  <img
+                    src={signatureValue}
+                    alt="Firma del usuario"
+                    className="max-h-[180px] w-full max-w-[420px] rounded-lg border border-gray-200 bg-white object-contain dark:border-white/10"
+                  />
+                </div>
+              ) : (
+                <SignaturePad
+                  value={signatureValue}
+                  onChange={(sig) => setSignatureValue(sig)}
+                  width={420}
+                  height={180}
+                />
+              )}
+            </div>
+
+          </div>
+
           <div className="mt-6 flex items-center justify-end gap-2">
             <button type="button" onClick={closeEdit} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-xs font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200" disabled={editing}>
               Cancelar
             </button>
-            <button type="button" onClick={doUpdate} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" disabled={editing}>
+            <button type="button" onClick={doUpdate} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" disabled={editing || signatureSaving || signatureLoading}>
               {editing ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={confirmDeleteSignature} onClose={() => setConfirmDeleteSignature(false)} className="max-w-sm p-6">
+        <div className='flex flex-col gap-4'>
+          <div className='text-center'>
+            <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30'>
+              <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+            </div>
+            <h5 className='mt-4 font-semibold text-gray-800 text-theme-lg dark:text-white/90'>Confirmar eliminación</h5>
+            <p className='mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400'>Esta acción no se puede deshacer. ¿Eliminar la firma seleccionada?</p>
+          </div>
+          <div className='flex justify-center gap-3 pt-2'>
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteSignature(false)}
+              className='rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3'
+              disabled={signatureSaving}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!editUser) return;
+                setSignatureError(null);
+                setSignatureSaving(true);
+                try {
+                  const res = await fetch(apiUrl(`/api/users/accounts/${editUser.id}/signature/`), {
+                    method: 'DELETE',
+                    credentials: 'include',
+                    headers: { ...getAuthHeaders() },
+                  });
+                  const data = (await res.json().catch(() => null)) as UserSignaturePayload | null;
+                  if (!res.ok) throw new Error((data as any)?.detail || 'No se pudo borrar la firma');
+                  setSignatureValue('');
+                  setSuccess('Firma eliminada');
+                  setConfirmDeleteSignature(false);
+                } catch (e: any) {
+                  setSignatureError(e?.message || 'Error');
+                } finally {
+                  setSignatureSaving(false);
+                }
+              }}
+              className='rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-500 disabled:opacity-60'
+              disabled={signatureSaving}
+            >
+              {signatureSaving ? 'Eliminando...' : 'Eliminar'}
             </button>
           </div>
         </div>

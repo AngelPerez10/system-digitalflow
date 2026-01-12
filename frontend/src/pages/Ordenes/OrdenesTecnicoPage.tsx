@@ -67,6 +67,10 @@ const ORDENES_PAGE_INIT_THROTTLE_MS = 800;
 export default function OrdenesTecnico() {
   const navigate = useNavigate();
 
+  const getToken = () => {
+    return localStorage.getItem("token") || sessionStorage.getItem("token");
+  };
+
   const getPermissionsFromStorage = () => {
     try {
       const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
@@ -77,6 +81,7 @@ export default function OrdenesTecnico() {
   };
 
   const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
+  const [mySignatureUrl, setMySignatureUrl] = useState<string>('');
 
   const canOrdenesView = permissions?.ordenes?.view !== false;
   const canOrdenesCreate = !!permissions?.ordenes?.create;
@@ -109,14 +114,31 @@ export default function OrdenesTecnico() {
   }, []);
 
   useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    const load = async () => {
+      try {
+        const res = await fetch(apiUrl('/api/me/signature/'), {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store' as RequestCache,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) return;
+        const url = data?.url || '';
+        setMySignatureUrl(url);
+      } catch {
+        return;
+      }
+    };
+    load();
+  }, []);
+
+  useEffect(() => {
     const sync = () => setPermissions(getPermissionsFromStorage());
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
   }, []);
-
-  const getToken = () => {
-    return localStorage.getItem("token") || sessionStorage.getItem("token");
-  };
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -137,6 +159,7 @@ export default function OrdenesTecnico() {
   const [filterServicio, setFilterServicio] = useState<string[]>([]);
   const [filterDate, setFilterDate] = useState(''); // YYYY-MM-DD
   const filterRef = useRef<HTMLDivElement | null>(null);
+
 
 
 
@@ -388,7 +411,7 @@ export default function OrdenesTecnico() {
     hora_termino: "",
     nombre_encargado: "",
     tecnico_asignado: null as number | null,
-    firma_encargado_url: "",
+    firma_encargado_url: mySignatureUrl || "",
     firma_cliente_url: "",
     fotos_urls: [] as string[]
   });
@@ -752,6 +775,8 @@ export default function OrdenesTecnico() {
 
       // Construir payload, omitiendo tecnico_asignado si es null
       const payload: any = { ...formData };
+      // Firma del encargado se maneja desde el perfil del usuario (no enviar base64 desde órdenes)
+      delete payload.firma_encargado_url;
       if (payload.tecnico_asignado == null) {
         delete payload.tecnico_asignado;
       }
@@ -933,7 +958,7 @@ export default function OrdenesTecnico() {
       fecha_finalizacion: orden.fecha_finalizacion || "",
       hora_termino: orden.hora_termino || "",
       tecnico_asignado: orden.tecnico_asignado ? Number(orden.tecnico_asignado) : null,
-      firma_encargado_url: orden.firma_encargado_url || "",
+      firma_encargado_url: mySignatureUrl || orden.firma_encargado_url || "",
       firma_cliente_url: orden.firma_cliente_url || "",
       fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : []
     });
@@ -2209,9 +2234,9 @@ export default function OrdenesTecnico() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <SignaturePad
                     label="Firma del Encargado"
-                    value={formData.firma_encargado_url}
+                    value={mySignatureUrl || formData.firma_encargado_url}
                     disabled={isReadOnly}
-                    onChange={(signature) => setFormData({ ...formData, firma_encargado_url: signature })}
+                    onChange={() => { }}
                     width={400}
                     height={250}
                   />

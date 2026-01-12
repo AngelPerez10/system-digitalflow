@@ -23,7 +23,7 @@ import Ordenes from "@/pages/Ordenes/OrdenesPage";
 import OrdenPdfPage from "@/pages/Ordenes/OrdenPdfPage";
 import OrdenesTecnico from "@/pages/Ordenes/OrdenesTecnicoPage";
 import Clientes from "@/pages/Clientes/ClientesPage";
-import Inventario from "@/pages/Inventario/InventarioPage";
+import Productos from "@/pages/Productos/ProductosPage";
 import KpiVentasPage from "@/pages/Kpis/KpiVentasPage";
 
 export default function App() {
@@ -45,7 +45,7 @@ export default function App() {
             <Route path="/ordenes/:id/pdf" element={<RequireAdmin><OrdenPdfPage /></RequireAdmin>} />
             <Route path="/ordenes-tecnico" element={<OrdenesTecnico />} />
             <Route path="/clientes" element={<RequireAdmin><Clientes /></RequireAdmin>} />
-            <Route path="/inventario" element={<RequireAdmin><Inventario /></RequireAdmin>} />
+            <Route path="/productos" element={<RequireAdmin><Productos /></RequireAdmin>} />
 
             {/* Others Page */}
             <Route path="/profile" element={<RequireAdmin><UserProfiles /></RequireAdmin>} />

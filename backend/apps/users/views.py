@@ -1,3 +1,5 @@
+import os
+
 from django.contrib.auth import authenticate, get_user_model
 from django.db.models import Q
 from rest_framework import status, viewsets
@@ -6,8 +8,53 @@ from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import UserPermissions
-from .serializers import UserAccountSerializer, UserPermissionsSerializer
+from .models import UserPermissions, UserSignature
+from .serializers import UserAccountSerializer, UserPermissionsSerializer, UserSignatureSerializer
+
+try:
+    import cloudinary
+    import cloudinary.uploader
+    CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL")
+    if CLOUDINARY_URL:
+        cloudinary.config(cloudinary_url=CLOUDINARY_URL)
+    else:
+        cn = os.environ.get("CLOUDINARY_CLOUD_NAME")
+        ak = os.environ.get("CLOUDINARY_API_KEY")
+        sec = os.environ.get("CLOUDINARY_API_SECRET")
+        if cn and ak and sec:
+            cloudinary.config(cloud_name=cn, api_key=ak, api_secret=sec)
+except Exception:
+    cloudinary = None  # type: ignore
+
+
+def _is_data_url(s: str) -> bool:
+    return isinstance(s, str) and s.startswith("data:") and ";base64," in s
+
+
+def _upload_signature_data_url(data_url: str) -> tuple[str, str]:
+    if cloudinary is None:
+        raise ValueError('Cloudinary no está configurado')
+
+    up = cloudinary.uploader.upload(
+        data_url,
+        folder='users/firmas',
+        resource_type='image',
+        overwrite=True,
+    )
+    url = up.get('secure_url') or up.get('url') or ''
+    public_id = up.get('public_id') or ''
+    return url, public_id
+
+
+def _delete_signature_public_id(public_id: str) -> None:
+    if cloudinary is None:
+        return
+    if not public_id:
+        return
+    try:
+        cloudinary.uploader.destroy(public_id, resource_type='image')
+    except Exception:
+        return
 
 
 class UserAccountViewSet(viewsets.ModelViewSet):
@@ -81,6 +128,43 @@ def my_permissions(request):
     return Response(serializer.data)
 
 
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def my_signature(request):
+    obj, _ = UserSignature.objects.get_or_create(user=request.user)
+
+    if request.method == 'GET':
+        return Response(UserSignatureSerializer(obj).data)
+
+    if request.method == 'DELETE':
+        _delete_signature_public_id(obj.public_id)
+        obj.url = ''
+        obj.public_id = ''
+        obj.save(update_fields=['url', 'public_id', 'updated_at'])
+        return Response(UserSignatureSerializer(obj).data)
+
+    signature = (request.data.get('signature') or '').strip()
+    if signature == '':
+        _delete_signature_public_id(obj.public_id)
+        obj.url = ''
+        obj.public_id = ''
+        obj.save(update_fields=['url', 'public_id', 'updated_at'])
+        return Response(UserSignatureSerializer(obj).data)
+
+    if not _is_data_url(signature):
+        return Response({'detail': 'La firma debe ser una imagen base64 (data URL).'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        _delete_signature_public_id(obj.public_id)
+        url, public_id = _upload_signature_data_url(signature)
+        obj.url = url
+        obj.public_id = public_id
+        obj.save(update_fields=['url', 'public_id', 'updated_at'])
+        return Response(UserSignatureSerializer(obj).data)
+    except Exception as e:
+        return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAdminUser])
 def user_permissions(request, user_id: int):
@@ -104,3 +188,45 @@ def user_permissions(request, user_id: int):
         obj.permissions = perms
         obj.save(update_fields=['permissions', 'updated_at'])
     return Response(UserPermissionsSerializer(obj).data)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAdminUser])
+def user_signature(request, user_id: int):
+    User = get_user_model()
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    obj, _ = UserSignature.objects.get_or_create(user=user)
+
+    if request.method == 'GET':
+        return Response(UserSignatureSerializer(obj).data)
+
+    if request.method == 'DELETE':
+        _delete_signature_public_id(obj.public_id)
+        obj.url = ''
+        obj.public_id = ''
+        obj.save(update_fields=['url', 'public_id', 'updated_at'])
+        return Response(UserSignatureSerializer(obj).data)
+
+    signature = (request.data.get('signature') or '').strip()
+    if signature == '':
+        _delete_signature_public_id(obj.public_id)
+        obj.url = ''
+        obj.public_id = ''
+        obj.save(update_fields=['url', 'public_id', 'updated_at'])
+        return Response(UserSignatureSerializer(obj).data)
+
+    if not _is_data_url(signature):
+        return Response({'detail': 'La firma debe ser una imagen base64 (data URL).'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        _delete_signature_public_id(obj.public_id)
+        url, public_id = _upload_signature_data_url(signature)
+        obj.url = url
+        obj.public_id = public_id
+        obj.save(update_fields=['url', 'public_id', 'updated_at'])
+        return Response(UserSignatureSerializer(obj).data)
+    except Exception as e:
+        return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
