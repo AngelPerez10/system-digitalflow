@@ -6,10 +6,11 @@ class DisableCSRFFromAuthorizationMiddleware:
         return self.get_response(request)
 
     def process_view(self, request, view_func, view_args, view_kwargs):
-        if not request.path.startswith('/api/'):
-            return None
-
-        auth = request.META.get('HTTP_AUTHORIZATION', '')
-        if auth.lower().startswith('bearer '):
+        # In this project the API is stateless and authenticated via
+        # Authorization: Bearer <JWT>. CSRF protection is not applicable to
+        # these endpoints because the browser will not automatically attach
+        # credentials that could be abused cross-site.
+        # Keep CSRF enabled for non-API routes like /admin/.
+        if request.path.startswith('/api/'):
             setattr(request, '_dont_enforce_csrf_checks', True)
         return None

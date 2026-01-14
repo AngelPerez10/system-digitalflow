@@ -86,30 +86,6 @@ const emptyEditForm: EditUserForm = {
   password2: '',
 };
 
-const getCsrfToken = (): string | null => {
-  try {
-    const m = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
-    return m ? decodeURIComponent(m[1]) : null;
-  } catch {
-    return null;
-  }
-};
-
-const ensureCsrfCookie = async () => {
-  let csrf = getCsrfToken();
-  if (csrf) return csrf;
-  try {
-    await fetch(apiUrl('/api/csrf/'), {
-      method: 'GET',
-      credentials: 'include',
-    });
-  } catch {
-    // ignore
-  }
-  csrf = getCsrfToken();
-  return csrf;
-};
-
 const getAuthHeaders = (): Record<string, string> => {
   const token = (
     localStorage.getItem('auth_token') ||
@@ -118,11 +94,8 @@ const getAuthHeaders = (): Record<string, string> => {
     sessionStorage.getItem('token') ||
     ''
   ).trim();
-  const csrf = getCsrfToken();
-
   const h: Record<string, string> = {};
   if (token) h['Authorization'] = `Bearer ${token}`;
-  if (csrf) h['X-CSRFToken'] = csrf;
   return h;
 };
 
@@ -134,11 +107,8 @@ const seedAdminPerms = async (userId: number) => {
     cotizaciones: { view: true, create: true, edit: true, delete: true },
     kpis: { view: true, create: true, edit: true, delete: true },
   };
-
-  await ensureCsrfCookie();
   const res = await fetch(apiUrl(`/api/users/accounts/${userId}/permissions/`), {
     method: 'PUT',
-    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
@@ -317,8 +287,6 @@ export default function UserProfiles() {
     setSuccess(null);
     setPermsSaving(true);
     try {
-      await ensureCsrfCookie();
-
       const isAdmin = permsUser.is_superuser || permsUser.is_staff;
       const payloadPerms = isAdmin
         ? permsForm
@@ -331,7 +299,6 @@ export default function UserProfiles() {
 
       const res = await fetch(apiUrl(`/api/users/accounts/${permsUser.id}/permissions/`), {
         method: 'PUT',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeaders(),
@@ -553,7 +520,6 @@ export default function UserProfiles() {
 
     setCreating(true);
     try {
-      await ensureCsrfCookie();
       const payload = {
         username: form.username.trim(),
         first_name: (form.first_name || '').trim(),
@@ -566,7 +532,6 @@ export default function UserProfiles() {
 
       const res = await fetch(API, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeaders(),
@@ -601,7 +566,6 @@ export default function UserProfiles() {
     }
     setEditing(true);
     try {
-      await ensureCsrfCookie();
       const hasNewSignature = !!signatureValue && signatureValue.startsWith('data:') && signatureValue.includes(';base64,');
 
       const payload: any = {
@@ -619,7 +583,6 @@ export default function UserProfiles() {
 
       const res = await fetch(apiUrl(`/api/users/accounts/${editUser.id}/`), {
         method: 'PATCH',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeaders(),
@@ -630,10 +593,8 @@ export default function UserProfiles() {
       if (!res.ok) throw new Error(data?.detail || 'Error al actualizar usuario');
 
       if (hasNewSignature) {
-        await ensureCsrfCookie();
         const resSig = await fetch(apiUrl(`/api/users/accounts/${editUser.id}/signature/`), {
           method: 'PUT',
-          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
             ...getAuthHeaders(),
@@ -668,10 +629,8 @@ export default function UserProfiles() {
     setSuccess(null);
     setDeleting(true);
     try {
-      await ensureCsrfCookie();
       const res = await fetch(apiUrl(`/api/users/accounts/${confirmDeleteId}/`), {
         method: 'DELETE',
-        credentials: 'include',
         headers: {
           ...getAuthHeaders(),
         },

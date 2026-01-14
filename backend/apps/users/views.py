@@ -3,7 +3,6 @@ import os
 from django.contrib.auth import authenticate, get_user_model
 from django.db.models import Q
 from django.conf import settings
-from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
@@ -67,13 +66,6 @@ class UserAccountViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
 
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-@ensure_csrf_cookie
-def csrf_view(request):
-    return Response({'detail': 'ok'})
-
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @throttle_classes([LoginRateThrottle])
@@ -123,31 +115,13 @@ def login_view(request):
             'permissions': perms,
         }
     )
-
-    # Cookie-based auth (httpOnly). Frontend should use fetch with credentials: 'include'.
-    # For local dev over http, keep Secure=False; in production enforce Secure=True.
-    secure_cookie = not settings.DEBUG
-    same_site = 'None' if secure_cookie else 'Lax'
-    resp.set_cookie(
-        'access_token',
-        str(access),
-        httponly=True,
-        secure=secure_cookie,
-        samesite=same_site,
-        max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()),
-        path='/',
-    )
     return resp
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
-    resp = Response({'detail': 'ok'})
-    secure_cookie = not settings.DEBUG
-    same_site = 'None' if secure_cookie else 'Lax'
-    resp.delete_cookie('access_token', path='/', samesite=same_site)
-    return resp
+    return Response({'detail': 'ok'})
 
 
 @api_view(['GET'])

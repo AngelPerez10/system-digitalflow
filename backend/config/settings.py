@@ -118,7 +118,8 @@ MIDDLEWARE = [
 # IMPORTANT: If your frontend uses session authentication you must include credentials:
 # fetch(url, { method, credentials: 'include', ... })
 CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOW_CREDENTIALS = True
+# Stateless API: do not rely on cookies across origins.
+CORS_ALLOW_CREDENTIALS = False
 
 # CORS: restrictivo en producción, permisivo en desarrollo
 if DEBUG:

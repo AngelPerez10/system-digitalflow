@@ -7,29 +7,11 @@ import Checkbox from "@/components/form/input/Checkbox";
 import Button from "@/components/ui/button/Button";
 import { apiUrl } from "@/config/api";
 
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()!.split(";").shift() || null;
-  return null;
-}
-
 async function login(loginValue: string, password: string) {
-  let csrftoken = getCookie("csrftoken");
-  if (!csrftoken) {
-    await fetch(apiUrl("/api/csrf/"), {
-      method: "GET",
-      credentials: "include",
-    });
-    csrftoken = getCookie("csrftoken");
-  }
   const res = await fetch(apiUrl("/api/login/"), {
     method: "POST",
-    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(csrftoken ? { "X-CSRFToken": csrftoken } : {}),
     },
     body: JSON.stringify(
       loginValue.includes('@')
