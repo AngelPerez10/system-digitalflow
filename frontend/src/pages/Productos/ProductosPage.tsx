@@ -112,6 +112,32 @@ const formatApiErrors = (txt: string): string => {
 };
 
 export default function Productos() {
+  const asBool = (v: any, defaultValue: boolean) => {
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'string') {
+      const s = v.trim().toLowerCase();
+      if (s === 'true') return true;
+      if (s === 'false') return false;
+    }
+    return defaultValue;
+  };
+
+  const getPermissionsFromStorage = () => {
+    try {
+      const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
+
+  const canProductosView = asBool(permissions?.productos?.view, true);
+  const canProductosCreate = asBool(permissions?.productos?.create, false);
+  const canProductosEdit = asBool(permissions?.productos?.edit, false);
+  const canProductosDelete = asBool(permissions?.productos?.delete, false);
+
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -131,6 +157,47 @@ export default function Productos() {
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productoToDelete, setProductoToDelete] = useState<Producto | null>(null);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    const load = async () => {
+      try {
+        const res = await fetch(apiUrl('/api/me/permissions/'), {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store' as RequestCache,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) return;
+        const p = data?.permissions || {};
+        const pStr = JSON.stringify(p);
+        localStorage.setItem('permissions', pStr);
+        sessionStorage.setItem('permissions', pStr);
+        setPermissions(p);
+        window.dispatchEvent(new Event('permissions:updated'));
+      } catch {
+        // ignore
+      }
+    };
+
+    load();
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setPermissions(getPermissionsFromStorage());
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('permissions:updated' as any, sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('permissions:updated' as any, sync);
+    };
+  }, []);
 
   const selectLikeClassName = "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
 
@@ -153,6 +220,11 @@ export default function Productos() {
   });
 
   const fetchProductos = async (): Promise<Producto[]> => {
+    if (!canProductosView) {
+      setProductos([]);
+      setLoading(false);
+      return [];
+    }
     const token = getToken();
     if (!token) {
       setLoading(false);
@@ -190,7 +262,7 @@ export default function Productos() {
   useEffect(() => {
     fetchProductos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [canProductosView]);
 
   const shownList = useMemo(() => {
     const q = (searchTerm || '').toLowerCase().trim();
@@ -212,6 +284,11 @@ export default function Productos() {
   }, [searchTerm]);
 
   const openCreate = () => {
+    if (!canProductosCreate) {
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear productos.' });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
+      return;
+    }
     setEditingProducto(null);
     setModalError('');
     setActiveTab('general');
@@ -238,6 +315,11 @@ export default function Productos() {
   };
 
   const handleEdit = (p: Producto) => {
+    if (!canProductosEdit) {
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar productos.' });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
+      return;
+    }
     setEditingProducto(p);
     setModalError('');
     setActiveTab('general');
@@ -273,6 +355,11 @@ export default function Productos() {
   };
 
   const handleDeleteClick = (p: Producto) => {
+    if (!canProductosDelete) {
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar productos.' });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
+      return;
+    }
     setProductoToDelete(p);
     setShowDeleteModal(true);
   };
@@ -286,6 +373,12 @@ export default function Productos() {
     if (!productoToDelete) return;
     const token = getToken();
     if (!token) return;
+
+    if (!canProductosDelete) {
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar productos.' });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
+      return;
+    }
 
     try {
       const res = await fetch(apiUrl(`/api/productos/${productoToDelete.id}/`), {
@@ -413,6 +506,18 @@ export default function Productos() {
     e.preventDefault();
     setModalError('');
 
+    if (!editingProducto && !canProductosCreate) {
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear productos.' });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
+      return;
+    }
+
+    if (editingProducto && !canProductosEdit) {
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar productos.' });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
+      return;
+    }
+
     const requiredMissing = [
       !String(formData.categoria || '').trim() ? 'Categoría de producto' : null,
       !String(formData.unidad || '').trim() ? 'Unidad' : null,
@@ -512,6 +617,11 @@ export default function Productos() {
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
       )}
+
+      {!canProductosView ? (
+        <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No tienes permiso para ver Productos.</div>
+      ) : (
+      <>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
         <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
@@ -719,6 +829,9 @@ export default function Productos() {
           )}
         </div>
       </ComponentCard>
+
+      </>
+      )}
 
       <Modal isOpen={showModal} onClose={handleCloseModal} className="w-full max-w-4xl p-0 overflow-hidden">
         <div>

@@ -5,26 +5,63 @@ import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { useNavigate } from "react-router-dom";
+import Alert from "@/components/ui/alert/Alert";
+import { apiUrl } from "@/config/api";
 
-const COTIZACIONES_STORAGE_KEY = "cotizaciones";
+let lastPermissionsFetchAt = 0;
+let lastCotizacionesFetchAt = 0;
 
 interface CotizacionRow {
-  id: string;
-  folio: string;
+  id: number;
+  idx: number;
   fecha: string; // YYYY-MM-DD
   vencimiento: string; // YYYY-MM-DD
   creadaPor: string;
   cliente: string;
-  correo?: string;
+  contacto: string;
   monto: string; // formatted currency
-  pdfUrl?: string;
 }
 
 export default function CotizacionesPage() {
+  const asBool = (v: any, defaultValue: boolean) => {
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'string') {
+      const s = v.trim().toLowerCase();
+      if (s === 'true') return true;
+      if (s === 'false') return false;
+    }
+    return defaultValue;
+  };
+
+  const getPermissionsFromStorage = () => {
+    try {
+      const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
+
+  const canCotizacionesView = asBool(permissions?.cotizaciones?.view, true);
+  const canCotizacionesCreate = asBool(permissions?.cotizaciones?.create, false);
+  const canCotizacionesEdit = asBool(permissions?.cotizaciones?.edit, false);
+  const canCotizacionesDelete = asBool(permissions?.cotizaciones?.delete, false);
+
+  const [alert, setAlert] = useState<{ show: boolean; variant: 'success' | 'error' | 'warning' | 'info'; title: string; message: string }>(
+    { show: false, variant: 'info', title: '', message: '' }
+  );
+
+  const getToken = () => {
+    return localStorage.getItem('token') || sessionStorage.getItem('token');
+  };
+
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
   const [rows, setRows] = useState<CotizacionRow[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const formatMoney = (n: number) => {
     const v = Number.isFinite(n) ? n : 0;
@@ -32,35 +69,136 @@ export default function CotizacionesPage() {
   };
 
   useEffect(() => {
-    const load = () => {
+    const sync = () => setPermissions(getPermissionsFromStorage());
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('permissions:updated' as any, sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('permissions:updated' as any, sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    const now = Date.now();
+    if (now - lastPermissionsFetchAt < 2000) return;
+    lastPermissionsFetchAt = now;
+
+    const load = async () => {
       try {
-        const raw = localStorage.getItem(COTIZACIONES_STORAGE_KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-        const list = Array.isArray(parsed) ? parsed : [];
-        const mapped: CotizacionRow[] = list.map((x: any) => ({
-          id: String(x?.id ?? ""),
-          folio: String(x?.folio ?? ""),
-          fecha: String(x?.fecha ?? ""),
-          vencimiento: String(x?.vencimiento ?? ""),
-          creadaPor: String(x?.creadaPor ?? "—"),
-          cliente: String(x?.cliente ?? "—"),
-          correo: undefined,
-          monto: formatMoney(Number(x?.total ?? 0)),
-          pdfUrl: undefined,
-        }));
-        setRows(mapped);
+        const res = await fetch(apiUrl('/api/me/permissions/'), {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store' as RequestCache,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) return;
+        const p = data?.permissions || {};
+        const pStr = JSON.stringify(p);
+        localStorage.setItem('permissions', pStr);
+        sessionStorage.setItem('permissions', pStr);
+        setPermissions(p);
+        window.dispatchEvent(new Event('permissions:updated'));
       } catch {
-        setRows([]);
+        // ignore
       }
     };
 
     load();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === COTIZACIONES_STORAGE_KEY) load();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  const fetchCotizaciones = async () => {
+    if (!canCotizacionesView) {
+      setRows([]);
+      return;
+    }
+    const token = getToken();
+    if (!token) {
+      setRows([]);
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastCotizacionesFetchAt < 2000) return;
+    lastCotizacionesFetchAt = now;
+
+    setLoading(true);
+    try {
+      const res = await fetch(apiUrl('/api/cotizaciones/'), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store' as RequestCache,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setRows([]);
+        return;
+      }
+      const list = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+      const mapped: CotizacionRow[] = (list || []).map((x: any) => {
+        const creado = String(x?.creado_por_full_name || x?.creado_por_username || x?.creadaPor || '—');
+        return {
+          id: Number(x?.id || 0),
+          idx: Number(x?.idx || 0),
+          fecha: String(x?.fecha || ''),
+          vencimiento: String(x?.vencimiento || ''),
+          creadaPor: creado,
+          cliente: String(x?.cliente || x?.cliente_nombre || '—'),
+          contacto: String(x?.contacto || '—'),
+          monto: formatMoney(Number(x?.total ?? 0)),
+        };
+      }).filter((x: any) => !!x.id);
+      setRows(mapped);
+    } catch {
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCotizaciones();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canCotizacionesView]);
+
+  const deleteCotizacion = (id: string) => {
+    if (!canCotizacionesDelete) {
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar cotizaciones.' });
+      window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
+      return;
+    }
+    const token = getToken();
+    if (!token) return;
+    const sid = String(id || '').trim();
+    if (!sid) return;
+    const doIt = async () => {
+      try {
+        const res = await fetch(apiUrl(`/api/cotizaciones/${sid}/`), {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          setAlert({ show: true, variant: 'error', title: 'Error', message: txt || 'No se pudo eliminar la cotización.' });
+          window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 3000);
+          return;
+        }
+        setRows((prev) => prev.filter((r) => String(r.id) !== sid));
+        setAlert({ show: true, variant: 'success', title: 'Eliminada', message: 'Cotización eliminada.' });
+        window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2000);
+      } catch {
+        setAlert({ show: true, variant: 'error', title: 'Error', message: 'No se pudo eliminar la cotización.' });
+        window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 3000);
+      }
+    };
+    doIt();
+  };
 
   const formatDMY = (iso: string) => {
     if (!iso) return "";
@@ -73,9 +211,9 @@ export default function CotizacionesPage() {
     if (!q) return rows;
     return rows.filter((r) => {
       return (
-        r.folio.toLowerCase().includes(q) ||
+        String(r.idx || '').toLowerCase().includes(q) ||
         r.cliente.toLowerCase().includes(q) ||
-        (r.correo || "").toLowerCase().includes(q) ||
+        r.contacto.toLowerCase().includes(q) ||
         r.creadaPor.toLowerCase().includes(q)
       );
     });
@@ -85,6 +223,15 @@ export default function CotizacionesPage() {
     <div className="p-4 sm:p-6 space-y-4">
       <PageMeta title="Cotizaciones | Sistema Grupo Intrax GPS" description="Gestión de cotizaciones" />
       <PageBreadcrumb pageTitle="Cotizaciones" />
+
+      {alert.show && (
+        <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
+      )}
+
+      {!canCotizacionesView ? (
+        <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No tienes permiso para ver Cotizaciones.</div>
+      ) : (
+      <div>
 
       <div className="grid gap-4 mb-6 sm:grid-cols-2 xl:grid-cols-3">
         <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
@@ -103,7 +250,7 @@ export default function CotizacionesPage() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Listado de Cotizaciones</h2>
         </div>
@@ -133,7 +280,14 @@ export default function CotizacionesPage() {
           </div>
           <button
             type="button"
-            onClick={() => navigate("/cotizacion/nueva")}
+            onClick={() => {
+              if (!canCotizacionesCreate) {
+                setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear cotizaciones.' });
+                window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
+                return;
+              }
+              navigate("/cotizacion/nueva");
+            }}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -155,74 +309,73 @@ export default function CotizacionesPage() {
                   <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Vencimiento</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/5 text-gray-700 dark:text-gray-300">Creada por</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/4 text-gray-700 dark:text-gray-300">Cliente</TableCell>
+                  <TableCell isHeader className="px-2 py-2 text-left w-1/5 text-gray-700 dark:text-gray-300">Contacto</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Monto</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">PDF</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-1/6 text-gray-700 dark:text-gray-300">Acciones</TableCell>
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
-                {shownList.map((r, idx) => (
-                  <TableRow key={r.id || idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                    <TableCell className="px-2 py-1.5 w-1/12 whitespace-nowrap">{r.folio}</TableCell>
-                    <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">{formatDMY(r.fecha)}</TableCell>
-                    <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">{formatDMY(r.vencimiento)}</TableCell>
-                    <TableCell className="px-2 py-1.5 w-1/5 whitespace-nowrap">{r.creadaPor}</TableCell>
-                    <TableCell className="px-2 py-1.5 w-1/4">
-                      <div className="flex flex-col">
-                        <span className="text-gray-900 dark:text-white">{r.cliente}</span>
-                        {r.correo && <span className="text-[11px] text-gray-500 dark:text-gray-400">{r.correo}</span>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">{r.monto}</TableCell>
-                    <TableCell className="px-2 py-1.5 w-1/6">
-                      {r.pdfUrl ? (
-                        <a href={r.pdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline dark:text-blue-400 text-xs">
-                          Abrir PDF
-                        </a>
-                      ) : (
-                        <span className="text-[11px] text-gray-500 dark:text-gray-400">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-2 py-1.5 text-center w-1/6">
-                      <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
-                        <button
-                          type="button"
-                          onClick={() => navigate(r.id ? `/cotizacion/${r.id}/editar` : "/cotizacion/nueva")}
-                          className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
-                          title="Editar"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { }}
-                          className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
-                          title="Eliminar"
-                        >
-                          <TrashBinIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
 
-                {!shownList.length && (
+              <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
+                {loading ? (
                   <TableRow>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2 text-center text-sm text-gray-500">Sin cotizaciones</TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
+                    <TableCell className="px-2 py-3" colSpan={8}>Cargando...</TableCell>
                   </TableRow>
+                ) : shownList.length === 0 ? (
+                  <TableRow>
+                    <TableCell className="px-2 py-2" colSpan={8}>
+                      <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No hay cotizaciones.</div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  shownList.map((r) => {
+                    return (
+                      <TableRow key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{r.idx || r.id}</TableCell>
+                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatDMY(r.fecha)}</TableCell>
+                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatDMY(r.vencimiento)}</TableCell>
+                        <TableCell className="px-2 py-1.5">{r.creadaPor}</TableCell>
+                        <TableCell className="px-2 py-1.5">{r.cliente}</TableCell>
+                        <TableCell className="px-2 py-1.5">{r.contacto}</TableCell>
+                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{r.monto}</TableCell>
+                        <TableCell className="px-2 py-1.5 text-center w-1/6">
+                          <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!canCotizacionesEdit) {
+                                  setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar cotizaciones.' });
+                                  window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
+                                  return;
+                                }
+                                navigate(`/cotizacion/${r.id}/editar`);
+                              }}
+                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                              title="Editar"
+                            >
+                              <PencilIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteCotizacion(String(r.id))}
+                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                              title="Eliminar"
+                            >
+                              <TrashBinIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
-              </TableBody>
-            </Table>
+                </TableBody>
+              </Table>
+            </div>
           </div>
-        </div>
       </ComponentCard>
+
+      </div>
+      )}
     </div>
   );
 }

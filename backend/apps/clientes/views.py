@@ -1,26 +1,34 @@
-from rest_framework import filters, viewsets
-from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAdminUser
-
+"""ViewSets for clientes app."""
 import os
+
 import cloudinary
 import cloudinary.uploader
+from rest_framework import filters, status, viewsets
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+
+from apps.users.permissions import ModulePermission
 
 from .models import Cliente, ClienteContacto, ClienteDocumento
 from .serializers import ClienteContactoSerializer, ClienteDocumentoSerializer, ClienteSerializer
 
 
+class ClientesPermission(ModulePermission):
+    """Permission class for clientes module."""
+    module_key = 'clientes'
+
+
 class ClienteViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para gestionar clientes.
-    Permite listar, crear, actualizar y eliminar clientes.
+    ViewSet for managing Cliente instances.
+    
+    Provides CRUD operations for clients with permission-based access control.
     """
     queryset = Cliente.objects.all()
     serializer_class = ClienteSerializer
-    permission_classes = [IsAdminUser]
-    pagination_class = None  # Deshabilitar paginación para esta vista
+    permission_classes = [ClientesPermission]
+    pagination_class = None
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
         'nombre',
@@ -37,6 +45,12 @@ class ClienteViewSet(viewsets.ModelViewSet):
 
 
 class ClienteContactoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing ClienteContacto instances.
+    
+    Handles client contacts.
+    Restricted to admin users only.
+    """
     queryset = ClienteContacto.objects.select_related('cliente').all()
     serializer_class = ClienteContactoSerializer
     permission_classes = [IsAdminUser]
@@ -56,6 +70,12 @@ class ClienteContactoViewSet(viewsets.ModelViewSet):
 
 
 class ClienteDocumentoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing ClienteDocumento instances.
+    
+    Handles document uploads to Cloudinary for clients.
+    Restricted to admin users only.
+    """
     queryset = ClienteDocumento.objects.select_related('cliente').all()
     serializer_class = ClienteDocumentoSerializer
     permission_classes = [IsAdminUser]

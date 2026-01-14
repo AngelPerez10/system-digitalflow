@@ -3,6 +3,7 @@ import os
 from django.contrib.auth import authenticate, get_user_model
 from django.db.models import Q
 from django.conf import settings
+from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
@@ -64,6 +65,13 @@ class UserAccountViewSet(viewsets.ModelViewSet):
     queryset = get_user_model().objects.all().order_by('id')
     serializer_class = UserAccountSerializer
     permission_classes = [IsAdminUser]
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@ensure_csrf_cookie
+def csrf_view(request):
+    return Response({'detail': 'ok'})
 
 
 @api_view(['POST'])

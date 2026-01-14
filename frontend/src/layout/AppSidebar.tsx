@@ -22,8 +22,12 @@ type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
+  subItems?: SidebarSubItem[];
 };
+
+type SidebarSubItem =
+  | { name: string; path: string; pro?: boolean; new?: boolean }
+  | { name: string; subItems: { name: string; path: string; pro?: boolean; new?: boolean }[] };
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -79,16 +83,87 @@ const AppSidebar: React.FC = () => {
   const navItems: NavItem[] = useMemo(() => {
     const items: NavItem[] = [];
 
-    // Dashboard / Orders
     if (isAdmin) {
+      items.push({ icon: <GridIcon />, name: "Dashboard", path: "/" });
+
       items.push({
-        icon: <GridIcon />,
-        name: "Dashboard",
+        icon: <PageIcon />,
+        name: "Mi escritorio",
         subItems: [
-          { name: "Órdenes de Servicios", path: "/ordenes", pro: false },
-          { name: "Clientes", path: "/clientes", pro: false },
+          { name: "Agenda", path: "/", pro: false },
+          { name: "Tareas", path: "/", pro: false },
+          { name: "Correo", path: "/", pro: false },
+        ],
+      });
+
+      items.push({
+        icon: <UserCircleIcon />,
+        name: "Contactos de Negocio",
+        subItems: [
+          { name: "Todos", path: "/clientes", pro: false },
+          { name: "Empresas", path: "/", pro: false },
+          { name: "Personas", path: "/", pro: false },
+          { name: "Proveedores", path: "/proveedores", pro: false },
+          { name: "Usuarios", path: "/profile", pro: false },
+        ],
+      });
+
+      items.push({
+        icon: <BoxCubeIcon />,
+        name: "Productos Y Servicios",
+        subItems: [
           { name: "Productos", path: "/productos", pro: false },
-          { name: "Cotización", path: "/cotizacion", pro: false},
+          { name: "Paquetes", path: "/categorias", pro: false },
+          { name: "Servicios", path: "/servicios", pro: false },
+        ],
+      });
+
+      items.push({
+        icon: <TableIcon />,
+        name: "Compras Y Gastos",
+        subItems: [
+          { name: "Proveedores", path: "/proveedores", pro: false },
+          { name: "Orden De compra", path: "/orden-compra", pro: false },
+          { name: "Gasto", path: "/gasto", pro: false },
+        ],
+      });
+
+      items.push({
+        icon: <PieChartIcon />,
+        name: "Ventas",
+        subItems: [
+          { name: "Facturas", path: "/facturas", pro: false },
+          { name: "Notas de crédito", path: "/notas-credito", pro: false },
+          {
+            name: "Suscripciones",
+            subItems: [
+              { name: "Rastreo", path: "/rastreo", pro: false },
+              { name: "Alarmas", path: "/alarmas", pro: false },
+              { name: "Internet", path: "/internet", pro: false },
+              { name: "Licencias", path: "/licencias", pro: false },
+            ],
+          },
+          { name: "Cotizaciones", path: "/cotizacion", pro: false },
+        ],
+      });
+
+      items.push({
+        icon: <PlugInIcon />,
+        name: "Operación",
+        subItems: [
+          { name: "Agenda", path: "/agenda", pro: false },
+          { name: "Órdenes de Servicios", path: "/ordenes", pro: false },
+          { name: "Levantamiento", path: "/levantamiento", pro: false },
+          { name: "Instalación", path: "/instalacion", pro: false },
+          { name: "Mantenimiento", path: "/mantenimiento", pro: false },
+          { name: "Tiket", path: "/tiket", pro: false },
+          { name: "Vehículo", path: "/vehiculo", pro: false },
+          { name: "Técnico", path: "/tecnico", pro: false },
+          { name: "Rastreo", path: "/rastreo", pro: false },
+          { name: "Servicios", path: "/servicios", pro: false },
+          { name: "Pólizas", path: "/polizas", pro: false },
+          { name: "Garantías", path: "/garantias", pro: false },
+          { name: "Reparaciones", path: "/reparaciones", pro: false },
         ],
       });
     } else {
@@ -121,21 +196,11 @@ const AppSidebar: React.FC = () => {
       items.push({
         icon: <PieChartIcon />,
         name: "KPI’S",
-        subItems: [
-          { name: "KPI Ventas", path: "/kpis/ventas", pro: false },
-        ],
+        subItems: [{ name: "KPI Ventas", path: "/kpis/ventas", pro: false }],
       });
     }
 
-    // Admin extras
-    if (isAdmin) {
-      items.push({
-        icon: <UserCircleIcon />,
-        name: "Gestión de Usuarios",
-        path: "/profile",
-      });
-
-      if (username === 'AngelPerez10') {
+    if (isAdmin && username === 'AngelPerez10') {
         items.push({
           name: "Formularios",
           icon: <ListIcon />,
@@ -154,7 +219,6 @@ const AppSidebar: React.FC = () => {
             { name: "Error 404", path: "/error-404", pro: false },
           ],
         });
-      }
     }
 
     return items;
@@ -211,6 +275,14 @@ const AppSidebar: React.FC = () => {
     [location.pathname]
   );
 
+  const hasActivePath = useCallback(
+    (sub: SidebarSubItem) => {
+      if ('path' in sub) return isActive(sub.path);
+      return sub.subItems.some((s) => isActive(s.path));
+    },
+    [isActive]
+  );
+
   useEffect(() => {
     let submenuMatched = false;
     ["main", "others"].forEach((menuType) => {
@@ -218,11 +290,8 @@ const AppSidebar: React.FC = () => {
       items.forEach((nav, index) => {
         if (nav.subItems) {
           nav.subItems.forEach((subItem) => {
-            if (isActive(subItem.path)) {
-              setOpenSubmenu({
-                type: menuType as "main" | "others",
-                index,
-              });
+            if (hasActivePath(subItem)) {
+              setOpenSubmenu({ type: menuType as "main" | "others", index });
               submenuMatched = true;
             }
           });
@@ -233,7 +302,7 @@ const AppSidebar: React.FC = () => {
     if (!submenuMatched) {
       setOpenSubmenu(null);
     }
-  }, [location, isActive, navItems, othersItems]);
+  }, [location, isActive, navItems, othersItems, hasActivePath]);
 
   useEffect(() => {
     if (openSubmenu !== null) {
@@ -331,41 +400,68 @@ const AppSidebar: React.FC = () => {
               }}
             >
               <ul className="mt-2 space-y-1 ml-9">
-                {nav.subItems.map((subItem) => (
-                  <li key={subItem.name}>
-                    <Link
-                      to={subItem.path}
-                      className={`menu-dropdown-item ${isActive(subItem.path)
-                        ? "menu-dropdown-item-active"
-                        : "menu-dropdown-item-inactive"
-                        }`}
-                    >
-                      {subItem.name}
-                      <span className="flex items-center gap-1 ml-auto">
-                        {subItem.new && (
-                          <span
-                            className={`ml-auto ${isActive(subItem.path)
-                              ? "menu-dropdown-badge-active"
-                              : "menu-dropdown-badge-inactive"
-                              } menu-dropdown-badge`}
-                          >
-                            new
+                {nav.subItems.map((subItem) => {
+                  if ('path' in subItem) {
+                    return (
+                      <li key={subItem.name}>
+                        <Link
+                          to={subItem.path}
+                          className={`menu-dropdown-item ${isActive(subItem.path)
+                            ? "menu-dropdown-item-active"
+                            : "menu-dropdown-item-inactive"
+                            }`}
+                        >
+                          {subItem.name}
+                          <span className="flex items-center gap-1 ml-auto">
+                            {subItem.new && (
+                              <span
+                                className={`ml-auto ${isActive(subItem.path)
+                                  ? "menu-dropdown-badge-active"
+                                  : "menu-dropdown-badge-inactive"
+                                  } menu-dropdown-badge`}
+                              >
+                                new
+                              </span>
+                            )}
+                            {subItem.pro && (
+                              <span
+                                className={`ml-auto ${isActive(subItem.path)
+                                  ? "menu-dropdown-badge-active"
+                                  : "menu-dropdown-badge-inactive"
+                                  } menu-dropdown-badge`}
+                              >
+                                pro
+                              </span>
+                            )}
                           </span>
-                        )}
-                        {subItem.pro && (
-                          <span
-                            className={`ml-auto ${isActive(subItem.path)
-                              ? "menu-dropdown-badge-active"
-                              : "menu-dropdown-badge-inactive"
-                              } menu-dropdown-badge`}
-                          >
-                            pro
-                          </span>
-                        )}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
+                        </Link>
+                      </li>
+                    );
+                  }
+
+                  return (
+                    <li key={subItem.name}>
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                        {subItem.name}
+                      </div>
+                      <ul className="space-y-1 ml-4">
+                        {subItem.subItems.map((child) => (
+                          <li key={child.name}>
+                            <Link
+                              to={child.path}
+                              className={`menu-dropdown-item ${isActive(child.path)
+                                ? "menu-dropdown-item-active"
+                                : "menu-dropdown-item-inactive"
+                                }`}
+                            >
+                              {child.name}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}

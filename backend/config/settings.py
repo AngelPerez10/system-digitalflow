@@ -61,7 +61,7 @@ else:
 
 if DEBUG:
     # Allow common LAN hosts for local development when running on 0.0.0.0
-    for h in ['0.0.0.0', '10.0.0.6', '10.0.0.5', '192.168.10.134']:
+    for h in ['0.0.0.0', '10.0.0.6', '10.0.0.5', '192.168.10.134', '192.168.10.136']:
         if h not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(h)
 
@@ -126,6 +126,7 @@ if DEBUG:
         'http://10.0.0.5:5173',
         'http://10.0.0.6:5173',
         'http://192.168.10.134:5173',
+        'http://192.168.10.136:5173',
     ]
     CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 else:
@@ -179,7 +180,6 @@ WSGI_APPLICATION = 'config.wsgi.application'
 #    }
 #}
 
-# Configuración para producción (PostgreSQL en Render)
 DATABASES = {
     "default": dj_database_url.parse(os.environ.get("DATABASE_URL"))
 }

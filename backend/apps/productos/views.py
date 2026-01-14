@@ -1,3 +1,4 @@
+"""ViewSets for productos app."""
 import os
 
 import cloudinary
@@ -7,14 +8,26 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
+from apps.users.permissions import ModulePermission
+
 from .models import Producto, ProductoDocumento, ProductoImagen
 from .serializers import ProductoDocumentoSerializer, ProductoImagenSerializer, ProductoSerializer
 
 
+class ProductosPermission(ModulePermission):
+    """Permission class for productos module."""
+    module_key = 'productos'
+
+
 class ProductoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing Producto instances.
+    
+    Provides CRUD operations for products with permission-based access control.
+    """
     queryset = Producto.objects.all()
     serializer_class = ProductoSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [ProductosPermission]
     pagination_class = None
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
@@ -36,6 +49,12 @@ class ProductoViewSet(viewsets.ModelViewSet):
 
 
 class ProductoImagenViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing ProductoImagen instances.
+    
+    Handles image uploads to Cloudinary for products.
+    Restricted to admin users only.
+    """
     queryset = ProductoImagen.objects.select_related('producto').all()
     serializer_class = ProductoImagenSerializer
     permission_classes = [IsAdminUser]
@@ -106,6 +125,12 @@ class ProductoImagenViewSet(viewsets.ModelViewSet):
 
 
 class ProductoDocumentoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing ProductoDocumento instances.
+    
+    Handles document uploads to Cloudinary for products.
+    Restricted to admin users only.
+    """
     queryset = ProductoDocumento.objects.select_related('producto').all()
     serializer_class = ProductoDocumentoSerializer
     permission_classes = [IsAdminUser]

@@ -83,7 +83,13 @@ class CotizacionSerializer(serializers.ModelSerializer):
 
         cot = Cotizacion.objects.create(creado_por=user, **validated_data)
         for i, item in enumerate(items_data or []):
-            CotizacionItem.objects.create(cotizacion=cot, orden=i, **item)
+            item_data = dict(item or {})
+            orden = item_data.pop('orden', None)
+            CotizacionItem.objects.create(
+                cotizacion=cot,
+                orden=int(orden) if orden is not None else i,
+                **item_data,
+            )
         return cot
 
     @transaction.atomic
@@ -97,6 +103,12 @@ class CotizacionSerializer(serializers.ModelSerializer):
         if items_data is not None:
             instance.items.all().delete()
             for i, item in enumerate(items_data or []):
-                CotizacionItem.objects.create(cotizacion=instance, orden=i, **item)
+                item_data = dict(item or {})
+                orden = item_data.pop('orden', None)
+                CotizacionItem.objects.create(
+                    cotizacion=instance,
+                    orden=int(orden) if orden is not None else i,
+                    **item_data,
+                )
 
         return instance

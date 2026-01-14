@@ -875,7 +875,7 @@ export default function Clientes() {
               <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
                 {currentClientes.map((cliente, idx) => (
                   <TableRow key={cliente.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                    <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">{startIndex + idx + 1001}</TableCell>
+                    <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">{startIndex + idx + 1000}</TableCell>
                     <TableCell className="px-2 py-1.5 w-1/4 text-gray-900 dark:text-white">{cliente.nombre}</TableCell>
                     <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">
                       {(() => {

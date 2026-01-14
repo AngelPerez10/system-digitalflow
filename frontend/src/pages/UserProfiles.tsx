@@ -29,6 +29,9 @@ type UserSignaturePayload = {
 type PermissionsPayload = {
   ordenes?: Partial<CrudPerms>;
   clientes?: Partial<CrudPerms>;
+  kpis?: Partial<CrudPerms>;
+  productos?: Partial<CrudPerms>;
+  cotizaciones?: Partial<CrudPerms>;
 };
 
 type UserAccount = {
@@ -112,6 +115,9 @@ const seedAdminPerms = async (userId: number) => {
   const full: Required<PermissionsPayload> = {
     ordenes: { view: true, create: true, edit: true, delete: true },
     clientes: { view: true, create: true, edit: true, delete: true },
+    productos: { view: true, create: true, edit: true, delete: true },
+    cotizaciones: { view: true, create: true, edit: true, delete: true },
+    kpis: { view: true, create: true, edit: true, delete: true },
   };
   const res = await fetch(apiUrl(`/api/users/accounts/${userId}/permissions/`), {
     method: 'PUT',
@@ -220,6 +226,9 @@ export default function UserProfiles() {
     const base: Required<PermissionsPayload> = {
       ordenes: { view: true, create: false, edit: false, delete: false },
       clientes: { view: true, create: false, edit: false, delete: false },
+      productos: { view: true, create: false, edit: false, delete: false },
+      cotizaciones: { view: true, create: false, edit: false, delete: false },
+      kpis: { view: true, create: false, edit: false, delete: false },
     };
     const safe = (v: any) => (typeof v === 'boolean' ? v : undefined);
     const mergeCrud = (dst: any, src: any) => {
@@ -234,6 +243,9 @@ export default function UserProfiles() {
     return {
       ordenes: mergeCrud(base.ordenes, p?.ordenes),
       clientes: mergeCrud(base.clientes, p?.clientes),
+      productos: mergeCrud(base.productos, p?.productos),
+      cotizaciones: mergeCrud(base.cotizaciones, p?.cotizaciones),
+      kpis: mergeCrud(base.kpis, p?.kpis),
     };
   };
 
@@ -299,6 +311,20 @@ export default function UserProfiles() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || 'No se pudieron guardar los permisos');
+
+      try {
+        const rawMe = localStorage.getItem('user') || sessionStorage.getItem('user');
+        const me = rawMe ? JSON.parse(rawMe) : null;
+        if (me && typeof me?.id === 'number' && me.id === permsUser.id) {
+          const pStr = JSON.stringify(permsForm || {});
+          localStorage.setItem('permissions', pStr);
+          sessionStorage.setItem('permissions', pStr);
+        }
+      } catch {
+        // ignore
+      }
+      window.dispatchEvent(new Event('permissions:updated'));
+
       setSuccess('Permisos actualizados');
       setIsPermsOpen(false);
       setPermsUser(null);
@@ -1042,6 +1068,9 @@ export default function UserProfiles() {
                       {([
                         { key: 'ordenes' as const, label: 'Órdenes' },
                         { key: 'clientes' as const, label: 'Clientes' },
+                        { key: 'productos' as const, label: 'Productos' },
+                        { key: 'cotizaciones' as const, label: 'Cotizaciones' },
+                        { key: 'kpis' as const, label: 'KPI Ventas' },
                       ] as const)
                         .filter(row => {
                           const isAdmin = permsUser?.is_superuser || permsUser?.is_staff;
@@ -1067,10 +1096,29 @@ export default function UserProfiles() {
                               <path d="M7 11h10" />
                               <path d="M7 15h6" />
                             </svg>
-                          ) : (
+                          ) : row.key === 'clientes' ? (
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                               <circle cx="12" cy="7" r="4" />
+                            </svg>
+                          ) : row.key === 'productos' ? (
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+                              <path d="M3.3 7l8.7 5 8.7-5" />
+                              <path d="M12 22V12" />
+                            </svg>
+                          ) : row.key === 'cotizaciones' ? (
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                              <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" />
+                              <path d="M8 12h8" />
+                              <path d="M8 16h6" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                              <path d="M4 19V5" />
+                              <path d="M20 19H4" />
+                              <path d="M7 15l3-4 3 2 4-6" />
                             </svg>
                           );
 

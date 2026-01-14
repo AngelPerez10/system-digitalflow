@@ -80,6 +80,32 @@ const formatCurrency = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 }).format(n || 0);
 
 export default function KpiVentasPage() {
+  const asBool = (v: any, defaultValue: boolean) => {
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'string') {
+      const s = v.trim().toLowerCase();
+      if (s === 'true') return true;
+      if (s === 'false') return false;
+    }
+    return defaultValue;
+  };
+
+  const getPermissionsFromStorage = () => {
+    try {
+      const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
+
+  const canKpisView = asBool(permissions?.kpis?.view, true);
+  const canKpisCreate = asBool(permissions?.kpis?.create, false);
+  const canKpisEdit = asBool(permissions?.kpis?.edit, false);
+  const canKpisDelete = asBool(permissions?.kpis?.delete, false);
+
   const [rows, setRows] = useState<KpiVenta[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -96,6 +122,47 @@ export default function KpiVentasPage() {
   const [rowToDelete, setRowToDelete] = useState<KpiVenta | null>(null);
   const [editingRow, setEditingRow] = useState<KpiVenta | null>(null);
   const [modalError, setModalError] = useState<string>("");
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    const load = async () => {
+      try {
+        const res = await fetch(apiUrl('/api/me/permissions/'), {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store' as RequestCache,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) return;
+        const p = data?.permissions || {};
+        const pStr = JSON.stringify(p);
+        localStorage.setItem('permissions', pStr);
+        sessionStorage.setItem('permissions', pStr);
+        setPermissions(p);
+        window.dispatchEvent(new Event('permissions:updated'));
+      } catch {
+        // ignore
+      }
+    };
+
+    load();
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setPermissions(getPermissionsFromStorage());
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('permissions:updated' as any, sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('permissions:updated' as any, sync);
+    };
+  }, []);
 
   const [formData, setFormData] = useState<Omit<KpiVenta, "id" | "idx">>({
     no_cliente: null,
@@ -121,6 +188,11 @@ export default function KpiVentasPage() {
   });
 
   const fetchRows = async () => {
+    if (!canKpisView) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
     const token = getToken();
     if (!token) {
       setRows([]);
@@ -158,7 +230,7 @@ export default function KpiVentasPage() {
 
   useEffect(() => {
     fetchRows();
-  }, []);
+  }, [canKpisView]);
 
   const shownRows = useMemo(() => {
     const q = (searchTerm || "").trim().toLowerCase();
@@ -207,6 +279,11 @@ export default function KpiVentasPage() {
   }, [rows]);
 
   const openCreate = () => {
+    if (!canKpisCreate) {
+      setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para crear KPIs." });
+      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
+      return;
+    }
     setEditingRow(null);
     setModalError("");
     setFormData({
@@ -235,6 +312,11 @@ export default function KpiVentasPage() {
   };
 
   const openEdit = (r: KpiVenta) => {
+    if (!canKpisEdit) {
+      setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para editar KPIs." });
+      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
+      return;
+    }
     setEditingRow(r);
     setModalError("");
     setFormData({
@@ -274,6 +356,17 @@ export default function KpiVentasPage() {
     if (!token) return;
 
     setModalError("");
+
+    if (!editingRow && !canKpisCreate) {
+      setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para crear KPIs." });
+      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
+      return;
+    }
+    if (editingRow && !canKpisEdit) {
+      setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para editar KPIs." });
+      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
+      return;
+    }
 
     const { ok, missing } = validate();
     if (!ok) {
@@ -346,6 +439,11 @@ export default function KpiVentasPage() {
   };
 
   const confirmDelete = (r: KpiVenta) => {
+    if (!canKpisDelete) {
+      setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para eliminar KPIs." });
+      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
+      return;
+    }
     setRowToDelete(r);
     setShowDeleteModal(true);
   };
@@ -353,6 +451,12 @@ export default function KpiVentasPage() {
   const doDelete = async () => {
     const token = getToken();
     if (!token || !rowToDelete) return;
+
+    if (!canKpisDelete) {
+      setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para eliminar KPIs." });
+      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
+      return;
+    }
 
     try {
       const res = await fetch(apiUrl(`/api/kpi-ventas/${rowToDelete.id}/`), {
@@ -391,6 +495,10 @@ export default function KpiVentasPage() {
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
       )}
 
+      {!canKpisView ? (
+        <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No tienes permiso para ver KPIs.</div>
+      ) : (
+      <>
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
@@ -578,6 +686,8 @@ export default function KpiVentasPage() {
           </div>
         </div>
       </ComponentCard>
+      </>
+      )}
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden">
         <div>

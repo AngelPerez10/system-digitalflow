@@ -1,14 +1,26 @@
+"""ViewSets for KPIs app."""
 from rest_framework import filters, viewsets
-from rest_framework.permissions import IsAdminUser
+
+from apps.users.permissions import ModulePermission
 
 from .models import KpiVenta
 from .serializers import KpiVentaSerializer
 
 
+class KpisPermission(ModulePermission):
+    """Permission class for KPIs module."""
+    module_key = 'kpis'
+
+
 class KpiVentaViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing KPI Venta instances.
+    
+    Provides CRUD operations for sales KPIs with permission-based access control.
+    """
     queryset = KpiVenta.objects.all()
     serializer_class = KpiVentaSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [KpisPermission]
     pagination_class = None
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]

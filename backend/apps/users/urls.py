@@ -1,13 +1,14 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import UserAccountViewSet, login_view, logout_view, me, my_permissions, my_signature, user_permissions, user_signature
+from .views import UserAccountViewSet, csrf_view, login_view, logout_view, me, my_permissions, my_signature, user_permissions, user_signature
 
 router = DefaultRouter()
 router.register(r'users/accounts', UserAccountViewSet, basename='user-accounts')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('csrf/', csrf_view, name='csrf'),
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
     path('me/', me, name='me'),

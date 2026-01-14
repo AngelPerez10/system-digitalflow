@@ -16,7 +16,14 @@ function getCookie(name: string): string | null {
 }
 
 async function login(loginValue: string, password: string) {
-  const csrftoken = getCookie("csrftoken");
+  let csrftoken = getCookie("csrftoken");
+  if (!csrftoken) {
+    await fetch(apiUrl("/api/csrf/"), {
+      method: "GET",
+      credentials: "include",
+    });
+    csrftoken = getCookie("csrftoken");
+  }
   const res = await fetch(apiUrl("/api/login/"), {
     method: "POST",
     credentials: "include",

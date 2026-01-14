@@ -59,35 +59,36 @@ type Concepto = {
   descuento_pct: number;
 };
 
-type StoredCotizacion = {
-  id: string;
-  folio: string;
-  fecha: string; // YYYY-MM-DD
-  vencimiento: string; // YYYY-MM-DD
-  creadaPor: string;
-  cliente_id?: number | null;
+type ApiCotizacionItem = {
+  id?: number;
+  producto_id: number | null;
+  producto_nombre: string;
+  producto_descripcion: string;
+  unidad: string;
+  thumbnail_url?: string;
+  cantidad: number;
+  precio_lista: number;
+  descuento_pct: number;
+  orden?: number;
+};
+
+type ApiCotizacion = {
+  id: number;
+  idx: number;
+  cliente_id: number | null;
   cliente: string;
-  contacto: string;
   prospecto: boolean;
+  contacto: string;
+  fecha: string | null;
+  vencimiento: string | null;
   subtotal: number;
   iva_pct: number;
   iva: number;
   total: number;
-  conceptos: Array<{
-    producto_id: number | null;
-    producto_nombre: string;
-    producto_descripcion: string;
-    unidad: string;
-    thumbnail_url?: string;
-    cantidad: number;
-    precio_lista: number;
-    descuento_pct: number;
-  }>;
   texto_arriba_precios: string;
   terminos: string;
+  items: ApiCotizacionItem[];
 };
-
-const COTIZACIONES_STORAGE_KEY = "cotizaciones";
 
 const selectLikeClassName =
   "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
@@ -120,6 +121,28 @@ const formatMoney = (n: number) => {
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 export default function NuevaCotizacionPage() {
+  const asBool = (v: any, defaultValue: boolean) => {
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'string') {
+      const s = v.trim().toLowerCase();
+      if (s === 'true') return true;
+      if (s === 'false') return false;
+    }
+    return defaultValue;
+  };
+
+  const getPermissionsFromStorage = () => {
+    try {
+      const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
+  const canCotizacionesView = asBool(permissions?.cotizaciones?.view, true);
+
   const navigate = useNavigate();
   const params = useParams();
   const editingCotizacionId = params?.id ? String(params.id) : "";
@@ -132,6 +155,47 @@ export default function NuevaCotizacionPage() {
     title: string;
     message: string;
   }>({ show: false, variant: "info", title: "", message: "" });
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    const load = async () => {
+      try {
+        const res = await fetch(apiUrl('/api/me/permissions/'), {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store' as RequestCache,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) return;
+        const p = data?.permissions || {};
+        const pStr = JSON.stringify(p);
+        localStorage.setItem('permissions', pStr);
+        sessionStorage.setItem('permissions', pStr);
+        setPermissions(p);
+        window.dispatchEvent(new Event('permissions:updated'));
+      } catch {
+        // ignore
+      }
+    };
+
+    load();
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setPermissions(getPermissionsFromStorage());
+    window.addEventListener('storage', sync);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('permissions:updated' as any, sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('permissions:updated' as any, sync);
+    };
+  }, []);
 
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -208,6 +272,7 @@ export default function NuevaCotizacionPage() {
 
   useEffect(() => {
     const fetchClientes = async () => {
+      if (!canCotizacionesView) return;
       const token = getToken();
       if (!token) return;
       setLoadingClientes(true);
@@ -230,6 +295,7 @@ export default function NuevaCotizacionPage() {
     };
 
     const fetchProductos = async () => {
+      if (!canCotizacionesView) return;
       const token = getToken();
       if (!token) return;
       setLoadingProductos(true);
@@ -253,111 +319,81 @@ export default function NuevaCotizacionPage() {
 
     fetchClientes();
     fetchProductos();
-  }, []);
+  }, [canCotizacionesView]);
 
   useEffect(() => {
     if (!editingCotizacionId) return;
     setHydratingFromStorage(true);
-    try {
-      const raw = localStorage.getItem(COTIZACIONES_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      const list: StoredCotizacion[] = Array.isArray(parsed) ? parsed : [];
-      const found = list.find((x) => String(x?.id) === editingCotizacionId);
-      if (!found) {
+    const token = getToken();
+    if (!token) {
+      setHydratingFromStorage(false);
+      return;
+    }
+
+    const load = async () => {
+      try {
+        const res = await fetch(apiUrl(`/api/cotizaciones/${editingCotizacionId}/`), {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store' as RequestCache,
+        });
+        const data = (await res.json().catch(() => null)) as ApiCotizacion | null;
+        if (!res.ok || !data) {
+          setAlert({
+            show: true,
+            variant: 'warning',
+            title: 'Cotización no encontrada',
+            message: 'No se encontró la cotización. Regresando al listado.',
+          });
+          window.setTimeout(() => navigate('/cotizacion'), 450);
+          return;
+        }
+
+        const isPros = asBool((data as any)?.prospecto, false);
+        setIsProspecto(isPros);
+        setClienteId(!isPros && data.cliente_id ? Number(data.cliente_id) : '');
+        setClienteProspectoNombre(isPros ? String(data.cliente || '') : '');
+        setContactoNombre(String(data.contacto || ''));
+        setVigenciaIso(String(data.vencimiento || todayIso));
+        setIvaPct(clampPct(toNumber(data.iva_pct, 16)));
+        setTextoArribaPrecios(String(data.texto_arriba_precios || ''));
+        setTerminos(String(data.terminos || ''));
+
+        const conceptosList: Concepto[] = Array.isArray(data.items)
+          ? data.items.map((it) => ({
+            id: uid(),
+            producto_id: it.producto_id ?? null,
+            producto_nombre: String(it.producto_nombre || ''),
+            producto_descripcion: String(it.producto_descripcion || ''),
+            unidad: String(it.unidad || ''),
+            thumbnail_url: it.thumbnail_url || undefined,
+            cantidad: toNumber(it.cantidad, 0),
+            precio_lista: toNumber(it.precio_lista, 0),
+            descuento_pct: clampPct(toNumber(it.descuento_pct, 0)),
+          }))
+          : [];
+        setConceptos(conceptosList);
+      } catch {
         setAlert({
           show: true,
-          variant: "warning",
-          title: "Cotización no encontrada",
-          message: "No se encontró la cotización guardada. Regresando al listado.",
+          variant: 'error',
+          title: 'Error',
+          message: 'No se pudo cargar la cotización.',
         });
-        window.setTimeout(() => navigate("/cotizacion"), 450);
-        setHydratingFromStorage(false);
-        return;
-      }
-
-      setIsProspecto(!!found.prospecto);
-      setClienteProspectoNombre(found.prospecto ? String(found.cliente || "") : "");
-      setContactoNombre(String(found.contacto || ""));
-      setVigenciaIso(String(found.vencimiento || todayIso));
-      setIvaPct(clampPct(toNumber(found.iva_pct, 16)));
-      setTextoArribaPrecios(String(found.texto_arriba_precios || ""));
-      setTerminos(String(found.terminos || ""));
-
-      // Conceptos
-      const conceptosList: Concepto[] = Array.isArray(found.conceptos)
-        ? found.conceptos.map((c) => ({
-          id: uid(),
-          producto_id: c.producto_id ?? null,
-          producto_nombre: String(c.producto_nombre || ""),
-          producto_descripcion: String(c.producto_descripcion || ""),
-          unidad: String(c.unidad || ""),
-          thumbnail_url: c.thumbnail_url || undefined,
-          cantidad: toNumber(c.cantidad, 0),
-          precio_lista: toNumber(c.precio_lista, 0),
-          descuento_pct: clampPct(toNumber(c.descuento_pct, 0)),
-        }))
-        : [];
-      setConceptos(conceptosList);
-
-      // If it's not a prospecto, attempt to resolve clienteId by nombre once clients are loaded.
-      if (!found.prospecto) {
-        const storedClienteId = toNumber((found as any)?.cliente_id, 0);
-        if (storedClienteId > 0) setClienteId(storedClienteId);
-        else setClienteId("");
-      }
-
-      // If it's a prospecto, we can end hydration immediately.
-      if (found.prospecto) {
+      } finally {
         setHydratingFromStorage(false);
       }
-    } catch {
-      setAlert({
-        show: true,
-        variant: "error",
-        title: "Error",
-        message: "No se pudo cargar la cotización guardada.",
-      });
-      setHydratingFromStorage(false);
-    }
+    };
+
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingCotizacionId]);
-
-  useEffect(() => {
-    if (!editingCotizacionId) return;
-    if (isProspecto) return;
-    if (!clientes.length) return;
-
-    try {
-      const raw = localStorage.getItem(COTIZACIONES_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      const list: StoredCotizacion[] = Array.isArray(parsed) ? parsed : [];
-      const found = list.find((x) => String(x?.id) === editingCotizacionId);
-      if (!found) return;
-
-      const storedClienteId = toNumber((found as any)?.cliente_id, 0);
-      if (storedClienteId > 0) {
-        setClienteId(storedClienteId);
-        setHydratingFromStorage(false);
-        return;
-      }
-
-      const nombre = String(found.cliente || "").trim();
-      if (!nombre) return;
-      const n0 = nombre.toLowerCase();
-      const match = clientes.find((c) => String(c.nombre || "").trim().toLowerCase() === n0);
-      if (match) setClienteId(match.id);
-    } catch {
-      return;
-    } finally {
-      setHydratingFromStorage(false);
-    }
-  }, [editingCotizacionId, clientes, isProspecto]);
 
   useEffect(() => {
     if (hydratingFromStorage) return;
     if (isProspecto) {
       setClienteId("");
-      setContactoNombre("");
+      if (!editingCotizacionId) setContactoNombre("");
       return;
     }
     setClienteProspectoNombre("");
@@ -417,43 +453,44 @@ export default function NuevaCotizacionPage() {
     return String(c?.nombre || "").trim();
   };
 
-  const getCurrentUserDisplayName = () => {
-    const candidates = [
-      localStorage.getItem("user"),
-      sessionStorage.getItem("user"),
-      localStorage.getItem("username"),
-      sessionStorage.getItem("username"),
-      localStorage.getItem("email"),
-      sessionStorage.getItem("email"),
-    ].filter(Boolean) as string[];
+  const handleSaveCotizacion = () => {
+    const p = getPermissionsFromStorage();
+    const canView = asBool(p?.cotizaciones?.view, true);
+    const canCreate = asBool(p?.cotizaciones?.create, false);
+    const canEdit = asBool(p?.cotizaciones?.edit, false);
 
-    for (const raw of candidates) {
-      const s = String(raw || "").trim();
-      if (!s) continue;
-      try {
-        const parsed = JSON.parse(s);
-        const first = String(parsed?.first_name || parsed?.user?.first_name || "").trim();
-        const last = String(parsed?.last_name || parsed?.user?.last_name || "").trim();
-        const full = `${first} ${last}`.trim();
-        if (full) return full;
-        const name =
-          parsed?.name ||
-          parsed?.nombre ||
-          parsed?.username ||
-          parsed?.email ||
-          parsed?.user?.name ||
-          parsed?.user?.nombre ||
-          parsed?.user?.username;
-        if (name) return String(name);
-      } catch {
-        if (s.includes("@")) return s;
-        if (s.length <= 80) return s;
+    if (!canView) {
+      setAlert({
+        show: true,
+        variant: "warning",
+        title: "Sin permiso",
+        message: "No tienes permiso para ver cotizaciones.",
+      });
+      return;
+    }
+
+    if (editingCotizacionId) {
+      if (!canEdit) {
+        setAlert({
+          show: true,
+          variant: "warning",
+          title: "Sin permiso",
+          message: "No tienes permiso para editar cotizaciones.",
+        });
+        return;
+      }
+    } else {
+      if (!canCreate) {
+        setAlert({
+          show: true,
+          variant: "warning",
+          title: "Sin permiso",
+          message: "No tienes permiso para crear cotizaciones.",
+        });
+        return;
       }
     }
-    return "—";
-  };
 
-  const handleSaveCotizacion = () => {
     const v = validateClienteContacto();
     if (!v.ok) {
       setAlert({
@@ -479,70 +516,65 @@ export default function NuevaCotizacionPage() {
     const clienteNombre = resolveClienteNombre();
     const contacto = String(contactoNombre || "").trim();
 
-    let list: StoredCotizacion[] = [];
-    try {
-      const raw = localStorage.getItem(COTIZACIONES_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      list = Array.isArray(parsed) ? (parsed as StoredCotizacion[]) : [];
-    } catch {
-      list = [];
-    }
+    const token = getToken();
+    if (!token) return;
 
-    const existing = editingCotizacionId
-      ? list.find((x) => String(x?.id) === String(editingCotizacionId))
-      : undefined;
-
-    const nextFolioNum =
-      (list
-        .map((x) => Number(String((x as any)?.folio || "").replace(/[^0-9]/g, "")))
-        .filter((n) => Number.isFinite(n) && n > 0)
-        .sort((a, b) => b - a)[0] || 0) + 1;
-
-    const createdBy = existing?.creadaPor ? String(existing.creadaPor) : getCurrentUserDisplayName();
-
-    const record: StoredCotizacion = {
-      id: existing?.id ? String(existing.id) : uid(),
-      folio: existing?.folio ? String(existing.folio) : String(nextFolioNum),
-      fecha: existing?.fecha ? String(existing.fecha) : nowIso,
-      vencimiento: venc,
-      creadaPor: createdBy,
+    const payload: any = {
       cliente_id: isProspecto ? null : (clienteId ? Number(clienteId) : null),
-      cliente: clienteNombre || "—",
-      contacto: contacto || "—",
+      cliente: clienteNombre || '',
       prospecto: !!isProspecto,
+      contacto: contacto || '',
+      fecha: nowIso,
+      vencimiento: venc,
       subtotal: toNumber(computed.subtotal, 0),
       iva_pct: clampPct(toNumber(ivaPct, 16)),
       iva: toNumber(computed.iva, 0),
       total: toNumber(computed.total, 0),
-      conceptos: computed.lines.map((c) => ({
+      texto_arriba_precios: String(textoArribaPrecios || ''),
+      terminos: String(terminos || ''),
+      items: computed.lines.map((c, i) => ({
         producto_id: c.producto_id,
         producto_nombre: c.producto_nombre,
         producto_descripcion: c.producto_descripcion,
         unidad: c.unidad,
-        thumbnail_url: c.thumbnail_url,
+        thumbnail_url: c.thumbnail_url || '',
         cantidad: toNumber(c.cantidad, 0),
         precio_lista: toNumber(c.precio_lista, 0),
         descuento_pct: clampPct(toNumber(c.descuento_pct, 0)),
+        orden: i,
       })),
-      texto_arriba_precios: String(textoArribaPrecios || ""),
-      terminos: String(terminos || ""),
     };
 
-    const nextList = existing
-      ? [record, ...list.filter((x) => String(x?.id) !== String(record.id))]
-      : [record, ...list];
-    localStorage.setItem(COTIZACIONES_STORAGE_KEY, JSON.stringify(nextList));
+    const save = async () => {
+      try {
+        const isEdit = !!editingCotizacionId;
+        const res = await fetch(apiUrl(isEdit ? `/api/cotizaciones/${editingCotizacionId}/` : '/api/cotizaciones/'), {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          const msg = data?.detail || JSON.stringify(data) || 'No se pudo guardar la cotización.';
+          setAlert({ show: true, variant: 'error', title: 'Error', message: msg });
+          return;
+        }
+        setAlert({
+          show: true,
+          variant: 'success',
+          title: isEdit ? 'Cotización actualizada' : 'Cotización guardada',
+          message: `Folio #${data?.idx || data?.id || ''} guardado correctamente.`,
+        });
+        window.setTimeout(() => navigate('/cotizacion'), 350);
+      } catch {
+        setAlert({ show: true, variant: 'error', title: 'Error', message: 'No se pudo guardar la cotización.' });
+      }
+    };
 
-    setAlert({
-      show: true,
-      variant: "success",
-      title: existing ? "Cotización actualizada" : "Cotización guardada",
-      message: `Folio #${record.folio} guardado correctamente.`,
-    });
-
-    window.setTimeout(() => {
-      navigate("/cotizacion");
-    }, 350);
+    save();
   };
 
   const canAddConcepto = useMemo(() => {
@@ -681,6 +713,11 @@ export default function NuevaCotizacionPage() {
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
       )}
+
+      {!canCotizacionesView ? (
+        <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No tienes permiso para ver Cotizaciones.</div>
+      ) : (
+      <>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -1031,6 +1068,9 @@ export default function NuevaCotizacionPage() {
           </ComponentCard>
         </div>
       </div>
+
+      </>
+      )}
     </div>
   );
 }
