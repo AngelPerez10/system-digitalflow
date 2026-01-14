@@ -63,9 +63,20 @@ class Orden(models.Model):
     def save(self, *args, **kwargs):
         if not self.idx:
             used_idxs = set(Orden.objects.values_list('idx', flat=True))
-            idx = 1
+            
+            # Buscar el idx más alto
+            max_idx = max(used_idxs) if used_idxs else 0
+            
+            # Si el máximo es <= 550, comenzar desde 5000
+            if max_idx <= 550:
+                idx = 5000
+            else:
+                idx = max_idx + 1
+            
+            # Asegurar que no exista
             while idx in used_idxs:
                 idx += 1
+            
             self.idx = idx
         super().save(*args, **kwargs)
 

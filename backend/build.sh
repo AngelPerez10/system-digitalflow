@@ -15,17 +15,15 @@ python manage.py collectstatic --noinput
 # Apply database migrations
 python manage.py migrate --noinput
 
-# Crear un superusuario automáticamente
-#python manage.py shell <<EOF
-#from django.contrib.auth.models import User
-# Verificar si ya existe el superusuario, si no, crear uno
-#if not User.objects.filter(username='AngelPerez10').exists():
-#    User.objects.create_superuser('AngelPerez10', 'angeelp7457@gmail.com', 'PEREZA01FL0')
-#else:
-#    print("El superusuario 'AngelPerez10' ya existe.")
-#EOF
-# Importación de clientes finalizada (comentado o eliminado)
-# python manage.py shell <<EOF
-# from import_clientes import import_clientes
-# import_clientes()
-# EOF
+# Importar órdenes desde el archivo TSV (si existe)
+if [ -f "ordenes" ]; then
+    echo "Importando órdenes desde archivo TSV..."
+    python manage.py import_ordenes ordenes --update-existing
+    echo "✓ Importación de órdenes completada"
+fi
+
+# Renumerar órdenes para que comiencen desde 5000
+echo "Renumerando órdenes..."
+python manage.py renumerar_ordenes
+echo "✓ Renumeración de órdenes completada"
+
