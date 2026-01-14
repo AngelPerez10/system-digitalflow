@@ -95,6 +95,21 @@ const getCsrfToken = (): string | null => {
   }
 };
 
+const ensureCsrfCookie = async () => {
+  let csrf = getCsrfToken();
+  if (csrf) return csrf;
+  try {
+    await fetch(apiUrl('/api/csrf/'), {
+      method: 'GET',
+      credentials: 'include',
+    });
+  } catch {
+    // ignore
+  }
+  csrf = getCsrfToken();
+  return csrf;
+};
+
 const getAuthHeaders = (): Record<string, string> => {
   const token = (
     localStorage.getItem('auth_token') ||
@@ -119,6 +134,8 @@ const seedAdminPerms = async (userId: number) => {
     cotizaciones: { view: true, create: true, edit: true, delete: true },
     kpis: { view: true, create: true, edit: true, delete: true },
   };
+
+  await ensureCsrfCookie();
   const res = await fetch(apiUrl(`/api/users/accounts/${userId}/permissions/`), {
     method: 'PUT',
     credentials: 'include',
@@ -300,6 +317,18 @@ export default function UserProfiles() {
     setSuccess(null);
     setPermsSaving(true);
     try {
+      await ensureCsrfCookie();
+
+      const isAdmin = permsUser.is_superuser || permsUser.is_staff;
+      const payloadPerms = isAdmin
+        ? permsForm
+        : {
+            ...permsForm,
+            productos: { view: false, create: false, edit: false, delete: false },
+            cotizaciones: { view: false, create: false, edit: false, delete: false },
+            kpis: { view: false, create: false, edit: false, delete: false },
+          };
+
       const res = await fetch(apiUrl(`/api/users/accounts/${permsUser.id}/permissions/`), {
         method: 'PUT',
         credentials: 'include',
@@ -307,7 +336,7 @@ export default function UserProfiles() {
           'Content-Type': 'application/json',
           ...getAuthHeaders(),
         },
-        body: JSON.stringify({ permissions: permsForm }),
+        body: JSON.stringify({ permissions: payloadPerms }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || 'No se pudieron guardar los permisos');
@@ -316,7 +345,7 @@ export default function UserProfiles() {
         const rawMe = localStorage.getItem('user') || sessionStorage.getItem('user');
         const me = rawMe ? JSON.parse(rawMe) : null;
         if (me && typeof me?.id === 'number' && me.id === permsUser.id) {
-          const pStr = JSON.stringify(permsForm || {});
+          const pStr = JSON.stringify(payloadPerms || {});
           localStorage.setItem('permissions', pStr);
           sessionStorage.setItem('permissions', pStr);
         }
@@ -524,6 +553,7 @@ export default function UserProfiles() {
 
     setCreating(true);
     try {
+      await ensureCsrfCookie();
       const payload = {
         username: form.username.trim(),
         first_name: (form.first_name || '').trim(),
@@ -571,6 +601,7 @@ export default function UserProfiles() {
     }
     setEditing(true);
     try {
+      await ensureCsrfCookie();
       const hasNewSignature = !!signatureValue && signatureValue.startsWith('data:') && signatureValue.includes(';base64,');
 
       const payload: any = {
@@ -599,6 +630,7 @@ export default function UserProfiles() {
       if (!res.ok) throw new Error(data?.detail || 'Error al actualizar usuario');
 
       if (hasNewSignature) {
+        await ensureCsrfCookie();
         const resSig = await fetch(apiUrl(`/api/users/accounts/${editUser.id}/signature/`), {
           method: 'PUT',
           credentials: 'include',
@@ -636,6 +668,7 @@ export default function UserProfiles() {
     setSuccess(null);
     setDeleting(true);
     try {
+      await ensureCsrfCookie();
       const res = await fetch(apiUrl(`/api/users/accounts/${confirmDeleteId}/`), {
         method: 'DELETE',
         credentials: 'include',
@@ -1065,19 +1098,17 @@ export default function UserProfiles() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {([
-                        { key: 'ordenes' as const, label: 'Órdenes' },
-                        { key: 'clientes' as const, label: 'Clientes' },
-                        { key: 'productos' as const, label: 'Productos' },
-                        { key: 'cotizaciones' as const, label: 'Cotizaciones' },
-                        { key: 'kpis' as const, label: 'KPI Ventas' },
-                      ] as const)
-                        .filter(row => {
-                          const isAdmin = permsUser?.is_superuser || permsUser?.is_staff;
-                          if (!isAdmin && row.key === 'clientes') return false;
-                          return true;
-                        })
-                        .map((row) => {
+                      {(
+                        (permsUser?.is_superuser || permsUser?.is_staff)
+                          ? ([
+                              { key: 'ordenes' as const, label: 'Órdenes' },
+                              { key: 'clientes' as const, label: 'Clientes' },
+                              { key: 'productos' as const, label: 'Productos' },
+                              { key: 'cotizaciones' as const, label: 'Cotizaciones' },
+                              { key: 'kpis' as const, label: 'KPI Ventas' },
+                            ] as const)
+                          : ([{ key: 'ordenes' as const, label: 'Órdenes' }] as const)
+                      ).map((row) => {
                           const cur = normalizePerms(permsForm)[row.key] as CrudPerms;
                           const cell = (k: keyof CrudPerms) => (
                             <td className="px-4 py-3 text-center">

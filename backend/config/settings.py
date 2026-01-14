@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 """Security & environment"""
 # Allow overriding via DEBUG env, otherwise auto-detect Render (DEBUG False on Render)
-SECRET_KEY = os.environ.get('SECRET_KEY', default='your secret key')
+SECRET_KEY = os.environ.get('SECRET_KEY', default='')
 
 # SECRET_KEY must be set in production
 DEBUG = 'RENDER' not in os.environ
