@@ -53,7 +53,6 @@ const AppSidebar: React.FC = () => {
       try {
         const res = await fetch(apiUrl('/api/me/permissions/'), {
           method: 'GET',
-          credentials: 'include',
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         const data = await res.json().catch(() => null);

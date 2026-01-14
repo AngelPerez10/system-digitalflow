@@ -34,7 +34,6 @@ export default function UserDropdown() {
       try {
         const res = await fetch(apiUrl('/api/me/'), {
           method: 'GET',
-          credentials: 'include',
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           cache: 'no-store' as RequestCache,
         });

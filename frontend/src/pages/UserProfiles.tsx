@@ -246,7 +246,6 @@ export default function UserProfiles() {
     try {
       const res = await fetch(apiUrl(`/api/users/accounts/${u.id}/permissions/`), {
         method: 'GET',
-        credentials: 'include',
         headers: { ...getAuthHeaders() },
         cache: 'no-store' as RequestCache,
       });
@@ -338,7 +337,6 @@ export default function UserProfiles() {
     try {
       const res = await fetch(API, {
         method: 'GET',
-        credentials: 'include',
         headers: { ...getAuthHeaders() },
         cache: 'no-store' as RequestCache,
       });
@@ -455,7 +453,6 @@ export default function UserProfiles() {
     setSignatureLoading(true);
     fetch(apiUrl(`/api/users/accounts/${u.id}/signature/`), {
       method: 'GET',
-      credentials: 'include',
       headers: { ...getAuthHeaders() },
       cache: 'no-store' as RequestCache,
     })
@@ -1317,7 +1314,6 @@ export default function UserProfiles() {
                 try {
                   const res = await fetch(apiUrl(`/api/users/accounts/${editUser.id}/signature/`), {
                     method: 'DELETE',
-                    credentials: 'include',
                     headers: { ...getAuthHeaders() },
                   });
                   const data = (await res.json().catch(() => null)) as UserSignaturePayload | null;
