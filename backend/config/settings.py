@@ -10,148 +10,178 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
-from pathlib import Path
 from datetime import timedelta
-import os  # Import os module
+from pathlib import Path
+import os
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 """Security & environment"""
 # Allow overriding via DEBUG env, otherwise auto-detect Render (DEBUG False on Render)
-SECRET_KEY = os.environ.get('SECRET_KEY', default='your secret key')
+SECRET_KEY = os.environ.get('SECRET_KEY', default='')
 
-# SECRET_KEY from env; in production it must be set
+# SECRET_KEY must be set in production
 DEBUG = 'RENDER' not in os.environ
 
-ALLOWED_HOSTS = ["*"]
+# In development, Django/SimpleJWT require SECRET_KEY to be non-empty.
+# In production (DEBUG False), enforce that it must come from env.
+if DEBUG and not SECRET_KEY:
+    SECRET_KEY = 'dev-only-insecure-secret-key-change-me'
+if not DEBUG and not SECRET_KEY:
+    raise RuntimeError('SECRET_KEY environment variable must be set in production')
+
+# Cargar variables desde .env en desarrollo local (sin dependencias externas)
+if DEBUG:
+    env_path = BASE_DIR / '.env'
+    if env_path.exists():
+        try:
+            for raw_line in env_path.read_text(encoding='utf-8', errors='ignore').splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                k, v = line.split('=', 1)
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+        except Exception:
+            pass
+
+_allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '').strip()
+if _allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
+else:
+    # Safe defaults: explicit dev hosts only.
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
+if DEBUG:
+    # Allow common LAN hosts for local development when running on 0.0.0.0
+    for h in ['0.0.0.0', '10.0.0.6', '10.0.0.5', '192.168.10.134', '192.168.10.136']:
+        if h not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(h)
 
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
-if RENDER_EXTERNAL_HOSTNAME:
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
-
+# =====================
 # Application definition
-
+# =====================
 INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
-    
-    # Mis apps
-    "apps.common",
-    "apps.nomina",
-    "apps.programacion",
-    "apps.taller",
-    "apps.users",
-    "apps.viajes",
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
 
     # Django REST Framework
-    "rest_framework",
-    "corsheaders",
+    'rest_framework',
+    'rest_framework_simplejwt',
+
+    # CORS
+    'corsheaders',
+
+    # Apps
+    'apps.users',
+    'apps.clientes',
+    'apps.productos',
+    'apps.ordenes',
+    'apps.kpis',
+    'apps.cotizaciones',
 ]
 
 # Evitar duplicados accidentales en INSTALLED_APPS (mantiene el primer orden)
 INSTALLED_APPS = list(dict.fromkeys(INSTALLED_APPS))
 
 MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # CORS debe ir lo más arriba posible
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
-MIDDLEWARE = [
-    "config.middleware.RootRedirectMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
-    "config.api_no_cache_middleware.ApiNoCacheMiddleware",
-] + MIDDLEWARE
 
 # Permitir conexión desde frontend
 # Use explicit allowed origins for the Vite dev server(s) and enable credentials
 # IMPORTANT: If your frontend uses session authentication you must include credentials:
 # fetch(url, { method, credentials: 'include', ... })
 CORS_ALLOW_ALL_ORIGINS = False
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://192.168.56.1:3000",
-    "http://192.168.0.126:3000",
-    "http://10.0.0.5:3000",
-    "http://10.0.0.6:3000",
-    "http://10.0.0.14:3000",
-    # Render frontend (production)
-    "https://transportista-frontend.onrender.com",
-]
-
-# Allow cookies / session auth to be sent (frontend must use credentials: 'include')
 CORS_ALLOW_CREDENTIALS = True
 
-# Cache CORS preflight (OPTIONS) responses to reduce repeated preflight requests
-CORS_PREFLIGHT_MAX_AGE = 86400
+# CORS: restrictivo en producción, permisivo en desarrollo
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        'http://localhost:5173',
+        'http://10.0.0.5:5173',
+        'http://10.0.0.6:5173',
+        'http://192.168.10.134:5173',
+        'http://192.168.10.136:5173',
+    ]
+    CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+else:
+    _cors_env = os.environ.get('CORS_ALLOWED_ORIGINS', '').strip()
+    if _cors_env:
+        CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(',') if o.strip()]
+    else:
+        CORS_ALLOWED_ORIGINS = [
+            'https://sistema-grupo-atr.onrender.com',
+            'https://system-digitalflow.onrender.com',
+        ]
+    _csrf_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
+    if _csrf_env:
+        CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(',') if o.strip()]
+    else:
+        CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
-# CSRF trusted origins must include scheme + host[:port]
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://192.168.56.1:3000",
-    "http://192.168.0.126:3000",
-    "http://10.0.0.5:3000",
-    "http://10.0.0.6:3000",
-    "http://10.0.0.14:3000",
-    # Render frontend (production)
-    "https://transportista-frontend.onrender.com",
-]
+# CSRF/Session cookie settings: Secure solo en producción (HTTPS)
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
+SESSION_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
 
-REST_FRAMEWORK = {
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
-    ],
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.BasicAuthentication",
-    ],
-}
+# If behind a reverse proxy (Render), respect X-Forwarded-Proto for HTTPS detection
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-}
+if not DEBUG:
+    # Security headers / HTTPS hardening
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '31536000'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'same-origin'
+    X_FRAME_OPTIONS = 'DENY'
 
-
-ROOT_URLCONF = "config.urls"
+ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
     {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = "config.wsgi.application"
+WSGI_APPLICATION = 'config.wsgi.application'
 
-
-# Configuración de base de datos para desarrollo (SQLite)
 #DATABASES = {
 #    'default': {
 #        'ENGINE': 'django.db.backends.sqlite3',
@@ -159,29 +189,28 @@ WSGI_APPLICATION = "config.wsgi.application"
 #    }
 #}
 
-# Configuración para producción (PostgreSQL en Render)
 DATABASES = {
     "default": dj_database_url.parse(os.environ.get("DATABASE_URL"))
 }
 
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
+# =====================
+# Password validation
+# =====================
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'
     },
     {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'
     },
 ]
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
@@ -208,113 +237,41 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 if not DEBUG:
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
+    
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-# Frontend URL configuration
-# En desarrollo se genera automáticamente
-# En producción debes configurar esta URL
-FRONTEND_URL = os.environ.get('FRONTEND_URL') or ("http://localhost:3000" if DEBUG else None)
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-# Ejemplos de configuración para producción:
-# FRONTEND_URL = 'https://tu-frontend.com'  # Para dominios separados
-# FRONTEND_URL = 'https://tu-dominio.com'   # Para mismo dominio
-# FRONTEND_URL = None                       # Para generar automáticamente en desarrollo
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+ 
 
 # =====================
-# Cloudinary Integration
+# API / Auth (DRF + JWT)
 # =====================
-# Apps
-try:
-    INSTALLED_APPS
-except NameError:
-    INSTALLED_APPS = []
-
-for app in ['cloudinary', 'cloudinary_storage']:
-    if app not in INSTALLED_APPS:
-        INSTALLED_APPS.append(app)
-
-# Credentials only from environment (no hardcoded defaults)
-CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME')
-CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY')
-CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET')
-if not DEBUG and not all([CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET]):
-    raise RuntimeError("Cloudinary credentials must be set in production")
-
-# Provide settings dict expected by cloudinary_storage at import time
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': CLOUDINARY_CLOUD_NAME or ('dw2rmznvx' if DEBUG else None),
-    'API_KEY': CLOUDINARY_API_KEY or ('513368538693322' if DEBUG else None),
-    'API_SECRET': CLOUDINARY_API_SECRET or ('jorrUdo4ql2lMAmbSHNcOoz5hhU' if DEBUG else None),
-    'SECURE': True,
-    # Ensure media uploads are public and delivered via image/upload
-    'UPLOAD_OPTIONS': {
-        'type': 'upload',
-        'access_mode': 'public',
-        'use_filename': True,
-        'unique_filename': False,
-        'overwrite': True,
-    },
-    # Make raw uploads publicly deliverable (avoid authenticated/raw requiring signed URLs)
-    'RAW_UPLOAD_OPTIONS': {
-        'resource_type': 'raw',
-        'type': 'upload',
-        'overwrite': True,
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'apps.users.authentication.CookieJWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour',
     },
 }
 
-# Configuración de email
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 465
-EMAIL_USE_TLS = False
-EMAIL_USE_SSL = True
-EMAIL_HOST_USER = 'grupointegraordenes@gmail.com'
-EMAIL_HOST_PASSWORD = 'qwrc bwag paip zoue'
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-EMAIL_TIMEOUT = 20
+# Límites de tamaño de uploads
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 
-# Always use Cloudinary for media storage (serve via image/upload)
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-
-# Image optimization config
-IMAGE_OPTIMIZATION_CONFIG = {
-    'MAX_SIZE_KB': 50,  # Reducido de 100KB a 50KB
-    'MAX_DIMENSION': 800,  # Reducido de 1000px
-    'DEFAULT_QUALITY': 75,  # Reducido de 85
-    'MAX_ATTEMPTS': 8,
-    'FOLDERS': {
-        'ORDENES': 'ordenes_servicio',
-        'FIRMAS': 'firmas',
-        'INCIDENCIAS': 'incidencias',
-    },
+SIMPLE_JWT = {
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
-
-# Cloudinary upload default params
-CLOUDINARY_UPLOAD_PARAMS = {
-    'quality': 'auto:good',  # Cambiado de 'auto:best' a 'auto:good'
-    'fetch_format': 'auto',
-    'flags': 'progressive',
-    'width': 800,  # Reducido de 1000px
-    'crop': 'limit',
-    'dpr': 'auto',
-    'resource_type': 'auto',
-}
-
-# Security behind proxy (Render) and secure cookies in production
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-if not DEBUG:
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    # Allow cross-site cookies from separate frontend domain
-    SESSION_COOKIE_SAMESITE = "None"
-    CSRF_COOKIE_SAMESITE = "None"
-    SECURE_HSTS_SECONDS = 60 * 60 * 24
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
