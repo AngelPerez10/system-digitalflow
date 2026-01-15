@@ -92,6 +92,8 @@ export default function Ordenes() {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
+
+
   const [editingOrden, setEditingOrden] = useState<Orden | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
@@ -545,6 +547,18 @@ export default function Ordenes() {
   // Estados para dropdowns personalizados
   const [clienteOpen, setClienteOpen] = useState(false);
   const [clienteSearch, setClienteSearch] = useState('');
+  const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedClienteSearch(clienteSearch);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [clienteSearch]);
+
+  useEffect(() => {
+    fetchClientes(debouncedClienteSearch);
+  }, [debouncedClienteSearch]);
   const [tecnicoOpen, setTecnicoOpen] = useState(false);
   const [tecnicoSearch, setTecnicoSearch] = useState('');
   const [servicioOpen, setServicioOpen] = useState(false);
@@ -599,12 +613,17 @@ export default function Ordenes() {
     return { ok: missing.length === 0, missing };
   };
 
-  const fetchClientes = async () => {
+  const fetchClientes = async (search = "") => {
     try {
       const token = getToken();
       if (!token) return;
 
-      const response = await fetch(apiUrl("/api/clientes/"), {
+      const query = new URLSearchParams({
+        search: search.trim(),
+        page_size: '20', // Limit results for dropdown
+      });
+
+      const response = await fetch(apiUrl(`/api/clientes/?${query.toString()}`), {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -613,7 +632,8 @@ export default function Ordenes() {
 
       if (response.ok) {
         const data = await response.json();
-        setClientes(Array.isArray(data) ? data : []);
+        const rows = Array.isArray(data) ? data : (data.results || []);
+        setClientes(rows);
       }
     } catch (error) {
       console.error("Error al cargar clientes:", error);
@@ -1001,11 +1021,7 @@ export default function Ordenes() {
   const currentOrdenes = shownList;
 
   // Funciones para dropdowns personalizados
-  const filteredClientes = clientes.filter(c => {
-    const q = clienteSearch.trim().toLowerCase();
-    if (!q) return true;
-    return (c.nombre || '').toLowerCase().includes(q) || (c.telefono || '').toLowerCase().includes(q);
-  });
+  const filteredClientes = clientes; // Backend already filtered them
 
   const selectCliente = (cliente: Cliente | null) => {
     if (cliente) {
