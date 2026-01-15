@@ -13,14 +13,10 @@ import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { apiUrl } from "@/config/api";
 import { PencilIcon, TrashBinIcon, TimeIcon } from "../../icons";
+import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
+import { Cliente } from "@/types/cliente";
 
-interface Cliente {
-  id: number;
-  idx: number;
-  nombre: string;
-  direccion: string;
-  telefono: string;
-}
+
 
 interface Orden {
   id: number;
@@ -90,6 +86,7 @@ export default function Ordenes() {
   const [loading, setLoading] = useState(true);
   const [reindexing, setReindexing] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showClienteModal, setShowClienteModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
 
@@ -640,6 +637,12 @@ export default function Ordenes() {
     }
   };
 
+  const handleClienteSuccess = (newCliente: Cliente) => {
+    fetchClientes();
+    selectCliente(newCliente as any);
+    setShowClienteModal(false);
+  };
+
   const fetchUsuarios = async () => {
     try {
       const token = getToken();
@@ -1025,12 +1028,17 @@ export default function Ordenes() {
 
   const selectCliente = (cliente: Cliente | null) => {
     if (cliente) {
+      // Obtener el contacto principal (primer contacto o el marcado como principal)
+      const contactoPrincipal = (cliente.contactos || []).find((c: any) => c.is_principal) || (cliente.contactos || [])[0];
+      const nombreContacto = contactoPrincipal?.nombre_apellido || '';
+
       setFormData({
         ...formData,
         cliente_id: cliente.id,
         cliente: cliente.nombre,
         direccion: cliente.direccion,
-        telefono_cliente: cliente.telefono
+        telefono_cliente: cliente.telefono,
+        nombre_cliente: nombreContacto
       });
       setClienteSearch(cliente.nombre);
     } else {
@@ -1741,19 +1749,38 @@ export default function Ordenes() {
                         onChange={(e) => { setClienteSearch(e.target.value); setClienteOpen(true); }}
                         onFocus={() => setClienteOpen(true)}
                         placeholder='Buscar cliente por nombre o teléfono...'
-                        className='block w-full rounded-lg border border-gray-300 bg-white pl-8 pr-20 py-2.5 text-[13px] text-gray-800 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                        className='block w-full rounded-lg border border-gray-300 bg-white pl-8 pr-12 py-2.5 text-[13px] text-gray-800 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
                       />
                       <div className='absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5'>
                         {(formData.cliente_id || formData.cliente) && (
-                          <button type='button' onClick={() => { selectCliente(null); }} className='h-8 px-2 rounded-md text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition'>Limpiar</button>
+                          <button type='button' onClick={() => { selectCliente(null); }} className='h-8 px-2 rounded-md text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition' title="Quitar selección">Limpiar</button>
                         )}
-                        <button type='button' onClick={() => setClienteOpen(o => !o)} className='h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition'>
+                        <button type='button' onClick={() => setClienteOpen(o => !o)} className='h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition' title="Ver listado">
                           <svg className={`w-3.5 h-3.5 transition-transform ${clienteOpen ? 'rotate-180' : ''}`} viewBox='0 0 20 20' fill='none'><path d='M5.25 7.5 10 12.25 14.75 7.5' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' /></svg>
                         </button>
                       </div>
                     </div>
                     {clienteOpen && (
                       <div className='absolute z-20 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white/95 dark:bg-gray-900/95 backdrop-blur max-h-64 overflow-auto custom-scrollbar divide-y divide-gray-100 dark:divide-gray-800 shadow-theme-md'>
+                        {clienteSearch.trim() !== "" && filteredClientes.length === 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowClienteModal(true);
+                              setClienteOpen(false);
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-3 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors border-b border-gray-100 dark:border-gray-800"
+                          >
+                            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-500/20">
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            </div>
+                            <div className="flex flex-col text-left">
+                              <span className="text-sm font-semibold">Nuevo Cliente</span>
+                            </div>
+                          </button>
+                        )}
                         <button type='button' onClick={() => selectCliente(null)} className={`w-full text-left px-3 py-2 text-[11px] hover:bg-brand-50 dark:hover:bg-gray-800 dark:text-white ${!formData.cliente_id ? 'bg-brand-50/60 dark:bg-gray-800/50 font-medium text-brand-700 dark:text-white' : ''}`}>Selecciona cliente</button>
                         {filteredClientes.map(c => (
                           <button key={c.id} type='button' onClick={() => selectCliente(c)} className='w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition'>
@@ -2463,6 +2490,13 @@ export default function Ordenes() {
         </div>
       </Modal>
 
+      <ClienteFormModal
+        isOpen={showClienteModal}
+        onClose={() => setShowClienteModal(false)}
+        onSuccess={handleClienteSuccess}
+        editingCliente={null}
+        permissions={permissions}
+      />
     </div>
   );
 }

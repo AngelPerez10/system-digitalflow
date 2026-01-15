@@ -48,6 +48,7 @@ class Cliente(models.Model):
     )
 
     # Otros
+    is_prospecto = models.BooleanField(default=False)
     notas = models.TextField(blank=True, default='')
     descuento_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
 

@@ -27,6 +27,9 @@ type Cliente = {
   id: number;
   idx: number;
   nombre: string;
+  is_prospecto?: boolean;
+  telefono?: string;
+  direccion?: string;
   contactos?: ClienteContacto[];
 };
 
@@ -203,9 +206,10 @@ export default function NuevaCotizacionPage() {
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [productos, setProductos] = useState<Producto[]>([]);
 
-  const [isProspecto, setIsProspecto] = useState(false);
   const [clienteId, setClienteId] = useState<number | "">("");
-  const [clienteProspectoNombre, setClienteProspectoNombre] = useState("");
+  const [clienteSearch, setClienteSearch] = useState("");
+  const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
+  const [clienteOpen, setClienteOpen] = useState(false);
 
   const [contactoNombre, setContactoNombre] = useState("");
 
@@ -270,30 +274,37 @@ export default function NuevaCotizacionPage() {
     return { qty, pl, desc, pu, importe };
   }, [cantidad, precioLista, descuentoPct]);
 
-  useEffect(() => {
-    const fetchClientes = async () => {
-      if (!canCotizacionesView) return;
-      const token = getToken();
-      if (!token) return;
-      setLoadingClientes(true);
-      try {
-        const res = await fetch(apiUrl("/api/clientes/"), {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-        const data = await res.json().catch(() => []);
-        if (!res.ok) {
-          setClientes([]);
-          return;
-        }
-        setClientes(Array.isArray(data) ? (data as Cliente[]) : []);
-      } finally {
-        setLoadingClientes(false);
+  const fetchClientes = async (search = "") => {
+    if (!canCotizacionesView) return;
+    const token = getToken();
+    if (!token) return;
+    setLoadingClientes(true);
+    try {
+      const query = new URLSearchParams({
+        search: search.trim(),
+        page_size: '20',
+      });
+      const res = await fetch(apiUrl(`/api/clientes/?${query.toString()}`), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await res.json().catch(() => ({ results: [], count: 0 }));
+      if (!res.ok) {
+        setClientes([]);
+        return;
       }
-    };
+      const rows = Array.isArray(data) ? data : (data.results || []);
+      setClientes(rows);
+    } catch (error) {
+      console.error("Error fetching clientes:", error);
+    } finally {
+      setLoadingClientes(false);
+    }
+  };
 
+  useEffect(() => {
     const fetchProductos = async () => {
       if (!canCotizacionesView) return;
       const token = getToken();
@@ -317,9 +328,32 @@ export default function NuevaCotizacionPage() {
       }
     };
 
-    fetchClientes();
     fetchProductos();
   }, [canCotizacionesView]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedClienteSearch(clienteSearch);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [clienteSearch]);
+
+  useEffect(() => {
+    fetchClientes(debouncedClienteSearch);
+  }, [debouncedClienteSearch]);
+
+  const selectCliente = (cliente: Cliente | null) => {
+    if (cliente) {
+      setClienteId(cliente.id);
+      setClienteSearch(cliente.nombre);
+    } else {
+      setClienteId("");
+      setClienteSearch("");
+    }
+    setClienteOpen(false);
+  };
+
+  const filteredClientes = clientes;
 
   useEffect(() => {
     if (!editingCotizacionId) return;
@@ -349,10 +383,7 @@ export default function NuevaCotizacionPage() {
           return;
         }
 
-        const isPros = asBool((data as any)?.prospecto, false);
-        setIsProspecto(isPros);
-        setClienteId(!isPros && data.cliente_id ? Number(data.cliente_id) : '');
-        setClienteProspectoNombre(isPros ? String(data.cliente || '') : '');
+        setClienteId(data.cliente_id ? Number(data.cliente_id) : '');
         setContactoNombre(String(data.contacto || ''));
         setVigenciaIso(String(data.vencimiento || todayIso));
         setIvaPct(clampPct(toNumber(data.iva_pct, 16)));
@@ -391,17 +422,6 @@ export default function NuevaCotizacionPage() {
 
   useEffect(() => {
     if (hydratingFromStorage) return;
-    if (isProspecto) {
-      setClienteId("");
-      if (!editingCotizacionId) setContactoNombre("");
-      return;
-    }
-    setClienteProspectoNombre("");
-  }, [isProspecto, hydratingFromStorage]);
-
-  useEffect(() => {
-    if (hydratingFromStorage) return;
-    if (isProspecto) return;
     if (!selectedCliente) {
       if (!editingCotizacionId) setContactoNombre("");
       return;
@@ -414,7 +434,7 @@ export default function NuevaCotizacionPage() {
     const first = (selectedCliente.contactos || [])[0];
     const next = (principal?.nombre_apellido || first?.nombre_apellido || "").trim();
     setContactoNombre(next);
-  }, [isProspecto, selectedCliente, hydratingFromStorage, editingCotizacionId, contactoNombre]);
+  }, [selectedCliente, hydratingFromStorage, editingCotizacionId, contactoNombre]);
 
   useEffect(() => {
     if (!selectedProducto) {
@@ -438,17 +458,12 @@ export default function NuevaCotizacionPage() {
 
   const validateClienteContacto = () => {
     const missing: string[] = [];
-    if (isProspecto) {
-      if (!String(clienteProspectoNombre || "").trim()) missing.push("Cliente (Prospecto)");
-    } else {
-      if (!clienteId) missing.push("Cliente");
-    }
+    if (!clienteId) missing.push("Cliente");
     if (!String(contactoNombre || "").trim()) missing.push("Contacto");
     return { ok: missing.length === 0, missing };
   };
 
   const resolveClienteNombre = () => {
-    if (isProspecto) return String(clienteProspectoNombre || "").trim();
     const c = selectedCliente;
     return String(c?.nombre || "").trim();
   };
@@ -520,9 +535,9 @@ export default function NuevaCotizacionPage() {
     if (!token) return;
 
     const payload: any = {
-      cliente_id: isProspecto ? null : (clienteId ? Number(clienteId) : null),
+      cliente_id: clienteId ? Number(clienteId) : null,
       cliente: clienteNombre || '',
-      prospecto: !!isProspecto,
+      prospecto: !!selectedCliente?.is_prospecto,
       contacto: contacto || '',
       fecha: nowIso,
       vencimiento: venc,
@@ -583,7 +598,7 @@ export default function NuevaCotizacionPage() {
     const prodOk = !!productoId;
     return v.ok && qtyOk && prodOk;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isProspecto, clienteId, clienteProspectoNombre, contactoNombre, cantidad, productoId]);
+  }, [clienteId, contactoNombre, cantidad, productoId]);
 
   const addConcepto = () => {
     const v = validateClienteContacto();
@@ -684,9 +699,7 @@ export default function NuevaCotizacionPage() {
   }, [conceptos, ivaPct]);
 
   const resetAll = () => {
-    setIsProspecto(false);
     setClienteId("");
-    setClienteProspectoNombre("");
     setContactoNombre("");
 
     setCantidad(1);
@@ -717,359 +730,370 @@ export default function NuevaCotizacionPage() {
       {!canCotizacionesView ? (
         <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No tienes permiso para ver Cotizaciones.</div>
       ) : (
-      <>
+        <>
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Nueva Cotización</h2>
-          <p className="text-[12px] text-gray-500 dark:text-gray-400">Completa los datos del cliente y agrega productos/servicios.</p>
-        </div>
-        <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => navigate("/cotizacion")}
-            className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-white text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200"
-            title="Volver"
-          >
-            <ChevronLeftIcon className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        <div className="lg:col-span-8 space-y-4">
-          <ComponentCard title="Datos de Cliente">
-            <div className="p-5">
-              <div className="flex items-center gap-2">
-                <input
-                  id="prospecto"
-                  type="checkbox"
-                  checked={isProspecto}
-                  onChange={(e) => setIsProspecto(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                />
-                <label htmlFor="prospecto" className="text-sm text-gray-800 dark:text-gray-200">
-                  Prospecto (Cliente no registrado)
-                </label>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>Cliente</Label>
-                  {!isProspecto ? (
-                    <select
-                      value={clienteId ? String(clienteId) : ""}
-                      onChange={(e) => setClienteId(e.target.value ? Number(e.target.value) : "")}
-                      className={selectLikeClassName}
-                      disabled={loadingClientes}
-                    >
-                      <option value="">Selecciona un cliente</option>
-                      {clientes.map((c) => (
-                        <option key={c.id} value={String(c.id)}>
-                          {c.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <Input
-                      value={clienteProspectoNombre}
-                      onChange={(e) => setClienteProspectoNombre(e.target.value)}
-                      placeholder="Nombre del prospecto"
-                    />
-                  )}
-                </div>
-
-                <div>
-                  <Label>Contacto</Label>
-                  <input
-                    value={contactoNombre}
-                    onChange={(e) => setContactoNombre(e.target.value)}
-                    placeholder="Nombre de la persona"
-                    list={!isProspecto ? "contactos-datalist" : undefined}
-                    className={inputLikeClassName}
-                  />
-                  {!isProspecto && (
-                    <datalist id="contactos-datalist">
-                      {contactosOptions.map((name) => (
-                        <option key={name} value={name} />
-                      ))}
-                    </datalist>
-                  )}
-                </div>
-              </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Nueva Cotización</h2>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400">Completa los datos del cliente y agrega productos/servicios.</p>
             </div>
-          </ComponentCard>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => navigate("/cotizacion")}
+                className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-white text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200"
+                title="Volver"
+              >
+                <ChevronLeftIcon className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
 
-          <ComponentCard title="Agregar productos o servicios">
-            <div className="p-5">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-x-6">
-                <div className="lg:col-span-2">
-                  <Label>Cant</Label>
-                  <Input
-                    type="number"
-                    value={String(cantidad)}
-                    onChange={(e) => setCantidad(toNumber(e.target.value, 0))}
-                    min="0"
-                    step={1}
-                    placeholder="0"
-                  />
-                </div>
-
-                <div className="lg:col-span-5">
-                  <Label>Productos o servicios</Label>
-                  <select
-                    value={productoId}
-                    onChange={(e) => setProductoId(e.target.value ? Number(e.target.value) : "")}
-                    className={selectLikeClassName}
-                    disabled={loadingProductos}
-                  >
-                    <option value="">Selecciona un producto</option>
-                    {productos.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre}
-                      </option>
-                    ))}
-                  </select>
-                  {!!selectedProducto?.descripcion && (
-                    <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">
-                      {String(selectedProducto.descripcion)}
-                    </p>
-                  )}
-                </div>
-
-                <div className="lg:col-span-3">
-                  <Label>Precio del producto</Label>
-                  <Input
-                    type="number"
-                    value={String(precioLista)}
-                    onChange={(e) => setPrecioLista(toNumber(e.target.value, 0))}
-                    min="0"
-                    step={0.01}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="lg:col-span-2">
-                  <Label>Desct%</Label>
-                  <Input
-                    type="number"
-                    value={String(descuentoPct)}
-                    onChange={(e) => setDescuentoPct(clampPct(toNumber(e.target.value, 0)))}
-                    min="0"
-                    max="100"
-                    step={0.01}
-                    placeholder="0"
-                  />
-                </div>
-
-                <div className="lg:col-span-12">
-                  <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-gray-900/40 px-3 py-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 text-[12px] text-gray-600 dark:text-gray-300">
-                        <span className="text-gray-500 dark:text-gray-400">Total</span>
-                        <span className="font-medium text-gray-900 dark:text-white">{formatMoney(preview.pu)}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            <div className="lg:col-span-8 space-y-4">
+              <ComponentCard title="Datos de Cliente">
+                <div className="p-5">
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Cliente</label>
+                      <div className="relative">
+                        <div className="relative">
+                          <svg className='absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'><circle cx='11' cy='11' r='7' /><path d='m20 20-2-2' /></svg>
+                          <input
+                            value={clienteSearch || (clienteId ? clientes.find(c => c.id === clienteId)?.nombre || '' : '')}
+                            onChange={(e) => { setClienteSearch(e.target.value); setClienteOpen(true); }}
+                            onFocus={() => setClienteOpen(true)}
+                            placeholder={loadingClientes ? 'Cargando clientes...' : 'Buscar cliente por nombre o teléfono...'}
+                            disabled={loadingClientes}
+                            className='block w-full rounded-lg border border-gray-300 bg-white pl-8 pr-20 py-2.5 text-[13px] text-gray-800 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                          />
+                          <div className='absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5'>
+                            {(clienteId || clienteSearch) && (
+                              <button type='button' onClick={() => { selectCliente(null); }} className='h-8 px-2 rounded-md text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition'>Limpiar</button>
+                            )}
+                            <button type='button' onClick={() => setClienteOpen(o => !o)} className='h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-300 transition'>
+                              <svg className={`w-3.5 h-3.5 transition-transform ${clienteOpen ? 'rotate-180' : ''}`} viewBox='0 0 20 20' fill='none'><path d='M5.25 7.5 10 12.25 14.75 7.5' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' /></svg>
+                            </button>
+                          </div>
+                        </div>
+                        {clienteOpen && (
+                          <div className='absolute z-20 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white/95 dark:bg-gray-900/95 backdrop-blur max-h-64 overflow-auto custom-scrollbar divide-y divide-gray-100 dark:divide-gray-800 shadow-theme-md'>
+                            <button type='button' onClick={() => selectCliente(null)} className={`w-full text-left px-3 py-2 text-[11px] hover:bg-brand-50 dark:hover:bg-gray-800 dark:text-white ${!clienteId ? 'bg-brand-50/60 dark:bg-gray-800/50 font-medium text-brand-700 dark:text-white' : ''}`}>Selecciona cliente</button>
+                            {filteredClientes.map(c => (
+                              <button key={c.id} type='button' onClick={() => selectCliente(c)} className='w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition'>
+                                <div className='flex items-center gap-2'>
+                                  <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold'>
+                                    {(c.nombre || '?').slice(0, 1).toUpperCase()}
+                                  </span>
+                                  <div className='flex flex-col flex-1'>
+                                    <div className='flex items-center gap-2'>
+                                      <span className='text-[12px] font-medium text-gray-800 dark:text-gray-100'>{c.nombre || '-'}</span>
+                                      {c.is_prospecto && (
+                                        <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 text-[9px] font-bold uppercase tracking-wider">Prospecto</span>
+                                      )}
+                                    </div>
+                                    <span className='text-[11px] text-gray-500 dark:text-gray-400'>{c.telefono || '-'}</span>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                            {filteredClientes.length === 0 && (
+                              <div className='px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400'>Sin resultados</div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2 text-[12px] text-gray-600 dark:text-gray-300">
-                        <span className="text-gray-500 dark:text-gray-400">Importe</span>
-                        <span className="font-medium text-gray-900 dark:text-white">{formatMoney(preview.importe)}</span>
+                    </div>
+
+                    <div>
+                      <Label>Contacto</Label>
+                      <input
+                        value={contactoNombre}
+                        onChange={(e) => setContactoNombre(e.target.value)}
+                        placeholder="Nombre de la persona"
+                        list="contactos-datalist"
+                        className={inputLikeClassName}
+                      />
+                      <datalist id="contactos-datalist">
+                        {contactosOptions.map((name) => (
+                          <option key={name} value={name} />
+                        ))}
+                      </datalist>
+                    </div>
+                  </div>
+                </div>
+              </ComponentCard>
+
+              <ComponentCard title="Agregar productos o servicios">
+                <div className="p-5">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-x-6">
+                    <div className="lg:col-span-2">
+                      <Label>Cant</Label>
+                      <Input
+                        type="number"
+                        value={String(cantidad)}
+                        onChange={(e) => setCantidad(toNumber(e.target.value, 0))}
+                        min="0"
+                        step={1}
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div className="lg:col-span-5">
+                      <Label>Productos o servicios</Label>
+                      <select
+                        value={productoId}
+                        onChange={(e) => setProductoId(e.target.value ? Number(e.target.value) : "")}
+                        className={selectLikeClassName}
+                        disabled={loadingProductos}
+                      >
+                        <option value="">Selecciona un producto</option>
+                        {productos.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      {!!selectedProducto?.descripcion && (
+                        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">
+                          {String(selectedProducto.descripcion)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="lg:col-span-3">
+                      <Label>Precio del producto</Label>
+                      <Input
+                        type="number"
+                        value={String(precioLista)}
+                        onChange={(e) => setPrecioLista(toNumber(e.target.value, 0))}
+                        min="0"
+                        step={0.01}
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div className="lg:col-span-2">
+                      <Label>Desct%</Label>
+                      <Input
+                        type="number"
+                        value={String(descuentoPct)}
+                        onChange={(e) => setDescuentoPct(clampPct(toNumber(e.target.value, 0)))}
+                        min="0"
+                        max="100"
+                        step={0.01}
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div className="lg:col-span-12">
+                      <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-gray-900/40 px-3 py-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 text-[12px] text-gray-600 dark:text-gray-300">
+                            <span className="text-gray-500 dark:text-gray-400">Total</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{formatMoney(preview.pu)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[12px] text-gray-600 dark:text-gray-300">
+                            <span className="text-gray-500 dark:text-gray-400">Importe</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{formatMoney(preview.importe)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="lg:col-span-12 pt-1">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
+                        <button
+                          type="button"
+                          onClick={addConcepto}
+                          disabled={!canAddConcepto}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {editingConceptoId ? "Actualizar" : "Agregar"}
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
+              </ComponentCard>
 
-                <div className="lg:col-span-12 pt-1">
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
-                    <button
-                      type="button"
-                      onClick={addConcepto}
-                      disabled={!canAddConcepto}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {editingConceptoId ? "Actualizar" : "Agregar"}
-                    </button>
+              <ComponentCard title="Productos o servicios">
+                <div className="p-2">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
+                        <TableRow>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Cant.</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Unidad</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Nombre</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Descripción</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">P.L.</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Desct.</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">P.U.</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Importe</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-center w-1/12 text-gray-700 dark:text-gray-300"> </TableCell>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
+                        {computed.lines.map((c) => (
+                          <TableRow key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.cantidad}</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.unidad || "—"}</TableCell>
+                            <TableCell className="px-2 py-1.5">
+                              <div className="flex items-center gap-2">
+                                {c.thumbnail_url ? (
+                                  <img src={c.thumbnail_url} alt={c.producto_nombre} className="w-8 h-8 rounded object-cover border border-gray-200 dark:border-white/10" />
+                                ) : null}
+                                <span className="text-gray-900 dark:text-white">{c.producto_nombre}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-2 py-1.5">{c.producto_descripcion || "—"}</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.precio_lista, 0))}</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{clampPct(toNumber(c.descuento_pct, 0)).toFixed(2)}%</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.pu, 0))}</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.importe, 0))}</TableCell>
+                            <TableCell className="px-2 py-1.5 text-center">
+                              <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
+                                <button
+                                  type="button"
+                                  onClick={() => editConcepto(c.id)}
+                                  className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                                  title="Editar"
+                                >
+                                  <PencilIcon className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeConcepto(c.id)}
+                                  className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                                  title="Eliminar"
+                                >
+                                  <TrashBinIcon className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+
+                        {!computed.lines.length && (
+                          <TableRow>
+                            <TableCell className="px-2 py-2"> </TableCell>
+                            <TableCell className="px-2 py-2"> </TableCell>
+                            <TableCell className="px-2 py-2"> </TableCell>
+                            <TableCell className="px-2 py-2 text-center text-sm text-gray-500">Sin conceptos</TableCell>
+                            <TableCell className="px-2 py-2"> </TableCell>
+                            <TableCell className="px-2 py-2"> </TableCell>
+                            <TableCell className="px-2 py-2"> </TableCell>
+                            <TableCell className="px-2 py-2"> </TableCell>
+                            <TableCell className="px-2 py-2"> </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
-              </div>
-            </div>
-          </ComponentCard>
+              </ComponentCard>
 
-          <ComponentCard title="Productos o servicios">
-            <div className="p-2">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
-                    <TableRow>
-                      <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Cant.</TableCell>
-                      <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Unidad</TableCell>
-                      <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Nombre</TableCell>
-                      <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Descripción</TableCell>
-                      <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">P.L.</TableCell>
-                      <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Desct.</TableCell>
-                      <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">P.U.</TableCell>
-                      <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Importe</TableCell>
-                      <TableCell isHeader className="px-2 py-2 text-center w-1/12 text-gray-700 dark:text-gray-300"> </TableCell>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
-                    {computed.lines.map((c) => (
-                      <TableRow key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.cantidad}</TableCell>
-                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.unidad || "—"}</TableCell>
-                        <TableCell className="px-2 py-1.5">
-                          <div className="flex items-center gap-2">
-                            {c.thumbnail_url ? (
-                              <img src={c.thumbnail_url} alt={c.producto_nombre} className="w-8 h-8 rounded object-cover border border-gray-200 dark:border-white/10" />
-                            ) : null}
-                            <span className="text-gray-900 dark:text-white">{c.producto_nombre}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-2 py-1.5">{c.producto_descripcion || "—"}</TableCell>
-                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.precio_lista, 0))}</TableCell>
-                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{clampPct(toNumber(c.descuento_pct, 0)).toFixed(2)}%</TableCell>
-                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.pu, 0))}</TableCell>
-                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.importe, 0))}</TableCell>
-                        <TableCell className="px-2 py-1.5 text-center">
-                          <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
-                            <button
-                              type="button"
-                              onClick={() => editConcepto(c.id)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
-                              title="Editar"
-                            >
-                              <PencilIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeConcepto(c.id)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
-                              title="Eliminar"
-                            >
-                              <TrashBinIcon className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-
-                    {!computed.lines.length && (
-                      <TableRow>
-                        <TableCell className="px-2 py-2"> </TableCell>
-                        <TableCell className="px-2 py-2"> </TableCell>
-                        <TableCell className="px-2 py-2"> </TableCell>
-                        <TableCell className="px-2 py-2 text-center text-sm text-gray-500">Sin conceptos</TableCell>
-                        <TableCell className="px-2 py-2"> </TableCell>
-                        <TableCell className="px-2 py-2"> </TableCell>
-                        <TableCell className="px-2 py-2"> </TableCell>
-                        <TableCell className="px-2 py-2"> </TableCell>
-                        <TableCell className="px-2 py-2"> </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </ComponentCard>
-
-          <ComponentCard title="Notas">
-            <div className="p-4 grid grid-cols-1 gap-4">
-              <div>
-                <Label>Este texto aparecerá arriba de los precios. Max. 1500 caracteres.</Label>
-                <textarea
-                  value={textoArribaPrecios}
-                  onChange={(e) => setTextoArribaPrecios(e.target.value.slice(0, 1500))}
-                  className={textareaLikeClassName}
-                  rows={4}
-                />
-              </div>
-              <div>
-                <Label>Términos y condiciones (puedes agregar tu datos bancarios para pago). Max. 1500 caracteres.</Label>
-                <textarea
-                  value={terminos}
-                  onChange={(e) => setTerminos(e.target.value.slice(0, 1500))}
-                  className={textareaLikeClassName}
-                  rows={4}
-                />
-              </div>
-            </div>
-          </ComponentCard>
-        </div>
-
-        <div className="lg:col-span-4 lg:sticky lg:top-4 space-y-4">
-          <ComponentCard title="Resumen Cotización">
-            <div className="p-4">
-              <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <select className={selectLikeClassName} defaultValue="Plantilla original">
-                    <option value="Plantilla original">Plantilla original</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center justify-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                  <svg className="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M8 2v3M16 2v3M4 7h16M6 10h12v10H6z" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <span>{formatDMY(todayIso)}</span>
-                </div>
-
-                <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-gray-900/40 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] text-gray-500 dark:text-gray-400">Subtotal</span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatMoney(computed.subtotal)}</span>
+              <ComponentCard title="Notas">
+                <div className="p-4 grid grid-cols-1 gap-4">
+                  <div>
+                    <Label>Este texto aparecerá arriba de los precios. Max. 1500 caracteres.</Label>
+                    <textarea
+                      value={textoArribaPrecios}
+                      onChange={(e) => setTextoArribaPrecios(e.target.value.slice(0, 1500))}
+                      className={textareaLikeClassName}
+                      rows={4}
+                    />
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-[12px] text-gray-500 dark:text-gray-400">IVA ({clampPct(toNumber(ivaPct, 16)).toFixed(2)}%)</span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatMoney(computed.iva)}</span>
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-white/10 flex items-center justify-between">
-                    <span className="text-[12px] text-gray-700 dark:text-gray-200">Total</span>
-                    <span className="text-base font-semibold text-gray-900 dark:text-white">{formatMoney(computed.total)}</span>
+                  <div>
+                    <Label>Términos y condiciones (puedes agregar tu datos bancarios para pago). Max. 1500 caracteres.</Label>
+                    <textarea
+                      value={terminos}
+                      onChange={(e) => setTerminos(e.target.value.slice(0, 1500))}
+                      className={textareaLikeClassName}
+                      rows={4}
+                    />
                   </div>
                 </div>
-
-                <div>
-                  <Label>Vigencia</Label>
-                  <DatePicker
-                    id="cotizacion-vigencia"
-                    placeholder="Selecciona una fecha"
-                    defaultDate={vigenciaIso}
-                    onChange={(_dates, currentDateString) => {
-                      setVigenciaIso(String(currentDateString || ""));
-                    }}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-2">
-                  <button
-                    type="button"
-                    disabled={!computed.lines.length}
-                    onClick={handleSaveCotizacion}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {editingCotizacionId ? "Actualizar Cotización" : "Guardar Cotización"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!computed.lines.length}
-                    onClick={() => { }}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2.5 text-xs font-medium text-blue-700 shadow-theme-xs hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-900/40 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-500/10"
-                  >
-                    Vista Previa
-                  </button>
-                  <button
-                    type="button"
-                    onClick={resetAll}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-xs font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200"
-                  >
-                    Limpiar
-                  </button>
-                </div>
-              </div>
+              </ComponentCard>
             </div>
-          </ComponentCard>
-        </div>
-      </div>
 
-      </>
+            <div className="lg:col-span-4 lg:sticky lg:top-4 space-y-4">
+              <ComponentCard title="Resumen Cotización">
+                <div className="p-4">
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <select className={selectLikeClassName} defaultValue="Plantilla original">
+                        <option value="Plantilla original">Plantilla original</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                      <svg className="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M8 2v3M16 2v3M4 7h16M6 10h12v10H6z" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span>{formatDMY(todayIso)}</span>
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-gray-900/40 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] text-gray-500 dark:text-gray-400">Subtotal</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatMoney(computed.subtotal)}</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className="text-[12px] text-gray-500 dark:text-gray-400">IVA ({clampPct(toNumber(ivaPct, 16)).toFixed(2)}%)</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatMoney(computed.iva)}</span>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-white/10 flex items-center justify-between">
+                        <span className="text-[12px] text-gray-700 dark:text-gray-200">Total</span>
+                        <span className="text-base font-semibold text-gray-900 dark:text-white">{formatMoney(computed.total)}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Vigencia</Label>
+                      <DatePicker
+                        id="cotizacion-vigencia"
+                        placeholder="Selecciona una fecha"
+                        defaultDate={vigenciaIso}
+                        onChange={(_dates, currentDateString) => {
+                          setVigenciaIso(String(currentDateString || ""));
+                        }}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      <button
+                        type="button"
+                        disabled={!computed.lines.length}
+                        onClick={handleSaveCotizacion}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {editingCotizacionId ? "Actualizar Cotización" : "Guardar Cotización"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!computed.lines.length}
+                        onClick={() => { }}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2.5 text-xs font-medium text-blue-700 shadow-theme-xs hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-900/40 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                      >
+                        Vista Previa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetAll}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-xs font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200"
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </ComponentCard>
+            </div>
+          </div>
+
+        </>
       )}
     </div>
   );
