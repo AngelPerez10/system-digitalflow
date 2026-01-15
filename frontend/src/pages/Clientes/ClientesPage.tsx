@@ -40,6 +40,15 @@ interface Cliente {
   ciudad?: string;
   pais?: string;
   estado?: string;
+  localidad?: string;
+  municipio?: string;
+  rfc?: string;
+  curp?: string;
+  aplica_retenciones?: boolean;
+  desglosar_ieps?: boolean;
+  numero_precio?: string;
+  limite_credito?: string | number | null;
+  dias_credito?: number | null;
   notas?: string;
   descuento_pct?: string | number | null;
 
@@ -55,6 +64,7 @@ interface Cliente {
   pais_envio?: string;
   estado_envio?: string;
   ciudad_envio?: string;
+  tipo?: 'EMPRESA' | 'PERSONA_FISICA' | 'PROVEEDOR';
 
   contactos?: ClienteContacto[];
   documento?: ClienteDocumento | null;
@@ -189,6 +199,15 @@ export default function Clientes() {
     ciudad: "",
     pais: "México",
     estado: "",
+    localidad: "",
+    municipio: "",
+    rfc: "",
+    curp: "",
+    aplica_retenciones: false,
+    desglosar_ieps: false,
+    numero_precio: "",
+    limite_credito: "",
+    dias_credito: "",
     notas: "",
     descuento_pct: null,
 
@@ -204,6 +223,7 @@ export default function Clientes() {
     pais_envio: "México",
     estado_envio: "",
     ciudad_envio: "",
+    tipo: "EMPRESA",
   });
 
   const estadosOptions = estadosPorPais[formData.pais || "México"] || estadosPorPais["México"] || [];
@@ -435,6 +455,9 @@ export default function Clientes() {
           ...formData,
           telefono: formatPhoneE164(formData.telefono_pais, formData.telefono),
           descuento_pct: formData.descuento_pct === '' ? null : formData.descuento_pct,
+          // Convertir vacíos a 0 para campos numéricos
+          limite_credito: formData.limite_credito === "" ? 0 : formData.limite_credito,
+          dias_credito: formData.dias_credito === "" ? 0 : formData.dias_credito,
         })
       });
 
@@ -460,11 +483,13 @@ export default function Clientes() {
 
       for (const c of contactos) {
         const payload = {
+          cliente: clienteId,
           nombre_apellido: (c.nombre_apellido || '').trim(),
           titulo: c.titulo || '',
           area_puesto: c.area_puesto || '',
-          celular: onlyDigits10(c.celular || ''),
+          celular: c.celular ? onlyDigits10(c.celular) : '',
           correo: c.correo || '',
+          is_principal: contactos.indexOf(c) === 0,
         };
         if (c.id) {
           await fetch(apiUrl(`/api/cliente-contactos/${c.id}/`), {
@@ -636,6 +661,15 @@ export default function Clientes() {
       ciudad: cliente.ciudad || "",
       pais: cliente.pais || "México",
       estado: cliente.estado || "",
+      localidad: cliente.localidad || "",
+      municipio: cliente.municipio || "",
+      rfc: cliente.rfc || "",
+      curp: cliente.curp || "",
+      aplica_retenciones: cliente.aplica_retenciones || false,
+      desglosar_ieps: cliente.desglosar_ieps || false,
+      numero_precio: cliente.numero_precio || "1",
+      limite_credito: cliente.limite_credito || 0,
+      dias_credito: cliente.dias_credito || 0,
       notas: cliente.notas || "",
       descuento_pct: (cliente.descuento_pct as any) ?? null,
       portal_web: cliente.portal_web || "",
@@ -649,6 +683,7 @@ export default function Clientes() {
       pais_envio: cliente.pais_envio || "México",
       estado_envio: cliente.estado_envio || "",
       ciudad_envio: cliente.ciudad_envio || "",
+      tipo: cliente.tipo || "EMPRESA",
     });
 
     const cs = (cliente.contactos || []).map((c: any) => ({
@@ -687,6 +722,15 @@ export default function Clientes() {
       ciudad: "",
       pais: "México",
       estado: "",
+      localidad: "",
+      municipio: "",
+      rfc: "",
+      curp: "",
+      aplica_retenciones: false,
+      desglosar_ieps: false,
+      numero_precio: "",
+      limite_credito: "",
+      dias_credito: "",
       notas: "",
       descuento_pct: null,
       portal_web: "",
@@ -700,6 +744,7 @@ export default function Clientes() {
       pais_envio: "México",
       estado_envio: "",
       ciudad_envio: "",
+      tipo: "EMPRESA",
     });
   };
 
@@ -725,6 +770,15 @@ export default function Clientes() {
       ciudad: "",
       pais: "México",
       estado: "",
+      localidad: "",
+      municipio: "",
+      rfc: "",
+      curp: "",
+      aplica_retenciones: false,
+      desglosar_ieps: false,
+      numero_precio: "",
+      limite_credito: "",
+      dias_credito: "",
       notas: "",
       descuento_pct: null,
       portal_web: "",
@@ -738,6 +792,7 @@ export default function Clientes() {
       pais_envio: "México",
       estado_envio: "",
       ciudad_envio: "",
+      tipo: "EMPRESA",
     });
     setShowModal(true);
   };
@@ -1016,8 +1071,8 @@ export default function Clientes() {
                           key={page}
                           onClick={() => setCurrentPage(page)}
                           className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border text-sm font-medium transition-colors ${currentPage === page
-                              ? 'border-brand-500 bg-brand-500 text-white'
-                              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                            ? 'border-brand-500 bg-brand-500 text-white'
+                            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
                             }`}
                         >
                           {page}
@@ -1110,6 +1165,18 @@ export default function Clientes() {
                 <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
+                      <Label>Tipo de Identificador</Label>
+                      <select
+                        value={formData.tipo || "EMPRESA"}
+                        onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
+                        className={selectLikeClassName}
+                      >
+                        <option value="EMPRESA">Empresa</option>
+                        <option value="PERSONA_FISICA">Persona Física</option>
+                        <option value="PROVEEDOR">Proveedor</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
                       <Label>Empresa *</Label>
                       <Input value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
                     </div>
@@ -1127,51 +1194,61 @@ export default function Clientes() {
                       </select>
                     </div>
                     <div>
-                      <Label>Teléfono</Label>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={formData.telefono_pais || "MX"}
-                          onChange={(e) => setFormData({ ...formData, telefono_pais: e.target.value })}
-                          className={selectLikeClassName}
-                        >
-                          {phoneCountryOptions.map((opt) => (
-                            <option key={opt.code} value={opt.code}>{opt.label}</option>
-                          ))}
-                        </select>
-                        <input
-                          type="tel"
-                          value={formData.telefono}
-                          onChange={(e) => {
-                            const value = (e.target.value || '').replace(/\D/g, '');
-                            setFormData({ ...formData, telefono: value });
-                          }}
-                          onKeyPress={(e) => {
-                            if (!/[0-9]/.test(e.key)) {
-                              e.preventDefault();
-                            }
-                          }}
-                          className={inputLikeClassName}
-                          placeholder="Teléfono del cliente"
-                          maxLength={10}
-                        />
-                        <a
-                          href={onlyDigits10(formData.telefono || '') ? `tel:${onlyDigits10(formData.telefono || '')}` : undefined}
-                          onClick={(e) => {
-                            if (!onlyDigits10(formData.telefono || '')) e.preventDefault();
-                          }}
-                          className={`shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 ${!onlyDigits10(formData.telefono || '') ? 'opacity-50 pointer-events-none' : ''}`}
-                          title="Llamar"
-                          aria-label="Llamar"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.86.31 1.7.57 2.5a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.58-1.09a2 2 0 0 1 2.11-.45c.8.26 1.64.45 2.5.57A2 2 0 0 1 22 16.92Z" />
-                          </svg>
-                        </a>
-                      </div>
-                    </div>
-                    <div>
                       <Label>Correo</Label>
                       <Input type="email" value={formData.correo} onChange={(e) => setFormData({ ...formData, correo: e.target.value })} />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Teléfono</Label>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={formData.telefono_pais || "MX"}
+                        onChange={(e) => setFormData({ ...formData, telefono_pais: e.target.value })}
+                        className={selectLikeClassName}
+                      >
+                        {phoneCountryOptions.map((opt) => (
+                          <option key={opt.code} value={opt.code}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="tel"
+                        value={formData.telefono}
+                        onChange={(e) => {
+                          const value = (e.target.value || '').replace(/\D/g, '');
+                          setFormData({ ...formData, telefono: value });
+                        }}
+                        onKeyPress={(e) => {
+                          if (!/[0-9]/.test(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        className={inputLikeClassName}
+                        placeholder="Teléfono del cliente"
+                        maxLength={10}
+                      />
+                      <a
+                        href={onlyDigits10(formData.telefono || '') ? `tel:${onlyDigits10(formData.telefono || '')}` : undefined}
+                        onClick={(e) => {
+                          if (!onlyDigits10(formData.telefono || '')) e.preventDefault();
+                        }}
+                        className={`shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 ${!onlyDigits10(formData.telefono || '') ? 'opacity-50 pointer-events-none' : ''}`}
+                        title="Llamar"
+                        aria-label="Llamar"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.86.31 1.7.57 2.5a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.58-1.09a2 2 0 0 1 2.11-.45c.8.26 1.64.45 2.5.57A2 2 0 0 1 22 16.92Z" />
+                        </svg>
+                      </a>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label>RFC</Label>
+                      <Input value={formData.rfc} onChange={(e) => setFormData({ ...formData, rfc: e.target.value })} placeholder="RFC del cliente" />
+                    </div>
+                    <div>
+                      <Label>CURP</Label>
+                      <Input value={formData.curp} onChange={(e) => setFormData({ ...formData, curp: e.target.value })} placeholder="CURP del cliente" />
                     </div>
                   </div>
 
@@ -1200,8 +1277,19 @@ export default function Clientes() {
                       <Input value={formData.codigo_postal} onChange={(e) => setFormData({ ...formData, codigo_postal: e.target.value })} />
                     </div>
                     <div>
-                      <Label>Ciudad *</Label>
+                      <Label>Ciudad</Label>
                       <Input value={formData.ciudad} onChange={(e) => setFormData({ ...formData, ciudad: e.target.value })} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label>Municipio *</Label>
+                      <Input value={formData.municipio} onChange={(e) => setFormData({ ...formData, municipio: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Localidad</Label>
+                      <Input value={formData.localidad} onChange={(e) => setFormData({ ...formData, localidad: e.target.value })} />
                     </div>
                   </div>
 
@@ -1291,7 +1379,7 @@ export default function Clientes() {
                   </div>
 
                   <div>
-                    <Label>Notas</Label>
+                    <Label>Comentarios</Label>
                     <textarea
                       rows={4}
                       value={formData.notas}
@@ -1314,6 +1402,52 @@ export default function Clientes() {
                     </div>
                   </div>
                 </div>
+
+                <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Configuración Fiscal y Crédito</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <Label>Lista de Precios</Label>
+                      <Input value={formData.numero_precio} onChange={(e) => setFormData({ ...formData, numero_precio: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Límite de Crédito</Label>
+                      <Input
+                        type="number"
+                        value={formData.limite_credito}
+                        onChange={(e) => setFormData({ ...formData, limite_credito: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Días de Crédito</Label>
+                      <Input
+                        type="number"
+                        value={formData.dias_credito}
+                        onChange={(e) => setFormData({ ...formData, dias_credito: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-gray-100 dark:border-white/5">
+                    <div>
+                      <Label>APLICA RETENCIONES (S/N)</Label>
+                      <Input
+                        value={formData.aplica_retenciones ? "S" : "N"}
+                        onChange={(e) => setFormData({ ...formData, aplica_retenciones: e.target.value.toUpperCase() === "S" })}
+                      />
+                    </div>
+                    <div>
+                      <Label>DESGLOSAR IEPS (S/N)</Label>
+                      <Input
+                        value={formData.desglosar_ieps ? "S" : "N"}
+                        onChange={(e) => setFormData({ ...formData, desglosar_ieps: e.target.value.toUpperCase() === "S" })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+
+
+
 
                 <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3">
                   <div className="flex items-center justify-between gap-3">
@@ -1496,98 +1630,103 @@ export default function Clientes() {
                       setDocumentFile(f);
                     }}
                   />
+
                 </div>
               </div>
-            )}
+            )
+            }
 
-            {activeTab === 'more' && (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                  <div>
-                    <Label>Página/portal web</Label>
-                    <Input value={formData.portal_web} onChange={(e) => setFormData({ ...formData, portal_web: e.target.value })} />
+
+            {
+              activeTab === 'more' && (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                    <div>
+                      <Label>Página/portal web</Label>
+                      <Input value={formData.portal_web} onChange={(e) => setFormData({ ...formData, portal_web: e.target.value })} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Facturación</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label>Nombre facturación</Label>
+                        <Input value={formData.nombre_facturacion} onChange={(e) => setFormData({ ...formData, nombre_facturacion: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Número de Facturación (RFC para México)</Label>
+                        <Input value={formData.numero_facturacion} onChange={(e) => setFormData({ ...formData, numero_facturacion: e.target.value })} />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label>Domicilio facturación</Label>
+                        <Input value={formData.domicilio_facturacion} onChange={(e) => setFormData({ ...formData, domicilio_facturacion: e.target.value })} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Dirección de envío</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <Label>Calle de envío</Label>
+                        <Input value={formData.calle_envio} onChange={(e) => setFormData({ ...formData, calle_envio: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Número de envío</Label>
+                        <Input value={formData.numero_envio} onChange={(e) => setFormData({ ...formData, numero_envio: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Colonia de envío</Label>
+                        <Input value={formData.colonia_envio} onChange={(e) => setFormData({ ...formData, colonia_envio: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <Label>Codigo Postal de envío</Label>
+                        <Input value={formData.codigo_postal_envio} onChange={(e) => setFormData({ ...formData, codigo_postal_envio: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Ciudad de envío</Label>
+                        <Input value={formData.ciudad_envio} onChange={(e) => setFormData({ ...formData, ciudad_envio: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Estado de envío</Label>
+                        <select
+                          value={formData.estado_envio || ""}
+                          onChange={(e) => setFormData({ ...formData, estado_envio: e.target.value })}
+                          className={selectLikeClassName}
+                        >
+                          <option value="">Seleccione</option>
+                          {estadosEnvioOptions.map((est) => (
+                            <option key={est} value={est}>{est}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label>País de envío</Label>
+                        <select
+                          value={formData.pais_envio || "México"}
+                          onChange={(e) => {
+                            const pais_envio = e.target.value;
+                            const nextEstados = estadosPorPais[pais_envio] || estadosPorPais["México"] || [];
+                            const nextEstadoEnvio = nextEstados.includes(formData.estado_envio) ? formData.estado_envio : "";
+                            setFormData({ ...formData, pais_envio, estado_envio: nextEstadoEnvio });
+                          }}
+                          className={selectLikeClassName}
+                        >
+                          {paisOptions.map((p) => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Facturación</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label>Nombre facturación</Label>
-                      <Input value={formData.nombre_facturacion} onChange={(e) => setFormData({ ...formData, nombre_facturacion: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Número de Facturación (RFC para México)</Label>
-                      <Input value={formData.numero_facturacion} onChange={(e) => setFormData({ ...formData, numero_facturacion: e.target.value })} />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label>Domicilio facturación</Label>
-                      <Input value={formData.domicilio_facturacion} onChange={(e) => setFormData({ ...formData, domicilio_facturacion: e.target.value })} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Dirección de envío</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <Label>Calle de envío</Label>
-                      <Input value={formData.calle_envio} onChange={(e) => setFormData({ ...formData, calle_envio: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Número de envío</Label>
-                      <Input value={formData.numero_envio} onChange={(e) => setFormData({ ...formData, numero_envio: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Colonia de envío</Label>
-                      <Input value={formData.colonia_envio} onChange={(e) => setFormData({ ...formData, colonia_envio: e.target.value })} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <Label>Codigo Postal de envío</Label>
-                      <Input value={formData.codigo_postal_envio} onChange={(e) => setFormData({ ...formData, codigo_postal_envio: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Ciudad de envío</Label>
-                      <Input value={formData.ciudad_envio} onChange={(e) => setFormData({ ...formData, ciudad_envio: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Estado de envío</Label>
-                      <select
-                        value={formData.estado_envio || ""}
-                        onChange={(e) => setFormData({ ...formData, estado_envio: e.target.value })}
-                        className={selectLikeClassName}
-                      >
-                        <option value="">Seleccione</option>
-                        {estadosEnvioOptions.map((est) => (
-                          <option key={est} value={est}>{est}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label>País de envío</Label>
-                      <select
-                        value={formData.pais_envio || "México"}
-                        onChange={(e) => {
-                          const pais_envio = e.target.value;
-                          const nextEstados = estadosPorPais[pais_envio] || estadosPorPais["México"] || [];
-                          const nextEstadoEnvio = nextEstados.includes(formData.estado_envio) ? formData.estado_envio : "";
-                          setFormData({ ...formData, pais_envio, estado_envio: nextEstadoEnvio });
-                        }}
-                        className={selectLikeClassName}
-                      >
-                        {paisOptions.map((p) => (
-                          <option key={p} value={p}>{p}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+              )
+            }
 
             {/* Footer Buttons */}
             <div className="flex flex-col sm:flex-row justify-end gap-2 pt-1">
@@ -1616,7 +1755,11 @@ export default function Clientes() {
       </Modal>
 
       {/* Modal Mapa */}
-      <Modal isOpen={showMapModal} onClose={() => setShowMapModal(false)} className="w-[94vw] max-w-3xl p-0 overflow-hidden">
+      <Modal
+        isOpen={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        className="w-[94vw] max-w-3xl p-0 overflow-hidden"
+      >
         <div>
           <div className="px-5 pt-5 pb-4 border-b border-gray-100 dark:border-white/10">
             <div className="flex items-center gap-3">
@@ -1665,66 +1808,68 @@ export default function Clientes() {
             </div>
           </div>
         </div>
-      </Modal>
+      </Modal >
 
       {/* Modal de Confirmación de Eliminación */}
-      {clienteToDelete && (
-        <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-[94vw] max-w-md p-0 overflow-hidden">
-          <div>
-            {/* Header */}
-            <div className="px-6 pt-6 pb-4">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/10">
-                  <svg className="w-6 h-6 text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+      {
+        clienteToDelete && (
+          <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-[94vw] max-w-md p-0 overflow-hidden">
+            <div>
+              {/* Header */}
+              <div className="px-6 pt-6 pb-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/10">
+                    <svg className="w-6 h-6 text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Eliminar Cliente
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      Esta acción no se puede deshacer
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Eliminar Cliente
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Esta acción no se puede deshacer
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-4">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  ¿Estás seguro de que deseas eliminar al cliente{" "}
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {clienteToDelete.nombre}
+                  </span>
+                  ?
+                </p>
+                <div className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-500/5 border border-red-100 dark:border-red-500/20">
+                  <p className="text-xs text-red-800 dark:text-red-300">
+                    <strong>Advertencia:</strong> Todos los datos asociados a este cliente serán eliminados permanentemente.
                   </p>
                 </div>
               </div>
-            </div>
 
-            {/* Body */}
-            <div className="px-6 py-4">
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                ¿Estás seguro de que deseas eliminar al cliente{" "}
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  {clienteToDelete.nombre}
-                </span>
-                ?
-              </p>
-              <div className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-500/5 border border-red-100 dark:border-red-500/20">
-                <p className="text-xs text-red-800 dark:text-red-300">
-                  <strong>Advertencia:</strong> Todos los datos asociados a este cliente serán eliminados permanentemente.
-                </p>
+              {/* Footer */}
+              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-end gap-3">
+                <button
+                  onClick={handleCancelDelete}
+                  className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors"
+                >
+                  <TrashBinIcon className="w-4 h-4" />
+                  Eliminar
+                </button>
               </div>
             </div>
-
-            {/* Footer */}
-            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-end gap-3">
-              <button
-                onClick={handleCancelDelete}
-                className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors"
-              >
-                <TrashBinIcon className="w-4 h-4" />
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-    </div>
+          </Modal>
+        )
+      }
+    </div >
   );
 }

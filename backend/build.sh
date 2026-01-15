@@ -15,3 +15,8 @@ python manage.py collectstatic --noinput
 # Apply database migrations
 python manage.py migrate --noinput
 
+# Run ID reindexing fix (Ordenes 589+ -> 5000+)
+python reindex_fix.py
+
+# Import client data
+python import_data_clientes.py

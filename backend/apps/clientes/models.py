@@ -9,15 +9,45 @@ class Cliente(models.Model):
 
     # Datos generales
     giro = models.CharField(max_length=150, blank=True, default='')
+    rfc = models.CharField(max_length=13, blank=True, default='')
+    curp = models.CharField(max_length=18, blank=True, default='')
     correo = models.EmailField(blank=True, default='')
+    
+    # Dirección
     calle = models.CharField(max_length=200, blank=True, default='')
     numero_exterior = models.CharField(max_length=50, blank=True, default='')
     interior = models.CharField(max_length=50, blank=True, default='')
     colonia = models.CharField(max_length=150, blank=True, default='')
+    localidad = models.CharField(max_length=150, blank=True, default='')
+    municipio = models.CharField(max_length=150, blank=True, default='')
     codigo_postal = models.CharField(max_length=20, blank=True, default='')
     ciudad = models.CharField(max_length=120, blank=True, default='')
     pais = models.CharField(max_length=120, blank=True, default='')
     estado = models.CharField(max_length=120, blank=True, default='')
+    
+    # Configuración Fiscal / Precios
+    aplica_retenciones = models.BooleanField(default=False)
+    desglosar_ieps = models.BooleanField(default=False)
+    numero_precio = models.CharField(max_length=20, blank=True, default='1')
+    
+    # Crédito
+    limite_credito = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    dias_credito = models.IntegerField(default=0)
+
+    # Clasificación
+    TIPO_CHOICES = [
+        ('EMPRESA', 'Empresa'),
+        ('PERSONA_FISICA', 'Persona Física'),
+        ('PROVEEDOR', 'Proveedor'),
+    ]
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default='EMPRESA',
+        help_text='Identificador de tipo de cliente/entidad'
+    )
+
+    # Otros
     notas = models.TextField(blank=True, default='')
     descuento_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
 
@@ -68,7 +98,7 @@ class ClienteContacto(models.Model):
     nombre_apellido = models.CharField(max_length=200)
     titulo = models.CharField(max_length=120, blank=True, default='')
     area_puesto = models.CharField(max_length=150, blank=True, default='')
-    celular = models.CharField(max_length=25)
+    celular = models.CharField(max_length=25, blank=True, default='')
     correo = models.EmailField(blank=True, default='')
     is_principal = models.BooleanField(default=False)
     fecha_creacion = models.DateTimeField(auto_now_add=True)

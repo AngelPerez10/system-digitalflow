@@ -62,19 +62,21 @@ class Orden(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.idx:
-            used_idxs = set(Orden.objects.values_list('idx', flat=True))
+            # Optimize: Use aggregate to find max idx instead of loading all
+            current_max = Orden.objects.aggregate(models.Max('idx'))['idx__max'] or 0
+
+            # Logic request: "apartir de la orden 564 el siguiente sea 5000"
+            # If we are below 564, continue sequential (1, 2, ... 564)
+            # Once we reach 564, jump to 5000.
+            # If we are already at 5000+, continue sequential (5000, 5001...)
             
-            # Buscar el idx más alto
-            max_idx = max(used_idxs) if used_idxs else 0
-            
-            # Si el máximo es <= 550, comenzar desde 5000
-            if max_idx <= 550:
+            if current_max >= 588 and current_max < 5000:
                 idx = 5000
             else:
-                idx = max_idx + 1
+                idx = current_max + 1
             
-            # Asegurar que no exista
-            while idx in used_idxs:
+            # Asegurar que no exista (collision check)
+            while Orden.objects.filter(idx=idx).exists():
                 idx += 1
             
             self.idx = idx

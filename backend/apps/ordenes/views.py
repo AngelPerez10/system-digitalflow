@@ -255,21 +255,34 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='reindex')
     def reindex(self, request):
-        """Reasigna idx de todas las órdenes a una secuencia 1..N.
-
+        """Reasigna idx de todas las órdenes.
+        Reglas:
+         - Ordenar por fecha de inicio (ascendente) para alinear IDs con fechas.
+         - IDs 1 a 564 son secuenciales.
+         - A partir del 565 (el siguiente después de 564), el ID salta a 5000.
         """
+        # Usar fecha_inicio como criterio principal para que coincida con el orden visual
         qs = Orden.objects.all().order_by(
             F('fecha_inicio').asc(nulls_last=True),
             F('fecha_creacion').asc(nulls_last=True),
-            'id',
+            'id'
         )
+        
         with transaction.atomic():
-            # Evitar conflictos por unique=True en idx.
-            # En PostgreSQL (Render), UNIQUE permite múltiples NULL.
+            # Limpiar IDs para evitar unique constraint violations
             qs.update(idx=None)
+            
             for i, orden in enumerate(qs, start=1):
-                Orden.objects.filter(id=orden.id).update(idx=i)
-        return Response({"detail": "IDX reindexado", "total": qs.count()})
+                if i <= 588:
+                    new_idx = i
+                else:
+                    # El 589 se convierte en 5000, 590 en 5001, etc.
+                    # Formula: 5000 + (i - 589)
+                    new_idx = 5000 + (i - 589)
+                
+                Orden.objects.filter(id=orden.id).update(idx=new_idx)
+                
+        return Response({"detail": "IDX reindexado correctamente", "total": qs.count()})
 
     def _generate_pdf_html(self, orden):
         """Genera el HTML para el PDF de la orden (usado por el endpoint /pdf)"""

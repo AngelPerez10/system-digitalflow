@@ -1,0 +1,8 @@
+Inspecting file: clientes
+Header bytes: b'IDX\tEmpr'
+Magic bytes indicate Text/Other.
+Attempting to read as Excel (XLSX)...
+Not XLSX: File is not a zip file
+Attempting to read as CSV...
+Not CSV: Error tokenizing data. C error: Expected 1 fields in line 14, saw 2
+

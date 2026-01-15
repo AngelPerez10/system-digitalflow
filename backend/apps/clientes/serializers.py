@@ -7,7 +7,7 @@ class ClienteContactoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClienteContacto
         fields = '__all__'
-        read_only_fields = ['id', 'is_principal', 'fecha_creacion', 'fecha_actualizacion']
+        read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
 
 
 class ClienteDocumentoSerializer(serializers.ModelSerializer):
