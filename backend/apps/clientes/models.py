@@ -3,32 +3,32 @@ from django.db import models
 
 class Cliente(models.Model):
     idx = models.IntegerField(unique=True, db_index=True)
-    nombre = models.CharField(max_length=100, unique=True)
+    nombre = models.CharField(max_length=255) # Relaxed unique constraint
     direccion = models.TextField(blank=True, default='')
-    telefono = models.CharField(max_length=15, blank=True, default='')
+    telefono = models.CharField(max_length=100, blank=True, default='')
 
     # Datos generales
-    giro = models.CharField(max_length=150, blank=True, default='')
-    rfc = models.CharField(max_length=13, blank=True, default='')
-    curp = models.CharField(max_length=18, blank=True, default='')
+    giro = models.CharField(max_length=255, blank=True, default='')
+    rfc = models.CharField(max_length=50, blank=True, default='')
+    curp = models.CharField(max_length=100, blank=True, default='')
     correo = models.EmailField(blank=True, default='')
     
     # Dirección
-    calle = models.CharField(max_length=200, blank=True, default='')
-    numero_exterior = models.CharField(max_length=50, blank=True, default='')
-    interior = models.CharField(max_length=50, blank=True, default='')
-    colonia = models.CharField(max_length=150, blank=True, default='')
-    localidad = models.CharField(max_length=150, blank=True, default='')
-    municipio = models.CharField(max_length=150, blank=True, default='')
-    codigo_postal = models.CharField(max_length=20, blank=True, default='')
-    ciudad = models.CharField(max_length=120, blank=True, default='')
-    pais = models.CharField(max_length=120, blank=True, default='')
-    estado = models.CharField(max_length=120, blank=True, default='')
+    calle = models.CharField(max_length=255, blank=True, default='')
+    numero_exterior = models.CharField(max_length=100, blank=True, default='')
+    interior = models.CharField(max_length=100, blank=True, default='')
+    colonia = models.CharField(max_length=255, blank=True, default='')
+    localidad = models.CharField(max_length=255, blank=True, default='')
+    municipio = models.CharField(max_length=255, blank=True, default='')
+    codigo_postal = models.CharField(max_length=50, blank=True, default='')
+    ciudad = models.CharField(max_length=255, blank=True, default='')
+    pais = models.CharField(max_length=255, blank=True, default='')
+    estado = models.CharField(max_length=255, blank=True, default='')
     
     # Configuración Fiscal / Precios
     aplica_retenciones = models.BooleanField(default=False)
     desglosar_ieps = models.BooleanField(default=False)
-    numero_precio = models.CharField(max_length=20, blank=True, default='1')
+    numero_precio = models.CharField(max_length=50, blank=True, default='1')
     
     # Crédito
     limite_credito = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
@@ -41,7 +41,7 @@ class Cliente(models.Model):
         ('PROVEEDOR', 'Proveedor'),
     ]
     tipo = models.CharField(
-        max_length=20,
+        max_length=50,
         choices=TIPO_CHOICES,
         default='EMPRESA',
         help_text='Identificador de tipo de cliente/entidad'
@@ -55,20 +55,21 @@ class Cliente(models.Model):
     portal_web = models.CharField(max_length=255, blank=True, default='')
 
     # Facturación
-    nombre_facturacion = models.CharField(max_length=200, blank=True, default='')
-    numero_facturacion = models.CharField(max_length=50, blank=True, default='')
+    nombre_facturacion = models.CharField(max_length=255, blank=True, default='')
+    numero_facturacion = models.CharField(max_length=100, blank=True, default='')
     domicilio_facturacion = models.TextField(blank=True, default='')
 
     # Envío
-    calle_envio = models.CharField(max_length=200, blank=True, default='')
-    numero_envio = models.CharField(max_length=50, blank=True, default='')
-    colonia_envio = models.CharField(max_length=150, blank=True, default='')
-    codigo_postal_envio = models.CharField(max_length=20, blank=True, default='')
-    pais_envio = models.CharField(max_length=120, blank=True, default='')
-    estado_envio = models.CharField(max_length=120, blank=True, default='')
-    ciudad_envio = models.CharField(max_length=120, blank=True, default='')
+    calle_envio = models.CharField(max_length=255, blank=True, default='')
+    numero_envio = models.CharField(max_length=100, blank=True, default='')
+    colonia_envio = models.CharField(max_length=255, blank=True, default='')
+    codigo_postal_envio = models.CharField(max_length=50, blank=True, default='')
+    pais_envio = models.CharField(max_length=255, blank=True, default='')
+    estado_envio = models.CharField(max_length=255, blank=True, default='')
+    ciudad_envio = models.CharField(max_length=255, blank=True, default='')
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True, null=True, blank=True)
+
 
     def save(self, *args, **kwargs):
         if not self.idx:

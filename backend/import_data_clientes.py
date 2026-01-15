@@ -9,8 +9,11 @@ django.setup()
 
 from apps.clientes.models import Cliente, ClienteContacto
 
-def clean_str(val):
-    return str(val).strip() if val else ""
+def clean_str(val, max_len=None):
+    s = str(val).strip() if val else ""
+    if max_len and len(s) > max_len:
+        return s[:max_len]
+    return s
 
 def clean_decimal(val):
     if not val: return Decimal('0.00')
@@ -48,53 +51,56 @@ def import_clientes():
                 if not idx_val:
                     continue
 
-                nombre = clean_str(row.get('Empresa')) or clean_str(row.get('NOMBRE'))
+                nombre = clean_str(row.get('Empresa'), 255) or clean_str(row.get('NOMBRE'), 255)
                 if not nombre:
-                    continue
+                    nombre = f"Cliente {idx_val}"
 
                 # Create or update Cliente
                 cliente, created = Cliente.objects.update_or_create(
                     idx=idx_val,
                     defaults={
                         'nombre': nombre,
-                        'nombre_facturacion': clean_str(row.get('NOMBRE')),
-                        'rfc': clean_str(row.get('RFC')),
-                        'curp': clean_str(row.get('CURP')),
-                        'calle': clean_str(row.get('Calle')),
-                        'numero_exterior': clean_str(row.get('Número exterior')),
-                        'interior': clean_str(row.get('Interior')),
-                        'colonia': clean_str(row.get('COLONIA')),
-                        'codigo_postal': clean_str(row.get('Codigo Postal')),
-                        'localidad': clean_str(row.get('LOCALIDAD')),
-                        'municipio': clean_str(row.get('MUNICIPIO')),
-                        'estado': clean_str(row.get('ESTADO')),
-                        'pais': clean_str(row.get('PAIS', 'MEXICO')),
-                        'telefono': clean_str(row.get('TELÉFONO')),
+                        'nombre_facturacion': clean_str(row.get('NOMBRE'), 255),
+                        'rfc': clean_str(row.get('RFC'), 50),
+                        'curp': clean_str(row.get('CURP'), 100),
+                        'calle': clean_str(row.get('Calle'), 255),
+                        'numero_exterior': clean_str(row.get('Número exterior'), 100),
+                        'interior': clean_str(row.get('Interior'), 100),
+                        'colonia': clean_str(row.get('COLONIA'), 255),
+                        'codigo_postal': clean_str(row.get('Codigo Postal'), 50),
+                        'localidad': clean_str(row.get('LOCALIDAD'), 255),
+                        'municipio': clean_str(row.get('MUNICIPIO'), 255),
+                        'estado': clean_str(row.get('ESTADO'), 255),
+                        'pais': clean_str(row.get('PAIS', 'MEXICO'), 255),
+                        'telefono': clean_str(row.get('TELÉFONO'), 100),
                         'correo': clean_str(row.get('EMAILS')),
                         'notas': clean_str(row.get('COMENTARIO')),
                         'aplica_retenciones': clean_bool(row.get('APLICA RETENCIONES (S/N)')),
                         'desglosar_ieps': clean_bool(row.get('DESGLOSAR IEPS (S/N)')),
-                        'numero_precio': clean_str(row.get('NÚMERO DE PRECIO', '1')),
+                        'numero_precio': clean_str(row.get('NÚMERO DE PRECIO', '1'), 50),
                         'limite_credito': clean_decimal(row.get('LIMITE DE CRÉDITO')),
                         'dias_credito': clean_int(row.get('DIAS DE CRÉDITO')),
                     }
                 )
 
                 # Contacto principal
-                celular = clean_str(row.get('CELULAR'))
+                celular = clean_str(row.get('CELULAR'), 25)
                 email = clean_str(row.get('EMAILS'))
                 if celular or email:
+                    first_email = email.split('||')[0].strip() if email else ""
                     ClienteContacto.objects.update_or_create(
                         cliente=cliente,
                         is_principal=True,
                         defaults={
-                            'nombre_apellido': nombre,
+                            'nombre_apellido': nombre[:200],
                             'celular': celular,
-                            'correo': email.split('||')[0].strip() if email else "",
+                            'correo': first_email[:254],
                         }
                     )
 
                 count += 1
+                if count % 100 == 0:
+                    print(f"Processed {count} clients...")
             except Exception as e:
                 print(f"Error importing row {row.get('IDX')}: {e}")
 
