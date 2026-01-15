@@ -1,6 +1,6 @@
 import os
-import django
 import csv
+import django
 from decimal import Decimal
 
 # Configure Django
@@ -9,53 +9,46 @@ django.setup()
 
 from apps.clientes.models import Cliente, ClienteContacto
 
-def clean_bool(val):
-    if not val: return False
-    return str(val).strip().upper() in ['VERDADERO', 'TRUE', '1', 'S', 'SI', 'SÍ']
-
 def clean_str(val):
-    if val is None: return ""
-    return str(val).strip()
+    return str(val).strip() if val else ""
 
 def clean_decimal(val):
     if not val: return Decimal('0.00')
     try:
-        # Remove currency symbols and commas
-        clean_val = str(val).replace('$', '').replace(',', '').strip()
-        return Decimal(clean_val)
+        # Remove commas and currency symbols
+        clean = str(val).replace(',', '').replace('$', '').strip()
+        return Decimal(clean)
     except:
         return Decimal('0.00')
 
 def clean_int(val):
     if not val: return 0
     try:
-        return int(float(str(val).replace(',', '').strip()))
+        return int(float(str(val).strip()))
     except:
         return 0
+
+def clean_bool(val):
+    if not val: return False
+    val = str(val).strip().upper()
+    return val in ['S', 'SI', 'TRUE', '1', 'Y', 'YES']
 
 def import_clientes():
     file_path = 'clientes'
     if not os.path.exists(file_path):
-        print(f"Error: File '{file_path}' not found.")
+        print(f"File {file_path} not found.")
         return
 
-    print(f"Starting import from {file_path}...")
-    
+    count = 0
     with open(file_path, mode='r', encoding='utf-8') as f:
-        # Read the first line to find headers
-        header_line = f.readline()
-        headers = [h.strip() for h in header_line.split('\t')]
-        
-        # Use a dict reader with the detected headers
-        reader = csv.DictReader(f, fieldnames=headers, delimiter='\t')
-        
-        count = 0
+        reader = csv.DictReader(f, delimiter='\t')
         for row in reader:
             try:
-                # Use idx as the unique identifier if available
-                idx_val = clean_int(row.get('idx'))
-                nombre = clean_str(row.get('nombre'))
-                
+                idx_val = clean_int(row.get('IDX'))
+                if not idx_val:
+                    continue
+
+                nombre = clean_str(row.get('Empresa')) or clean_str(row.get('NOMBRE'))
                 if not nombre:
                     continue
 
@@ -64,43 +57,48 @@ def import_clientes():
                     idx=idx_val,
                     defaults={
                         'nombre': nombre,
-                        'direccion': clean_str(row.get('direccion')),
-                        'telefono': clean_str(row.get('telefono')),
-                        'telefono_pais': clean_str(row.get('telefono_pais', 'MX')),
-                        'email': clean_str(row.get('email')),
-                        'rfc': clean_str(row.get('rfc')),
-                        'regimen_fiscal': clean_str(row.get('regimen_fiscal')),
-                        'codigo_postal': clean_str(row.get('codigo_postal')),
-                        'limite_credito': clean_decimal(row.get('limite_credito')),
-                        'dias_credito': clean_int(row.get('dias_credito')),
-                        'vendedor': clean_str(row.get('vendedor')),
-                        'lista_precios': clean_int(row.get('lista_precios')),
-                        'requiere_factura': row.get('requiere_factura', '').strip().upper() == 'S',
-                        'credito_suspendido': row.get('credito_suspendido', '').strip().upper() == 'S',
-                        'tipo_cliente': clean_str(row.get('tipo_cliente')),
+                        'nombre_facturacion': clean_str(row.get('NOMBRE')),
+                        'rfc': clean_str(row.get('RFC')),
+                        'curp': clean_str(row.get('CURP')),
+                        'calle': clean_str(row.get('Calle')),
+                        'numero_exterior': clean_str(row.get('Número exterior')),
+                        'interior': clean_str(row.get('Interior')),
+                        'colonia': clean_str(row.get('COLONIA')),
+                        'codigo_postal': clean_str(row.get('Codigo Postal')),
+                        'localidad': clean_str(row.get('LOCALIDAD')),
+                        'municipio': clean_str(row.get('MUNICIPIO')),
+                        'estado': clean_str(row.get('ESTADO')),
+                        'pais': clean_str(row.get('PAIS', 'MEXICO')),
+                        'telefono': clean_str(row.get('TELÉFONO')),
+                        'correo': clean_str(row.get('EMAILS')),
+                        'notas': clean_str(row.get('COMENTARIO')),
+                        'aplica_retenciones': clean_bool(row.get('APLICA RETENCIONES (S/N)')),
+                        'desglosar_ieps': clean_bool(row.get('DESGLOSAR IEPS (S/N)')),
+                        'numero_precio': clean_str(row.get('NÚMERO DE PRECIO', '1')),
+                        'limite_credito': clean_decimal(row.get('LIMITE DE CRÉDITO')),
+                        'dias_credito': clean_int(row.get('DIAS DE CRÉDITO')),
                     }
                 )
-                
-                # Handle contact if present
-                contacto_nombre = clean_str(row.get('contacto_nombre'))
-                if contacto_nombre:
+
+                # Contacto principal
+                celular = clean_str(row.get('CELULAR'))
+                email = clean_str(row.get('EMAILS'))
+                if celular or email:
                     ClienteContacto.objects.update_or_create(
                         cliente=cliente,
-                        nombre=contacto_nombre,
+                        is_principal=True,
                         defaults={
-                            'telefono': clean_str(row.get('contacto_telefono')),
-                            'email': clean_str(row.get('contacto_email')),
-                            'puesto': clean_str(row.get('contacto_puesto')),
+                            'nombre_apellido': nombre,
+                            'celular': celular,
+                            'correo': email.split('||')[0].strip() if email else "",
                         }
                     )
 
                 count += 1
-                if count % 10 == 0:
-                    print(f"Imported {count} clients...")
             except Exception as e:
-                print(f"Error importing row {row}: {e}")
+                print(f"Error importing row {row.get('IDX')}: {e}")
 
-    print(f"Successfully imported {count} clients.")
+    print(f"Successfully imported/updated {count} clients.")
 
 if __name__ == '__main__':
     import_clientes()

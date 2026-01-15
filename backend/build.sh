@@ -12,8 +12,12 @@ pip install -r requirements.txt
 # Collect static files
 python manage.py collectstatic --noinput
 
+# Sync schema and reset migrations if out of sync
+python sync_schema.py
+
 # Apply database migrations
 python manage.py migrate --noinput
+
 
 # Run ID reindexing fix (Ordenes 589+ -> 5000+)
 python reindex_fix.py
