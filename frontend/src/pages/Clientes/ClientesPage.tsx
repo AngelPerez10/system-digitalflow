@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import PageMeta from "@/components/common/PageMeta";
@@ -150,14 +150,27 @@ export default function Clientes() {
   const canClientesDelete = !!permissions?.clientes?.delete;
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [clienteToDelete, setClienteToDelete] = useState<Cliente | null>(null);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 50;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
 
   // Alert state
   const [alert, setAlert] = useState<{
@@ -388,7 +401,7 @@ export default function Clientes() {
     load();
   }, []);
 
-  const fetchClientes = async () => {
+  const fetchClientes = async (page = 1, search = "") => {
     const token = getToken();
     if (!token) {
       setLoading(false);
@@ -396,19 +409,31 @@ export default function Clientes() {
     }
     setLoading(true);
     try {
-      const res = await fetch(apiUrl('/api/clientes/'), {
-        method: 'GET',
+      const query = new URLSearchParams({
+        page: String(page),
+        search: search.trim(),
+        ordering: 'idx',
+      });
+      const res = await fetch(apiUrl(`/api/clientes/?${query.toString()}`), {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store' as RequestCache,
       });
-      const data = await res.json().catch(() => []);
+      const data = await res.json().catch(() => ({ results: [], count: 0 }));
       if (!res.ok) {
         setClientes([]);
+        setTotalCount(0);
         return;
       }
-      setClientes(Array.isArray(data) ? data : []);
+      if (data && data.results) {
+        setClientes(data.results);
+        setTotalCount(data.count || 0);
+      } else {
+        setClientes([]);
+        setTotalCount(0);
+      }
     } catch {
       setClientes([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
@@ -419,8 +444,8 @@ export default function Clientes() {
       setLoading(false);
       return;
     }
-    fetchClientes();
-  }, [canClientesView]);
+    fetchClientes(currentPage, debouncedSearch);
+  }, [canClientesView, currentPage, debouncedSearch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -797,25 +822,12 @@ export default function Clientes() {
     setShowModal(true);
   };
 
-  const shownList = useMemo(() => {
-    if (!Array.isArray(clientes)) return [];
-    const q = (searchTerm || '').trim().toLowerCase();
-    if (!q) return clientes;
-    return clientes.filter((c: Cliente) =>
-      c.nombre.toLowerCase().includes(q) ||
-      String(c.telefono || '').includes(q) ||
-      String(c.direccion || '').toLowerCase().includes(q)
-    );
-  }, [clientes, searchTerm]);
-
-  const totalPages = Math.ceil(shownList.length / itemsPerPage);
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentClientes = shownList.slice(startIndex, endIndex);
+  const currentClientes = clientes;
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+
 
   const handleConfirmMap = () => {
     if (!selectedLocation) {
@@ -857,7 +869,7 @@ export default function Clientes() {
             </span>
             <div className="flex flex-col">
               <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Clientes</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{clientes.length}</p>
+              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{totalCount}</p>
             </div>
           </div>
         </div>
@@ -1026,13 +1038,13 @@ export default function Clientes() {
           </div>
 
           {/* Paginación */}
-          {!loading && shownList.length > 0 && currentClientes.length > 0 && (
+          {!loading && totalCount > 0 && currentClientes.length > 0 && (
             <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Mostrando <span className="font-medium text-gray-900 dark:text-white">{startIndex + 1}</span> a{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">{Math.min(endIndex, shownList.length)}</span> de{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> clientes
+                  <span className="font-medium text-gray-900 dark:text-white">{Math.min(endIndex, totalCount)}</span> de{" "}
+                  <span className="font-medium text-gray-900 dark:text-white">{totalCount}</span> clientes
                 </p>
 
                 <div className="flex items-center gap-2">

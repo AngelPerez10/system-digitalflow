@@ -19,17 +19,25 @@ class ClientesPermission(ModulePermission):
     module_key = 'clientes'
 
 
+from rest_framework.pagination import PageNumberPagination
+
+class ClientePagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 500
+
 class ClienteViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing Cliente instances.
     
     Provides CRUD operations for clients with permission-based access control.
     """
-    queryset = Cliente.objects.all()
+    queryset = Cliente.objects.prefetch_related('contactos').select_related('documento').all()
     serializer_class = ClienteSerializer
     permission_classes = [ClientesPermission]
-    pagination_class = None
+    pagination_class = ClientePagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+
     search_fields = [
         'nombre',
         'telefono',
