@@ -13,6 +13,7 @@ import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { apiUrl } from "@/config/api";
 import { PencilIcon, TrashBinIcon, TimeIcon } from "../../icons";
+import { MobileOrderList } from "./MobileOrderCard";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 
@@ -1414,9 +1415,19 @@ export default function Ordenes() {
         }
       >
         <div className="p-2">
-
-
-          <div className="overflow-x-auto">
+          <MobileOrderList
+            ordenes={currentOrdenes}
+            startIndex={startIndex}
+            loading={loading}
+            formatDate={formatYmdToDMY}
+            onPdf={(id) => navigate(`/ordenes/${id}/pdf`)}
+            onEdit={canOrdenesEdit ? handleEdit : undefined}
+            onDelete={canOrdenesDelete ? handleDeleteClick : undefined}
+            canEdit={canOrdenesEdit}
+            canDelete={canOrdenesDelete}
+            usuarios={usuarios}
+          />
+          <div className="hidden md:block overflow-x-auto">
             <Table className="w-full min-w-[900px] sm:min-w-0 sm:table-fixed">
               <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sm:sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
                 <TableRow>

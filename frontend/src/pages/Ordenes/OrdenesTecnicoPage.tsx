@@ -13,6 +13,7 @@ import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { apiUrl } from "@/config/api";
 import { PencilIcon, TrashBinIcon, TimeIcon } from "../../icons";
+import { MobileOrderList } from "./MobileOrderCard";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 
@@ -83,6 +84,7 @@ export default function OrdenesTecnico() {
   const canOrdenesCreate = !!permissions?.ordenes?.create;
   const canOrdenesEdit = !!permissions?.ordenes?.edit;
   const canOrdenesDelete = !!permissions?.ordenes?.delete;
+  const canClientesEdit = !!permissions?.clientes?.edit;
 
   useEffect(() => {
     const token = getToken();
@@ -538,10 +540,44 @@ export default function OrdenesTecnico() {
   const [servicioOpen, setServicioOpen] = useState(false);
   const [servicioSearch, setServicioSearch] = useState('');
 
+  const [tecnicoSignatureUrl, setTecnicoSignatureUrl] = useState<string>('');
+  const tecnicoSignatureCacheRef = useRef<Record<number, string>>({});
+
   // Modales de detalles
   const [problematicaModal, setProblematicaModal] = useState<{ open: boolean, content: string }>({ open: false, content: '' });
   const [serviciosModal, setServiciosModal] = useState<{ open: boolean; content: string[] }>({ open: false, content: [] });
   const [comentarioModal, setComentarioModal] = useState<{ open: boolean; content: string }>({ open: false, content: '' });
+
+  const loadTecnicoSignature = async (userId: number | null) => {
+    if (!userId) {
+      setTecnicoSignatureUrl('');
+      return;
+    }
+
+    const cached = tecnicoSignatureCacheRef.current[userId];
+    if (typeof cached === 'string') {
+      setTecnicoSignatureUrl(cached);
+      return;
+    }
+
+    const token = getToken();
+    if (!token) return;
+    try {
+      const res = await fetch(apiUrl(`/api/users/accounts/${userId}/signature/`), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store' as RequestCache,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) return;
+      const url = (data as any)?.url || '';
+      tecnicoSignatureCacheRef.current[userId] = url;
+      setTecnicoSignatureUrl(url);
+    } catch {
+      return;
+    }
+  };
+
   const validateForm = () => {
     const missing: string[] = [];
     if (!formData.cliente_id) missing.push('Cliente');
@@ -786,7 +822,7 @@ export default function OrdenesTecnico() {
 
       if (response.ok) {
         const cid = payload?.cliente_id;
-        if (cid && (payload?.direccion || payload?.telefono_cliente)) {
+        if (canClientesEdit && cid && (payload?.direccion || payload?.telefono_cliente)) {
           await fetch(apiUrl(`/api/clientes/${cid}/`), {
             method: 'PUT',
             headers: {
@@ -1075,12 +1111,23 @@ export default function OrdenesTecnico() {
       setFormData({ ...formData, tecnico_asignado: usuario.id });
       const nombre = usuario.first_name && usuario.last_name ? `${usuario.first_name} ${usuario.last_name}` : usuario.email;
       setTecnicoSearch(nombre);
+      loadTecnicoSignature(usuario.id);
     } else {
       setFormData({ ...formData, tecnico_asignado: null });
       setTecnicoSearch('');
+      setTecnicoSignatureUrl('');
     }
     setTecnicoOpen(false);
   };
+
+  useEffect(() => {
+    const tecnicoId = formData?.tecnico_asignado != null ? Number(formData.tecnico_asignado) : null;
+    if (!tecnicoId) {
+      setTecnicoSignatureUrl('');
+      return;
+    }
+    loadTecnicoSignature(tecnicoId);
+  }, [formData?.tecnico_asignado]);
 
   const filteredServicios = serviciosDisponibles.filter(s => {
     const q = servicioSearch.trim().toLowerCase();
@@ -1390,9 +1437,19 @@ export default function OrdenesTecnico() {
         }
       >
         <div className="p-2">
-
-
-          <div className="overflow-x-auto">
+          <MobileOrderList
+            ordenes={currentOrdenes}
+            startIndex={startIndex}
+            loading={loading}
+            formatDate={formatYmdToDMY}
+            onPdf={(id) => navigate(`/ordenes/${id}/pdf`)}
+            onEdit={canOrdenesEdit ? handleEdit : undefined}
+            onDelete={canOrdenesDelete ? handleDeleteClick : undefined}
+            canEdit={canOrdenesEdit}
+            canDelete={canOrdenesDelete}
+            usuarios={usuarios}
+          />
+          <div className="hidden md:block overflow-x-auto">
             <Table className="w-full min-w-[900px] sm:min-w-0 sm:table-fixed">
               <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sm:sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
                 <TableRow>
@@ -2192,8 +2249,8 @@ export default function OrdenesTecnico() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <SignaturePad
                     label="Firma del Encargado"
-                    value={mySignatureUrl || formData.firma_encargado_url}
-                    disabled={isReadOnly}
+                    value={tecnicoSignatureUrl || mySignatureUrl || formData.firma_encargado_url}
+                    disabled={true}
                     onChange={() => { }}
                     width={400}
                     height={250}

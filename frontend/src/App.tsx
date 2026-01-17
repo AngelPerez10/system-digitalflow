@@ -44,7 +44,7 @@ export default function App() {
 
             {/* Dashboard Pages */}
             <Route path="/ordenes" element={<RequireAdmin><Ordenes /></RequireAdmin>} />
-            <Route path="/ordenes/:id/pdf" element={<RequireAdmin><OrdenPdfPage /></RequireAdmin>} />
+            <Route path="/ordenes/:id/pdf" element={<OrdenPdfPage />} />
             <Route path="/ordenes-tecnico" element={<OrdenesTecnico />} />
             <Route path="/clientes" element={<RequireAdmin><Clientes /></RequireAdmin>} />
             <Route path="/productos" element={<RequireAdmin><Productos /></RequireAdmin>} />
