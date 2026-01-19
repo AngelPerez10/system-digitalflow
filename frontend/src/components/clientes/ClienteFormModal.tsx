@@ -293,6 +293,20 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
             // Only check if permissions object is provided
         }
 
+        // Validación de campos requeridos
+        const missingFields: string[] = [];
+        if (!formData.nombre?.trim()) missingFields.push('Empresa');
+        if (!formData.telefono?.trim() || !onlyDigits10(formData.telefono)) missingFields.push('Teléfono (10 dígitos)');
+        
+        const primerContacto = contactos[0];
+        if (!primerContacto?.nombre_apellido?.trim()) missingFields.push('Nombre y apellido del contacto');
+        if (!primerContacto?.celular?.trim() || !onlyDigits10(primerContacto.celular)) missingFields.push('Celular del contacto (10 dígitos)');
+
+        if (missingFields.length > 0) {
+            setModalError(`Campos requeridos faltantes: ${missingFields.join(', ')}`);
+            return;
+        }
+
         setSaving(true);
         const token = getToken();
         const url = editingCliente ? apiUrl(`/api/clientes/${editingCliente.id}/`) : apiUrl('/api/clientes/');

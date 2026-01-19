@@ -1844,6 +1844,19 @@ export default function OrdenesTecnico() {
                   </div>
                 </div>
 
+                {/* Campo Empresa (solo lectura, muestra el cliente seleccionado) */}
+                {formData.cliente_id && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Empresa *</label>
+                    <input
+                      type="text"
+                      value={formData.cliente || ''}
+                      readOnly
+                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 cursor-not-allowed outline-none"
+                    />
+                  </div>
+                )}
+
                 {/* 2. Nombre del Cliente y Técnico Asignado */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
