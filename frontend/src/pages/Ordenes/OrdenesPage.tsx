@@ -76,6 +76,7 @@ export default function Ordenes() {
   const canOrdenesCreate = !!permissions?.ordenes?.create;
   const canOrdenesEdit = !!permissions?.ordenes?.edit;
   const canOrdenesDelete = !!permissions?.ordenes?.delete;
+  const canClientesEdit = !!permissions?.clientes?.edit;
 
   const getToken = () => {
     return localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -792,6 +793,34 @@ export default function Ordenes() {
       });
 
       if (response.ok) {
+        const cid = payload?.cliente_id;
+        if (canClientesEdit && cid && (payload?.direccion || payload?.telefono_cliente)) {
+          const existingCliente = clientes.find(c => c.id === cid);
+          const updates: any = {};
+
+          const hasClienteDireccion = !!existingCliente?.direccion && String(existingCliente.direccion).trim() !== '';
+          const hasClienteTelefono = !!existingCliente?.telefono && String(existingCliente.telefono).trim() !== '';
+
+          if (!hasClienteDireccion && payload?.direccion) {
+            updates.direccion = String(payload.direccion);
+          }
+          if (!hasClienteTelefono && payload?.telefono_cliente) {
+            updates.telefono = String(payload.telefono_cliente);
+          }
+
+          if (Object.keys(updates).length > 0) {
+            updates.nombre = existingCliente?.nombre || String(formData.cliente || '');
+            await fetch(apiUrl(`/api/clientes/${cid}/`), {
+              method: 'PATCH',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(updates),
+            }).catch(() => null);
+          }
+        }
+
         // Recargar la lista completa de órdenes
         await fetchOrdenes();
         setShowModal(false);

@@ -823,18 +823,30 @@ export default function OrdenesTecnico() {
       if (response.ok) {
         const cid = payload?.cliente_id;
         if (canClientesEdit && cid && (payload?.direccion || payload?.telefono_cliente)) {
-          await fetch(apiUrl(`/api/clientes/${cid}/`), {
-            method: 'PUT',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              nombre: (formData.cliente || '').toString(),
-              direccion: (payload?.direccion || '').toString(),
-              telefono: (payload?.telefono_cliente || '').toString(),
-            }),
-          }).catch(() => null);
+          const existingCliente = clientes.find(c => c.id === cid);
+          const updates: any = {};
+
+          const hasClienteDireccion = !!existingCliente?.direccion && String(existingCliente.direccion).trim() !== '';
+          const hasClienteTelefono = !!existingCliente?.telefono && String(existingCliente.telefono).trim() !== '';
+
+          if (!hasClienteDireccion && payload?.direccion) {
+            updates.direccion = String(payload.direccion);
+          }
+          if (!hasClienteTelefono && payload?.telefono_cliente) {
+            updates.telefono = String(payload.telefono_cliente);
+          }
+
+          if (Object.keys(updates).length > 0) {
+            updates.nombre = existingCliente?.nombre || String(formData.cliente || '');
+            await fetch(apiUrl(`/api/clientes/${cid}/`), {
+              method: 'PATCH',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(updates),
+            }).catch(() => null);
+          }
         }
 
         // Recargar la lista completa de órdenes
