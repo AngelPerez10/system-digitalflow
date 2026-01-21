@@ -312,6 +312,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
         servicios = orden.servicios_realizados if isinstance(orden.servicios_realizados, list) else []
         fotos = orden.fotos_urls if isinstance(orden.fotos_urls, list) else []
         fotos = fotos[:5]
+        fotos_limpias = [url for url in fotos if url]
+        has_photos = bool(fotos_limpias)
 
         firma_tecnico = _img_url_to_data_uri(getattr(orden, 'firma_encargado_url', None) or '')
         firma_cliente = _img_url_to_data_uri(getattr(orden, 'firma_cliente_url', None) or '')
@@ -326,7 +328,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         ) or "<span class='muted'>-</span>"
 
         fotos_grid_html = "".join(
-            f"<div class='photo-box'><img src='{esc(_img_url_to_data_uri(url))}' /></div>" for url in fotos if url
+            f"<div class='photo-box'><img src='{esc(_img_url_to_data_uri(url))}' /></div>" for url in fotos_limpias
         ) or "<div class='muted'>No hay fotos adjuntas.</div>"
 
         logo_data_uri = ""
@@ -338,6 +340,25 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 logo_data_uri = f"data:image/png;base64,{b64}"
         except Exception:
             logo_data_uri = ""
+
+        evidencias_html = ""
+        if has_photos:
+            evidencias_html = f"""
+
+    <div class='pagebreak'></div>
+    <div class='page'>
+      <div class='content'>
+        <div class='section'>
+          <div class='section-title'>Evidencias</div>
+          <div class='box'>
+            <div class='photos'>
+              {fotos_grid_html}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+"""
 
         html = f"""<!doctype html>
 <html>
@@ -366,7 +387,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         margin-bottom: 14mm;
       }}
       * {{ box-sizing: border-box; }}
-      body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; color: var(--text); background: var(--bg); margin: 0; }}
+      body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; font-size: 14px; color: var(--text); background: var(--bg); margin: 0; }}
       .page {{ width: 210mm; min-height: 297mm; padding: 0; margin: 0 auto; }}
       .content {{ padding: 0; }}
       .topbar {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }}
@@ -374,30 +395,30 @@ class OrdenViewSet(viewsets.ModelViewSet):
       .logo {{ width: 96px; height: 96px; border-radius: 0; background: transparent; border: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto; }}
       .logo img {{ width: 100%; height: 100%; object-fit: contain; }}
       .brand {{ min-width: 0; }}
-      .brand .name {{ font-size: 14px; font-weight: 900; color: var(--blue-900); letter-spacing: -0.2px; }}
-      .brand .meta {{ margin-top: 6px; font-size: 9px; line-height: 1.25; color: var(--muted); max-width: 330px; }}
+      .brand .name {{ font-size: 15px; font-weight: 900; color: var(--blue-900); letter-spacing: -0.2px; }}
+      .brand .meta {{ margin-top: 6px; font-size: 11px; line-height: 1.25; color: var(--muted); max-width: 330px; }}
       .brand .meta b {{ color: var(--text); font-weight: 800; }}
       .status {{ text-align: right; max-width: 45%; margin-left: auto; }}
-      .status .pill {{ display: inline-block; font-size: 10px; font-weight: 900; letter-spacing: .7px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); }}
-      .status .dates {{ margin-top: 8px; font-size: 10px; color: var(--muted); line-height: 1.35; }}
-      .status .folio {{ font-size: 15px; color: var(--muted); margin-bottom: 6px; font-weight: 800; }}
+      .status .pill {{ display: inline-block; font-size: 12px; font-weight: 900; letter-spacing: .7px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); }}
+      .status .dates {{ margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.35; }}
+      .status .folio {{ font-size: 17px; color: var(--muted); margin-bottom: 6px; font-weight: 800; }}
       .status .folio .num {{ color: #dc2626; font-weight: 900; }}
       .hero {{ border: 1px solid var(--border); border-left: 6px solid var(--blue-700); border-radius: 14px; padding: 14px 14px 12px 14px; background: #eff6ff; margin-bottom: 14px; }}
-      .hero .title {{ font-size: 18px; font-weight: 950; color: var(--blue-900); letter-spacing: -0.3px; }}
-      .hero .sub {{ margin-top: 5px; font-size: 10px; color: var(--muted); }}
+      .hero .title {{ font-size: 19px; font-weight: 950; color: var(--blue-900); letter-spacing: -0.3px; }}
+      .hero .sub {{ margin-top: 5px; font-size: 11px; color: var(--muted); }}
       .grid2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
       .card {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
-      .card h3 {{ margin: 0 0 10px 0; font-size: 11px; font-weight: 950; color: var(--blue-900); letter-spacing: .3px; text-transform: uppercase; }}
+      .card h3 {{ margin: 0 0 10px 0; font-size: 13px; font-weight: 950; color: var(--blue-900); letter-spacing: .3px; text-transform: uppercase; }}
       .row {{ display: flex; gap: 12px; }}
       .col {{ flex: 1; min-width: 0; }}
-      .label {{ font-size: 9px; font-weight: 900; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }}
-      .value {{ margin-top: 4px; font-size: 11px; color: var(--text); }}
+      .label {{ font-size: 11px; font-weight: 900; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }}
+      .value {{ margin-top: 4px; font-size: 13px; color: var(--text); }}
       .pre {{ white-space: pre-wrap; overflow-wrap: anywhere; }}
-      .muted {{ color: var(--muted); font-size: 11px; }}
+      .muted {{ color: var(--muted); font-size: 13px; }}
       .services {{ margin-top: 6px; }}
-      .service-pill {{ display: inline-block; font-size: 9px; font-weight: 800; color: #fff; padding: 4px 10px; border-radius: 999px; background: #2563eb; margin: 4px 6px 0 0; }}
+      .service-pill {{ display: inline-block; font-size: 11px; font-weight: 800; color: #fff; padding: 4px 10px; border-radius: 999px; background: #2563eb; margin: 4px 6px 0 0; }}
       .section {{ margin-top: 12px; }}
-      .section-title {{ margin: 0 0 10px 0; font-size: 11px; font-weight: 950; color: var(--blue-900); letter-spacing: .3px; text-transform: uppercase; }}
+      .section-title {{ margin: 0 0 10px 0; font-size: 13px; font-weight: 950; color: var(--blue-900); letter-spacing: .3px; text-transform: uppercase; }}
       .box {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
       .photos {{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }}
       .photo-box {{ border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--blue-50); height: 260px; display: flex; align-items: center; justify-content: center; }}
@@ -407,7 +428,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
       .sigbox {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
       .sigimgwrap {{ height: 105px; border-radius: 12px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--blue-50); margin-top: 8px; }}
       .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; }}
-      .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 10px; color: var(--muted); }}
+      .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 12px; color: var(--muted); }}
       .sigline b {{ font-weight: 950; color: var(--text); }}
     </style>
   </head>
@@ -505,19 +526,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
       </div>
     </div>
 
-    <div class='pagebreak'></div>
-    <div class='page'>
-      <div class='content'>
-        <div class='section'>
-          <div class='section-title'>Evidencias</div>
-          <div class='box'>
-            <div class='photos'>
-              {fotos_grid_html}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    {evidencias_html}
   </body>
 </html>"""
 

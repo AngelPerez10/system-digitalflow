@@ -91,7 +91,7 @@ const AppSidebar: React.FC = () => {
         subItems: [
           { name: "Agenda", path: "/", pro: false },
           { name: "Tareas", path: "/", pro: false },
-          { name: "Correo", path: "/", pro: false },
+          { name: "Correo", path: "/correo", pro: false },
         ],
       });
 

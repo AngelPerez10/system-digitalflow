@@ -266,7 +266,7 @@ export default function TechnicianDashboard() {
             />
             <div className="grid grid-cols-12 gap-4 md:gap-6">
                 {/* Metrics Section */}
-                <div className="col-span-12 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <div className="col-span-12 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3">
                     <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                         <div>
                             <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
@@ -305,7 +305,7 @@ export default function TechnicianDashboard() {
                             </div>
                             <div>
                                 <button
-                                    className="text-theme-sm shadow-theme-xs inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
+                                    className="text-theme-sm shadow-theme-xs inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3 dark:hover:text-gray-200"
                                 >
                                     <svg
                                         className="fill-white stroke-current dark:fill-gray-800"
@@ -350,7 +350,7 @@ export default function TechnicianDashboard() {
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-6">
                         {/* Metric 1: Total Orders */}
-                        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-all hover:shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+                        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-all hover:shadow-theme-sm dark:border-gray-800 dark:bg-white/3 md:p-6">
                             <div className="flex items-end justify-between">
                                 <div>
                                     <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Órdenes Totales</span>
@@ -364,7 +364,7 @@ export default function TechnicianDashboard() {
                         </div>
 
                         {/* Metric 2: Resolved */}
-                        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-all hover:shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+                        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-all hover:shadow-theme-sm dark:border-gray-800 dark:bg-white/3 md:p-6">
                             <div className="flex items-end justify-between">
                                 <div>
                                     <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Resueltas</span>
@@ -378,7 +378,7 @@ export default function TechnicianDashboard() {
                         </div>
 
                         {/* Metric 3: Pending */}
-                        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-all hover:shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+                        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-all hover:shadow-theme-sm dark:border-gray-800 dark:bg-white/3 md:p-6">
                             <div className="flex items-end justify-between">
                                 <div>
                                     <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Pendientes</span>
@@ -391,7 +391,7 @@ export default function TechnicianDashboard() {
                         </div>
 
                         {/* Metric 4: Clients */}
-                        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-all hover:shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+                        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-all hover:shadow-theme-sm dark:border-gray-800 dark:bg-white/3 md:p-6">
                             <div className="flex items-end justify-between">
                                 <div>
                                     <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Clientes Atendidos</span>
@@ -408,7 +408,7 @@ export default function TechnicianDashboard() {
                 {/* Left Column: Chart & Recent Orders */}
                 <div className="col-span-12 space-y-6 xl:col-span-8">
                     {/* Monthly Orders Chart */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/3 sm:p-6">
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Rendimiento Mensual</h3>
@@ -423,7 +423,7 @@ export default function TechnicianDashboard() {
                     </div>
 
                     {/* Recent Orders Table */}
-                    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/3">
                         <div className="px-5 py-4 sm:px-6 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
                             <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Órdenes Recientes</h3>
                             <button className="text-sm font-medium text-brand-500 hover:text-brand-600 transition-colors">Ver todas</button>
@@ -440,7 +440,7 @@ export default function TechnicianDashboard() {
                                 </TableHeader>
                                 <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                                     {recentOrders.map((o) => (
-                                        <TableRow key={o.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                                        <TableRow key={o.id} className="hover:bg-gray-50/50 dark:hover:bg-white/2 transition-colors">
                                             <TableCell className="py-4 px-5 font-bold text-gray-800 text-sm dark:text-white/90">#{o.idx}</TableCell>
                                             <TableCell className="py-4 px-5 text-gray-700 text-sm dark:text-gray-300 font-medium">{o.cliente}</TableCell>
                                             <TableCell className="py-4 px-5 text-gray-500 text-sm dark:text-gray-400">{o.fecha_inicio}</TableCell>
@@ -465,7 +465,7 @@ export default function TechnicianDashboard() {
                 {/* Right Column: Target & Top Clients */}
                 <div className="col-span-12 space-y-6 xl:col-span-4">
                     {/* Monthly Target Section */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/3 sm:p-6">
                         <div className="mb-2">
                             <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Meta Mensual</h3>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Progreso basado en 20 órdenes</p>
@@ -478,13 +478,13 @@ export default function TechnicianDashboard() {
                         <div className="mt-4 p-4 rounded-xl bg-brand-50/50 dark:bg-brand-500/5 border border-brand-100 dark:border-brand-500/20">
                             <p className="text-center text-sm text-gray-700 dark:text-gray-300">
                                 Has resuelto <span className="font-bold text-brand-600 dark:text-brand-400">{stats.resolved}</span> órdenes este mes.
-                                {targetProgress >= 100 ? " ¡Meta alcanzada! 🚀" : ` Te faltan ${20 - stats.resolved} para tu objetivo.`}
+                                {targetProgress >= 100 ? " ¡Meta alcanzada!" : ` Te faltan ${20 - stats.resolved} para tu objetivo.`}
                             </p>
                         </div>
                     </div>
 
                     {/* Top Clients Section */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/3 sm:p-6">
                         <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-1">Principales Clientes</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Clientes con mayor volumen de órdenes</p>
 

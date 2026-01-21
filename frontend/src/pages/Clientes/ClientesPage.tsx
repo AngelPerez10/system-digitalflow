@@ -210,7 +210,7 @@ export default function Clientes() {
     colonia: "",
     codigo_postal: "",
     ciudad: "",
-    pais: "M├®xico",
+    pais: "México",
     estado: "",
     localidad: "",
     municipio: "",
@@ -233,14 +233,14 @@ export default function Clientes() {
     numero_envio: "",
     colonia_envio: "",
     codigo_postal_envio: "",
-    pais_envio: "M├®xico",
+    pais_envio: "México",
     estado_envio: "",
     ciudad_envio: "",
     tipo: "EMPRESA",
   });
 
-  const estadosOptions = estadosPorPais[formData.pais || "M├®xico"] || estadosPorPais["M├®xico"] || [];
-  const estadosEnvioOptions = estadosPorPais[formData.pais_envio || "M├®xico"] || estadosPorPais["M├®xico"] || [];
+  const estadosOptions = estadosPorPais[formData.pais || "México"] || estadosPorPais["México"] || [];
+  const estadosEnvioOptions = estadosPorPais[formData.pais_envio || "México"] || estadosPorPais["México"] || [];
 
   const getToken = () => {
     return localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -594,7 +594,7 @@ export default function Clientes() {
         colonia: "",
         codigo_postal: "",
         ciudad: "",
-        pais: "M├®xico",
+        pais: "México",
         estado: "",
         notas: "",
         descuento_pct: null,
@@ -606,7 +606,7 @@ export default function Clientes() {
         numero_envio: "",
         colonia_envio: "",
         codigo_postal_envio: "",
-        pais_envio: "M├®xico",
+        pais_envio: "México",
         estado_envio: "",
         ciudad_envio: "",
       });
@@ -698,7 +698,7 @@ export default function Clientes() {
       colonia: cliente.colonia || "",
       codigo_postal: cliente.codigo_postal || "",
       ciudad: cliente.ciudad || "",
-      pais: cliente.pais || "M├®xico",
+      pais: cliente.pais || "México",
       estado: cliente.estado || "",
       localidad: cliente.localidad || "",
       municipio: cliente.municipio || "",
@@ -719,7 +719,7 @@ export default function Clientes() {
       numero_envio: cliente.numero_envio || "",
       colonia_envio: cliente.colonia_envio || "",
       codigo_postal_envio: cliente.codigo_postal_envio || "",
-      pais_envio: cliente.pais_envio || "M├®xico",
+      pais_envio: cliente.pais_envio || "México",
       estado_envio: cliente.estado_envio || "",
       ciudad_envio: cliente.ciudad_envio || "",
       tipo: cliente.tipo || "EMPRESA",
@@ -759,7 +759,7 @@ export default function Clientes() {
       colonia: "",
       codigo_postal: "",
       ciudad: "",
-      pais: "M├®xico",
+      pais: "México",
       estado: "",
       localidad: "",
       municipio: "",
@@ -780,7 +780,7 @@ export default function Clientes() {
       numero_envio: "",
       colonia_envio: "",
       codigo_postal_envio: "",
-      pais_envio: "M├®xico",
+      pais_envio: "México",
       estado_envio: "",
       ciudad_envio: "",
       tipo: "EMPRESA",
@@ -857,7 +857,7 @@ export default function Clientes() {
     <div className="p-4 sm:p-6 space-y-4">
       <PageMeta
         title="Clientes | Sistema Grupo Intrax GPS"
-        description="Gesti├│n de clientes para el sistema de administraci├│n Grupo Intrax GPS"
+        description="Gestión de clientes para el sistema de administración Grupo Intrax GPS"
       />
       <PageBreadcrumb pageTitle="Clientes" />
 
@@ -908,7 +908,7 @@ export default function Clientes() {
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                aria-label="Limpiar b├║squeda"
+                aria-label="Limpiar búsqueda"
                 className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/60"
               >
                 <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
@@ -947,9 +947,9 @@ export default function Clientes() {
                   <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">ID</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/4 text-gray-700 dark:text-gray-300">Empresa</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Ciudad</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Tel├®fono</TableCell>
+                  <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Teléfono</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/4 text-gray-700 dark:text-gray-300">Contacto</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/3 text-gray-700 dark:text-gray-300">Direcci├│n</TableCell>
+                  <TableCell isHeader className="px-2 py-2 text-left w-1/3 text-gray-700 dark:text-gray-300">Dirección</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-1/6 text-gray-700 dark:text-gray-300">Acciones</TableCell>
                 </TableRow>
               </TableHeader>
@@ -1006,7 +1006,7 @@ export default function Clientes() {
                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                             <circle cx="12" cy="10" r="3" />
                           </svg>
-                          Ver ubicaci├│n
+                          Ver ubicación
                         </a>
                       ) : (
                         <span className="block truncate" title={cliente.direccion}>{cliente.direccion}</span>
@@ -1051,7 +1051,7 @@ export default function Clientes() {
             </Table>
           </div>
 
-          {/* Paginaci├│n */}
+          {/* Paginación */}
           {!loading && totalCount > 0 && currentClientes.length > 0 && (
             <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1182,7 +1182,7 @@ export default function Clientes() {
                   : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
                   }`}
               >
-                M├ís informaci├│n
+                Más información
               </button>
             </div>
 
@@ -1198,7 +1198,7 @@ export default function Clientes() {
                         className={selectLikeClassName}
                       >
                         <option value="EMPRESA">Empresa</option>
-                        <option value="PERSONA_FISICA">Persona F├¡sica</option>
+                        <option value="PERSONA_FISICA">Persona Física</option>
                         <option value="PROVEEDOR">Proveedor</option>
                       </select>
                     </div>
@@ -1225,7 +1225,7 @@ export default function Clientes() {
                     </div>
                   </div>
                   <div>
-                    <Label>Tel├®fono</Label>
+                    <Label>Teléfono</Label>
                     <div className="flex items-center gap-2">
                       <select
                         value={formData.telefono_pais || "MX"}
@@ -1249,7 +1249,7 @@ export default function Clientes() {
                           }
                         }}
                         className={inputLikeClassName}
-                        placeholder="Tel├®fono del cliente"
+                        placeholder="Teléfono del cliente"
                         maxLength={10}
                       />
                       <a
@@ -1284,7 +1284,7 @@ export default function Clientes() {
                       <Input value={formData.calle} onChange={(e) => setFormData({ ...formData, calle: e.target.value })} />
                     </div>
                     <div>
-                      <Label>N├║mero exterior *</Label>
+                      <Label>Número exterior *</Label>
                       <Input value={formData.numero_exterior} onChange={(e) => setFormData({ ...formData, numero_exterior: e.target.value })} />
                     </div>
                     <div>
@@ -1299,7 +1299,7 @@ export default function Clientes() {
                       <Input value={formData.colonia} onChange={(e) => setFormData({ ...formData, colonia: e.target.value })} />
                     </div>
                     <div>
-                      <Label>C├│digo postal</Label>
+                      <Label>Código postal</Label>
                       <Input value={formData.codigo_postal} onChange={(e) => setFormData({ ...formData, codigo_postal: e.target.value })} />
                     </div>
                     <div>
@@ -1321,12 +1321,12 @@ export default function Clientes() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <Label>Pa├¡s *</Label>
+                      <Label>País *</Label>
                       <select
-                        value={formData.pais || "M├®xico"}
+                        value={formData.pais || "México"}
                         onChange={(e) => {
                           const pais = e.target.value;
-                          const nextEstados = estadosPorPais[pais] || estadosPorPais["M├®xico"] || [];
+                          const nextEstados = estadosPorPais[pais] || estadosPorPais["México"] || [];
                           const nextEstado = nextEstados.includes(formData.estado) ? formData.estado : "";
                           setFormData({ ...formData, pais, estado: nextEstado });
                         }}
@@ -1353,7 +1353,7 @@ export default function Clientes() {
                   </div>
 
                   <div>
-                    <Label>Direcci├│n</Label>
+                    <Label>Dirección</Label>
                     <div className="flex items-center justify-between gap-3 mb-1">
                       <button
                         type="button"
@@ -1372,7 +1372,7 @@ export default function Clientes() {
                         value={formData.direccion}
                         onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
                         className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 pr-12 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
-                        placeholder="Direcci├│n, coordenadas o URL de Google Maps"
+                        placeholder="Dirección, coordenadas o URL de Google Maps"
                       />
                       {!!formData.direccion?.trim() && (
                         <button
@@ -1430,14 +1430,14 @@ export default function Clientes() {
                 </div>
 
                 <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Configuraci├│n Fiscal y Cr├®dito</p>
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Configuración Fiscal y Crédito</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <Label>Lista de Precios</Label>
                       <Input value={formData.numero_precio} onChange={(e) => setFormData({ ...formData, numero_precio: e.target.value })} />
                     </div>
                     <div>
-                      <Label>L├¡mite de Cr├®dito</Label>
+                      <Label>Límite de Crédito</Label>
                       <Input
                         type="number"
                         value={formData.limite_credito}
@@ -1445,7 +1445,7 @@ export default function Clientes() {
                       />
                     </div>
                     <div>
-                      <Label>D├¡as de Cr├®dito</Label>
+                      <Label>Días de Crédito</Label>
                       <Input
                         type="number"
                         value={formData.dias_credito}
@@ -1479,7 +1479,7 @@ export default function Clientes() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">CONTACTOS</p>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400">M├¡nimo 1 contacto. El primero es principal.</p>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400">Mínimo 1 contacto. El primero es principal.</p>
                     </div>
                     <button
                       type="button"
@@ -1522,14 +1522,14 @@ export default function Clientes() {
                             />
                           </div>
                           <div>
-                            <Label>T├¡tulo</Label>
+                            <Label>Título</Label>
                             <Input
                               value={c.titulo}
                               onChange={(e) => setContactos(prev => prev.map((x, idx) => idx === i ? { ...x, titulo: e.target.value } : x))}
                             />
                           </div>
                           <div>
-                            <Label>├ürea / Puesto</Label>
+                            <Label>Área / Puesto</Label>
                             <Input
                               value={c.area_puesto}
                               onChange={(e) => setContactos(prev => prev.map((x, idx) => idx === i ? { ...x, area_puesto: e.target.value } : x))}
@@ -1587,7 +1587,7 @@ export default function Clientes() {
                       <thead className="bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-200">
                         <tr>
                           <th className="px-3 py-2 text-left font-medium">Nombre</th>
-                          <th className="px-3 py-2 text-left font-medium">T├¡tulo</th>
+                          <th className="px-3 py-2 text-left font-medium">Título</th>
                           <th className="px-3 py-2 text-left font-medium">Area</th>
                           <th className="px-3 py-2 text-left font-medium">Celular</th>
                           <th className="px-3 py-2 text-left font-medium">Correo</th>
@@ -1668,56 +1668,56 @@ export default function Clientes() {
                 <div className="space-y-4">
                   <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
                     <div>
-                      <Label>P├ígina/portal web</Label>
+                      <Label>Página/portal web</Label>
                       <Input value={formData.portal_web} onChange={(e) => setFormData({ ...formData, portal_web: e.target.value })} />
                     </div>
                   </div>
 
                   <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Facturaci├│n</p>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Facturación</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <Label>Nombre facturaci├│n</Label>
+                        <Label>Nombre facturación</Label>
                         <Input value={formData.nombre_facturacion} onChange={(e) => setFormData({ ...formData, nombre_facturacion: e.target.value })} />
                       </div>
                       <div>
-                        <Label>N├║mero de Facturaci├│n (RFC para M├®xico)</Label>
+                        <Label>Número de Facturación (RFC para México)</Label>
                         <Input value={formData.numero_facturacion} onChange={(e) => setFormData({ ...formData, numero_facturacion: e.target.value })} />
                       </div>
                       <div className="md:col-span-2">
-                        <Label>Domicilio facturaci├│n</Label>
+                        <Label>Domicilio facturación</Label>
                         <Input value={formData.domicilio_facturacion} onChange={(e) => setFormData({ ...formData, domicilio_facturacion: e.target.value })} />
                       </div>
                     </div>
                   </div>
 
                   <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Direcci├│n de env├¡o</p>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Dirección de envío</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
-                        <Label>Calle de env├¡o</Label>
+                        <Label>Calle de envío</Label>
                         <Input value={formData.calle_envio} onChange={(e) => setFormData({ ...formData, calle_envio: e.target.value })} />
                       </div>
                       <div>
-                        <Label>N├║mero de env├¡o</Label>
+                        <Label>Número de envío</Label>
                         <Input value={formData.numero_envio} onChange={(e) => setFormData({ ...formData, numero_envio: e.target.value })} />
                       </div>
                       <div>
-                        <Label>Colonia de env├¡o</Label>
+                        <Label>Colonia de envío</Label>
                         <Input value={formData.colonia_envio} onChange={(e) => setFormData({ ...formData, colonia_envio: e.target.value })} />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
-                        <Label>Codigo Postal de env├¡o</Label>
+                        <Label>Código Postal de envío</Label>
                         <Input value={formData.codigo_postal_envio} onChange={(e) => setFormData({ ...formData, codigo_postal_envio: e.target.value })} />
                       </div>
                       <div>
-                        <Label>Ciudad de env├¡o</Label>
+                        <Label>Ciudad de envío</Label>
                         <Input value={formData.ciudad_envio} onChange={(e) => setFormData({ ...formData, ciudad_envio: e.target.value })} />
                       </div>
                       <div>
-                        <Label>Estado de env├¡o</Label>
+                        <Label>Estado de envío</Label>
                         <select
                           value={formData.estado_envio || ""}
                           onChange={(e) => setFormData({ ...formData, estado_envio: e.target.value })}
@@ -1732,12 +1732,12 @@ export default function Clientes() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <Label>Pa├¡s de env├¡o</Label>
+                        <Label>País de envío</Label>
                         <select
-                          value={formData.pais_envio || "M├®xico"}
+                          value={formData.pais_envio || "México"}
                           onChange={(e) => {
                             const pais_envio = e.target.value;
-                            const nextEstados = estadosPorPais[pais_envio] || estadosPorPais["M├®xico"] || [];
+                            const nextEstados = estadosPorPais[pais_envio] || estadosPorPais["México"] || [];
                             const nextEstadoEnvio = nextEstados.includes(formData.estado_envio) ? formData.estado_envio : "";
                             setFormData({ ...formData, pais_envio, estado_envio: nextEstadoEnvio });
                           }}

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import { useNavigate, useParams } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
@@ -9,6 +8,7 @@ import { apiUrl } from "@/config/api";
 export default function OrdenPdfPage() {
   const params = useParams();
   const ordenId = params.id;
+  const navigate = useNavigate();
 
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
   const [filename, setFilename] = useState<string>("orden.pdf");
@@ -118,10 +118,39 @@ export default function OrdenPdfPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <PageMeta title="PDF Orden de Servicio" description="Vista de PDF de Orden de Servicio" />
       
-      {/* Header con breadcrumb */}
+      {/* Header superior con regreso */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <PageBreadcrumb pageTitle="PDF Orden de Servicio" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 shadow-theme-xs"
+              aria-label="Regresar a órdenes"
+            >
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                <span className="hidden sm:inline">Órdenes</span>
+                <span className="hidden sm:inline">/</span>
+                <span className="font-medium text-gray-700 dark:text-gray-200 truncate">PDF Orden de Servicio</span>
+              </div>
+              <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white leading-snug truncate">
+                PDF de la Orden de Servicio
+              </h1>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -155,37 +184,40 @@ export default function OrdenPdfPage() {
 
       {/* Contenido principal */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-white/10 overflow-hidden">
-          
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-theme-xs border border-gray-200 dark:border-white/10 overflow-hidden">
+
           {/* Header con acciones */}
-          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-white/10">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-white/10 bg-linear-to-r from-red-50 via-transparent to-transparent dark:from-red-900/25 dark:via-gray-900/40">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50 dark:bg-red-900/20">
-                  <svg className="w-5 h-5 text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <div className="flex items-start gap-3">
+                <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 shadow-theme-xs">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <path d="M14 2v6h6" />
                     <path d="M7 15h10" />
                     <path d="M7 18h7" />
                   </svg>
                 </div>
-                <div>
-                  <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                    Orden de Servicio
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white leading-snug">
+                    Vista de PDF de la Orden de Servicio
                   </h2>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                    {filename}
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400 truncate">
+                    Archivo: <span className="font-medium text-gray-800 dark:text-gray-200">{filename}</span>
+                  </p>
+                  <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                    Revisa, descarga o abre el documento de la orden con fotos y firmas en una vista dedicada.
                   </p>
                 </div>
               </div>
 
               {/* Botones de acción */}
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 justify-end">
                 <a
                   href={pdfObjectUrl || undefined}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-disabled={!pdfObjectUrl}
                   onClick={(e) => {
                     if (!pdfObjectUrl) e.preventDefault();
@@ -197,6 +229,7 @@ export default function OrdenPdfPage() {
                     <path d="M10 14L21 3" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                   <span className="hidden sm:inline">Abrir en nueva pestaña</span>
+                  <span className="sm:hidden">Abrir</span>
                 </a>
 
                 <button
@@ -211,14 +244,14 @@ export default function OrdenPdfPage() {
                     a.remove();
                   }}
                   disabled={!pdfObjectUrl}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-xs sm:text-sm font-semibold text-white shadow-theme-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" strokeLinejoin="round"/>
                     <path d="M7 10l5 5 5-5" strokeLinecap="round" strokeLinejoin="round"/>
                     <path d="M12 15V3" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  Descargar
+                  Descargar PDF
                 </button>
               </div>
             </div>
@@ -238,7 +271,7 @@ export default function OrdenPdfPage() {
                 <iframe
                   title="PDF Preview"
                   src={pdfObjectUrl}
-                  className="w-full h-[calc(100vh-280px)] min-h-[600px]"
+                  className="w-full h-[70vh] sm:h-[calc(100vh-280px)] min-h-[420px]"
                 />
               </div>
             ) : (

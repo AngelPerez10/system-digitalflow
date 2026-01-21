@@ -25,6 +25,7 @@ import OrdenesTecnico from "@/pages/Ordenes/OrdenesTecnicoPage";
 import Clientes from "@/pages/Clientes/ClientesPage";
 import Productos from "@/pages/Productos/ProductosPage";
 import KpiVentasPage from "@/pages/Kpis/KpiVentasPage";
+import CorreoPage from "@/pages/MiEscritorio/CorreoPage";
 import CotizacionesPage from "@/pages/Cotizacion/CotizacionesPage";
 import NuevaCotizacionPage from "@/pages/Cotizacion/NuevaCotizacionPage";
 
@@ -51,6 +52,9 @@ export default function App() {
             <Route path="/cotizacion" element={<RequireAdmin><CotizacionesPage /></RequireAdmin>} />
             <Route path="/cotizacion/nueva" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />
             <Route path="/cotizacion/:id/editar" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />
+
+            {/* Correo */}
+            <Route path="/correo" element={<RequireAdmin><CorreoPage /></RequireAdmin>} />
 
             {/* Others Page */}
             <Route path="/profile" element={<RequireAdmin><UserProfiles /></RequireAdmin>} />
