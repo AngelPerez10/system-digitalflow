@@ -4,7 +4,6 @@ import { Link, useLocation } from "react-router-dom";
 // Assume these icons are imported from an icon library
 import {
   BoxCubeIcon,
-  CalenderIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
@@ -182,13 +181,6 @@ const AppSidebar: React.FC = () => {
         });
       }
     }
-
-    // Calendar
-    items.push({
-      icon: <CalenderIcon />,
-      name: "Calendario",
-      path: "/calendar",
-    });
 
     // KPI'S (Admin only)
     if (isAdmin) {

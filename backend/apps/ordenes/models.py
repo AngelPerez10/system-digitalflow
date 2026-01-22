@@ -9,6 +9,12 @@ STATUS_CHOICES = [
     ('resuelto', 'Resuelto'),
 ]
 
+PRIORIDAD_CHOICES = [
+    ('baja', 'Baja'),
+    ('media', 'Media'),
+    ('alta', 'Alta'),
+]
+
 
 class Orden(models.Model):
     idx = models.IntegerField(unique=True, db_index=True, null=True, blank=True)
@@ -27,6 +33,7 @@ class Orden(models.Model):
     problematica = models.TextField(blank=True, null=True)
     servicios_realizados = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pendiente')
+    prioridad = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='media')
     comentario_tecnico = models.TextField(blank=True, null=True)
 
     fecha_inicio = models.DateField(blank=True, null=True, default=timezone.now)

@@ -31,6 +31,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'problematica',
             'servicios_realizados',
             'status',
+            'prioridad',
             'comentario_tecnico',
             'fecha_inicio',
             'hora_inicio',

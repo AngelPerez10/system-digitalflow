@@ -35,6 +35,7 @@ type Orden = {
   fecha_finalizacion?: string | null;
   fecha_creacion?: string | null;
   status?: 'pendiente' | 'resuelto' | string;
+  prioridad?: 'baja' | 'media' | 'alta' | null;
 };
 
 type Usuario = {
@@ -97,6 +98,7 @@ const Calendar: React.FC = () => {
   const [serviciosDisponibles, setServiciosDisponibles] = useState<string[]>([]);
   const [selectedOrden, setSelectedOrden] = useState<Orden | null>(null);
   const [selectedPrioridad, setSelectedPrioridad] = useState<'baja' | 'media' | 'alta'>('media');
+  const [priorityFilter, setPriorityFilter] = useState<'todas' | 'baja' | 'media' | 'alta'>('todas');
   const [saving, setSaving] = useState(false);
   const [permError, setPermError] = useState<string | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -225,8 +227,9 @@ const Calendar: React.FC = () => {
         setPrioridades((prev) => {
           const next: Record<number, 'baja' | 'media' | 'alta'> = { ...prev };
           for (const r of rows) {
-            if (r.id != null && next[r.id] == null) {
-              next[r.id] = 'media';
+            if (r.id != null) {
+              const backendP = (r.prioridad || 'media') as 'baja' | 'media' | 'alta';
+              next[r.id] = backendP;
             }
           }
           return next;
@@ -348,8 +351,9 @@ const Calendar: React.FC = () => {
     setPrioridades((prev) => {
       const next: Record<number, 'baja' | 'media' | 'alta'> = { ...prev };
       for (const r of rows) {
-        if (r.id != null && next[r.id] == null) {
-          next[r.id] = 'media';
+        if (r.id != null) {
+          const backendP = (r.prioridad || 'media') as 'baja' | 'media' | 'alta';
+          next[r.id] = backendP;
         }
       }
       return next;
@@ -367,6 +371,14 @@ const Calendar: React.FC = () => {
       .filter(Boolean) as CalendarEvent[];
     setEvents(mapped);
   }, [ordenes, prioridades]);
+
+  const filteredEvents = useMemo(() => {
+    if (priorityFilter === 'todas') return events;
+    return events.filter((ev) => {
+      const p = (ev.extendedProps as any)?.prioridad as 'baja' | 'media' | 'alta' | undefined;
+      return p === priorityFilter;
+    });
+  }, [events, priorityFilter]);
 
   const handleEventClick = (clickInfo: EventClickArg) => {
     const event = clickInfo.event;
@@ -447,6 +459,7 @@ const Calendar: React.FC = () => {
         fecha_inicio: selectedOrden.fecha_inicio || null,
         fecha_finalizacion: selectedOrden.fecha_finalizacion || null,
         status: (selectedOrden.status || 'pendiente') as any,
+        prioridad: selectedPrioridad,
         direccion: selectedOrden.direccion || '',
         telefono_cliente: selectedOrden.telefono_cliente || '',
         problematica: selectedOrden.problematica || '',
@@ -519,6 +532,50 @@ const Calendar: React.FC = () => {
       `}</style>
       <div className="rounded-2xl border  border-gray-200 bg-white dark:border-gray-800 dark:bg-white/3">
         <div className="custom-calendar">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-2">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Agenda de órdenes</h2>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">Filtra las órdenes visibles por prioridad.</p>
+            </div>
+            <div className="inline-flex flex-wrap gap-1.5 rounded-xl bg-gray-50 px-1.5 py-1 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700/70">
+              {([
+                { key: 'todas' as const, label: 'Todas', color: 'bg-white text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600' },
+                { key: 'baja' as const, label: 'Baja', color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:border-emerald-700/60' },
+                { key: 'media' as const, label: 'Media', color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-700/60' },
+                { key: 'alta' as const, label: 'Alta', color: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-200 dark:border-rose-700/60' },
+              ]).map(({ key, label, color }) => {
+                const active = priorityFilter === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setPriorityFilter(key)}
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition ${
+                      active
+                        ? color
+                        : 'bg-transparent text-gray-600 border-transparent hover:bg-white/70 dark:text-gray-300 dark:hover:bg-gray-800/80'
+                    }`}
+                  >
+                    {key === 'todas' && (
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-gray-200 text-[9px] text-gray-700 dark:bg-gray-700 dark:text-gray-100">
+                        ✓
+                      </span>
+                    )}
+                    {key === 'baja' && (
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    )}
+                    {key === 'media' && (
+                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                    )}
+                    {key === 'alta' && (
+                      <span className="h-2 w-2 rounded-full bg-rose-500" />
+                    )}
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -540,7 +597,7 @@ const Calendar: React.FC = () => {
             moreLinkText={(n) => `+${n} más`}
             dayMaxEvents={1}
             noEventsText="No hay eventos para mostrar"
-            events={events}
+            events={filteredEvents}
             eventClick={handleEventClick}
             eventContent={renderEventContent}
           />
@@ -1016,10 +1073,6 @@ const Calendar: React.FC = () => {
 };
 
 const renderEventContent = (eventInfo: any) => {
-  const colorClass = `fc-bg-${String(
-    eventInfo.event.extendedProps.calendar || ''
-  ).toLowerCase()}`;
-
   const prioridad = eventInfo.event.extendedProps
     ?.prioridad as 'baja' | 'media' | 'alta' | undefined;
 
@@ -1027,6 +1080,14 @@ const renderEventContent = (eventInfo: any) => {
   if (prioridad === 'baja') prioridadLabel = ' - Baja';
   else if (prioridad === 'alta') prioridadLabel = ' - Alta';
   else if (prioridad === 'media') prioridadLabel = ' - Media';
+
+  // Colores pastel por prioridad
+  // baja  -> verde   (.fc-bg-success)
+  // media -> amarillo (.fc-bg-warning)
+  // alta  -> rojo    (.fc-bg-danger)
+  let colorClass = 'fc-bg-warning';
+  if (prioridad === 'baja') colorClass = 'fc-bg-success';
+  else if (prioridad === 'alta') colorClass = 'fc-bg-danger';
 
   return (
     <div
