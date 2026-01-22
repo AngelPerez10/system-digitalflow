@@ -84,7 +84,6 @@ export default function OrdenesTecnico() {
   const canOrdenesCreate = !!permissions?.ordenes?.create;
   const canOrdenesEdit = !!permissions?.ordenes?.edit;
   const canOrdenesDelete = !!permissions?.ordenes?.delete;
-  const canClientesEdit = !!permissions?.clientes?.edit;
 
   useEffect(() => {
     const token = getToken();
@@ -822,7 +821,7 @@ export default function OrdenesTecnico() {
 
       if (response.ok) {
         const cid = payload?.cliente_id;
-        if (canClientesEdit && cid && (payload?.direccion || payload?.telefono_cliente)) {
+        if (cid && (payload?.direccion || payload?.telefono_cliente)) {
           const existingCliente = clientes.find(c => c.id === cid);
           const updates: any = {};
 

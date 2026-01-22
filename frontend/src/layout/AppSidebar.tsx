@@ -89,7 +89,7 @@ const AppSidebar: React.FC = () => {
         icon: <PageIcon />,
         name: "Mi escritorio",
         subItems: [
-          { name: "Agenda", path: "/", pro: false },
+          { name: "Agenda", path: "/calendar", pro: false },
           { name: "Tareas", path: "/", pro: false },
           { name: "Correo", path: "/correo", pro: false },
         ],

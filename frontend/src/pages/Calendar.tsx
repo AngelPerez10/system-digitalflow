@@ -15,6 +15,7 @@ interface CalendarEvent extends EventInput {
   extendedProps: {
     calendar: string;
     orderId?: number;
+    prioridad?: 'baja' | 'media' | 'alta';
   };
 }
 
@@ -62,7 +63,10 @@ const addDays = (isoDate: string, days: number): string => {
   return d.toISOString().split('T')[0];
 };
 
-const orderToEvent = (o: Orden): CalendarEvent | null => {
+const orderToEvent = (
+  o: Orden,
+  prioridad: 'baja' | 'media' | 'alta' = 'media'
+): CalendarEvent | null => {
   const start = (o.fecha_inicio || o.fecha_creacion || '').toString().slice(0, 10);
   if (!start) return null;
 
@@ -81,16 +85,18 @@ const orderToEvent = (o: Orden): CalendarEvent | null => {
     start,
     end: endExclusive,
     allDay: true,
-    extendedProps: { calendar: cal, orderId: o.id },
+    extendedProps: { calendar: cal, orderId: o.id, prioridad },
   };
 };
 
 const Calendar: React.FC = () => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [prioridades, setPrioridades] = useState<Record<number, 'baja' | 'media' | 'alta'>>({});
   const [tecnicos, setTecnicos] = useState<Usuario[]>([]);
   const [serviciosDisponibles, setServiciosDisponibles] = useState<string[]>([]);
   const [selectedOrden, setSelectedOrden] = useState<Orden | null>(null);
+  const [selectedPrioridad, setSelectedPrioridad] = useState<'baja' | 'media' | 'alta'>('media');
   const [saving, setSaving] = useState(false);
   const [permError, setPermError] = useState<string | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -216,8 +222,15 @@ const Calendar: React.FC = () => {
         }
 
         setOrdenes(rows);
-        const mapped = rows.map(orderToEvent).filter(Boolean) as CalendarEvent[];
-        setEvents(mapped);
+        setPrioridades((prev) => {
+          const next: Record<number, 'baja' | 'media' | 'alta'> = { ...prev };
+          for (const r of rows) {
+            if (r.id != null && next[r.id] == null) {
+              next[r.id] = 'media';
+            }
+          }
+          return next;
+        });
       } catch {
         setEvents([]);
         setOrdenes([]);
@@ -332,8 +345,28 @@ const Calendar: React.FC = () => {
     }
 
     setOrdenes(rows);
-    setEvents(rows.map(orderToEvent).filter(Boolean) as CalendarEvent[]);
+    setPrioridades((prev) => {
+      const next: Record<number, 'baja' | 'media' | 'alta'> = { ...prev };
+      for (const r of rows) {
+        if (r.id != null && next[r.id] == null) {
+          next[r.id] = 'media';
+        }
+      }
+      return next;
+    });
   };
+
+  // Regenerar eventos cuando cambian las órdenes o sus prioridades
+  useEffect(() => {
+    if (!Array.isArray(ordenes) || ordenes.length === 0) {
+      setEvents([]);
+      return;
+    }
+    const mapped = ordenes
+      .map((o) => orderToEvent(o, prioridades[o.id] ?? 'media'))
+      .filter(Boolean) as CalendarEvent[];
+    setEvents(mapped);
+  }, [ordenes, prioridades]);
 
   const handleEventClick = (clickInfo: EventClickArg) => {
     const event = clickInfo.event;
@@ -348,12 +381,18 @@ const Calendar: React.FC = () => {
       setPermError(null);
       const o = ordenes.find((x) => x.id === orderId) || null;
       setSelectedOrden(o);
+      if (o) {
+        setSelectedPrioridad(prioridades[o.id] ?? 'media');
+      } else {
+        setSelectedPrioridad('media');
+      }
       openModal();
     }
   };
 
   const resetModalFields = () => {
     setSelectedOrden(null);
+    setSelectedPrioridad('media');
     setShowMapModal(false);
     setSelectedLocation(null);
     setTecnicoSearch('');
@@ -442,6 +481,12 @@ const Calendar: React.FC = () => {
           }),
         }).catch(() => null);
       }
+
+      // Actualizar prioridad local para esta orden (no se persiste en backend)
+      setPrioridades((prev) => ({
+        ...prev,
+        [selectedOrden.id]: selectedPrioridad,
+      }));
 
       await refreshOrdenes();
       closeModal();
@@ -583,6 +628,42 @@ const Calendar: React.FC = () => {
                           )}
                         </div>
                       </div>
+                      <div className="min-w-0">
+                        <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                          <svg className="w-4 h-4 text-sky-600 dark:text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                            <path d="M12 2 3 7v6c0 5 4 9 9 9s9-4 9-9V7Z" />
+                            <path d="M9 13h6" />
+                          </svg>
+                          Prioridad
+                        </label>
+                        <div className="flex gap-2">
+                          {(['baja', 'media', 'alta'] as const).map((p) => {
+                            const isActive = selectedPrioridad === p;
+                            const base =
+                              p === 'baja'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:border-emerald-700/60'
+                                : p === 'media'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-700/60'
+                                : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-200 dark:border-rose-700/60';
+                            return (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => setSelectedPrioridad(p)}
+                                className={`flex-1 inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition ${
+                                  isActive
+                                    ? base
+                                    : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700'
+                                }`}
+                              >
+                                {p === 'baja' && 'Baja'}
+                                {p === 'media' && 'Media'}
+                                {p === 'alta' && 'Alta'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -657,7 +738,6 @@ const Calendar: React.FC = () => {
                         </div>
                       </div>
                     </div>
-
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="min-w-0 md:col-span-2">
                         <div className="flex items-center justify-between mb-1">
@@ -936,14 +1016,31 @@ const Calendar: React.FC = () => {
 };
 
 const renderEventContent = (eventInfo: any) => {
-  const colorClass = `fc-bg-${eventInfo.event.extendedProps.calendar.toLowerCase()}`;
+  const colorClass = `fc-bg-${String(
+    eventInfo.event.extendedProps.calendar || ''
+  ).toLowerCase()}`;
+
+  const prioridad = eventInfo.event.extendedProps
+    ?.prioridad as 'baja' | 'media' | 'alta' | undefined;
+
+  let prioridadLabel: string | null = null;
+  if (prioridad === 'baja') prioridadLabel = ' - Baja';
+  else if (prioridad === 'alta') prioridadLabel = ' - Alta';
+  else if (prioridad === 'media') prioridadLabel = ' - Media';
+
   return (
     <div
-      className={`event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm`}
+      className={`event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm items-center gap-1`}
     >
-      <div className="fc-daygrid-event-dot"></div>
-      <div className="fc-event-time">{eventInfo.timeText}</div>
-      <div className="fc-event-title">{eventInfo.event.title}</div>
+      <div className="fc-daygrid-event-dot" />
+      <div className="fc-event-title text-[11px] font-medium truncate flex items-center gap-1">
+        <span className="truncate">{eventInfo.event.title}</span>
+        {prioridadLabel && (
+          <span className="text-[11px] font-medium opacity-80 text-black dark:text-white shrink-0">
+            {prioridadLabel}
+          </span>
+        )}
+      </div>
     </div>
   );
 };

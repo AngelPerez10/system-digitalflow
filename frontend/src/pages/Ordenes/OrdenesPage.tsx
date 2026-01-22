@@ -76,7 +76,6 @@ export default function Ordenes() {
   const canOrdenesCreate = !!permissions?.ordenes?.create;
   const canOrdenesEdit = !!permissions?.ordenes?.edit;
   const canOrdenesDelete = !!permissions?.ordenes?.delete;
-  const canClientesEdit = !!permissions?.clientes?.edit;
 
   const getToken = () => {
     return localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -794,7 +793,7 @@ export default function Ordenes() {
 
       if (response.ok) {
         const cid = payload?.cliente_id;
-        if (canClientesEdit && cid && (payload?.direccion || payload?.telefono_cliente)) {
+        if (cid && (payload?.direccion || payload?.telefono_cliente)) {
           const existingCliente = clientes.find(c => c.id === cid);
           const updates: any = {};
 
