@@ -11,6 +11,7 @@ import Buttons from "@/pages/UiElements/Buttons";
 import LineChart from "@/pages/Charts/LineChart";
 import BarChart from "@/pages/Charts/BarChart";
 import Calendar from "@/pages/MiEscritorio/Calendar";
+import TareasPage from "@/pages/MiEscritorio/TareasPage";
 import BasicTables from "@/pages/Tables/BasicTables";
 import FormElements from "@/pages/Forms/FormElements";
 import Blank from "@/pages/Blank";
@@ -55,6 +56,9 @@ export default function App() {
 
             {/* Correo */}
             <Route path="/correo" element={<RequireAdmin><CorreoPage /></RequireAdmin>} />
+
+            {/* Tareas */}
+            <Route path="/tareas" element={<RequireAdmin><TareasPage /></RequireAdmin>} />
 
             {/* Others Page */}
             <Route path="/profile" element={<RequireAdmin><UserProfiles /></RequireAdmin>} />

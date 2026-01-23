@@ -94,6 +94,7 @@ INSTALLED_APPS = [
     'apps.ordenes',
     'apps.kpis',
     'apps.cotizaciones',
+    'apps.escritorio',
 ]
 
 # Evitar duplicados accidentales en INSTALLED_APPS (mantiene el primer orden)

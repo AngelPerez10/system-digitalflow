@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/modal';
 import SignaturePad from '@/components/ui/signature/SignaturePad';
 import { apiUrl } from '@/config/api';
 import { EyeCloseIcon, EyeIcon, MoreDotIcon } from '@/icons';
+import { animate, stagger } from 'animejs';
 
 type Role = 'admin' | 'tecnico';
 
@@ -32,6 +33,7 @@ type PermissionsPayload = {
   kpis?: Partial<CrudPerms>;
   productos?: Partial<CrudPerms>;
   cotizaciones?: Partial<CrudPerms>;
+  tareas?: Partial<CrudPerms>;
 };
 
 type UserAccount = {
@@ -106,6 +108,7 @@ const seedAdminPerms = async (userId: number) => {
     productos: { view: true, create: true, edit: true, delete: true },
     cotizaciones: { view: true, create: true, edit: true, delete: true },
     kpis: { view: true, create: true, edit: true, delete: true },
+    tareas: { view: true, create: true, edit: true, delete: true },
   };
   const res = await fetch(apiUrl(`/api/users/accounts/${userId}/permissions/`), {
     method: 'PUT',
@@ -163,6 +166,12 @@ const generatePassword = (username: string, firstName: string, lastName: string)
 export default function UserProfiles() {
   const API = apiUrl('/api/users/accounts/');
 
+  const pageAnimRef = useRef<HTMLDivElement | null>(null);
+  const didAnimateStatsRef = useRef(false);
+  const prevFilteredIdsRef = useRef<number[]>([]);
+  const statsAnimRef = useRef<any>(null);
+  const cardsAnimRef = useRef<any>(null);
+
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -206,6 +215,7 @@ export default function UserProfiles() {
   const [permsError, setPermsError] = useState<string | null>(null);
   const [permsSaving, setPermsSaving] = useState(false);
   const [permsForm, setPermsForm] = useState<PermissionsPayload>({});
+  const [permsOpenSections, setPermsOpenSections] = useState<Record<string, boolean>>({});
 
   const didInitRef = useRef(false);
 
@@ -216,6 +226,7 @@ export default function UserProfiles() {
       productos: { view: true, create: false, edit: false, delete: false },
       cotizaciones: { view: true, create: false, edit: false, delete: false },
       kpis: { view: true, create: false, edit: false, delete: false },
+      tareas: { view: true, create: false, edit: false, delete: false },
     };
     const safe = (v: any) => (typeof v === 'boolean' ? v : undefined);
     const mergeCrud = (dst: any, src: any) => {
@@ -233,6 +244,7 @@ export default function UserProfiles() {
       productos: mergeCrud(base.productos, p?.productos),
       cotizaciones: mergeCrud(base.cotizaciones, p?.cotizaciones),
       kpis: mergeCrud(base.kpis, p?.kpis),
+      tareas: mergeCrud(base.tareas, p?.tareas),
     };
   };
 
@@ -243,6 +255,7 @@ export default function UserProfiles() {
     setSuccess(null);
     setIsPermsOpen(true);
     setPermsLoading(true);
+    setPermsOpenSections({});
     try {
       const res = await fetch(apiUrl(`/api/users/accounts/${u.id}/permissions/`), {
         method: 'GET',
@@ -403,6 +416,60 @@ export default function UserProfiles() {
         return an.localeCompare(bn);
       });
   }, [users, query, roleFilter]);
+
+  useEffect(() => {
+    if (loading) return;
+    const root = pageAnimRef.current;
+    if (!root) return;
+
+    const raf = requestAnimationFrame(() => {
+      if (!didAnimateStatsRef.current) {
+        didAnimateStatsRef.current = true;
+        try {
+          const targets = root.querySelectorAll('[data-anim="user-stat"]');
+          if (targets && targets.length > 0) {
+            if (statsAnimRef.current && typeof statsAnimRef.current.cancel === 'function') {
+              statsAnimRef.current.cancel();
+            }
+            statsAnimRef.current = animate(targets, {
+              translateY: [8, 0],
+              opacity: [0, 1],
+              delay: stagger(80),
+              duration: 480,
+              easing: 'easeOutCubic',
+            });
+          }
+        } catch {
+          // noop
+        }
+      }
+
+      const ids = Array.isArray(filtered) ? filtered.map((u) => u.id) : [];
+      const same = ids.length === prevFilteredIdsRef.current.length && ids.every((v, i) => v === prevFilteredIdsRef.current[i]);
+      if (!same) {
+        prevFilteredIdsRef.current = ids;
+        try {
+          const targets = root.querySelectorAll('[data-anim="user-card"]');
+          if (targets && targets.length > 0) {
+            if (cardsAnimRef.current && typeof cardsAnimRef.current.cancel === 'function') {
+              cardsAnimRef.current.cancel();
+            }
+            cardsAnimRef.current = animate(targets, {
+              translateY: [6, 0],
+              opacity: [0, 1],
+              delay: stagger(40),
+              duration: 420,
+              easing: 'easeOutCubic',
+            });
+          }
+        } catch {
+          // noop
+        }
+      }
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [loading, filtered]);
 
   const stats = useMemo(() => {
     const total = users.length;
@@ -652,7 +719,7 @@ export default function UserProfiles() {
   };
 
   return (
-    <div className="p-4 sm:p-6">
+    <div ref={pageAnimRef} className="p-4 sm:p-6">
       <PageMeta title="Gestión de Usuarios" description="Administración de usuarios" />
       <PageBreadcrumb pageTitle="Gestión de Usuarios" />
 
@@ -668,7 +735,7 @@ export default function UserProfiles() {
       )}
 
       <div className="grid gap-4 mb-6 sm:grid-cols-2 xl:grid-cols-3">
-        <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
+        <div data-anim="user-stat" className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-50 text-gray-600 dark:bg-gray-500/10 dark:text-gray-300 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5 sm:w-7 sm:h-7" fill="currentColor">
@@ -685,7 +752,7 @@ export default function UserProfiles() {
           </div>
         </div>
 
-        <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
+        <div data-anim="user-stat" className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5 sm:w-7 sm:h-7" fill="currentColor">
@@ -699,7 +766,7 @@ export default function UserProfiles() {
           </div>
         </div>
 
-        <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
+        <div data-anim="user-stat" className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5 sm:w-7 sm:h-7" fill="currentColor">
@@ -808,6 +875,7 @@ export default function UserProfiles() {
 
               return (
                 <div
+                  data-anim="user-card"
                   key={u.id}
                   className="group relative rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-white/3"
                 >
@@ -1010,7 +1078,7 @@ export default function UserProfiles() {
         </div>
       </Modal>
 
-      <Modal isOpen={isPermsOpen} onClose={closePerms} className="max-w-2xl p-0 overflow-hidden">
+      <Modal isOpen={isPermsOpen} onClose={closePerms} className="w-[94vw] max-w-2xl max-h-[92vh] p-0 overflow-hidden">
         <div className="overflow-hidden rounded-2xl">
           <div className="px-5 py-4 border-b border-gray-100 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
             <div className="flex items-center gap-3">
@@ -1031,7 +1099,7 @@ export default function UserProfiles() {
             </div>
           </div>
 
-          <div className="p-5">
+          <div className="p-5 max-h-[76vh] overflow-y-auto custom-scrollbar">
             {permsError && (
               <div className="mb-4">
                 <Alert variant="error" title="Error" message={permsError} />
@@ -1042,93 +1110,200 @@ export default function UserProfiles() {
               <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Cargando permisos...</div>
             ) : (
               <div className="space-y-4">
-                <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/3">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-white/5">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300">Módulo</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300">Ver</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300">Crear</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300">Editar</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300">Eliminar</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {(
-                        (permsUser?.is_superuser || permsUser?.is_staff)
-                          ? ([
-                              { key: 'ordenes' as const, label: 'Órdenes' },
-                              { key: 'clientes' as const, label: 'Clientes' },
-                              { key: 'productos' as const, label: 'Productos' },
-                              { key: 'cotizaciones' as const, label: 'Cotizaciones' },
-                              { key: 'kpis' as const, label: 'KPI Ventas' },
-                            ] as const)
-                          : ([{ key: 'ordenes' as const, label: 'Órdenes' }] as const)
-                      ).map((row) => {
-                          const cur = normalizePerms(permsForm)[row.key] as CrudPerms;
-                          const cell = (k: keyof CrudPerms) => (
-                            <td className="px-4 py-3 text-center">
-                              <input
-                                type="checkbox"
-                                checked={!!cur[k]}
-                                onChange={(e) => setPerm(row.key, k, e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                              />
-                            </td>
-                          );
-                          const icon = row.key === 'ordenes' ? (
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                              <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                              <path d="M5 7h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
-                              <path d="M7 11h10" />
-                              <path d="M7 15h6" />
-                            </svg>
-                          ) : row.key === 'clientes' ? (
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                              <circle cx="12" cy="7" r="4" />
-                            </svg>
-                          ) : row.key === 'productos' ? (
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-                              <path d="M3.3 7l8.7 5 8.7-5" />
-                              <path d="M12 22V12" />
-                            </svg>
-                          ) : row.key === 'cotizaciones' ? (
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-                              <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" />
-                              <path d="M8 12h8" />
-                              <path d="M8 16h6" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                              <path d="M4 19V5" />
-                              <path d="M20 19H4" />
-                              <path d="M7 15l3-4 3 2 4-6" />
-                            </svg>
-                          );
+                {(() => {
+                  const isAdmin = !!(permsUser?.is_superuser || permsUser?.is_staff);
 
-                          return (
-                            <tr key={row.key}>
-                              <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-200">
-                                <div className="flex items-center gap-2">
-                                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gray-50 text-gray-600 dark:bg-white/5 dark:text-gray-200">
-                                    {icon}
-                                  </span>
-                                  <span>{row.label}</span>
+                  const getIcon = (key: keyof Required<PermissionsPayload>) => {
+                    if (key === 'ordenes') {
+                      return (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          <path d="M5 7h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+                          <path d="M7 11h10" />
+                          <path d="M7 15h6" />
+                        </svg>
+                      );
+                    }
+                    if (key === 'clientes') {
+                      return (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
+                      );
+                    }
+                    if (key === 'productos') {
+                      return (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+                          <path d="M3.3 7l8.7 5 8.7-5" />
+                          <path d="M12 22V12" />
+                        </svg>
+                      );
+                    }
+                    if (key === 'cotizaciones') {
+                      return (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                          <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" />
+                          <path d="M8 12h8" />
+                          <path d="M8 16h6" />
+                        </svg>
+                      );
+                    }
+                    if (key === 'tareas') {
+                      return (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                          <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" />
+                          <path d="M8 12h8" />
+                          <path d="M8 16h5" />
+                        </svg>
+                      );
+                    }
+                    return (
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M4 19V5" />
+                        <path d="M20 19H4" />
+                        <path d="M7 15l3-4 3 2 4-6" />
+                      </svg>
+                    );
+                  };
+
+                  const sections = isAdmin
+                    ? ([
+                        { key: 'escritorio' as const, label: 'Mi escritorio', modules: [{ key: 'tareas' as const, label: 'Tareas' }] },
+                        { key: 'contactos' as const, label: 'Contacto de negocio', modules: [{ key: 'clientes' as const, label: 'Clientes' }] },
+                        { key: 'productos_servicios' as const, label: 'Productos y Servicios', modules: [{ key: 'productos' as const, label: 'Productos' }] },
+                        { key: 'compras_gastos' as const, label: 'Compras y Gastos', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
+                        { key: 'ventas' as const, label: 'Ventas', modules: [{ key: 'cotizaciones' as const, label: 'Cotizaciones' }] },
+                        { key: 'operaciones' as const, label: 'Operaciones', modules: [{ key: 'ordenes' as const, label: 'Órdenes de Servicios' }] },
+                        { key: 'kpis' as const, label: 'KPI’S', modules: [{ key: 'kpis' as const, label: 'KPI Ventas' }] },
+                      ] as const)
+                    : ([
+                        { key: 'escritorio' as const, label: 'Mi escritorio', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
+                        { key: 'contactos' as const, label: 'Contacto de negocio', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
+                        { key: 'productos_servicios' as const, label: 'Productos y Servicios', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
+                        { key: 'compras_gastos' as const, label: 'Compras y Gastos', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
+                        { key: 'ventas' as const, label: 'Ventas', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
+                        { key: 'operaciones' as const, label: 'Operaciones', modules: [{ key: 'ordenes' as const, label: 'Órdenes de Servicios' }] },
+                        { key: 'kpis' as const, label: 'KPI’S', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
+                      ] as const);
+
+                  const actionLabels: { key: keyof CrudPerms; label: string }[] = [
+                    { key: 'view', label: 'Ver' },
+                    { key: 'create', label: 'Crear' },
+                    { key: 'edit', label: 'Editar' },
+                    { key: 'delete', label: 'Eliminar' },
+                  ];
+
+                  return (
+                    <div className="space-y-3">
+                      {sections.map((sec) => {
+                        const isOpen = !!permsOpenSections[sec.key];
+                        return (
+                          <div
+                            key={sec.key}
+                            className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/3 overflow-hidden"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setPermsOpenSections(prev => ({ ...prev, [sec.key]: !prev[sec.key] }))}
+                              className="w-full px-4 py-3 flex items-center justify-between gap-3 bg-white/70 dark:bg-gray-900/40 backdrop-blur"
+                              aria-expanded={isOpen}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-50 text-gray-600 dark:bg-white/5 dark:text-gray-200">
+                                  <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                    <path d="M4 6h16M4 12h16M4 18h16" />
+                                  </svg>
+                                </span>
+                                <div className="min-w-0 text-left">
+                                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{sec.label}</div>
+                                  <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                                    {sec.modules.length > 0 ? `${sec.modules.length} módulo(s)` : 'Sin módulos configurados'}
+                                  </div>
                                 </div>
-                              </td>
-                              {cell('view')}
-                              {cell('create')}
-                              {cell('edit')}
-                              {cell('delete')}
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
+                              </div>
+                              <svg className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="none">
+                                <path d="M5.25 7.5 10 12.25 14.75 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            </button>
+
+                            <div
+                              className={`grid transition-all duration-300 ease-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                            >
+                              <div className="overflow-hidden">
+                                <div className="p-4 border-t border-gray-100 dark:border-white/10">
+                                  <div className="hidden sm:grid grid-cols-12 gap-3 pb-2 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+                                    <div className="col-span-5">Módulo</div>
+                                    <div className="col-span-7 grid grid-cols-4 gap-3 text-center">
+                                      {actionLabels.map(a => (
+                                        <div key={a.key}>{a.label}</div>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {sec.modules.length > 0 ? (
+                                    <div className="space-y-2">
+                                      {sec.modules.map((m) => {
+                                        const cur = normalizePerms(permsForm)[m.key] as CrudPerms;
+                                        const Switch = ({ k }: { k: keyof CrudPerms }) => {
+                                          const checked = !!cur[k];
+                                          return (
+                                            <button
+                                              type="button"
+                                              role="switch"
+                                              aria-checked={checked}
+                                              onClick={() => setPerm(m.key, k, !checked)}
+                                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-brand-500/40 active:scale-[0.98] ${checked ? 'bg-brand-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                            >
+                                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${checked ? 'translate-x-4' : 'translate-x-1'}`} />
+                                            </button>
+                                          );
+                                        };
+
+                                        return (
+                                          <div
+                                            key={m.key}
+                                            className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50/60 dark:bg-gray-900/30 px-3 py-3"
+                                          >
+                                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                                              <div className="sm:col-span-5">
+                                                <div className="flex items-center gap-2">
+                                                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm dark:bg-gray-800 dark:text-gray-200">
+                                                    {getIcon(m.key)}
+                                                  </span>
+                                                  <div className="min-w-0">
+                                                    <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{m.label}</div>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              <div className="sm:col-span-7 grid grid-cols-4 gap-3 items-center justify-items-center">
+                                                <Switch k="view" />
+                                                <Switch k="create" />
+                                                <Switch k="edit" />
+                                                <Switch k="delete" />
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div className="rounded-xl border border-dashed border-gray-200 dark:border-white/10 p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                      Esta sección todavía no tiene módulos conectados a permisos.
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
 
                 <div className="flex items-center justify-end gap-2">
                   <button

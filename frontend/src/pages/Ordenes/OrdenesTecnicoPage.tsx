@@ -836,7 +836,6 @@ export default function OrdenesTecnico() {
           }
 
           if (Object.keys(updates).length > 0) {
-            updates.nombre = existingCliente?.nombre || String(formData.cliente || '');
             await fetch(apiUrl(`/api/clientes/${cid}/`), {
               method: 'PATCH',
               headers: {

@@ -89,7 +89,7 @@ const AppSidebar: React.FC = () => {
         name: "Mi escritorio",
         subItems: [
           { name: "Agenda", path: "/calendar", pro: false },
-          { name: "Tareas", path: "/", pro: false },
+          { name: "Tareas", path: "/tareas", pro: false },
           { name: "Correo", path: "/correo", pro: false },
         ],
       });
