@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
@@ -10,7 +10,7 @@ import DatePicker from "@/components/form/date-picker";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
 import { apiUrl } from "@/config/api";
-import { ChevronLeftIcon, PencilIcon, TrashBinIcon } from "@/icons";
+import { PencilIcon, TrashBinIcon } from "@/icons";
 
 type ClienteContacto = {
   id?: number;
@@ -46,6 +46,7 @@ type Producto = {
   nombre: string;
   unidad?: string;
   descripcion?: string;
+  modelo?: string;
   precio_venta?: number | string | null;
   imagen?: ProductoMedia | null;
 };
@@ -152,6 +153,8 @@ export default function NuevaCotizacionPage() {
 
   const [hydratingFromStorage, setHydratingFromStorage] = useState(false);
 
+  const [cotizacionIdForPdf, setCotizacionIdForPdf] = useState<string>("");
+
   const [alert, setAlert] = useState<{
     show: boolean;
     variant: "success" | "error" | "warning" | "info";
@@ -215,6 +218,8 @@ export default function NuevaCotizacionPage() {
 
   const [cantidad, setCantidad] = useState<number>(1);
   const [productoId, setProductoId] = useState<number | "">("");
+  const [productoSearch, setProductoSearch] = useState("");
+  const [productoOpen, setProductoOpen] = useState(false);
   const [productoDescripcion, setProductoDescripcion] = useState("");
   const [unidad, setUnidad] = useState("");
   const [precioLista, setPrecioLista] = useState<number>(0);
@@ -265,6 +270,39 @@ export default function NuevaCotizacionPage() {
     return productos.find((p) => p.id === productoId) || null;
   }, [productos, productoId]);
 
+  const filteredProductos = useMemo(() => {
+    const q = String(productoSearch || "").toLowerCase().trim();
+    if (!q) return productos;
+
+    const matches = productos.filter((p) => {
+      const nombre = String((p as any)?.nombre || "").toLowerCase();
+      const modelo = String((p as any)?.modelo || "").toLowerCase();
+      const desc = String((p as any)?.descripcion || "").toLowerCase();
+      return nombre.includes(q) || modelo.includes(q) || desc.includes(q);
+    });
+
+    if (selectedProducto && !matches.some((x) => x.id === selectedProducto.id)) {
+      return [selectedProducto, ...matches];
+    }
+
+    return matches;
+  }, [productos, productoSearch, selectedProducto]);
+
+  const productoPickerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!productoOpen) return;
+    const onDown = (ev: MouseEvent) => {
+      const el = productoPickerRef.current;
+      if (!el) return;
+      if (ev.target instanceof Node && !el.contains(ev.target)) {
+        setProductoOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [productoOpen]);
+
   const preview = useMemo(() => {
     const qty = Math.max(0, toNumber(cantidad, 0));
     const pl = Math.max(0, toNumber(precioLista, 0));
@@ -277,7 +315,7 @@ export default function NuevaCotizacionPage() {
   const fetchClientes = async (search = "") => {
     if (!canCotizacionesView) return;
     const token = getToken();
-    if (!token) return;
+    if (!token) return null;
     setLoadingClientes(true);
     try {
       const query = new URLSearchParams({
@@ -386,6 +424,7 @@ export default function NuevaCotizacionPage() {
         setClienteId(data.cliente_id ? Number(data.cliente_id) : '');
         setContactoNombre(String(data.contacto || ''));
         setVigenciaIso(String(data.vencimiento || todayIso));
+        setCotizacionIdForPdf(String(data.id || ''));
         setIvaPct(clampPct(toNumber(data.iva_pct, 16)));
         setTextoArribaPrecios(String(data.texto_arriba_precios || ''));
         setTerminos(String(data.terminos || ''));
@@ -468,7 +507,7 @@ export default function NuevaCotizacionPage() {
     return String(c?.nombre || "").trim();
   };
 
-  const handleSaveCotizacion = () => {
+  const handleSaveCotizacion = async (navigateAfterSave = true): Promise<string | null> => {
     const p = getPermissionsFromStorage();
     const canView = asBool(p?.cotizaciones?.view, true);
     const canCreate = asBool(p?.cotizaciones?.create, false);
@@ -481,7 +520,7 @@ export default function NuevaCotizacionPage() {
         title: "Sin permiso",
         message: "No tienes permiso para ver cotizaciones.",
       });
-      return;
+      return null;
     }
 
     if (editingCotizacionId) {
@@ -492,7 +531,7 @@ export default function NuevaCotizacionPage() {
           title: "Sin permiso",
           message: "No tienes permiso para editar cotizaciones.",
         });
-        return;
+        return null;
       }
     } else {
       if (!canCreate) {
@@ -502,7 +541,7 @@ export default function NuevaCotizacionPage() {
           title: "Sin permiso",
           message: "No tienes permiso para crear cotizaciones.",
         });
-        return;
+        return null;
       }
     }
 
@@ -514,7 +553,7 @@ export default function NuevaCotizacionPage() {
         title: "Faltan datos",
         message: `Completa: ${v.missing.join(", ")}.`,
       });
-      return;
+      return null;
     }
     if (!computed.lines.length) {
       setAlert({
@@ -523,7 +562,7 @@ export default function NuevaCotizacionPage() {
         title: "Faltan conceptos",
         message: "Agrega al menos un producto o servicio para guardar la cotización.",
       });
-      return;
+      return null;
     }
 
     const nowIso = todayIso;
@@ -532,7 +571,7 @@ export default function NuevaCotizacionPage() {
     const contacto = String(contactoNombre || "").trim();
 
     const token = getToken();
-    if (!token) return;
+    if (!token) return null;
 
     const payload: any = {
       cliente_id: clienteId ? Number(clienteId) : null,
@@ -560,36 +599,39 @@ export default function NuevaCotizacionPage() {
       })),
     };
 
-    const save = async () => {
-      try {
-        const isEdit = !!editingCotizacionId;
-        const res = await fetch(apiUrl(isEdit ? `/api/cotizaciones/${editingCotizacionId}/` : '/api/cotizaciones/'), {
-          method: isEdit ? 'PUT' : 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          const msg = data?.detail || JSON.stringify(data) || 'No se pudo guardar la cotización.';
-          setAlert({ show: true, variant: 'error', title: 'Error', message: msg });
-          return;
-        }
-        setAlert({
-          show: true,
-          variant: 'success',
-          title: isEdit ? 'Cotización actualizada' : 'Cotización guardada',
-          message: `Folio #${data?.idx || data?.id || ''} guardado correctamente.`,
-        });
-        window.setTimeout(() => navigate('/cotizacion'), 350);
-      } catch {
-        setAlert({ show: true, variant: 'error', title: 'Error', message: 'No se pudo guardar la cotización.' });
+    try {
+      const isEdit = !!editingCotizacionId;
+      const res = await fetch(apiUrl(isEdit ? `/api/cotizaciones/${editingCotizacionId}/` : '/api/cotizaciones/'), {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const msg = data?.detail || JSON.stringify(data) || 'No se pudo guardar la cotización.';
+        setAlert({ show: true, variant: 'error', title: 'Error', message: msg });
+        return null;
       }
-    };
 
-    save();
+      const savedId = String(data?.id || editingCotizacionId || '').trim();
+      setCotizacionIdForPdf(savedId);
+      setAlert({
+        show: true,
+        variant: 'success',
+        title: isEdit ? 'Cotización actualizada' : 'Cotización guardada',
+        message: `Folio #${data?.idx || data?.id || ''} guardado correctamente.`,
+      });
+      if (navigateAfterSave) {
+        window.setTimeout(() => navigate('/cotizacion'), 350);
+      }
+      return savedId || null;
+    } catch {
+      setAlert({ show: true, variant: 'error', title: 'Error', message: 'No se pudo guardar la cotización.' });
+      return null;
+    }
   };
 
   const canAddConcepto = useMemo(() => {
@@ -716,6 +758,19 @@ export default function NuevaCotizacionPage() {
     setTextoArribaPrecios("A continuación cotización solicitada:");
     setTerminos("Se requiere el 50% de anticipo para iniciar");
     setVigenciaIso(todayIso);
+    setCotizacionIdForPdf("");
+  };
+
+  const handlePreviewPdf = async () => {
+    const currentId = String(cotizacionIdForPdf || editingCotizacionId || "").trim();
+    if (currentId) {
+      window.open(`/cotizacion/${currentId}/pdf`, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const savedId = await handleSaveCotizacion(false);
+    if (!savedId) return;
+    window.open(`/cotizacion/${savedId}/pdf`, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -741,10 +796,14 @@ export default function NuevaCotizacionPage() {
               <button
                 type="button"
                 onClick={() => navigate("/cotizacion")}
-                className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-white text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200"
-                title="Volver"
+                className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200"
+                aria-label="Regresar a cotizaciones"
               >
-                <ChevronLeftIcon className="w-4 h-4" />
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 19 3 12l7-7" />
+                  <path d="M3 12h18" />
+                </svg>
+                <span className="hidden sm:inline">Regresar</span>
               </button>
             </div>
           </div>
@@ -841,19 +900,91 @@ export default function NuevaCotizacionPage() {
 
                     <div className="lg:col-span-5">
                       <Label>Productos o servicios</Label>
-                      <select
-                        value={productoId}
-                        onChange={(e) => setProductoId(e.target.value ? Number(e.target.value) : "")}
-                        className={selectLikeClassName}
-                        disabled={loadingProductos}
-                      >
-                        <option value="">Selecciona un producto</option>
-                        {productos.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.nombre}
-                          </option>
-                        ))}
-                      </select>
+                      <div ref={productoPickerRef} className="relative mt-1">
+                        <button
+                          type="button"
+                          disabled={loadingProductos}
+                          onClick={() => setProductoOpen((v) => !v)}
+                          className={`${selectLikeClassName} flex items-center justify-between gap-2`}
+                        >
+                          <span className="truncate text-left">
+                            {selectedProducto
+                              ? String(selectedProducto.nombre || "Selecciona un producto")
+                              : "Selecciona un producto"}
+                          </span>
+                          <svg className="w-4 h-4 text-gray-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+
+                        {productoOpen && !loadingProductos && (
+                          <div className="absolute z-30 mt-2 w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
+                            <div className="p-2 border-b border-gray-100 dark:border-white/10">
+                              <div className="relative">
+                                <svg
+                                  className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                                  viewBox="0 0 20 20"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path
+                                    d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                                <input
+                                  value={productoSearch}
+                                  onChange={(e) => setProductoSearch(e.target.value)}
+                                  placeholder="Buscar por nombre, modelo o descripción"
+                                  className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-800 pl-8 pr-8 py-2 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
+                                  autoFocus
+                                />
+                                {!!productoSearch && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setProductoSearch("")}
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-7 w-7 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/60"
+                                  >
+                                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                                      <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <div className="max-h-72 overflow-auto">
+                              {filteredProductos.slice(0, 200).map((p) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setProductoId(p.id);
+                                    setProductoOpen(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition ${p.id === productoId ? "bg-gray-50 dark:bg-gray-800/50" : ""}`}
+                                >
+                                  <div className="text-[13px] font-medium text-gray-900 dark:text-gray-100 truncate">{p.nombre}</div>
+                                  {(p.modelo || p.descripcion) && (
+                                    <div className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                                      {String(p.modelo || "").trim()}
+                                      {p.modelo && p.descripcion ? " • " : ""}
+                                      {String(p.descripcion || "").trim()}
+                                    </div>
+                                  )}
+                                </button>
+                              ))}
+
+                              {filteredProductos.length === 0 && (
+                                <div className="px-3 py-3 text-[12px] text-gray-500 dark:text-gray-400">Sin resultados</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       {!!selectedProducto?.descripcion && (
                         <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">
                           {String(selectedProducto.descripcion)}
@@ -1022,12 +1153,6 @@ export default function NuevaCotizacionPage() {
               <ComponentCard title="Resumen Cotización">
                 <div className="p-4">
                   <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <select className={selectLikeClassName} defaultValue="Plantilla original">
-                        <option value="Plantilla original">Plantilla original</option>
-                      </select>
-                    </div>
-
                     <div className="flex items-center justify-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                       <svg className="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                         <path d="M8 2v3M16 2v3M4 7h16M6 10h12v10H6z" strokeLinecap="round" strokeLinejoin="round" />
@@ -1066,7 +1191,9 @@ export default function NuevaCotizacionPage() {
                       <button
                         type="button"
                         disabled={!computed.lines.length}
-                        onClick={handleSaveCotizacion}
+                        onClick={() => {
+                          void handleSaveCotizacion(true);
+                        }}
                         className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {editingCotizacionId ? "Actualizar Cotización" : "Guardar Cotización"}
@@ -1074,7 +1201,7 @@ export default function NuevaCotizacionPage() {
                       <button
                         type="button"
                         disabled={!computed.lines.length}
-                        onClick={() => { }}
+                        onClick={handlePreviewPdf}
                         className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2.5 text-xs font-medium text-blue-700 shadow-theme-xs hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-900/40 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-500/10"
                       >
                         Vista Previa

@@ -494,7 +494,7 @@ export default function Clientes() {
           ...formData,
           telefono: formatPhoneE164(formData.telefono_pais, formData.telefono),
           descuento_pct: formData.descuento_pct === '' ? null : formData.descuento_pct,
-          // Convertir vac├¡os a 0 para campos num├®ricos
+          // Convertir vacíos a 0 para campos numéricos
           limite_credito: formData.limite_credito === "" ? 0 : formData.limite_credito,
           dias_credito: formData.dias_credito === "" ? 0 : formData.dias_credito,
         })
@@ -807,7 +807,7 @@ export default function Clientes() {
       colonia: "",
       codigo_postal: "",
       ciudad: "",
-      pais: "M├®xico",
+      pais: "México",
       estado: "",
       localidad: "",
       municipio: "",
@@ -828,7 +828,7 @@ export default function Clientes() {
       numero_envio: "",
       colonia_envio: "",
       codigo_postal_envio: "",
-      pais_envio: "M├®xico",
+      pais_envio: "México",
       estado_envio: "",
       ciudad_envio: "",
       tipo: "EMPRESA",
@@ -1640,7 +1640,7 @@ export default function Clientes() {
                       const allowed = ['pdf', 'xls', 'xlsx', 'doc', 'docs', 'odt', 'ods'];
                       const ext = (f.name.split('.').pop() || '').toLowerCase();
                       if (!allowed.includes(ext)) {
-                        setModalError('Documento inv├ílido. Tipos permitidos: PDF, XLS, XLSX, DOC, DOCS, ODT, ODS.');
+                        setModalError('Documento inválido. Tipos permitidos: PDF, XLS, XLSX, DOC, DOCS, ODT, ODS.');
                         (e.target as HTMLInputElement).value = '';
                         setDocumentFile(null);
                         return;
@@ -1795,8 +1795,8 @@ export default function Clientes() {
                 </svg>
               </div>
               <div>
-                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">Seleccionar Ubicaci├│n</h5>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Haz clic en el mapa para seleccionar la ubicaci├│n</p>
+                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">Seleccionar Ubicación</h5>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Haz clic en el mapa para seleccionar la Ubicación</p>
               </div>
             </div>
           </div>
@@ -1828,7 +1828,7 @@ export default function Clientes() {
                   onClick={handleConfirmMap}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Usar ubicaci├│n
+                  Usar Ubicación
                 </button>
               </div>
             </div>
@@ -1836,7 +1836,7 @@ export default function Clientes() {
         </div>
       </Modal >
 
-      {/* Modal de Confirmaci├│n de Eliminaci├│n */}
+      {/* Modal de Confirmación de Eliminación */}
       {
         clienteToDelete && (
           <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-[94vw] max-w-md p-0 overflow-hidden">
@@ -1854,7 +1854,7 @@ export default function Clientes() {
                       Eliminar Cliente
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      Esta acci├│n no se puede deshacer
+                      Esta acción no se puede deshacer
                     </p>
                   </div>
                 </div>
@@ -1863,7 +1863,7 @@ export default function Clientes() {
               {/* Body */}
               <div className="px-6 py-4">
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  ┬┐Est├ís seguro de que deseas eliminar al cliente{" "}
+                  ¿Estás seguro de que deseas eliminar al cliente{" "}
                   <span className="font-semibold text-gray-900 dark:text-white">
                     {clienteToDelete.nombre}
                   </span>
@@ -1871,7 +1871,7 @@ export default function Clientes() {
                 </p>
                 <div className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-500/5 border border-red-100 dark:border-red-500/20">
                   <p className="text-xs text-red-800 dark:text-red-300">
-                    <strong>Advertencia:</strong> Todos los datos asociados a este cliente ser├ín eliminados permanentemente.
+                    <strong>Advertencia:</strong> Todos los datos asociados a este cliente serán eliminados permanentemente.
                   </p>
                 </div>
               </div>

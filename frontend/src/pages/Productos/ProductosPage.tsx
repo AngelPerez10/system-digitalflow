@@ -269,6 +269,8 @@ export default function Productos() {
     if (!q) return productos;
     return productos.filter((p) =>
       String(p.nombre || '').toLowerCase().includes(q) ||
+      String(p.modelo || '').toLowerCase().includes(q) ||
+      String(p.descripcion || '').toLowerCase().includes(q) ||
       String(p.unidad || '').toLowerCase().includes(q) ||
       String(p.proveedor || '').toLowerCase().includes(q)
     );

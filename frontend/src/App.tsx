@@ -29,6 +29,7 @@ import KpiVentasPage from "@/pages/Kpis/KpiVentasPage";
 import CorreoPage from "@/pages/MiEscritorio/CorreoPage";
 import CotizacionesPage from "@/pages/Cotizacion/CotizacionesPage";
 import NuevaCotizacionPage from "@/pages/Cotizacion/NuevaCotizacionPage";
+import CotizacionPdfPage from "@/pages/Cotizacion/CotizacionPdfPage";
 
 export default function App() {
   return (
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="/cotizacion" element={<RequireAdmin><CotizacionesPage /></RequireAdmin>} />
             <Route path="/cotizacion/nueva" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />
             <Route path="/cotizacion/:id/editar" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />
+            <Route path="/cotizacion/:id/pdf" element={<CotizacionPdfPage />} />
 
             {/* Correo */}
             <Route path="/correo" element={<RequireAdmin><CorreoPage /></RequireAdmin>} />
