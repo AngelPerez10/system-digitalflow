@@ -196,23 +196,18 @@ const Calendar: React.FC = () => {
             ? (data as any).results
             : [];
 
-        // Filter for technicians
         try {
-          const role = localStorage.getItem('role');
-          const userRaw = localStorage.getItem('user');
-          if (role !== 'admin' && userRaw) {
-            const user = JSON.parse(userRaw);
-            if (user.id) {
-              // Filter orders where tecnico_asignado matches user.id
-              const userId = Number(user.id);
-              const filtered = rows.filter(o => Number(o.tecnico_asignado) === userId);
-              // Update rows reference
-              rows.length = 0;
-              rows.push(...filtered);
-            }
+          const rawMe = localStorage.getItem('user') || sessionStorage.getItem('user');
+          const me = rawMe ? JSON.parse(rawMe) : null;
+          const isAdmin = !!(me?.is_superuser || me?.is_staff);
+          const meId = typeof me?.id === 'number' ? me.id : me?.id ? Number(me.id) : null;
+          if (!isAdmin && meId != null) {
+            const filtered = rows.filter((o) => Number(o.tecnico_asignado) === Number(meId));
+            rows.length = 0;
+            rows.push(...filtered);
           }
-        } catch (e) {
-          console.error("Error filtering orders", e);
+        } catch {
+          // ignore
         }
 
         setOrdenes(rows);

@@ -166,11 +166,16 @@ const AppSidebar: React.FC = () => {
       });
     } else {
       const subItems = [];
-      // Technician Dashboard
-      subItems.push({ name: "Panel Principal", path: "/", pro: false });
-
+      if (permissions?.ordenes?.view !== false) {
+        subItems.push({ name: "Agenda", path: "/calendar", pro: false });
+      }
+      
       if (permissions?.ordenes?.view !== false) {
         subItems.push({ name: "Órdenes de Servicios", path: "/ordenes-tecnico", pro: false });
+      }
+
+      if (permissions?.tareas?.view !== false) {
+        subItems.push({ name: "Tareas", path: "/tareas-tecnico", pro: false });
       }
 
       if (subItems.length > 0) {

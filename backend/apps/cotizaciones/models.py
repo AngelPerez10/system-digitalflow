@@ -43,7 +43,11 @@ class Cotizacion(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.idx:
-            next_idx = (Cotizacion.objects.aggregate(m=Max('idx')).get('m') or 0) + 1
+            current_max = Cotizacion.objects.aggregate(m=Max('idx')).get('m')
+            base = current_max if current_max is not None else 4999
+            if base < 4999:
+                base = 4999
+            next_idx = int(base) + 1
             self.idx = next_idx
         super().save(*args, **kwargs)
 

@@ -27,6 +27,7 @@ import Clientes from "@/pages/Clientes/ClientesPage";
 import Productos from "@/pages/Productos/ProductosPage";
 import KpiVentasPage from "@/pages/Kpis/KpiVentasPage";
 import CorreoPage from "@/pages/MiEscritorio/CorreoPage";
+import TareasTecnicoPage from "@/pages/MiEscritorio/TareasTecnicoPage";
 import CotizacionesPage from "@/pages/Cotizacion/CotizacionesPage";
 import NuevaCotizacionPage from "@/pages/Cotizacion/NuevaCotizacionPage";
 import CotizacionPdfPage from "@/pages/Cotizacion/CotizacionPdfPage";
@@ -61,6 +62,7 @@ export default function App() {
 
             {/* Tareas */}
             <Route path="/tareas" element={<RequireAdmin><TareasPage /></RequireAdmin>} />
+            <Route path="/tareas-tecnico" element={<TareasTecnicoPage />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<RequireAdmin><UserProfiles /></RequireAdmin>} />

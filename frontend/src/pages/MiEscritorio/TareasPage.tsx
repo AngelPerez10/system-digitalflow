@@ -8,6 +8,7 @@ import Alert from "@/components/ui/alert/Alert";
 import { useDropzone } from "react-dropzone";
 import { apiUrl } from "@/config/api";
 import { PencilIcon, TrashBinIcon } from "../../icons";
+import { MobileTareaList } from "./MobileTareaCard";
 
 interface Tarea {
     id: number;
@@ -757,7 +758,21 @@ export default function TareasPage() {
                             )}
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
+                        <>
+                            <MobileTareaList
+                                tareas={shownList}
+                                startIndex={0}
+                                loading={loading}
+                                formatDate={(date: string) => formatDate(date)}
+                                onDescripcion={(t: any) => openDescripcionModal(t)}
+                                onFotos={(t: any) => openFotosModal(t)}
+                                onEdit={canTareasEdit ? (t: any) => handleEdit(t) : undefined}
+                                onDelete={canTareasDelete ? (t: any) => handleDeleteClick(t) : undefined}
+                                canEdit={canTareasEdit}
+                                canDelete={canTareasDelete}
+                            />
+
+                            <div className="hidden md:block overflow-x-auto">
                             <Table className="w-full min-w-[760px] sm:min-w-0 sm:table-fixed">
                                 <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sm:sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
                                     <TableRow>
@@ -850,7 +865,8 @@ export default function TareasPage() {
                                     })}
                                 </TableBody>
                             </Table>
-                        </div>
+                            </div>
+                        </>
                     )}
                 </ComponentCard>
             </div>

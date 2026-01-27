@@ -9,6 +9,7 @@ import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
+import { Modal } from "@/components/ui/modal";
 import { apiUrl } from "@/config/api";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 
@@ -117,6 +118,12 @@ const clampPct = (v: number) => {
   return v;
 };
 
+const round2 = (v: number) => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+};
+
 const formatMoney = (n: number) => {
   const v = Number.isFinite(n) ? n : 0;
   return v.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
@@ -153,14 +160,14 @@ export default function NuevaCotizacionPage() {
 
   const [hydratingFromStorage, setHydratingFromStorage] = useState(false);
 
-  const [cotizacionIdForPdf, setCotizacionIdForPdf] = useState<string>("");
-
   const [alert, setAlert] = useState<{
     show: boolean;
     variant: "success" | "error" | "warning" | "info";
     title: string;
     message: string;
   }>({ show: false, variant: "info", title: "", message: "" });
+
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -424,7 +431,6 @@ export default function NuevaCotizacionPage() {
         setClienteId(data.cliente_id ? Number(data.cliente_id) : '');
         setContactoNombre(String(data.contacto || ''));
         setVigenciaIso(String(data.vencimiento || todayIso));
-        setCotizacionIdForPdf(String(data.id || ''));
         setIvaPct(clampPct(toNumber(data.iva_pct, 16)));
         setTextoArribaPrecios(String(data.texto_arriba_precios || ''));
         setTerminos(String(data.terminos || ''));
@@ -580,10 +586,10 @@ export default function NuevaCotizacionPage() {
       contacto: contacto || '',
       fecha: nowIso,
       vencimiento: venc,
-      subtotal: toNumber(computed.subtotal, 0),
+      subtotal: round2(toNumber(computed.subtotal, 0)),
       iva_pct: clampPct(toNumber(ivaPct, 16)),
-      iva: toNumber(computed.iva, 0),
-      total: toNumber(computed.total, 0),
+      iva: round2(toNumber(computed.iva, 0)),
+      total: round2(toNumber(computed.total, 0)),
       texto_arriba_precios: String(textoArribaPrecios || ''),
       terminos: String(terminos || ''),
       items: computed.lines.map((c, i) => ({
@@ -617,7 +623,6 @@ export default function NuevaCotizacionPage() {
       }
 
       const savedId = String(data?.id || editingCotizacionId || '').trim();
-      setCotizacionIdForPdf(savedId);
       setAlert({
         show: true,
         variant: 'success',
@@ -758,25 +763,140 @@ export default function NuevaCotizacionPage() {
     setTextoArribaPrecios("A continuación cotización solicitada:");
     setTerminos("Se requiere el 50% de anticipo para iniciar");
     setVigenciaIso(todayIso);
-    setCotizacionIdForPdf("");
   };
 
   const handlePreviewPdf = async () => {
-    const currentId = String(cotizacionIdForPdf || editingCotizacionId || "").trim();
-    if (currentId) {
-      window.open(`/cotizacion/${currentId}/pdf`, "_blank", "noopener,noreferrer");
+    if (previewLoading) return;
+
+    const token = getToken();
+    if (!token) {
+      setAlert({ show: true, variant: "error", title: "Sin sesión", message: "Inicia sesión para ver el PDF." });
       return;
     }
 
-    const savedId = await handleSaveCotizacion(false);
-    if (!savedId) return;
-    window.open(`/cotizacion/${savedId}/pdf`, "_blank", "noopener,noreferrer");
+    if (!computed.lines.length) {
+      setAlert({
+        show: true,
+        variant: "warning",
+        title: "Faltan conceptos",
+        message: "Agrega al menos un producto o servicio para ver la vista previa.",
+      });
+      return;
+    }
+
+    const v = validateClienteContacto();
+    if (!v.ok) {
+      setAlert({
+        show: true,
+        variant: "warning",
+        title: "Faltan datos",
+        message: `Completa: ${v.missing.join(", ")}.`,
+      });
+      return;
+    }
+
+    const nowIso = todayIso;
+    const venc = String(vigenciaIso || "").trim() || nowIso;
+    const clienteNombre = resolveClienteNombre();
+    const contacto = String(contactoNombre || "").trim();
+
+    const payload: any = {
+      cliente_id: clienteId ? Number(clienteId) : null,
+      cliente: clienteNombre || "",
+      prospecto: !!selectedCliente?.is_prospecto,
+      contacto: contacto || "",
+      fecha: nowIso,
+      vencimiento: venc,
+      subtotal: round2(toNumber(computed.subtotal, 0)),
+      iva_pct: clampPct(toNumber(ivaPct, 16)),
+      iva: round2(toNumber(computed.iva, 0)),
+      total: round2(toNumber(computed.total, 0)),
+      texto_arriba_precios: String(textoArribaPrecios || ""),
+      terminos: String(terminos || ""),
+      items: computed.lines.map((c, i) => ({
+        producto_id: c.producto_id,
+        producto_nombre: c.producto_nombre,
+        producto_descripcion: c.producto_descripcion,
+        unidad: c.unidad,
+        thumbnail_url: c.thumbnail_url || "",
+        cantidad: toNumber(c.cantidad, 0),
+        precio_lista: toNumber(c.precio_lista, 0),
+        descuento_pct: clampPct(toNumber(c.descuento_pct, 0)),
+        orden: i,
+      })),
+    };
+
+    try {
+      setPreviewLoading(true);
+      const res = await fetch(apiUrl("/api/cotizaciones/pdf-preview/"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        setAlert({ show: true, variant: "error", title: "Error", message: txt || "No se pudo generar la vista previa." });
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo abrir la vista previa." });
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <PageMeta title="Nueva Cotización | Sistema Grupo Intrax GPS" description="Crear nueva cotización" />
       <PageBreadcrumb pageTitle="Nueva Cotización" />
+
+      <Modal isOpen={previewLoading} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
+        <div className="p-8">
+          <div className="flex flex-col items-center justify-center text-center">
+            <div className="relative mb-5">
+              <div className="absolute -inset-3 rounded-full bg-linear-to-r from-brand-500/25 via-blue-500/15 to-brand-500/25 blur-xl"></div>
+              <div className="relative flex items-center justify-center w-[74px] h-[74px] rounded-2xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-gray-900/60 shadow-theme-md">
+                <div className="absolute inset-0 rounded-2xl border border-gray-100 dark:border-white/5"></div>
+                <div className="absolute inset-0 rounded-2xl border-2 border-transparent border-t-brand-600 dark:border-t-brand-500 animate-spin"></div>
+                <div className="absolute inset-2 rounded-xl border-2 border-transparent border-t-blue-600/70 dark:border-t-blue-400/70 animate-spin" style={{ animationDuration: "1.6s" }}></div>
+
+                <svg className="w-7 h-7 text-brand-700 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6" />
+                  <path d="M8 13h2.5a1.5 1.5 0 0 1 0 3H8v-3Z" />
+                  <path d="M13 16v-3h1.5a1.5 1.5 0 0 1 0 3H13Z" />
+                </svg>
+              </div>
+            </div>
+
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Generando vista previa</h3>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Preparando el PDF
+              <span className="inline-flex items-center gap-1 ml-1 align-middle">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "300ms" }} />
+              </span>
+            </p>
+
+            <div className="mt-5 w-full rounded-full h-2 overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-white/10">
+              <div className="h-full w-[65%] bg-linear-to-r from-brand-600 via-blue-600 to-brand-600 animate-pulse"></div>
+            </div>
+            <div className="mt-2 w-full h-[2px] overflow-hidden rounded-full bg-transparent">
+              <div className="h-full w-1/2 bg-linear-to-r from-transparent via-white/60 to-transparent dark:via-white/25 animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
@@ -1200,11 +1320,20 @@ export default function NuevaCotizacionPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={!computed.lines.length}
+                        disabled={!computed.lines.length || previewLoading}
                         onClick={handlePreviewPdf}
                         className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2.5 text-xs font-medium text-blue-700 shadow-theme-xs hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-900/40 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-500/10"
                       >
-                        Vista Previa
+                        {previewLoading ? (
+                          <>
+                            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                            </svg>
+                            Generando...
+                          </>
+                        ) : (
+                          "Vista Previa"
+                        )}
                       </button>
                       <button
                         type="button"

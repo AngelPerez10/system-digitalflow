@@ -1181,7 +1181,7 @@ export default function UserProfiles() {
                         { key: 'kpis' as const, label: 'KPI’S', modules: [{ key: 'kpis' as const, label: 'KPI Ventas' }] },
                       ] as const)
                     : ([
-                        { key: 'escritorio' as const, label: 'Mi escritorio', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
+                        { key: 'escritorio' as const, label: 'Mi escritorio', modules: [{ key: 'tareas' as const, label: 'Tareas' }] },
                         { key: 'contactos' as const, label: 'Contacto de negocio', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
                         { key: 'productos_servicios' as const, label: 'Productos y Servicios', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
                         { key: 'compras_gastos' as const, label: 'Compras y Gastos', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },

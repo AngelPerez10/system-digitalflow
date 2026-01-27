@@ -156,14 +156,37 @@ export default function CotizacionPdfPage() {
       <Modal isOpen={loading} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
         <div className="p-8">
           <div className="flex flex-col items-center justify-center text-center">
-            <div className="relative w-16 h-16 mb-4">
-              <div className="absolute inset-0 rounded-full border-4 border-gray-200 dark:border-gray-700"></div>
-              <div className="absolute inset-0 rounded-full border-4 border-t-brand-600 dark:border-t-brand-500 animate-spin"></div>
+            <div className="relative mb-5">
+              <div className="absolute -inset-3 rounded-full bg-linear-to-r from-brand-500/25 via-blue-500/15 to-brand-500/25 blur-xl"></div>
+              <div className="relative flex items-center justify-center w-[74px] h-[74px] rounded-2xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-gray-900/60 shadow-theme-md">
+                <div className="absolute inset-0 rounded-2xl border border-gray-100 dark:border-white/5"></div>
+                <div className="absolute inset-0 rounded-2xl border-2 border-transparent border-t-brand-600 dark:border-t-brand-500 animate-spin"></div>
+                <div className="absolute inset-2 rounded-xl border-2 border-transparent border-t-blue-600/70 dark:border-t-blue-400/70 animate-spin" style={{ animationDuration: "1.6s" }}></div>
+
+                <svg className="w-7 h-7 text-brand-700 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6" />
+                  <path d="M8 13h2.5a1.5 1.5 0 0 1 0 3H8v-3Z" />
+                  <path d="M13 16v-3h1.5a1.5 1.5 0 0 1 0 3H13Z" />
+                </svg>
+              </div>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Generando PDF</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Preparando documento...</p>
-            <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
-              <div className="h-full bg-brand-600 dark:bg-brand-500 rounded-full animate-pulse" style={{ width: "60%" }}></div>
+
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Generando PDF</h3>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Preparando documento
+              <span className="inline-flex items-center gap-1 ml-1 align-middle">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "300ms" }} />
+              </span>
+            </p>
+
+            <div className="mt-5 w-full rounded-full h-2 overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-white/10">
+              <div className="h-full w-[65%] bg-linear-to-r from-brand-600 via-blue-600 to-brand-600 animate-pulse"></div>
+            </div>
+            <div className="mt-2 w-full h-[2px] overflow-hidden rounded-full bg-transparent">
+              <div className="h-full w-1/2 bg-linear-to-r from-transparent via-white/60 to-transparent dark:via-white/25 animate-pulse"></div>
             </div>
           </div>
         </div>

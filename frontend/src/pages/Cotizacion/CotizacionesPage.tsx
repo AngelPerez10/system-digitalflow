@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { useNavigate } from "react-router-dom";
 import Alert from "@/components/ui/alert/Alert";
+import { Modal } from "@/components/ui/modal";
 import { apiUrl } from "@/config/api";
 
 let lastPermissionsFetchAt = 0;
@@ -62,6 +63,9 @@ export default function CotizacionesPage() {
 
   const [rows, setRows] = useState<CotizacionRow[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [cotizacionToDelete, setCotizacionToDelete] = useState<CotizacionRow | null>(null);
 
   const formatMoney = (n: number) => {
     const v = Number.isFinite(n) ? n : 0;
@@ -167,7 +171,7 @@ export default function CotizacionesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canCotizacionesView]);
 
-  const deleteCotizacion = (id: string) => {
+  const deleteCotizacion = async (id: string) => {
     if (!canCotizacionesDelete) {
       setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar cotizaciones.' });
       window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
@@ -177,27 +181,46 @@ export default function CotizacionesPage() {
     if (!token) return;
     const sid = String(id || '').trim();
     if (!sid) return;
-    const doIt = async () => {
-      try {
-        const res = await fetch(apiUrl(`/api/cotizaciones/${sid}/`), {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          const txt = await res.text().catch(() => '');
-          setAlert({ show: true, variant: 'error', title: 'Error', message: txt || 'No se pudo eliminar la cotización.' });
-          window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 3000);
-          return;
-        }
-        setRows((prev) => prev.filter((r) => String(r.id) !== sid));
-        setAlert({ show: true, variant: 'success', title: 'Eliminada', message: 'Cotización eliminada.' });
-        window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2000);
-      } catch {
-        setAlert({ show: true, variant: 'error', title: 'Error', message: 'No se pudo eliminar la cotización.' });
+    try {
+      const res = await fetch(apiUrl(`/api/cotizaciones/${sid}/`), {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        setAlert({ show: true, variant: 'error', title: 'Error', message: txt || 'No se pudo eliminar la cotización.' });
         window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 3000);
+        return;
       }
-    };
-    doIt();
+      setRows((prev) => prev.filter((r) => String(r.id) !== sid));
+      setAlert({ show: true, variant: 'success', title: 'Eliminada', message: 'Cotización eliminada.' });
+      window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2000);
+    } catch {
+      setAlert({ show: true, variant: 'error', title: 'Error', message: 'No se pudo eliminar la cotización.' });
+      window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 3000);
+    }
+  };
+
+  const handleAskDelete = (c: CotizacionRow) => {
+    if (!canCotizacionesDelete) {
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar cotizaciones.' });
+      window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
+      return;
+    }
+    setCotizacionToDelete(c);
+    setShowDeleteModal(true);
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
+    setCotizacionToDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!cotizacionToDelete) return;
+    await deleteCotizacion(String(cotizacionToDelete.id));
+    setShowDeleteModal(false);
+    setCotizacionToDelete(null);
   };
 
   const formatDMY = (iso: string) => {
@@ -330,7 +353,7 @@ export default function CotizacionesPage() {
                   shownList.map((r) => {
                     return (
                       <TableRow key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{r.idx || r.id}</TableCell>
+                        <TableCell className="px-2 py-1.5 whitespace-nowrap">{r.idx ? r.idx : "—"}</TableCell>
                         <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatDMY(r.fecha)}</TableCell>
                         <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatDMY(r.vencimiento)}</TableCell>
                         <TableCell className="px-2 py-1.5">{r.creadaPor}</TableCell>
@@ -339,6 +362,20 @@ export default function CotizacionesPage() {
                         <TableCell className="px-2 py-1.5 whitespace-nowrap">{r.monto}</TableCell>
                         <TableCell className="px-2 py-1.5 text-center w-1/6">
                           <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/cotizacion/${r.id}/pdf`)}
+                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 transition"
+                              title="PDF"
+                            >
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <path d="M14 2v6h6" />
+                                <path d="M8 13h2.5a1.5 1.5 0 0 1 0 3H8v-3Z" />
+                                <path d="M13 16v-3h1.5a1.5 1.5 0 0 1 0 3H13Z" />
+                                <path d="M18 16v-3h2" />
+                              </svg>
+                            </button>
                             <button
                               type="button"
                               onClick={() => {
@@ -356,7 +393,7 @@ export default function CotizacionesPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => deleteCotizacion(String(r.id))}
+                              onClick={() => handleAskDelete(r)}
                               className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
                               title="Eliminar"
                             >
@@ -373,6 +410,43 @@ export default function CotizacionesPage() {
             </div>
           </div>
       </ComponentCard>
+
+      {cotizacionToDelete && (
+        <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-full max-w-md mx-4 sm:mx-auto">
+          <div className="p-6">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-error-100 dark:bg-error-900/30">
+              <svg className="w-6 h-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">¿Eliminar Cotización?</h3>
+            <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
+              ¿Estás seguro de que deseas eliminar la cotización para <span className="font-semibold">{cotizacionToDelete.cliente}</span>? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancelDelete}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-error-600 rounded-lg hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/50"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       </div>
       )}
