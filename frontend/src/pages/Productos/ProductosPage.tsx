@@ -589,7 +589,31 @@ export default function Productos() {
         return;
       }
 
-      await uploadIfPresent(productoId, token);
+      try {
+        await uploadIfPresent(productoId, token);
+      } catch (err) {
+        const msg = String(err || '');
+        const isCloudinaryMissing = msg.toLowerCase().includes('cloudinary_url') || msg.toLowerCase().includes('cloudinary');
+        if (!isCloudinaryMissing) {
+          setModalError(msg);
+          return;
+        }
+
+        await fetchProductos();
+        setShowModal(false);
+        setEditingProducto(null);
+        setImageFile(null);
+        setDocumentFile(null);
+
+        setAlert({
+          show: true,
+          variant: 'warning',
+          title: isEditing ? 'Producto actualizado' : 'Producto creado',
+          message: 'El producto se guardó, pero no se pudieron subir archivos porque Cloudinary no está configurado.',
+        });
+        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
+        return;
+      }
 
       await fetchProductos();
       setShowModal(false);
@@ -933,7 +957,7 @@ export default function Productos() {
                       </select>
                     </div>
                     <div>
-                      <Label>Precio de venta $ *</Label>
+                      <Label>Precio 1 *</Label>
                       <Input
                         type="number"
                         value={formData.precio_venta ?? ''}

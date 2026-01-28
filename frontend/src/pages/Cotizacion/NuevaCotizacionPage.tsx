@@ -241,7 +241,7 @@ export default function NuevaCotizacionPage() {
     "A continuación cotización solicitada: "
   );
   const [terminos, setTerminos] = useState(
-    "Se requiere el 50% de anticipo para iniciar"
+    "Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación"
   );
 
   const todayIso = useMemo(() => {
@@ -761,7 +761,7 @@ export default function NuevaCotizacionPage() {
 
     setConceptos([]);
     setTextoArribaPrecios("A continuación cotización solicitada:");
-    setTerminos("Se requiere el 50% de anticipo para iniciar");
+    setTerminos("Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación");
     setVigenciaIso(todayIso);
   };
 
