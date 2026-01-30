@@ -101,18 +101,18 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='cliente',
-            index=models.Index(fields=['idx'], name='clientes_cli_idx_5b2d08_idx'),
+            index=models.Index(fields=['idx'], name='clientes_cl_idx_04b478_idx'),
         ),
         migrations.AddIndex(
             model_name='cliente',
-            index=models.Index(fields=['nombre'], name='clientes_cli_nombre_7fe0a2_idx'),
+            index=models.Index(fields=['nombre'], name='clientes_cl_nombre_c231de_idx'),
         ),
         migrations.AddIndex(
             model_name='clientecontacto',
-            index=models.Index(fields=['cliente'], name='clientes_cli_cliente_08bdf6_idx'),
+            index=models.Index(fields=['cliente'], name='clientes_cl_cliente_08bdf6_idx'),
         ),
         migrations.AddIndex(
             model_name='clientecontacto',
-            index=models.Index(fields=['is_principal'], name='clientes_cli_is_princi_7f9d76_idx'),
+            index=models.Index(fields=['is_principal'], name='clientes_cl_is_prin_ca1baa_idx'),
         ),
     ]

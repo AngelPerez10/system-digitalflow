@@ -10,24 +10,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameIndex(
-            model_name='cliente',
-            new_name='clientes_cl_idx_04b478_idx',
-            old_name='clientes_cli_idx_5b2d08_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='cliente',
-            new_name='clientes_cl_nombre_c231de_idx',
-            old_name='clientes_cli_nombre_7fe0a2_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='clientecontacto',
-            new_name='clientes_cl_cliente_08bdf6_idx',
-            old_name='clientes_cli_cliente_08bdf6_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='clientecontacto',
-            new_name='clientes_cl_is_prin_ca1baa_idx',
-            old_name='clientes_cli_is_princi_7f9d76_idx',
-        ),
+        # Las operaciones de RenameIndex se eliminaron para evitar errores en Render
+        # ya que los índices originales "clientes_cli_..." no se encontraban en la base de datos de producción.
+        # Los nombres definitivos "clientes_cl_..." se integraron directamente en 0001_initial.py.
     ]
