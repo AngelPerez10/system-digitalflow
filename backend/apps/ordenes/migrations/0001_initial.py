@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('clientes', '0002_rename_clientes_cli_idx_5b2d08_idx_clientes_cl_idx_04b478_idx_and_more'),
+        ('clientes', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
