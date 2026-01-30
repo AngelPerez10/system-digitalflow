@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import SignIn from "@/pages/AuthPages/SignIn";
 import NotFound from "@/pages/OtherPage/NotFound";
-import UserProfiles from "@/pages/UserProfiles";
+import UserProfiles from "@/pages/ContactosNegocio/Usuarios/UserProfiles";
 import Videos from "@/pages/UiElements/Videos";
 import Images from "@/pages/UiElements/Images";
 import Alerts from "@/pages/UiElements/Alerts";
@@ -23,8 +23,11 @@ import RequireAdmin from "@/components/auth/RequireAdmin";
 import Ordenes from "@/pages/Ordenes/OrdenesPage";
 import OrdenPdfPage from "@/pages/Ordenes/OrdenPdfPage";
 import OrdenesTecnico from "@/pages/Ordenes/OrdenesTecnicoPage";
-import Clientes from "@/pages/Clientes/ClientesPage";
-import Productos from "@/pages/Productos/ProductosPage";
+import Clientes from "@/pages/ContactosNegocio/Clientes/ClientesPage";
+import EmpresaPage from "@/pages/ContactosNegocio/Clientes/EmpresaPage";
+import PersonasPage from "@/pages/ContactosNegocio/Clientes/PersonasPage";
+import ProveedoresPage from "@/pages/ContactosNegocio/Clientes/ProveedoresPage";
+import Productos from "@/pages/ProductosYServicios/Productos/ProductosPage";
 import KpiVentasPage from "@/pages/Kpis/KpiVentasPage";
 import CorreoPage from "@/pages/MiEscritorio/CorreoPage";
 import TareasTecnicoPage from "@/pages/MiEscritorio/TareasTecnicoPage";
@@ -51,6 +54,9 @@ export default function App() {
             <Route path="/ordenes/:id/pdf" element={<OrdenPdfPage />} />
             <Route path="/ordenes-tecnico" element={<OrdenesTecnico />} />
             <Route path="/clientes" element={<RequireAdmin><Clientes /></RequireAdmin>} />
+            <Route path="/empresas" element={<RequireAdmin><EmpresaPage /></RequireAdmin>} />
+            <Route path="/personas" element={<RequireAdmin><PersonasPage /></RequireAdmin>} />
+            <Route path="/proveedores" element={<RequireAdmin><ProveedoresPage /></RequireAdmin>} />
             <Route path="/productos" element={<RequireAdmin><Productos /></RequireAdmin>} />
             <Route path="/cotizacion" element={<RequireAdmin><CotizacionesPage /></RequireAdmin>} />
             <Route path="/cotizacion/nueva" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />

@@ -16,6 +16,8 @@ import { PencilIcon, TrashBinIcon, TimeIcon } from "../../icons";
 import { MobileOrderList } from "./MobileOrderCard";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
+import ActionSearchBar from "@/components/kokonutui/action-search-bar";
+
 
 
 
@@ -532,12 +534,10 @@ export default function OrdenesTecnico() {
   }, [selectedLocation]);
 
   // Estados para dropdowns personalizados
-  const [clienteOpen, setClienteOpen] = useState(false);
   const [clienteSearch, setClienteSearch] = useState('');
-  const [tecnicoOpen, setTecnicoOpen] = useState(false);
   const [tecnicoSearch, setTecnicoSearch] = useState('');
-  const [servicioOpen, setServicioOpen] = useState(false);
   const [servicioSearch, setServicioSearch] = useState('');
+
 
   const [tecnicoSignatureUrl, setTecnicoSignatureUrl] = useState<string>('');
   const tecnicoSignatureCacheRef = useRef<Record<number, string>>({});
@@ -964,7 +964,6 @@ export default function OrdenesTecnico() {
     }
     setEditingOrden(orden);
     setTecnicoSearch('');
-    setTecnicoOpen(false);
     setFormData({
       cliente_id: orden.cliente_id || null,
       cliente: orden.cliente || "",
@@ -1015,9 +1014,6 @@ export default function OrdenesTecnico() {
     setClienteSearch('');
     setTecnicoSearch('');
     setServicioSearch('');
-    setClienteOpen(false);
-    setTecnicoOpen(false);
-    setServicioOpen(false);
   };
 
   const shownList = useMemo(() => {
@@ -1074,8 +1070,114 @@ export default function OrdenesTecnico() {
   const startIndex = 0;
   const currentOrdenes = shownList;
 
-  // Funciones para dropdowns personalizados
-  const filteredClientes = clientes; // Backend already filtered them
+  const clienteActions = useMemo(() => {
+    const q = clienteSearch.trim().toLowerCase();
+    const base = (clientes || [])
+      .filter((c) => {
+        if (!q) return true;
+        const nombre = (c.nombre || '').toLowerCase();
+        const tel = (c.telefono || '').toLowerCase();
+        return nombre.includes(q) || tel.includes(q);
+      })
+      .map((c) => ({
+        id: String(c.id),
+        label: c.nombre || '-',
+        icon: (
+          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold">
+            {(c.nombre || '?').slice(0, 1).toUpperCase()}
+          </span>
+        ),
+        description: c.telefono || '-',
+        short: '',
+        end: '',
+      }));
+
+    const newAction = {
+      id: "__new__",
+      label: "Nuevo Cliente",
+      icon: (
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400">
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      ),
+      description: "Crear cliente",
+      short: '',
+      end: '',
+    };
+
+    return [newAction, ...base];
+  }, [clientes, clienteSearch]);
+
+  const tecnicoActions = useMemo(() => {
+    const q = tecnicoSearch.trim().toLowerCase();
+    return (usuarios || [])
+      .filter((u) => {
+        if (!q) return true;
+        const nombre = (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email).toLowerCase();
+        return nombre.includes(q);
+      })
+      .map((u) => {
+        const nombre = u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email;
+        return {
+          id: String(u.id),
+          label: nombre,
+          icon: (
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold">
+              {nombre.slice(0, 1).toUpperCase()}
+            </span>
+          ),
+          description: u.email,
+          short: '',
+          end: '',
+        };
+      });
+  }, [usuarios, tecnicoSearch]);
+
+  const servicioActions = useMemo(() => {
+    const q = servicioSearch.trim().toLowerCase();
+    const base = serviciosDisponibles
+      .filter((s) => {
+        const matches = !q || s.toLowerCase().includes(q);
+        const notSelected = !formData.servicios_realizados.includes(s);
+        return matches && notSelected;
+      })
+      .map((s) => ({
+        id: s,
+        label: s,
+        icon: (
+          <svg className='w-4 h-4 text-brand-500' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+            <path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' />
+          </svg>
+        ),
+        description: "Servicio disponible",
+        short: '',
+        end: '',
+      }));
+
+    if (q !== "" && !serviciosDisponibles.some(s => s.toLowerCase() === q)) {
+      return [
+        {
+          id: "__new__",
+          label: `Crear "${servicioSearch.trim()}"`,
+          icon: (
+            <svg className='w-4 h-4 text-brand-500' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+              <path d='M12 5v14M5 12h14' />
+            </svg>
+          ),
+          description: "Nuevo servicio",
+          short: '',
+          end: '',
+        },
+        ...base
+      ];
+    }
+
+    return base;
+  }, [serviciosDisponibles, servicioSearch, formData.servicios_realizados]);
+
+
 
   const selectCliente = (cliente: Cliente | null) => {
     if (cliente) {
@@ -1103,18 +1205,7 @@ export default function OrdenesTecnico() {
       });
       setClienteSearch('');
     }
-    setClienteOpen(false);
   };
-
-
-  const filteredTecnicos = usuarios
-    .filter((u) => !(u.is_superuser || u.is_staff))
-    .filter(u => {
-      const q = tecnicoSearch.trim().toLowerCase();
-      if (!q) return true;
-      const nombre = u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email;
-      return nombre.toLowerCase().includes(q);
-    });
 
   const selectTecnico = (usuario: Usuario | null) => {
     if (usuario) {
@@ -1127,7 +1218,6 @@ export default function OrdenesTecnico() {
       setTecnicoSearch('');
       setTecnicoSignatureUrl('');
     }
-    setTecnicoOpen(false);
   };
 
   useEffect(() => {
@@ -1139,13 +1229,6 @@ export default function OrdenesTecnico() {
     loadTecnicoSignature(tecnicoId);
   }, [formData?.tecnico_asignado]);
 
-  const filteredServicios = serviciosDisponibles.filter(s => {
-    const q = servicioSearch.trim().toLowerCase();
-    const matches = !q || s.toLowerCase().includes(q);
-    const notSelected = !formData.servicios_realizados.includes(s);
-    return matches && notSelected;
-  });
-
   const addServicio = (servicio: string) => {
     // Selección ÚNICA: reemplazar la lista por el servicio elegido
     setFormData({
@@ -1154,8 +1237,8 @@ export default function OrdenesTecnico() {
     });
     // Limpiar búsqueda y cerrar dropdown
     setServicioSearch('');
-    setServicioOpen(false);
   };
+
 
   const currentMonthKey = useMemo(() => {
     const d = new Date();
@@ -1784,76 +1867,53 @@ export default function OrdenesTecnico() {
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
               </div>
               <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                {/* 1. Cliente con dropdown personalizado */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Cliente</label>
-                  <div className={`relative ${isReadOnly ? 'pointer-events-none' : ''}`}>
-                    <div className="relative">
-                      <svg className='absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'><circle cx='11' cy='11' r='7' /><path d='m20 20-2-2' /></svg>
-                      <input
-                        value={clienteSearch || formData.cliente || ''}
-                        readOnly={isReadOnly}
-                        disabled={isReadOnly}
-                        onChange={(e) => { setClienteSearch(e.target.value); setClienteOpen(true); }}
-                        onFocus={() => setClienteOpen(true)}
-                        placeholder='Buscar cliente por nombre o teléfono...'
-                        className={`block w-full rounded-lg border border-gray-300 pl-8 pr-12 py-2.5 text-[13px] outline-none shadow-theme-xs ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
-                      />
+                {/* 1. Cliente con ActionSearchBar */}
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <ActionSearchBar
+                      actions={clienteActions as any}
+                      showAllActions={true}
+                      defaultOpen={false}
+                      label="Cliente"
+                      placeholder="Buscar cliente por nombre o teléfono..."
+                      value={clienteSearch || formData.cliente || ''}
+                      onQueryChange={(q: string) => setClienteSearch(q)}
 
-
-                      <div className='absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5'>
-                        {(formData.cliente_id || formData.cliente) && (
-                          <button type='button' onClick={() => selectCliente(null)} className='h-8 px-2 rounded-md text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition' title="Quitar selección">Limpiar</button>
-                        )}
-                        <button type='button' onClick={() => setClienteOpen(o => !o)} className='h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition' title="Ver listado">
-                          <svg className={`w-3.5 h-3.5 transition-transform ${clienteOpen ? 'rotate-180' : ''}`} viewBox='0 0 20 20' fill='none'><path d='M5.25 7.5 10 12.25 14.75 7.5' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' /></svg>
-                        </button>
-                      </div>
-                    </div>
-                    {clienteOpen && (
-                      <div className='absolute z-20 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white/95 dark:bg-gray-900/95 backdrop-blur max-h-64 overflow-auto custom-scrollbar divide-y divide-gray-100 dark:divide-gray-800 shadow-theme-md'>
-                        {clienteSearch.trim() !== "" && filteredClientes.length === 0 && (
-                          <button
-                            type="button"
-                            disabled={isReadOnly}
-                            onClick={() => {
-                              setShowClienteModal(true);
-                              setClienteOpen(false);
-                            }}
-                            className="w-full flex items-center gap-3 px-3 py-3 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors border-b border-gray-100 dark:border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-500/20">
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </div>
-                            <div className="flex flex-col text-left">
-                              <span className="text-sm font-semibold">Nuevo Cliente</span>
-                            </div>
-                          </button>
-                        )}
-                        <button type='button' onClick={() => selectCliente(null)} className={`w-full text-left px-3 py-2 text-[11px] hover:bg-brand-50 dark:hover:bg-gray-800 dark:text-white ${!formData.cliente_id ? 'bg-brand-50/60 dark:bg-gray-800/50 font-medium text-brand-700 dark:text-white' : ''}`}>Selecciona cliente</button>
-                        {filteredClientes.map(c => (
-                          <button key={c.id} type='button' onClick={() => selectCliente(c)} className='w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition'>
-                            <div className='flex items-center gap-2'>
-                              <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold'>
-                                {(c.nombre || '?').slice(0, 1).toUpperCase()}
-                              </span>
-                              <div className='flex flex-col'>
-                                <span className='text-[12px] font-medium text-gray-800 dark:text-gray-100'>{c.nombre || '-'}</span>
-                                <span className='text-[11px] text-gray-500 dark:text-gray-400'>{c.telefono || '-'}</span>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                        {filteredClientes.length === 0 && !clienteSearch.trim() && (
-                          <div className='px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400'>Escribe para buscar o crear</div>
-                        )}
-                      </div>
-                    )}
+                      onSelectAction={(action: any) => {
+                        if (action?.id === '__new__') {
+                          if (isReadOnly) return;
+                          setShowClienteModal(true);
+                          return;
+                        }
+                        const id = Number(action?.id);
+                        const c = (clientes || []).find((x) => Number(x.id) === id);
+                        if (c) selectCliente(c);
+                      }}
+                    />
                   </div>
+                  {(formData.cliente_id || formData.cliente) && !isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() => selectCliente(null)}
+                      aria-label="Limpiar selección"
+                      className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="w-4 h-4"
+                      >
+                        <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
+                        <path d="M18 11l-4.3-4.3" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
-
                 {/* 2. Nombre del Cliente y Técnico Asignado */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1868,66 +1928,53 @@ export default function OrdenesTecnico() {
                       placeholder="Nombre completo del cliente"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Técnico Asignado</label>
-                    <div className={`relative ${isReadOnly ? 'pointer-events-none' : ''}`}>
-                      <div className="relative">
-                        <svg className='absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'><circle cx='11' cy='11' r='7' /><path d='m20 20-2-2' /></svg>
-                        <input
-                          value={tecnicoSearch || (formData.tecnico_asignado ? (() => {
-                            const tecnicoId = Number(formData.tecnico_asignado);
-                            const u = usuarios.find(u => u.id === tecnicoId);
-                            return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : '';
-                          })() : '')}
-                          readOnly={isReadOnly}
-                          disabled={isReadOnly}
-                          onChange={(e) => { setTecnicoSearch(e.target.value); setTecnicoOpen(true); }}
-                          onFocus={() => setTecnicoOpen(true)}
-                          placeholder='Buscar técnico...'
-                          className={`block w-full rounded-lg border border-gray-300 pl-8 pr-20 py-2.5 text-[13px] outline-none shadow-theme-xs ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
-                        />
-
-
-
-
-
-
-                        <div className='absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5'>
-                          {formData.tecnico_asignado && (
-                            <button type='button' onClick={() => selectTecnico(null)} className='h-8 px-2 rounded-md text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition'>Limpiar</button>
-                          )}
-                          <button type='button' onClick={() => setTecnicoOpen(o => !o)} className='h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition'>
-                            <svg className={`w-3.5 h-3.5 transition-transform ${tecnicoOpen ? 'rotate-180' : ''}`} viewBox='0 0 20 20' fill='none'><path d='M5.25 7.5 10 12.25 14.75 7.5' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' /></svg>
-                          </button>
-                        </div>
-                      </div>
-                      {tecnicoOpen && (
-                        <div className='absolute z-20 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white/95 dark:bg-gray-900/95 backdrop-blur max-h-64 overflow-auto custom-scrollbar divide-y divide-gray-100 dark:divide-gray-800 shadow-theme-md'>
-                          <button type='button' onClick={() => selectTecnico(null)} className={`w-full text-left px-3 py-2 text-[11px] hover:bg-brand-50 dark:hover:bg-gray-800 dark:text-white ${!formData.tecnico_asignado ? 'bg-brand-50/60 dark:bg-gray-800/50 font-medium text-brand-700 dark:text-white' : ''}`}>Selecciona técnico</button>
-                          {filteredTecnicos.map(u => {
-                            const nombre = u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email;
-                            return (
-                              <button key={u.id} type='button' onClick={() => selectTecnico(u)} className='w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition'>
-                                <div className='flex items-center gap-2'>
-                                  <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold'>
-                                    {nombre.slice(0, 1).toUpperCase()}
-                                  </span>
-                                  <div className='flex flex-col'>
-                                    <span className='text-[12px] font-medium text-gray-800 dark:text-gray-100'>{nombre}</span>
-                                    <span className='text-[11px] text-gray-500 dark:text-gray-400'>{u.email}</span>
-                                  </div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                          {filteredTecnicos.length === 0 && (
-                            <div className='px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400'>Sin resultados</div>
-                          )}
-                        </div>
-                      )}
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1">
+                      <ActionSearchBar
+                        actions={tecnicoActions as any}
+                        defaultOpen={false}
+                        label="Técnico Asignado"
+                        placeholder="Buscar técnico..."
+                        value={tecnicoSearch || (formData.tecnico_asignado ? (() => {
+                          const tecnicoId = Number(formData.tecnico_asignado);
+                          const u = usuarios.find(u => u.id === tecnicoId);
+                          return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : '';
+                        })() : '')}
+                        onQueryChange={(q: string) => setTecnicoSearch(q)}
+                        onSelectAction={(action: any) => {
+                          const id = Number(action?.id);
+                          const u = (usuarios || []).find((x) => Number(x.id) === id);
+                          if (u) selectTecnico(u);
+                        }}
+                      />
                     </div>
+                    {formData.tecnico_asignado && !isReadOnly && (
+                      <button
+                        type="button"
+                        onClick={() => selectTecnico(null)}
+                        aria-label="Limpiar selección"
+                        className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="w-4 h-4"
+                        >
+                          <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
+                          <path d="M18 11l-4.3-4.3" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
+
+
                 </div>
+
               </div>
             </div>
 
@@ -2064,84 +2111,77 @@ export default function OrdenesTecnico() {
                   />
                 </div>
 
-                {/* Servicios Realizados con dropdown personalizado */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Servicios Realizados</label>
-                  <div className={`space-y-2 ${isReadOnly ? 'pointer-events-none' : ''}`}>
-                    <div className="relative">
-                      <div className="relative">
-                        <svg className='absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'><circle cx='11' cy='11' r='7' /><path d='m20 20-2-2' /></svg>
-                        <input
-                          value={servicioSearch}
-                          readOnly={isReadOnly}
-                          disabled={isReadOnly}
-                          onChange={(e) => { setServicioSearch(e.target.value); setServicioOpen(true); }}
-                          onFocus={() => setServicioOpen(true)}
-                          placeholder={isReadOnly ? 'Servicios (Solo lectura)' : 'Buscar o agregar servicio...'}
-                          className={`block w-full rounded-lg border border-gray-300 pl-8 pr-12 py-2.5 text-[13px] outline-none shadow-theme-xs ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
-                        />
-
-                        <div className='absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5'>
-                          <button type='button' onClick={() => setServicioOpen(o => !o)} className='h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition'>
-                            <svg className={`w-3.5 h-3.5 transition-transform ${servicioOpen ? 'rotate-180' : ''}`} viewBox='0 0 20 20' fill='none'><path d='M5.25 7.5 10 12.25 14.75 7.5' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' /></svg>
-                          </button>
-                        </div>
-                      </div>
-                      {servicioOpen && (
-                        <div className='absolute z-20 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white/95 dark:bg-gray-900/95 backdrop-blur max-h-64 overflow-auto custom-scrollbar divide-y divide-gray-100 dark:divide-gray-800 shadow-theme-md'>
-                          {filteredServicios.map((s, idx) => (
-                            <button key={idx} type='button' onClick={() => addServicio(s)} className='w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition'>
-                              <div className='flex items-center gap-2'>
-                                <svg className='w-4 h-4 text-brand-500' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' /></svg>
-                                <span className='text-[12px] font-medium text-gray-800 dark:text-gray-100'>{s}</span>
-                              </div>
-                            </button>
-                          ))}
-                          {filteredServicios.length === 0 && servicioSearch.trim() && (
-                            <button type='button' onClick={() => {
-                              const nuevoServicio = servicioSearch.trim();
-                              if (nuevoServicio && !serviciosDisponibles.includes(nuevoServicio)) {
-                                setServiciosDisponibles([...serviciosDisponibles, nuevoServicio]);
-                              }
-                              addServicio(nuevoServicio);
-                            }} className='w-full text-left px-3 py-2 hover:bg-brand-50 dark:hover:bg-brand-500/15 text-brand-600 dark:text-brand-400 transition'>
-                              <div className='flex items-center gap-2'>
-                                <svg className='w-4 h-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><path d='M12 5v14M5 12h14' /></svg>
-                                <span className='text-[12px] font-medium'>Crear "{servicioSearch.trim()}"</span>
-                              </div>
-                            </button>
-                          )}
-                          {filteredServicios.length === 0 && !servicioSearch.trim() && (
-                            <div className='px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400'>Escribe para buscar o crear</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {formData.servicios_realizados.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {formData.servicios_realizados.map((servicio, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-md text-xs"
-                          >
-                            {servicio}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setFormData({
-                                  ...formData,
-                                  servicios_realizados: formData.servicios_realizados.filter((_, i) => i !== index)
-                                });
-                              }}
-                              className="hover:text-brand-900 dark:hover:text-brand-100 ml-1"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                {/* Servicios Realizados con ActionSearchBar */}
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <ActionSearchBar
+                      actions={servicioActions as any}
+                      defaultOpen={false}
+                      label="Servicios Realizados"
+                      placeholder={isReadOnly ? 'Servicios (Solo lectura)' : 'Buscar o agregar servicio...'}
+                      value={servicioSearch}
+                      onQueryChange={(q: string) => setServicioSearch(q)}
+                      onSelectAction={(action: any) => {
+                        if (isReadOnly) return;
+                        if (action?.id === '__new__') {
+                          const nuevoServicio = servicioSearch.trim();
+                          if (nuevoServicio && !serviciosDisponibles.includes(nuevoServicio)) {
+                            setServiciosDisponibles([...serviciosDisponibles, nuevoServicio]);
+                          }
+                          addServicio(nuevoServicio);
+                          return;
+                        }
+                        addServicio(action.id);
+                      }}
+                    />
                   </div>
+                  {formData.servicios_realizados.length > 0 && !isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, servicios_realizados: [] })}
+                      aria-label="Limpiar selección"
+                      className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="w-4 h-4"
+                      >
+                        <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
+                        <path d="M18 11l-4.3-4.3" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formData.servicios_realizados.map((servicio, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-md text-xs"
+                    >
+                      {servicio}
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              servicios_realizados: formData.servicios_realizados.filter((_, i) => i !== index)
+                            });
+                          }}
+                          className="hover:text-brand-900 dark:hover:text-brand-100 ml-1"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  ))}
                 </div>
 
                 {/* Comentario del Técnico */}
@@ -2171,7 +2211,9 @@ export default function OrdenesTecnico() {
               </div>
             </div>
 
+
             {/* SECCIÓN 4: Detalles de Tiempo */}
+
             <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2395,40 +2437,42 @@ export default function OrdenesTecnico() {
             </div>
           </form>
         </div>
-      </Modal>
+      </Modal >
 
       {/* Modal Eliminar */}
-      {ordenToDelete && (
-        <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-full max-w-md mx-4 sm:mx-auto">
-          <div className="p-6">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-error-100 dark:bg-error-900/30">
-              <svg className="w-6 h-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+      {
+        ordenToDelete && (
+          <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-full max-w-md mx-4 sm:mx-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-error-100 dark:bg-error-900/30">
+                <svg className="w-6 h-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">
+                ¿Eliminar Orden?
+              </h3>
+              <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
+                ¿Estás seguro de que deseas eliminar la orden para <span className="font-semibold">{ordenToDelete.cliente}</span>? Esta acción no se puede deshacer.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelDelete}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-error-600 rounded-lg hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/50"
+                >
+                  Eliminar
+                </button>
+              </div>
             </div>
-            <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">
-              ¿Eliminar Orden?
-            </h3>
-            <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
-              ¿Estás seguro de que deseas eliminar la orden para <span className="font-semibold">{ordenToDelete.cliente}</span>? Esta acción no se puede deshacer.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleCancelDelete}
-                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-error-600 rounded-lg hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/50"
-              >
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        )
+      }
 
       {/* Modal Mapa Interactivo */}
       <Modal
@@ -2577,6 +2621,6 @@ export default function OrdenesTecnico() {
         editingCliente={null}
         permissions={permissions}
       />
-    </div>
+    </div >
   );
 }

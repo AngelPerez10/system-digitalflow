@@ -1,6 +1,5 @@
 export const onlyDigits10 = (v: string): string => (v || "").replace(/\D/g, "").slice(0, 10);
 
-export const giroOptions = ["Comercial", "Equipo Medico", "Industrial", "Por definir", "Restaurantero", "Servicios"] as const;
 export const paisOptions = ["México", "Estados Unidos", "Canadá"] as const;
 
 export const estadosMX = [

@@ -15,7 +15,6 @@ import FileInput from "@/components/form/input/FileInput";
 import {
   estadosPorPais,
   formatPhoneE164,
-  giroOptions,
   onlyDigits10,
   paisOptions,
   parsePhoneToForm,
@@ -30,7 +29,6 @@ interface Cliente {
   telefono: string;
   fecha_creacion: string;
 
-  giro?: string;
   correo?: string;
   calle?: string;
   numero_exterior?: string;
@@ -65,6 +63,7 @@ interface Cliente {
   estado_envio?: string;
   ciudad_envio?: string;
   tipo?: 'EMPRESA' | 'PERSONA_FISICA' | 'PROVEEDOR';
+  is_prospecto?: boolean;
 
   contactos?: ClienteContacto[];
   documento?: ClienteDocumento | null;
@@ -132,7 +131,37 @@ const isGoogleMapsLink = (value: string | null | undefined) => {
   }
 };
 
-export default function Clientes() {
+type ClienteTipo = 'EMPRESA' | 'PERSONA_FISICA' | 'PROVEEDOR';
+
+type ClientesPageProps = {
+  fixedTipo?: ClienteTipo;
+};
+
+const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
+  const viewPlural = fixedTipo === 'EMPRESA'
+    ? 'Empresas'
+    : fixedTipo === 'PROVEEDOR'
+      ? 'Proveedores'
+      : fixedTipo === 'PERSONA_FISICA'
+        ? 'Personas Físicas'
+        : 'Clientes';
+
+  const viewSingular = fixedTipo === 'EMPRESA'
+    ? 'Empresa'
+    : fixedTipo === 'PROVEEDOR'
+      ? 'Proveedor'
+      : fixedTipo === 'PERSONA_FISICA'
+        ? 'Persona Física'
+        : 'Cliente';
+
+  const nombreColHeader = fixedTipo === 'EMPRESA'
+    ? 'Empresa'
+    : fixedTipo === 'PROVEEDOR'
+      ? 'Proveedor'
+      : fixedTipo === 'PERSONA_FISICA'
+        ? 'Persona'
+        : 'Empresa';
+
   const getPermissionsFromStorage = () => {
     try {
       const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
@@ -202,7 +231,6 @@ export default function Clientes() {
     telefono: "",
     direccion: "",
 
-    giro: "",
     correo: "",
     calle: "",
     numero_exterior: "",
@@ -218,7 +246,7 @@ export default function Clientes() {
     curp: "",
     aplica_retenciones: false,
     desglosar_ieps: false,
-    numero_precio: "",
+    numero_precio: "1",
     limite_credito: "",
     dias_credito: "",
     notas: "",
@@ -236,8 +264,15 @@ export default function Clientes() {
     pais_envio: "México",
     estado_envio: "",
     ciudad_envio: "",
-    tipo: "EMPRESA",
+    tipo: fixedTipo || "EMPRESA",
+    is_prospecto: false,
   });
+
+  useEffect(() => {
+    if (!fixedTipo) return;
+    setFormData((prev: any) => ({ ...prev, tipo: fixedTipo }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixedTipo]);
 
   const estadosOptions = estadosPorPais[formData.pais || "México"] || estadosPorPais["México"] || [];
   const estadosEnvioOptions = estadosPorPais[formData.pais_envio || "México"] || estadosPorPais["México"] || [];
@@ -414,6 +449,7 @@ export default function Clientes() {
         search: search.trim(),
         ordering: 'idx',
       });
+      if (fixedTipo) query.set('tipo', fixedTipo);
       const res = await fetch(apiUrl(`/api/clientes/?${query.toString()}`), {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store' as RequestCache,
@@ -445,7 +481,7 @@ export default function Clientes() {
       return;
     }
     fetchClientes(currentPage, debouncedSearch);
-  }, [canClientesView, currentPage, debouncedSearch]);
+  }, [canClientesView, currentPage, debouncedSearch, fixedTipo]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -467,7 +503,7 @@ export default function Clientes() {
     const missingFields: string[] = [];
     if (!formData.nombre?.trim()) missingFields.push('Empresa');
     if (!formData.telefono?.trim() || !onlyDigits10(formData.telefono)) missingFields.push('Teléfono (10 dígitos)');
-    
+
     const primerContacto = contactos[0];
     if (!primerContacto?.nombre_apellido?.trim()) missingFields.push('Nombre y apellido del contacto');
     if (!primerContacto?.celular?.trim() || !onlyDigits10(primerContacto.celular)) missingFields.push('Celular del contacto (10 dígitos)');
@@ -492,6 +528,7 @@ export default function Clientes() {
         },
         body: JSON.stringify({
           ...formData,
+          tipo: fixedTipo || formData.tipo,
           telefono: formatPhoneE164(formData.telefono_pais, formData.telefono),
           descuento_pct: formData.descuento_pct === '' ? null : formData.descuento_pct,
           // Convertir vacíos a 0 para campos numéricos
@@ -586,7 +623,6 @@ export default function Clientes() {
         telefono_pais: "MX",
         telefono: "",
         direccion: "",
-        giro: "",
         correo: "",
         calle: "",
         numero_exterior: "",
@@ -609,6 +645,9 @@ export default function Clientes() {
         pais_envio: "México",
         estado_envio: "",
         ciudad_envio: "",
+        tipo: fixedTipo || "EMPRESA",
+        is_prospecto: false,
+        numero_precio: "1",
       });
       setContactos([{ nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }]);
       setDeletedContactIds([]);
@@ -690,7 +729,6 @@ export default function Clientes() {
       telefono_pais: phoneParsed.phoneCountry,
       telefono: phoneParsed.phoneNational,
       direccion: cliente.direccion || "",
-      giro: cliente.giro || "",
       correo: cliente.correo || "",
       calle: cliente.calle || "",
       numero_exterior: cliente.numero_exterior || "",
@@ -700,17 +738,8 @@ export default function Clientes() {
       ciudad: cliente.ciudad || "",
       pais: cliente.pais || "México",
       estado: cliente.estado || "",
-      localidad: cliente.localidad || "",
-      municipio: cliente.municipio || "",
-      rfc: cliente.rfc || "",
-      curp: cliente.curp || "",
-      aplica_retenciones: cliente.aplica_retenciones || false,
-      desglosar_ieps: cliente.desglosar_ieps || false,
-      numero_precio: cliente.numero_precio || "1",
-      limite_credito: cliente.limite_credito || 0,
-      dias_credito: cliente.dias_credito || 0,
       notas: cliente.notas || "",
-      descuento_pct: (cliente.descuento_pct as any) ?? null,
+      descuento_pct: cliente.descuento_pct ?? null,
       portal_web: cliente.portal_web || "",
       nombre_facturacion: cliente.nombre_facturacion || "",
       numero_facturacion: cliente.numero_facturacion || "",
@@ -722,7 +751,9 @@ export default function Clientes() {
       pais_envio: cliente.pais_envio || "México",
       estado_envio: cliente.estado_envio || "",
       ciudad_envio: cliente.ciudad_envio || "",
-      tipo: cliente.tipo || "EMPRESA",
+      tipo: fixedTipo || cliente.tipo || "EMPRESA",
+      is_prospecto: cliente.is_prospecto || false,
+      numero_precio: cliente.numero_precio || "1",
     });
 
     const cs = (cliente.contactos || []).map((c: any) => ({
@@ -751,7 +782,6 @@ export default function Clientes() {
       telefono_pais: "MX",
       telefono: "",
       direccion: "",
-      giro: "",
       correo: "",
       calle: "",
       numero_exterior: "",
@@ -761,15 +791,6 @@ export default function Clientes() {
       ciudad: "",
       pais: "México",
       estado: "",
-      localidad: "",
-      municipio: "",
-      rfc: "",
-      curp: "",
-      aplica_retenciones: false,
-      desglosar_ieps: false,
-      numero_precio: "",
-      limite_credito: "",
-      dias_credito: "",
       notas: "",
       descuento_pct: null,
       portal_web: "",
@@ -783,7 +804,9 @@ export default function Clientes() {
       pais_envio: "México",
       estado_envio: "",
       ciudad_envio: "",
-      tipo: "EMPRESA",
+      tipo: fixedTipo || "EMPRESA",
+      is_prospecto: false,
+      numero_precio: "1",
     });
   };
 
@@ -799,7 +822,6 @@ export default function Clientes() {
       telefono_pais: "MX",
       telefono: "",
       direccion: "",
-      giro: "",
       correo: "",
       calle: "",
       numero_exterior: "",
@@ -809,15 +831,6 @@ export default function Clientes() {
       ciudad: "",
       pais: "México",
       estado: "",
-      localidad: "",
-      municipio: "",
-      rfc: "",
-      curp: "",
-      aplica_retenciones: false,
-      desglosar_ieps: false,
-      numero_precio: "",
-      limite_credito: "",
-      dias_credito: "",
       notas: "",
       descuento_pct: null,
       portal_web: "",
@@ -831,7 +844,9 @@ export default function Clientes() {
       pais_envio: "México",
       estado_envio: "",
       ciudad_envio: "",
-      tipo: "EMPRESA",
+      tipo: fixedTipo || "EMPRESA",
+      is_prospecto: false,
+      numero_precio: "1",
     });
     setShowModal(true);
   };
@@ -856,10 +871,10 @@ export default function Clientes() {
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <PageMeta
-        title="Clientes | Sistema Grupo Intrax GPS"
-        description="Gestión de clientes para el sistema de administración Grupo Intrax GPS"
+        title={`${viewPlural} | Sistema Grupo Intrax GPS`}
+        description={`Gestión de ${viewPlural.toLowerCase()} para el sistema de administración Grupo Intrax GPS`}
       />
-      <PageBreadcrumb pageTitle="Clientes" />
+      <PageBreadcrumb pageTitle={viewPlural} />
 
       {/* Alert */}
       {alert.show && (
@@ -882,7 +897,7 @@ export default function Clientes() {
               </svg>
             </span>
             <div className="flex flex-col">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Clientes</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Total {viewPlural}</p>
               <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{totalCount}</p>
             </div>
           </div>
@@ -891,7 +906,7 @@ export default function Clientes() {
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Listado de Clientes</h2>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Listado de {viewPlural}</h2>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:flex-1 sm:min-w-[260px] sm:justify-end">
           <div className="relative w-full sm:max-w-xs md:max-w-sm">
@@ -931,7 +946,7 @@ export default function Clientes() {
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <path d="M12 5v14M5 12h14" strokeLinecap="round" />
             </svg>
-            Nuevo Cliente
+            Nuevo {viewSingular}
           </button>
         </div>
       </div>
@@ -945,7 +960,7 @@ export default function Clientes() {
               <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
                 <TableRow>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">ID</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/4 text-gray-700 dark:text-gray-300">Empresa</TableCell>
+                  <TableCell isHeader className="px-2 py-2 text-left w-1/4 text-gray-700 dark:text-gray-300">{nombreColHeader}</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Ciudad</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Teléfono</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/4 text-gray-700 dark:text-gray-300">Contacto</TableCell>
@@ -1148,7 +1163,7 @@ export default function Clientes() {
               </span>
               <div className="flex-1">
                 <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-                  {editingCliente ? "Editar Cliente" : "Nuevo Cliente"}
+                  {editingCliente ? `Editar ${viewSingular}` : `Nuevo ${viewSingular}`}
                 </h5>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
                   Captura y revisa los datos antes de guardar
@@ -1190,34 +1205,41 @@ export default function Clientes() {
               <div className="space-y-4">
                 <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label>Tipo de Identificador</Label>
-                      <select
-                        value={formData.tipo || "EMPRESA"}
-                        onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
-                        className={selectLikeClassName}
-                      >
-                        <option value="EMPRESA">Empresa</option>
-                        <option value="PERSONA_FISICA">Persona Física</option>
-                        <option value="PROVEEDOR">Proveedor</option>
-                      </select>
-                    </div>
                     <div className="md:col-span-2">
-                      <Label>Empresa *</Label>
-                      <Input value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
+                      <Label>Prospecto</Label>
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                        <input
+                          type="checkbox"
+                          checked={!!formData.is_prospecto}
+                          onChange={(e) => setFormData({ ...formData, is_prospecto: e.target.checked })}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-700"
+                        />
+                        Es prospecto
+                      </label>
                     </div>
+                    {!fixedTipo && (
+                      <div className="md:col-span-2">
+                        <Label>Tipo de Identificador</Label>
+                        <select
+                          value={formData.tipo || "EMPRESA"}
+                          onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
+                          className={selectLikeClassName}
+                        >
+                          <option value="EMPRESA">Empresa</option>
+                          <option value="PERSONA_FISICA">Persona Física</option>
+                          <option value="PROVEEDOR">Proveedor</option>
+                        </select>
+                      </div>
+                    )}
                     <div>
-                      <Label>Giro</Label>
-                      <select
-                        value={formData.giro || ""}
-                        onChange={(e) => setFormData({ ...formData, giro: e.target.value })}
-                        className={selectLikeClassName}
-                      >
-                        <option value="">Seleccione</option>
-                        {giroOptions.map((g) => (
-                          <option key={g} value={g}>{g}</option>
-                        ))}
-                      </select>
+                      <Label>
+                        {formData.tipo === 'PERSONA_FISICA'
+                          ? 'Persona Física *'
+                          : formData.tipo === 'PROVEEDOR'
+                            ? 'Proveedor *'
+                            : 'Empresa *'}
+                      </Label>
+                      <Input value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
                     </div>
                     <div>
                       <Label>Correo</Label>
@@ -1353,12 +1375,12 @@ export default function Clientes() {
                   </div>
 
                   <div>
-                    <Label>Dirección</Label>
                     <div className="flex items-center justify-between gap-3 mb-1">
+                      <Label>Dirección</Label>
                       <button
                         type="button"
                         onClick={() => setShowMapModal(true)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
                       >
                         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
@@ -1433,8 +1455,16 @@ export default function Clientes() {
                   <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Configuración Fiscal y Crédito</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <Label>Lista de Precios</Label>
-                      <Input value={formData.numero_precio} onChange={(e) => setFormData({ ...formData, numero_precio: e.target.value })} />
+                      <Label>Lista de clientes</Label>
+                      <select
+                        value={formData.numero_precio || "1"}
+                        onChange={(e) => setFormData({ ...formData, numero_precio: e.target.value })}
+                        className={selectLikeClassName}
+                      >
+                        <option value="1">Precio 1</option>
+                        <option value="2">Precio 2</option>
+                        <option value="3">Precio 3</option>
+                      </select>
                     </div>
                     <div>
                       <Label>Límite de Crédito</Label>
@@ -1470,10 +1500,6 @@ export default function Clientes() {
                     </div>
                   </div>
                 </div>
-
-
-
-
 
                 <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3">
                   <div className="flex items-center justify-between gap-3">
@@ -1617,51 +1643,9 @@ export default function Clientes() {
                     </table>
                   </div>
                 </div>
-
-                <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Documento</p>
-                  {editingCliente?.documento?.url && (
-                    <a
-                      href={editingCliente.documento.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[12px] text-brand-600 hover:underline"
-                    >
-                      {editingCliente.documento.nombre_original || "Ver documento"}
-                    </a>
-                  )}
-                  <FileInput
-                    onChange={(e) => {
-                      const f = (e.target as HTMLInputElement).files?.[0] || null;
-                      if (!f) {
-                        setDocumentFile(null);
-                        return;
-                      }
-                      const allowed = ['pdf', 'xls', 'xlsx', 'doc', 'docs', 'odt', 'ods'];
-                      const ext = (f.name.split('.').pop() || '').toLowerCase();
-                      if (!allowed.includes(ext)) {
-                        setModalError('Documento inválido. Tipos permitidos: PDF, XLS, XLSX, DOC, DOCS, ODT, ODS.');
-                        (e.target as HTMLInputElement).value = '';
-                        setDocumentFile(null);
-                        return;
-                      }
-                      const max = 15 * 1024 * 1024;
-                      if (f.size > max) {
-                        setModalError('Documento excede 15MB.');
-                        (e.target as HTMLInputElement).value = '';
-                        setDocumentFile(null);
-                        return;
-                      }
-                      setModalError('');
-                      setDocumentFile(f);
-                    }}
-                  />
-
-                </div>
               </div>
             )
             }
-
 
             {
               activeTab === 'more' && (
@@ -1748,6 +1732,45 @@ export default function Clientes() {
                           ))}
                         </select>
                       </div>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3">
+                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Documento</p>
+                      {editingCliente?.documento?.url && (
+                        <a
+                          href={editingCliente.documento.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[12px] text-brand-600 hover:underline"
+                        >
+                          {editingCliente.documento.nombre_original || "Ver documento"}
+                        </a>
+                      )}
+                      <FileInput
+                        onChange={(e) => {
+                          const f = (e.target as HTMLInputElement).files?.[0] || null;
+                          if (!f) {
+                            setDocumentFile(null);
+                            return;
+                          }
+                          const allowed = ['pdf', 'xls', 'xlsx', 'doc', 'docs', 'odt', 'ods'];
+                          const ext = (f.name.split('.').pop() || '').toLowerCase();
+                          if (!allowed.includes(ext)) {
+                            setModalError('Documento inválido. Tipos permitidos: PDF, XLS, XLSX, DOC, DOCS, ODT, ODS.');
+                            (e.target as HTMLInputElement).value = '';
+                            setDocumentFile(null);
+                            return;
+                          }
+                          const max = 15 * 1024 * 1024;
+                          if (f.size > max) {
+                            setModalError('Documento excede 15MB.');
+                            (e.target as HTMLInputElement).value = '';
+                            setDocumentFile(null);
+                            return;
+                          }
+                          setModalError('');
+                          setDocumentFile(f);
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -1851,7 +1874,7 @@ export default function Clientes() {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Eliminar Cliente
+                      Eliminar {viewSingular}
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                       Esta acción no se puede deshacer
@@ -1898,5 +1921,6 @@ export default function Clientes() {
       }
     </div >
   );
-}
+};
 
+export default ClientesPage;

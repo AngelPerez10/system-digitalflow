@@ -8,7 +8,6 @@ class Cliente(models.Model):
     telefono = models.CharField(max_length=100, blank=True, default='')
 
     # Datos generales
-    giro = models.CharField(max_length=255, blank=True, default='')
     rfc = models.CharField(max_length=50, blank=True, default='')
     curp = models.CharField(max_length=100, blank=True, default='')
     correo = models.EmailField(blank=True, default='')

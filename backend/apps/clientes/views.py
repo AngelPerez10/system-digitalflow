@@ -51,6 +51,13 @@ class ClienteViewSet(viewsets.ModelViewSet):
     ordering_fields = ['idx', 'nombre', 'fecha_creacion']
     ordering = ['idx']
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        tipo = (self.request.query_params.get('tipo') or '').strip()
+        if tipo:
+            qs = qs.filter(tipo=tipo)
+        return qs
+
 
 class ClienteContactoViewSet(viewsets.ModelViewSet):
     """

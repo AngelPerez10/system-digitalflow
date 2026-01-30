@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('clientes', '0001_initial'),
-        ('productos', '0002_alter_producto_nombre'),
+        ('productos', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

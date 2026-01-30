@@ -3,6 +3,7 @@ import os
 
 import cloudinary
 import cloudinary.uploader
+from rest_framework.pagination import PageNumberPagination
 from rest_framework import filters, status, viewsets
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser
@@ -19,16 +20,22 @@ class ProductosPermission(ModulePermission):
     module_key = 'productos'
 
 
+class ProductosPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 200
+
+
 class ProductoViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing Producto instances.
     
     Provides CRUD operations for products with permission-based access control.
     """
-    queryset = Producto.objects.all()
+    queryset = Producto.objects.select_related('imagen', 'documento').all()
     serializer_class = ProductoSerializer
     permission_classes = [ProductosPermission]
-    pagination_class = None
+    pagination_class = ProductosPagination
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [

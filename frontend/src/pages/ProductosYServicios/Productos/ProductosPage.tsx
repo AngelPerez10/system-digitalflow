@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import PageMeta from "@/components/common/PageMeta";
@@ -139,6 +139,7 @@ export default function Productos() {
   const canProductosDelete = asBool(permissions?.productos?.delete, false);
 
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
@@ -149,8 +150,18 @@ export default function Productos() {
   const [modalError, setModalError] = useState<string>('');
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 50;
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 500);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
@@ -219,9 +230,10 @@ export default function Productos() {
     unidad_sat: "",
   });
 
-  const fetchProductos = async (): Promise<Producto[]> => {
+  const fetchProductos = async (page = 1, search = ""): Promise<Producto[]> => {
     if (!canProductosView) {
       setProductos([]);
+      setTotalCount(0);
       setLoading(false);
       return [];
     }
@@ -232,21 +244,32 @@ export default function Productos() {
     }
     setLoading(true);
     try {
-      const res = await fetch(apiUrl('/api/productos/'), {
+      const query = new URLSearchParams({
+        page: String(page),
+        page_size: String(itemsPerPage),
+      });
+      if (search.trim()) query.set('search', search.trim());
+      query.set('ordering', 'idx');
+
+      const res = await fetch(apiUrl(`/api/productos/?${query.toString()}`), {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store' as RequestCache,
       });
-      const data = await res.json().catch(() => []);
+      const data = await res.json().catch(() => ({ results: [], count: 0 }));
       if (!res.ok) {
         setProductos([]);
+        setTotalCount(0);
         return [];
       }
-      const list = Array.isArray(data) ? (data as Producto[]) : [];
+      const list = Array.isArray((data as any)?.results) ? ((data as any).results as Producto[]) : [];
+      const count = typeof (data as any)?.count === 'number' ? (data as any).count : list.length;
       setProductos(list);
+      setTotalCount(count);
       return list;
     } catch {
       setProductos([]);
+      setTotalCount(0);
       return [];
     } finally {
       setLoading(false);
@@ -260,30 +283,14 @@ export default function Productos() {
   };
 
   useEffect(() => {
-    fetchProductos();
+    fetchProductos(currentPage, debouncedSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canProductosView]);
+  }, [canProductosView, currentPage, debouncedSearch]);
 
-  const shownList = useMemo(() => {
-    const q = (searchTerm || '').toLowerCase().trim();
-    if (!q) return productos;
-    return productos.filter((p) =>
-      String(p.nombre || '').toLowerCase().includes(q) ||
-      String(p.modelo || '').toLowerCase().includes(q) ||
-      String(p.descripcion || '').toLowerCase().includes(q) ||
-      String(p.unidad || '').toLowerCase().includes(q) ||
-      String(p.proveedor || '').toLowerCase().includes(q)
-    );
-  }, [productos, searchTerm]);
-
-  const totalPages = Math.ceil(shownList.length / itemsPerPage) || 1;
+  const totalPages = Math.ceil(totalCount / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentProductos = shownList.slice(startIndex, endIndex);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+  const currentProductos = productos;
 
   const openCreate = () => {
     if (!canProductosCreate) {
@@ -664,7 +671,7 @@ export default function Productos() {
             </span>
             <div className="flex flex-col">
               <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Productos</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{productos.length}</p>
+              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{totalCount}</p>
             </div>
           </div>
         </div>
@@ -776,13 +783,13 @@ export default function Productos() {
             </Table>
           </div>
 
-          {!loading && shownList.length > 0 && currentProductos.length > 0 && (
+          {!loading && totalCount > 0 && currentProductos.length > 0 && (
             <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Mostrando <span className="font-medium text-gray-900 dark:text-white">{startIndex + 1}</span> a{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">{Math.min(endIndex, shownList.length)}</span> de{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> productos
+                  <span className="font-medium text-gray-900 dark:text-white">{Math.min(endIndex, totalCount)}</span> de{" "}
+                  <span className="font-medium text-gray-900 dark:text-white">{totalCount}</span> productos
                 </p>
 
                 <div className="flex items-center gap-2">

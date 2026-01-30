@@ -10,12 +10,11 @@ import { Cliente, ClienteContacto } from "@/types/cliente";
 import {
     estadosPorPais,
     formatPhoneE164,
-    giroOptions,
     onlyDigits10,
     paisOptions,
     parsePhoneToForm,
     phoneCountryOptions,
-} from "@/pages/Clientes/clientesCatalogos";
+} from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
 
 interface ClienteFormModalProps {
     isOpen: boolean;
@@ -43,7 +42,6 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
         telefono_pais: "MX",
         telefono: "",
         direccion: "",
-        giro: "",
         correo: "",
         calle: "",
         numero_exterior: "",
@@ -59,7 +57,7 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
         curp: "",
         aplica_retenciones: false,
         desglosar_ieps: false,
-        numero_precio: "",
+        numero_precio: "1",
         limite_credito: "",
         dias_credito: "",
         notas: "",
@@ -106,6 +104,8 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
                 descuento_pct: editingCliente.descuento_pct ?? null,
                 limite_credito: editingCliente.limite_credito ?? "",
                 dias_credito: editingCliente.dias_credito ?? "",
+                numero_precio: editingCliente.numero_precio || "1",
+                is_prospecto: editingCliente.is_prospecto || false,
             });
             setContactos(
                 editingCliente.contactos && editingCliente.contactos.length
@@ -122,7 +122,6 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
                 telefono_pais: "MX",
                 telefono: "",
                 direccion: "",
-                giro: "",
                 correo: "",
                 calle: "",
                 numero_exterior: "",
@@ -138,7 +137,7 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
                 curp: "",
                 aplica_retenciones: false,
                 desglosar_ieps: false,
-                numero_precio: "",
+                numero_precio: "1",
                 limite_credito: "",
                 dias_credito: "",
                 notas: "",
@@ -295,9 +294,9 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
 
         // Validación de campos requeridos
         const missingFields: string[] = [];
-        if (!formData.nombre?.trim()) missingFields.push('Empresa');
+        if (!formData.nombre?.trim()) missingFields.push(formData.tipo === 'PERSONA_FISICA' ? 'Persona Física' : formData.tipo === 'PROVEEDOR' ? 'Proveedor' : 'Empresa');
         if (!formData.telefono?.trim() || !onlyDigits10(formData.telefono)) missingFields.push('Teléfono (10 dígitos)');
-        
+
         const primerContacto = contactos[0];
         if (!primerContacto?.nombre_apellido?.trim()) missingFields.push('Nombre y apellido del contacto');
         if (!primerContacto?.celular?.trim() || !onlyDigits10(primerContacto.celular)) missingFields.push('Celular del contacto (10 dígitos)');
@@ -478,48 +477,39 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
                         <div className="space-y-4">
                             <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div className="flex items-end gap-4">
-                                        <div className="flex-1">
-                                            <Label>Tipo de Identificador</Label>
-                                            <select
-                                                value={formData.tipo || "EMPRESA"}
-                                                onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
-                                                className={selectLikeClassName}
-                                            >
-                                                <option value="EMPRESA">Empresa</option>
-                                                <option value="PERSONA_FISICA">Persona Física</option>
-                                                <option value="PROVEEDOR">Proveedor</option>
-                                            </select>
-                                        </div>
-                                        <div className="flex items-center gap-2 mb-2.5">
+                                    <div className="md:col-span-2">
+                                        <Label>Prospecto</Label>
+                                        <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
                                             <input
-                                                id="is_prospecto"
                                                 type="checkbox"
-                                                checked={formData.is_prospecto}
+                                                checked={!!formData.is_prospecto}
                                                 onChange={(e) => setFormData({ ...formData, is_prospecto: e.target.checked })}
-                                                className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                                                className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-700"
                                             />
-                                            <label htmlFor="is_prospecto" className="text-sm text-gray-800 dark:text-gray-200 cursor-pointer">
-                                                Prospecto (Cliente no registrado)
-                                            </label>
-                                        </div>
+                                            Es prospecto
+                                        </label>
                                     </div>
                                     <div className="md:col-span-2">
-                                        <Label>Empresa *</Label>
-                                        <Input value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
-                                    </div>
-                                    <div>
-                                        <Label>Giro</Label>
+                                        <Label>Tipo de Identificador</Label>
                                         <select
-                                            value={formData.giro || ""}
-                                            onChange={(e) => setFormData({ ...formData, giro: e.target.value })}
+                                            value={formData.tipo || "EMPRESA"}
+                                            onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
                                             className={selectLikeClassName}
                                         >
-                                            <option value="">Seleccione</option>
-                                            {giroOptions.map((g) => (
-                                                <option key={g} value={g}>{g}</option>
-                                            ))}
+                                            <option value="EMPRESA">Empresa</option>
+                                            <option value="PERSONA_FISICA">Persona Física</option>
+                                            <option value="PROVEEDOR">Proveedor</option>
                                         </select>
+                                    </div>
+                                    <div className="md:col-span-1">
+                                        <Label>
+                                            {formData.tipo === 'PERSONA_FISICA'
+                                                ? 'Persona Física *'
+                                                : formData.tipo === 'PROVEEDOR'
+                                                    ? 'Proveedor *'
+                                                    : 'Empresa *'}
+                                        </Label>
+                                        <Input value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
                                     </div>
                                     <div>
                                         <Label>Correo</Label>
@@ -719,8 +709,16 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
                                 <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Configuración Fiscal y Crédito</p>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <div>
-                                        <Label>Lista de Precios</Label>
-                                        <Input value={formData.numero_precio} onChange={(e) => setFormData({ ...formData, numero_precio: e.target.value })} />
+                                        <Label>Lista de clientes</Label>
+                                        <select
+                                            value={formData.numero_precio || "1"}
+                                            onChange={(e) => setFormData({ ...formData, numero_precio: e.target.value })}
+                                            className={selectLikeClassName}
+                                        >
+                                            <option value="1">Precio 1</option>
+                                            <option value="2">Precio 2</option>
+                                            <option value="3">Precio 3</option>
+                                        </select>
                                     </div>
                                     <div>
                                         <Label>Límite de Crédito</Label>
@@ -893,45 +891,6 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
                                     </table>
                                 </div>
                             </div>
-
-                            <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3">
-                                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Documento</p>
-                                {editingCliente?.documento?.url && (
-                                    <a
-                                        href={editingCliente.documento.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-[12px] text-brand-600 hover:underline"
-                                    >
-                                        {editingCliente.documento.nombre_original || "Ver documento"}
-                                    </a>
-                                )}
-                                <FileInput
-                                    onChange={(e) => {
-                                        const f = (e.target as HTMLInputElement).files?.[0] || null;
-                                        if (!f) {
-                                            setDocumentFile(null);
-                                            return;
-                                        }
-                                        const allowed = ['pdf', 'xls', 'xlsx', 'doc', 'docs', 'odt', 'ods'];
-                                        const ext = (f.name.split('.').pop() || '').toLowerCase();
-                                        if (!allowed.includes(ext)) {
-                                            setModalError('Formato no permitido. Tipos: PDF, XLS, XLSX, DOC, DOCS, ODT, ODS.');
-                                            (e.target as HTMLInputElement).value = '';
-                                            setDocumentFile(null);
-                                            return;
-                                        }
-                                        if (f.size > 15 * 1024 * 1024) {
-                                            setModalError('El documento excede 15MB.');
-                                            (e.target as HTMLInputElement).value = '';
-                                            setDocumentFile(null);
-                                            return;
-                                        }
-                                        setModalError('');
-                                        setDocumentFile(f);
-                                    }}
-                                />
-                            </div>
                         </div>
                     )}
 
@@ -1020,6 +979,44 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
                                         </select>
                                     </div>
                                 </div>
+                            </div>
+                            <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3">
+                                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Documento</p>
+                                {editingCliente?.documento?.url && (
+                                    <a
+                                        href={editingCliente.documento.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[12px] text-brand-600 hover:underline"
+                                    >
+                                        {editingCliente.documento.nombre_original || "Ver documento"}
+                                    </a>
+                                )}
+                                <FileInput
+                                    onChange={(e) => {
+                                        const f = (e.target as HTMLInputElement).files?.[0] || null;
+                                        if (!f) {
+                                            setDocumentFile(null);
+                                            return;
+                                        }
+                                        const allowed = ['pdf', 'xls', 'xlsx', 'doc', 'docs', 'odt', 'ods'];
+                                        const ext = (f.name.split('.').pop() || '').toLowerCase();
+                                        if (!allowed.includes(ext)) {
+                                            setModalError('Formato no permitido. Tipos: PDF, XLS, XLSX, DOC, DOCS, ODT, ODS.');
+                                            (e.target as HTMLInputElement).value = '';
+                                            setDocumentFile(null);
+                                            return;
+                                        }
+                                        if (f.size > 15 * 1024 * 1024) {
+                                            setModalError('El documento excede 15MB.');
+                                            (e.target as HTMLInputElement).value = '';
+                                            setDocumentFile(null);
+                                            return;
+                                        }
+                                        setModalError('');
+                                        setDocumentFile(f);
+                                    }}
+                                />
                             </div>
                         </div>
                     )}

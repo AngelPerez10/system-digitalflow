@@ -99,8 +99,8 @@ const AppSidebar: React.FC = () => {
         name: "Contactos de Negocio",
         subItems: [
           { name: "Todos", path: "/clientes", pro: false },
-          { name: "Empresas", path: "/", pro: false },
-          { name: "Personas", path: "/", pro: false },
+          { name: "Empresas", path: "/empresas", pro: false },
+          { name: "Personas", path: "/personas", pro: false },
           { name: "Proveedores", path: "/proveedores", pro: false },
           { name: "Usuarios", path: "/profile", pro: false },
         ],
@@ -120,7 +120,7 @@ const AppSidebar: React.FC = () => {
         icon: <TableIcon />,
         name: "Compras Y Gastos",
         subItems: [
-          { name: "Proveedores", path: "/proveedores", pro: false },
+          { name: "Proveedores", path: "/", pro: false },
           { name: "Orden De compra", path: "/orden-compra", pro: false },
           { name: "Gasto", path: "/gasto", pro: false },
         ],

@@ -6,7 +6,6 @@ export interface Cliente {
     telefono: string;
     fecha_creacion: string;
 
-    giro?: string;
     correo?: string;
     calle?: string;
     numero_exterior?: string;
