@@ -78,10 +78,10 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='producto',
-            index=models.Index(fields=['idx'], name='productos_pr_idx_2dd1d7_idx'),
+            index=models.Index(fields=['idx'], name='productos_p_idx_9e08ef_idx'),
         ),
         migrations.AddIndex(
             model_name='producto',
-            index=models.Index(fields=['nombre'], name='productos_pr_nombre_8cc3e4_idx'),
+            index=models.Index(fields=['nombre'], name='productos_p_nombre_456643_idx'),
         ),
     ]

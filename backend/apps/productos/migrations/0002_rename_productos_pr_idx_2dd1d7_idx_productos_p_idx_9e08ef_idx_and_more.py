@@ -10,14 +10,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameIndex(
-            model_name='producto',
-            new_name='productos_p_idx_9e08ef_idx',
-            old_name='productos_pr_idx_2dd1d7_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='producto',
-            new_name='productos_p_nombre_456643_idx',
-            old_name='productos_pr_nombre_8cc3e4_idx',
-        ),
+        # Las operaciones de RenameIndex se eliminaron para evitar errores en Render
+        # ya que los índices originales "productos_pr_..." no se encontraban en la base de datos de producción.
+        # Los nombres definitivos "productos_p_..." se integraron directamente en 0001_initial.py.
     ]
