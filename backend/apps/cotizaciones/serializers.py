@@ -27,6 +27,8 @@ class CotizacionSerializer(serializers.ModelSerializer):
     cliente_nombre = serializers.CharField(source='cliente_id.nombre', read_only=True)
     creado_por_username = serializers.CharField(source='creado_por.username', read_only=True)
     creado_por_full_name = serializers.SerializerMethodField()
+    actualizado_por_username = serializers.CharField(source='actualizado_por.username', read_only=True)
+    actualizado_por_full_name = serializers.SerializerMethodField()
 
     items = CotizacionItemSerializer(many=True, required=False)
 
@@ -37,6 +39,15 @@ class CotizacionSerializer(serializers.ModelSerializer):
             if first or last:
                 return f"{first} {last}".strip()
             return obj.creado_por.username or obj.creado_por.email
+        return None
+
+    def get_actualizado_por_full_name(self, obj):
+        if obj.actualizado_por:
+            first = obj.actualizado_por.first_name
+            last = obj.actualizado_por.last_name
+            if first or last:
+                return f"{first} {last}".strip()
+            return obj.actualizado_por.username or obj.actualizado_por.email
         return None
 
     class Meta:
@@ -60,6 +71,9 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'creado_por',
             'creado_por_username',
             'creado_por_full_name',
+            'actualizado_por',
+            'actualizado_por_username',
+            'actualizado_por_full_name',
             'fecha_creacion',
             'fecha_actualizacion',
             'items',
@@ -71,6 +85,9 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'creado_por',
             'creado_por_username',
             'creado_por_full_name',
+            'actualizado_por',
+            'actualizado_por_username',
+            'actualizado_por_full_name',
             'fecha_creacion',
             'fecha_actualizacion',
         ]
@@ -98,6 +115,12 @@ class CotizacionSerializer(serializers.ModelSerializer):
 
         for k, v in validated_data.items():
             setattr(instance, k, v)
+        
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user:
+            instance.actualizado_por = user
+            
         instance.save()
 
         if items_data is not None:

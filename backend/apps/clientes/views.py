@@ -3,10 +3,13 @@ import os
 
 import cloudinary
 import cloudinary.uploader
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError
 from rest_framework import filters, status, viewsets
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
+from rest_framework.serializers import ValidationError as DrfValidationError
 
 from apps.users.permissions import ModulePermission
 
@@ -57,6 +60,28 @@ class ClienteViewSet(viewsets.ModelViewSet):
         if tipo:
             qs = qs.filter(tipo=tipo)
         return qs
+
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except (DrfValidationError, DjangoValidationError) as exc:
+            detail = getattr(exc, 'detail', None) or getattr(exc, 'message_dict', None) or str(exc)
+            return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
+        except Exception as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except (DrfValidationError, DjangoValidationError) as exc:
+            detail = getattr(exc, 'detail', None) or getattr(exc, 'message_dict', None) or str(exc)
+            return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
+        except Exception as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ClienteContactoViewSet(viewsets.ModelViewSet):

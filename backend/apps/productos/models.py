@@ -10,6 +10,10 @@ class Producto(models.Model):
     unidad = models.CharField(max_length=100, blank=True, default='')
     descripcion = models.TextField(blank=True, default='')
     precio_venta = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    precio_venta_2 = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    precio_venta_3 = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    iva_pct = models.DecimalField(max_digits=5, decimal_places=2, default=16.00)
+    
     modelo = models.CharField(max_length=200, blank=True, default='')
     codigo_fabrica = models.CharField(max_length=200, blank=True, default='')
     proveedor = models.CharField(max_length=200, blank=True, default='')
@@ -23,7 +27,6 @@ class Producto(models.Model):
     # Más información
     sku = models.CharField(max_length=200, blank=True, default='')
     codigo_sat = models.CharField(max_length=200, blank=True, default='')
-    unidad_sat = models.CharField(max_length=200, blank=True, default='')
 
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True, null=True, blank=True)
@@ -64,15 +67,4 @@ class ProductoImagen(models.Model):
         verbose_name_plural = 'Imágenes de Producto'
 
 
-class ProductoDocumento(models.Model):
-    producto = models.OneToOneField(Producto, on_delete=models.CASCADE, related_name='documento')
-    url = models.URLField(blank=True, default='')
-    public_id = models.CharField(max_length=255, blank=True, default='')
-    nombre_original = models.CharField(max_length=255, blank=True, default='')
-    size_bytes = models.BigIntegerField(null=True, blank=True)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-    fecha_actualizacion = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        verbose_name = 'Documento de Producto'
-        verbose_name_plural = 'Documentos de Producto'

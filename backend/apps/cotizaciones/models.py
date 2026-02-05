@@ -38,6 +38,13 @@ class Cotizacion(models.Model):
         blank=True,
         related_name='cotizaciones_creadas',
     )
+    actualizado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cotizaciones_actualizadas',
+    )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
