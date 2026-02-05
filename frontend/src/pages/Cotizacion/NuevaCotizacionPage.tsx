@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
@@ -12,6 +12,7 @@ import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { apiUrl } from "@/config/api";
 import { PencilIcon, TrashBinIcon } from "@/icons";
+import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 
 type ClienteContacto = {
   id?: number;
@@ -95,9 +96,6 @@ type ApiCotizacion = {
   items: ApiCotizacionItem[];
 };
 
-const selectLikeClassName =
-  "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
-
 const inputLikeClassName =
   "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
 
@@ -153,6 +151,7 @@ export default function NuevaCotizacionPage() {
 
   const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
   const canCotizacionesView = asBool(permissions?.cotizaciones?.view, true);
+  const canProductosView = asBool(permissions?.productos?.view, true);
 
   const navigate = useNavigate();
   const params = useParams();
@@ -226,7 +225,6 @@ export default function NuevaCotizacionPage() {
   const [cantidad, setCantidad] = useState<number>(1);
   const [productoId, setProductoId] = useState<number | "">("");
   const [productoSearch, setProductoSearch] = useState("");
-  const [productoOpen, setProductoOpen] = useState(false);
   const [productoDescripcion, setProductoDescripcion] = useState("");
   const [unidad, setUnidad] = useState("");
   const [precioLista, setPrecioLista] = useState<number>(0);
@@ -277,39 +275,6 @@ export default function NuevaCotizacionPage() {
     return productos.find((p) => p.id === productoId) || null;
   }, [productos, productoId]);
 
-  const filteredProductos = useMemo(() => {
-    const q = String(productoSearch || "").toLowerCase().trim();
-    if (!q) return productos;
-
-    const matches = productos.filter((p) => {
-      const nombre = String((p as any)?.nombre || "").toLowerCase();
-      const modelo = String((p as any)?.modelo || "").toLowerCase();
-      const desc = String((p as any)?.descripcion || "").toLowerCase();
-      return nombre.includes(q) || modelo.includes(q) || desc.includes(q);
-    });
-
-    if (selectedProducto && !matches.some((x) => x.id === selectedProducto.id)) {
-      return [selectedProducto, ...matches];
-    }
-
-    return matches;
-  }, [productos, productoSearch, selectedProducto]);
-
-  const productoPickerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!productoOpen) return;
-    const onDown = (ev: MouseEvent) => {
-      const el = productoPickerRef.current;
-      if (!el) return;
-      if (ev.target instanceof Node && !el.contains(ev.target)) {
-        setProductoOpen(false);
-      }
-    };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [productoOpen]);
-
   const preview = useMemo(() => {
     const qty = Math.max(0, toNumber(cantidad, 0));
     const pl = Math.max(0, toNumber(precioLista, 0));
@@ -351,30 +316,45 @@ export default function NuevaCotizacionPage() {
 
   useEffect(() => {
     const fetchProductos = async () => {
-      if (!canCotizacionesView) return;
+      if (!canProductosView) {
+        setProductos([]);
+        return;
+      }
       const token = getToken();
       if (!token) return;
       setLoadingProductos(true);
       try {
-        const res = await fetch(apiUrl("/api/productos/"), {
+        const query = new URLSearchParams({
+          page: '1',
+          page_size: '5000',
+          ordering: 'idx',
+        });
+        if (String(productoSearch || '').trim()) {
+          query.set('search', String(productoSearch || '').trim());
+        }
+
+        const res = await fetch(apiUrl(`/api/productos/?${query.toString()}`), {
           headers: {
             Authorization: `Bearer ${token}`,
           },
           cache: "no-store" as RequestCache,
         });
-        const data = await res.json().catch(() => []);
+        const data = await res.json().catch(() => null);
         if (!res.ok) {
+          const msg = (data as any)?.detail || (typeof data === 'string' ? data : '') || `No se pudieron cargar productos (HTTP ${res.status}).`;
           setProductos([]);
+          setAlert({ show: true, variant: 'warning', title: 'Productos', message: String(msg) });
           return;
         }
-        setProductos(Array.isArray(data) ? (data as Producto[]) : []);
+        const list = Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
+        setProductos(list as Producto[]);
       } finally {
         setLoadingProductos(false);
       }
     };
 
     fetchProductos();
-  }, [canCotizacionesView]);
+  }, [canProductosView, productoSearch]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1020,91 +1000,35 @@ export default function NuevaCotizacionPage() {
 
                     <div className="lg:col-span-5">
                       <Label>Productos o servicios</Label>
-                      <div ref={productoPickerRef} className="relative mt-1">
-                        <button
-                          type="button"
-                          disabled={loadingProductos}
-                          onClick={() => setProductoOpen((v) => !v)}
-                          className={`${selectLikeClassName} flex items-center justify-between gap-2`}
-                        >
-                          <span className="truncate text-left">
-                            {selectedProducto
-                              ? String(selectedProducto.nombre || "Selecciona un producto")
-                              : "Selecciona un producto"}
-                          </span>
-                          <svg className="w-4 h-4 text-gray-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </button>
-
-                        {productoOpen && !loadingProductos && (
-                          <div className="absolute z-30 mt-2 w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
-                            <div className="p-2 border-b border-gray-100 dark:border-white/10">
-                              <div className="relative">
-                                <svg
-                                  className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                                  viewBox="0 0 20 20"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                >
-                                  <path
-                                    d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5"
-                                    stroke="currentColor"
-                                    strokeWidth="1.6"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                                <input
-                                  value={productoSearch}
-                                  onChange={(e) => setProductoSearch(e.target.value)}
-                                  placeholder="Buscar por nombre, modelo o descripción"
-                                  className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-800 pl-8 pr-8 py-2 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
-                                  autoFocus
-                                />
-                                {!!productoSearch && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setProductoSearch("")}
-                                    className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-7 w-7 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/60"
-                                  >
-                                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                                      <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                                    </svg>
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            <div className="max-h-72 overflow-auto">
-                              {filteredProductos.slice(0, 200).map((p) => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setProductoId(p.id);
-                                    setProductoOpen(false);
-                                  }}
-                                  className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition ${p.id === productoId ? "bg-gray-50 dark:bg-gray-800/50" : ""}`}
-                                >
-                                  <div className="text-[13px] font-medium text-gray-900 dark:text-gray-100 truncate">{p.nombre}</div>
-                                  {(p.modelo || p.descripcion) && (
-                                    <div className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                                      {String(p.modelo || "").trim()}
-                                      {p.modelo && p.descripcion ? " • " : ""}
-                                      {String(p.descripcion || "").trim()}
-                                    </div>
-                                  )}
-                                </button>
-                              ))}
-
-                              {filteredProductos.length === 0 && (
-                                <div className="px-3 py-3 text-[12px] text-gray-500 dark:text-gray-400">Sin resultados</div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                      <div className="mt-1">
+                        <ActionSearchBar
+                          label={loadingProductos ? "Cargando productos..." : "Productos o servicios"}
+                          placeholder={loadingProductos ? "Cargando..." : "Buscar por nombre, modelo o descripción"}
+                          value={productoSearch}
+                          onQueryChange={(q) => setProductoSearch(q)}
+                          actions={productos.map((p) => ({
+                            id: String(p.id),
+                            label: String(p.nombre || ""),
+                            icon: (
+                              <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200 text-[10px] font-semibold">
+                                {(String(p.nombre || "?").trim().slice(0, 1) || "?").toUpperCase()}
+                              </span>
+                            ),
+                            description: String(p.modelo || p.descripcion || "").trim() || undefined,
+                            end: p.precio_venta != null && String(p.precio_venta) !== "" ? formatMoney(toNumber(p.precio_venta, 0)) : "",
+                          }))}
+                          onSelectAction={(a) => {
+                            const id = Number(a?.id);
+                            if (!Number.isFinite(id)) return;
+                            setProductoId(id);
+                            setProductoSearch(String(a?.label || ""));
+                          }}
+                          showAllActions={false}
+                        />
                       </div>
+                      {!loadingProductos && productos.length === 0 && (
+                        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">No hay productos disponibles o no tienes permiso para verlos.</p>
+                      )}
                       {!!selectedProducto?.descripcion && (
                         <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">
                           {String(selectedProducto.descripcion)}

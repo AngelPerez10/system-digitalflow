@@ -18,6 +18,7 @@ interface CotizacionRow {
   fecha: string; // YYYY-MM-DD
   vencimiento: string; // YYYY-MM-DD
   creadaPor: string;
+  editadaPor: string;
   cliente: string;
   contacto: string;
   monto: string; // formatted currency
@@ -147,12 +148,14 @@ export default function CotizacionesPage() {
       const list = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
       const mapped: CotizacionRow[] = (list || []).map((x: any) => {
         const creado = String(x?.creado_por_full_name || x?.creado_por_username || x?.creadaPor || '—');
+        const editado = String(x?.actualizado_por_full_name || x?.actualizado_por_username || x?.editadaPor || '—');
         return {
           id: Number(x?.id || 0),
           idx: Number(x?.idx || 0),
           fecha: String(x?.fecha || ''),
           vencimiento: String(x?.vencimiento || ''),
           creadaPor: creado,
+          editadaPor: editado,
           cliente: String(x?.cliente || x?.cliente_nombre || '—'),
           contacto: String(x?.contacto || '—'),
           monto: formatMoney(Number(x?.total ?? 0)),
@@ -237,7 +240,8 @@ export default function CotizacionesPage() {
         String(r.idx || '').toLowerCase().includes(q) ||
         r.cliente.toLowerCase().includes(q) ||
         r.contacto.toLowerCase().includes(q) ||
-        r.creadaPor.toLowerCase().includes(q)
+        r.creadaPor.toLowerCase().includes(q) ||
+        r.editadaPor.toLowerCase().includes(q)
       );
     });
   }, [rows, searchTerm]);
@@ -331,6 +335,7 @@ export default function CotizacionesPage() {
                   <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Fecha</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Vencimiento</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/5 text-gray-700 dark:text-gray-300">Creada por</TableCell>
+                  <TableCell isHeader className="px-2 py-2 text-left w-1/5 text-gray-700 dark:text-gray-300">Editada por</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/4 text-gray-700 dark:text-gray-300">Cliente</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/5 text-gray-700 dark:text-gray-300">Contacto</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Monto</TableCell>
@@ -341,11 +346,11 @@ export default function CotizacionesPage() {
               <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
                 {loading ? (
                   <TableRow>
-                    <TableCell className="px-2 py-3" colSpan={8}>Cargando...</TableCell>
+                    <TableCell className="px-2 py-3" colSpan={9}>Cargando...</TableCell>
                   </TableRow>
                 ) : shownList.length === 0 ? (
                   <TableRow>
-                    <TableCell className="px-2 py-2" colSpan={8}>
+                    <TableCell className="px-2 py-2" colSpan={9}>
                       <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No hay cotizaciones.</div>
                     </TableCell>
                   </TableRow>
@@ -357,6 +362,7 @@ export default function CotizacionesPage() {
                         <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatDMY(r.fecha)}</TableCell>
                         <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatDMY(r.vencimiento)}</TableCell>
                         <TableCell className="px-2 py-1.5">{r.creadaPor}</TableCell>
+                        <TableCell className="px-2 py-1.5">{r.editadaPor}</TableCell>
                         <TableCell className="px-2 py-1.5">{r.cliente}</TableCell>
                         <TableCell className="px-2 py-1.5">{r.contacto}</TableCell>
                         <TableCell className="px-2 py-1.5 whitespace-nowrap">{r.monto}</TableCell>

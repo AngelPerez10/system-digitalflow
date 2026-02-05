@@ -1175,7 +1175,12 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
           {/* Body */}
           <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 max-h-[78vh] overflow-y-auto custom-scrollbar">
             {modalError && (
-              <Alert variant="error" title="Error" message={modalError} showLink={false} />
+              <Alert
+                variant={String(modalError).startsWith('Campos requeridos faltantes:') ? 'warning' : 'error'}
+                title={String(modalError).startsWith('Campos requeridos faltantes:') ? 'Faltan campos' : 'Error'}
+                message={modalError}
+                showLink={false}
+              />
             )}
 
             <div className="flex items-center gap-2">
@@ -1733,45 +1738,45 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                         </select>
                       </div>
                     </div>
-                    <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3">
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Documento</p>
-                      {editingCliente?.documento?.url && (
-                        <a
-                          href={editingCliente.documento.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[12px] text-brand-600 hover:underline"
-                        >
-                          {editingCliente.documento.nombre_original || "Ver documento"}
-                        </a>
-                      )}
-                      <FileInput
-                        onChange={(e) => {
-                          const f = (e.target as HTMLInputElement).files?.[0] || null;
-                          if (!f) {
-                            setDocumentFile(null);
-                            return;
-                          }
-                          const allowed = ['pdf', 'xls', 'xlsx', 'doc', 'docs', 'odt', 'ods'];
-                          const ext = (f.name.split('.').pop() || '').toLowerCase();
-                          if (!allowed.includes(ext)) {
-                            setModalError('Documento inválido. Tipos permitidos: PDF, XLS, XLSX, DOC, DOCS, ODT, ODS.');
-                            (e.target as HTMLInputElement).value = '';
-                            setDocumentFile(null);
-                            return;
-                          }
-                          const max = 15 * 1024 * 1024;
-                          if (f.size > max) {
-                            setModalError('Documento excede 15MB.');
-                            (e.target as HTMLInputElement).value = '';
-                            setDocumentFile(null);
-                            return;
-                          }
-                          setModalError('');
-                          setDocumentFile(f);
-                        }}
-                      />
-                    </div>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Documento</p>
+                    {editingCliente?.documento?.url && (
+                      <a
+                        href={editingCliente.documento.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[12px] text-brand-600 hover:underline"
+                      >
+                        {editingCliente.documento.nombre_original || "Ver documento"}
+                      </a>
+                    )}
+                    <FileInput
+                      onChange={(e) => {
+                        const f = (e.target as HTMLInputElement).files?.[0] || null;
+                        if (!f) {
+                          setDocumentFile(null);
+                          return;
+                        }
+                        const allowed = ['pdf', 'xls', 'xlsx', 'doc', 'docs', 'odt', 'ods'];
+                        const ext = (f.name.split('.').pop() || '').toLowerCase();
+                        if (!allowed.includes(ext)) {
+                          setModalError('Documento inválido. Tipos permitidos: PDF, XLS, XLSX, DOC, DOCS, ODT, ODS.');
+                          (e.target as HTMLInputElement).value = '';
+                          setDocumentFile(null);
+                          return;
+                        }
+                        const max = 15 * 1024 * 1024;
+                        if (f.size > max) {
+                          setModalError('Documento excede 15MB.');
+                          (e.target as HTMLInputElement).value = '';
+                          setDocumentFile(null);
+                          return;
+                        }
+                        setModalError('');
+                        setDocumentFile(f);
+                      }}
+                    />
                   </div>
                 </div>
               )

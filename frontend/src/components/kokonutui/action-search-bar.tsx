@@ -299,7 +299,10 @@ function ActionSearchBar({
                                 animate="show"
                                 exit="exit"
                             >
-                                <motion.ul role="none">
+                                <motion.ul
+                                    role="none"
+                                    className="max-h-60 overflow-y-auto"
+                                >
                                     {filteredActions.map((action, index) => (
                                         <motion.li
                                             key={action.id}

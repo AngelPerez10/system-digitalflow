@@ -447,7 +447,12 @@ export const ClienteFormModal: React.FC<ClienteFormModalProps> = ({
 
                 <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 max-h-[78vh] overflow-y-auto custom-scrollbar">
                     {modalError && (
-                        <Alert variant="error" title="Error" message={modalError} showLink={false} />
+                        <Alert
+                            variant={String(modalError).startsWith('Campos requeridos faltantes:') ? 'warning' : 'error'}
+                            title={String(modalError).startsWith('Campos requeridos faltantes:') ? 'Faltan campos' : 'Error'}
+                            message={modalError}
+                            showLink={false}
+                        />
                     )}
 
                     <div className="flex items-center gap-2">
