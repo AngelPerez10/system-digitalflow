@@ -1151,7 +1151,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
       </ComponentCard>
 
       {/* Modal Crear/Editar */}
-      <Modal isOpen={showModal} onClose={handleCloseModal} className="w-full max-w-4xl p-0 overflow-hidden">
+      <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-full max-w-4xl p-0 overflow-hidden">
         <div>
           <div className="px-5 pt-5 pb-4 bg-linear-to-r from-brand-50 via-transparent to-transparent dark:from-gray-800/70 dark:via-gray-900/20 border-b border-gray-100 dark:border-white/10">
             <div className="flex items-center gap-3">

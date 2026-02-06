@@ -855,18 +855,14 @@ export default function Productos() {
         </>
       )}
 
-      <Modal isOpen={showModal} onClose={handleCloseModal} className="w-full max-w-4xl p-0 overflow-hidden">
+      <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-full max-w-4xl p-0 overflow-hidden">
         <div>
           <div className="px-5 pt-5 pb-4 bg-linear-to-r from-brand-50 via-transparent to-transparent dark:from-gray-800/70 dark:via-gray-900/20 border-b border-gray-100 dark:border-white/10">
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300 shadow-theme-xs">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M20 7h-9" />
-                  <path d="M20 12h-9" />
-                  <path d="M20 17h-9" />
-                  <path d="M7 7h.01" />
-                  <path d="M7 12h.01" />
-                  <path d="M7 17h.01" />
+                  <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+                  <path d="M20 22a8 8 0 1 0-16 0" />
                 </svg>
               </span>
               <div className="flex-1">
