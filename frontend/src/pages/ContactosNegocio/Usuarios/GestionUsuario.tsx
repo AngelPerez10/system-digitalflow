@@ -9,7 +9,6 @@ import { Modal } from '@/components/ui/modal';
 import SignaturePad from '@/components/ui/signature/SignaturePad';
 import { apiUrl } from '@/config/api';
 import { EyeCloseIcon, EyeIcon, MoreDotIcon } from '@/icons';
-import { animate, stagger } from 'animejs';
 
 type Role = 'admin' | 'tecnico';
 
@@ -165,12 +164,6 @@ const generatePassword = (username: string, firstName: string, lastName: string)
 
 export default function UserProfiles() {
   const API = apiUrl('/api/users/accounts/');
-
-  const pageAnimRef = useRef<HTMLDivElement | null>(null);
-  const didAnimateStatsRef = useRef(false);
-  const prevFilteredIdsRef = useRef<number[]>([]);
-  const statsAnimRef = useRef<any>(null);
-  const cardsAnimRef = useRef<any>(null);
 
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(false);
@@ -416,60 +409,6 @@ export default function UserProfiles() {
         return an.localeCompare(bn);
       });
   }, [users, query, roleFilter]);
-
-  useEffect(() => {
-    if (loading) return;
-    const root = pageAnimRef.current;
-    if (!root) return;
-
-    const raf = requestAnimationFrame(() => {
-      if (!didAnimateStatsRef.current) {
-        didAnimateStatsRef.current = true;
-        try {
-          const targets = root.querySelectorAll('[data-anim="user-stat"]');
-          if (targets && targets.length > 0) {
-            if (statsAnimRef.current && typeof statsAnimRef.current.cancel === 'function') {
-              statsAnimRef.current.cancel();
-            }
-            statsAnimRef.current = animate(targets, {
-              translateY: [8, 0],
-              opacity: [0, 1],
-              delay: stagger(80),
-              duration: 480,
-              easing: 'easeOutCubic',
-            });
-          }
-        } catch {
-          // noop
-        }
-      }
-
-      const ids = Array.isArray(filtered) ? filtered.map((u) => u.id) : [];
-      const same = ids.length === prevFilteredIdsRef.current.length && ids.every((v, i) => v === prevFilteredIdsRef.current[i]);
-      if (!same) {
-        prevFilteredIdsRef.current = ids;
-        try {
-          const targets = root.querySelectorAll('[data-anim="user-card"]');
-          if (targets && targets.length > 0) {
-            if (cardsAnimRef.current && typeof cardsAnimRef.current.cancel === 'function') {
-              cardsAnimRef.current.cancel();
-            }
-            cardsAnimRef.current = animate(targets, {
-              translateY: [6, 0],
-              opacity: [0, 1],
-              delay: stagger(40),
-              duration: 420,
-              easing: 'easeOutCubic',
-            });
-          }
-        } catch {
-          // noop
-        }
-      }
-    });
-
-    return () => cancelAnimationFrame(raf);
-  }, [loading, filtered]);
 
   const stats = useMemo(() => {
     const total = users.length;
@@ -719,7 +658,7 @@ export default function UserProfiles() {
   };
 
   return (
-    <div ref={pageAnimRef} className="p-4 sm:p-6">
+    <div className="p-4 sm:p-6">
       <PageMeta title="Gestión de Usuarios" description="Administración de usuarios" />
       <PageBreadcrumb pageTitle="Gestión de Usuarios" />
 
@@ -975,7 +914,7 @@ export default function UserProfiles() {
         )}
       </ComponentCard>
 
-      <Modal isOpen={isCreateOpen} onClose={closeCreate} className="max-w-2xl">
+      <Modal isOpen={isCreateOpen} onClose={closeCreate} closeOnBackdropClick={false} className="max-w-2xl">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-white/10">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Nuevo usuario</h3>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -1078,7 +1017,7 @@ export default function UserProfiles() {
         </div>
       </Modal>
 
-      <Modal isOpen={isPermsOpen} onClose={closePerms} className="w-[94vw] max-w-2xl max-h-[92vh] p-0 overflow-hidden">
+      <Modal isOpen={isPermsOpen} onClose={closePerms} closeOnBackdropClick={false} className="w-[94vw] max-w-2xl max-h-[92vh] p-0 overflow-hidden">
         <div className="overflow-hidden rounded-2xl">
           <div className="px-5 py-4 border-b border-gray-100 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
             <div className="flex items-center gap-3">
@@ -1328,7 +1267,7 @@ export default function UserProfiles() {
         </div>
       </Modal>
 
-      <Modal isOpen={isEditOpen} onClose={closeEdit} className="w-[94vw] max-w-2xl">
+      <Modal isOpen={isEditOpen} onClose={closeEdit} closeOnBackdropClick={false} className="w-[94vw] max-w-2xl">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-white/10">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Editar usuario</h3>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Actualiza datos del usuario y (opcional) cambia la contraseña.</p>
@@ -1460,7 +1399,7 @@ export default function UserProfiles() {
         </div>
       </Modal>
 
-      <Modal isOpen={confirmDeleteSignature} onClose={() => setConfirmDeleteSignature(false)} className="max-w-sm p-6">
+      <Modal isOpen={confirmDeleteSignature} onClose={() => setConfirmDeleteSignature(false)} closeOnBackdropClick={false} className="max-w-sm p-6">
         <div className='flex flex-col gap-4'>
           <div className='text-center'>
             <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30'>
@@ -1511,7 +1450,7 @@ export default function UserProfiles() {
         </div>
       </Modal>
 
-      <Modal isOpen={confirmDeleteId != null} onClose={() => setConfirmDeleteId(null)} className="max-w-sm p-6">
+      <Modal isOpen={confirmDeleteId != null} onClose={() => setConfirmDeleteId(null)} closeOnBackdropClick={false} className="max-w-sm p-6">
         <div className='flex flex-col gap-4'>
           <div className='text-center'>
             <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30'>

@@ -57,7 +57,7 @@ def _delete_cloudinary_resource(url: str):
 
 
 class TareaViewSet(viewsets.ModelViewSet):
-    queryset = Tarea.objects.select_related('usuario_asignado', 'creado_por').order_by('-fecha_creacion')
+    queryset = Tarea.objects.select_related('usuario_asignado', 'creado_por').order_by('estado', 'orden', '-fecha_creacion')
     serializer_class = TareaSerializer
 
     def perform_create(self, serializer):

@@ -46,13 +46,15 @@ export function MobileOrderCard({
   const fechaInicioFmt = fechaInicio ? formatDate(fechaInicio) : '-';
   const fechaFinFmt = orden.fecha_finalizacion ? formatDate(orden.fecha_finalizacion) : '-';
 
+  const folioDisplay = (orden?.folio ?? '').toString().trim() || (orden?.idx ?? (startIndex + idx + 1));
+
   return (
     <div className="bg-white dark:bg-gray-800/60 rounded-lg border border-gray-200 dark:border-white/10 p-3 space-y-2">
       {/* Header: ID, Status, Actions */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-brand-600 dark:text-brand-400">
-            {orden.idx ?? (startIndex + idx + 1)}
+            {folioDisplay}
           </span>
           -
           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${orden.status === 'resuelto' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>

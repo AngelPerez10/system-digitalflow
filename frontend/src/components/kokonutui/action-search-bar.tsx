@@ -142,9 +142,8 @@ function ActionSearchBar({
         if (typeof value !== "string") return;
         if (value === query) return;
         setQuery(value);
-        if (value === "") {
-            setSelectedAction(null);
-        }
+        setSelectedAction(null);
+        setActiveIndex(-1);
     }, [value, query]);
 
     const filteredActions = useMemo(() => {

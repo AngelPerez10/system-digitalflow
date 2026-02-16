@@ -33,6 +33,8 @@ class TareaSerializer(serializers.ModelSerializer):
             "usuario_asignado",
             "usuario_asignado_username",
             "usuario_asignado_full_name",
+            "estado",
+            "orden",
             "descripcion",
             "fotos_urls",
             "fecha_creacion",

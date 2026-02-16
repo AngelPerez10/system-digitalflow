@@ -498,6 +498,7 @@ const Calendar: React.FC = () => {
         <Modal
           isOpen={isOpen}
           onClose={closeModal}
+          closeOnBackdropClick={false}
           className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden"
         >
           <div className="p-0 overflow-hidden rounded-2xl">
@@ -814,6 +815,7 @@ const Calendar: React.FC = () => {
         <Modal
           isOpen={showMapModal}
           onClose={() => setShowMapModal(false)}
+          closeOnBackdropClick={false}
           className="w-[96vw] sm:w-[90vw] md:w-[80vw] max-w-3xl mx-0 sm:mx-auto"
         >
           <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-3xl">

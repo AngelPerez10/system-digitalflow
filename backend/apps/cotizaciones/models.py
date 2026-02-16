@@ -24,6 +24,7 @@ class Cotizacion(models.Model):
     vencimiento = models.DateField(null=True, blank=True)
 
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    descuento_cliente_pct = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     iva_pct = models.DecimalField(max_digits=5, decimal_places=2, default=16)
     iva = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0)

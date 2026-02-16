@@ -18,12 +18,10 @@ import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 
-
-
-
 interface Orden {
   id: number;
   idx: number;
+  folio?: string | null;
   cliente_id: number | null;
   cliente: string;
   direccion: string;
@@ -92,7 +90,6 @@ export default function Ordenes() {
   const [showClienteModal, setShowClienteModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
-
 
   const [editingOrden, setEditingOrden] = useState<Orden | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -409,6 +406,7 @@ export default function Ordenes() {
 
   // Form state
   const [formData, setFormData] = useState({
+    folio: "",
     cliente_id: null as number | null,
     cliente: "",
     direccion: "",
@@ -554,7 +552,6 @@ export default function Ordenes() {
   const [tecnicoSearch, setTecnicoSearch] = useState('');
 
   const [servicioSearch, setServicioSearch] = useState('');
-
 
   const [tecnicoSignatureUrl, setTecnicoSignatureUrl] = useState<string>('');
   const tecnicoSignatureCacheRef = useRef<Record<number, string>>({});
@@ -817,6 +814,7 @@ export default function Ordenes() {
         await fetchOrdenes();
         setShowModal(false);
         setFormData({
+          folio: "",
           cliente_id: null,
           cliente: "",
           direccion: "",
@@ -932,6 +930,7 @@ export default function Ordenes() {
     setTecnicoSearch('');
 
     setFormData({
+      folio: ((orden as any).folio ?? '').toString(),
       cliente_id: orden.cliente_id || null,
       cliente: orden.cliente || "",
       direccion: orden.direccion || "",
@@ -957,6 +956,7 @@ export default function Ordenes() {
   const handleCloseModal = () => {
     setShowModal(false);
     setFormData({
+      folio: "",
       cliente_id: null,
       cliente: "",
       direccion: "",
@@ -982,7 +982,6 @@ export default function Ordenes() {
     setTecnicoSearch('');
     setServicioSearch('');
   };
-
 
   const shownList = useMemo(() => {
     if (!Array.isArray(ordenes)) return [];
@@ -1071,7 +1070,7 @@ export default function Ordenes() {
       icon: (
         <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
           </svg>
         </span>
       ),
@@ -1136,7 +1135,7 @@ export default function Ordenes() {
           label: `Crear "${servicioSearch.trim()}"`,
           icon: (
             <svg className='w-4 h-4 text-brand-500' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-              <path d='M12 5v14M5 12h14' />
+              <path d='M12 5v14M5 12h14M4 12h16' />
             </svg>
           ),
           description: "Nuevo servicio",
@@ -1149,7 +1148,6 @@ export default function Ordenes() {
 
     return base;
   }, [serviciosDisponibles, servicioSearch, formData.servicios_realizados]);
-
 
   const selectCliente = (cliente: Cliente | null) => {
     if (cliente) {
@@ -1191,8 +1189,6 @@ export default function Ordenes() {
     }
   };
 
-
-
   useEffect(() => {
     const tecnicoId = formData?.tecnico_asignado != null ? Number(formData.tecnico_asignado) : null;
     if (!tecnicoId) {
@@ -1211,7 +1207,6 @@ export default function Ordenes() {
     // Limpiar búsqueda y cerrar dropdown
     setServicioSearch('');
   };
-
 
   const currentMonthKey = useMemo(() => {
     const d = new Date();
@@ -1538,7 +1533,7 @@ export default function Ordenes() {
             <Table className="w-full min-w-[900px] sm:min-w-0 sm:table-fixed">
               <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sm:sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
                 <TableRow>
-                  <TableCell isHeader className="px-2 py-2 text-left w-[70px] min-w-[60px] whitespace-nowrap text-gray-700 dark:text-gray-300">ID</TableCell>
+                  <TableCell isHeader className="px-2 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-gray-700 dark:text-gray-300">Folio</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-gray-700 dark:text-gray-300">Cliente</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/5 min-w-[220px] text-gray-700 dark:text-gray-300">Detalles</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">Fechas</TableCell>
@@ -1552,13 +1547,15 @@ export default function Ordenes() {
                   const fecha = orden.fecha_inicio || orden.fecha_creacion || '';
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
+                  const folioDisplay = (orden?.folio ?? '').toString().trim() || (orden.idx ?? (startIndex + idx + 1));
+
                   const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
                   const tecnicoNombre = tecnico
                     ? (tecnico.first_name && tecnico.last_name ? `${tecnico.first_name} ${tecnico.last_name}` : tecnico.email)
                     : ((orden as any).nombre_encargado || '-');
                   return (
                     <TableRow key={orden.id ?? idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                      <TableCell className="px-2 py-2 whitespace-nowrap w-[70px] min-w-[60px]">{orden.idx ?? (startIndex + idx + 1)}</TableCell>
+                      <TableCell className="px-2 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
                       <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
                         {orden.direccion && (
@@ -1726,7 +1723,7 @@ export default function Ordenes() {
                     title="Mes siguiente"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 18l6-6 6 6" />
+                      <path d="M9 18l6-6-6-6" />
                     </svg>
                   </button>
                 </div>
@@ -1737,7 +1734,7 @@ export default function Ordenes() {
       </ComponentCard>
 
       {/* Modales de detalle */}
-      <Modal isOpen={problematicaModal.open} onClose={() => setProblematicaModal({ open: false, content: '' })} className="max-w-2xl w-[92vw]">
+      <Modal isOpen={problematicaModal.open} onClose={() => setProblematicaModal({ open: false, content: '' })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
         <div className="p-0 overflow-hidden rounded-2xl">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
             <div className="flex items-center gap-3">
@@ -1759,7 +1756,7 @@ export default function Ordenes() {
         </div>
       </Modal>
 
-      <Modal isOpen={serviciosModal.open} onClose={() => setServiciosModal({ open: false, content: [] })} className="max-w-2xl w-[92vw]">
+      <Modal isOpen={serviciosModal.open} onClose={() => setServiciosModal({ open: false, content: [] })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
         <div className="p-0 overflow-hidden rounded-2xl">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
             <div className="flex items-center gap-3">
@@ -1792,7 +1789,7 @@ export default function Ordenes() {
         </div>
       </Modal>
 
-      <Modal isOpen={comentarioModal.open} onClose={() => setComentarioModal({ open: false, content: '' })} className="max-w-2xl w-[92vw]">
+      <Modal isOpen={comentarioModal.open} onClose={() => setComentarioModal({ open: false, content: '' })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
         <div className="p-0 overflow-hidden rounded-2xl">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
             <div className="flex items-center gap-3">
@@ -1815,14 +1812,14 @@ export default function Ordenes() {
       </Modal>
 
       {/* Modal Crear/Editar */}
-      <Modal isOpen={showModal} onClose={handleCloseModal} className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden">
+      <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden">
         <div>
           {/* Header */}
           <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-white/10">
             <div className="flex items-center gap-4">
               <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10">
                 <svg className="w-6 h-6 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" />
                 </svg>
               </span>
               <div className="min-w-0">
@@ -1856,6 +1853,18 @@ export default function Ordenes() {
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
               </div>
               <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                {editingOrden && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Folio</label>
+                    <input
+                      type="text"
+                      value={(formData as any).folio || ''}
+                      onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
+                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                      placeholder="Ej: ATX2000"
+                    />
+                  </div>
+                )}
                 {/* 1. Cliente con ActionSearchBar */}
                 <div className="flex items-start gap-2">
                   <div className="flex-1">
@@ -2138,7 +2147,6 @@ export default function Ordenes() {
                   )}
                 </div>
 
-
                 <div className="flex flex-wrap gap-2 mt-2">
                   {formData.servicios_realizados.map((servicio, index) => (
                     <span
@@ -2162,8 +2170,6 @@ export default function Ordenes() {
                   ))}
                 </div>
               </div>
-
-
 
               {/* Comentario del Técnico */}
               <div>
@@ -2192,7 +2198,6 @@ export default function Ordenes() {
             </div>
 
             {/* SECCIÓN 4: Detalles de Tiempo */}
-
             <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2362,7 +2367,7 @@ export default function Ordenes() {
                   </div>
                 )}
                 {/* Modal Confirmación eliminar foto */}
-                <Modal isOpen={confirmDelete.open} onClose={() => setConfirmDelete({ open: false, index: null, url: null })} className="max-w-sm p-6">
+                <Modal isOpen={confirmDelete.open} onClose={() => setConfirmDelete({ open: false, index: null, url: null })} closeOnBackdropClick={false} className="max-w-sm p-6">
                   <div className='flex flex-col gap-4'>
                     <div className='text-center'>
                       <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30'>
@@ -2411,7 +2416,7 @@ export default function Ordenes() {
       {/* Modal Eliminar */}
       {
         ordenToDelete && (
-          <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-full max-w-md mx-4 sm:mx-auto">
+          <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} closeOnBackdropClick={false} className="w-full max-w-md mx-4 sm:mx-auto">
             <div className="p-6">
               <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-error-100 dark:bg-error-900/30">
                 <svg className="w-6 h-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2447,6 +2452,7 @@ export default function Ordenes() {
       <Modal
         isOpen={showMapModal}
         onClose={() => setShowMapModal(false)}
+        closeOnBackdropClick={false}
         className="w-[96vw] sm:w-[90vw] md:w-[80vw] max-w-3xl mx-0 sm:mx-auto"
       >
         <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-3xl">

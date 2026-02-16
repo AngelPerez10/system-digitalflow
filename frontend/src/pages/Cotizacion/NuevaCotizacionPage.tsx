@@ -229,6 +229,8 @@ export default function NuevaCotizacionPage() {
   const [unidad, setUnidad] = useState("");
   const [precioLista, setPrecioLista] = useState<number>(0);
   const [descuentoPct, setDescuentoPct] = useState<number>(0);
+  const [descuentoClientePct, setDescuentoClientePct] = useState<number>(0);
+  const [descuentoClienteTouched, setDescuentoClienteTouched] = useState<boolean>(false);
   const [ivaPct, setIvaPct] = useState<number>(16);
 
   const [editingConceptoId, setEditingConceptoId] = useState<string | null>(null);
@@ -239,7 +241,20 @@ export default function NuevaCotizacionPage() {
     "A continuación cotización solicitada: "
   );
   const [terminos, setTerminos] = useState(
-    "Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación"
+    "TÉRMINOS Y CONDICIONES\n\n" +
+      "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
+      "- No se programan trabajos sin anticipo confirmado.\n" +
+      "- Precios expresados en pesos mexicanos, no incluyen IVA salvo indicación contraria.\n" +
+      "- Vigencia de la cotización: 15 días naturales.\n" +
+      "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
+      "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
+      "- La garantía no aplica por mal uso, golpes, humedad, variaciones de voltaje o manipulación por terceros.\n" +
+      "- La cotización incluye únicamente los conceptos especificados; trabajos adicionales se cotizan aparte.\n" +
+      "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
+      "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
+      "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
+      "- El anticipo no es reembolsable en caso de cancelación.\n" +
+      "- La aceptación de la cotización implica conformidad con estos términos."
   );
 
   const todayIso = useMemo(() => {
@@ -371,9 +386,16 @@ export default function NuevaCotizacionPage() {
     if (cliente) {
       setClienteId(cliente.id);
       setClienteSearch(cliente.nombre);
+
+      const desc = clampPct(toNumber((cliente as any)?.descuento_pct, 0));
+      setDescuentoClientePct(desc);
+      setDescuentoClienteTouched(false);
     } else {
       setClienteId("");
       setClienteSearch("");
+
+      setDescuentoClientePct(0);
+      setDescuentoClienteTouched(false);
     }
     setClienteOpen(false);
   };
@@ -410,10 +432,15 @@ export default function NuevaCotizacionPage() {
 
         setClienteId(data.cliente_id ? Number(data.cliente_id) : '');
         setContactoNombre(String(data.contacto || ''));
+        setDescuentoClientePct(clampPct(toNumber((data as any)?.descuento_cliente_pct, 0)));
+        setDescuentoClienteTouched(true);
         setVigenciaIso(String(data.vencimiento || todayIso));
         setIvaPct(clampPct(toNumber(data.iva_pct, 16)));
         setTextoArribaPrecios(String(data.texto_arriba_precios || ''));
-        setTerminos(String(data.terminos || ''));
+        {
+          const incoming = String((data as any).terminos || '').trim();
+          if (incoming) setTerminos(incoming);
+        }
 
         const conceptosList: Concepto[] = Array.isArray(data.items)
           ? data.items.map((it) => ({
@@ -460,6 +487,23 @@ export default function NuevaCotizacionPage() {
     const next = (principal?.nombre_apellido || first?.nombre_apellido || "").trim();
     setContactoNombre(next);
   }, [selectedCliente, hydratingFromStorage, editingCotizacionId, contactoNombre]);
+
+  useEffect(() => {
+    if (hydratingFromStorage) return;
+
+    if (!selectedCliente) {
+      if (!editingCotizacionId) {
+        setDescuentoClientePct(0);
+        setDescuentoClienteTouched(false);
+      }
+      return;
+    }
+
+    if (descuentoClienteTouched) return;
+
+    const desc = clampPct(toNumber((selectedCliente as any)?.descuento_pct, 0));
+    setDescuentoClientePct(desc);
+  }, [selectedCliente, hydratingFromStorage, editingCotizacionId, descuentoClienteTouched]);
 
   useEffect(() => {
     if (!selectedProducto) {
@@ -567,6 +611,7 @@ export default function NuevaCotizacionPage() {
       fecha: nowIso,
       vencimiento: venc,
       subtotal: round2(toNumber(computed.subtotal, 0)),
+      descuento_cliente_pct: clampPct(toNumber(descuentoClientePct, 0)),
       iva_pct: clampPct(toNumber(ivaPct, 16)),
       iva: round2(toNumber(computed.iva, 0)),
       total: round2(toNumber(computed.total, 0)),
@@ -627,6 +672,17 @@ export default function NuevaCotizacionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteId, contactoNombre, cantidad, productoId]);
 
+  const clearConceptoForm = () => {
+    setEditingConceptoId(null);
+    setCantidad(1);
+    setProductoId("");
+    setProductoSearch("");
+    setProductoDescripcion("");
+    setUnidad("");
+    setPrecioLista(0);
+    setDescuentoPct(0);
+  };
+
   const addConcepto = () => {
     const v = validateClienteContacto();
     if (!v.ok) {
@@ -686,6 +742,7 @@ export default function NuevaCotizacionPage() {
 
     setCantidad(1);
     setProductoId("");
+    setProductoSearch("");
     setProductoDescripcion("");
     setUnidad("");
     setPrecioLista(0);
@@ -703,6 +760,7 @@ export default function NuevaCotizacionPage() {
     setEditingConceptoId(id);
     setCantidad(toNumber(c.cantidad, 1));
     setProductoId(c.producto_id ?? "");
+    setProductoSearch(String(c.producto_nombre || ""));
     setProductoDescripcion(String(c.producto_descripcion || ""));
     setUnidad(String(c.unidad || ""));
     setPrecioLista(toNumber(c.precio_lista, 0));
@@ -717,13 +775,16 @@ export default function NuevaCotizacionPage() {
       return { ...c, pu, importe };
     });
 
-    const subtotal = lines.reduce((acc, l) => acc + (Number.isFinite(l.importe) ? l.importe : 0), 0);
+    const subtotalLineas = lines.reduce((acc, l) => acc + (Number.isFinite(l.importe) ? l.importe : 0), 0);
+    const descClientePct = clampPct(toNumber(descuentoClientePct, 0));
+    const descuentoCliente = subtotalLineas * (descClientePct / 100);
+    const subtotal = Math.max(0, subtotalLineas - descuentoCliente);
     const ivaP = clampPct(toNumber(ivaPct, 16));
     const iva = subtotal * (ivaP / 100);
     const total = subtotal + iva;
 
-    return { lines, subtotal, iva, total };
-  }, [conceptos, ivaPct]);
+    return { lines, subtotalLineas, descClientePct, descuentoCliente, subtotal, iva, total };
+  }, [conceptos, ivaPct, descuentoClientePct]);
 
   const resetAll = () => {
     setClienteId("");
@@ -735,13 +796,30 @@ export default function NuevaCotizacionPage() {
     setUnidad("");
     setPrecioLista(0);
     setDescuentoPct(0);
+    setDescuentoClientePct(0);
+    setDescuentoClienteTouched(false);
     setIvaPct(16);
 
     setEditingConceptoId(null);
 
     setConceptos([]);
     setTextoArribaPrecios("A continuación cotización solicitada:");
-    setTerminos("Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación");
+    setTerminos(
+      "TÉRMINOS Y CONDICIONES\n\n" +
+        "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
+        "- No se programan trabajos sin anticipo confirmado.\n" +
+        "- Precios expresados en pesos mexicanos, no incluyen IVA salvo indicación contraria.\n" +
+        "- Vigencia de la cotización: 15 días naturales.\n" +
+        "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
+        "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
+        "- La garantía no aplica por mal uso, golpes, humedad, variaciones de voltaje o manipulación por terceros.\n" +
+        "- La cotización incluye únicamente los conceptos especificados; trabajos adicionales se cotizan aparte.\n" +
+        "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
+        "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
+        "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
+        "- El anticipo no es reembolsable en caso de cancelación.\n" +
+        "- La aceptación de la cotización implica conformidad con estos términos."
+    );
     setVigenciaIso(todayIso);
   };
 
@@ -788,6 +866,7 @@ export default function NuevaCotizacionPage() {
       fecha: nowIso,
       vencimiento: venc,
       subtotal: round2(toNumber(computed.subtotal, 0)),
+      descuento_cliente_pct: clampPct(toNumber(descuentoClientePct, 0)),
       iva_pct: clampPct(toNumber(ivaPct, 16)),
       iva: round2(toNumber(computed.iva, 0)),
       total: round2(toNumber(computed.total, 0)),
@@ -889,8 +968,8 @@ export default function NuevaCotizacionPage() {
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Nueva Cotización</h2>
-              <p className="text-[12px] text-gray-500 dark:text-gray-400">Completa los datos del cliente y agrega productos/servicios.</p>
+              <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">Nueva Cotización</h2>
+              <p className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">Completa los datos del cliente y agrega productos/servicios.</p>
             </div>
             <div className="flex items-center justify-end gap-2">
               <button
@@ -979,11 +1058,46 @@ export default function NuevaCotizacionPage() {
                         ))}
                       </datalist>
                     </div>
+
+                    <div>
+                      <Label>Descuento de Cliente (%)</Label>
+                      <Input
+                        type="number"
+                        value={String(descuentoClientePct)}
+                        onChange={(e) => {
+                          setDescuentoClienteTouched(true);
+                          setDescuentoClientePct(clampPct(toNumber(e.target.value, 0)));
+                        }}
+                        min="0"
+                        max="100"
+                        step={0.01}
+                        placeholder="0"
+                      />
+                    </div>
                   </div>
                 </div>
               </ComponentCard>
 
-              <ComponentCard title="Agregar productos o servicios">
+              <ComponentCard
+                title="Agregar productos o servicios"
+                actions={
+                  <button
+                    type="button"
+                    onClick={clearConceptoForm}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-gray-200 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200 dark:hover:bg-gray-800"
+                    aria-label="Limpiar sección de producto"
+                    title="Limpiar"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4h8v2" />
+                      <path d="M6 6l1 16h10l1-16" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                    </svg>
+                  </button>
+                }
+              >
                 <div className="p-5">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-x-6">
                     <div className="lg:col-span-2">
@@ -999,7 +1113,6 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div className="lg:col-span-5">
-                      <Label>Productos o servicios</Label>
                       <div className="mt-1">
                         <ActionSearchBar
                           label={loadingProductos ? "Cargando productos..." : "Productos o servicios"}
@@ -1062,15 +1175,15 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div className="lg:col-span-12">
-                      <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-gray-900/40 px-3 py-2">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 text-[12px] text-gray-600 dark:text-gray-300">
-                            <span className="text-gray-500 dark:text-gray-400">Total</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{formatMoney(preview.pu)}</span>
+                      <div className="rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 px-4 py-3 shadow-theme-xs">
+                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+                          <div>
+                            <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Precio unitario</div>
+                            <div className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(preview.pu)}</div>
                           </div>
-                          <div className="flex items-center gap-2 text-[12px] text-gray-600 dark:text-gray-300">
-                            <span className="text-gray-500 dark:text-gray-400">Importe</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{formatMoney(preview.importe)}</span>
+                          <div className="text-right">
+                            <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Importe</div>
+                            <div className="mt-0.5 text-base font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(preview.importe)}</div>
                           </div>
                         </div>
                       </div>
@@ -1170,23 +1283,29 @@ export default function NuevaCotizacionPage() {
               </ComponentCard>
 
               <ComponentCard title="Notas">
-                <div className="p-4 grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-5">
                   <div>
-                    <Label>Este texto aparecerá arriba de los precios. Max. 1500 caracteres.</Label>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <Label>Texto arriba de los precios</Label>
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">Máx. 5000</span>
+                    </div>
                     <textarea
                       value={textoArribaPrecios}
-                      onChange={(e) => setTextoArribaPrecios(e.target.value.slice(0, 1500))}
-                      className={textareaLikeClassName}
+                      onChange={(e) => setTextoArribaPrecios(e.target.value.slice(0, 5000))}
+                      className={`${textareaLikeClassName} mt-2 rounded-xl bg-white/70 dark:bg-gray-900/40 border-gray-200/70 dark:border-white/10`}
                       rows={4}
                     />
                   </div>
                   <div>
-                    <Label>Términos y condiciones (puedes agregar tu datos bancarios para pago). Max. 1500 caracteres.</Label>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <Label>Términos y condiciones</Label>
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">Máx. 5000</span>
+                    </div>
                     <textarea
                       value={terminos}
-                      onChange={(e) => setTerminos(e.target.value.slice(0, 1500))}
-                      className={textareaLikeClassName}
-                      rows={4}
+                      onChange={(e) => setTerminos(e.target.value.slice(0, 5000))}
+                      className={`${textareaLikeClassName} mt-2 rounded-xl bg-white/70 dark:bg-gray-900/40 border-gray-200/70 dark:border-white/10`}
+                      rows={12}
                     />
                   </div>
                 </div>
@@ -1204,18 +1323,31 @@ export default function NuevaCotizacionPage() {
                       <span>{formatDMY(todayIso)}</span>
                     </div>
 
-                    <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-gray-900/40 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-gray-500 dark:text-gray-400">Subtotal</span>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatMoney(computed.subtotal)}</span>
+                    <div className="rounded-2xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 p-4 shadow-theme-xs">
+                      <div className="flex items-baseline justify-between">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Total</div>
+                        <div className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.total)}</div>
                       </div>
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-[12px] text-gray-500 dark:text-gray-400">IVA ({clampPct(toNumber(ivaPct, 16)).toFixed(2)}%)</span>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatMoney(computed.iva)}</span>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-white/10 flex items-center justify-between">
-                        <span className="text-[12px] text-gray-700 dark:text-gray-200">Total</span>
-                        <span className="text-base font-semibold text-gray-900 dark:text-white">{formatMoney(computed.total)}</span>
+
+                      <div className="mt-3 pt-3 border-t border-gray-200/70 dark:border-white/10 grid grid-cols-1 gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[12px] text-gray-500 dark:text-gray-400">Subtotal</span>
+                          <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.subtotalLineas)}</span>
+                        </div>
+                        {!!toNumber(computed.descClientePct, 0) && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[12px] text-gray-500 dark:text-gray-400">Descuento cliente ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</span>
+                            <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">-{formatMoney(computed.descuentoCliente)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[12px] text-gray-500 dark:text-gray-400">Subtotal con descuento</span>
+                          <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.subtotal)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[12px] text-gray-500 dark:text-gray-400">IVA ({clampPct(toNumber(ivaPct, 16)).toFixed(2)}%)</span>
+                          <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.iva)}</span>
+                        </div>
                       </div>
                     </div>
 
@@ -1238,7 +1370,7 @@ export default function NuevaCotizacionPage() {
                         onClick={() => {
                           void handleSaveCotizacion(true);
                         }}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {editingCotizacionId ? "Actualizar Cotización" : "Guardar Cotización"}
                       </button>
@@ -1246,7 +1378,7 @@ export default function NuevaCotizacionPage() {
                         type="button"
                         disabled={!computed.lines.length || previewLoading}
                         onClick={handlePreviewPdf}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2.5 text-xs font-medium text-blue-700 shadow-theme-xs hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-900/40 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-xs font-semibold text-blue-700 shadow-theme-xs hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-900/40 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-500/10"
                       >
                         {previewLoading ? (
                           <>
@@ -1256,13 +1388,13 @@ export default function NuevaCotizacionPage() {
                             Generando...
                           </>
                         ) : (
-                          "Vista Previa"
+                          "Vista previa PDF"
                         )}
                       </button>
                       <button
                         type="button"
                         onClick={resetAll}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-xs font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs font-semibold text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200"
                       >
                         Limpiar
                       </button>

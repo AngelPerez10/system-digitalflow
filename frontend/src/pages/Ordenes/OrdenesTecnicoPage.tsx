@@ -24,6 +24,7 @@ import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 interface Orden {
   id: number;
   idx: number;
+  folio?: string | null;
   cliente_id: number | null;
   cliente: string;
   direccion: string;
@@ -397,6 +398,7 @@ export default function OrdenesTecnico() {
 
   // Form state
   const [formData, setFormData] = useState({
+    folio: "",
     cliente_id: null as number | null,
     cliente: "",
     direccion: "",
@@ -851,6 +853,7 @@ export default function OrdenesTecnico() {
         await fetchOrdenes();
         setShowModal(false);
         setFormData({
+          folio: "",
           cliente_id: null,
           cliente: "",
           direccion: "",
@@ -965,6 +968,7 @@ export default function OrdenesTecnico() {
     setEditingOrden(orden);
     setTecnicoSearch('');
     setFormData({
+      folio: ((orden as any).folio ?? '').toString(),
       cliente_id: orden.cliente_id || null,
       cliente: orden.cliente || "",
       direccion: orden.direccion || "",
@@ -990,6 +994,7 @@ export default function OrdenesTecnico() {
   const handleCloseModal = () => {
     setShowModal(false);
     setFormData({
+      folio: "",
       cliente_id: null,
       cliente: "",
       direccion: "",
@@ -1560,6 +1565,7 @@ export default function OrdenesTecnico() {
                   const fecha = orden.fecha_inicio || orden.fecha_creacion || '';
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
+                  const folioDisplay = (orden?.folio ?? '').toString().trim() || (orden.idx ?? (startIndex + idx + 1));
                   const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
                   let tecnicoNombre = '-';
                   if (tecnico) {
@@ -1573,7 +1579,7 @@ export default function OrdenesTecnico() {
                   }
                   return (
                     <TableRow key={orden.id ?? idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                      <TableCell className="px-2 py-2 whitespace-nowrap w-[70px] min-w-[60px]">{orden.idx ?? (startIndex + idx + 1)}</TableCell>
+                      <TableCell className="px-2 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
                       <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
                         {orden.direccion && (
@@ -1748,7 +1754,7 @@ export default function OrdenesTecnico() {
       </ComponentCard>
 
       {/* Modales de detalle */}
-      <Modal isOpen={problematicaModal.open} onClose={() => setProblematicaModal({ open: false, content: '' })} className="max-w-2xl w-[92vw]">
+      <Modal isOpen={problematicaModal.open} onClose={() => setProblematicaModal({ open: false, content: '' })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
         <div className="p-0 overflow-hidden rounded-2xl">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
             <div className="flex items-center gap-3">
@@ -1770,7 +1776,7 @@ export default function OrdenesTecnico() {
         </div>
       </Modal>
 
-      <Modal isOpen={serviciosModal.open} onClose={() => setServiciosModal({ open: false, content: [] })} className="max-w-2xl w-[92vw]">
+      <Modal isOpen={serviciosModal.open} onClose={() => setServiciosModal({ open: false, content: [] })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
         <div className="p-0 overflow-hidden rounded-2xl">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
             <div className="flex items-center gap-3">
@@ -1803,7 +1809,7 @@ export default function OrdenesTecnico() {
         </div>
       </Modal>
 
-      <Modal isOpen={comentarioModal.open} onClose={() => setComentarioModal({ open: false, content: '' })} className="max-w-2xl w-[92vw]">
+      <Modal isOpen={comentarioModal.open} onClose={() => setComentarioModal({ open: false, content: '' })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
         <div className="p-0 overflow-hidden rounded-2xl">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
             <div className="flex items-center gap-3">
@@ -1826,7 +1832,7 @@ export default function OrdenesTecnico() {
       </Modal>
 
       {/* Modal Crear/Editar */}
-      <Modal isOpen={showModal} onClose={handleCloseModal} className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden">
+      <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden">
         <div>
           {/* Header */}
           <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-white/10">
@@ -1867,6 +1873,20 @@ export default function OrdenesTecnico() {
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
               </div>
               <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                {editingOrden && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Folio</label>
+                    <input
+                      type="text"
+                      value={(formData as any).folio || ''}
+                      readOnly={isReadOnly}
+                      disabled={isReadOnly}
+                      onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
+                      className={`w-full h-10 rounded-lg border border-gray-300 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
+                      placeholder="Ej: ATX2000"
+                    />
+                  </div>
+                )}
                 {/* 1. Cliente con ActionSearchBar */}
                 <div className="flex items-start gap-2">
                   <div className="flex-1">
@@ -2391,7 +2411,7 @@ export default function OrdenesTecnico() {
                   </div>
                 )}
                 {/* Modal Confirmación eliminar foto */}
-                <Modal isOpen={confirmDelete.open} onClose={() => setConfirmDelete({ open: false, index: null, url: null })} className="max-w-sm p-6">
+                <Modal isOpen={confirmDelete.open} onClose={() => setConfirmDelete({ open: false, index: null, url: null })} closeOnBackdropClick={false} className="max-w-sm p-6">
                   <div className='flex flex-col gap-4'>
                     <div className='text-center'>
                       <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30'>
@@ -2442,7 +2462,7 @@ export default function OrdenesTecnico() {
       {/* Modal Eliminar */}
       {
         ordenToDelete && (
-          <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-full max-w-md mx-4 sm:mx-auto">
+          <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} closeOnBackdropClick={false} className="w-full max-w-md mx-4 sm:mx-auto">
             <div className="p-6">
               <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-error-100 dark:bg-error-900/30">
                 <svg className="w-6 h-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2478,6 +2498,7 @@ export default function OrdenesTecnico() {
       <Modal
         isOpen={showMapModal}
         onClose={() => setShowMapModal(false)}
+        closeOnBackdropClick={false}
         className="w-[96vw] sm:w-[90vw] md:w-[80vw] max-w-3xl mx-0 sm:mx-auto"
       >
         <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-3xl">

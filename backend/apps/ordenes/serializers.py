@@ -23,6 +23,7 @@ class OrdenSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'idx',
+            'folio',
             'cliente_id',
             'cliente_nombre',
             'cliente',

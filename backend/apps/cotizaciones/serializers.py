@@ -63,6 +63,7 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'fecha',
             'vencimiento',
             'subtotal',
+            'descuento_cliente_pct',
             'iva_pct',
             'iva',
             'total',

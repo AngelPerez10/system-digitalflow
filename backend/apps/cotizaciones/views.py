@@ -99,6 +99,34 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             s = s.replace('MÃ©xico', 'México')
             return s
 
+        def render_terms_html(raw_terms: str) -> str:
+            text = str(raw_terms or '').strip()
+            if not text:
+                return ""
+
+            lines = [ln.strip() for ln in text.splitlines()]
+            lines = [ln for ln in lines if ln]
+            if not lines:
+                return ""
+
+            title = lines[0]
+            rest = lines[1:]
+
+            items = []
+            for ln in rest:
+                if ln.startswith('- '):
+                    items.append(ln[2:].strip())
+                else:
+                    items.append(ln)
+
+            items_html = "".join([f"<li>{esc(x)}</li>" for x in items if str(x).strip()])
+            if items_html:
+                body_html = f"<ul>{items_html}</ul>"
+            else:
+                body_html = f"<div class='terms-text'>{esc(text)}</div>"
+
+            return f"<div class='terms-title'>{esc(title)}</div>{body_html}"
+
         # Embed logo as data URI (same pattern used in ordenes/views.py)
         logo_data_uri = ""
         try:
@@ -194,8 +222,23 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         total = float(cotizacion.total or 0)
         iva_pct = float(cotizacion.iva_pct or 0)
 
-        base_subtotal = subtotal if subtotal else net_subtotal_calc
-        descuento_total = max(0.0, float(gross_subtotal or 0) - float(base_subtotal or 0))
+        descuento_cliente_pct = 0.0
+        try:
+            descuento_cliente_pct = float(getattr(cotizacion, 'descuento_cliente_pct', 0) or 0)
+        except Exception:
+            descuento_cliente_pct = 0.0
+
+        subtotal_lineas = net_subtotal_calc if net_subtotal_calc else subtotal
+        if subtotal_lineas < 0:
+            subtotal_lineas = 0.0
+
+        if descuento_cliente_pct < 0:
+            descuento_cliente_pct = 0.0
+        if descuento_cliente_pct > 100:
+            descuento_cliente_pct = 100.0
+
+        descuento_cliente_monto = subtotal_lineas * (descuento_cliente_pct / 100.0)
+        subtotal_con_descuento_cliente = max(0.0, subtotal_lineas - descuento_cliente_monto)
 
         html = f"""<!doctype html>
 <html lang='es'>
@@ -239,12 +282,17 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     .img.ph {{ background: #f9fafb; border-style: dashed; }}
     .name {{ font-weight: 800; color: #111827; }}
     .desc {{ color: #4b5563; }}
-    .totals {{ margin-top: 14px; width: 100%; max-width: 340px; margin-left: auto; border-top: 1px solid #e5e7eb; padding-top: 10px; }}
+    .totals {{ margin-top: 14px; width: 100%; max-width: 340px; margin-left: auto; margin-right: 16px; border-top: 1px solid #e5e7eb; padding-top: 10px; }}
     .totals .row {{ display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }}
     .totals .row strong {{ font-weight: 950; }}
-    .terms {{ margin-top: 14px; border-top: 1px solid #e5e7eb; padding-top: 10px; font-size: 11px; color: #374151; white-space: pre-line; }}
+    .terms {{ margin-top: 14px; border-top: 1px solid #e5e7eb; padding-top: 10px; font-size: 9px; line-height: 1.35; color: #374151; }}
+    .terms .terms-title {{ font-size: 10px; font-weight: 950; letter-spacing: .08em; text-transform: uppercase; color: #111827; margin-bottom: 6px; }}
+    .terms ul {{ margin: 0; padding-left: 16px; }}
+    .terms li {{ margin: 0 0 4px 0; }}
+    .terms .terms-text {{ white-space: pre-line; }}
+    .terms-spacer {{ height: 96px; }}
     .pagebreak {{ page-break-before: always; }}
-    .deposit {{ margin-top: 8px; }}
+    .deposit {{ margin-top: 44px; }}
     .deposit-head {{ display: grid; grid-template-columns: 1fr; align-items: center; }}
     .deposit .title {{ font-size: 18px; font-weight: 950; text-align: center; letter-spacing: .06em; color: #111827; }}
     .deposit .sub {{ margin-top: 6px; text-align: center; font-size: 11px; color: #6b7280; }}
@@ -356,16 +404,18 @@ class CotizacionViewSet(viewsets.ModelViewSet):
   </div>
 
   <div class='totals'>
-    <div class='row'><span>Subtotal</span><strong>$ {subtotal:,.2f}</strong></div>
-    <div class='row'><span>Descuento</span><strong>$ {descuento_total:,.2f}</strong></div>
+    <div class='row'><span>Subtotal</span><strong>$ {subtotal_lineas:,.2f}</strong></div>
+    {f"<div class='row'><span>Descuento cliente ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_cliente_monto:,.2f}</strong></div>" if descuento_cliente_pct else ""}
+    <div class='row'><span>Subtotal con descuento</span><strong>$ {subtotal_con_descuento_cliente:,.2f}</strong></div>
     <div class='row'><span>IVA ({iva_pct:,.2f}%)</span><strong>$ {iva:,.2f}</strong></div>
     <div class='row'><span>Total</span><strong>$ {total:,.2f}</strong></div>
   </div>
 
-  <div class='terms'>{esc(cotizacion.terminos or '')}</div>
-
   <div class='pagebreak'></div>
 
+  <div class='terms'>{render_terms_html(cotizacion.terminos or '')}</div>
+
+  <div class='terms-spacer'></div>
   <div class='deposit'>
     <div class='deposit-head'>
       <div class='title'>FICHA DE DEPÓSITO</div>
@@ -515,6 +565,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             fecha=data.get('fecha'),
             vencimiento=data.get('vencimiento'),
             subtotal=data.get('subtotal', 0),
+            descuento_cliente_pct=data.get('descuento_cliente_pct', 0),
             iva_pct=data.get('iva_pct', 0),
             iva=data.get('iva', 0),
             total=data.get('total', 0),

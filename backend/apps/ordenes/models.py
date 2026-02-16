@@ -19,6 +19,8 @@ PRIORIDAD_CHOICES = [
 class Orden(models.Model):
     idx = models.IntegerField(unique=True, db_index=True, null=True, blank=True)
 
+    folio = models.CharField(max_length=50, unique=True, db_index=True, null=True, blank=True)
+
     cliente_id = models.ForeignKey(
         'clientes.Cliente',
         on_delete=models.SET_NULL,
@@ -90,7 +92,8 @@ class Orden(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Orden #{self.idx} - {self.cliente or 'Sin cliente'}"
+        display = self.folio or self.idx
+        return f"Orden #{display} - {self.cliente or 'Sin cliente'}"
 
     class Meta:
         ordering = ['idx']

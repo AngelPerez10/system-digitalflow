@@ -6,6 +6,17 @@ User = get_user_model()
 
 
 class Tarea(models.Model):
+    ESTADO_BACKLOG = 'BACKLOG'
+    ESTADO_TODO = 'TODO'
+    ESTADO_EN_PROGRESO = 'EN_PROGRESO'
+    ESTADO_HECHO = 'HECHO'
+    ESTADO_CHOICES = [
+        (ESTADO_BACKLOG, 'Backlog'),
+        (ESTADO_TODO, 'Por hacer'),
+        (ESTADO_EN_PROGRESO, 'En progreso'),
+        (ESTADO_HECHO, 'Hecho'),
+    ]
+
     usuario_asignado = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -13,6 +24,10 @@ class Tarea(models.Model):
         blank=True,
         related_name='tareas_asignadas',
     )
+
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default=ESTADO_BACKLOG)
+    orden = models.PositiveIntegerField(default=0)
+
     descripcion = models.TextField(blank=True, null=True)
     fotos_urls = models.JSONField(default=list, blank=True)
     
@@ -28,7 +43,7 @@ class Tarea(models.Model):
     )
 
     class Meta:
-        ordering = ['-fecha_creacion']
+        ordering = ['estado', 'orden', '-fecha_creacion']
         verbose_name = 'Tarea'
         verbose_name_plural = 'Tareas'
 

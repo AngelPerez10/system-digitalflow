@@ -323,6 +323,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
         status_border = "#86efac" if orden.status == "resuelto" else "#fcd34d"
         status_fg = "#166534" if orden.status == "resuelto" else "#92400e"
 
+        folio_display = getattr(orden, 'folio', None) or getattr(orden, 'idx', None) or '-'
+
         servicios_pills_html = "".join(
             f"<span class='service-pill'>{esc(s)}</span>" for s in servicios if s
         ) or "<span class='muted'>-</span>"
@@ -451,7 +453,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
           </div>
         </div>
         <div class='status'>
-          <div class='folio'><b>FOLIO:</b> <span class='num'>{esc(orden.idx or '-')}</span></div>
+          <div class='folio'><b>FOLIO:</b> <span class='num'>{esc(folio_display)}</span></div>
           <div class='pill' style='background: {status_bg}; border-color: {status_border}; color: {status_fg};'>
             {esc(status_text)}
           </div>

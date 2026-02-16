@@ -7,14 +7,16 @@ import { Modal } from "@/components/ui/modal";
 import { useDropzone } from "react-dropzone";
 import { apiUrl } from "@/config/api";
 import { MobileTareaList } from "./MobileTareaCard";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { PencilIcon, TrashBinIcon } from "../../icons";
+import { draggable, dropTargetForElements, monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 
 interface Tarea {
   id: number;
   usuario_asignado: number | null;
   usuario_asignado_username?: string;
   usuario_asignado_full_name?: string;
+  estado?: "BACKLOG" | "TODO" | "EN_PROGRESO" | "HECHO";
+  orden?: number;
   descripcion: string;
   fotos_urls: string[];
   fecha_creacion: string;
@@ -499,6 +501,171 @@ export default function TareasTecnicoPage() {
     }
   };
 
+  const KANBAN_COLUMNS = useMemo(
+    () =>
+      [
+        { key: "TODO" as const, label: "Por hacer" },
+        { key: "EN_PROGRESO" as const, label: "En proceso" },
+        { key: "HECHO" as const, label: "Hecho" },
+      ],
+    []
+  );
+
+  const getEstado = (t: Tarea) => {
+    const raw = (t.estado || "BACKLOG") as "BACKLOG" | (typeof KANBAN_COLUMNS)[number]["key"];
+    return (raw === "BACKLOG" ? "TODO" : raw) as (typeof KANBAN_COLUMNS)[number]["key"];
+  };
+
+  const tasksByEstado = useMemo(() => {
+    const grouped: Record<string, Tarea[]> = { TODO: [], EN_PROGRESO: [], HECHO: [] };
+    for (const t of shownList) {
+      grouped[getEstado(t)].push(t);
+    }
+    for (const k of Object.keys(grouped)) {
+      grouped[k].sort((a, b) => {
+        const ao = typeof a.orden === "number" ? a.orden : 0;
+        const bo = typeof b.orden === "number" ? b.orden : 0;
+        if (ao !== bo) return ao - bo;
+        return String(b.fecha_creacion || "").localeCompare(String(a.fecha_creacion || ""));
+      });
+    }
+    return grouped as Record<(typeof KANBAN_COLUMNS)[number]["key"], Tarea[]>;
+  }, [shownList]);
+
+  const updateTarea = async (id: number, patch: Partial<Pick<Tarea, "estado" | "orden">>) => {
+    const token = getToken();
+    if (!token) throw new Error("Sin token");
+    const response = await fetch(apiUrl(`/api/tareas/${id}/`), {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(patch),
+    });
+    if (!response.ok) {
+      let msg = "Error actualizando tarea";
+      try {
+        const data = await response.json();
+        msg = data?.detail || JSON.stringify(data) || msg;
+      } catch {
+        msg = await response.text();
+      }
+      throw new Error(msg);
+    }
+  };
+
+  const persistColumnOrders = async (estado: (typeof KANBAN_COLUMNS)[number]["key"], list: Tarea[]) => {
+    await Promise.all(
+      list.map((t, idx) => {
+        const desiredOrden = idx;
+        if (t.estado === estado && t.orden === desiredOrden) return Promise.resolve();
+        return updateTarea(t.id, { estado, orden: desiredOrden });
+      })
+    );
+  };
+
+  const applyMovePure = (
+    all: Tarea[],
+    sourceId: number,
+    destination: { estado: (typeof KANBAN_COLUMNS)[number]["key"]; index: number }
+  ) => {
+    const list = Array.isArray(all) ? [...all] : [];
+    const srcIdx = list.findIndex((t) => t.id === sourceId);
+    if (srcIdx < 0) return list;
+
+    const task: Tarea = { ...list[srcIdx] };
+    const fromEstado = getEstado(task);
+    list.splice(srcIdx, 1);
+
+    const destEstado = destination.estado;
+    task.estado = destEstado;
+
+    const destExisting = list
+      .filter((t) => getEstado(t) === destEstado)
+      .sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0));
+    const insertAt = Math.max(0, Math.min(destination.index, destExisting.length));
+    destExisting.splice(insertAt, 0, task);
+    destExisting.forEach((t, idx) => (t.orden = idx));
+
+    const fromExisting =
+      fromEstado === destEstado
+        ? []
+        : list
+            .filter((t) => getEstado(t) === fromEstado)
+            .sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0));
+    fromExisting.forEach((t, idx) => (t.orden = idx));
+
+    const movedIds = new Set<number>([...destExisting, ...fromExisting].map((t) => t.id));
+    const rest = list.filter((t) => !movedIds.has(t.id));
+    return [...rest, ...fromExisting, ...destExisting];
+  };
+
+  const kanbanRootRef = useRef<HTMLDivElement | null>(null);
+  const dndCleanupRef = useRef(new WeakMap<Element, () => void>());
+  useEffect(() => {
+    const root = kanbanRootRef.current;
+    if (!root) return;
+    return monitorForElements({
+      onDrop: async ({ source, location }) => {
+        const sourceData: any = source?.data;
+        if (!sourceData || sourceData.type !== "tarea") return;
+        const sourceId = Number(sourceData.id);
+        if (!sourceId) return;
+
+        const task = tareas.find((t) => t.id === sourceId);
+        if (!isOwnTask(task)) return;
+
+        const targets = location.current.dropTargets;
+        const primary = targets && targets.length ? targets[0] : null;
+        const destData: any = primary?.data;
+        if (!destData) return;
+
+        let destEstado: (typeof KANBAN_COLUMNS)[number]["key"] | null = null;
+        let destIndex: number | null = null;
+
+        if (destData.kind === "card") {
+          destEstado = destData.estado;
+          destIndex = Number(destData.index);
+        }
+        if (destData.kind === "column") {
+          destEstado = destData.estado;
+          destIndex = Number(destData.index);
+        }
+
+        if (!destEstado || destIndex === null || Number.isNaN(destIndex)) return;
+
+        const prevSnapshot = tareas;
+        const nextSnapshot = applyMovePure(prevSnapshot, sourceId, { estado: destEstado, index: destIndex });
+        setTareas(nextSnapshot);
+
+        try {
+          const destList = nextSnapshot
+            .filter((t) => getEstado(t) === destEstado)
+            .sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0));
+          const fromTask = prevSnapshot.find((t) => t.id === sourceId);
+          const fromEstado = fromTask ? getEstado(fromTask) : ("TODO" as (typeof KANBAN_COLUMNS)[number]["key"]);
+          const fromList =
+            fromEstado === destEstado
+              ? []
+              : nextSnapshot
+                  .filter((t) => getEstado(t) === fromEstado)
+                  .sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0));
+
+          await Promise.all([
+            persistColumnOrders(destEstado, destList),
+            fromEstado === destEstado ? Promise.resolve() : persistColumnOrders(fromEstado, fromList),
+          ]);
+        } catch (e) {
+          setTareas(prevSnapshot);
+          setAlert({ show: true, variant: "error", title: "No se pudo mover", message: String(e) });
+          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4500);
+          await fetchTareas();
+        }
+      },
+    });
+  }, [tareas, myId]);
+
   return (
     <>
       <PageMeta title="Mis tareas" description="Tareas asignadas al técnico" />
@@ -647,117 +814,134 @@ export default function TareasTecnicoPage() {
                 canDelete={canTareasDelete}
               />
 
-              <div className="hidden md:block overflow-x-auto">
-                <Table className="w-full min-w-[760px] sm:min-w-0 sm:table-fixed">
-                  <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sm:sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
-                    <TableRow>
-                      <TableCell isHeader className="px-2 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-gray-700 dark:text-gray-300">
-                        Usuario
-                      </TableCell>
-                      <TableCell isHeader className="px-2 py-2 text-left w-1/5 min-w-[170px] whitespace-nowrap text-gray-700 dark:text-gray-300">
-                        Descripción
-                      </TableCell>
-                      <TableCell isHeader className="px-2 py-2 text-left w-[110px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">
-                        Fotos
-                      </TableCell>
-                      <TableCell isHeader className="px-2 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">
-                        Creación
-                      </TableCell>
-                      {(canTareasEdit || canTareasDelete) && (
-                        <TableCell isHeader className="px-2 py-2 text-center w-[120px] min-w-[120px] whitespace-nowrap text-gray-700 dark:text-gray-300">
-                          Acciones
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[11px] sm:text-[12px] text-gray-700 dark:text-gray-200">
-                    {shownList.map((tarea) => {
-                      const usuarioNombre = tarea.usuario_asignado_full_name || tarea.usuario_asignado_username || "-";
-                      const initial = usuarioNombre && usuarioNombre !== "-" ? usuarioNombre.slice(0, 1).toUpperCase() : "-";
-                      const canEditRow = canTareasEdit && isOwnTask(tarea);
-                      const canDeleteRow = canTareasDelete && isOwnTask(tarea);
+              <div ref={kanbanRootRef} className="hidden md:block">
+                <div className="overflow-x-auto md:overflow-visible -mx-2 px-2">
+                  <div className="min-w-[680px] md:min-w-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 rounded-2xl bg-gray-100/70 dark:bg-gray-950/20 p-2">
+                    {KANBAN_COLUMNS.map((col) => {
+                      const columnRef = (el: HTMLDivElement | null) => {
+                        if (!el) return;
+                        const existing = dndCleanupRef.current.get(el);
+                        if (existing) existing();
+                        const cleanup = dropTargetForElements({
+                          element: el,
+                          getData: () => ({
+                            kind: "column",
+                            estado: col.key,
+                            index: (tasksByEstado[col.key] || []).length,
+                          }),
+                        });
+                        dndCleanupRef.current.set(el, cleanup);
+                      };
+
+                      const list = tasksByEstado[col.key] || [];
                       return (
-                        <TableRow key={tarea.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                          <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-2/5 min-w-[220px]">
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300 text-xs font-semibold">
-                                {initial}
-                              </span>
-                              <div className="min-w-0">
-                                <div className="font-medium truncate">{usuarioNombre}</div>
-                              </div>
+                        <div
+                          key={col.key}
+                          ref={columnRef}
+                          className="rounded-2xl border border-gray-200/80 dark:border-white/10 bg-gray-50/90 dark:bg-gray-900/50 p-3 shadow-theme-xs"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <div className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight">{col.label}</div>
+                            <div className="text-[11px] px-2 py-0.5 rounded-full bg-white/90 dark:bg-white/10 border border-gray-200/80 dark:border-white/10 text-gray-700 dark:text-gray-300">
+                              {list.length}
                             </div>
-                          </TableCell>
-                          <TableCell className="px-2 py-2 w-1/5 min-w-[170px] whitespace-normal">
-                            <button
-                              type="button"
-                              onClick={() => openDescripcionModal(tarea)}
-                              className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                            >
-                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M4 19.5V4a2 2 0 0 1 2-2h10l4 4v13.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
-                                <path d="M14 2v4h4" />
-                                <path d="M8 10h8" />
-                                <path d="M8 14h8" />
-                              </svg>
-                              Descripción
-                            </button>
-                          </TableCell>
-                          <TableCell className="px-2 py-2 w-[110px] min-w-[110px] whitespace-normal">
-                            <button
-                              type="button"
-                              onClick={() => openFotosModal(tarea)}
-                              className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                            >
-                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
-                                <circle cx="12" cy="13" r="3" />
-                              </svg>
-                              Fotos
-                            </button>
-                          </TableCell>
-                          <TableCell className="px-2 py-2 whitespace-nowrap w-[130px] min-w-[130px]">
-                            <div className="text-[12px] text-gray-700 dark:text-gray-300">{formatDate(tarea.fecha_creacion)}</div>
-                          </TableCell>
-                          {(canTareasEdit || canTareasDelete) && (
-                            <TableCell className="px-2 py-2 text-center w-[120px] min-w-[120px]">
-                              <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
-                                {canEditRow && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEdit(tarea)}
-                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
-                                    title="Editar"
-                                    aria-label="Editar"
-                                  >
-                                    <PencilIcon className="w-4 h-4" />
-                                  </button>
-                                )}
-                                {canDeleteRow && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteClick(tarea)}
-                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
-                                    title="Eliminar"
-                                    aria-label="Eliminar"
-                                  >
-                                    <TrashBinIcon className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </div>
-                            </TableCell>
-                          )}
-                        </TableRow>
+                          </div>
+
+                          <div className="space-y-2 min-h-[60px]">
+                            {list.map((tarea, idx) => {
+                              const usuarioNombre = tarea.usuario_asignado_full_name || tarea.usuario_asignado_username || "-";
+                              const initial = usuarioNombre && usuarioNombre !== "-" ? usuarioNombre.slice(0, 1).toUpperCase() : "-";
+                              const canEditRow = canTareasEdit && isOwnTask(tarea);
+                              const canDeleteRow = canTareasDelete && isOwnTask(tarea);
+
+                              const cardRef = (el: HTMLDivElement | null) => {
+                                if (!el) return;
+                                const existing = dndCleanupRef.current.get(el);
+                                if (existing) existing();
+                                const cleanupDrag = draggable({
+                                  element: el,
+                                  getInitialData: () => ({ type: "tarea", id: tarea.id }),
+                                });
+                                const cleanupDrop = dropTargetForElements({
+                                  element: el,
+                                  getData: () => ({ kind: "card", estado: col.key, index: idx, id: tarea.id }),
+                                });
+                                dndCleanupRef.current.set(el, () => {
+                                  cleanupDrag();
+                                  cleanupDrop();
+                                });
+                              };
+
+                              return (
+                                <div
+                                  key={tarea.id}
+                                  ref={cardRef}
+                                  className="group rounded-xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-gray-950/30 p-3 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-white/20 transition-all cursor-grab active:cursor-grabbing"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300 text-xs font-semibold">
+                                          {initial}
+                                        </span>
+                                        <div className="min-w-0">
+                                          <div className="text-[12px] font-medium text-gray-900 dark:text-white truncate">{usuarioNombre}</div>
+                                          <div className="text-[11px] text-gray-500 dark:text-gray-400">{formatDate(tarea.fecha_creacion)}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {(canEditRow || canDeleteRow) && (
+                                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                        {canEditRow && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleEdit(tarea)}
+                                            className="inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                                            title="Editar"
+                                            aria-label="Editar"
+                                          >
+                                            <PencilIcon className="w-4 h-4" />
+                                          </button>
+                                        )}
+                                        {canDeleteRow && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteClick(tarea)}
+                                            className="inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                                            title="Eliminar"
+                                            aria-label="Eliminar"
+                                          >
+                                            <TrashBinIcon className="w-4 h-4" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    <button type="button" onClick={() => openDescripcionModal(tarea)} className="text-[11px] text-blue-600 hover:underline dark:text-blue-400">
+                                      Descripción
+                                    </button>
+                                    <button type="button" onClick={() => openFotosModal(tarea)} className="text-[11px] text-blue-600 hover:underline dark:text-blue-400">
+                                      Fotos
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </div>
+                </div>
               </div>
             </>
           )}
         </ComponentCard>
 
-        <Modal isOpen={showModal} onClose={handleCloseModal} className="w-[94vw] max-w-2xl max-h-[92vh] p-0 overflow-hidden">
+        <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-[94vw] max-w-2xl max-h-[92vh] p-0 overflow-hidden">
           <div className="p-0 overflow-hidden rounded-2xl">
             <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/70 backdrop-blur-sm">
               <div className="flex items-center gap-3">
@@ -862,7 +1046,7 @@ export default function TareasTecnicoPage() {
           </div>
         </Modal>
 
-        <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-full max-w-md">
+        <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} closeOnBackdropClick={false} className="w-full max-w-md">
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300">
@@ -899,6 +1083,7 @@ export default function TareasTecnicoPage() {
         <Modal
           isOpen={confirmDelete.open}
           onClose={() => setConfirmDelete({ open: false, index: null, url: null })}
+          closeOnBackdropClick={false}
           className="w-full max-w-md"
         >
           <div className="p-6">
@@ -941,6 +1126,7 @@ export default function TareasTecnicoPage() {
         <Modal
           isOpen={descripcionModal.open}
           onClose={() => setDescripcionModal({ open: false, content: "" })}
+          closeOnBackdropClick={false}
           className="max-w-2xl w-[92vw]"
         >
           <div className="p-0 overflow-hidden rounded-2xl">
@@ -977,7 +1163,7 @@ export default function TareasTecnicoPage() {
           </div>
         </Modal>
 
-        <Modal isOpen={fotosModal.open} onClose={() => setFotosModal({ open: false, urls: [] })} className="max-w-3xl w-[92vw]">
+        <Modal isOpen={fotosModal.open} onClose={() => setFotosModal({ open: false, urls: [] })} closeOnBackdropClick={false} className="max-w-3xl w-[92vw]">
           <div className="p-0 overflow-hidden rounded-2xl">
             <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
               <div className="flex items-center gap-3">
