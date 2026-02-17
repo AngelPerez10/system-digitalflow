@@ -20,6 +20,39 @@ class Cotizacion(models.Model):
     prospecto = models.BooleanField(default=False)
     contacto = models.CharField(max_length=200, blank=True, default='')
 
+    MEDIO_CONTACTO_CHOICES = [
+        ('BNI', 'BNI'),
+        ('REFERIDO', 'Referido'),
+        ('WEB', 'Web'),
+        ('TIENDA_ONLINE', 'Tienda Online'),
+        ('FACEBOOK', 'Facebook'),
+        ('INSTAGRAM', 'Instagram'),
+        ('TIKTOK', 'Tiktok'),
+        ('GOOGLE_MAPS', 'Google Maps'),
+        ('YOUTUBE', 'Youtube'),
+        ('TIENDA_FISICA', 'Tienda Fisica'),
+        ('OTRO', 'Otro'),
+    ]
+
+    STATUS_CHOICES = [
+        ('AUTORIZADA', 'Autorizada'),
+        ('PENDIENTE', 'Pendiente'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+
+    medio_contacto = models.CharField(
+        max_length=30,
+        choices=MEDIO_CONTACTO_CHOICES,
+        blank=True,
+        default='',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        blank=True,
+        default='PENDIENTE',
+    )
+
     fecha = models.DateField(null=True, blank=True)
     vencimiento = models.DateField(null=True, blank=True)
 

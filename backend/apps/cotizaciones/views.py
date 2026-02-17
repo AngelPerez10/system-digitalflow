@@ -45,7 +45,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         'creado_por__first_name',
         'creado_por__last_name',
     ]
-    ordering_fields = ['idx', 'fecha', 'vencimiento', 'fecha_creacion', 'total']
+    ordering_fields = ['idx', 'fecha', 'medio_contacto', 'status', 'fecha_creacion', 'total']
     ordering = ['-idx']
 
     def get_queryset(self):

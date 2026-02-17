@@ -60,6 +60,8 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'cliente',
             'prospecto',
             'contacto',
+            'medio_contacto',
+            'status',
             'fecha',
             'vencimiento',
             'subtotal',
