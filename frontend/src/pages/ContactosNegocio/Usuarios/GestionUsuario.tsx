@@ -31,8 +31,10 @@ type PermissionsPayload = {
   clientes?: Partial<CrudPerms>;
   kpis?: Partial<CrudPerms>;
   productos?: Partial<CrudPerms>;
+  servicios?: Partial<CrudPerms>;
   cotizaciones?: Partial<CrudPerms>;
   tareas?: Partial<CrudPerms>;
+  usuarios?: Partial<CrudPerms>;
 };
 
 type UserAccount = {
@@ -105,9 +107,11 @@ const seedAdminPerms = async (userId: number) => {
     ordenes: { view: true, create: true, edit: true, delete: true },
     clientes: { view: true, create: true, edit: true, delete: true },
     productos: { view: true, create: true, edit: true, delete: true },
+    servicios: { view: true, create: true, edit: true, delete: true },
     cotizaciones: { view: true, create: true, edit: true, delete: true },
     kpis: { view: true, create: true, edit: true, delete: true },
     tareas: { view: true, create: true, edit: true, delete: true },
+    usuarios: { view: true, create: true, edit: true, delete: true },
   };
   const res = await fetch(apiUrl(`/api/users/accounts/${userId}/permissions/`), {
     method: 'PUT',
@@ -217,9 +221,11 @@ export default function UserProfiles() {
       ordenes: { view: true, create: false, edit: false, delete: false },
       clientes: { view: true, create: false, edit: false, delete: false },
       productos: { view: true, create: false, edit: false, delete: false },
+      servicios: { view: true, create: false, edit: false, delete: false },
       cotizaciones: { view: true, create: false, edit: false, delete: false },
       kpis: { view: true, create: false, edit: false, delete: false },
       tareas: { view: true, create: false, edit: false, delete: false },
+      usuarios: { view: true, create: false, edit: false, delete: false },
     };
     const safe = (v: any) => (typeof v === 'boolean' ? v : undefined);
     const mergeCrud = (dst: any, src: any) => {
@@ -235,9 +241,11 @@ export default function UserProfiles() {
       ordenes: mergeCrud(base.ordenes, p?.ordenes),
       clientes: mergeCrud(base.clientes, p?.clientes),
       productos: mergeCrud(base.productos, p?.productos),
+      servicios: mergeCrud(base.servicios, p?.servicios),
       cotizaciones: mergeCrud(base.cotizaciones, p?.cotizaciones),
       kpis: mergeCrud(base.kpis, p?.kpis),
       tareas: mergeCrud(base.tareas, p?.tareas),
+      usuarios: mergeCrud(base.usuarios, p?.usuarios),
     };
   };
 
@@ -298,8 +306,10 @@ export default function UserProfiles() {
         : {
             ...permsForm,
             productos: { view: false, create: false, edit: false, delete: false },
+            servicios: { view: false, create: false, edit: false, delete: false },
             cotizaciones: { view: false, create: false, edit: false, delete: false },
             kpis: { view: false, create: false, edit: false, delete: false },
+            usuarios: { view: false, create: false, edit: false, delete: false },
           };
 
       const res = await fetch(apiUrl(`/api/users/accounts/${permsUser.id}/permissions/`), {
@@ -1080,6 +1090,18 @@ export default function UserProfiles() {
                         </svg>
                       );
                     }
+                    if (key === 'servicios') {
+                      return (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M8 6h13" />
+                          <path d="M8 12h13" />
+                          <path d="M8 18h13" />
+                          <path d="M3 6h.01" />
+                          <path d="M3 12h.01" />
+                          <path d="M3 18h.01" />
+                        </svg>
+                      );
+                    }
                     if (key === 'cotizaciones') {
                       return (
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1100,6 +1122,16 @@ export default function UserProfiles() {
                         </svg>
                       );
                     }
+                    if (key === 'usuarios') {
+                      return (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                          <path d="M17 11.5h3" />
+                          <path d="M18.5 10v3" />
+                        </svg>
+                      );
+                    }
                     return (
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                         <path d="M4 19V5" />
@@ -1112,8 +1144,8 @@ export default function UserProfiles() {
                   const sections = isAdmin
                     ? ([
                         { key: 'escritorio' as const, label: 'Mi escritorio', modules: [{ key: 'tareas' as const, label: 'Tareas' }] },
-                        { key: 'contactos' as const, label: 'Contacto de negocio', modules: [{ key: 'clientes' as const, label: 'Clientes' }] },
-                        { key: 'productos_servicios' as const, label: 'Productos y Servicios', modules: [{ key: 'productos' as const, label: 'Productos' }] },
+                        { key: 'contactos' as const, label: 'Contacto de negocio', modules: [{ key: 'clientes' as const, label: 'Clientes' }, { key: 'usuarios' as const, label: 'Usuarios' }] },
+                        { key: 'productos_servicios' as const, label: 'Productos y Servicios', modules: [{ key: 'productos' as const, label: 'Productos' }, { key: 'servicios' as const, label: 'Servicios' }] },
                         { key: 'compras_gastos' as const, label: 'Compras y Gastos', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
                         { key: 'ventas' as const, label: 'Ventas', modules: [{ key: 'cotizaciones' as const, label: 'Cotizaciones' }] },
                         { key: 'operaciones' as const, label: 'Operaciones', modules: [{ key: 'ordenes' as const, label: 'Órdenes de Servicios' }] },

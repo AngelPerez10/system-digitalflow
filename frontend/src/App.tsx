@@ -27,7 +27,8 @@ import Clientes from "@/pages/ContactosNegocio/Clientes/ClientesPage";
 import EmpresaPage from "@/pages/ContactosNegocio/Clientes/EmpresaPage";
 import PersonasPage from "@/pages/ContactosNegocio/Clientes/PersonasPage";
 import ProveedoresPage from "@/pages/ContactosNegocio/Clientes/ProveedoresPage";
-import Productos from "@/pages/ProductosYServicios/Productos/ProductosPage";
+import Productos from "@/pages/ProductosYServicios/ProductosPage";
+import Servicios from "@/pages/ProductosYServicios/ServiciosPage";
 import KpiVentasPage from "@/pages/Kpis/KpiVentasPage";
 import CorreoPage from "@/pages/MiEscritorio/CorreoPage";
 import TareasTecnicoPage from "@/pages/MiEscritorio/TareasTecnicoPage";
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/personas" element={<RequireAdmin><PersonasPage /></RequireAdmin>} />
             <Route path="/proveedores" element={<RequireAdmin><ProveedoresPage /></RequireAdmin>} />
             <Route path="/productos" element={<RequireAdmin><Productos /></RequireAdmin>} />
+            <Route path="/servicios" element={<RequireAdmin><Servicios /></RequireAdmin>} />
             <Route path="/cotizacion" element={<RequireAdmin><CotizacionesPage /></RequireAdmin>} />
             <Route path="/cotizacion/nueva" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />
             <Route path="/cotizacion/:id/editar" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />

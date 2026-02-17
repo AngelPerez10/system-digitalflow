@@ -59,6 +59,14 @@ interface Usuario {
   is_superuser?: boolean;
 }
 
+interface ServicioCatalogo {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+  categoria?: string;
+  activo?: boolean;
+}
+
 let ordenesPageInitialDataLastLoadAt = 0;
 const ORDENES_PAGE_INIT_THROTTLE_MS = 800;
 
@@ -77,6 +85,49 @@ export default function OrdenesTecnico() {
       return raw ? JSON.parse(raw) : {};
     } catch {
       return {};
+    }
+  };
+
+  const loadServiciosDisponibles = async () => {
+    const fallbackServicios = [
+      'ALARMAS',
+      'RASTREO',
+      'INTERNET',
+      'GPS',
+      'SENSOR DE GASOLINA',
+      'SENSOR DE TEMPERATURA',
+      'CAMARA',
+      'DASHCAM',
+      'VENTA DE PRODUCTO',
+    ];
+
+    const token = getToken();
+    if (!token) {
+      setServiciosDisponibles(fallbackServicios);
+      return;
+    }
+
+    try {
+      const res = await fetch(apiUrl('/api/servicios/?page=1&page_size=500&ordering=idx'), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store' as RequestCache,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setServiciosDisponibles(fallbackServicios);
+        return;
+      }
+
+      const results = Array.isArray((data as any)?.results) ? ((data as any).results as ServicioCatalogo[]) : [];
+      const names = results
+        .filter((s) => s && typeof s.nombre === 'string' && s.nombre.trim() && s.activo !== false)
+        .map((s) => s.nombre.trim());
+
+      const merged = Array.from(new Set([...(names.length ? names : fallbackServicios)]));
+      setServiciosDisponibles(merged);
+    } catch {
+      setServiciosDisponibles(fallbackServicios);
     }
   };
 
@@ -111,6 +162,11 @@ export default function OrdenesTecnico() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    loadServiciosDisponibles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -677,28 +733,6 @@ export default function OrdenesTecnico() {
     } catch (error) {
       console.error("Error al cargar usuarios:", error);
     }
-  };
-
-  const loadServiciosDisponibles = () => {
-    // Lista oficial por defecto (forzar uso y reescribir localStorage)
-    const defaultServicios = [
-      'ALARMAS',
-      'VIDEOVIGILANCIA',
-      'CONTROLES DE ACCESO',
-      'CERCOS ELECTRIFICADOS',
-      'REDES DE COMUNICACIÓN',
-      'AIRES ACONDICIONADOS',
-      'CALENTADORES SOLARES',
-      'PANELES SOLARES',
-      'TIERRA FÍSICA',
-      'TRABAJOS ELÉCTRICOS',
-      'TORRE ARRIOSTRADA',
-      'RASTREADOR GPS',
-      'DASHCAM',
-      'VENTA DE PRODUCTO',
-    ];
-    setServiciosDisponibles(defaultServicios);
-    localStorage.setItem('servicios_disponibles', JSON.stringify(defaultServicios));
   };
 
   const fetchOrdenes = async () => {

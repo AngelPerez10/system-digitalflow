@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import DatePicker from "@/components/form/date-picker";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
@@ -85,8 +83,9 @@ type ApiCotizacion = {
   cliente: string;
   prospecto: boolean;
   contacto: string;
+  medio_contacto?: string;
+  status?: string;
   fecha: string | null;
-  vencimiento: string | null;
   subtotal: number;
   iva_pct: number;
   iva: number;
@@ -265,7 +264,34 @@ export default function NuevaCotizacionPage() {
     return `${yyyy}-${mm}-${dd}`;
   }, []);
 
-  const [vigenciaIso, setVigenciaIso] = useState<string>(todayIso);
+  const MEDIO_CONTACTO_OPTIONS = useMemo(
+    () => [
+      { value: 'BNI', label: 'BNI' },
+      { value: 'REFERIDO', label: 'Referido' },
+      { value: 'WEB', label: 'Web' },
+      { value: 'TIENDA_ONLINE', label: 'Tienda Online' },
+      { value: 'FACEBOOK', label: 'Facebook' },
+      { value: 'INSTAGRAM', label: 'Instagram' },
+      { value: 'TIKTOK', label: 'Tiktok' },
+      { value: 'GOOGLE_MAPS', label: 'Google Maps' },
+      { value: 'YOUTUBE', label: 'Youtube' },
+      { value: 'TIENDA_FISICA', label: 'Tienda Fisica' },
+      { value: 'OTRO', label: 'Otro' },
+    ],
+    []
+  );
+
+  const STATUS_OPTIONS = useMemo(
+    () => [
+      { value: 'AUTORIZADA', label: 'Autorizada' },
+      { value: 'PENDIENTE', label: 'Pendiente' },
+      { value: 'CANCELADA', label: 'Cancelada' },
+    ],
+    []
+  );
+
+  const [medioContacto, setMedioContacto] = useState<string>('');
+  const [status, setStatus] = useState<string>('PENDIENTE');
 
   const formatDMY = (iso: string) => {
     if (!iso) return "";
@@ -432,9 +458,10 @@ export default function NuevaCotizacionPage() {
 
         setClienteId(data.cliente_id ? Number(data.cliente_id) : '');
         setContactoNombre(String(data.contacto || ''));
+        setMedioContacto(String((data as any)?.medio_contacto || ''));
+        setStatus(String((data as any)?.status || 'PENDIENTE'));
         setDescuentoClientePct(clampPct(toNumber((data as any)?.descuento_cliente_pct, 0)));
         setDescuentoClienteTouched(true);
-        setVigenciaIso(String(data.vencimiento || todayIso));
         setIvaPct(clampPct(toNumber(data.iva_pct, 16)));
         setTextoArribaPrecios(String(data.texto_arriba_precios || ''));
         {
@@ -596,7 +623,6 @@ export default function NuevaCotizacionPage() {
     }
 
     const nowIso = todayIso;
-    const venc = String(vigenciaIso || "").trim() || nowIso;
     const clienteNombre = resolveClienteNombre();
     const contacto = String(contactoNombre || "").trim();
 
@@ -608,8 +634,9 @@ export default function NuevaCotizacionPage() {
       cliente: clienteNombre || '',
       prospecto: !!selectedCliente?.is_prospecto,
       contacto: contacto || '',
+      medio_contacto: String(medioContacto || ''),
+      status: String(status || 'PENDIENTE'),
       fecha: nowIso,
-      vencimiento: venc,
       subtotal: round2(toNumber(computed.subtotal, 0)),
       descuento_cliente_pct: clampPct(toNumber(descuentoClientePct, 0)),
       iva_pct: clampPct(toNumber(ivaPct, 16)),
@@ -790,6 +817,9 @@ export default function NuevaCotizacionPage() {
     setClienteId("");
     setContactoNombre("");
 
+    setMedioContacto('');
+    setStatus('PENDIENTE');
+
     setCantidad(1);
     setProductoId("");
     setProductoDescripcion("");
@@ -820,7 +850,6 @@ export default function NuevaCotizacionPage() {
         "- El anticipo no es reembolsable en caso de cancelación.\n" +
         "- La aceptación de la cotización implica conformidad con estos términos."
     );
-    setVigenciaIso(todayIso);
   };
 
   const handlePreviewPdf = async () => {
@@ -854,7 +883,6 @@ export default function NuevaCotizacionPage() {
     }
 
     const nowIso = todayIso;
-    const venc = String(vigenciaIso || "").trim() || nowIso;
     const clienteNombre = resolveClienteNombre();
     const contacto = String(contactoNombre || "").trim();
 
@@ -863,8 +891,9 @@ export default function NuevaCotizacionPage() {
       cliente: clienteNombre || "",
       prospecto: !!selectedCliente?.is_prospecto,
       contacto: contacto || "",
+      medio_contacto: String(medioContacto || ''),
+      status: String(status || 'PENDIENTE'),
       fecha: nowIso,
-      vencimiento: venc,
       subtotal: round2(toNumber(computed.subtotal, 0)),
       descuento_cliente_pct: clampPct(toNumber(descuentoClientePct, 0)),
       iva_pct: clampPct(toNumber(ivaPct, 16)),
@@ -916,7 +945,6 @@ export default function NuevaCotizacionPage() {
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <PageMeta title="Nueva Cotización | Sistema Grupo Intrax GPS" description="Crear nueva cotización" />
-      <PageBreadcrumb pageTitle="Nueva Cotización" />
 
       <Modal isOpen={previewLoading} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
         <div className="p-8">
@@ -1073,6 +1101,33 @@ export default function NuevaCotizacionPage() {
                         step={0.01}
                         placeholder="0"
                       />
+                    </div>
+
+                    <div>
+                      <Label>Medio de Contacto</Label>
+                      <select
+                        value={medioContacto}
+                        onChange={(e) => setMedioContacto(e.target.value)}
+                        className={inputLikeClassName}
+                      >
+                        <option value="">Selecciona</option>
+                        {MEDIO_CONTACTO_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label>Status</Label>
+                      <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputLikeClassName}>
+                        {STATUS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -1293,18 +1348,6 @@ export default function NuevaCotizacionPage() {
                       value={textoArribaPrecios}
                       onChange={(e) => setTextoArribaPrecios(e.target.value.slice(0, 5000))}
                       className={`${textareaLikeClassName} mt-2 rounded-xl bg-white/70 dark:bg-gray-900/40 border-gray-200/70 dark:border-white/10`}
-                      rows={4}
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <Label>Términos y condiciones</Label>
-                      <span className="text-[11px] text-gray-500 dark:text-gray-400">Máx. 5000</span>
-                    </div>
-                    <textarea
-                      value={terminos}
-                      onChange={(e) => setTerminos(e.target.value.slice(0, 5000))}
-                      className={`${textareaLikeClassName} mt-2 rounded-xl bg-white/70 dark:bg-gray-900/40 border-gray-200/70 dark:border-white/10`}
                       rows={12}
                     />
                   </div>
@@ -1349,18 +1392,6 @@ export default function NuevaCotizacionPage() {
                           <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.iva)}</span>
                         </div>
                       </div>
-                    </div>
-
-                    <div>
-                      <Label>Vigencia</Label>
-                      <DatePicker
-                        id="cotizacion-vigencia"
-                        placeholder="Selecciona una fecha"
-                        defaultDate={vigenciaIso}
-                        onChange={(_dates, currentDateString) => {
-                          setVigenciaIso(String(currentDateString || ""));
-                        }}
-                      />
                     </div>
 
                     <div className="grid grid-cols-1 gap-2">

@@ -18,6 +18,14 @@ import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 
+interface ServicioCatalogo {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+  categoria?: string;
+  activo?: boolean;
+}
+
 interface Orden {
   id: number;
   idx: number;
@@ -657,26 +665,48 @@ export default function Ordenes() {
     }
   };
 
-  const loadServiciosDisponibles = () => {
-    // Lista oficial por defecto (forzar uso y reescribir localStorage)
-    const defaultServicios = [
+  const loadServiciosDisponibles = async () => {
+    const fallbackServicios = [
       'ALARMAS',
-      'VIDEOVIGILANCIA',
-      'CONTROLES DE ACCESO',
-      'CERCOS ELECTRIFICADOS',
-      'REDES DE COMUNICACIÓN',
-      'AIRES ACONDICIONADOS',
-      'CALENTADORES SOLARES',
-      'PANELES SOLARES',
-      'TIERRA FÍSICA',
-      'TRABAJOS ELÉCTRICOS',
-      'TORRE ARRIOSTRADA',
-      'RASTREADOR GPS',
+      'RASTREO',
+      'INTERNET',
+      'GPS',
+      'SENSOR DE GASOLINA',
+      'SENSOR DE TEMPERATURA',
+      'CAMARA',
       'DASHCAM',
       'VENTA DE PRODUCTO',
     ];
-    setServiciosDisponibles(defaultServicios);
-    localStorage.setItem('servicios_disponibles', JSON.stringify(defaultServicios));
+
+    const token = getToken();
+    if (!token) {
+      setServiciosDisponibles(fallbackServicios);
+      return;
+    }
+
+    try {
+      const res = await fetch(apiUrl('/api/servicios/?page=1&page_size=500&ordering=idx'), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store' as RequestCache,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setServiciosDisponibles(fallbackServicios);
+        return;
+      }
+
+      const results = Array.isArray((data as any)?.results) ? ((data as any).results as ServicioCatalogo[]) : [];
+      const names = results
+        .filter((s) => s && typeof s.nombre === 'string' && s.nombre.trim() && s.activo !== false)
+        .map((s) => s.nombre.trim());
+
+      const merged = Array.from(new Set([...(names.length ? names : fallbackServicios)]));
+      setServiciosDisponibles(merged);
+      localStorage.setItem('servicios_disponibles', JSON.stringify(merged));
+    } catch {
+      setServiciosDisponibles(fallbackServicios);
+    }
   };
 
   const fetchOrdenes = async () => {

@@ -17,6 +17,10 @@ import {
 import { useSidebar } from "@/context/SidebarContext";
 import { apiUrl } from "@/config/api";
 
+let appSidebarPermissionsInFlight: Promise<any> | null = null;
+let appSidebarPermissionsLastFetchAt = 0;
+const APP_SIDEBAR_PERMS_TTL_MS = 2 * 60 * 1000;
+
 type NavItem = {
   name: string;
   icon: React.ReactNode;
@@ -48,19 +52,52 @@ const AppSidebar: React.FC = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) return;
+
+    const now = Date.now();
+    if (now - appSidebarPermissionsLastFetchAt < APP_SIDEBAR_PERMS_TTL_MS) return;
+
+    try {
+      const storedAtRaw = localStorage.getItem('permissions_fetched_at') || sessionStorage.getItem('permissions_fetched_at');
+      const storedAt = storedAtRaw ? Number(storedAtRaw) : 0;
+      if (storedAt && now - storedAt < APP_SIDEBAR_PERMS_TTL_MS) {
+        return;
+      }
+    } catch { }
+
     const load = async () => {
       try {
-        const res = await fetch(apiUrl('/api/me/permissions/'), {
-          method: 'GET',
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
-        const data = await res.json().catch(() => null);
-        if (res.ok && data?.permissions) {
-          const pStr = JSON.stringify(data.permissions);
-          localStorage.setItem('permissions', pStr);
-          setPermissions(data.permissions);
+        if (appSidebarPermissionsInFlight) {
+          await appSidebarPermissionsInFlight;
+          return;
         }
+
+        appSidebarPermissionsLastFetchAt = Date.now();
+        appSidebarPermissionsInFlight = (async () => {
+          const res = await fetch(apiUrl('/api/me/permissions/'), {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store' as RequestCache,
+          });
+          const data = await res.json().catch(() => null);
+          if (res.ok && data?.permissions) {
+            const pStr = JSON.stringify(data.permissions);
+            localStorage.setItem('permissions', pStr);
+            sessionStorage.setItem('permissions', pStr);
+            const at = String(Date.now());
+            localStorage.setItem('permissions_fetched_at', at);
+            sessionStorage.setItem('permissions_fetched_at', at);
+            setPermissions(data.permissions);
+            window.dispatchEvent(new Event('permissions:updated'));
+          }
+          return data;
+        })();
+
+        await appSidebarPermissionsInFlight;
       } catch { }
+      finally {
+        appSidebarPermissionsInFlight = null;
+      }
     };
     load();
   }, []);
