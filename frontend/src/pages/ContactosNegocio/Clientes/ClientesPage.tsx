@@ -886,269 +886,296 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
         />
       )}
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
-        <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shadow-sm">
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
-                <path d="M20 22a8 8 0 1 0-16 0" />
-              </svg>
-            </span>
-            <div className="flex flex-col">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Total {viewPlural}</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{totalCount}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {!canClientesView ? (
+        <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No tienes permiso para ver {viewPlural}.</div>
+      ) : (
+        <div>
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Listado de {viewPlural}</h2>
-        </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:flex-1 sm:min-w-[260px] sm:justify-end">
-          <div className="relative w-full sm:max-w-xs md:max-w-sm">
-            <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar"
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 pl-8 pr-3 py-2 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => setSearchTerm('')}
-                aria-label="Limpiar búsqueda"
-                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/60"
-              >
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                  <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                </svg>
-              </button>
-            )}
-          </div>
-          <button
-            onClick={() => {
-              if (!canClientesCreate) {
-                setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear clientes.' });
-                setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-                return;
-              }
-              openCreate();
-            }}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-            </svg>
-            Nuevo {viewSingular}
-          </button>
-        </div>
-      </div>
-
-      <ComponentCard title="Listado">
-        <div className="p-2">
-
-          {/* Table - Responsive */}
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
-                <TableRow>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">ID</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/4 text-gray-700 dark:text-gray-300">{nombreColHeader}</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Ciudad</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/6 text-gray-700 dark:text-gray-300">Teléfono</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/4 text-gray-700 dark:text-gray-300">Contacto</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/3 text-gray-700 dark:text-gray-300">Dirección</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-center w-1/6 text-gray-700 dark:text-gray-300">Acciones</TableCell>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
-                {currentClientes.map((cliente, idx) => (
-                  <TableRow key={cliente.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                    <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">{startIndex + idx + 1000}</TableCell>
-                    <TableCell className="px-2 py-1.5 w-1/4 text-gray-900 dark:text-white">{cliente.nombre}</TableCell>
-                    <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">
-                      {(() => {
-                        const ciudad = cliente.ciudad || '';
-                        const estado = cliente.estado || '';
-                        if (!ciudad && !estado) return <span className="text-gray-500">-</span>;
-                        return (
-                          <div className="leading-tight">
-                            <div className="text-gray-900 dark:text-white truncate" title={ciudad || ''}>{ciudad || '-'}</div>
-                            <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={estado || ''}>{estado || '-'}</div>
-                          </div>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell className="px-2 py-1.5 w-1/6 whitespace-nowrap">
-                      <a href={`tel:${cliente.telefono}`} className="text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 hover:underline">
-                        {cliente.telefono}
-                      </a>
-                    </TableCell>
-                    <TableCell className="px-2 py-1.5 w-1/4">
-                      {(() => {
-                        const principal = (cliente.contactos || []).find((c: any) => !!(c as any)?.is_principal) || (cliente.contactos || [])[0];
-                        const nombre = (principal as any)?.nombre_apellido || '';
-                        const correo = (principal as any)?.correo || '';
-                        if (!nombre && !correo) return <span className="text-gray-500">-</span>;
-                        return (
-                          <div className="leading-tight">
-                            <div className="text-gray-900 dark:text-white truncate" title={nombre || ''}>{nombre || '-'}</div>
-                            {correo ? (
-                              <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={correo}>{correo}</div>
-                            ) : (
-                              <div className="text-[11px] text-gray-500 dark:text-gray-400">-</div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell className="px-2 py-1.5 w-1/3">
-                      {isGoogleMapsLink(cliente.direccion) ? (
-                        <a
-                          href={cliente.direccion}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-brand-600 hover:underline"
-                        >
-                          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                            <circle cx="12" cy="10" r="3" />
-                          </svg>
-                          Ver ubicación
-                        </a>
-                      ) : (
-                        <span className="block truncate" title={cliente.direccion}>{cliente.direccion}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-2 py-1.5 text-center w-1/6">
-                      <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
-                        {canClientesEdit && (
-                          <button
-                            onClick={() => handleEdit(cliente)}
-                            className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
-                            title="Editar"
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                          </button>
-                        )}
-                        {canClientesDelete && (
-                          <button
-                            onClick={() => handleDeleteClick(cliente)}
-                            className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
-                            title="Eliminar"
-                          >
-                            <TrashBinIcon className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!clientes.length && (
-                  <TableRow>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2 text-center text-sm text-gray-500">Sin clientes</TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                    <TableCell className="px-2 py-2"> </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Paginación */}
-          {!loading && totalCount > 0 && currentClientes.length > 0 && (
-            <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Mostrando <span className="font-medium text-gray-900 dark:text-white">{startIndex + 1}</span> a{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">{Math.min(endIndex, totalCount)}</span> de{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">{totalCount}</span> clientes
-                </p>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M15 18l-6-6 6-6" />
-                    </svg>
-                  </button>
-
-                  <div className="flex items-center gap-1">
-                    {/* First Page */}
-                    {currentPage > 3 && (
-                      <>
-                        <button
-                          onClick={() => setCurrentPage(1)}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-800 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                        >
-                          1
-                        </button>
-                        {currentPage > 4 && <span className="px-1 text-gray-400">...</span>}
-                      </>
-                    )}
-
-                    {/* Page Numbers */}
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(page => {
-                        if (totalPages <= 5) return true;
-                        return Math.abs(page - currentPage) <= 2;
-                      })
-                      .map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border text-sm font-medium transition-colors ${currentPage === page
-                            ? 'border-brand-500 bg-brand-500 text-white'
-                            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
-                            }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
-
-                    {/* Last Page */}
-                    {currentPage < totalPages - 2 && (
-                      <>
-                        {currentPage < totalPages - 3 && <span className="px-1 text-gray-400">...</span>}
-                        <button
-                          onClick={() => setCurrentPage(totalPages)}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                        >
-                          {totalPages}
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
-                  </button>
+          {/* Summary cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+            <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
+              <div className="flex items-center gap-4">
+                <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shadow-sm">
+                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+                    <path d="M20 22a8 8 0 1 0-16 0" />
+                  </svg>
+                </span>
+                <div className="flex flex-col">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Total {viewPlural}</p>
+                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{totalCount}</p>
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </ComponentCard>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+                      <path d="M20 22a8 8 0 1 0-16 0" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">{viewPlural}</h2>
+                    <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">Administra {viewPlural.toLowerCase()}, contactos y datos fiscales.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative w-full sm:w-[320px]">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder={`Buscar ${viewPlural.toLowerCase()}`}
+                    className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm('')}
+                      aria-label="Limpiar búsqueda"
+                      className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5"
+                    >
+                      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                        <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    if (!canClientesCreate) {
+                      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear clientes.' });
+                      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
+                      return;
+                    }
+                    openCreate();
+                  }}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                  </svg>
+                  Nuevo {viewSingular}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-1">
+            <ComponentCard title="Listado">
+              <div className="p-2 pt-0">
+
+                {/* Table - Responsive */}
+                <div className="overflow-x-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40">
+                  <Table className="w-full table-fixed">
+                    <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
+                      <TableRow>
+                        <TableCell isHeader className="px-1.5 py-1 text-left w-[64px] text-gray-700 dark:text-gray-300">ID</TableCell>
+                        <TableCell isHeader className="px-1.5 py-1 text-left w-[170px] text-gray-700 dark:text-gray-300">{nombreColHeader}</TableCell>
+                        <TableCell isHeader className="px-1.5 py-1 text-left w-[120px] text-gray-700 dark:text-gray-300">Ciudad</TableCell>
+                        <TableCell isHeader className="px-1.5 py-1 text-left w-[120px] text-gray-700 dark:text-gray-300">Teléfono</TableCell>
+                        <TableCell isHeader className="px-1.5 py-1 text-left w-[160px] text-gray-700 dark:text-gray-300">Contacto</TableCell>
+                        <TableCell isHeader className="px-1.5 py-1 text-left w-[210px] text-gray-700 dark:text-gray-300">Dirección</TableCell>
+                        <TableCell isHeader className="px-1.5 py-1 text-center w-[96px] text-gray-700 dark:text-gray-300">Acciones</TableCell>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
+                      {loading ? (
+                        <TableRow>
+                          <TableCell className="px-1.5 py-3" colSpan={7}>Cargando...</TableCell>
+                        </TableRow>
+                      ) : currentClientes.length === 0 ? (
+                        <TableRow>
+                          <TableCell className="px-1.5 py-2" colSpan={7}>
+                            <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No hay {viewPlural.toLowerCase()}.</div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        currentClientes.map((cliente, idx) => (
+                          <TableRow key={cliente.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                            <TableCell className="px-1.5 py-1 whitespace-nowrap tabular-nums font-semibold text-gray-900 dark:text-white">{startIndex + idx + 1000}</TableCell>
+                            <TableCell className="px-1.5 py-1 text-gray-900 dark:text-white truncate">
+                              <span className="block truncate" title={cliente.nombre}>{cliente.nombre}</span>
+                            </TableCell>
+                            <TableCell className="px-1.5 py-1 whitespace-nowrap">
+                              {(() => {
+                                const ciudad = cliente.ciudad || '';
+                                const estado = cliente.estado || '';
+                                if (!ciudad && !estado) return <span className="text-gray-500">-</span>;
+                                return (
+                                  <div className="leading-tight">
+                                    <div className="text-gray-900 dark:text-white truncate" title={ciudad || ''}>{ciudad || '-'}</div>
+                                    <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={estado || ''}>{estado || '-'}</div>
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell className="px-1.5 py-1 whitespace-nowrap">
+                              <a href={`tel:${cliente.telefono}`} className="text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 hover:underline">
+                                {cliente.telefono}
+                              </a>
+                            </TableCell>
+                            <TableCell className="px-1.5 py-1">
+                              {(() => {
+                                const principal = (cliente.contactos || []).find((c: any) => !!(c as any)?.is_principal) || (cliente.contactos || [])[0];
+                                const nombre = (principal as any)?.nombre_apellido || '';
+                                const correo = (principal as any)?.correo || '';
+                                if (!nombre && !correo) return <span className="text-gray-500">-</span>;
+                                return (
+                                  <div className="leading-tight">
+                                    <div className="text-gray-900 dark:text-white truncate" title={nombre || ''}>{nombre || '-'}</div>
+                                    {correo ? (
+                                      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={correo}>{correo}</div>
+                                    ) : (
+                                      <div className="text-[11px] text-gray-500 dark:text-gray-400">-</div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell className="px-1.5 py-1">
+                              {isGoogleMapsLink(cliente.direccion) ? (
+                                <a
+                                  href={cliente.direccion}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-brand-600 hover:underline"
+                                >
+                                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                    <circle cx="12" cy="10" r="3" />
+                                  </svg>
+                                  Ver ubicación
+                                </a>
+                              ) : (
+                                <span className="block truncate" title={cliente.direccion}>{cliente.direccion}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="px-1.5 py-1 text-center">
+                              <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
+                                {canClientesEdit && (
+                                  <button
+                                    onClick={() => handleEdit(cliente)}
+                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                                    title="Editar"
+                                  >
+                                    <PencilIcon className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {canClientesDelete && (
+                                  <button
+                                    onClick={() => handleDeleteClick(cliente)}
+                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                                    title="Eliminar"
+                                  >
+                                    <TrashBinIcon className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Paginación */}
+                {!loading && totalCount > 0 && currentClientes.length > 0 && (
+                  <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Mostrando <span className="font-medium text-gray-900 dark:text-white">{startIndex + 1}</span> a{" "}
+                        <span className="font-medium text-gray-900 dark:text-white">{Math.min(endIndex, totalCount)}</span> de{" "}
+                        <span className="font-medium text-gray-900 dark:text-white">{totalCount}</span> clientes
+                      </p>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M15 18l-6-6 6-6" />
+                          </svg>
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          {/* First Page */}
+                          {currentPage > 3 && (
+                            <>
+                              <button
+                                onClick={() => setCurrentPage(1)}
+                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-800 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              >
+                                1
+                              </button>
+                              {currentPage > 4 && <span className="px-1 text-gray-400">...</span>}
+                            </>
+                          )}
+
+                          {/* Page Numbers */}
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                              if (totalPages <= 5) return true;
+                              return Math.abs(page - currentPage) <= 2;
+                            })
+                            .map(page => (
+                              <button
+                                key={page}
+                                onClick={() => setCurrentPage(page)}
+                                className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border text-sm font-medium transition-colors ${currentPage === page
+                                  ? 'border-brand-500 bg-brand-500 text-white'
+                                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                                  }`}
+                              >
+                                {page}
+                              </button>
+                            ))}
+
+                          {/* Last Page */}
+                          {currentPage < totalPages - 2 && (
+                            <>
+                              {currentPage < totalPages - 3 && <span className="px-1 text-gray-400">...</span>}
+                              <button
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                              >
+                                {totalPages}
+                              </button>
+                            </>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M9 18l6-6-6-6" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ComponentCard>
+          </div>
+
+      </div>
+      )}
 
       {/* Modal Crear/Editar */}
       <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-full max-w-4xl p-0 overflow-hidden">
@@ -1862,7 +1889,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
             </div>
           </div>
         </div>
-      </Modal >
+      </Modal>
 
       {/* Modal de Confirmación de Eliminación */}
       {
@@ -1924,7 +1951,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
           </Modal>
         )
       }
-    </div >
+    </div>
   );
 };
 

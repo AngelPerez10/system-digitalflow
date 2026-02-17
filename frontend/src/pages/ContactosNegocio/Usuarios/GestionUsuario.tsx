@@ -668,22 +668,18 @@ export default function UserProfiles() {
   };
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 sm:p-6 space-y-4">
       <PageMeta title="Gestión de Usuarios" description="Administración de usuarios" />
       <PageBreadcrumb pageTitle="Gestión de Usuarios" />
 
       {error && (
-        <div className="mb-4">
-          <Alert variant="error" title="Error" message={error} />
-        </div>
+        <Alert variant="error" title="Error" message={error} />
       )}
       {success && (
-        <div className="mb-4">
-          <Alert variant="success" title="Listo" message={success} />
-        </div>
+        <Alert variant="success" title="Listo" message={success} />
       )}
 
-      <div className="grid gap-4 mb-6 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 mb-5 sm:grid-cols-2 xl:grid-cols-3">
         <div data-anim="user-stat" className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-50 text-gray-600 dark:bg-gray-500/10 dark:text-gray-300 shadow-sm">
@@ -731,43 +727,60 @@ export default function UserProfiles() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Listado de Usuarios</h2>
-        </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:flex-1 sm:min-w-[260px] sm:justify-end">
-          <div className="relative w-full sm:max-w-xs md:max-w-sm">
-            <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none">
-              <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <input
-              value={query}
-              onChange={(e: any) => setQuery(e.target.value)}
-              placeholder="Buscar"
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 pl-8 pr-3 py-2 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery('')}
-                aria-label="Limpiar búsqueda"
-                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/60"
-              >
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                  <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
+                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
-              </button>
-            )}
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Usuarios</h2>
+                <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">Administra cuentas, roles, permisos y firma.</div>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={openCreate}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-            </svg>
-            Nuevo usuario
-          </button>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative w-full sm:w-[320px]">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <input
+                value={query}
+                onChange={(e: any) => setQuery(e.target.value)}
+                placeholder="Buscar por usuario, correo o nombre"
+                className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="Limpiar búsqueda"
+                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5"
+                >
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={openCreate}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+              Nuevo usuario
+            </button>
+          </div>
         </div>
       </div>
 
@@ -778,7 +791,7 @@ export default function UserProfiles() {
             <button
               type="button"
               onClick={() => setFilterOpen(v => !v)}
-              className="shadow-theme-xs flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 sm:min-w-[80px] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+              className="shadow-theme-xs flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none">
                 <path d="M14.6537 5.90414C14.6537 4.48433 13.5027 3.33331 12.0829 3.33331C10.6631 3.33331 9.51206 4.48433 9.51204 5.90415M14.6537 5.90414C14.6537 7.32398 13.5027 8.47498 12.0829 8.47498C10.663 8.47498 9.51204 7.32398 9.51204 5.90415M14.6537 5.90414L17.7087 5.90411M9.51204 5.90415L2.29199 5.90411M5.34694 14.0958C5.34694 12.676 6.49794 11.525 7.91777 11.525C9.33761 11.525 10.4886 12.676 10.4886 14.0958M5.34694 14.0958C5.34694 15.5156 6.49794 16.6666 7.91778 16.6666C9.33761 16.6666 10.4886 15.5156 10.4886 14.0958M5.34694 14.0958L2.29199 14.0958M10.4886 14.0958L17.7087 14.0958" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -786,7 +799,7 @@ export default function UserProfiles() {
               Filtros
             </button>
             {filterOpen && (
-              <div className="absolute right-0 z-20 mt-2 w-64 rounded-lg border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+              <div className="absolute right-0 z-20 mt-2 w-64 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/95 dark:bg-gray-900/80 p-4 shadow-lg backdrop-blur-sm">
                 <div className="mb-2">
                   <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Rol</label>
                   <select
@@ -795,7 +808,7 @@ export default function UserProfiles() {
                       setRoleFilter(e.target.value as any);
                       setFilterOpen(false);
                     }}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                    className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 px-3 text-xs text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
                   >
                     <option value="all">Todos</option>
                     <option value="admin">Admins</option>

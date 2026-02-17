@@ -35,6 +35,7 @@ import TareasTecnicoPage from "@/pages/MiEscritorio/TareasTecnicoPage";
 import CotizacionesPage from "@/pages/Cotizacion/CotizacionesPage";
 import NuevaCotizacionPage from "@/pages/Cotizacion/NuevaCotizacionPage";
 import CotizacionPdfPage from "@/pages/Cotizacion/CotizacionPdfPage";
+import IaPage from "@/pages/IA/iaPage";
 
 export default function App() {
   return (
@@ -64,6 +65,9 @@ export default function App() {
             <Route path="/cotizacion/nueva" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />
             <Route path="/cotizacion/:id/editar" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />
             <Route path="/cotizacion/:id/pdf" element={<CotizacionPdfPage />} />
+
+            {/* IA (Admin only) */}
+            <Route path="/ia" element={<RequireAdmin><IaPage /></RequireAdmin>} />
 
             {/* Correo */}
             <Route path="/correo" element={<RequireAdmin><CorreoPage /></RequireAdmin>} />

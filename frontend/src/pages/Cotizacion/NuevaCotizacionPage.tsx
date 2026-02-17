@@ -1348,7 +1348,22 @@ export default function NuevaCotizacionPage() {
                       value={textoArribaPrecios}
                       onChange={(e) => setTextoArribaPrecios(e.target.value.slice(0, 5000))}
                       className={`${textareaLikeClassName} mt-2 rounded-xl bg-white/70 dark:bg-gray-900/40 border-gray-200/70 dark:border-white/10`}
-                      rows={12}
+                      rows={6}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5">
+                  <div>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <Label>Términos y condiciones</Label>
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">Máx. 8000</span>
+                    </div>
+                    <textarea
+                      value={terminos}
+                      onChange={(e) => setTerminos(e.target.value.slice(0, 8000))}
+                      className={`${textareaLikeClassName} mt-2 rounded-xl bg-white/70 dark:bg-gray-900/40 border-gray-200/70 dark:border-white/10`}
+                      rows={15}
                     />
                   </div>
                 </div>

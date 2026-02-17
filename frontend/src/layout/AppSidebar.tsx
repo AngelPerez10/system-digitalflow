@@ -122,6 +122,12 @@ const AppSidebar: React.FC = () => {
       items.push({ icon: <GridIcon />, name: "Dashboard", path: "/" });
 
       items.push({
+        icon: <PlugInIcon />,
+        name: "IA",
+        path: "/ia",
+      });
+
+      items.push({
         icon: <PageIcon />,
         name: "Mi escritorio",
         subItems: [

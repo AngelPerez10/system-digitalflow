@@ -1334,104 +1334,121 @@ export default function Ordenes() {
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
         <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 012-2h2a2 2 0 0 012 2" />
+                <path d="M6 6h12" />
+                <path d="M6 12h12" />
+                <path d="M6 18h12" />
               </svg>
             </span>
             <div className="flex flex-col">
               <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Órdenes del mes</p>
-              <p className="mt-1 text-xl font-semibold text-gray-800 dark:text-gray-100">{ordenStats.monthTotal}</p>
+              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{ordenStats.monthTotal}</p>
             </div>
           </div>
         </div>
 
         <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
           <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300 shadow-sm">
+            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M20 6 9 17l-5-5" strokeLinecap="round" />
+                <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
             <div className="flex flex-col">
               <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Completadas</p>
-              <p className="mt-1 text-xl font-semibold text-gray-800 dark:text-gray-100">{ordenStats.monthCompleted}</p>
+              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{ordenStats.monthCompleted}</p>
             </div>
           </div>
         </div>
 
         <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
           <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300 shadow-sm">
+            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
             </span>
             <div className="flex flex-col min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Cliente estrella</p>
-              <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{ordenStats.estrella}</p>
+              <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{ordenStats.estrella}</p>
               <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">Servicios: {ordenStats.estrellaServices}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Listado de Órdenes</h2>
-        </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:flex-1 sm:min-w-[260px] sm:justify-end">
-          <div className="relative w-full sm:max-w-xs md:max-w-sm">
-            <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none">
-              <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar"
-              className="w-full rounded-lg border border-gray-300 bg-white pl-8 pr-3 py-2 text-[13px] text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-white/90"
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => setSearchTerm('')}
-                aria-label="Limpiar búsqueda"
-                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/60"
-              >
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                  <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
+                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                  <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" />
                 </svg>
-              </button>
-            )}
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Órdenes de Servicio</h2>
+                <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">Administra órdenes, fotos, firmas y PDF.</div>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => {
-              if (!canOrdenesCreate) {
-                setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear órdenes.' });
-                setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-                return;
-              }
-              // Prefill Hora Inicio con la hora del sistema al crear
-              if (!editingOrden) {
-                const today = new Date().toISOString().slice(0, 10);
-                setFormData({
-                  ...formData,
-                  fecha_inicio: formData.fecha_inicio || today,
-                  hora_inicio: getNowHHMM(),
-                });
-              }
-              setShowModal(true);
-            }}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 5v14M5 12h14M4 12h16" strokeLinecap="round" />
-            </svg>
-            Nueva Orden
-          </button>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative w-full sm:w-[320px]">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por folio, cliente, técnico o estado"
+                className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  aria-label="Limpiar búsqueda"
+                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5"
+                >
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                if (!canOrdenesCreate) {
+                  setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear órdenes.' });
+                  setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
+                  return;
+                }
+                if (!editingOrden) {
+                  const today = new Date().toISOString().slice(0, 10);
+                  setFormData({
+                    ...formData,
+                    fecha_inicio: formData.fecha_inicio || today,
+                    hora_inicio: getNowHHMM(),
+                  });
+                }
+                setShowModal(true);
+              }}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+              Nueva Orden
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1444,22 +1461,24 @@ export default function Ordenes() {
               <button
                 type="button"
                 onClick={() => setFilterOpen(v => !v)}
-                className="shadow-theme-xs flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 sm:min-w-[80px] text-xs leading-none whitespace-nowrap"
+                className="shadow-theme-xs flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 sm:min-w-[86px] text-xs font-semibold leading-none whitespace-nowrap"
               >
+
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none">
                   <path d="M14.6537 5.90414C14.6537 4.48433 13.5027 3.33331 12.0829 3.33331C10.6631 3.33331 9.51206 4.48433 9.51204 5.90415M14.6537 5.90414C14.6537 7.32398 13.5027 8.47498 12.0829 8.47498C10.663 8.47498 9.51204 7.32398 9.51204 5.90415M14.6537 5.90414L17.7087 5.90411M9.51204 5.90415L2.29199 5.90411M5.34694 14.0958C5.34694 12.676 6.49794 11.525 7.91777 11.525C9.33761 11.525 10.4886 12.676 10.4886 14.0958M5.34694 14.0958C5.34694 15.5156 6.49794 16.6666 7.91778 16.6666C9.33761 16.6666 10.4886 15.5156 10.4886 14.0958M5.34694 14.0958L2.29199 14.0958M10.4886 14.0958L17.7087 14.0958" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Filtros
               </button>
               {filterOpen && (
-                <div className="absolute right-0 z-20 mt-2 w-72 max-h-80 overflow-auto rounded-lg border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <div className="absolute right-0 z-20 mt-2 w-72 max-h-80 overflow-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/95 dark:bg-gray-900/80 p-4 shadow-lg backdrop-blur-sm">
                   <div className="mb-4">
                     <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Estado</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value as any)}
-                      className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                      className="h-10 w-full rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 px-3 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
                     >
+
                       <option value="">Todos</option>
                       <option value="pendiente">Pendiente</option>
                       <option value="resuelto">Resuelto</option>
@@ -1511,14 +1530,14 @@ export default function Ordenes() {
                     <button
                       type="button"
                       onClick={() => setFilterOpen(false)}
-                      className="bg-brand-600 hover:bg-brand-700 h-10 flex-1 rounded-lg px-3 py-2 text-sm font-medium text-white"
+                      className="bg-brand-600 hover:bg-brand-700 h-10 flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white"
                     >
                       Aplicar
                     </button>
                     <button
                       type="button"
                       onClick={() => { setFilterStatus(''); setFilterServicio([]); setFilterDate(''); setFilterOpen(false); }}
-                      className="h-10 flex-1 rounded-lg px-3 py-2 text-sm font-medium border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                      className="h-10 flex-1 rounded-xl px-3 py-2 text-sm font-semibold border border-gray-200/70 dark:border-white/10 text-gray-700 dark:text-gray-200 bg-white/70 dark:bg-gray-900/40 hover:bg-gray-50 dark:hover:bg-white/5"
                     >
                       Limpiar
                     </button>
@@ -1531,9 +1550,10 @@ export default function Ordenes() {
               type="button"
               onClick={handleReindexIdx}
               disabled={reindexing}
-              className="shadow-theme-xs flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 sm:min-w-[100px] disabled:opacity-60 disabled:cursor-not-allowed text-xs leading-none whitespace-nowrap"
+              className="shadow-theme-xs flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 sm:min-w-[118px] disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold leading-none whitespace-nowrap"
               title="Reasigna IDX a 1..N para quitar huecos"
             >
+
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M3 7h13" strokeLinecap="round" />
                 <path d="M3 12h10" strokeLinecap="round" />
@@ -1546,7 +1566,7 @@ export default function Ordenes() {
           </div>
         }
       >
-        <div className="p-2">
+        <div className="p-2 pt-0">
           <MobileOrderList
             ordenes={currentOrdenes}
             startIndex={startIndex}
@@ -1559,14 +1579,15 @@ export default function Ordenes() {
             canDelete={canOrdenesDelete}
             usuarios={usuarios}
           />
-          <div className="hidden md:block overflow-x-auto">
-            <Table className="w-full min-w-[900px] sm:min-w-0 sm:table-fixed">
-              <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sm:sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
+          <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40">
+            <Table className="w-full min-w-[900px] sm:min-w-0 table-fixed">
+              <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
                 <TableRow>
                   <TableCell isHeader className="px-2 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-gray-700 dark:text-gray-300">Folio</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-gray-700 dark:text-gray-300">Cliente</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/5 min-w-[220px] text-gray-700 dark:text-gray-300">Detalles</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">Fechas</TableCell>
+
                   <TableCell isHeader className="px-2 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-gray-700 dark:text-gray-300">Técnico</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Estado</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-[120px] min-w-[120px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>

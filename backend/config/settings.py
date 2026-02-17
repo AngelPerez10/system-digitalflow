@@ -95,6 +95,7 @@ INSTALLED_APPS = [
     'apps.kpis',
     'apps.cotizaciones',
     'apps.escritorio',
+    'apps.ai',
 ]
 
 # Evitar duplicados accidentales en INSTALLED_APPS (mantiene el primer orden)

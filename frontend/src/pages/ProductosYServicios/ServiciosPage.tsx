@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import PageMeta from "@/components/common/PageMeta";
@@ -201,6 +201,13 @@ export default function Servicios() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
 
+  const stats = useMemo(() => {
+    const total = totalCount || servicios.length;
+    const activos = servicios.filter((s) => s.activo !== false).length;
+    const inactivos = Math.max(0, servicios.length - activos);
+    return { total, activos, inactivos };
+  }, [servicios, totalCount]);
+
   const openCreate = () => {
     if (!canServiciosCreate) {
       setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para crear servicios." });
@@ -369,7 +376,7 @@ export default function Servicios() {
         <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No tienes permiso para ver Servicios.</div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
             <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
               <div className="flex items-center gap-4">
                 <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shadow-sm">
@@ -381,58 +388,103 @@ export default function Servicios() {
                 </span>
                 <div className="flex flex-col">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Servicios</p>
-                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{totalCount}</p>
+                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.total}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
+              <div className="flex items-center gap-4">
+                <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 shadow-sm">
+                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <div className="flex flex-col">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Activos</p>
+                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.activos}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
+              <div className="flex items-center gap-4">
+                <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 shadow-sm">
+                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                </span>
+                <div className="flex flex-col">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Inactivos</p>
+                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.inactivos}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Listado de Servicios</h2>
-            </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:flex-1 sm:min-w-[260px] sm:justify-end">
-              <div className="relative w-full sm:max-w-xs md:max-w-sm">
-                <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar"
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 pl-8 pr-3 py-2 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
-                />
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchTerm("")}
-                    aria-label="Limpiar búsqueda"
-                    className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/60"
-                  >
-                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                      <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                      <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" />
                     </svg>
-                  </button>
-                )}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Servicios</h2>
+                    <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">Administra, edita y elimina servicios.</div>
+                  </div>
+                </div>
               </div>
 
-              <button
-                onClick={openCreate}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                </svg>
-                Nuevo Servicio
-              </button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative w-full sm:w-[320px]">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Buscar por nombre, categoría o descripción"
+                    className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm("")}
+                      aria-label="Limpiar búsqueda"
+                      className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5"
+                    >
+                      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                        <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                  </svg>
+                  Nuevo Servicio
+                </button>
+              </div>
             </div>
           </div>
 
+          <div className="mt-4 pt-1">
           <ComponentCard title="Listado">
-            <div className="p-2">
-              <div className="overflow-x-auto">
+            <div className="p-2 pt-0">
+              <div className="overflow-x-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40">
                 <Table className="w-full table-fixed">
-                  <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
+                  <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
                     <TableRow>
                       <TableCell isHeader className="px-3 py-2 text-left w-[72px] text-gray-700 dark:text-gray-300">ID</TableCell>
                       <TableCell isHeader className="px-3 py-2 text-left w-[220px] text-gray-700 dark:text-gray-300">Nombre</TableCell>
@@ -445,19 +497,19 @@ export default function Servicios() {
                   <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
                     {loading && (
                       <TableRow>
-                        <TableCell className="px-2 py-2" colSpan={6}>Cargando...</TableCell>
+                        <TableCell className="px-3 py-3" colSpan={6}>Cargando...</TableCell>
                       </TableRow>
                     )}
 
                     {!loading && servicios.map((s, idx) => (
                       <TableRow key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                        <TableCell className="px-3 py-1.5 w-[72px] whitespace-nowrap">{startIndex + idx + 1}</TableCell>
-                        <TableCell className="px-3 py-1.5 w-[220px] text-gray-900 dark:text-white truncate">{s.nombre}</TableCell>
-                        <TableCell className="px-3 py-1.5 w-[200px] truncate">{s.categoria || "-"}</TableCell>
-                        <TableCell className="px-3 py-1.5">
+                        <TableCell className="px-3 py-2 w-[72px] whitespace-nowrap">{startIndex + idx + 1}</TableCell>
+                        <TableCell className="px-3 py-2 w-[220px] text-gray-900 dark:text-white truncate">{s.nombre}</TableCell>
+                        <TableCell className="px-3 py-2 w-[200px] truncate">{s.categoria || "-"}</TableCell>
+                        <TableCell className="px-3 py-2">
                           <span className="block max-w-[640px] truncate" title={s.descripcion || ""}>{s.descripcion || "-"}</span>
                         </TableCell>
-                        <TableCell className="px-3 py-1.5 text-center w-[120px]">
+                        <TableCell className="px-3 py-2 text-center w-[120px]">
                           <span
                             className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${s.activo !== false
                               ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
@@ -466,7 +518,7 @@ export default function Servicios() {
                             {s.activo !== false ? "Activo" : "Inactivo"}
                           </span>
                         </TableCell>
-                        <TableCell className="px-3 py-1.5 text-center w-[120px]">
+                        <TableCell className="px-3 py-2 text-center w-[120px]">
                           <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
                             <button
                               onClick={() => handleEdit(s)}
@@ -489,7 +541,7 @@ export default function Servicios() {
 
                     {!servicios.length && !loading && (
                       <TableRow>
-                        <TableCell className="px-2 py-2" colSpan={6}>
+                        <TableCell className="px-3 py-2" colSpan={6}>
                           <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Sin servicios</div>
                         </TableCell>
                       </TableRow>
@@ -576,6 +628,7 @@ export default function Servicios() {
               )}
             </div>
           </ComponentCard>
+          </div>
         </>
       )}
 
