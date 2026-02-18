@@ -110,6 +110,8 @@ export default function Ordenes() {
   const [filterDate, setFilterDate] = useState(''); // YYYY-MM-DD
   const filterRef = useRef<HTMLDivElement | null>(null);
 
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
     const sync = () => setPermissions(getPermissionsFromStorage());
     window.addEventListener('storage', sync);
@@ -754,6 +756,7 @@ export default function Ordenes() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     const token = getToken();
 
     // Reglas: Cliente, Dirección, Teléfono, Servicios Realizados y Fecha de Inicio son requeridos
@@ -774,6 +777,7 @@ export default function Ordenes() {
     const isEditing = !!editingOrden;
 
     try {
+      setIsSaving(true);
       const url = editingOrden
         ? apiUrl(`/api/ordenes/${editingOrden.id}/`)
         : apiUrl("/api/ordenes/");
@@ -813,6 +817,7 @@ export default function Ordenes() {
       });
 
       if (response.ok) {
+        const savedOrden = await response.json();
         const cid = payload?.cliente_id;
         if (cid && (payload?.direccion || payload?.telefono_cliente)) {
           const existingCliente = clientes.find(c => c.id === cid);
@@ -840,8 +845,18 @@ export default function Ordenes() {
           }
         }
 
-        // Recargar la lista completa de órdenes
-        await fetchOrdenes();
+        if (savedOrden && savedOrden.id) {
+          setOrdenes((prev) => {
+            const list = Array.isArray(prev) ? prev : [];
+            const idx = list.findIndex((o) => (o as any).id === savedOrden.id);
+            if (idx >= 0) {
+              const copy = list.slice();
+              copy[idx] = savedOrden;
+              return copy;
+            }
+            return [savedOrden, ...list];
+          });
+        }
         setShowModal(false);
         setFormData({
           folio: "",
@@ -904,6 +919,8 @@ export default function Ordenes() {
         message: String(error)
       });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1101,7 +1118,7 @@ export default function Ordenes() {
       icon: (
         <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+            <path d="M12 5v14M5 12h14M4 12h16" strokeLinecap="round" />
           </svg>
         </span>
       ),
@@ -1370,8 +1387,7 @@ export default function Ordenes() {
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </span>
             <div className="flex flex-col min-w-0">
@@ -1409,7 +1425,7 @@ export default function Ordenes() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar por folio, cliente, técnico o estado"
-                className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
+                className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40"
               />
               {searchTerm && (
                 <button
@@ -1477,7 +1493,7 @@ export default function Ordenes() {
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value as any)}
-                      className="h-10 w-full rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 px-3 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
+                      className="h-10 w-full rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 px-3 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40"
                     >
 
                       <option value="">Todos</option>
@@ -1555,11 +1571,11 @@ export default function Ordenes() {
               title="Reasigna IDX a 1..N para quitar huecos"
             >
 
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M3 7h13" strokeLinecap="round" />
-                <path d="M3 12h10" strokeLinecap="round" />
-                <path d="M3 17h7" strokeLinecap="round" />
-                <path d="M18 7v10" strokeLinecap="round" />
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 7h13" />
+                <path d="M3 12h10" />
+                <path d="M3 17h7" />
+                <path d="M18 7v10" />
                 <path d="M21 10l-3-3-3 3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               {reindexing ? 'Reordenando...' : 'Reordenar'}
@@ -1679,7 +1695,7 @@ export default function Ordenes() {
                             title="Ver PDF"
                           >
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <path d="M14 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                               <path d="M14 2v6h6" />
                               <path d="M7 15h10" />
                               <path d="M7 18h7" />
@@ -1871,7 +1887,7 @@ export default function Ordenes() {
             <div className="flex items-center gap-4">
               <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10">
                 <svg className="w-6 h-6 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" />
+                  <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
               <div className="min-w-0">
@@ -1900,7 +1916,8 @@ export default function Ordenes() {
             <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                  <path d="M9 5a2 2 0 002 2h2a2 2 0 002-2" />
                 </svg>
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
               </div>
@@ -2029,7 +2046,7 @@ export default function Ordenes() {
             <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles del Cliente</h4>
               </div>
@@ -2432,7 +2449,7 @@ export default function Ordenes() {
                     </div>
                     <div className='flex justify-center gap-3 pt-2'>
                       <button onClick={() => setConfirmDelete({ open: false, index: null, url: null })} className='rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3'>Cancelar</button>
-                      <button onClick={() => { if (confirmDelete.index != null && confirmDelete.url) { handleDeletePhoto(confirmDelete.index, confirmDelete.url); } }} className='rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-500'>Eliminar</button>
+                      <button onClick={() => { if (confirmDelete.index != null && confirmDelete.url) { handleDeletePhoto(confirmDelete.index, confirmDelete.url); } }} className='rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700'>Eliminar</button>
                     </div>
                   </div>
                 </Modal>
@@ -2453,12 +2470,20 @@ export default function Ordenes() {
               </button>
               <button
                 type="submit"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30"
+                disabled={isSaving}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                {editingOrden ? 'Actualizar' : 'Guardar'}
+                {isSaving ? (
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                    <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+                {isSaving ? 'Guardando...' : (editingOrden ? 'Actualizar' : 'Guardar')}
               </button>
             </div>
           </form>

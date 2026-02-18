@@ -205,6 +205,8 @@ export default function OrdenesTecnico() {
   const [showClienteModal, setShowClienteModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
+
+  const [isSaving, setIsSaving] = useState(false);
   const [editingOrden, setEditingOrden] = useState<Orden | null>(null);
   const isReadOnly = editingOrden ? !canOrdenesEdit : !canOrdenesCreate;
   const [searchTerm, setSearchTerm] = useState("");
@@ -797,6 +799,7 @@ export default function OrdenesTecnico() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     const token = getToken();
     // Reglas: Cliente, Dirección, Teléfono, Servicios Realizados y Fecha de Inicio son requeridos
     const { ok, missing } = validateForm();
@@ -816,6 +819,7 @@ export default function OrdenesTecnico() {
     const isEditing = !!editingOrden;
 
     try {
+      setIsSaving(true);
       const url = editingOrden
         ? apiUrl(`/api/ordenes/${editingOrden.id}/`)
         : apiUrl("/api/ordenes/");
@@ -856,6 +860,7 @@ export default function OrdenesTecnico() {
       });
 
       if (response.ok) {
+        const savedOrden = await response.json().catch(() => null);
         const cid = payload?.cliente_id;
         if (cid && (payload?.direccion || payload?.telefono_cliente)) {
           const existingCliente = clientes.find(c => c.id === cid);
@@ -883,8 +888,34 @@ export default function OrdenesTecnico() {
           }
         }
 
-        // Recargar la lista completa de órdenes
-        await fetchOrdenes();
+        if (savedOrden && savedOrden.id) {
+          const role = localStorage.getItem('role');
+          const userRaw = localStorage.getItem('user');
+          let canShow = true;
+          if (role !== 'admin' && userRaw) {
+            try {
+              const user = JSON.parse(userRaw);
+              if (user.id) {
+                const userId = Number(user.id);
+                canShow = Number((savedOrden as any).tecnico_asignado) === userId;
+              }
+            } catch {
+              // ignore
+            }
+          }
+          if (canShow) {
+            setOrdenes((prev) => {
+              const list = Array.isArray(prev) ? prev : [];
+              const idx = list.findIndex((o) => (o as any).id === savedOrden.id);
+              if (idx >= 0) {
+                const copy = list.slice();
+                copy[idx] = savedOrden;
+                return copy;
+              }
+              return [savedOrden, ...list];
+            });
+          }
+        }
         setShowModal(false);
         setFormData({
           folio: "",
@@ -947,6 +978,8 @@ export default function OrdenesTecnico() {
         message: String(error)
       });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -2481,12 +2514,20 @@ export default function OrdenesTecnico() {
               {(editingOrden ? canOrdenesEdit : canOrdenesCreate) && (
                 <button
                   type="submit"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30"
+                  disabled={isSaving}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  {editingOrden ? 'Actualizar' : 'Guardar'}
+                  {isSaving ? (
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                      <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                  {isSaving ? 'Guardando...' : (editingOrden ? 'Actualizar' : 'Guardar')}
                 </button>
               )}
             </div>
