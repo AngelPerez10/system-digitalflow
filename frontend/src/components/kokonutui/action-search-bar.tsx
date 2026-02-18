@@ -326,9 +326,26 @@ function ActionSearchBar({
                                                     >
                                                         {action.icon}
                                                     </span>
-                                                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                        {action.label}
-                                                    </span>
+                                                    {(() => {
+                                                        const raw = String(action.label || "");
+                                                        const sep = " - ";
+                                                        const i = raw.indexOf(sep);
+                                                        if (i <= 0) {
+                                                            return (
+                                                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                                    {raw}
+                                                                </span>
+                                                            );
+                                                        }
+                                                        const primary = raw.slice(0, i);
+                                                        const secondary = raw.slice(i + sep.length);
+                                                        return (
+                                                            <span className="flex min-w-0 items-baseline gap-2">
+                                                                <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{primary}</span>
+                                                                <span className="truncate text-sm font-normal text-gray-500 dark:text-gray-400">{secondary}</span>
+                                                            </span>
+                                                        );
+                                                    })()}
                                                     {action.description && (
                                                         <span className="text-xs text-gray-400">
                                                             {action.description}

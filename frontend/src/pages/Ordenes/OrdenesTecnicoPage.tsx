@@ -1146,24 +1146,56 @@ export default function OrdenesTecnico() {
   const clienteActions = useMemo(() => {
     const q = clienteSearch.trim().toLowerCase();
     const base = (clientes || [])
-      .filter((c) => {
-        if (!q) return true;
-        const nombre = (c.nombre || '').toLowerCase();
-        const tel = (c.telefono || '').toLowerCase();
-        return nombre.includes(q) || tel.includes(q);
+      .flatMap((c) => {
+        const contactos = Array.isArray((c as any).contactos) ? ((c as any).contactos as any[]) : [];
+
+        if (!contactos.length) {
+          const labelBase = (c.nombre || '-').toString();
+          return [
+            {
+              id: String(c.id),
+              label: labelBase,
+              icon: (
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold">
+                  {(labelBase || '?').slice(0, 1).toUpperCase()}
+                </span>
+              ),
+              description: c.telefono || '-',
+              short: '',
+              end: '',
+              __cliente: c,
+              __contacto: null,
+            },
+          ];
+        }
+
+        return contactos.map((ct, idx) => {
+          const labelBase = (c.nombre || '-').toString();
+          const contactoNombre = String(ct?.nombre_apellido || '').trim();
+          const contactoTel = String(ct?.celular || '').trim();
+          const label = contactoNombre ? `${labelBase} - ${contactoNombre}` : labelBase;
+          return {
+            id: `${String(c.id)}::${String(ct?.id ?? idx)}`,
+            label,
+            icon: (
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold">
+                {(labelBase || '?').slice(0, 1).toUpperCase()}
+              </span>
+            ),
+            description: contactoTel || c.telefono || '-',
+            short: '',
+            end: '',
+            __cliente: c,
+            __contacto: ct,
+          };
+        });
       })
-      .map((c) => ({
-        id: String(c.id),
-        label: c.nombre || '-',
-        icon: (
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold">
-            {(c.nombre || '?').slice(0, 1).toUpperCase()}
-          </span>
-        ),
-        description: c.telefono || '-',
-        short: '',
-        end: '',
-      }));
+      .filter((a: any) => {
+        if (!q) return true;
+        const label = String(a?.label || '').toLowerCase();
+        const desc = String(a?.description || '').toLowerCase();
+        return label.includes(q) || desc.includes(q);
+      });
 
     const newAction = {
       id: "__new__",
@@ -1973,9 +2005,27 @@ export default function OrdenesTecnico() {
                           setShowClienteModal(true);
                           return;
                         }
-                        const id = Number(action?.id);
+                        const rawId = String(action?.id ?? '');
+                        const clienteIdStr = rawId.includes('::') ? rawId.split('::')[0] : rawId;
+                        const id = Number(clienteIdStr);
                         const c = (clientes || []).find((x) => Number(x.id) === id);
-                        if (c) selectCliente(c);
+                        if (!c) return;
+
+                        const contacto = action?.__contacto;
+                        if (contacto) {
+                          setFormData({
+                            ...formData,
+                            cliente_id: c.id,
+                            cliente: c.nombre,
+                            direccion: c.direccion,
+                            telefono_cliente: String(contacto?.celular || c.telefono || ''),
+                            nombre_cliente: String(contacto?.nombre_apellido || ''),
+                          });
+                          setClienteSearch(String(action?.label || c.nombre || ''));
+                          return;
+                        }
+
+                        selectCliente(c);
                       }}
                     />
                   </div>
