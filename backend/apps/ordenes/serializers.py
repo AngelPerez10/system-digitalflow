@@ -9,6 +9,11 @@ class OrdenSerializer(serializers.ModelSerializer):
     tecnico_asignado_full_name = serializers.SerializerMethodField()
     creado_por_username = serializers.CharField(source='creado_por.username', read_only=True)
 
+    def validate_folio(self, value):
+        if isinstance(value, str) and value.strip() == '':
+            return None
+        return value
+
     def get_tecnico_asignado_full_name(self, obj):
         if obj.tecnico_asignado:
             first = obj.tecnico_asignado.first_name

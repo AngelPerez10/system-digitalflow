@@ -879,12 +879,13 @@ export default function Ordenes() {
       } else {
         // Mostrar error detallado
         let errorMsg = 'Error al guardar la orden';
+        const raw = await response.text().catch(() => '');
         try {
-          const errorData = await response.json();
+          const errorData = raw ? JSON.parse(raw) : null;
           console.error('Error del servidor:', errorData);
           errorMsg = (errorData?.detail || JSON.stringify(errorData)) || errorMsg;
         } catch {
-          errorMsg = await response.text();
+          errorMsg = raw || errorMsg;
         }
         setAlert({
           show: true,
