@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import { apiUrl } from "@/config/api";
@@ -20,60 +20,193 @@ type ApiMessage = {
 
 type ChatItemGroup = "Today" | "Yesterday" | "Last Week";
 
-type ChatItem = {
+type Conversation = {
   id: string;
   title: string;
-  group: ChatItemGroup;
+  createdAt: string;
+  updatedAt: string;
+  messages: ChatMessage[];
 };
 
 export default function IaPage() {
-  const pageName = "Text Generator";
+  const pageName = "Asistente IA";
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatSearch, setChatSearch] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastErrorStatus, setLastErrorStatus] = useState<number | null>(null);
+  const [lastErrorKind, setLastErrorKind] = useState<'cors' | 'upstream_502' | 'http' | 'network' | 'unknown' | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const activeConversationIdRef = useRef<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const STORAGE_KEY = 'ia_conversations_v1';
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    try {
+      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+    } catch {
+      return;
+    }
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed : parsed?.conversations;
+      if (!Array.isArray(list)) return;
+      const sanitized: Conversation[] = list
+        .filter((c: any) => c && typeof c.id === 'string')
+        .map((c: any) => ({
+          id: String(c.id),
+          title: typeof c.title === 'string' && c.title.trim() ? c.title : 'Nuevo chat',
+          createdAt: typeof c.createdAt === 'string' ? c.createdAt : new Date().toISOString(),
+          updatedAt: typeof c.updatedAt === 'string' ? c.updatedAt : new Date().toISOString(),
+          messages: Array.isArray(c.messages) ? c.messages : [],
+        }));
+      setConversations(sanitized);
+      if (sanitized.length) {
+        const last = sanitized
+          .slice()
+          .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+        if (last?.id) {
+          setActiveConversationId(last.id);
+          setMessages(Array.isArray(last.messages) ? last.messages : []);
+        }
+      }
+    } catch {
+      return;
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+    } catch {
+      return;
+    }
+  }, [conversations]);
+
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    scrollToBottom(messages.length <= 1 ? 'auto' : 'smooth');
+  }, [messages]);
 
   const systemPrompt =
     "Eres un asistente de IA profesional. Responde siempre en español neutro. Usa el contexto de toda la conversación (mensajes anteriores) para mantener continuidad. No inventes datos como fechas actuales; si no sabes algo, dilo. No digas que eres de Google, Meta, Moonshot, Kimi, etc.; solo di que eres un asistente de IA.";
 
-  const chatItems: ChatItem[] = useMemo(
-    () => [
-      { id: "t1", title: "Write a follow-up email to a clien", group: "Today" },
-      { id: "t2", title: "Generate responsive login form layout", group: "Today" },
-      { id: "t3", title: "Create a warning state modal", group: "Today" },
-      { id: "t4", title: "Suggest color palette for dark theme", group: "Today" },
-      { id: "y1", title: "Improve login page accessibility", group: "Yesterday" },
-      { id: "y2", title: "Create a warning state modal with animation", group: "Yesterday" },
-      { id: "y3", title: "Add password visibility toggle", group: "Yesterday" },
-      { id: "y4", title: "Write validation logic for login form...", group: "Yesterday" },
-      { id: "y5", title: "Fix mobile responsiveness of login UI...", group: "Yesterday" },
-      { id: "w1", title: "Improve login page accessi...", group: "Last Week" },
-      { id: "w2", title: "Improve login page accessi...", group: "Last Week" },
-    ],
-    []
-  );
+  const groupForIso = (iso: string): ChatItemGroup => {
+    const ts = Date.parse(iso);
+    if (!Number.isFinite(ts)) return 'Last Week';
+    const now = new Date();
+    const d = new Date(ts);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfD = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const diffDays = Math.floor((startOfToday - startOfD) / (24 * 60 * 60 * 1000));
+    if (diffDays <= 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    return 'Last Week';
+  };
 
-  const filteredChatItems = useMemo(() => {
+  const filteredConversations = useMemo(() => {
     const q = chatSearch.trim().toLowerCase();
-    if (!q) return chatItems;
-    return chatItems.filter((x) => x.title.toLowerCase().includes(q));
-  }, [chatItems, chatSearch]);
+    const list = Array.isArray(conversations) ? conversations : [];
+    if (!q) return list;
+    return list.filter((c) => (c.title || '').toLowerCase().includes(q));
+  }, [conversations, chatSearch]);
 
   const byGroup = useMemo(() => {
-    const groups: Record<ChatItemGroup, ChatItem[]> = {
+    const groups: Record<ChatItemGroup, Conversation[]> = {
       Today: [],
       Yesterday: [],
       "Last Week": [],
     };
-    for (const item of filteredChatItems) groups[item.group].push(item);
+    const list = filteredConversations
+      .slice()
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    for (const c of list) {
+      const g = groupForIso(c.updatedAt);
+      groups[g].push(c);
+    }
     return groups;
-  }, [filteredChatItems]);
+  }, [filteredConversations]);
 
   const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token");
+
+  const getConversationTitle = (list: ChatMessage[]) => {
+    const firstUser = list.find((m) => m.role === 'user' && String(m.content || '').trim());
+    const raw = String(firstUser?.content || '').trim();
+    if (!raw) return 'Nuevo chat';
+    return raw.length > 44 ? `${raw.slice(0, 44)}…` : raw;
+  };
+
+  const generateConversationId = () => `c_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+  const upsertActiveConversation = (nextMessages: ChatMessage[]) => {
+    const nowIso = new Date().toISOString();
+    const id = activeConversationIdRef.current;
+    setConversations((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      const title = getConversationTitle(nextMessages);
+      if (!id) {
+        const newId = generateConversationId();
+        activeConversationIdRef.current = newId;
+        setActiveConversationId(newId);
+        return [{ id: newId, title, createdAt: nowIso, updatedAt: nowIso, messages: nextMessages }, ...list];
+      }
+      const idx = list.findIndex((c) => c.id === id);
+      if (idx < 0) {
+        return [{ id, title, createdAt: nowIso, updatedAt: nowIso, messages: nextMessages }, ...list];
+      }
+      const copy = list.slice();
+      const existing = copy[idx];
+      copy[idx] = {
+        ...existing,
+        title: title || existing.title,
+        updatedAt: nowIso,
+        messages: nextMessages,
+      };
+      return copy;
+    });
+  };
+
+  const handleNewChat = () => {
+    const nowIso = new Date().toISOString();
+    const id = generateConversationId();
+    const convo: Conversation = { id, title: 'Nuevo chat', createdAt: nowIso, updatedAt: nowIso, messages: [] };
+    setConversations((prev) => [convo, ...(Array.isArray(prev) ? prev : [])]);
+    activeConversationIdRef.current = id;
+    setActiveConversationId(id);
+    setMessages([]);
+    setError(null);
+    setLastErrorKind(null);
+    setLastErrorStatus(null);
+    setCopiedId(null);
+    setPrompt('');
+    setIsSidebarOpen(false);
+  };
+
+  const handleSelectConversation = (id: string) => {
+    const convo = (conversations || []).find((c) => c.id === id) || null;
+    activeConversationIdRef.current = id;
+    setActiveConversationId(id);
+    setMessages(Array.isArray(convo?.messages) ? convo!.messages : []);
+    setError(null);
+    setLastErrorKind(null);
+    setLastErrorStatus(null);
+    setCopiedId(null);
+    setIsSidebarOpen(false);
+  };
 
   const toApiMessages = (list: ChatMessage[]): ApiMessage[] => {
     const msgs: ApiMessage[] = [
@@ -94,9 +227,11 @@ export default function IaPage() {
 
   const appendAssistantDelta = (assistantId: string, delta: string) => {
     if (!delta) return;
-    setMessages((prev) =>
-      prev.map((m) => (m.id === assistantId ? { ...m, content: (m.content || "") + delta } : m))
-    );
+    setMessages((prev) => {
+      const next = prev.map((m) => (m.id === assistantId ? { ...m, content: (m.content || "") + delta } : m));
+      upsertActiveConversation(next);
+      return next;
+    });
   };
 
   const parseSseChunk = (raw: string) => {
@@ -148,6 +283,8 @@ export default function IaPage() {
     }
 
     setError(null);
+    setLastErrorStatus(null);
+    setLastErrorKind(null);
     setPrompt("");
 
     const userMsg: ChatMessage = {
@@ -162,9 +299,23 @@ export default function IaPage() {
       content: "",
     };
 
+    if (!activeConversationIdRef.current) {
+      const nowIso = new Date().toISOString();
+      const id = generateConversationId();
+      activeConversationIdRef.current = id;
+      setActiveConversationId(id);
+      setConversations((prev) => {
+        const list = Array.isArray(prev) ? prev : [];
+        const initialTitle = text.length > 44 ? `${text.slice(0, 44)}…` : text;
+        return [{ id, title: initialTitle || 'Nuevo chat', createdAt: nowIso, updatedAt: nowIso, messages: [] }, ...list];
+      });
+    }
+
     const nextConversation = [...messages, userMsg, assistantMsg];
     setMessages(nextConversation);
+    upsertActiveConversation(nextConversation);
     setSending(true);
+    scrollToBottom('auto');
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -182,8 +333,15 @@ export default function IaPage() {
       });
 
       if (!resp.ok) {
+        setLastErrorStatus(resp.status);
         const txt = await resp.text().catch(() => "");
-        setError(txt || `Error al consultar IA (${resp.status}).`);
+        if (resp.status === 502) {
+          setLastErrorKind('upstream_502');
+          setError("El servicio de IA está temporalmente no disponible (502). Intenta de nuevo en unos segundos.");
+        } else {
+          setLastErrorKind('http');
+          setError(txt || `Error al consultar IA (${resp.status}).`);
+        }
         return;
       }
 
@@ -215,7 +373,15 @@ export default function IaPage() {
       }
     } catch (e: any) {
       if (String(e?.name) === "AbortError") return;
-      setError(String(e || "Error inesperado"));
+      const msg = String(e || "Error inesperado");
+      const isCors = msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('cors');
+      if (isCors) {
+        setLastErrorKind('cors');
+        setError('No se pudo conectar por CORS. Si estás en producción, revisa la configuración del backend para permitir este dominio.');
+      } else {
+        setLastErrorKind('network');
+        setError(msg);
+      }
     } finally {
       setSending(false);
     }
@@ -284,14 +450,33 @@ export default function IaPage() {
             <div className="relative mx-auto flex max-w-[720px] flex-col">
               <div className="custom-scrollbar relative z-20 max-h-[50vh] flex-1 space-y-7 overflow-y-auto pb-10 lg:pb-7">
                 {error && (
-                  <div className="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-800 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-200">
-                    {error}
-                  </div>
-                )}
-
-                {!messages.length && !error && (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-                    Escribe un prompt para comenzar.
+                  <div className="rounded-2xl border border-error-200 bg-error-50 px-4 py-4 text-sm text-error-800 shadow-theme-xs dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-200">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[12px] font-semibold uppercase tracking-wide opacity-80">
+                          {lastErrorKind === 'upstream_502' ? 'Servicio no disponible' : lastErrorKind === 'cors' ? 'Conexión bloqueada' : 'Error'}
+                        </div>
+                        <div className="mt-1 text-sm leading-5">{error}</div>
+                        {typeof lastErrorStatus === 'number' && (
+                          <div className="mt-2 text-[12px] opacity-70">HTTP {lastErrorStatus}</div>
+                        )}
+                      </div>
+                      {lastErrorKind === 'upstream_502' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setError(null);
+                            setLastErrorKind(null);
+                            setLastErrorStatus(null);
+                            handleSend();
+                          }}
+                          disabled={sending || !prompt.trim()}
+                          className="shrink-0 inline-flex items-center justify-center rounded-xl border border-error-300 bg-white px-3 py-2 text-xs font-semibold text-error-700 hover:bg-error-50 disabled:opacity-60 disabled:cursor-not-allowed dark:border-error-500/30 dark:bg-gray-900 dark:text-error-200 dark:hover:bg-white/5"
+                        >
+                          Reintentar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -299,8 +484,8 @@ export default function IaPage() {
                   if (m.role === "user") {
                     return (
                       <div key={m.id} className="flex justify-end">
-                        <div className="shadow-theme-xs bg-brand-100 dark:bg-brand-500/20 max-w-[480px] rounded-xl rounded-tr-xs px-4 py-3">
-                          <p className="text-left text-sm font-normal text-gray-800 dark:text-white/90">{m.content}</p>
+                        <div className="max-w-[560px] rounded-2xl rounded-tr-sm bg-gray-900 px-4 py-3 shadow-theme-xs dark:bg-white/90">
+                          <p className="text-left text-sm font-normal leading-6 text-white dark:text-gray-900">{m.content}</p>
                         </div>
                       </div>
                     );
@@ -310,14 +495,14 @@ export default function IaPage() {
                   return (
                     <div key={m.id} className="flex justify-start">
                       <div>
-                        <div className="shadow-theme-xs max-w-[480px] rounded-xl rounded-tl-xs bg-gray-100 px-4 py-3 dark:bg-white/5">
+                        <div className="shadow-theme-xs max-w-[560px] rounded-2xl rounded-tl-sm border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
                           {m.content.split("\n\n").map((p, idx) => (
                             <p
                               key={idx}
                               className={
                                 idx === 0
-                                  ? "text-sm leading-5 text-gray-800 dark:text-white/90"
-                                  : "mb-0 mt-5 text-sm leading-5 text-gray-800 dark:text-white/90"
+                                  ? "text-sm leading-6 text-gray-800 dark:text-white/90"
+                                  : "mb-0 mt-5 text-sm leading-6 text-gray-800 dark:text-white/90"
                               }
                             >
                               {p}
@@ -328,12 +513,12 @@ export default function IaPage() {
                           <button
                             type="button"
                             onClick={() => handleCopy(m)}
-                            className="flex h-8 items-center gap-1 rounded-full border border-gray-100 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-500 dark:border-white/5 dark:bg-gray-900 dark:text-gray-400 dark:hover:text-white/90"
+                            className="flex h-8 items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/5"
                           >
                             {!isCopied ? (
                               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none">
                                 <path
-                                  d="M14.4194 11.7679L15.4506 10.7367C17.1591 9.02811 17.1591 6.25802 15.4506 4.54947C13.742 2.84093 10.9719 2.84093 9.2634 4.54947L8.2322 5.58067M11.77 14.4172L10.7365 15.4507C9.02799 17.1592 6.2579 17.1592 4.54935 15.4507C2.84081 13.7422 2.84081 10.9721 4.54935 9.26352L5.58285 8.23002M11.7677 8.23232L8.2322 11.7679"
+                                  d="M14.4194 17.249L15.4506 10.7367C17.1591 9.02811 17.1591 6.25802 15.4506 4.54947C13.742 2.84093 10.9719 2.84093 9.2634 4.54947L8.2322 5.58067M11.77 14.4172L10.7365 15.4507C9.02799 17.1592 6.2579 17.1592 4.54935 15.4507C2.84081 13.7422 2.84081 10.9721 4.54935 9.26352L5.58285 8.23002M11.7677 8.23232L8.2322 11.7679"
                                   stroke="currentColor"
                                   strokeWidth="1.5"
                                   strokeLinecap="round"
@@ -358,21 +543,28 @@ export default function IaPage() {
                     </div>
                   );
                 })}
+                <div ref={messagesEndRef} />
               </div>
 
-              <div className="fixed bottom-5 left-1/2 z-20 w-full -translate-x-1/2 transform px-4 sm:px-6 lg:bottom-10 lg:px-8">
-                <div className="mx-auto w-full max-w-[720px] rounded-2xl border border-gray-200 bg-white p-5 shadow-xs dark:border-gray-800 dark:bg-gray-800">
+              <div className="fixed bottom-4 left-1/2 z-20 w-full -translate-x-1/2 transform px-4 sm:px-6 lg:bottom-8 lg:px-8">
+                <div className="mx-auto w-full max-w-[820px] rounded-3xl border border-gray-200 bg-white/90 p-4 shadow-theme-xs backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
                   <textarea
-                    placeholder="Type your prompt here..."
+                    placeholder="Escribe tu prompt aquí…"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    className="h-20 w-full resize-none border-none bg-transparent p-0 font-normal text-gray-800 outline-none placeholder:text-gray-400 focus:ring-0 dark:text-white"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    className="h-20 w-full resize-none border-none bg-transparent p-0 text-sm font-normal leading-6 text-gray-900 outline-none placeholder:text-gray-400 focus:ring-0 dark:text-white"
                   />
 
-                  <div className="flex items-center justify-between pt-2">
+                  <div className="flex items-center justify-between pt-3">
                     <button
                       type="button"
-                      className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                      className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none">
                         <path
@@ -383,16 +575,22 @@ export default function IaPage() {
                           strokeLinejoin="round"
                         />
                       </svg>
-                      Attach
+                      Enter para enviar • Shift+Enter nueva línea
                     </button>
 
                     <button
                       type="button"
                       onClick={handleSend}
                       disabled={sending || !prompt.trim()}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-900 text-white transition hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white/90 dark:text-gray-800 dark:hover:bg-gray-900 dark:hover:text-white/90"
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-gray-900 px-3 text-white transition hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white/90 dark:text-gray-800 dark:hover:bg-gray-900 dark:hover:text-white/90"
                       aria-label="Enviar"
                     >
+                      {sending && (
+                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                          <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+                        </svg>
+                      )}
                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none">
                         <path
                           d="M9.99674 3.33252L9.99675 16.667M5 8.32918L9.99984 3.33252L15 8.32918"
@@ -446,6 +644,7 @@ export default function IaPage() {
           >
             <button
               type="button"
+              onClick={handleNewChat}
               className="bg-brand-500 hover:bg-brand-600 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white transition"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -484,7 +683,12 @@ export default function IaPage() {
               </form>
             </div>
 
-            <div className="custom-scrollbar mt-6 h-full flex-1 space-y-6 overflow-y-auto text-sm">
+            <div className="custom-scrollbar max-h-full flex-1 space-y-6 overflow-y-auto px-4 py-6 sm:px-6">
+              {filteredConversations.length === 0 && (
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
+                  No hay chats todavía.
+                </div>
+              )}
               {(Object.keys(byGroup) as ChatItemGroup[]).map((g) => {
                 const list = byGroup[g];
                 if (!list.length) return null;
@@ -493,15 +697,24 @@ export default function IaPage() {
                     <p className="mb-3 pl-3 text-xs text-gray-400 uppercase">{g}</p>
                     <ul className="space-y-1">
                       {list.map((item) => (
-                        <li key={item.id} className="group relative rounded-full px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-950">
-                          <div className="flex cursor-pointer items-center justify-between">
-                            <a href="#" onClick={(e) => e.preventDefault()} className="block truncate text-sm text-gray-700 dark:text-gray-400">
+                        <li
+                          key={item.id}
+                          className={
+                            "group relative rounded-full px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-950 " +
+                            (activeConversationId === item.id ? "bg-gray-50 dark:bg-gray-950" : "")
+                          }
+                        >
+                          <div className="flex cursor-pointer items-center justify-between" onClick={() => handleSelectConversation(item.id)}>
+                            <span className="block truncate text-sm text-gray-700 dark:text-gray-400">
                               {item.title}
-                            </a>
+                            </span>
                             <button
                               type="button"
                               className="invisible ml-2 rounded-full p-1 text-gray-700 group-hover:visible hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400"
                               aria-label="Menu"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
                                 <path
