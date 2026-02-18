@@ -1,6 +1,7 @@
 import json
 import os
 import http.client
+import time
 from urllib.parse import urlparse
 
 from django.http import StreamingHttpResponse
@@ -42,6 +43,7 @@ def chat(request):
 
     upstream_timeout_s = int(os.environ.get('AI_API_UPSTREAM_TIMEOUT_S') or '120')
     upstream_retries = int(os.environ.get('AI_API_UPSTREAM_RETRIES') or '2')
+    upstream_retry_backoff_s = float(os.environ.get('AI_API_UPSTREAM_RETRY_BACKOFF_S') or '0.8')
     last_exc = None
     conn = None
     upstream = None
@@ -70,6 +72,7 @@ def chat(request):
                     conn.close()
                 except Exception:
                     pass
+                time.sleep(upstream_retry_backoff_s * (2 ** attempt))
                 continue
 
             # Disable read timeout for long-lived SSE streams.
@@ -81,11 +84,13 @@ def chat(request):
             last_exc = exc
             if attempt >= upstream_retries:
                 return Response({'detail': 'Upstream AI API timeout', 'error': str(exc)}, status=status.HTTP_504_GATEWAY_TIMEOUT)
+            time.sleep(upstream_retry_backoff_s * (2 ** attempt))
             continue
         except OSError as exc:
             last_exc = exc
             if attempt >= upstream_retries:
                 return Response({'detail': 'Upstream AI API unreachable', 'error': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+            time.sleep(upstream_retry_backoff_s * (2 ** attempt))
             continue
 
     if upstream is None or conn is None:
