@@ -888,6 +888,49 @@ export default function OrdenesTecnico() {
           }
         }
 
+        if (cid && (payload?.nombre_cliente || payload?.telefono_cliente)) {
+          const existingCliente = clientes.find(c => c.id === cid);
+          const contactos = (existingCliente as any)?.contactos;
+          const principal = Array.isArray(contactos)
+            ? (contactos.find((c: any) => c?.is_principal) || contactos[0])
+            : null;
+          const nombre = String(payload?.nombre_cliente || '').trim();
+          const celular = String(payload?.telefono_cliente || '').trim();
+
+          if (principal?.id) {
+            const body: any = {};
+            if (nombre) body.nombre_apellido = nombre;
+            if (celular) body.celular = celular;
+            if (Object.keys(body).length > 0) {
+              await fetch(apiUrl(`/api/cliente-contactos/${principal.id}/`), {
+                method: 'PATCH',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body),
+              }).catch(() => null);
+            }
+          } else if (nombre || celular) {
+            await fetch(apiUrl('/api/cliente-contactos/'), {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                cliente: cid,
+                nombre_apellido: nombre || (existingCliente?.nombre || ''),
+                titulo: '',
+                area_puesto: '',
+                celular: celular || (existingCliente?.telefono || ''),
+                correo: '',
+                is_principal: true,
+              }),
+            }).catch(() => null);
+          }
+        }
+
         if (savedOrden && savedOrden.id) {
           const role = localStorage.getItem('role');
           const userRaw = localStorage.getItem('user');

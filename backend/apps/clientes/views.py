@@ -93,7 +93,7 @@ class ClienteContactoViewSet(viewsets.ModelViewSet):
     """
     queryset = ClienteContacto.objects.select_related('cliente').all()
     serializer_class = ClienteContactoSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [ClientesPermission]
     pagination_class = None
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
