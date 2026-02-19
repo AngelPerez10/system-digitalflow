@@ -2,6 +2,7 @@ import json
 import os
 import base64
 import io
+import uuid
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -243,6 +244,164 @@ def _img_url_to_data_uri(url: str) -> str:
         return f'data:{content_type};base64,{b64}'
     except Exception:
         return url
+
+
+def _clean_whatsapp_phone(raw: str) -> str:
+    raw = str(raw or '').strip()
+    digits = ''.join(ch for ch in raw if ch.isdigit())
+    if len(digits) == 10:
+        return f'52{digits}'
+    return digits
+
+
+def _encode_multipart_formdata(fields, files):
+    boundary = uuid.uuid4().hex
+    body = bytearray()
+
+    def _add_line(line: bytes):
+        body.extend(line)
+        body.extend(b'\r\n')
+
+    for (name, value) in fields:
+        _add_line(f'--{boundary}'.encode('utf-8'))
+        _add_line(f'Content-Disposition: form-data; name="{name}"'.encode('utf-8'))
+        _add_line(b'')
+        if isinstance(value, bytes):
+            body.extend(value)
+            body.extend(b'\r\n')
+        else:
+            _add_line(str(value).encode('utf-8'))
+
+    for (name, filename, content_type, data) in files:
+        _add_line(f'--{boundary}'.encode('utf-8'))
+        _add_line(
+            f'Content-Disposition: form-data; name="{name}"; filename="{filename}"'.encode('utf-8')
+        )
+        _add_line(f'Content-Type: {content_type}'.encode('utf-8'))
+        _add_line(b'')
+        body.extend(data)
+        body.extend(b'\r\n')
+
+    _add_line(f'--{boundary}--'.encode('utf-8'))
+    content_type = f'multipart/form-data; boundary={boundary}'
+    return content_type, bytes(body)
+
+
+def _generate_pdf_bytes(html: str) -> bytes:
+    api_key = os.environ.get('HTMLEDOCS_API_KEY')
+    if not api_key:
+        raise ValueError('HTMLEDOCS_API_KEY no está configurado')
+
+    payload = {
+        "html": html,
+        "format": "pdf",
+        "size": "A4",
+        "orientation": "portrait",
+    }
+
+    req = Request(
+        url="https://htmldocs.com/api/generate",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(req, timeout=60) as resp:
+            return resp.read()
+    except HTTPError as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+        raise RuntimeError(f"Error generando PDF en htmldocs: {e.code} {body}")
+    except URLError as e:
+        raise RuntimeError(f"No se pudo conectar a htmldocs: {e}")
+
+
+def _wa_upload_media(pdf_bytes: bytes, filename: str) -> str:
+    token = os.environ.get('WHATSAPP_TOKEN') or os.environ.get('WHATSAPP_ACCESS_TOKEN')
+    phone_number_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
+    api_version = os.environ.get('WHATSAPP_API_VERSION') or 'v19.0'
+    if not token or not phone_number_id:
+        raise ValueError('WHATSAPP_TOKEN/WHATSAPP_PHONE_NUMBER_ID no están configurados')
+
+    url = f'https://graph.facebook.com/{api_version}/{phone_number_id}/media'
+    ctype, body = _encode_multipart_formdata(
+        fields=[('messaging_product', 'whatsapp')],
+        files=[('file', filename, 'application/pdf', pdf_bytes)],
+    )
+
+    req = Request(
+        url=url,
+        data=body,
+        headers={
+            'Authorization': f'Bearer {token}',
+            'Content-Type': ctype,
+        },
+        method='POST',
+    )
+
+    try:
+        with urlopen(req, timeout=60) as resp:
+            res = json.loads(resp.read().decode('utf-8'))
+    except HTTPError as e:
+        raw = ''
+        try:
+            raw = e.read().decode('utf-8', errors='ignore')
+        except Exception:
+            pass
+        raise RuntimeError(f'Error subiendo media a WhatsApp: {e.code} {raw}')
+
+    media_id = res.get('id')
+    if not media_id:
+        raise RuntimeError('No se obtuvo media id de WhatsApp')
+    return media_id
+
+
+def _wa_send_document(to_phone: str, media_id: str, filename: str, caption: str) -> dict:
+    token = os.environ.get('WHATSAPP_TOKEN') or os.environ.get('WHATSAPP_ACCESS_TOKEN')
+    phone_number_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
+    api_version = os.environ.get('WHATSAPP_API_VERSION') or 'v19.0'
+    if not token or not phone_number_id:
+        raise ValueError('WHATSAPP_TOKEN/WHATSAPP_PHONE_NUMBER_ID no están configurados')
+
+    url = f'https://graph.facebook.com/{api_version}/{phone_number_id}/messages'
+    payload = {
+        'messaging_product': 'whatsapp',
+        'to': to_phone,
+        'type': 'document',
+        'document': {
+            'id': media_id,
+            'filename': filename,
+            'caption': caption,
+        },
+    }
+
+    req = Request(
+        url=url,
+        data=json.dumps(payload).encode('utf-8'),
+        headers={
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json',
+        },
+        method='POST',
+    )
+
+    try:
+        with urlopen(req, timeout=60) as resp:
+            return json.loads(resp.read().decode('utf-8'))
+    except HTTPError as e:
+        raw = ''
+        try:
+            raw = e.read().decode('utf-8', errors='ignore')
+        except Exception:
+            pass
+        raise RuntimeError(f'Error enviando documento por WhatsApp: {e.code} {raw}')
 
 
 class OrdenViewSet(viewsets.ModelViewSet):
@@ -723,3 +882,27 @@ class OrdenViewSet(viewsets.ModelViewSet):
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
+
+    @action(detail=True, methods=['post'], url_path='send-whatsapp')
+    def send_whatsapp(self, request, pk=None):
+        orden = self.get_object()
+        to_phone = _clean_whatsapp_phone(getattr(orden, 'telefono_cliente', '') or '')
+        if not to_phone:
+            return Response({'detail': 'La orden no tiene teléfono de cliente.'}, status=400)
+
+        html = self._generate_pdf_html(orden)
+        if not html:
+            return Response({'detail': 'No se pudo generar el HTML del PDF.'}, status=500)
+
+        try:
+            pdf_bytes = _generate_pdf_bytes(html)
+            filename = f"Orden_de_Servicio_{getattr(orden, 'idx', None) or orden.id}.pdf"
+            media_id = _wa_upload_media(pdf_bytes, filename)
+            cliente = getattr(orden, 'cliente', None) or getattr(getattr(orden, 'cliente_id', None), 'nombre', None) or ''
+            caption = f"Orden de Servicio{(': ' + str(cliente)) if cliente else ''}"
+            res = _wa_send_document(to_phone=to_phone, media_id=media_id, filename=filename, caption=caption)
+            return Response({'detail': 'Enviado', 'result': res}, status=200)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=500)
+        except Exception as e:
+            return Response({'detail': 'No se pudo enviar por WhatsApp', 'error': str(e)}, status=502)

@@ -36,9 +36,25 @@ export default function SignInForm() {
   const navigate = useNavigate();
   const location = useLocation() as any;
 
+  const getRoleFromStorage = () => {
+    const r = (localStorage.getItem('role') || sessionStorage.getItem('role') || '').toLowerCase();
+    return r;
+  };
+
   useEffect(() => {
     if (token) {
-      const to = location?.state?.from?.pathname || '/';
+      const role = getRoleFromStorage();
+      const from = location?.state?.from?.pathname;
+      const isAdmin = role === 'admin';
+
+      // If the user already has a token (refresh / returning user), send them
+      // to the correct default landing page.
+      let to = '/';
+      if (isAdmin) {
+        to = from || '/';
+      } else {
+        to = '/ordenes-tecnico';
+      }
       navigate(to, { replace: true });
     }
   }, [token, navigate, location]);
@@ -131,8 +147,8 @@ export default function SignInForm() {
         // Admins van a la ruta original si existe o al dashboard principal
         to = from && from !== '/' ? from : '/';
       } else {
-        // Operadores van al dashboard de operador por defecto
-        to = '/operador/dashboard';
+        // Operadores/Técnicos van directo a Órdenes Técnico
+        to = '/ordenes-tecnico';
       }
 
       navigate(to, { replace: true });

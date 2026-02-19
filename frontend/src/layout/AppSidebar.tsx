@@ -193,10 +193,11 @@ const AppSidebar: React.FC = () => {
         name: "Operación",
         subItems: [
           { name: "Agenda", path: "/agenda", pro: false },
-          { name: "Órdenes de Servicios", path: "/ordenes", pro: false },
+          { name: "Órdenes de Trabajo", path: "/ordenes", pro: false },
           { name: "Levantamiento", path: "/levantamiento", pro: false },
           { name: "Instalación", path: "/instalacion", pro: false },
           { name: "Mantenimiento", path: "/mantenimiento", pro: false },
+          { name: "Órdenes del Tecnico", path: "/mantenimiento", pro: false },
           { name: "Tiket", path: "/tiket", pro: false },
           { name: "Vehículo", path: "/vehiculo", pro: false },
           { name: "Técnico", path: "/tecnico", pro: false },
