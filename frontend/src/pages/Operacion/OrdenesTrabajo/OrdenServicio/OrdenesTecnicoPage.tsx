@@ -2823,6 +2823,11 @@ export default function OrdenesTecnico() {
                   setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
                   return;
                 }
+                if (!window.isSecureContext) {
+                  setAlert({ show: true, variant: 'warning', title: 'Se requiere conexión segura', message: 'La geolocalización requiere HTTPS (o localhost). Abre el sistema con HTTPS o en localhost e inténtalo de nuevo.' });
+                  setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3200);
+                  return;
+                }
                 navigator.geolocation.getCurrentPosition(
                   (pos) => {
                     const { latitude, longitude } = pos.coords;

@@ -94,6 +94,7 @@ const Calendar: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [permError, setPermError] = useState<string | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
+  const [mapGeoError, setMapGeoError] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [tecnicoSearch, setTecnicoSearch] = useState("");
   const [tecnicoOpen, setTecnicoOpen] = useState(false);
@@ -675,6 +676,7 @@ const Calendar: React.FC = () => {
                               } else {
                                 setSelectedLocation(null);
                               }
+                              setMapGeoError(null);
                               setShowMapModal(true);
                             }}
                             className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
@@ -888,6 +890,11 @@ const Calendar: React.FC = () => {
             </div>
 
             <div className="px-4 sm:px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-end gap-2">
+              {mapGeoError && (
+                <div className="w-full sm:flex-1 sm:mr-auto rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                  {mapGeoError}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setShowMapModal(false)}
@@ -898,7 +905,15 @@ const Calendar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  if (!navigator.geolocation) return;
+                  setMapGeoError(null);
+                  if (!navigator.geolocation) {
+                    setMapGeoError('Tu navegador no soporta geolocalización.');
+                    return;
+                  }
+                  if (!window.isSecureContext) {
+                    setMapGeoError('La geolocalización requiere HTTPS (o localhost). Abre el sistema con HTTPS o en localhost e inténtalo de nuevo.');
+                    return;
+                  }
                   navigator.geolocation.getCurrentPosition(
                     (pos) => {
                       const { latitude, longitude } = pos.coords;
@@ -908,7 +923,9 @@ const Calendar: React.FC = () => {
                       setShowMapModal(false);
                       setSelectedLocation(null);
                     },
-                    () => null,
+                    () => {
+                      setMapGeoError('No se pudo obtener ubicación. Revisa permisos de ubicación e inténtalo de nuevo.');
+                    },
                     { enableHighAccuracy: true, timeout: 8000 }
                   );
                 }}
