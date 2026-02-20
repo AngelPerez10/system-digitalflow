@@ -903,6 +903,10 @@ const Calendar: React.FC = () => {
                     (pos) => {
                       const { latitude, longitude } = pos.coords;
                       setSelectedLocation({ lat: latitude, lng: longitude });
+                      const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
+                      updateOrdenField('direccion', url as any);
+                      setShowMapModal(false);
+                      setSelectedLocation(null);
                     },
                     () => null,
                     { enableHighAccuracy: true, timeout: 8000 }

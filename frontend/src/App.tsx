@@ -20,9 +20,10 @@ import { ScrollToTop } from "@/components/common/ScrollToTop";
 import Home from "@/pages/Dashboard/Home";
 import RequireAuth from "@/components/auth/RequireAuth";
 import RequireAdmin from "@/components/auth/RequireAdmin";
-import Ordenes from "@/pages/Ordenes/OrdenesPage";
-import OrdenPdfPage from "@/pages/Ordenes/OrdenPdfPage";
-import OrdenesTecnico from "@/pages/Ordenes/OrdenesTecnicoPage";
+import Ordenes from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenesPage";
+import OrdenPdfPage from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenPdfPage";
+import OrdenesTecnico from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenesTecnicoPage";
+import LevantamientoPage from "@/pages/Operacion/OrdenesTrabajo/OrdenLevantamiento/LevantamientoPage";
 import Clientes from "@/pages/ContactosNegocio/Clientes/ClientesPage";
 import EmpresaPage from "@/pages/ContactosNegocio/Clientes/EmpresaPage";
 import PersonasPage from "@/pages/ContactosNegocio/Clientes/PersonasPage";
@@ -55,6 +56,7 @@ export default function App() {
             <Route path="/ordenes" element={<RequireAdmin><Ordenes /></RequireAdmin>} />
             <Route path="/ordenes/:id/pdf" element={<OrdenPdfPage />} />
             <Route path="/ordenes-tecnico" element={<OrdenesTecnico />} />
+            <Route path="/levantamiento" element={<RequireAdmin><LevantamientoPage /></RequireAdmin>} />
             <Route path="/clientes" element={<RequireAdmin><Clientes /></RequireAdmin>} />
             <Route path="/empresas" element={<RequireAdmin><EmpresaPage /></RequireAdmin>} />
             <Route path="/personas" element={<RequireAdmin><PersonasPage /></RequireAdmin>} />

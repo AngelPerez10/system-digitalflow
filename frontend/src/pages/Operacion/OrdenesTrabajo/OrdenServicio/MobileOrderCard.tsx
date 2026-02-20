@@ -1,4 +1,4 @@
-import { PencilIcon, TrashBinIcon } from "../../icons";
+import { PencilIcon, TrashBinIcon } from "../../../../icons";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;

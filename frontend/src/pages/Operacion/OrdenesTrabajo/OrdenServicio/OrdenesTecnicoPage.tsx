@@ -12,19 +12,15 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { apiUrl } from "@/config/api";
-import { PencilIcon, TrashBinIcon, TimeIcon } from "../../icons";
+import { PencilIcon, TrashBinIcon, TimeIcon } from "../../../../icons";
 import { MobileOrderList } from "./MobileOrderCard";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
+import LevantamientoForm from "../OrdenLevantamiento/LevantamientoForm";
 
-interface ServicioCatalogo {
-  id: number;
-  nombre: string;
-  descripcion?: string;
-  categoria?: string;
-  activo?: boolean;
-}
+
+
 
 interface Orden {
   id: number;
@@ -45,6 +41,8 @@ interface Orden {
   nombre_encargado: string;
   nombre_cliente: string;
   tecnico_asignado?: number | null;
+  tecnico_asignado_username?: string;
+  tecnico_asignado_full_name?: string;
   firma_encargado_url: string;
   firma_cliente_url: string;
   fotos_urls: string[];
@@ -62,12 +60,27 @@ interface Usuario {
   is_superuser?: boolean;
 }
 
-let ordenesPagePermissionsLastLoadAt = 0;
+interface ServicioCatalogo {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+  categoria?: string;
+  activo?: boolean;
+}
+
 let ordenesPageInitialDataLastLoadAt = 0;
 const ORDENES_PAGE_INIT_THROTTLE_MS = 800;
 
-export default function Ordenes() {
+
+
+export default function OrdenesTecnico() {
   const navigate = useNavigate();
+
+  const formNonceRef = useRef(0);
+
+  const getToken = () => {
+    return localStorage.getItem("token") || sessionStorage.getItem("token");
+  };
 
   const getPermissionsFromStorage = () => {
     try {
@@ -78,53 +91,61 @@ export default function Ordenes() {
     }
   };
 
+  const loadServiciosDisponibles = async () => {
+    const fallbackServicios = [
+      'ALARMAS',
+      'RASTREO',
+      'INTERNET',
+      'GPS',
+      'SENSOR DE GASOLINA',
+      'SENSOR DE TEMPERATURA',
+      'CAMARA',
+      'DASHCAM',
+      'VENTA DE PRODUCTO',
+    ];
+
+    const token = getToken();
+    if (!token) {
+      setServiciosDisponibles(fallbackServicios);
+      return;
+    }
+
+    try {
+      const res = await fetch(apiUrl('/api/servicios/?page=1&page_size=500&ordering=idx'), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store' as RequestCache,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setServiciosDisponibles(fallbackServicios);
+        return;
+      }
+
+      const results = Array.isArray((data as any)?.results) ? ((data as any).results as ServicioCatalogo[]) : [];
+      const names = results
+        .filter((s) => s && typeof s.nombre === 'string' && s.nombre.trim() && s.activo !== false)
+        .map((s) => s.nombre.trim());
+
+      const merged = Array.from(new Set([...(names.length ? names : fallbackServicios)]));
+      setServiciosDisponibles(merged);
+    } catch {
+      setServiciosDisponibles(fallbackServicios);
+    }
+  };
+
   const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
+  const [mySignatureUrl, setMySignatureUrl] = useState<string>('');
 
   const canOrdenesView = permissions?.ordenes?.view !== false;
   const canOrdenesCreate = !!permissions?.ordenes?.create;
   const canOrdenesEdit = !!permissions?.ordenes?.edit;
   const canOrdenesDelete = !!permissions?.ordenes?.delete;
 
-  const getToken = () => {
-    return localStorage.getItem("token") || sessionStorage.getItem("token");
-  };
-  const [ordenes, setOrdenes] = useState<Orden[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [serviciosDisponibles, setServiciosDisponibles] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [reindexing, setReindexing] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [showClienteModal, setShowClienteModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
-
-  const [editingOrden, setEditingOrden] = useState<Orden | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
-  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
-  // Filtros
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<'' | 'pendiente' | 'resuelto'>('');
-  const [filterServicio, setFilterServicio] = useState<string[]>([]);
-  const [filterDate, setFilterDate] = useState(''); // YYYY-MM-DD
-  const filterRef = useRef<HTMLDivElement | null>(null);
-
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSendingWhatsapp, setIsSendingWhatsapp] = useState(false);
-
-  useEffect(() => {
-    const sync = () => setPermissions(getPermissionsFromStorage());
-    window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
-  }, []);
-
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    const now = Date.now();
-    if (now - ordenesPagePermissionsLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
-    ordenesPagePermissionsLastLoadAt = now;
+
     const load = async () => {
       try {
         const res = await fetch(apiUrl('/api/me/permissions/'), {
@@ -134,18 +155,22 @@ export default function Ordenes() {
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) return;
-        const p = JSON.stringify(data?.permissions || {});
-        localStorage.setItem('permissions', p);
-        sessionStorage.setItem('permissions', p);
-        setPermissions(data?.permissions || {});
-      } catch {
-        // ignore
+        const p = data?.permissions || {};
+        const pStr = JSON.stringify(p);
+        localStorage.setItem('permissions', pStr);
+        sessionStorage.setItem('permissions', pStr);
+        setPermissions(p);
+      } catch (e) {
+        console.error("Error syncing permissions", e);
       }
     };
     load();
   }, []);
 
-  const [mySignatureUrl, setMySignatureUrl] = useState<string>('');
+  useEffect(() => {
+    loadServiciosDisponibles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -168,6 +193,40 @@ export default function Ordenes() {
     load();
   }, []);
 
+  useEffect(() => {
+    const sync = () => setPermissions(getPermissionsFromStorage());
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, []);
+  const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [serviciosDisponibles, setServiciosDisponibles] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reindexing, setReindexing] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showClienteModal, setShowClienteModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [tipoOrden, setTipoOrden] = useState<'servicio_tecnico' | 'levantamiento' | 'instalaciones' | 'mantenimiento'>('servicio_tecnico');
+  const [editingOrden, setEditingOrden] = useState<Orden | null>(null);
+  const isReadOnly = editingOrden ? !canOrdenesEdit : !canOrdenesCreate;
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
+  // Filtros
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<'' | 'pendiente' | 'resuelto'>('');
+  const [filterServicio, setFilterServicio] = useState<string[]>([]);
+  const [filterDate, setFilterDate] = useState(''); // YYYY-MM-DD
+  const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
+  const filterRef = useRef<HTMLDivElement | null>(null);
+
+
+
+
   const formatYmdToDMY = (ymd: string | null | undefined) => {
     if (!ymd) return '-';
     const s = ymd.toString().slice(0, 10);
@@ -178,23 +237,6 @@ export default function Ordenes() {
     const mm = String(dt.getMonth() + 1).padStart(2, '0');
     const yy = dt.getFullYear();
     return `${dd}/${mm}/${yy}`;
-  };
-
-  const isGoogleMapsUrl = (value: string | null | undefined) => {
-    if (!value) return false;
-    const s = String(value).trim();
-    if (!s) return false;
-    if (!(s.startsWith('http://') || s.startsWith('https://'))) return false;
-    try {
-      const u = new URL(s);
-      const host = (u.hostname || '').toLowerCase();
-      const href = u.href.toLowerCase();
-      if (host === 'maps.app.goo.gl') return true;
-      if (host.endsWith('google.com') && href.includes('/maps')) return true;
-      return false;
-    } catch {
-      return false;
-    }
   };
 
   // Cerrar dropdown de filtros al hacer click fuera
@@ -246,6 +288,7 @@ export default function Ordenes() {
   };
 
   const handleDeletePhoto = async (index: number, url: string) => {
+    const nonce = formNonceRef.current;
     const publicId = getPublicIdFromUrl(url);
     const updated = (Array.isArray(formData.fotos_urls) ? formData.fotos_urls : []).filter((_, i) => i !== index);
     try {
@@ -285,7 +328,9 @@ export default function Ordenes() {
     } catch (e) {
       console.error('Error al eliminar foto:', e);
     } finally {
-      setFormData({ ...formData, fotos_urls: updated });
+      if (formNonceRef.current === nonce) {
+        setFormData((prev) => ({ ...prev, fotos_urls: updated }));
+      }
       setConfirmDelete({ open: false, index: null, url: null });
     }
   };
@@ -357,16 +402,15 @@ export default function Ordenes() {
   };
 
   const onDropPhotos = async (acceptedFiles: File[]) => {
+    const nonce = formNonceRef.current;
     const current = Array.isArray(formData.fotos_urls) ? formData.fotos_urls : [];
     const remainingSlots = 5 - current.length;
     if (remainingSlots <= 0) return;
     const files = acceptedFiles.slice(0, remainingSlots).filter(f => f.type.startsWith('image/'));
-    const urls: string[] = [];
-    for (const file of files) {
+
+    const uploadOne = async (file: File): Promise<string | null> => {
       try {
-        // Comprimir localmente para subir payload pequeño
         const compressed = await compressImage(file, 50, 1400, 1400);
-        // Subir al backend (Cloudinary)
         const token = getToken();
         const resp = await fetch(apiUrl('/api/ordenes/upload-image/'), {
           method: 'POST',
@@ -376,21 +420,36 @@ export default function Ordenes() {
           },
           body: JSON.stringify({ data_url: compressed, folder: 'ordenes/fotos' }),
         });
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data && data.url) urls.push(data.url as string);
-        }
+        if (!resp.ok) return null;
+        const data = await resp.json().catch(() => null);
+        return data?.url ? String(data.url) : null;
       } catch {
-        // ignorar individualmente
+        return null;
+      }
+    };
+
+    const concurrency = 3;
+    const urls: string[] = [];
+    for (let i = 0; i < files.length; i += concurrency) {
+      const chunk = files.slice(i, i + concurrency);
+      const results = await Promise.allSettled(chunk.map(uploadOne));
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value) urls.push(r.value);
       }
     }
-    if (urls.length) {
-      setFormData({ ...formData, fotos_urls: [...current, ...urls] });
+
+    if (urls.length && formNonceRef.current === nonce) {
+      setFormData((prev) => {
+        const prevCurrent = Array.isArray(prev.fotos_urls) ? prev.fotos_urls : [];
+        return { ...prev, fotos_urls: [...prevCurrent, ...urls] };
+      });
     }
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onDropPhotos,
+    multiple: true,
+    maxFiles: 5,
     accept: {
       'image/png': [],
       'image/jpeg': [],
@@ -398,6 +457,7 @@ export default function Ordenes() {
       'image/svg+xml': [],
     },
   });
+
 
   // Alert state
   const [alert, setAlert] = useState<{
@@ -433,10 +493,11 @@ export default function Ordenes() {
     hora_termino: "",
     nombre_encargado: "",
     tecnico_asignado: null as number | null,
-    firma_encargado_url: "",
+    firma_encargado_url: mySignatureUrl || "",
     firma_cliente_url: "",
     fotos_urls: [] as string[]
   });
+
 
   // Estado para modal de mapa
   const [showMapModal, setShowMapModal] = useState(false);
@@ -555,14 +616,9 @@ export default function Ordenes() {
 
   // Estados para dropdowns personalizados
   const [clienteSearch, setClienteSearch] = useState('');
-
-  useEffect(() => {
-    fetchClientes(clienteSearch);
-  }, [clienteSearch]);
-
   const [tecnicoSearch, setTecnicoSearch] = useState('');
-
   const [servicioSearch, setServicioSearch] = useState('');
+
 
   const [tecnicoSignatureUrl, setTecnicoSignatureUrl] = useState<string>('');
   const tecnicoSignatureCacheRef = useRef<Record<number, string>>({});
@@ -584,10 +640,9 @@ export default function Ordenes() {
       return;
     }
 
+    const token = getToken();
+    if (!token) return;
     try {
-      const token = getToken();
-      if (!token) return;
-
       const res = await fetch(apiUrl(`/api/users/accounts/${userId}/signature/`), {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}` },
@@ -646,7 +701,37 @@ export default function Ordenes() {
     setShowClienteModal(false);
   };
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedClienteSearch(clienteSearch);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [clienteSearch]);
+
+  useEffect(() => {
+    fetchClientes(debouncedClienteSearch);
+  }, [debouncedClienteSearch]);
+
   const fetchUsuarios = async () => {
+    const role = localStorage.getItem('role');
+    const token = getToken();
+    if (!token) return;
+
+    if (role !== 'admin') {
+      try {
+        const res = await fetch(apiUrl("/api/me/"), {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const me = await res.json();
+          setUsuarios([me]);
+        }
+      } catch (e) {
+        console.error("Error fetching current user:", e);
+      }
+      return;
+    }
+
     try {
       const token = getToken();
       if (!token) return;
@@ -658,6 +743,11 @@ export default function Ordenes() {
 
       const response = await fetch(apiUrl("/api/users/accounts/"), { headers: commonHeaders });
 
+      if (response.status === 403) {
+        console.warn("Technician does not have permission to list all users. Skipping fetchUsuarios.");
+        return;
+      }
+
       if (response.ok) {
         const data = await response.json();
         const rows = Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
@@ -665,50 +755,6 @@ export default function Ordenes() {
       }
     } catch (error) {
       console.error("Error al cargar usuarios:", error);
-    }
-  };
-
-  const loadServiciosDisponibles = async () => {
-    const fallbackServicios = [
-      'ALARMAS',
-      'RASTREO',
-      'INTERNET',
-      'GPS',
-      'SENSOR DE GASOLINA',
-      'SENSOR DE TEMPERATURA',
-      'CAMARA',
-      'DASHCAM',
-      'VENTA DE PRODUCTO',
-    ];
-
-    const token = getToken();
-    if (!token) {
-      setServiciosDisponibles(fallbackServicios);
-      return;
-    }
-
-    try {
-      const res = await fetch(apiUrl('/api/servicios/?page=1&page_size=500&ordering=idx'), {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store' as RequestCache,
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setServiciosDisponibles(fallbackServicios);
-        return;
-      }
-
-      const results = Array.isArray((data as any)?.results) ? ((data as any).results as ServicioCatalogo[]) : [];
-      const names = results
-        .filter((s) => s && typeof s.nombre === 'string' && s.nombre.trim() && s.activo !== false)
-        .map((s) => s.nombre.trim());
-
-      const merged = Array.from(new Set([...(names.length ? names : fallbackServicios)]));
-      setServiciosDisponibles(merged);
-      localStorage.setItem('servicios_disponibles', JSON.stringify(merged));
-    } catch {
-      setServiciosDisponibles(fallbackServicios);
     }
   };
 
@@ -735,8 +781,25 @@ export default function Ordenes() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setOrdenes(Array.isArray(data) ? data : []);
+        let data = await response.json();
+        let rows = Array.isArray(data) ? data : [];
+
+        // Filter for technicians if not admin
+        const role = localStorage.getItem('role');
+        const userRaw = localStorage.getItem('user');
+        if (role !== 'admin' && userRaw) {
+          try {
+            const user = JSON.parse(userRaw);
+            if (user.id) {
+              const userId = Number(user.id);
+              rows = rows.filter((o: any) => Number(o.tecnico_asignado) === userId);
+            }
+          } catch (e) {
+            console.error("Error filtering orders for technician", e);
+          }
+        }
+
+        setOrdenes(rows);
       } else if (response.status === 401) {
         console.error("Token inválido o expirado");
         setOrdenes([]);
@@ -759,7 +822,6 @@ export default function Ordenes() {
     e.preventDefault();
     if (isSaving) return;
     const token = getToken();
-
     // Reglas: Cliente, Dirección, Teléfono, Servicios Realizados y Fecha de Inicio son requeridos
     const { ok, missing } = validateForm();
     if (!ok) {
@@ -804,6 +866,7 @@ export default function Ordenes() {
       payload.hora_termino = toNullIfEmpty(payload.hora_termino);
       payload.nombre_encargado = toNullIfEmpty(payload.nombre_encargado);
       payload.nombre_cliente = toNullIfEmpty(payload.nombre_cliente);
+      payload.firma_encargado_url = toNullIfEmpty(payload.firma_encargado_url);
       payload.firma_cliente_url = toNullIfEmpty(payload.firma_cliente_url);
       // Asegurar arreglo para servicios_realizados
       if (!Array.isArray(payload.servicios_realizados)) payload.servicios_realizados = [];
@@ -818,9 +881,8 @@ export default function Ordenes() {
       });
 
       if (response.ok) {
-        const savedOrden = await response.json();
+        const savedOrden = await response.json().catch(() => null);
         const cid = payload?.cliente_id;
-
         if (cid && (payload?.direccion || payload?.telefono_cliente)) {
           const existingCliente = clientes.find(c => c.id === cid);
           const updates: any = {};
@@ -853,7 +915,6 @@ export default function Ordenes() {
           const principal = Array.isArray(contactos)
             ? (contactos.find((c: any) => c?.is_principal) || contactos[0])
             : null;
-
           const nombre = String(payload?.nombre_cliente || '').trim();
           const celular = String(payload?.telefono_cliente || '').trim();
 
@@ -892,18 +953,33 @@ export default function Ordenes() {
         }
 
         if (savedOrden && savedOrden.id) {
-          setOrdenes((prev) => {
-            const list = Array.isArray(prev) ? prev : [];
-            const idx = list.findIndex((o) => (o as any).id === savedOrden.id);
-            if (idx >= 0) {
-              const copy = list.slice();
-              copy[idx] = savedOrden;
-              return copy;
+          const role = localStorage.getItem('role');
+          const userRaw = localStorage.getItem('user');
+          let canShow = true;
+          if (role !== 'admin' && userRaw) {
+            try {
+              const user = JSON.parse(userRaw);
+              if (user.id) {
+                const userId = Number(user.id);
+                canShow = Number((savedOrden as any).tecnico_asignado) === userId;
+              }
+            } catch {
+              // ignore
             }
-            return [savedOrden, ...list];
-          });
+          }
+          if (canShow) {
+            setOrdenes((prev) => {
+              const list = Array.isArray(prev) ? prev : [];
+              const idx = list.findIndex((o) => (o as any).id === savedOrden.id);
+              if (idx >= 0) {
+                const copy = list.slice();
+                copy[idx] = savedOrden;
+                return copy;
+              }
+              return [savedOrden, ...list];
+            });
+          }
         }
-
         setShowModal(false);
         setFormData({
           folio: "",
@@ -928,13 +1004,14 @@ export default function Ordenes() {
         });
         setEditingOrden(null);
 
+        // Show success alert (3s)
         setAlert({
           show: true,
           variant: "success",
           title: isEditing ? "Orden Actualizada" : "Orden Creada",
           message: isEditing
             ? `La orden para "${ordenCliente}" ha sido actualizada exitosamente.`
-            : `La orden para "${ordenCliente}" ha sido creada exitosamente.`,
+            : `La orden para "${ordenCliente}" ha sido creada exitosamente.`
         });
         setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
       } else {
@@ -944,7 +1021,7 @@ export default function Ordenes() {
         try {
           const errorData = raw ? JSON.parse(raw) : null;
           console.error('Error del servidor:', errorData);
-          errorMsg = (errorData?.detail || JSON.stringify(errorData)) || errorMsg;
+          errorMsg = (errorData?.detail || JSON.stringify(errorData, null, 2)) || errorMsg;
         } catch {
           errorMsg = raw || errorMsg;
         }
@@ -1015,6 +1092,7 @@ export default function Ordenes() {
   };
 
   const handleEdit = (orden: Orden) => {
+    formNonceRef.current += 1;
     if (!canOrdenesEdit) {
       setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar órdenes.' });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
@@ -1022,7 +1100,6 @@ export default function Ordenes() {
     }
     setEditingOrden(orden);
     setTecnicoSearch('');
-
     setFormData({
       folio: ((orden as any).folio ?? '').toString(),
       cliente_id: orden.cliente_id || null,
@@ -1048,7 +1125,9 @@ export default function Ordenes() {
   };
 
   const handleCloseModal = () => {
+    formNonceRef.current += 1;
     setShowModal(false);
+    setTipoOrden('servicio_tecnico');
     setFormData({
       folio: "",
       cliente_id: null,
@@ -1066,7 +1145,7 @@ export default function Ordenes() {
       hora_termino: "",
       nombre_encargado: "",
       tecnico_asignado: null,
-      firma_encargado_url: mySignatureUrl || "",
+      firma_encargado_url: "",
       firma_cliente_url: "",
       fotos_urls: []
     });
@@ -1117,32 +1196,26 @@ export default function Ordenes() {
     };
     // Más recientes arriba
     return list.slice().sort((a, b) => {
-      const ai = toTs((a as any).fecha_inicio) || 0;
-      const bi = toTs((b as any).fecha_inicio) || 0;
-      if (bi !== ai) return bi - ai;
-
-      const ac = toTs((a as any).fecha_creacion) || 0;
-      const bc = toTs((b as any).fecha_creacion) || 0;
-      if (bc !== ac) return bc - ac;
-
+      const at = toTs((a as any).fecha_creacion || (a as any).fecha_inicio) || 0;
+      const bt = toTs((b as any).fecha_creacion || (b as any).fecha_inicio) || 0;
+      if (bt !== at) return bt - at;
       const aid = Number((a as any).id || 0);
       const bid = Number((b as any).id || 0);
       return bid - aid;
     });
   }, [ordenes, searchTerm, selectedMonth, filterStatus, filterServicio, filterDate]);
 
+  // Paginación
   // Paginación por mes (mostrar todas las órdenes del mes seleccionado)
   const startIndex = 0;
   const currentOrdenes = shownList;
 
   const clienteActions = useMemo(() => {
     const q = clienteSearch.trim().toLowerCase();
-
     const base = (clientes || [])
       .flatMap((c) => {
         const contactos = Array.isArray((c as any).contactos) ? ((c as any).contactos as any[]) : [];
 
-        // Sin contactos => 1 sola opción (empresa)
         if (!contactos.length) {
           const labelBase = (c.nombre || '-').toString();
           return [
@@ -1163,13 +1236,11 @@ export default function Ordenes() {
           ];
         }
 
-        // Con contactos => duplicar empresa por contacto
         return contactos.map((ct, idx) => {
           const labelBase = (c.nombre || '-').toString();
           const contactoNombre = String(ct?.nombre_apellido || '').trim();
           const contactoTel = String(ct?.celular || '').trim();
           const label = contactoNombre ? `${labelBase} - ${contactoNombre}` : labelBase;
-
           return {
             id: `${String(c.id)}::${String(ct?.id ?? idx)}`,
             label,
@@ -1199,7 +1270,7 @@ export default function Ordenes() {
       icon: (
         <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M12 5v14M5 12h14M4 12h16" strokeLinecap="round" />
+            <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
       ),
@@ -1264,7 +1335,7 @@ export default function Ordenes() {
           label: `Crear "${servicioSearch.trim()}"`,
           icon: (
             <svg className='w-4 h-4 text-brand-500' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-              <path d='M12 5v14M5 12h14M4 12h16' />
+              <path d='M12 5v14M5 12h14' />
             </svg>
           ),
           description: "Nuevo servicio",
@@ -1278,8 +1349,11 @@ export default function Ordenes() {
     return base;
   }, [serviciosDisponibles, servicioSearch, formData.servicios_realizados]);
 
+
+
   const selectCliente = (cliente: Cliente | null) => {
     if (cliente) {
+      // Obtener el contacto principal (primer contacto o el marcado como principal)
       const contactoPrincipal = (cliente.contactos || []).find((c: any) => c.is_principal) || (cliente.contactos || [])[0];
       const nombreContacto = contactoPrincipal?.nombre_apellido || '';
 
@@ -1337,6 +1411,7 @@ export default function Ordenes() {
     setServicioSearch('');
   };
 
+
   const currentMonthKey = useMemo(() => {
     const d = new Date();
     const y = d.getFullYear();
@@ -1353,27 +1428,12 @@ export default function Ordenes() {
     });
 
     const completedMonth = monthList.filter((o) => (o.status || '').toString().toLowerCase() === 'resuelto');
-
-    const byCliente: Record<string, { cliente: string; services: number }> = {};
-    for (const o of monthList) {
-      const name = (o.cliente || o.nombre_cliente || '—').toString().trim() || '—';
-      const key = (o.cliente_id != null ? String(o.cliente_id) : name) || name;
-      const services = Array.isArray(o.servicios_realizados) ? o.servicios_realizados.length : 0;
-      if (!byCliente[key]) byCliente[key] = { cliente: name, services: 0 };
-      byCliente[key].services += services;
-    }
-
-    let best: { cliente: string; services: number } | null = null;
-    for (const k of Object.keys(byCliente)) {
-      const cur = byCliente[k];
-      if (!best || cur.services > best.services) best = cur;
-    }
+    const pendingMonth = monthList.filter((o) => (o.status || '').toString().toLowerCase() === 'pendiente');
 
     return {
       monthTotal: monthList.length,
       monthCompleted: completedMonth.length,
-      estrella: best?.cliente || '—',
-      estrellaServices: best?.services || 0,
+      monthPending: pendingMonth.length,
     };
   }, [ordenes, currentMonthKey]);
 
@@ -1433,102 +1493,82 @@ export default function Ordenes() {
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
         <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M6 6h12" />
-                <path d="M6 12h12" />
-                <path d="M6 18h12" />
+                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
               </svg>
             </span>
             <div className="flex flex-col">
               <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Órdenes del mes</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{ordenStats.monthTotal}</p>
+              <p className="mt-1 text-xl font-semibold text-gray-800 dark:text-gray-100">{ordenStats.monthTotal}</p>
             </div>
           </div>
         </div>
 
         <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
           <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 shadow-sm">
+            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
             <div className="flex flex-col">
               <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Completadas</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{ordenStats.monthCompleted}</p>
+              <p className="mt-1 text-xl font-semibold text-gray-800 dark:text-gray-100">{ordenStats.monthCompleted}</p>
             </div>
           </div>
         </div>
 
         <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
           <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 shadow-sm">
+            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300 shadow-sm">
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
             <div className="flex flex-col min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Cliente estrella</p>
-              <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{ordenStats.estrella}</p>
-              <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">Servicios: {ordenStats.estrellaServices}</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Pendientes</p>
+              <p className="mt-1 text-xl font-semibold text-gray-800 dark:text-gray-100">{ordenStats.monthPending}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
-                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-                  <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" />
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Listado de Órdenes</h2>
+        </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:flex-1 sm:min-w-[260px] sm:justify-end">
+          <div className="relative w-full sm:max-w-xs md:max-w-sm">
+            <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none">
+              <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar"
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 pl-8 pr-3 py-2 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                aria-label="Limpiar búsqueda"
+                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/60"
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                  <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
                 </svg>
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Órdenes de Trabajo</h2>
-                <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">Administra órdenes, fotos, firmas y PDF.</div>
-              </div>
-            </div>
+              </button>
+            )}
           </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative w-full sm:w-[320px]">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar por folio, cliente, técnico o estado"
-                className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm('')}
-                  aria-label="Limpiar búsqueda"
-                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5"
-                >
-                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
+          {canOrdenesCreate && (
             <button
               onClick={() => {
-                if (!canOrdenesCreate) {
-                  setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear órdenes.' });
-                  setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-                  return;
-                }
+                // Prefill Hora Inicio con la hora del sistema al crear
                 if (!editingOrden) {
                   const today = new Date().toISOString().slice(0, 10);
                   setFormData({
@@ -1537,16 +1577,17 @@ export default function Ordenes() {
                     hora_inicio: getNowHHMM(),
                   });
                 }
+                setTipoOrden('servicio_tecnico');
                 setShowModal(true);
               }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 5v14M5 12h14M4 12h16" strokeLinecap="round" />
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
               </svg>
               Nueva Orden
             </button>
-          </div>
+          )}
         </div>
       </div>
 
@@ -1555,28 +1596,26 @@ export default function Ordenes() {
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
             {/* Filtro desplegable */}
-            <div className="relative w-full" ref={filterRef}>
+            <div className="relative w-full sm:w-auto" ref={filterRef}>
               <button
                 type="button"
                 onClick={() => setFilterOpen(v => !v)}
-                className="shadow-theme-xs flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 sm:min-w-[86px] text-xs font-semibold leading-none whitespace-nowrap"
+                className="shadow-theme-xs flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 sm:min-w-[80px] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
               >
-
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none">
                   <path d="M14.6537 5.90414C14.6537 4.48433 13.5027 3.33331 12.0829 3.33331C10.6631 3.33331 9.51206 4.48433 9.51204 5.90415M14.6537 5.90414C14.6537 7.32398 13.5027 8.47498 12.0829 8.47498C10.663 8.47498 9.51204 7.32398 9.51204 5.90415M14.6537 5.90414L17.7087 5.90411M9.51204 5.90415L2.29199 5.90411M5.34694 14.0958C5.34694 12.676 6.49794 11.525 7.91777 11.525C9.33761 11.525 10.4886 12.676 10.4886 14.0958M5.34694 14.0958C5.34694 15.5156 6.49794 16.6666 7.91778 16.6666C9.33761 16.6666 10.4886 15.5156 10.4886 14.0958M5.34694 14.0958L2.29199 14.0958M10.4886 14.0958L17.7087 14.0958" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Filtros
               </button>
               {filterOpen && (
-                <div className="absolute right-0 z-20 mt-2 w-72 max-h-80 overflow-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/95 dark:bg-gray-900/80 p-4 shadow-lg backdrop-blur-sm">
+                <div className="absolute right-0 z-20 mt-2 w-72 max-h-80 overflow-auto rounded-lg border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                   <div className="mb-4">
                     <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Estado</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value as any)}
-                      className="h-10 w-full rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 px-3 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40"
+                      className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                     >
-
                       <option value="">Todos</option>
                       <option value="pendiente">Pendiente</option>
                       <option value="resuelto">Resuelto</option>
@@ -1628,14 +1667,14 @@ export default function Ordenes() {
                     <button
                       type="button"
                       onClick={() => setFilterOpen(false)}
-                      className="bg-brand-600 hover:bg-brand-700 h-10 flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white"
+                      className="bg-brand-600 hover:bg-brand-700 h-10 flex-1 rounded-lg px-3 py-2 text-sm font-medium text-white"
                     >
                       Aplicar
                     </button>
                     <button
                       type="button"
                       onClick={() => { setFilterStatus(''); setFilterServicio([]); setFilterDate(''); setFilterOpen(false); }}
-                      className="h-10 flex-1 rounded-xl px-3 py-2 text-sm font-semibold border border-gray-200/70 dark:border-white/10 text-gray-700 dark:text-gray-200 bg-white/70 dark:bg-gray-900/40 hover:bg-gray-50 dark:hover:bg-white/5"
+                      className="h-10 flex-1 rounded-lg px-3 py-2 text-sm font-medium border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                     >
                       Limpiar
                     </button>
@@ -1648,15 +1687,14 @@ export default function Ordenes() {
               type="button"
               onClick={handleReindexIdx}
               disabled={reindexing}
-              className="shadow-theme-xs flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 sm:min-w-[118px] disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold leading-none whitespace-nowrap"
+              className="shadow-theme-xs flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 sm:min-w-[100px] hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               title="Reasigna IDX a 1..N para quitar huecos"
             >
-
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 7h13" />
-                <path d="M3 12h10" />
-                <path d="M3 17h7" />
-                <path d="M18 7v10" />
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M3 7h13" strokeLinecap="round" />
+                <path d="M3 12h10" strokeLinecap="round" />
+                <path d="M3 17h7" strokeLinecap="round" />
+                <path d="M18 7v10" strokeLinecap="round" />
                 <path d="M21 10l-3-3-3 3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               {reindexing ? 'Reordenando...' : 'Reordenar'}
@@ -1664,7 +1702,7 @@ export default function Ordenes() {
           </div>
         }
       >
-        <div className="p-2 pt-0">
+        <div className="p-2">
           <MobileOrderList
             ordenes={currentOrdenes}
             startIndex={startIndex}
@@ -1677,15 +1715,14 @@ export default function Ordenes() {
             canDelete={canOrdenesDelete}
             usuarios={usuarios}
           />
-          <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40">
-            <Table className="w-full min-w-[900px] sm:min-w-0 table-fixed">
-              <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
+          <div className="hidden md:block overflow-x-auto">
+            <Table className="w-full min-w-[900px] sm:min-w-0 sm:table-fixed">
+              <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sm:sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
                 <TableRow>
-                  <TableCell isHeader className="px-2 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-gray-700 dark:text-gray-300">Folio</TableCell>
+                  <TableCell isHeader className="px-2 py-2 text-left w-[70px] min-w-[60px] whitespace-nowrap text-gray-700 dark:text-gray-300">ID</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-gray-700 dark:text-gray-300">Cliente</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/5 min-w-[220px] text-gray-700 dark:text-gray-300">Detalles</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">Fechas</TableCell>
-
                   <TableCell isHeader className="px-2 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-gray-700 dark:text-gray-300">Técnico</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Estado</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-[120px] min-w-[120px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
@@ -1697,22 +1734,24 @@ export default function Ordenes() {
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
                   const folioDisplay = (orden?.folio ?? '').toString().trim() || (orden.idx ?? (startIndex + idx + 1));
-
                   const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
-                  const tecnicoNombre = tecnico
-                    ? (tecnico.first_name && tecnico.last_name ? `${tecnico.first_name} ${tecnico.last_name}` : tecnico.email)
-                    : ((orden as any).nombre_encargado || '-');
+                  let tecnicoNombre = '-';
+                  if (tecnico) {
+                    tecnicoNombre = tecnico.first_name && tecnico.last_name ? `${tecnico.first_name} ${tecnico.last_name}` : (tecnico.username || tecnico.email);
+                  } else if ((orden as any).tecnico_asignado_full_name) {
+                    tecnicoNombre = (orden as any).tecnico_asignado_full_name;
+                  } else if ((orden as any).tecnico_asignado_username) {
+                    tecnicoNombre = (orden as any).tecnico_asignado_username;
+                  } else if ((orden as any).tecnico_asignado) {
+                    tecnicoNombre = `ID: ${(orden as any).tecnico_asignado}`;
+                  }
                   return (
                     <TableRow key={orden.id ?? idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
                       <TableCell className="px-2 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
                       <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
                         {orden.direccion && (
-                          isGoogleMapsUrl(orden.direccion) ? (
-                            <a href={orden.direccion} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-600 dark:text-blue-400 hover:underline truncate">{orden.direccion}</a>
-                          ) : (
-                            <span className="block text-[11px] text-gray-600 dark:text-gray-400 truncate" title={orden.direccion}>{orden.direccion}</span>
-                          )
+                          <a href={orden.direccion} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-600 dark:text-blue-400 hover:underline truncate">{orden.direccion}</a>
                         )}
                         {orden.telefono_cliente && (
                           <a href={`tel:${orden.telefono_cliente}`} className="inline-block text-[11px] text-gray-600 dark:text-gray-400">{orden.telefono_cliente}</a>
@@ -1726,7 +1765,7 @@ export default function Ordenes() {
                             className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
                             title="Ver problemática"
                           >
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 8v4l3 3" /><circle cx="12" cy="12" r="9" /></svg>
                             Problemática
                           </button>
                           <button
@@ -1772,20 +1811,22 @@ export default function Ordenes() {
                           <button
                             type="button"
                             onClick={() => navigate(`/ordenes/${orden.id}/pdf`)}
-                            className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 transition"
+                            className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 transition"
                             title="Ver PDF"
                           >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-                              <path d="M14 2v6h6" />
-                              <path d="M7 15h10" />
-                              <path d="M7 18h7" />
+                            <svg className="w-4 h-4" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+                              <g>
+                                <path d="M378.413,0H208.297h-13.182L185.8,9.314L57.02,138.102l-9.314,9.314v13.176v265.514 c0,47.36,38.528,85.895,85.896,85.895h244.811c47.353,0,85.881-38.535,85.881-85.895V85.896C464.294,38.528,425.766,0,378.413,0z M432.497,426.105c0,29.877-24.214,54.091-54.084,54.091H133.602c-29.884,0-54.098-24.214-54.098-54.091V160.591h83.716 c24.885,0,45.077-20.178,45.077-45.07V31.804h170.116c29.87,0,54.084,24.214,54.084,54.092V426.105z" />
+                                <path d="M171.947,252.785h-28.529c-5.432,0-8.686,3.533-8.686,8.825v73.754c0,6.388,4.204,10.599,10.041,10.599 c5.711,0,9.914-4.21,9.914-10.599v-22.406c0-0.545,0.279-0.817,0.824-0.817h16.436c20.095,0,32.188-12.226,32.188-29.612 C204.136,264.871,192.182,252.785,171.947,252.785z M170.719,294.888h-15.208c-0.545,0-0.824-0.272-0.824-0.81v-23.23 c0-0.545,0.279-0.816,0.824-0.816h15.208c8.42,0,13.447,5.027,13.447,12.498C184.167,290,179.139,294.888,170.719,294.888z" />
+                                <path d="M250.191,252.785h-21.868c-5.432,0-8.686,3.533-8.686,8.825v74.843c0,5.3,3.253,8.693,8.686,8.693h21.868 c19.69,0,31.923-6.249,36.81-21.324c1.76-5.3,2.723-11.681,2.723-24.857c0-13.175-0.964-19.557-2.723-24.856 C282.113,259.034,269.881,252.785,250.191,252.785z M267.856,316.896c-2.318,7.331-8.965,10.459-18.21,10.459h-9.23 c-0.545,0-0.824-0.272-0.824-0.816v-55.146c0-0.545,0.279-0.817,0.824-0.817h9.23c9.245,0,15.892,3.128,18.21,10.46 c0.95,3.128,1.62,8.56,1.62,17.93C269.476,308.336,268.805,313.768,267.856,316.896z" />
+                                <path d="M361.167,252.785h-44.812c-5.432,0-8.7,3.533-8.7,8.825v73.754c0,6.388,4.218,10.599,10.055,10.599 c5.697,0,9.914-4.21,9.914-10.599v-26.351c0-0.538,0.265-0.81,0.81-0.81h26.086c5.837,0,9.23-3.532,9.23-8.56 c0-5.028-3.393-8.553-9.23-8.553h-26.086c-0.545,0-0.81-0.272-0.81-0.817v-19.425c0-0.545,0.265-0.816,0.81-0.816h32.733 c5.572,0,9.245-3.666,9.245-8.553C370.411,256.45,366.738,252.785,361.167,252.785z" />
+                              </g>
                             </svg>
                           </button>
                           {canOrdenesEdit && (
                             <button
                               onClick={() => handleEdit(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
                               title="Editar"
                             >
                               <PencilIcon className="w-4 h-4" />
@@ -1794,7 +1835,7 @@ export default function Ordenes() {
                           {canOrdenesDelete && (
                             <button
                               onClick={() => handleDeleteClick(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
                               title="Eliminar"
                             >
                               <TrashBinIcon className="w-4 h-4" />
@@ -1823,7 +1864,7 @@ export default function Ordenes() {
           {/* Paginación */}
           {!loading && (
             <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between sm:gap-4 flex-wrap">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 flex-wrap">
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   Mostrando <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
                   <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
@@ -1967,12 +2008,12 @@ export default function Ordenes() {
           <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-white/10">
             <div className="flex items-center gap-4">
               <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10">
-                <svg className="w-6 h-6 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
+                <svg className="w-6 h-6 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
               <div className="min-w-0">
-                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">
+                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100 truncate">
                   {editingOrden ? 'Editar Orden' : 'Nueva Orden'}
                 </h5>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
@@ -1993,12 +2034,41 @@ export default function Ordenes() {
               </div>
             )}
 
+            {/* Selector de Tipo de Orden */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tipo de Orden de Trabajo</h4>
+              </div>
+              <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Selecciona el tipo de orden</label>
+                <select
+                  value={tipoOrden}
+                  onChange={(e) => setTipoOrden(e.target.value as any)}
+                  disabled={isReadOnly}
+                  className={`w-full h-10 rounded-lg border border-gray-300 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40'}`}
+                >
+                  <option value="servicio_tecnico">Servicio Técnico</option>
+                  <option value="levantamiento">Levantamiento</option>
+                  <option value="instalaciones">Instalaciones</option>
+                  <option value="mantenimiento">Mantenimiento</option>
+                </select>
+              </div>
+            </div>
+
+            {tipoOrden === 'levantamiento' && (
+              <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs">
+                <LevantamientoForm />
+              </div>
+            )}
+
             {/* SECCIÓN 1: Detalles Generales */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-                  <path d="M9 5a2 2 0 002 2h2a2 2 0 002-2" />
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
               </div>
@@ -2009,8 +2079,10 @@ export default function Ordenes() {
                     <input
                       type="text"
                       value={(formData as any).folio || ''}
+                      readOnly={isReadOnly}
+                      disabled={isReadOnly}
                       onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                      className={`w-full h-10 rounded-lg border border-gray-300 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
                       placeholder="Ej: ATX2000"
                     />
                   </div>
@@ -2029,6 +2101,7 @@ export default function Ordenes() {
 
                       onSelectAction={(action: any) => {
                         if (action?.id === '__new__') {
+                          if (isReadOnly) return;
                           setShowClienteModal(true);
                           return;
                         }
@@ -2056,7 +2129,7 @@ export default function Ordenes() {
                       }}
                     />
                   </div>
-                  {(formData.cliente_id || formData.cliente) && (
+                  {(formData.cliente_id || formData.cliente) && !isReadOnly && (
                     <button
                       type="button"
                       onClick={() => selectCliente(null)}
@@ -2086,8 +2159,10 @@ export default function Ordenes() {
                     <input
                       type="text"
                       value={formData.nombre_cliente}
+                      readOnly={isReadOnly}
+                      disabled={isReadOnly}
                       onChange={(e) => setFormData({ ...formData, nombre_cliente: e.target.value })}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                      className={`w-full h-10 rounded-lg border border-gray-300 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
                       placeholder="Nombre completo del cliente"
                     />
                   </div>
@@ -2104,7 +2179,6 @@ export default function Ordenes() {
                           return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : '';
                         })() : '')}
                         onQueryChange={(q: string) => setTecnicoSearch(q)}
-
                         onSelectAction={(action: any) => {
                           const id = Number(action?.id);
                           const u = (usuarios || []).find((x) => Number(x.id) === id);
@@ -2112,7 +2186,7 @@ export default function Ordenes() {
                         }}
                       />
                     </div>
-                    {formData.tecnico_asignado && (
+                    {formData.tecnico_asignado && !isReadOnly && (
                       <button
                         type="button"
                         onClick={() => selectTecnico(null)}
@@ -2135,7 +2209,10 @@ export default function Ordenes() {
                       </button>
                     )}
                   </div>
+
+
                 </div>
+
               </div>
             </div>
 
@@ -2143,7 +2220,7 @@ export default function Ordenes() {
             <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles del Cliente</h4>
               </div>
@@ -2155,6 +2232,8 @@ export default function Ordenes() {
                     <input
                       type="tel"
                       value={formData.telefono_cliente}
+                      readOnly={isReadOnly}
+                      disabled={isReadOnly}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, '');
                         setFormData({ ...formData, telefono_cliente: value });
@@ -2164,7 +2243,7 @@ export default function Ordenes() {
                           e.preventDefault();
                         }
                       }}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                      className={`w-full h-10 rounded-lg border border-gray-300 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
                       placeholder="Teléfono del cliente"
                       maxLength={10}
                     />
@@ -2202,9 +2281,11 @@ export default function Ordenes() {
                   <div className="relative">
                     <textarea
                       value={formData.direccion}
+                      readOnly={isReadOnly}
+                      disabled={isReadOnly}
                       onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
                       rows={2}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 pr-12 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                      className={`w-full rounded-lg border border-gray-300 text-sm px-3 py-2 pr-12 shadow-theme-xs outline-none resize-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
                       placeholder="Dirección, coordenadas o URL de Google Maps"
                     />
                     {formData.direccion && (
@@ -2259,9 +2340,11 @@ export default function Ordenes() {
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Problemática</label>
                   <textarea
                     value={formData.problematica}
+                    readOnly={isReadOnly}
+                    disabled={isReadOnly}
                     onChange={(e) => setFormData({ ...formData, problematica: e.target.value })}
                     rows={3}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                    className={`w-full rounded-lg border border-gray-300 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
                     placeholder="Describe el problema reportado"
                   />
                 </div>
@@ -2273,10 +2356,11 @@ export default function Ordenes() {
                       actions={servicioActions as any}
                       defaultOpen={false}
                       label="Servicios Realizados"
-                      placeholder="Buscar o agregar servicio..."
+                      placeholder={isReadOnly ? 'Servicios (Solo lectura)' : 'Buscar o agregar servicio...'}
                       value={servicioSearch}
                       onQueryChange={(q: string) => setServicioSearch(q)}
                       onSelectAction={(action: any) => {
+                        if (isReadOnly) return;
                         if (action?.id === '__new__') {
                           const nuevoServicio = servicioSearch.trim();
                           if (nuevoServicio && !serviciosDisponibles.includes(nuevoServicio)) {
@@ -2289,7 +2373,7 @@ export default function Ordenes() {
                       }}
                     />
                   </div>
-                  {formData.servicios_realizados.length > 0 && (
+                  {formData.servicios_realizados.length > 0 && !isReadOnly && (
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, servicios_realizados: [] })}
@@ -2320,50 +2404,54 @@ export default function Ordenes() {
                       className="inline-flex items-center gap-1 px-2 py-1 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-md text-xs"
                     >
                       {servicio}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormData({
-                            ...formData,
-                            servicios_realizados: formData.servicios_realizados.filter((_, i) => i !== index)
-                          });
-                        }}
-                        className="hover:text-brand-900 dark:hover:text-brand-100 ml-1"
-                      >
-                        ×
-                      </button>
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              servicios_realizados: formData.servicios_realizados.filter((_, i) => i !== index)
+                            });
+                          }}
+                          className="hover:text-brand-900 dark:hover:text-brand-100 ml-1"
+                        >
+                          ×
+                        </button>
+                      )}
                     </span>
                   ))}
                 </div>
-              </div>
 
-              {/* Comentario del Técnico */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario del Técnico</label>
-                <textarea
-                  value={formData.comentario_tecnico}
-                  onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
-                  rows={3}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
-                  placeholder="Observaciones del técnico..."
-                />
-              </div>
+                {/* Comentario del Técnico */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario del Técnico</label>
+                  <textarea
+                    value={formData.comentario_tecnico}
+                    onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
+                    rows={3}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                    placeholder="Observaciones del técnico..."
+                  />
+                </div>
 
-              {/* Estado del Problema */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Estado del Problema</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'pendiente' | 'resuelto' })}
-                  className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
-                >
-                  <option value="pendiente">No, pendiente</option>
-                  <option value="resuelto">Sí, problema resuelto</option>
-                </select>
+                {/* Estado del Problema */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Estado del Problema</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as 'pendiente' | 'resuelto' })}
+                    className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                  >
+                    <option value="pendiente">No, pendiente</option>
+                    <option value="resuelto">Sí, problema resuelto</option>
+                  </select>
+                </div>
               </div>
             </div>
 
+
             {/* SECCIÓN 4: Detalles de Tiempo */}
+
             <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2379,6 +2467,7 @@ export default function Ordenes() {
                       id="fecha-inicio"
                       label="Fecha Inicio"
                       placeholder="Seleccionar fecha"
+                      disabled={isReadOnly}
                       defaultDate={formData.fecha_inicio || undefined}
                       onChange={(_dates, currentDateString) => {
                         setFormData({ ...formData, fecha_inicio: currentDateString || "" });
@@ -2392,6 +2481,7 @@ export default function Ordenes() {
                         type="time"
                         id="hora-inicio"
                         name="hora-inicio"
+                        disabled={isReadOnly}
                         value={formData.hora_inicio}
                         onChange={(e) => setFormData({ ...formData, hora_inicio: e.target.value })}
                       />
@@ -2409,6 +2499,7 @@ export default function Ordenes() {
                       id="fecha-finalizacion"
                       label="Fecha Finalización"
                       placeholder="Seleccionar fecha"
+                      disabled={isReadOnly}
                       defaultDate={formData.fecha_finalizacion || undefined}
                       onChange={(_dates, currentDateString) => {
                         setFormData({ ...formData, fecha_finalizacion: currentDateString || "" });
@@ -2422,6 +2513,7 @@ export default function Ordenes() {
                         type="time"
                         id="hora-termino"
                         name="hora-termino"
+                        disabled={isReadOnly}
                         value={formData.hora_termino}
                         onChange={(e) => setFormData({ ...formData, hora_termino: e.target.value })}
                       />
@@ -2453,10 +2545,10 @@ export default function Ordenes() {
                     width={400}
                     height={250}
                   />
-
                   <SignaturePad
                     label="Firma del Cliente"
                     value={formData.firma_cliente_url}
+                    disabled={isReadOnly}
                     onChange={(signature) => setFormData({ ...formData, firma_cliente_url: signature })}
                     width={400}
                     height={250}
@@ -2464,53 +2556,55 @@ export default function Ordenes() {
                 </div>
 
                 {/* Subida de Fotos - Dropzone con dz-message */}
-                <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-brand-500 dark:border-gray-700 rounded-lg hover:border-brand-500">
-                  <div
-                    {...getRootProps()}
-                    className={`dropzone rounded-lg border-dashed border-gray-300 p-4 sm:p-5 ${isDragActive ? "border-brand-500 bg-gray-100 dark:bg-gray-800" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
-                      }`}
-                    id="fotos-upload"
-                    role="button"
-                    tabIndex={0}
-                  >
-                    {/* Input oculto */}
-                    <input {...getInputProps()} />
+                {!isReadOnly && (
+                  <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-brand-500 dark:border-gray-700 rounded-lg hover:border-brand-500">
+                    <div
+                      {...getRootProps()}
+                      className={`dropzone rounded-lg border-dashed border-gray-300 p-4 sm:p-5 ${isDragActive ? "border-brand-500 bg-gray-100 dark:bg-gray-800" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+                        }`}
+                      id="fotos-upload"
+                      role="button"
+                      tabIndex={0}
+                    >
+                      {/* Input oculto */}
+                      <input {...getInputProps()} />
 
-                    <div className="dz-message flex flex-col items-center m-0!">
-                      {/* Contenedor del icono */}
-                      <div className="mb-3 flex justify-center">
-                        <div className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                          <svg
-                            className="fill-current"
-                            width="22"
-                            height="22"
-                            viewBox="0 0 29 28"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              clipRule="evenodd"
-                              d="M14.5019 3.91699C14.2852 3.91699 14.0899 4.00891 13.953 4.15589L8.57363 9.53186C8.28065 9.82466 8.2805 10.2995 8.5733 10.5925C8.8661 10.8855 9.34097 10.8857 9.63396 10.5929L13.7519 6.47752V18.667C13.7519 19.0812 14.0877 19.417 14.5019 19.417C14.9161 19.417 15.2519 19.0812 15.2519 18.667V6.48234L19.3653 10.5929C19.6583 10.8857 20.1332 10.8855 20.426 10.5925C20.7188 10.2995 20.7186 9.82463 20.4256 9.53184L15.0838 4.19378C14.9463 4.02488 14.7367 3.91699 14.5019 3.91699ZM5.91626 18.667C5.91626 18.2528 5.58047 17.917 5.16626 17.917C4.75205 17.917 4.41626 18.2528 4.41626 18.667V21.8337C4.41626 23.0763 5.42362 24.0837 6.66626 24.0837H22.3339C23.5766 24.0837 24.5839 23.0763 24.5839 21.8337V18.667C24.5839 18.2528 24.2482 17.917 23.8339 17.917C23.4197 17.917 23.0839 18.2528 23.0839 18.667V21.8337C23.0839 22.2479 22.7482 22.5837 22.3339 22.5837H6.66626C6.25205 22.5837 5.91626 22.2479 5.91626 21.8337V18.667Z"
-                            />
-                          </svg>
+                      <div className="dz-message flex flex-col items-center m-0!">
+                        {/* Contenedor del icono */}
+                        <div className="mb-3 flex justify-center">
+                          <div className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                            <svg
+                              className="fill-current"
+                              width="22"
+                              height="22"
+                              viewBox="0 0 29 28"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                d="M14.5019 3.91699C14.2852 3.91699 14.0899 4.00891 13.953 4.15589L8.57363 9.53186C8.28065 9.82466 8.2805 10.2995 8.5733 10.5925C8.8661 10.8855 9.34097 10.8857 9.63396 10.5929L13.7519 6.47752V18.667C13.7519 19.0812 14.0877 19.417 14.5019 19.417C14.9161 19.417 15.2519 19.0812 15.2519 18.667V6.48234L19.3653 10.5929C19.6583 10.8857 20.1332 10.8855 20.426 10.5925C20.7188 10.2995 20.7186 9.82463 20.4256 9.53184L15.0838 4.19378C14.9463 4.02488 14.7367 3.91699 14.5019 3.91699ZM5.91626 18.667C5.91626 18.2528 5.58047 17.917 5.16626 17.917C4.75205 17.917 4.41626 18.2528 4.41626 18.667V21.8337C4.41626 23.0763 5.42362 24.0837 6.66626 24.0837H22.3339C23.5766 24.0837 24.5839 23.0763 24.5839 21.8337V18.667C24.5839 18.2528 24.2482 17.917 23.8339 17.917C23.4197 17.917 23.0839 18.2528 23.0839 18.667V21.8337C23.0839 22.2479 22.7482 22.5837 22.3339 22.5837H6.66626C6.25205 22.5837 5.91626 22.2479 5.91626 21.8337V18.667Z"
+                              />
+                            </svg>
+                          </div>
                         </div>
+
+                        {/* Contenido de texto */}
+                        <h4 className="mb-1 font-semibold text-gray-800 text-sm sm:text-base dark:text-white/90">
+                          {isDragActive ? "Suelta aquí para subir" : "Haz clic o arrastra imágenes (máx. 5)"}
+                        </h4>
+
+                        <span className="text-center mb-2 block w-full max-w-[320px] text-[12px] text-gray-700 dark:text-gray-400">
+                          Formatos: PNG, JPG, WebP o SVG
+                        </span>
+
+                        <span className="font-medium underline text-[12px] text-brand-500">
+                          Buscar archivos
+                        </span>
                       </div>
-
-                      {/* Contenido de texto */}
-                      <h4 className="mb-1 font-semibold text-gray-800 text-sm sm:text-base dark:text-white/90">
-                        {isDragActive ? "Suelta aquí para subir" : "Haz clic o arrastra imágenes (máx. 5)"}
-                      </h4>
-
-                      <span className="text-center mb-2 block w-full max-w-[320px] text-[12px] text-gray-700 dark:text-gray-400">
-                        Formatos: PNG, JPG, WebP o SVG
-                      </span>
-
-                      <span className="font-medium underline text-[12px] text-brand-500">
-                        Buscar archivos
-                      </span>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Previsualizaciones y eliminar */}
                 {Array.isArray(formData.fotos_urls) && formData.fotos_urls.length > 0 && (
@@ -2518,16 +2612,18 @@ export default function Ordenes() {
                     {formData.fotos_urls.map((preview, index) => (
                       <div key={index} className="relative group">
                         <img src={preview} alt={`Preview ${index + 1}`} className="w-full h-24 object-cover rounded-lg border-2 border-gray-300 dark:border-gray-700" />
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDelete({ open: true, index, url: preview })}
-                          className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-error-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error-700"
-                          title="Eliminar imagen"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDelete({ open: true, index, url: preview })}
+                            className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-error-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error-700"
+                            title="Eliminar imagen"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2546,7 +2642,7 @@ export default function Ordenes() {
                     </div>
                     <div className='flex justify-center gap-3 pt-2'>
                       <button onClick={() => setConfirmDelete({ open: false, index: null, url: null })} className='rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3'>Cancelar</button>
-                      <button onClick={() => { if (confirmDelete.index != null && confirmDelete.url) { handleDeletePhoto(confirmDelete.index, confirmDelete.url); } }} className='rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700'>Eliminar</button>
+                      <button onClick={() => { if (confirmDelete.index != null && confirmDelete.url) { handleDeletePhoto(confirmDelete.index, confirmDelete.url); } }} className='rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-500'>Eliminar</button>
                     </div>
                   </div>
                 </Modal>
@@ -2565,91 +2661,27 @@ export default function Ordenes() {
                 </svg>
                 Cancelar
               </button>
-              {editingOrden && (
+              {(editingOrden ? canOrdenesEdit : canOrdenesCreate) && (
                 <button
-                  type="button"
-                  onClick={async () => {
-                    if (!editingOrden?.id) return;
-                    if (isSendingWhatsapp) return;
-
-                    const token = getToken();
-                    if (!token) {
-                      setAlert({ show: true, variant: 'warning', title: 'Sesión', message: 'No hay token de autenticación.' });
-                      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-                      return;
-                    }
-
-                    setIsSendingWhatsapp(true);
-                    try {
-                      const resp = await fetch(apiUrl(`/api/ordenes/${editingOrden.id}/send-whatsapp/`), {
-                        method: 'POST',
-                        headers: {
-                          Authorization: `Bearer ${token}`,
-                        },
-                      });
-
-                      const data = await resp.json().catch(() => null);
-
-                      if (resp.ok) {
-                        setAlert({ show: true, variant: 'success', title: 'WhatsApp', message: 'PDF enviado por WhatsApp.' });
-                        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-                        return;
-                      }
-
-                      const detail = (data as any)?.detail || 'No se pudo enviar el PDF por WhatsApp.';
-                      setAlert({ show: true, variant: 'warning', title: 'WhatsApp', message: String(detail) });
-                      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3500);
-
-                      const rawPhone = String(formData?.telefono_cliente || '').trim();
-                      const digits = rawPhone.replace(/\D/g, '');
-                      const phone = digits.length === 10 ? `52${digits}` : digits;
-                      if (!phone) return;
-
-                      const cliente = String(formData?.cliente || '').trim();
-                      const msg = `Hola${cliente ? ` ${cliente}` : ''}, te comparto la Orden de Servicio.`;
-                      const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-                      window.open(waUrl, '_blank', 'noopener,noreferrer');
-                    } catch (e) {
-                      setAlert({ show: true, variant: 'error', title: 'WhatsApp', message: String(e) });
-                      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3500);
-                    } finally {
-                      setIsSendingWhatsapp(false);
-                    }
-                  }}
-                  disabled={!String(formData?.telefono_cliente || '').trim()}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
+                  type="submit"
+                  disabled={isSaving}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-                    <path
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                      d="M24.7911 37.3525H24.7852C22.3967 37.3517 20.0498 36.7524 17.9653 35.6154L10.4 37.6L12.4246 30.2048C11.1757 28.0405 10.5186 25.5855 10.5196 23.0702C10.5228 15.2017 16.9248 8.79999 24.7909 8.79999C28.6086 8.80164 32.1918 10.2879 34.8862 12.9854C37.5806 15.6828 39.0636 19.2683 39.0621 23.0815C39.059 30.9483 32.6595 37.3493 24.7911 37.3525ZM18.3159 33.0319L18.749 33.2889C20.5702 34.3697 22.6578 34.9415 24.7863 34.9423H24.7911C31.3288 34.9423 36.6499 29.6211 36.6525 23.0807C36.6538 19.9112 35.4212 16.9311 33.1817 14.689C30.9422 12.4469 27.964 11.2115 24.7957 11.2104C18.2529 11.2104 12.9318 16.5311 12.9292 23.0711C12.9283 25.3124 13.5554 27.4951 14.7427 29.3836L15.0248 29.8324L13.8265 34.2095L18.3159 33.0319ZM31.4924 26.154C31.7411 26.2742 31.9091 26.3554 31.9808 26.4751C32.0699 26.6238 32.0699 27.3378 31.7729 28.1708C31.4756 29.0038 30.051 29.764 29.3659 29.8663C28.7516 29.9582 27.9741 29.9965 27.1199 29.725C26.602 29.5607 25.9379 29.3413 25.0871 28.9739C21.7442 27.5304 19.485 24.2904 19.058 23.678C19.0281 23.6351 19.0072 23.6051 18.9955 23.5895L18.9927 23.5857C18.804 23.3339 17.5395 21.6468 17.5395 19.9008C17.5395 18.2582 18.3463 17.3973 18.7177 17.001C18.7432 16.9739 18.7666 16.9489 18.7875 16.926C19.1144 16.569 19.5007 16.4797 19.7384 16.4797C19.9761 16.4797 20.2141 16.4819 20.4219 16.4924C20.4475 16.4937 20.4742 16.4935 20.5017 16.4933C20.7095 16.4921 20.9686 16.4906 21.2242 17.1045C21.3225 17.3407 21.4664 17.691 21.6181 18.0604C21.9249 18.8074 22.264 19.6328 22.3236 19.7522C22.4128 19.9307 22.4722 20.1389 22.3533 20.3769C22.3355 20.4126 22.319 20.4463 22.3032 20.4785C22.2139 20.6608 22.1483 20.7948 21.9967 20.9718C21.9372 21.0413 21.8756 21.1163 21.814 21.1913C21.6913 21.3407 21.5687 21.4901 21.4619 21.5965C21.2833 21.7743 21.0975 21.9672 21.3055 22.3242C21.5135 22.6812 22.2292 23.8489 23.2892 24.7945C24.4288 25.8109 25.4192 26.2405 25.9212 26.4582C26.0192 26.5008 26.0986 26.5352 26.1569 26.5644C26.5133 26.7429 26.7213 26.713 26.9294 26.4751C27.1374 26.2371 27.8208 25.4338 28.0584 25.0769C28.2961 24.7201 28.5339 24.7795 28.8607 24.8984C29.1877 25.0176 30.9408 25.8801 31.2974 26.0586C31.367 26.0934 31.4321 26.1249 31.4924 26.154Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                  Enviar a WhatsApp
+                  {isSaving ? (
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                      <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                  {isSaving ? 'Guardando...' : (editingOrden ? 'Actualizar' : 'Guardar')}
                 </button>
               )}
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isSaving ? (
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                    <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-                {isSaving ? 'Guardando...' : (editingOrden ? 'Actualizar' : 'Guardar')}
-              </button>
             </div>
           </form>
-
         </div>
       </Modal >
 
@@ -2785,6 +2817,7 @@ export default function Ordenes() {
             <button
               type="button"
               onClick={() => {
+                formNonceRef.current += 1;
                 if (!navigator.geolocation) {
                   setAlert({ show: true, variant: 'warning', title: 'Geolocalización no disponible', message: 'Tu navegador no soporta geolocalización.' });
                   setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
@@ -2794,6 +2827,10 @@ export default function Ordenes() {
                   (pos) => {
                     const { latitude, longitude } = pos.coords;
                     setSelectedLocation({ lat: latitude, lng: longitude });
+                    const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
+                    setFormData((prev) => ({ ...prev, direccion: url }));
+                    setShowMapModal(false);
+                    setSelectedLocation(null);
                   },
                   () => {
                     setAlert({ show: true, variant: 'warning', title: 'No se pudo obtener ubicación', message: 'Activa permisos de ubicación e inténtalo de nuevo.' });
