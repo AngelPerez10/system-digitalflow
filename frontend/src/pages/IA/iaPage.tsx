@@ -41,9 +41,14 @@ export default function IaPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastErrorStatus, setLastErrorStatus] = useState<number | null>(null);
   const [lastErrorKind, setLastErrorKind] = useState<'cors' | 'upstream_502' | 'http' | 'network' | 'unknown' | null>(null);
+  const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
+  const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState('');
+  const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const STORAGE_KEY = 'ia_conversations_v1';
 
@@ -101,6 +106,18 @@ export default function IaPage() {
   useEffect(() => {
     scrollToBottom(messages.length <= 1 ? 'auto' : 'smooth');
   }, [messages]);
+
+  useEffect(() => {
+    const onMouseDown = (e: MouseEvent) => {
+      if (!openConversationMenuId) return;
+      const el = menuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && el.contains(e.target)) return;
+      setOpenConversationMenuId(null);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [openConversationMenuId]);
 
   const systemPrompt =
     "Eres un asistente de IA profesional. Responde siempre en español neutro. Usa el contexto de toda la conversación (mensajes anteriores) para mantener continuidad. No inventes datos como fechas actuales; si no sabes algo, dilo. No digas que eres de Google, Meta, Moonshot, Kimi, etc.; solo di que eres un asistente de IA.";
@@ -206,6 +223,56 @@ export default function IaPage() {
     setLastErrorStatus(null);
     setCopiedId(null);
     setIsSidebarOpen(false);
+    setOpenConversationMenuId(null);
+  };
+
+  const handleRenameConversation = (id: string) => {
+    const convo = (conversations || []).find((c) => c.id === id) || null;
+    setRenameConversationId(id);
+    setRenameTitle(String(convo?.title || '').trim() || 'Nuevo chat');
+    setOpenConversationMenuId(null);
+  };
+
+  const saveRename = () => {
+    const id = renameConversationId;
+    if (!id) return;
+    const nextTitle = renameTitle.trim();
+    if (!nextTitle) return;
+
+    setConversations((prev) =>
+      (Array.isArray(prev) ? prev : []).map((c) => (c.id === id ? { ...c, title: nextTitle, updatedAt: new Date().toISOString() } : c))
+    );
+    setRenameConversationId(null);
+    setRenameTitle('');
+  };
+
+  const confirmDeleteConversation = (id: string) => {
+    setDeleteConversationId(id);
+    setOpenConversationMenuId(null);
+  };
+
+  const deleteConversation = () => {
+    const id = deleteConversationId;
+    if (!id) return;
+
+    setConversations((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      const nextList = list.filter((c) => c.id !== id);
+
+      if (activeConversationIdRef.current === id) {
+        const next = nextList
+          .slice()
+          .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+        const nextId = next?.id || null;
+        activeConversationIdRef.current = nextId;
+        setActiveConversationId(nextId);
+        setMessages(Array.isArray(next?.messages) ? next!.messages : []);
+      }
+
+      return nextList;
+    });
+
+    setDeleteConversationId(null);
   };
 
   const toApiMessages = (list: ChatMessage[]): ApiMessage[] => {
@@ -714,6 +781,7 @@ export default function IaPage() {
                               aria-label="Menu"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setOpenConversationMenuId((cur) => (cur === item.id ? null : item.id));
                               }}
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -727,6 +795,33 @@ export default function IaPage() {
                               </svg>
                             </button>
                           </div>
+
+                          {openConversationMenuId === item.id && (
+                            <div
+                              ref={menuRef}
+                              className="absolute right-2 top-[38px] z-50 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
+                              onClick={(e) => e.stopPropagation()}
+                              role="menu"
+                              aria-label="Acciones del chat"
+                            >
+                              <button
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                                onClick={() => handleRenameConversation(item.id)}
+                                role="menuitem"
+                              >
+                                Renombrar
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-sm text-error-700 hover:bg-error-50 dark:text-error-200 dark:hover:bg-error-500/10"
+                                onClick={() => confirmDeleteConversation(item.id)}
+                                role="menuitem"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -737,6 +832,96 @@ export default function IaPage() {
           </aside>
         </div>
       </main>
+
+      {renameConversationId && (
+        <div
+          className="fixed inset-0 z-100001 flex items-center justify-center bg-black/50 px-4 dark:bg-black/80"
+          onClick={() => {
+            setRenameConversationId(null);
+            setRenameTitle('');
+          }}
+          aria-hidden="true"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Renombrar chat"
+          >
+            <div className="text-sm font-semibold text-gray-800 dark:text-white/90">Renombrar chat</div>
+            <div className="mt-3">
+              <input
+                value={renameTitle}
+                onChange={(e) => setRenameTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveRename();
+                  }
+                }}
+                className="shadow-theme-xs h-11 w-full rounded-xl border border-gray-300 bg-transparent px-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                autoFocus
+              />
+            </div>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-white/5"
+                onClick={() => {
+                  setRenameConversationId(null);
+                  setRenameTitle('');
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={!renameTitle.trim()}
+                className="rounded-xl bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/90 dark:text-gray-800 dark:hover:bg-white"
+                onClick={saveRename}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConversationId && (
+        <div
+          className="fixed inset-0 z-100001 flex items-center justify-center bg-black/50 px-4 dark:bg-black/80"
+          onClick={() => setDeleteConversationId(null)}
+          aria-hidden="true"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Eliminar chat"
+          >
+            <div className="text-sm font-semibold text-gray-800 dark:text-white/90">Eliminar chat</div>
+            <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">Esta acción no se puede deshacer.</div>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-white/5"
+                onClick={() => setDeleteConversationId(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="rounded-xl bg-error-600 px-3 py-2 text-sm font-semibold text-white hover:bg-error-700"
+                onClick={deleteConversation}
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
