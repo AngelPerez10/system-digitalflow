@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import PageMeta from "@/components/common/PageMeta";
@@ -318,23 +318,44 @@ export default function Ordenes() {
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
+          let { width, height } = img;
           if (width > maxWidth || height > maxHeight) {
-            if (width > height) {
-              height = (height / width) * maxWidth;
-              width = maxWidth;
-            } else {
-              width = (width / height) * maxHeight;
-              height = maxHeight;
-            }
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.floor(width * ratio);
+            height = Math.floor(height * ratio);
           }
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          let quality = 0.9;
-          const compress = () => {
+          
+          // Búsqueda binaria para encontrar la calidad óptima más rápido
+          let minQuality = 0.1;
+          let maxQuality = 0.95;
+          let attempts = 0;
+          const maxAttempts = 8;
+          
+          const binarySearchCompress = (low: number, high: number) => {
+            if (attempts >= maxAttempts || high - low < 0.01) {
+              const finalQuality = (low + high) / 2;
+              canvas.toBlob(
+                (blob) => {
+                  if (!blob) {
+                    reject(new Error('Error al comprimir la imagen'));
+                    return;
+                  }
+                  const r = new FileReader();
+                  r.readAsDataURL(blob);
+                  r.onloadend = () => resolve(r.result as string);
+                },
+                'image/jpeg',
+                finalQuality
+              );
+              return;
+            }
+            
+            attempts++;
+            const midQuality = (low + high) / 2;
             canvas.toBlob(
               (blob) => {
                 if (!blob) {
@@ -342,20 +363,22 @@ export default function Ordenes() {
                   return;
                 }
                 const sizeKB = blob.size / 1024;
-                if (sizeKB <= maxSizeKB || quality <= 0.1) {
+                if (Math.abs(sizeKB - maxSizeKB) < 5) {
                   const r = new FileReader();
                   r.readAsDataURL(blob);
                   r.onloadend = () => resolve(r.result as string);
+                } else if (sizeKB > maxSizeKB) {
+                  binarySearchCompress(low, midQuality);
                 } else {
-                  quality -= 0.1;
-                  compress();
+                  binarySearchCompress(midQuality, high);
                 }
               },
               'image/jpeg',
-              quality
+              midQuality
             );
           };
-          compress();
+          
+          binarySearchCompress(minQuality, maxQuality);
         };
         img.onerror = () => reject(new Error('Error al cargar la imagen'));
       };
@@ -373,8 +396,8 @@ export default function Ordenes() {
 
     const uploadOne = async (file: File): Promise<string | null> => {
       try {
-        // Comprimir localmente para subir payload pequeño
-        const compressed = await compressImage(file, 50, 1400, 1400);
+        // Comprimir localmente para subir payload pequeño (80KB para mejor balance)
+        const compressed = await compressImage(file, 80, 1400, 1400);
 
         // Subir al backend (Cloudinary)
         const token = getToken();
@@ -394,7 +417,7 @@ export default function Ordenes() {
       }
     };
 
-    const concurrency = 3;
+    const concurrency = 5;
     const urls: string[] = [];
     for (let i = 0; i < files.length; i += concurrency) {
       const chunk = files.slice(i, i + concurrency);
@@ -2303,9 +2326,7 @@ export default function Ordenes() {
             </div>
 
             {tipoOrden === 'levantamiento' && (
-              <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs">
-                <LevantamientoForm />
-              </div>
+              <LevantamientoForm />
             )}
 
             {/* SECCIÓN 3: Descripción de la Orden */}

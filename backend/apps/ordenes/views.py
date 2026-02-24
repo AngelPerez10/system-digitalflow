@@ -42,12 +42,12 @@ def _is_data_url(s: str) -> bool:
     return isinstance(s, str) and s.startswith("data:") and ";base64," in s
 
 
-def _optimize_image(data_url: str, max_size_kb: int = 50) -> str:
+def _optimize_image(data_url: str, max_size_kb: int = 80) -> str:
     """Optimize image to reduce file size while maintaining transparency.
     
     Args:
         data_url: Base64 data URL of the image
-        max_size_kb: Maximum file size in KB (default 50KB)
+        max_size_kb: Maximum file size in KB (default 80KB)
     
     Returns:
         Optimized data URL
@@ -183,14 +183,14 @@ def _delete_cloudinary_resource(url: str, resource_type: str = "image"):
         pass
 
 
-def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 50) -> str:
+def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
     """Upload a data URL (base64) to Cloudinary and return the secure URL.
     If Cloudinary is not configured, returns the original data URL.
     
     Args:
         data_url: Base64 data URL
         folder: Cloudinary folder path
-        max_size_kb: Maximum file size in KB (default 50KB)
+        max_size_kb: Maximum file size in KB (default 80KB)
     """
     if not cloudinary:
         return data_url
@@ -573,8 +573,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
             # Delete old signature from Cloudinary if exists
             if old_firma_cliente and old_firma_cliente.startswith('http'):
                 _delete_cloudinary_resource(old_firma_cliente)
-            # Upload new optimized signature (50KB max)
-            data['firma_cliente_url'] = _upload_data_url(firma_cliente, folder='ordenes/firmas', max_size_kb=50)
+            # Upload new optimized signature (80KB max)
+            data['firma_cliente_url'] = _upload_data_url(firma_cliente, folder='ordenes/firmas', max_size_kb=80)
         elif firma_cliente == '' or firma_cliente is None:
             # Signature was cleared - delete from Cloudinary
             if old_firma_cliente and old_firma_cliente.startswith('http'):
@@ -592,8 +592,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
             # Process new photos
             for f in fotos[:5]:
                 if isinstance(f, str) and _is_data_url(f):
-                    # Upload new optimized photo (50KB max)
-                    new_fotos.append(_upload_data_url(f, folder='ordenes/fotos', max_size_kb=50))
+                    # Upload new optimized photo (80KB max)
+                    new_fotos.append(_upload_data_url(f, folder='ordenes/fotos', max_size_kb=80))
                 else:
                     new_fotos.append(f)
             data['fotos_urls'] = new_fotos
