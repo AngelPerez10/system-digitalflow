@@ -191,7 +191,6 @@ export default function OrdenesTecnico() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [serviciosDisponibles, setServiciosDisponibles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reindexing, setReindexing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showClienteModal, setShowClienteModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1452,48 +1451,6 @@ export default function OrdenesTecnico() {
     };
   }, [ordenes, currentMonthKey]);
 
-  const handleReindexIdx = async () => {
-    const token = getToken();
-    if (!token) {
-      setAlert({ show: true, variant: 'warning', title: 'Sesión', message: 'No hay token de autenticación.' });
-      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-      return;
-    }
-    setReindexing(true);
-    try {
-      const resp = await fetch(apiUrl('/api/ordenes/reindex/'), {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (resp.ok) {
-        await fetchOrdenes();
-        setAlert({ show: true, variant: 'success', title: 'Reordenado', message: 'Se reordenaron los IDS correctamente.' });
-        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-      } else {
-        let msg = 'No se pudo reordenar los IDS.';
-        try {
-          const ct = resp.headers.get('content-type') || '';
-          if (ct.includes('application/json')) {
-            const err = await resp.json();
-            msg = (err?.detail || JSON.stringify(err)) || msg;
-          } else {
-            msg = (await resp.text()) || msg;
-          }
-        } catch { }
-        setAlert({ show: true, variant: 'error', title: 'Error', message: String(msg) });
-        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3500);
-      }
-    } catch (e) {
-      setAlert({ show: true, variant: 'error', title: 'Error', message: String(e) });
-      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3500);
-    } finally {
-      setReindexing(false);
-    }
-  };
-
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <PageMeta
@@ -1698,23 +1655,6 @@ export default function OrdenesTecnico() {
                 </div>
               )}
             </div>
-
-            <button
-              type="button"
-              onClick={handleReindexIdx}
-              disabled={reindexing}
-              className="shadow-theme-xs flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 sm:min-w-[100px] hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              title="Reasigna IDX a 1..N para quitar huecos"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M3 7h13" strokeLinecap="round" />
-                <path d="M3 12h10" strokeLinecap="round" />
-                <path d="M3 17h7" strokeLinecap="round" />
-                <path d="M18 7v10" strokeLinecap="round" />
-                <path d="M21 10l-3-3-3 3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {reindexing ? 'Reordenando...' : 'Reordenar'}
-            </button>
           </div>
         }
       >

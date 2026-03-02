@@ -1,7 +1,19 @@
 import { useRef, useEffect, useState, type ReactElement } from 'react';
 import Sketch from '@uiw/react-color-sketch';
 
-type DrawingTool = 'select' | 'pencil' | 'line' | 'rectangle' | 'circle' | 'eraser' | 'camera';
+type DrawingTool =
+  | 'select'
+  | 'pencil'
+  | 'line'
+  | 'rectangle'
+  | 'circle'
+  | 'eraser'
+  | 'camera'
+  | 'cctv_cubo'
+  | 'cctv_domo'
+  | 'cctv_pinhole'
+  | 'cctv_ptz'
+  | 'cctv_turret';
 
 type ShapeType = Exclude<DrawingTool, 'pencil' | 'eraser'>;
 
@@ -41,6 +53,8 @@ export default function DrawingBoard({
   const colorRef = useRef<string>('#000000');
   const lineWidthRef = useRef<number>(2);
   const cctvImgCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const svgTextCacheRef = useRef<Map<string, string>>(new Map());
+  const svgStampImgCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEmpty, setIsEmpty] = useState(true);
@@ -68,6 +82,50 @@ export default function DrawingBoard({
   const emitChange = (dataUrl: string) => {
     lastLoadedValueRef.current = dataUrl;
     onChange(dataUrl);
+  };
+
+  const drawSvgStamp = (
+    ctx: CanvasRenderingContext2D,
+    canvasEl: HTMLCanvasElement,
+    svgPath: string,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    commit: boolean,
+    color: string,
+    lw: number
+  ) => {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const raw = Math.max(Math.abs(dx), Math.abs(dy));
+    const minSize = 28 + lw * 2;
+    const size = Math.max(minSize, raw);
+
+    const left = Math.floor(Math.min(x1, x2) - (size - Math.abs(dx)) / 2);
+    const top = Math.floor(Math.min(y1, y2) - (size - Math.abs(dy)) / 2);
+
+    const drawNow = (img: HTMLImageElement) => {
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(img, left, top, size, size);
+      ctx.restore();
+
+      if (commit) {
+        const dataUrl = canvasEl.toDataURL('image/png');
+        emitChange(dataUrl);
+      }
+    };
+
+    void getSvgStampImage(svgPath, color, lw).then((img) => {
+      if ((img as any).complete && img.naturalWidth > 0) {
+        drawNow(img);
+        return;
+      }
+      img.onload = () => {
+        drawNow(img);
+      };
+    });
   };
 
   useEffect(() => {
@@ -155,6 +213,56 @@ export default function DrawingBoard({
     };
     img.src = getCctvSvgDataUrl(color, lw);
     cctvImgCacheRef.current.set(cacheKey, img);
+    return img;
+  };
+
+  const getSvgText = async (path: string) => {
+    const cached = svgTextCacheRef.current.get(path);
+    if (cached) return cached;
+
+    const res = await fetch(path, { cache: 'force-cache' });
+    const text = await res.text();
+    svgTextCacheRef.current.set(path, text);
+    return text;
+  };
+
+  const buildSvgStampDataUrl = (svgText: string, fillColor: string, strokeWidth: number) => {
+    const safeStroke = Math.max(0, Math.min(12, strokeWidth || 0));
+    let out = svgText;
+
+    out = out.replace(/<\?xml[^>]*>\s*/i, '');
+    out = out.replace(/<!DOCTYPE[^>]*>\s*/i, '');
+
+    if (/<svg\s[^>]*fill=/.test(out)) {
+      out = out.replace(/(<svg\s[^>]*?)fill=(['"]).*?\2/i, `$1fill="${fillColor}"`);
+    } else {
+      out = out.replace(/<svg\s/i, `<svg fill="${fillColor}" `);
+    }
+
+    if (/<svg\s[^>]*stroke=/.test(out)) {
+      out = out.replace(/(<svg\s[^>]*?)stroke=(['"]).*?\2/i, `$1stroke="${fillColor}"`);
+    } else {
+      out = out.replace(/<svg\s/i, `<svg stroke="${fillColor}" `);
+    }
+
+    if (/<svg\s[^>]*stroke-width=/.test(out)) {
+      out = out.replace(/(<svg\s[^>]*?)stroke-width=(['"]).*?\2/i, `$1stroke-width="${safeStroke / 3}"`);
+    } else {
+      out = out.replace(/<svg\s/i, `<svg stroke-width="${safeStroke / 3}" `);
+    }
+
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(out)}`;
+  };
+
+  const getSvgStampImage = async (path: string, color: string, lw: number) => {
+    const cacheKey = `${path}|${color}|${lw}`;
+    const cached = svgStampImgCacheRef.current.get(cacheKey);
+    if (cached) return cached;
+
+    const svgText = await getSvgText(path);
+    const img = new Image();
+    img.src = buildSvgStampDataUrl(svgText, color, lw);
+    svgStampImgCacheRef.current.set(cacheKey, img);
     return img;
   };
 
@@ -247,6 +355,26 @@ export default function DrawingBoard({
       }
       case 'camera': {
         drawCamera(ctx, canvasRef.current!, s.x1, s.y1, s.x2, s.y2, false, s.color, s.lineWidth);
+        break;
+      }
+      case 'cctv_cubo': {
+        drawSvgStamp(ctx, canvasRef.current!, '/images/icons/cctv-cubo.svg', s.x1, s.y1, s.x2, s.y2, false, s.color, s.lineWidth);
+        break;
+      }
+      case 'cctv_domo': {
+        drawSvgStamp(ctx, canvasRef.current!, '/images/icons/cctv-domo.svg', s.x1, s.y1, s.x2, s.y2, false, s.color, s.lineWidth);
+        break;
+      }
+      case 'cctv_pinhole': {
+        drawSvgStamp(ctx, canvasRef.current!, '/images/icons/cctv-pinhole.svg', s.x1, s.y1, s.x2, s.y2, false, s.color, s.lineWidth);
+        break;
+      }
+      case 'cctv_ptz': {
+        drawSvgStamp(ctx, canvasRef.current!, '/images/icons/cctv-ptz.svg', s.x1, s.y1, s.x2, s.y2, false, s.color, s.lineWidth);
+        break;
+      }
+      case 'cctv_turret': {
+        drawSvgStamp(ctx, canvasRef.current!, '/images/icons/cctv-turret.svg', s.x1, s.y1, s.x2, s.y2, false, s.color, s.lineWidth);
         break;
       }
     }
@@ -954,10 +1082,44 @@ export default function DrawingBoard({
           <circle cx="24.051" cy="27.026" r="1" />
         </svg>
       )
+    },
+    {
+      id: 'cctv_cubo',
+      label: 'Cubo',
+      icon: <img className="w-4 h-4 dark:invert dark:brightness-200" src="/images/icons/cctv-cubo.svg" alt="Cubo" />
+    },
+    {
+      id: 'cctv_domo',
+      label: 'Domo',
+      icon: <img className="w-4 h-4 dark:invert dark:brightness-200" src="/images/icons/cctv-domo.svg" alt="Domo" />
+    },
+    {
+      id: 'cctv_pinhole',
+      label: 'Pinhole',
+      icon: <img className="w-4 h-4 dark:invert dark:brightness-200" src="/images/icons/cctv-pinhole.svg" alt="Pinhole" />
+    },
+    {
+      id: 'cctv_ptz',
+      label: 'PTZ',
+      icon: <img className="w-4 h-4 dark:invert dark:brightness-200" src="/images/icons/cctv-ptz.svg" alt="PTZ" />
+    },
+    {
+      id: 'cctv_turret',
+      label: 'Turret',
+      icon: <img className="w-4 h-4 dark:invert dark:brightness-200" src="/images/icons/cctv-turret.svg" alt="Turret" />
     }
   ];
 
-  const figureToolIds = new Set<DrawingTool>(['rectangle', 'circle', 'camera']);
+  const figureToolIds = new Set<DrawingTool>([
+    'rectangle',
+    'circle',
+    'camera',
+    'cctv_cubo',
+    'cctv_domo',
+    'cctv_pinhole',
+    'cctv_ptz',
+    'cctv_turret'
+  ]);
   const primaryTools = tools.filter((t) => !figureToolIds.has(t.id));
   const figureTools = tools.filter((t) => figureToolIds.has(t.id));
   const selectedFigureTool = figureTools.find((t) => t.id === currentTool) || null;

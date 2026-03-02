@@ -96,7 +96,6 @@ export default function Ordenes() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [serviciosDisponibles, setServiciosDisponibles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reindexing, setReindexing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showClienteModal, setShowClienteModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1185,7 +1184,6 @@ export default function Ordenes() {
     });
   }, [ordenes, searchTerm, selectedMonth, filterStatus, filterServicio, filterDate]);
 
-  // Paginación por mes (mostrar todas las órdenes del mes seleccionado)
   const startIndex = 0;
   const currentOrdenes = shownList;
 
@@ -1431,48 +1429,6 @@ export default function Ordenes() {
     };
   }, [ordenes, currentMonthKey]);
 
-  const handleReindexIdx = async () => {
-    const token = getToken();
-    if (!token) {
-      setAlert({ show: true, variant: 'warning', title: 'Sesión', message: 'No hay token de autenticación.' });
-      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-      return;
-    }
-    setReindexing(true);
-    try {
-      const resp = await fetch(apiUrl('/api/ordenes/reindex/'), {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (resp.ok) {
-        await fetchOrdenes();
-        setAlert({ show: true, variant: 'success', title: 'Reordenado', message: 'Se reordenaron los IDS correctamente.' });
-        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-      } else {
-        let msg = 'No se pudo reordenar los IDS.';
-        try {
-          const ct = resp.headers.get('content-type') || '';
-          if (ct.includes('application/json')) {
-            const err = await resp.json();
-            msg = (err?.detail || JSON.stringify(err)) || msg;
-          } else {
-            msg = (await resp.text()) || msg;
-          }
-        } catch { }
-        setAlert({ show: true, variant: 'error', title: 'Error', message: String(msg) });
-        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3500);
-      }
-    } catch (e) {
-      setAlert({ show: true, variant: 'error', title: 'Error', message: String(e) });
-      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3500);
-    } finally {
-      setReindexing(false);
-    }
-  };
-
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <PageMeta
@@ -1704,24 +1660,6 @@ export default function Ordenes() {
                 </div>
               )}
             </div>
-
-            <button
-              type="button"
-              onClick={handleReindexIdx}
-              disabled={reindexing}
-              className="shadow-theme-xs flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 sm:min-w-[118px] disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold leading-none whitespace-nowrap"
-              title="Reasigna IDX a 1..N para quitar huecos"
-            >
-
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 7h13" />
-                <path d="M3 12h10" />
-                <path d="M3 17h7" />
-                <path d="M18 7v10" />
-                <path d="M21 10l-3-3-3 3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {reindexing ? 'Reordenando...' : 'Reordenar'}
-            </button>
           </div>
         }
       >

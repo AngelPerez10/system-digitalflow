@@ -26,6 +26,7 @@ type LevantamientoFormValue = {
   cable_categoria: 'cat5' | 'cat6' | 'cat7' | 'cat8';
   cable_resistencia: 'exterior' | 'interior' | '';
   cable_blindado: 'si' | 'no' | '';
+  cable_metraje: string;
 
   camara_bala_open: boolean;
   camara_bala_cantidad: number;
@@ -107,6 +108,7 @@ export default function LevantamientoForm() {
     cable_categoria: 'cat5',
     cable_resistencia: '',
     cable_blindado: '',
+    cable_metraje: '',
 
     camara_bala_open: false,
     camara_bala_cantidad: 0,
@@ -187,6 +189,7 @@ export default function LevantamientoForm() {
               cable_categoria: 'cat5',
               cable_resistencia: '',
               cable_blindado: '',
+              cable_metraje: '',
               camara_bala_open: false,
               camara_bala_cantidad: 0,
               camara_bala_megapixeles: 0,
@@ -1456,6 +1459,21 @@ export default function LevantamientoForm() {
                     +
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Metraje (m)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={v.cable_metraje}
+                  onChange={(e) => setV((prev) => ({ ...prev, cable_metraje: e.target.value }))}
+                  className={inputBaseClass}
+                  placeholder="0"
+                />
               </div>
             </div>
 
