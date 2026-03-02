@@ -2076,7 +2076,8 @@ export default function Ordenes() {
                     <select
                       value={tipoOrden}
                       onChange={(e) => setTipoOrden(e.target.value as any)}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                      disabled={!!editingOrden || isReadOnly}
+                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${!!editingOrden || isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40'}`}
                     >
                       <option value="servicio_tecnico">Servicio Técnico</option>
                       <option value="levantamiento">Levantamiento</option>
@@ -2092,147 +2093,148 @@ export default function Ordenes() {
               <>
                 {/* SECCIÓN 1: Detalles Generales */}
                 <div className="space-y-3">
-              <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
-              </div>
-              <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                {editingOrden && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Folio</label>
-                    <input
-                      type="text"
-                      value={(formData as any).folio || ''}
-                      onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
-                      placeholder="Ej: ATX2000"
-                    />
+                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
                   </div>
-                )}
-                {/* 1. Cliente con ActionSearchBar */}
-                <div className="flex items-start gap-2">
-                  <div className="flex-1">
-                    <ActionSearchBar
-                      actions={clienteActions as any}
-                      showAllActions={true}
-                      defaultOpen={false}
-                      label="Cliente"
-                      placeholder="Buscar cliente por nombre o teléfono..."
-                      value={clienteSearch || formData.cliente || ''}
-                      onQueryChange={(q: string) => setClienteSearch(q)}
-
-                      onSelectAction={(action: any) => {
-                        if (action?.id === '__new__') {
-                          setShowClienteModal(true);
-                          return;
-                        }
-                        const rawId = String(action?.id ?? '');
-                        const clienteIdStr = rawId.includes('::') ? rawId.split('::')[0] : rawId;
-                        const id = Number(clienteIdStr);
-                        const c = (clientes || []).find((x) => Number(x.id) === id);
-                        if (!c) return;
-
-                        const contacto = action?.__contacto;
-                        if (contacto) {
-                          setFormData({
-                            ...formData,
-                            cliente_id: c.id,
-                            cliente: c.nombre,
-                            direccion: c.direccion,
-                            telefono_cliente: String(contacto?.celular || c.telefono || ''),
-                            nombre_cliente: String(contacto?.nombre_apellido || ''),
-                          });
-                          setClienteSearch(String(action?.label || c.nombre || ''));
-                          return;
-                        }
-
-                        selectCliente(c);
-                      }}
-                    />
-                  </div>
-                  {(formData.cliente_id || formData.cliente) && (
-                    <button
-                      type="button"
-                      onClick={() => selectCliente(null)}
-                      aria-label="Limpiar selección"
-                      className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="w-4 h-4"
-                      >
-                        <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
-                        <path d="M18 11l-4.3-4.3" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-                {/* 2. Nombre del Cliente y Técnico Asignado */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Nombre del Cliente</label>
-                    <input
-                      type="text"
-                      value={formData.nombre_cliente}
-                      onChange={(e) => setFormData({ ...formData, nombre_cliente: e.target.value })}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
-                      placeholder="Nombre completo del cliente"
-                    />
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1">
-                      <ActionSearchBar
-                        actions={tecnicoActions as any}
-                        defaultOpen={false}
-                        label="Técnico Asignado"
-                        placeholder="Buscar técnico..."
-                        value={tecnicoSearch || (formData.tecnico_asignado ? (() => {
-                          const tecnicoId = Number(formData.tecnico_asignado);
-                          const u = usuarios.find(u => u.id === tecnicoId);
-                          return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : '';
-                        })() : '')}
-                        onQueryChange={(q: string) => setTecnicoSearch(q)}
-
-                        onSelectAction={(action: any) => {
-                          const id = Number(action?.id);
-                          const u = (usuarios || []).find((x) => Number(x.id) === id);
-                          if (u) selectTecnico(u);
-                        }}
-                      />
-                    </div>
-                    {formData.tecnico_asignado && (
-                      <button
-                        type="button"
-                        onClick={() => selectTecnico(null)}
-                        aria-label="Limpiar selección"
-                        className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="w-4 h-4"
-                        >
-                          <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
-                          <path d="M18 11l-4.3-4.3" />
-                        </svg>
-                      </button>
+                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                    {editingOrden && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Folio</label>
+                        <input
+                          type="text"
+                          value={(formData as any).folio || ''}
+                          onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
+                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                          placeholder="Ej: ATX2000"
+                        />
+                      </div>
                     )}
+                    {/* 1. Cliente con ActionSearchBar */}
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <ActionSearchBar
+                          actions={clienteActions as any}
+                          showAllActions={true}
+                          defaultOpen={false}
+                          label="Cliente"
+                          placeholder="Buscar cliente por nombre o teléfono..."
+                          value={clienteSearch || formData.cliente || ''}
+                          onQueryChange={(q: string) => setClienteSearch(q)}
+
+                          onSelectAction={(action: any) => {
+                            if (action?.id === '__new__') {
+                              setShowClienteModal(true);
+                              return;
+                            }
+                            const rawId = String(action?.id ?? '');
+                            const clienteIdStr = rawId.includes('::') ? rawId.split('::')[0] : rawId;
+                            const id = Number(clienteIdStr);
+                            const c = (clientes || []).find((x) => Number(x.id) === id);
+                            if (!c) return;
+
+                            const contacto = action?.__contacto;
+                            if (contacto) {
+                              setFormData({
+                                ...formData,
+                                cliente_id: c.id,
+                                cliente: c.nombre,
+                                direccion: c.direccion,
+                                telefono_cliente: String(contacto?.celular || c.telefono || ''),
+                                nombre_cliente: String(contacto?.nombre_apellido || ''),
+                              });
+                              setClienteSearch(String(action?.label || c.nombre || ''));
+                              return;
+                            }
+
+                            selectCliente(c);
+                          }}
+                        />
+                      </div>
+                      {(formData.cliente_id || formData.cliente) && (
+                        <button
+                          type="button"
+                          onClick={() => selectCliente(null)}
+
+                          aria-label="Limpiar selección"
+                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="w-4 h-4"
+                          >
+                            <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
+                            <path d="M18 11l-4.3-4.3" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    {/* 2. Nombre del Cliente y Técnico Asignado */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Nombre del Cliente</label>
+                        <input
+                          type="text"
+                          value={formData.nombre_cliente}
+                          onChange={(e) => setFormData({ ...formData, nombre_cliente: e.target.value })}
+                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                          placeholder="Nombre completo del cliente"
+                        />
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1">
+                          <ActionSearchBar
+                            actions={tecnicoActions as any}
+                            defaultOpen={false}
+                            label="Técnico Asignado"
+                            placeholder="Buscar técnico..."
+                            value={tecnicoSearch || (formData.tecnico_asignado ? (() => {
+                              const tecnicoId = Number(formData.tecnico_asignado);
+                              const u = usuarios.find(u => u.id === tecnicoId);
+                              return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : '';
+                            })() : '')}
+                            onQueryChange={(q: string) => setTecnicoSearch(q)}
+
+                            onSelectAction={(action: any) => {
+                              const id = Number(action?.id);
+                              const u = (usuarios || []).find((x) => Number(x.id) === id);
+                              if (u) selectTecnico(u);
+                            }}
+                          />
+                        </div>
+                        {formData.tecnico_asignado && (
+                          <button
+                            type="button"
+                            onClick={() => selectTecnico(null)}
+                            aria-label="Limpiar selección"
+                            className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="w-4 h-4"
+                            >
+                              <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
+                              <path d="M18 11l-4.3-4.3" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
                 </div>
               </>
             )}
@@ -2926,6 +2928,6 @@ export default function Ordenes() {
         editingCliente={null}
         permissions={permissions}
       />
-    </div >
+    </div>
   );
 }

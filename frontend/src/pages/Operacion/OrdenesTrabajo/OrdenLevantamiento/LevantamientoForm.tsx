@@ -30,6 +30,10 @@ type LevantamientoFormValue = {
   cable_blindado: 'si' | 'no' | '';
   cable_metraje: string;
 
+  bobina_cable_open: boolean;
+  bobina_cable_cantidad: number;
+  bobina_cable_metrajes: Array<'' | '100' | '152' | '305' | '1000'>;
+
   camara_bala_open: boolean;
   camara_bala_cantidad: number;
   camara_bala_megapixeles: number;
@@ -94,6 +98,10 @@ const defaultValue: LevantamientoFormValue = {
   cable_resistencia: '',
   cable_blindado: '',
   cable_metraje: '',
+
+  bobina_cable_open: false,
+  bobina_cable_cantidad: 0,
+  bobina_cable_metrajes: [],
 
   camara_bala_open: false,
   camara_bala_cantidad: 0,
@@ -277,6 +285,10 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
               cable_resistencia: '',
               cable_blindado: '',
               cable_metraje: '',
+
+              bobina_cable_open: false,
+              bobina_cable_cantidad: 0,
+              bobina_cable_metrajes: [],
               camara_bala_open: false,
               camara_bala_cantidad: 0,
               camara_bala_megapixeles: 0,
@@ -1549,7 +1561,103 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-gray-900/35 overflow-hidden">
+                <div className="divide-y divide-gray-200 dark:divide-white/10">
+                  <div className="px-3 py-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setV((prev) => {
+                          const nextOpen = !prev.bobina_cable_open;
+                          return {
+                            ...prev,
+                            bobina_cable_open: nextOpen,
+                          };
+                        });
+                      }}
+                      className="w-full inline-flex items-center justify-between gap-3 rounded-lg px-2 py-2 hover:bg-gray-100/80 dark:hover:bg-white/5 transition-colors"
+                    >
+                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Bobina de cable</span>
+                      <span className={`text-xs font-semibold ${v.bobina_cable_open ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
+                        {v.bobina_cable_open ? '[-]' : '[+]'}
+                      </span>
+                    </button>
+
+                    {v.bobina_cable_open && (
+                      <div className="mt-2 pt-3 border-t border-gray-200/80 dark:border-white/10 px-2">
+                        <div className="space-y-2">
+                          <div className={cameraRowClass}>
+                            <div>
+                              <div className="text-xs font-medium text-gray-700 dark:text-gray-200">¿Cuántas bobinas de cable?</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setV((prev) => ({
+                                    ...prev,
+                                    bobina_cable_cantidad: Math.max(0, (prev.bobina_cable_cantidad || 0) - 1),
+                                    bobina_cable_metrajes: (prev.bobina_cable_metrajes || []).slice(0, Math.max(0, (prev.bobina_cable_cantidad || 0) - 1)),
+                                  }));
+                                }}
+                                className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                aria-label="Disminuir bobinas de cable"
+                              >
+                                -
+                              </button>
+                              <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                {v.bobina_cable_cantidad || 0}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setV((prev) => ({
+                                    ...prev,
+                                    bobina_cable_cantidad: (prev.bobina_cable_cantidad || 0) + 1,
+                                    bobina_cable_metrajes: [
+                                      ...(prev.bobina_cable_metrajes || []),
+                                      '100',
+                                    ],
+                                  }));
+                                }}
+                                className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                aria-label="Aumentar bobinas de cable"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+
+                          {(v.bobina_cable_metrajes || []).map((metraje, idx) => (
+                            <div key={idx}>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Metraje {idx + 1}</label>
+                              <select
+                                value={metraje}
+                                onChange={(e) => {
+                                  const value = (e.target.value as any) || '';
+                                  setV((prev) => {
+                                    const next = [...(prev.bobina_cable_metrajes || [])];
+                                    next[idx] = value;
+                                    return { ...prev, bobina_cable_metrajes: next };
+                                  });
+                                }}
+                                className={inputBaseClass}
+                              >
+                                <option value="">Seleccionar...</option>
+                                <option value="100">100</option>
+                                <option value="152">152</option>
+                                <option value="305">305</option>
+                                <option value="1000">1000</option>
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Metraje (m)</label>
                 <input

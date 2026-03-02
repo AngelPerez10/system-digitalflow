@@ -73,6 +73,49 @@ class OrdenSerializer(serializers.ModelSerializer):
 
 
 class OrdenLevantamientoSerializer(serializers.ModelSerializer):
+    def validate_payload(self, value):
+        payload = value if isinstance(value, dict) else {}
+
+        cantidad_raw = payload.get('bobina_cable_cantidad', 0)
+        try:
+            cantidad = int(cantidad_raw or 0)
+        except (TypeError, ValueError):
+            cantidad = 0
+        cantidad = max(0, cantidad)
+
+        metrajes = payload.get('bobina_cable_metrajes', None)
+
+        if metrajes is None:
+            legacy = payload.get('bobina_cable_metraje', None)
+            if legacy is not None and cantidad > 0:
+                metrajes = [legacy for _ in range(cantidad)]
+
+        if metrajes is not None:
+            if not isinstance(metrajes, list):
+                raise serializers.ValidationError('bobina_cable_metrajes debe ser una lista.')
+
+            allowed = {'', '100', '152', '305', '1000'}
+            normalized = []
+            for m in metrajes:
+                if m is None:
+                    s = ''
+                else:
+                    s = str(m).strip()
+                if s not in allowed:
+                    raise serializers.ValidationError('Metraje de bobina inválido.')
+                normalized.append(s)
+
+            if cantidad > 0:
+                normalized = normalized[:cantidad]
+                while len(normalized) < cantidad:
+                    normalized.append('')
+
+            payload['bobina_cable_metrajes'] = normalized
+            if 'bobina_cable_metraje' in payload:
+                payload.pop('bobina_cable_metraje', None)
+
+        return payload
+
     class Meta:
         model = OrdenLevantamiento
         fields = [
