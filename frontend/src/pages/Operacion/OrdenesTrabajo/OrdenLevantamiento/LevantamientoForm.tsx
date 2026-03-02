@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import DrawingBoard from '@/components/ui/drawing/DrawingBoard';
+import Alert from '@/components/ui/alert/Alert';
+import { apiUrl } from '@/config/api';
 
 type LevantamientoTipo = '' | 'camara' | 'cerco' | 'alarmas';
 
@@ -72,10 +74,81 @@ type LevantamientoFormValue = {
   dibujo_url: string;
 };
 
+const defaultValue: LevantamientoFormValue = {
+  tipo: '',
+
+  camara_grabado_tecnologia: '',
+  camara_grabado_tecnologia_cantidad: 0,
+  camara_grabado_compuertas: '',
+  camara_grabado_compuertas_cantidad: 0,
+  camara_grabado_marca: '',
+  camara_grabado_capacidad_canales: '',
+  camara_grabado_switch_poe_piezas: 0,
+  camara_grabado_switch_poe_capacidades: [],
+  camara_grabado_puertos_hdd: 0,
+  camara_grabado_almacenamiento: '',
+  camara_grabado_capacidad_tb: 1,
+
+  cable_tipo: '',
+  cable_categoria: 'cat5',
+  cable_resistencia: '',
+  cable_blindado: '',
+  cable_metraje: '',
+
+  camara_bala_open: false,
+  camara_bala_cantidad: 0,
+  camara_bala_megapixeles: 0,
+  camara_bala_detalles: [],
+
+  camara_cubo_open: false,
+  camara_cubo_cantidad: 0,
+  camara_cubo_megapixeles: 0,
+  camara_cubo_detalles: [],
+
+  camara_domo_open: false,
+  camara_domo_cantidad: 0,
+  camara_domo_megapixeles: 0,
+  camara_domo_detalles: [],
+
+  camara_pinhole_open: false,
+  camara_pinhole_cantidad: 0,
+  camara_pinhole_megapixeles: 0,
+  camara_pinhole_detalles: [],
+
+  camara_ptz_open: false,
+  camara_ptz_cantidad: 0,
+  camara_ptz_megapixeles: 0,
+  camara_ptz_detalles: [],
+
+  camara_turret_open: false,
+  camara_turret_cantidad: 0,
+  camara_turret_megapixeles: 0,
+  camara_turret_detalles: [],
+
+  cerco_metros_lineales: '',
+  cerco_altura_metros: '',
+  cerco_tipo: '',
+  cerco_porton: false,
+
+  alarmas_zonas: '',
+  alarmas_sensores_movimiento: true,
+  alarmas_contactos_magneticos: true,
+  alarmas_sirena: true,
+  alarmas_comunicacion: '',
+
+  dibujo_url: '',
+};
+
 const inputBaseClass =
   'w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none';
 
-export default function LevantamientoForm() {
+type Props = {
+  ordenId?: number | null;
+  disabled?: boolean;
+  onSnapshot?: (snapshot: { payload: any; dibujo_url: string }) => void;
+};
+
+export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Props) {
   const megapixelesOptions = useMemo(() => [2, 4, 5, 8, 12], []);
 
   const cameraRowClass = 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4';
@@ -89,78 +162,91 @@ export default function LevantamientoForm() {
     return trimmed;
   };
 
-  const [v, setV] = useState<LevantamientoFormValue>({
-    tipo: '',
-
-    camara_grabado_tecnologia: '',
-    camara_grabado_tecnologia_cantidad: 0,
-    camara_grabado_compuertas: '',
-    camara_grabado_compuertas_cantidad: 0,
-    camara_grabado_marca: '',
-    camara_grabado_capacidad_canales: '',
-    camara_grabado_switch_poe_piezas: 0,
-    camara_grabado_switch_poe_capacidades: [],
-    camara_grabado_puertos_hdd: 0,
-    camara_grabado_almacenamiento: '',
-    camara_grabado_capacidad_tb: 1,
-
-    cable_tipo: '',
-    cable_categoria: 'cat5',
-    cable_resistencia: '',
-    cable_blindado: '',
-    cable_metraje: '',
-
-    camara_bala_open: false,
-    camara_bala_cantidad: 0,
-    camara_bala_megapixeles: 0,
-    camara_bala_detalles: [],
-
-    camara_cubo_open: false,
-    camara_cubo_cantidad: 0,
-    camara_cubo_megapixeles: 0,
-    camara_cubo_detalles: [],
-
-    camara_domo_open: false,
-    camara_domo_cantidad: 0,
-    camara_domo_megapixeles: 0,
-    camara_domo_detalles: [],
-
-    camara_pinhole_open: false,
-    camara_pinhole_cantidad: 0,
-    camara_pinhole_megapixeles: 0,
-    camara_pinhole_detalles: [],
-
-    camara_ptz_open: false,
-    camara_ptz_cantidad: 0,
-    camara_ptz_megapixeles: 0,
-    camara_ptz_detalles: [],
-
-    camara_turret_open: false,
-    camara_turret_cantidad: 0,
-    camara_turret_megapixeles: 0,
-    camara_turret_detalles: [],
-
-    cerco_metros_lineales: '',
-    cerco_altura_metros: '',
-    cerco_tipo: '',
-    cerco_porton: false,
-
-    alarmas_zonas: '',
-    alarmas_sensores_movimiento: true,
-    alarmas_contactos_magneticos: true,
-    alarmas_sirena: true,
-    alarmas_comunicacion: '',
-
-    dibujo_url: '',
+  const [v, setV] = useState<LevantamientoFormValue>(defaultValue);
+  const [loadingRemote, setLoadingRemote] = useState(false);
+  const [alert, setAlert] = useState<{ show: boolean; variant: 'success' | 'error' | 'warning' | 'info'; title: string; message: string }>({
+    show: false,
+    variant: 'info',
+    title: '',
+    message: '',
   });
+
+  const lastLoadedOrdenIdRef = useRef<number | null>(null);
+
+  const getToken = () => localStorage.getItem('token') || sessionStorage.getItem('token');
+
+  useEffect(() => {
+    const oid = typeof ordenId === 'number' ? ordenId : null;
+    if (!oid) return;
+    if (lastLoadedOrdenIdRef.current === oid) return;
+
+    const token = getToken();
+    if (!token) return;
+
+    lastLoadedOrdenIdRef.current = oid;
+    const load = async () => {
+      setLoadingRemote(true);
+      try {
+        const res = await fetch(apiUrl(`/api/ordenes/${oid}/levantamiento/`), {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          cache: 'no-store' as RequestCache,
+        });
+
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          setAlert({ show: true, variant: 'error', title: 'Error', message: 'No se pudo cargar el levantamiento.' });
+          return;
+        }
+
+        const payload = (data as any)?.payload && typeof (data as any).payload === 'object' ? (data as any).payload : {};
+        const dibujo_url = (data as any)?.dibujo_url || '';
+
+        setV((prev) => {
+          const next = { ...defaultValue, ...payload } as LevantamientoFormValue;
+          next.dibujo_url = dibujo_url || (payload as any)?.dibujo_url || prev.dibujo_url || '';
+          return next;
+        });
+      } catch {
+        setAlert({ show: true, variant: 'error', title: 'Error', message: 'No se pudo cargar el levantamiento.' });
+      } finally {
+        setLoadingRemote(false);
+      }
+    };
+
+    load();
+  }, [ordenId]);
+
+  useEffect(() => {
+    if (!onSnapshot) return;
+    onSnapshot({
+      payload: { ...v, dibujo_url: undefined },
+      dibujo_url: v.dibujo_url || '',
+    });
+  }, [v, onSnapshot]);
 
   return (
     <>
+      {alert.show && (
+        <div className="mb-3">
+          <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
+        </div>
+      )}
+
       <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
         <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Orden de Levantamiento</h4>
+      </div>
+
+      <div className="mb-3">
+        <div className="text-[11px] text-gray-500 dark:text-gray-400">
+          {loadingRemote ? 'Cargando levantamiento...' : (!ordenId ? 'Guarda la orden para habilitar el guardado del levantamiento.' : '')}
+        </div>
       </div>
       <div className="mt-4 rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
@@ -171,6 +257,7 @@ export default function LevantamientoForm() {
         </div>
         <select
           value={v.tipo}
+          disabled={!!disabled}
           onChange={(e) => {
             const nextTipo = (e.target.value || '') as LevantamientoTipo;
             setV((prev) => ({

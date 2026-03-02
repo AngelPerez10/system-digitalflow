@@ -71,12 +71,18 @@ interface ServicioCatalogo {
 let ordenesPageInitialDataLastLoadAt = 0;
 const ORDENES_PAGE_INIT_THROTTLE_MS = 800;
 
+let ordenesTecnicoPermissionsLastLoadAt = 0;
+let ordenesTecnicoSignatureLastLoadAt = 0;
+let ordenesTecnicoServiciosLastLoadAt = 0;
+
 
 
 export default function OrdenesTecnico() {
   const navigate = useNavigate();
 
   const formNonceRef = useRef(0);
+
+  const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string } | null>(null);
 
   const getToken = () => {
     return localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -134,6 +140,10 @@ export default function OrdenesTecnico() {
     const token = getToken();
     if (!token) return;
 
+    const now = Date.now();
+    if (now - ordenesTecnicoPermissionsLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
+    ordenesTecnicoPermissionsLastLoadAt = now;
+
     const load = async () => {
       try {
         const res = await fetch(apiUrl('/api/me/permissions/'), {
@@ -156,6 +166,9 @@ export default function OrdenesTecnico() {
   }, []);
 
   useEffect(() => {
+    const now = Date.now();
+    if (now - ordenesTecnicoServiciosLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
+    ordenesTecnicoServiciosLastLoadAt = now;
     loadServiciosDisponibles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -163,6 +176,10 @@ export default function OrdenesTecnico() {
   useEffect(() => {
     const token = getToken();
     if (!token) return;
+
+    const now = Date.now();
+    if (now - ordenesTecnicoSignatureLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
+    ordenesTecnicoSignatureLastLoadAt = now;
     const load = async () => {
       try {
         const res = await fetch(apiUrl('/api/me/signature/'), {
@@ -196,7 +213,7 @@ export default function OrdenesTecnico() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"orden" | "cliente">("orden");
+  const [activeTab, setActiveTab] = useState<"orden" | "cliente">("cliente");
   const [isSaving, setIsSaving] = useState(false);
   const [tipoOrden, setTipoOrden] = useState<'servicio_tecnico' | 'levantamiento' | 'instalaciones' | 'mantenimiento'>('servicio_tecnico');
   const [editingOrden, setEditingOrden] = useState<Orden | null>(null);
@@ -211,6 +228,20 @@ export default function OrdenesTecnico() {
   const [filterDate, setFilterDate] = useState(''); // YYYY-MM-DD
   const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
   const filterRef = useRef<HTMLDivElement | null>(null);
+
+  const tipoOrdenLabel = useMemo(() => {
+    switch (tipoOrden) {
+      case 'levantamiento':
+        return 'Levantamiento';
+      case 'instalaciones':
+        return 'Instalaciones';
+      case 'mantenimiento':
+        return 'Mantenimiento';
+      case 'servicio_tecnico':
+      default:
+        return 'Servicio';
+    }
+  }, [tipoOrden]);
 
 
 
@@ -894,6 +925,21 @@ export default function OrdenesTecnico() {
       if (response.ok) {
         const savedOrden = await response.json().catch(() => null);
         const cid = payload?.cliente_id;
+
+        if (tipoOrden === 'levantamiento' && savedOrden?.id && levantamientoSnapshotRef.current) {
+          const snap = levantamientoSnapshotRef.current;
+          await fetch(apiUrl(`/api/ordenes/${savedOrden.id}/levantamiento/`), {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              payload: snap.payload || {},
+              dibujo_url: snap.dibujo_url || '',
+            }),
+          }).catch(() => null);
+        }
         if (cid && (payload?.direccion || payload?.telefono_cliente)) {
           const existingCliente = clientes.find(c => c.id === cid);
           const updates: any = {};
@@ -992,7 +1038,7 @@ export default function OrdenesTecnico() {
           }
         }
         setShowModal(false);
-        setActiveTab("orden");
+        setActiveTab("cliente");
         setFormData({
           folio: "",
           cliente_id: null,
@@ -1112,7 +1158,7 @@ export default function OrdenesTecnico() {
     }
     setEditingOrden(orden);
     setTecnicoSearch('');
-    setActiveTab("orden");
+    setActiveTab("cliente");
     setFormData({
       folio: ((orden as any).folio ?? '').toString(),
       cliente_id: orden.cliente_id || null,
@@ -1140,7 +1186,7 @@ export default function OrdenesTecnico() {
   const handleCloseModal = () => {
     formNonceRef.current += 1;
     setShowModal(false);
-    setActiveTab("orden");
+    setActiveTab("cliente");
     setTipoOrden('servicio_tecnico');
     setFormData({
       folio: "",
@@ -1550,7 +1596,7 @@ export default function OrdenesTecnico() {
                   });
                 }
                 setTipoOrden('servicio_tecnico');
-                setActiveTab("orden");
+                setActiveTab("cliente");
                 setShowModal(true);
               }}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -1558,7 +1604,7 @@ export default function OrdenesTecnico() {
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M12 5v14M5 12h14" strokeLinecap="round" />
               </svg>
-              Nueva Orden
+              Nueva Orden de {tipoOrdenLabel}
             </button>
           )}
         </div>
@@ -1970,7 +2016,7 @@ export default function OrdenesTecnico() {
               </span>
               <div className="min-w-0">
                 <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100 truncate">
-                  {editingOrden ? 'Editar Orden' : 'Nueva Orden'}
+                  {editingOrden ? 'Editar' : 'Nueva'} Orden de {tipoOrdenLabel}
                 </h5>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
                   Captura y revisa los datos antes de guardar
@@ -1994,6 +2040,16 @@ export default function OrdenesTecnico() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={() => setActiveTab("cliente")}
+                className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === "cliente"
+                  ? "border-brand-500 bg-brand-500 text-white"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  }`}
+              >
+                Datos del cliente
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab("orden")}
                 className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === "orden"
                   ? "border-brand-500 bg-brand-500 text-white"
@@ -2001,16 +2057,6 @@ export default function OrdenesTecnico() {
                   }`}
               >
                 Datos de la orden
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("cliente")}
-                className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === "cliente"
-                  ? "border-brand-500 bg-brand-500 text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                  }`}
-              >
-                Datos de cliente
               </button>
             </div>
 
@@ -2044,7 +2090,13 @@ export default function OrdenesTecnico() {
 
             {tipoOrden === 'levantamiento' && (
               <div className={activeTab === 'orden' ? '' : 'hidden'}>
-                <LevantamientoForm />
+                <LevantamientoForm
+                  ordenId={editingOrden?.id ?? null}
+                  disabled={isReadOnly}
+                  onSnapshot={(snapshot) => {
+                    levantamientoSnapshotRef.current = snapshot;
+                  }}
+                />
               </div>
             )}
 
@@ -2664,15 +2716,15 @@ export default function OrdenesTecnico() {
                 </svg>
                 Cancelar
               </button>
-              {activeTab === 'orden' ? (
+              {activeTab === 'cliente' ? (
                 <button
-                  key="orden-next"
+                  key="cliente-next"
                   type="button"
                   disabled={isSaving}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setActiveTab('cliente');
+                    setActiveTab('orden');
                   }}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
@@ -2684,7 +2736,7 @@ export default function OrdenesTecnico() {
               ) : (
                 (editingOrden ? canOrdenesEdit : canOrdenesCreate) && (
                   <button
-                    key="cliente-submit"
+                    key="orden-submit"
                     type="submit"
                     disabled={isSaving}
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"

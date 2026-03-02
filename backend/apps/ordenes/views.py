@@ -17,7 +17,8 @@ from django.db.models import F
 from PIL import Image
 
 from .models import Orden
-from .serializers import OrdenSerializer
+from .models import OrdenLevantamiento
+from .serializers import OrdenLevantamientoSerializer, OrdenSerializer
 from apps.users.models import UserSignature
 
 # Cloudinary setup (enabled if credentials are provided)
@@ -252,6 +253,45 @@ class OrdenViewSet(viewsets.ModelViewSet):
         '-id',
     )
     serializer_class = OrdenSerializer
+
+    @action(detail=True, methods=['get', 'put', 'patch'], url_path='levantamiento')
+    def levantamiento(self, request, pk=None):
+        orden = self.get_object()
+        existing = getattr(orden, 'levantamiento', None)
+
+        if request.method.upper() == 'GET':
+            if not existing:
+                return Response({
+                    'id': None,
+                    'orden': orden.id,
+                    'payload': {},
+                    'dibujo_url': '',
+                    'creado_por': None,
+                    'fecha_creacion': None,
+                    'fecha_actualizacion': None,
+                })
+            ser = OrdenLevantamientoSerializer(existing)
+            return Response(ser.data)
+
+        payload = request.data if isinstance(request.data, dict) else {}
+        if existing:
+            ser = OrdenLevantamientoSerializer(existing, data=payload, partial=(request.method.upper() == 'PATCH'))
+        else:
+            ser = OrdenLevantamientoSerializer(data=payload)
+
+        ser.is_valid(raise_exception=True)
+
+        if existing:
+            obj = ser.save()
+        else:
+            obj = OrdenLevantamiento.objects.create(
+                orden=orden,
+                payload=ser.validated_data.get('payload', {}),
+                dibujo_url=ser.validated_data.get('dibujo_url', ''),
+                creado_por=getattr(request, 'user', None) if getattr(request, 'user', None) and request.user.is_authenticated else None,
+            )
+
+        return Response(OrdenLevantamientoSerializer(obj).data)
 
     @action(detail=False, methods=['post'], url_path='reindex')
     def reindex(self, request):

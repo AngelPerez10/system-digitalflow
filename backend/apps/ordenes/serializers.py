@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Orden
+from .models import Orden, OrdenLevantamiento
 
 
 class OrdenSerializer(serializers.ModelSerializer):
@@ -67,6 +67,27 @@ class OrdenSerializer(serializers.ModelSerializer):
             'creado_por',
             'creado_por_username',
             'pdf_url',
+            'fecha_creacion',
+            'fecha_actualizacion',
+        ]
+
+
+class OrdenLevantamientoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrdenLevantamiento
+        fields = [
+            'id',
+            'orden',
+            'payload',
+            'dibujo_url',
+            'creado_por',
+            'fecha_creacion',
+            'fecha_actualizacion',
+        ]
+        read_only_fields = [
+            'id',
+            'orden',
+            'creado_por',
             'fecha_creacion',
             'fecha_actualizacion',
         ]

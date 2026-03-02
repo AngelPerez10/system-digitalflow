@@ -104,3 +104,25 @@ class Orden(models.Model):
             models.Index(fields=['cliente']),
             models.Index(fields=['fecha_inicio']),
         ]
+
+
+class OrdenLevantamiento(models.Model):
+    orden = models.OneToOneField(Orden, on_delete=models.CASCADE, related_name='levantamiento')
+    payload = models.JSONField(default=dict, blank=True)
+    dibujo_url = models.TextField(blank=True, default='')
+    creado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='levantamientos_creados',
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Levantamiento Orden #{self.orden_id}"
+
+    class Meta:
+        verbose_name = 'Levantamiento'
+        verbose_name_plural = 'Levantamientos'

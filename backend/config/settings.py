@@ -92,6 +92,7 @@ INSTALLED_APPS = [
     'apps.clientes',
     'apps.productos',
     'apps.ordenes',
+    'apps.operacion',
     'apps.kpis',
     'apps.cotizaciones',
     'apps.escritorio',
