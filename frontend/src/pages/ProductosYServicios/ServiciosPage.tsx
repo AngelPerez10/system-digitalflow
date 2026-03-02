@@ -65,10 +65,14 @@ export default function Servicios() {
   };
 
   const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
-  const canServiciosView = asBool(permissions?.servicios?.view, true);
-  const canServiciosCreate = asBool(permissions?.servicios?.create, false);
-  const canServiciosEdit = asBool(permissions?.servicios?.edit, false);
-  const canServiciosDelete = asBool(permissions?.servicios?.delete, false);
+  
+  // Soporte para mayúsculas/minúsculas en la llave del módulo
+  const modulePerms = permissions?.servicios || permissions?.Servicios || {};
+  
+  const canServiciosView = asBool(modulePerms.view, false);
+  const canServiciosCreate = asBool(modulePerms.create, false);
+  const canServiciosEdit = asBool(modulePerms.edit, false);
+  const canServiciosDelete = asBool(modulePerms.delete, false);
 
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [totalCount, setTotalCount] = useState(0);

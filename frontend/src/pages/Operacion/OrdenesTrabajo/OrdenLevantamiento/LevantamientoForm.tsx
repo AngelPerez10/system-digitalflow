@@ -1,66 +1,60 @@
 import { useMemo, useState } from 'react';
+import DrawingBoard from '@/components/ui/drawing/DrawingBoard';
 
 type LevantamientoTipo = '' | 'camara' | 'cerco' | 'alarmas';
 
 type CameraDetalle = {
   ubicacion: string;
-  comentario: string;
 };
 
 type LevantamientoFormValue = {
   tipo: LevantamientoTipo;
 
   camara_grabado_tecnologia: 'NVR' | 'DVR' | 'SVR' | '';
+  camara_grabado_tecnologia_cantidad: number;
   camara_grabado_compuertas: 'si' | 'no' | '';
   camara_grabado_compuertas_cantidad: number;
+  camara_grabado_marca: string;
+  camara_grabado_capacidad_canales: '4' | '8' | '16' | '32' | '64' | '128' | '';
+  camara_grabado_switch_poe_piezas: number;
+  camara_grabado_switch_poe_capacidades: string[];
   camara_grabado_puertos_hdd: number;
+  camara_grabado_almacenamiento: string;
   camara_grabado_capacidad_tb: number;
 
   cable_tipo: 'UTP' | 'Fibra' | '';
   cable_categoria: 'cat5' | 'cat6' | 'cat7' | 'cat8';
-  cable_ubicacion: 'exterior' | 'interior' | '';
+  cable_resistencia: 'exterior' | 'interior' | '';
   cable_blindado: 'si' | 'no' | '';
 
   camara_bala_open: boolean;
   camara_bala_cantidad: number;
   camara_bala_megapixeles: number;
-  camara_bala_almacenamiento: string;
   camara_bala_detalles: CameraDetalle[];
-
-  camara_caja_open: boolean;
-  camara_caja_cantidad: number;
-  camara_caja_megapixeles: number;
-  camara_caja_almacenamiento: string;
-  camara_caja_detalles: CameraDetalle[];
 
   camara_cubo_open: boolean;
   camara_cubo_cantidad: number;
   camara_cubo_megapixeles: number;
-  camara_cubo_almacenamiento: string;
   camara_cubo_detalles: CameraDetalle[];
 
   camara_domo_open: boolean;
   camara_domo_cantidad: number;
   camara_domo_megapixeles: number;
-  camara_domo_almacenamiento: string;
   camara_domo_detalles: CameraDetalle[];
 
   camara_pinhole_open: boolean;
   camara_pinhole_cantidad: number;
   camara_pinhole_megapixeles: number;
-  camara_pinhole_almacenamiento: string;
   camara_pinhole_detalles: CameraDetalle[];
 
   camara_ptz_open: boolean;
   camara_ptz_cantidad: number;
   camara_ptz_megapixeles: number;
-  camara_ptz_almacenamiento: string;
   camara_ptz_detalles: CameraDetalle[];
 
   camara_turret_open: boolean;
   camara_turret_cantidad: number;
   camara_turret_megapixeles: number;
-  camara_turret_almacenamiento: string;
   camara_turret_detalles: CameraDetalle[];
 
   cerco_metros_lineales: string;
@@ -73,6 +67,8 @@ type LevantamientoFormValue = {
   alarmas_contactos_magneticos: boolean;
   alarmas_sirena: boolean;
   alarmas_comunicacion: 'wifi' | 'ethernet' | 'gsm' | '';
+
+  dibujo_url: string;
 };
 
 const inputBaseClass =
@@ -87,7 +83,7 @@ export default function LevantamientoForm() {
     const safeCount = Math.max(0, nextCount || 0);
     const trimmed = (prev || []).slice(0, safeCount);
     while (trimmed.length < safeCount) {
-      trimmed.push({ ubicacion: '', comentario: '' });
+      trimmed.push({ ubicacion: '' });
     }
     return trimmed;
   };
@@ -96,56 +92,50 @@ export default function LevantamientoForm() {
     tipo: '',
 
     camara_grabado_tecnologia: '',
+    camara_grabado_tecnologia_cantidad: 0,
     camara_grabado_compuertas: '',
     camara_grabado_compuertas_cantidad: 0,
+    camara_grabado_marca: '',
+    camara_grabado_capacidad_canales: '',
+    camara_grabado_switch_poe_piezas: 0,
+    camara_grabado_switch_poe_capacidades: [],
     camara_grabado_puertos_hdd: 0,
+    camara_grabado_almacenamiento: '',
     camara_grabado_capacidad_tb: 1,
 
     cable_tipo: '',
     cable_categoria: 'cat5',
-    cable_ubicacion: '',
+    cable_resistencia: '',
     cable_blindado: '',
 
     camara_bala_open: false,
     camara_bala_cantidad: 0,
     camara_bala_megapixeles: 0,
-    camara_bala_almacenamiento: '',
     camara_bala_detalles: [],
-
-    camara_caja_open: false,
-    camara_caja_cantidad: 0,
-    camara_caja_megapixeles: 0,
-    camara_caja_almacenamiento: '',
-    camara_caja_detalles: [],
 
     camara_cubo_open: false,
     camara_cubo_cantidad: 0,
     camara_cubo_megapixeles: 0,
-    camara_cubo_almacenamiento: '',
     camara_cubo_detalles: [],
 
     camara_domo_open: false,
     camara_domo_cantidad: 0,
     camara_domo_megapixeles: 0,
-    camara_domo_almacenamiento: '',
     camara_domo_detalles: [],
 
     camara_pinhole_open: false,
     camara_pinhole_cantidad: 0,
     camara_pinhole_megapixeles: 0,
-    camara_pinhole_almacenamiento: '',
     camara_pinhole_detalles: [],
 
     camara_ptz_open: false,
     camara_ptz_cantidad: 0,
     camara_ptz_megapixeles: 0,
-    camara_ptz_almacenamiento: '',
     camara_ptz_detalles: [],
 
     camara_turret_open: false,
     camara_turret_cantidad: 0,
     camara_turret_megapixeles: 0,
-    camara_turret_almacenamiento: '',
     camara_turret_detalles: [],
 
     cerco_metros_lineales: '',
@@ -158,6 +148,8 @@ export default function LevantamientoForm() {
     alarmas_contactos_magneticos: true,
     alarmas_sirena: true,
     alarmas_comunicacion: '',
+
+    dibujo_url: '',
   });
 
   return (
@@ -168,8 +160,7 @@ export default function LevantamientoForm() {
         </svg>
         <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Orden de Levantamiento</h4>
       </div>
-
-      <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+      <div className="mt-4 rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
           <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
@@ -184,54 +175,46 @@ export default function LevantamientoForm() {
               ...prev,
               tipo: nextTipo,
               camara_grabado_tecnologia: '',
+              camara_grabado_tecnologia_cantidad: 0,
               camara_grabado_compuertas: '',
               camara_grabado_compuertas_cantidad: 0,
+              camara_grabado_switch_poe_piezas: 0,
+              camara_grabado_switch_poe_capacidad: '',
               camara_grabado_puertos_hdd: 0,
+              camara_grabado_almacenamiento: '',
               camara_grabado_capacidad_tb: 1,
               cable_tipo: '',
               cable_categoria: 'cat5',
-              cable_ubicacion: '',
+              cable_resistencia: '',
               cable_blindado: '',
               camara_bala_open: false,
               camara_bala_cantidad: 0,
               camara_bala_megapixeles: 0,
-              camara_bala_almacenamiento: '',
               camara_bala_detalles: [],
-
-              camara_caja_open: false,
-              camara_caja_cantidad: 0,
-              camara_caja_megapixeles: 0,
-              camara_caja_almacenamiento: '',
-              camara_caja_detalles: [],
 
               camara_cubo_open: false,
               camara_cubo_cantidad: 0,
               camara_cubo_megapixeles: 0,
-              camara_cubo_almacenamiento: '',
               camara_cubo_detalles: [],
 
               camara_domo_open: false,
               camara_domo_cantidad: 0,
               camara_domo_megapixeles: 0,
-              camara_domo_almacenamiento: '',
               camara_domo_detalles: [],
 
               camara_pinhole_open: false,
               camara_pinhole_cantidad: 0,
               camara_pinhole_megapixeles: 0,
-              camara_pinhole_almacenamiento: '',
               camara_pinhole_detalles: [],
 
               camara_ptz_open: false,
               camara_ptz_cantidad: 0,
               camara_ptz_megapixeles: 0,
-              camara_ptz_almacenamiento: '',
               camara_ptz_detalles: [],
 
               camara_turret_open: false,
               camara_turret_cantidad: 0,
               camara_turret_megapixeles: 0,
-              camara_turret_almacenamiento: '',
               camara_turret_detalles: [],
             }));
           }}
@@ -366,253 +349,26 @@ export default function LevantamientoForm() {
                           </div>
                         </div>
 
-                        <div className={cameraRowClass}>
-                          <div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200">Almacenamiento</div>
-                          </div>
-                          <div className="w-full sm:w-44">
-                            <select
-                              value={v.camara_bala_almacenamiento}
-                              onChange={(e) => setV((prev) => ({ ...prev, camara_bala_almacenamiento: e.target.value }))}
-                              className={inputBaseClass}
-                            >
-                              <option value="">Seleccionar...</option>
-                              <option value="cloud">Cloud</option>
-                              <option value="disco_duro">Disco Duro</option>
-                              <option value="microsd">MicroSD</option>
-                              <option value="wi">Wi-Fi</option>
-                            </select>
-                          </div>
-                        </div>
-
                         {!!v.camara_bala_cantidad && (
-                          <div className="space-y-3 pt-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                             {Array.from({ length: v.camara_bala_cantidad }).map((_, idx) => {
-                              const detalle = v.camara_bala_detalles[idx] || { ubicacion: '', comentario: '' };
+                              const detalle = v.camara_bala_detalles[idx] || { ubicacion: '' };
                               return (
                                 <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
-                                  <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">Camara {idx + 1}</div>
-                                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div>
-                                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Ubicación</label>
-                                      <input
-                                        type="text"
-                                        value={detalle.ubicacion}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          setV((prev) => {
-                                            const next = syncDetalles(prev.camara_bala_detalles, prev.camara_bala_cantidad);
-                                            next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), ubicacion: value };
-                                            return { ...prev, camara_bala_detalles: next };
-                                          });
-                                        }}
-                                        className={inputBaseClass}
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario</label>
-                                      <input
-                                        type="text"
-                                        value={detalle.comentario}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          setV((prev) => {
-                                            const next = syncDetalles(prev.camara_bala_detalles, prev.camara_bala_cantidad);
-                                            next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), comentario: value };
-                                            return { ...prev, camara_bala_detalles: next };
-                                          });
-                                        }}
-                                        className={inputBaseClass}
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="px-3 py-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setV((prev) => {
-                        const nextOpen = !prev.camara_caja_open;
-                        const nextCount = prev.camara_caja_cantidad;
-                        return {
-                          ...prev,
-                          camara_caja_open: nextOpen,
-                          camara_caja_cantidad: nextCount,
-                          camara_caja_detalles: syncDetalles(prev.camara_caja_detalles, nextCount),
-                          camara_caja_megapixeles: nextOpen
-                            ? prev.camara_caja_megapixeles || megapixelesOptions[0]
-                            : prev.camara_caja_megapixeles,
-                        };
-                      });
-                    }}
-                    className="w-full inline-flex items-center justify-between gap-3 rounded-lg px-2 py-2 hover:bg-gray-100/80 dark:hover:bg-white/5 transition-colors"
-                  >
-                    <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Caja</span>
-                    <span className={`text-xs font-semibold ${v.camara_caja_open ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
-                      {v.camara_caja_open ? '[-]' : '[+]'}
-                    </span>
-                  </button>
-
-                  {v.camara_caja_open && (
-                    <div className="mt-2 pt-3 border-t border-gray-200/80 dark:border-white/10 px-2">
-                      <div className="space-y-2">
-                        <div className={cameraRowClass}>
-                          <div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200">Piezas</div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setV((prev) => {
-                                  const nextCount = Math.max(0, (prev.camara_caja_cantidad || 0) - 1);
-                                  return {
-                                    ...prev,
-                                    camara_caja_cantidad: nextCount,
-                                    camara_caja_detalles: syncDetalles(prev.camara_caja_detalles, nextCount),
-                                  };
-                                });
-                              }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                              aria-label="Disminuir piezas caja"
-                            >
-                              -
-                            </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
-                              {v.camara_caja_cantidad || 0}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setV((prev) => {
-                                  const nextCount = (prev.camara_caja_cantidad || 0) + 1;
-                                  return {
-                                    ...prev,
-                                    camara_caja_cantidad: nextCount,
-                                    camara_caja_detalles: syncDetalles(prev.camara_caja_detalles, nextCount),
-                                  };
-                                });
-                              }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                              aria-label="Aumentar piezas caja"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className={cameraRowClass}>
-                          <div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200">Megapíxeles</div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setV((prev) => {
-                                  const current = prev.camara_caja_megapixeles || megapixelesOptions[0];
-                                  const idx = megapixelesOptions.indexOf(current);
-                                  const safeIdx = idx >= 0 ? idx : 0;
-                                  const next = megapixelesOptions[Math.max(0, safeIdx - 1)];
-                                  return { ...prev, camara_caja_megapixeles: next };
-                                });
-                              }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                              aria-label="Disminuir megapíxeles caja"
-                            >
-                              -
-                            </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
-                              {v.camara_caja_megapixeles || megapixelesOptions[0]}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setV((prev) => {
-                                  const current = prev.camara_caja_megapixeles || megapixelesOptions[0];
-                                  const idx = megapixelesOptions.indexOf(current);
-                                  const safeIdx = idx >= 0 ? idx : 0;
-                                  const next = megapixelesOptions[Math.min(megapixelesOptions.length - 1, safeIdx + 1)];
-                                  return { ...prev, camara_caja_megapixeles: next };
-                                });
-                              }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                              aria-label="Aumentar megapíxeles caja"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className={cameraRowClass}>
-                          <div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200">Almacenamiento</div>
-                          </div>
-                          <div className="w-full sm:w-44">
-                            <select
-                              value={v.camara_caja_almacenamiento}
-                              onChange={(e) => setV((prev) => ({ ...prev, camara_caja_almacenamiento: e.target.value }))}
-                              className={inputBaseClass}
-                            >
-                              <option value="">Seleccionar...</option>
-                              <option value="cloud">Cloud</option>
-                              <option value="disco_duro">Disco Duro</option>
-                              <option value="microsd">MicroSD</option>
-                              <option value="wi">Wi-Fi</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {!!v.camara_caja_cantidad && (
-                          <div className="space-y-3 pt-2">
-                            {Array.from({ length: v.camara_caja_cantidad }).map((_, idx) => {
-                              const detalle = v.camara_caja_detalles[idx] || { ubicacion: '', comentario: '' };
-                              return (
-                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
-                                  <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">Camara {idx + 1}</div>
-                                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div>
-                                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Ubicación</label>
-                                      <input
-                                        type="text"
-                                        value={detalle.ubicacion}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          setV((prev) => {
-                                            const next = syncDetalles(prev.camara_caja_detalles, prev.camara_caja_cantidad);
-                                            next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), ubicacion: value };
-                                            return { ...prev, camara_caja_detalles: next };
-                                          });
-                                        }}
-                                        className={inputBaseClass}
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario</label>
-                                      <input
-                                        type="text"
-                                        value={detalle.comentario}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          setV((prev) => {
-                                            const next = syncDetalles(prev.camara_caja_detalles, prev.camara_caja_cantidad);
-                                            next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), comentario: value };
-                                            return { ...prev, camara_caja_detalles: next };
-                                          });
-                                        }}
-                                        className={inputBaseClass}
-                                      />
-                                    </div>
-                                  </div>
+                                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
+                                  <input
+                                    type="text"
+                                    value={detalle.ubicacion}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      setV((prev) => {
+                                        const next = syncDetalles(prev.camara_bala_detalles, prev.camara_bala_cantidad);
+                                        next[idx] = { ...(next[idx] || { ubicacion: '' }), ubicacion: value };
+                                        return { ...prev, camara_bala_detalles: next };
+                                      });
+                                    }}
+                                    className={inputBaseClass}
+                                  />
                                 </div>
                               );
                             })}
@@ -740,71 +496,31 @@ export default function LevantamientoForm() {
                           </div>
                         </div>
 
-                        <div className={cameraRowClass}>
-                          <div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200">Almacenamiento</div>
+                        {!!v.camara_cubo_cantidad && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                            {Array.from({ length: v.camara_cubo_cantidad }).map((_, idx) => {
+                              const detalle = v.camara_cubo_detalles[idx] || { ubicacion: '' };
+                              return (
+                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
+                                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
+                                  <input
+                                    type="text"
+                                    value={detalle.ubicacion}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      setV((prev) => {
+                                        const next = syncDetalles(prev.camara_cubo_detalles, prev.camara_cubo_cantidad);
+                                        next[idx] = { ...(next[idx] || { ubicacion: '' }), ubicacion: value };
+                                        return { ...prev, camara_cubo_detalles: next };
+                                      });
+                                    }}
+                                    className={inputBaseClass}
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
-                          <div className="w-full sm:w-44">
-                            <select
-                              value={v.camara_cubo_almacenamiento}
-                              onChange={(e) => setV((prev) => ({ ...prev, camara_cubo_almacenamiento: e.target.value }))}
-                              className={inputBaseClass}
-                            >
-                              <option value="">Seleccionar...</option>
-                              <option value="cloud">Cloud</option>
-                              <option value="disco_duro">Disco Duro</option>
-                              <option value="microsd">MicroSD</option>
-                              <option value="wi">Wi-Fi</option>
-                            </select>
-
-                            {!!v.camara_cubo_cantidad && (
-                              <div className="space-y-3 pt-2">
-                                {Array.from({ length: v.camara_cubo_cantidad }).map((_, idx) => {
-                                  const detalle = v.camara_cubo_detalles[idx] || { ubicacion: '', comentario: '' };
-                                  return (
-                                    <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
-                                      <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">Camara {idx + 1}</div>
-                                      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Ubicación</label>
-                                          <input
-                                            type="text"
-                                            value={detalle.ubicacion}
-                                            onChange={(e) => {
-                                              const value = e.target.value;
-                                              setV((prev) => {
-                                                const next = syncDetalles(prev.camara_cubo_detalles, prev.camara_cubo_cantidad);
-                                                next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), ubicacion: value };
-                                                return { ...prev, camara_cubo_detalles: next };
-                                              });
-                                            }}
-                                            className={inputBaseClass}
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario</label>
-                                          <input
-                                            type="text"
-                                            value={detalle.comentario}
-                                            onChange={(e) => {
-                                              const value = e.target.value;
-                                              setV((prev) => {
-                                                const next = syncDetalles(prev.camara_cubo_detalles, prev.camara_cubo_cantidad);
-                                                next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), comentario: value };
-                                                return { ...prev, camara_cubo_detalles: next };
-                                              });
-                                            }}
-                                            className={inputBaseClass}
-                                          />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -927,71 +643,31 @@ export default function LevantamientoForm() {
                           </div>
                         </div>
 
-                        <div className={cameraRowClass}>
-                          <div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200">Almacenamiento</div>
+                        {!!v.camara_domo_cantidad && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                            {Array.from({ length: v.camara_domo_cantidad }).map((_, idx) => {
+                              const detalle = v.camara_domo_detalles[idx] || { ubicacion: '' };
+                              return (
+                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
+                                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
+                                  <input
+                                    type="text"
+                                    value={detalle.ubicacion}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      setV((prev) => {
+                                        const next = syncDetalles(prev.camara_domo_detalles, prev.camara_domo_cantidad);
+                                        next[idx] = { ...(next[idx] || { ubicacion: '' }), ubicacion: value };
+                                        return { ...prev, camara_domo_detalles: next };
+                                      });
+                                    }}
+                                    className={inputBaseClass}
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
-                          <div className="w-full sm:w-44">
-                            <select
-                              value={v.camara_domo_almacenamiento}
-                              onChange={(e) => setV((prev) => ({ ...prev, camara_domo_almacenamiento: e.target.value }))}
-                              className={inputBaseClass}
-                            >
-                              <option value="">Seleccionar...</option>
-                              <option value="cloud">Cloud</option>
-                              <option value="disco_duro">Disco Duro</option>
-                              <option value="microsd">MicroSD</option>
-                              <option value="wi">Wi-Fi</option>
-                            </select>
-
-                            {!!v.camara_domo_cantidad && (
-                              <div className="space-y-3 pt-2">
-                                {Array.from({ length: v.camara_domo_cantidad }).map((_, idx) => {
-                                  const detalle = v.camara_domo_detalles[idx] || { ubicacion: '', comentario: '' };
-                                  return (
-                                    <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
-                                      <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">Camara {idx + 1}</div>
-                                      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Ubicación</label>
-                                          <input
-                                            type="text"
-                                            value={detalle.ubicacion}
-                                            onChange={(e) => {
-                                              const value = e.target.value;
-                                              setV((prev) => {
-                                                const next = syncDetalles(prev.camara_domo_detalles, prev.camara_domo_cantidad);
-                                                next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), ubicacion: value };
-                                                return { ...prev, camara_domo_detalles: next };
-                                              });
-                                            }}
-                                            className={inputBaseClass}
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario</label>
-                                          <input
-                                            type="text"
-                                            value={detalle.comentario}
-                                            onChange={(e) => {
-                                              const value = e.target.value;
-                                              setV((prev) => {
-                                                const next = syncDetalles(prev.camara_domo_detalles, prev.camara_domo_cantidad);
-                                                next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), comentario: value };
-                                                return { ...prev, camara_domo_detalles: next };
-                                              });
-                                            }}
-                                            className={inputBaseClass}
-                                          />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1114,71 +790,31 @@ export default function LevantamientoForm() {
                           </div>
                         </div>
 
-                        <div className={cameraRowClass}>
-                          <div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200">Almacenamiento</div>
+                        {!!v.camara_pinhole_cantidad && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                            {Array.from({ length: v.camara_pinhole_cantidad }).map((_, idx) => {
+                              const detalle = v.camara_pinhole_detalles[idx] || { ubicacion: '' };
+                              return (
+                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
+                                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
+                                  <input
+                                    type="text"
+                                    value={detalle.ubicacion}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      setV((prev) => {
+                                        const next = syncDetalles(prev.camara_pinhole_detalles, prev.camara_pinhole_cantidad);
+                                        next[idx] = { ...(next[idx] || { ubicacion: '' }), ubicacion: value };
+                                        return { ...prev, camara_pinhole_detalles: next };
+                                      });
+                                    }}
+                                    className={inputBaseClass}
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
-                          <div className="w-full sm:w-44">
-                            <select
-                              value={v.camara_pinhole_almacenamiento}
-                              onChange={(e) => setV((prev) => ({ ...prev, camara_pinhole_almacenamiento: e.target.value }))}
-                              className={inputBaseClass}
-                            >
-                              <option value="">Seleccionar...</option>
-                              <option value="cloud">Cloud</option>
-                              <option value="disco_duro">Disco Duro</option>
-                              <option value="microsd">MicroSD</option>
-                              <option value="wi">Wi-Fi</option>
-                            </select>
-
-                            {!!v.camara_pinhole_cantidad && (
-                              <div className="space-y-3 pt-2">
-                                {Array.from({ length: v.camara_pinhole_cantidad }).map((_, idx) => {
-                                  const detalle = v.camara_pinhole_detalles[idx] || { ubicacion: '', comentario: '' };
-                                  return (
-                                    <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
-                                      <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">Camara {idx + 1}</div>
-                                      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Ubicación</label>
-                                          <input
-                                            type="text"
-                                            value={detalle.ubicacion}
-                                            onChange={(e) => {
-                                              const value = e.target.value;
-                                              setV((prev) => {
-                                                const next = syncDetalles(prev.camara_pinhole_detalles, prev.camara_pinhole_cantidad);
-                                                next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), ubicacion: value };
-                                                return { ...prev, camara_pinhole_detalles: next };
-                                              });
-                                            }}
-                                            className={inputBaseClass}
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario</label>
-                                          <input
-                                            type="text"
-                                            value={detalle.comentario}
-                                            onChange={(e) => {
-                                              const value = e.target.value;
-                                              setV((prev) => {
-                                                const next = syncDetalles(prev.camara_pinhole_detalles, prev.camara_pinhole_cantidad);
-                                                next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), comentario: value };
-                                                return { ...prev, camara_pinhole_detalles: next };
-                                              });
-                                            }}
-                                            className={inputBaseClass}
-                                          />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1301,71 +937,31 @@ export default function LevantamientoForm() {
                           </div>
                         </div>
 
-                        <div className={cameraRowClass}>
-                          <div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200">Almacenamiento</div>
+                        {!!v.camara_ptz_cantidad && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                            {Array.from({ length: v.camara_ptz_cantidad }).map((_, idx) => {
+                              const detalle = v.camara_ptz_detalles[idx] || { ubicacion: '' };
+                              return (
+                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
+                                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
+                                  <input
+                                    type="text"
+                                    value={detalle.ubicacion}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      setV((prev) => {
+                                        const next = syncDetalles(prev.camara_ptz_detalles, prev.camara_ptz_cantidad);
+                                        next[idx] = { ...(next[idx] || { ubicacion: '' }), ubicacion: value };
+                                        return { ...prev, camara_ptz_detalles: next };
+                                      });
+                                    }}
+                                    className={inputBaseClass}
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
-                          <div className="w-full sm:w-44">
-                            <select
-                              value={v.camara_ptz_almacenamiento}
-                              onChange={(e) => setV((prev) => ({ ...prev, camara_ptz_almacenamiento: e.target.value }))}
-                              className={inputBaseClass}
-                            >
-                              <option value="">Seleccionar...</option>
-                              <option value="cloud">Cloud</option>
-                              <option value="disco_duro">Disco Duro</option>
-                              <option value="microsd">MicroSD</option>
-                              <option value="wi">Wi-Fi</option>
-                            </select>
-
-                            {!!v.camara_ptz_cantidad && (
-                              <div className="space-y-3 pt-2">
-                                {Array.from({ length: v.camara_ptz_cantidad }).map((_, idx) => {
-                                  const detalle = v.camara_ptz_detalles[idx] || { ubicacion: '', comentario: '' };
-                                  return (
-                                    <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
-                                      <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">Camara {idx + 1}</div>
-                                      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Ubicación</label>
-                                          <input
-                                            type="text"
-                                            value={detalle.ubicacion}
-                                            onChange={(e) => {
-                                              const value = e.target.value;
-                                              setV((prev) => {
-                                                const next = syncDetalles(prev.camara_ptz_detalles, prev.camara_ptz_cantidad);
-                                                next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), ubicacion: value };
-                                                return { ...prev, camara_ptz_detalles: next };
-                                              });
-                                            }}
-                                            className={inputBaseClass}
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario</label>
-                                          <input
-                                            type="text"
-                                            value={detalle.comentario}
-                                            onChange={(e) => {
-                                              const value = e.target.value;
-                                              setV((prev) => {
-                                                const next = syncDetalles(prev.camara_ptz_detalles, prev.camara_ptz_cantidad);
-                                                next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), comentario: value };
-                                                return { ...prev, camara_ptz_detalles: next };
-                                              });
-                                            }}
-                                            className={inputBaseClass}
-                                          />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1488,71 +1084,31 @@ export default function LevantamientoForm() {
                           </div>
                         </div>
 
-                        <div className={cameraRowClass}>
-                          <div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200">Almacenamiento</div>
+                        {!!v.camara_turret_cantidad && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                            {Array.from({ length: v.camara_turret_cantidad }).map((_, idx) => {
+                              const detalle = v.camara_turret_detalles[idx] || { ubicacion: '' };
+                              return (
+                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
+                                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
+                                  <input
+                                    type="text"
+                                    value={detalle.ubicacion}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      setV((prev) => {
+                                        const next = syncDetalles(prev.camara_turret_detalles, prev.camara_turret_cantidad);
+                                        next[idx] = { ...(next[idx] || { ubicacion: '' }), ubicacion: value };
+                                        return { ...prev, camara_turret_detalles: next };
+                                      });
+                                    }}
+                                    className={inputBaseClass}
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
-                          <div className="w-full sm:w-44">
-                            <select
-                              value={v.camara_turret_almacenamiento}
-                              onChange={(e) => setV((prev) => ({ ...prev, camara_turret_almacenamiento: e.target.value }))}
-                              className={inputBaseClass}
-                            >
-                              <option value="">Seleccionar...</option>
-                              <option value="cloud">Cloud</option>
-                              <option value="disco_duro">Disco Duro</option>
-                              <option value="microsd">MicroSD</option>
-                              <option value="wi">Wi-Fi</option>
-                            </select>
-
-                            {!!v.camara_turret_cantidad && (
-                              <div className="space-y-3 pt-2">
-                                {Array.from({ length: v.camara_turret_cantidad }).map((_, idx) => {
-                                  const detalle = v.camara_turret_detalles[idx] || { ubicacion: '', comentario: '' };
-                                  return (
-                                    <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
-                                      <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">Camara {idx + 1}</div>
-                                      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Ubicación</label>
-                                          <input
-                                            type="text"
-                                            value={detalle.ubicacion}
-                                            onChange={(e) => {
-                                              const value = e.target.value;
-                                              setV((prev) => {
-                                                const next = syncDetalles(prev.camara_turret_detalles, prev.camara_turret_cantidad);
-                                                next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), ubicacion: value };
-                                                return { ...prev, camara_turret_detalles: next };
-                                              });
-                                            }}
-                                            className={inputBaseClass}
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario</label>
-                                          <input
-                                            type="text"
-                                            value={detalle.comentario}
-                                            onChange={(e) => {
-                                              const value = e.target.value;
-                                              setV((prev) => {
-                                                const next = syncDetalles(prev.camara_turret_detalles, prev.camara_turret_cantidad);
-                                                next[idx] = { ...(next[idx] || { ubicacion: '', comentario: '' }), comentario: value };
-                                                return { ...prev, camara_turret_detalles: next };
-                                              });
-                                            }}
-                                            className={inputBaseClass}
-                                          />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1573,12 +1129,19 @@ export default function LevantamientoForm() {
             </div>
 
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex-1">
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tecnología</label>
                 <select
                   value={v.camara_grabado_tecnologia}
-                  onChange={(e) => setV((prev) => ({ ...prev, camara_grabado_tecnologia: (e.target.value as any) }))}
+                  onChange={(e) => {
+                    const value = (e.target.value as any) as 'NVR' | 'DVR' | 'SVR' | '';
+                    setV((prev) => ({
+                      ...prev,
+                      camara_grabado_tecnologia: value,
+                      camara_grabado_tecnologia_cantidad: value ? (prev.camara_grabado_tecnologia_cantidad || 0) : 0,
+                    }));
+                  }}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -1587,8 +1150,28 @@ export default function LevantamientoForm() {
                   <option value="SVR">SVR</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Compuertas</label>
+              {v.camara_grabado_tecnologia && (
+                <div className="w-24">
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Cantidad</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={v.camara_grabado_tecnologia_cantidad ? v.camara_grabado_tecnologia_cantidad : ''}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === '') {
+                        setV((prev) => ({ ...prev, camara_grabado_tecnologia_cantidad: 0 }));
+                        return;
+                      }
+                      const n = Number(raw);
+                      setV((prev) => ({ ...prev, camara_grabado_tecnologia_cantidad: Math.max(0, n) }));
+                    }}
+                    className={inputBaseClass}
+                  />
+                </div>
+              )}
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Compuertos POE</label>
                 <select
                   value={v.camara_grabado_compuertas}
                   onChange={(e) => {
@@ -1610,7 +1193,7 @@ export default function LevantamientoForm() {
 
             {v.camara_grabado_compuertas === 'si' && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Cuántas compuertas</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Cuántos conpuertos POE</label>
                 <input
                   type="number"
                   min={0}
@@ -1628,6 +1211,35 @@ export default function LevantamientoForm() {
                 />
               </div>
             )}
+
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="w-full md:w-1/2">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Marca</label>
+                <input
+                  type="text"
+                  value={v.camara_grabado_marca}
+                  onChange={(e) => setV((prev) => ({ ...prev, camara_grabado_marca: e.target.value }))}
+                  placeholder="Ej: Hikvision, Dahua, etc."
+                  className={inputBaseClass}
+                />
+              </div>
+              <div className="w-full md:w-1/2">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Capacidad de Canales</label>
+                <select
+                  value={v.camara_grabado_capacidad_canales}
+                  onChange={(e) => setV((prev) => ({ ...prev, camara_grabado_capacidad_canales: (e.target.value as any) }))}
+                  className={inputBaseClass}
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="4">4 Canales</option>
+                  <option value="8">8 Canales</option>
+                  <option value="16">16 Canales</option>
+                  <option value="32">32 Canales</option>
+                  <option value="64">64 Canales</option>
+                  <option value="128">128 Canales</option>
+                </select>
+              </div>
+            </div>
 
             <div className={cameraRowClass}>
               <div>
@@ -1668,6 +1280,25 @@ export default function LevantamientoForm() {
 
             <div className={cameraRowClass}>
               <div>
+                <div className="text-xs font-medium text-gray-700 dark:text-gray-200">Almacenamiento</div>
+              </div>
+              <div className="w-full sm:w-44">
+                <select
+                  value={v.camara_grabado_almacenamiento}
+                  onChange={(e) => setV((prev) => ({ ...prev, camara_grabado_almacenamiento: e.target.value }))}
+                  className={inputBaseClass}
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="cloud">Cloud</option>
+                  <option value="disco_duro">Disco Duro</option>
+                  <option value="microsd">MicroSD</option>
+                  <option value="wi">Wi-Fi</option>
+                </select>
+              </div>
+            </div>
+
+            <div className={cameraRowClass}>
+              <div>
                 <div className="text-xs font-medium text-gray-700 dark:text-gray-200">Capacidad</div>
               </div>
               <div className="flex items-center gap-2">
@@ -1701,6 +1332,66 @@ export default function LevantamientoForm() {
                   +
                 </button>
               </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Piezas Switch POE</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={v.camara_grabado_switch_poe_piezas ? v.camara_grabado_switch_poe_piezas : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setV((prev) => ({ ...prev, camara_grabado_switch_poe_piezas: 0, camara_grabado_switch_poe_capacidades: [] }));
+                      return;
+                    }
+                    const n = Number(raw);
+                    const piezas = Math.max(0, n);
+                    setV((prev) => {
+                      const newCapacidades = [...prev.camara_grabado_switch_poe_capacidades];
+                      while (newCapacidades.length < piezas) {
+                        newCapacidades.push('');
+                      }
+                      while (newCapacidades.length > piezas) {
+                        newCapacidades.pop();
+                      }
+                      return { ...prev, camara_grabado_switch_poe_piezas: piezas, camara_grabado_switch_poe_capacidades: newCapacidades };
+                    });
+                  }}
+                  className={inputBaseClass}
+                />
+              </div>
+
+              {v.camara_grabado_switch_poe_piezas > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-gray-600 dark:text-gray-300">Capacidad por Switch</div>
+                  {Array.from({ length: v.camara_grabado_switch_poe_piezas }).map((_, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400 min-w-[80px]">Switch {idx + 1}:</span>
+                      <select
+                        value={v.camara_grabado_switch_poe_capacidades[idx] || ''}
+                        onChange={(e) => {
+                          setV((prev) => {
+                            const newCapacidades = [...prev.camara_grabado_switch_poe_capacidades];
+                            newCapacidades[idx] = e.target.value;
+                            return { ...prev, camara_grabado_switch_poe_capacidades: newCapacidades };
+                          });
+                        }}
+                        className={inputBaseClass}
+                      >
+                        <option value="">Seleccionar...</option>
+                        <option value="4">4 Puertos</option>
+                        <option value="8">8 Puertos</option>
+                        <option value="16">16 Puertos</option>
+                        <option value="32">32 Puertos</option>
+                        <option value="64">64 Puertos</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -1770,10 +1461,10 @@ export default function LevantamientoForm() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Ubicación</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Resistencia</label>
                 <select
-                  value={v.cable_ubicacion}
-                  onChange={(e) => setV((prev) => ({ ...prev, cable_ubicacion: (e.target.value as any) }))}
+                  value={v.cable_resistencia}
+                  onChange={(e) => setV((prev) => ({ ...prev, cable_resistencia: (e.target.value as any) }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -1798,6 +1489,26 @@ export default function LevantamientoForm() {
           </div>
         </>
       )}
+
+      {/* Drawing Board */}
+      <div className="space-y-3 mt-8">
+        <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+          <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 19l7-7 3 3-7 7-3-3z" />
+            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+            <path d="M2 2l7.586 7.586" />
+          </svg>
+          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Diagrama</h4>
+        </div>
+        <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+          <DrawingBoard
+            value={v.dibujo_url}
+            onChange={(drawing) => setV((prev) => ({ ...prev, dibujo_url: drawing }))}
+            width={800}
+            height={600}
+          />
+        </div>
+      </div>
     </>
   );
 }

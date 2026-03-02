@@ -53,11 +53,21 @@ export default function UserDropdown() {
 
   const displayName = useMemo(() => {
     const first = (me?.first_name || '').trim();
-    return first || me?.username || localStorage.getItem('username') || sessionStorage.getItem('username') || 'Usuario';
+    const last = (me?.last_name || '').trim();
+    const fullName = [first, last].filter(Boolean).join(' ');
+    
+    return fullName || me?.username || localStorage.getItem('username') || sessionStorage.getItem('username') || 'Usuario';
   }, [me]);
 
   const displayEmail = useMemo(() => {
     return me?.email || '';
+  }, [me]);
+  
+  const displayRole = useMemo(() => {
+    const role = (localStorage.getItem('role') || sessionStorage.getItem('role') || '').toLowerCase();
+    if (role === 'admin') return 'Administrador';
+    if (role === 'tecnico') return 'Técnico';
+    return me?.username || 'Usuario';
   }, [me]);
 
   function toggleDropdown() {
@@ -130,7 +140,10 @@ export default function UserDropdown() {
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
             {displayName}
           </span>
-          <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
+          <span className="block text-theme-xs font-medium text-gray-500 dark:text-gray-500 mt-0.5">
+            {displayRole}
+          </span>
+          <span className="mt-0.5 block text-theme-xs text-gray-400 dark:text-gray-500 break-all">
             {displayEmail}
           </span>
         </div>

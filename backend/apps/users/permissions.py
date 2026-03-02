@@ -67,7 +67,15 @@ class ModulePermission(BasePermission):
         # Get user's permission profile
         perms_obj = getattr(user, 'permissions_profile', None)
         permissions = getattr(perms_obj, 'permissions', None) or {}
+
+        # Be tolerant to inconsistent casing in stored JSON keys.
+        # Some clients/admins may store module keys as "Servicios" instead of "servicios".
         module_perms = permissions.get(self.module_key) or {}
+        if not module_perms and isinstance(permissions, dict):
+            key_l = (self.module_key or '').lower()
+            if key_l:
+                lower_map = {str(k).lower(): v for k, v in permissions.items()}
+                module_perms = lower_map.get(key_l) or {}
 
         # Map HTTP method to permission key
         method = (request.method or '').upper()

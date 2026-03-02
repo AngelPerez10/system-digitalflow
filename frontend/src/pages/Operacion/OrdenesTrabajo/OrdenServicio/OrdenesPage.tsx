@@ -102,6 +102,7 @@ export default function Ordenes() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
 
+  const [activeTab, setActiveTab] = useState<"orden" | "cliente">("orden");
   const [editingOrden, setEditingOrden] = useState<Orden | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
@@ -952,6 +953,7 @@ export default function Ordenes() {
         }
 
         setShowModal(false);
+        setActiveTab("orden");
         setFormData({
           folio: "",
           cliente_id: null,
@@ -1070,6 +1072,7 @@ export default function Ordenes() {
     }
     setEditingOrden(orden);
     setTecnicoSearch('');
+    setActiveTab("orden");
 
     setFormData({
       folio: ((orden as any).folio ?? '').toString(),
@@ -1098,6 +1101,7 @@ export default function Ordenes() {
   const handleCloseModal = () => {
     formNonceRef.current += 1;
     setShowModal(false);
+    setActiveTab("orden");
     setTipoOrden('servicio_tecnico');
     setFormData({
       folio: "",
@@ -1589,6 +1593,7 @@ export default function Ordenes() {
                   });
                 }
                 setTipoOrden('servicio_tecnico');
+                setActiveTab("orden");
                 setShowModal(true);
               }}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -2051,31 +2056,61 @@ export default function Ordenes() {
               </div>
             )}
 
-            {/* Selector de Tipo de Orden */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tipo de Orden de Trabajo</h4>
-              </div>
-              <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs">
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Selecciona el tipo de orden</label>
-                <select
-                  value={tipoOrden}
-                  onChange={(e) => setTipoOrden(e.target.value as any)}
-                  className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
-                >
-                  <option value="servicio_tecnico">Servicio Técnico</option>
-                  <option value="levantamiento">Levantamiento</option>
-                  <option value="instalaciones">Instalaciones</option>
-                  <option value="mantenimiento">Mantenimiento</option>
-                </select>
-              </div>
+            {/* Tabs */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab("orden")}
+                className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === "orden"
+                  ? "border-brand-500 bg-brand-500 text-white"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  }`}
+              >
+                Datos de la orden
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("cliente")}
+                className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === "cliente"
+                  ? "border-brand-500 bg-brand-500 text-white"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  }`}
+              >
+                Datos de cliente
+              </button>
             </div>
 
-            {/* SECCIÓN 1: Detalles Generales */}
-            <div className="space-y-3">
+            {activeTab === "orden" && (
+              <>
+                {/* Selector de Tipo de Orden */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tipo de Orden de Trabajo</h4>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs">
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Selecciona el tipo de orden</label>
+                    <select
+                      value={tipoOrden}
+                      onChange={(e) => setTipoOrden(e.target.value as any)}
+                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                    >
+                      <option value="servicio_tecnico">Servicio Técnico</option>
+                      <option value="levantamiento">Levantamiento</option>
+                      <option value="instalaciones">Instalaciones</option>
+                      <option value="mantenimiento">Mantenimiento</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === "cliente" && (
+              <>
+                {/* SECCIÓN 1: Detalles Generales */}
+                <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
@@ -2217,10 +2252,14 @@ export default function Ordenes() {
                   </div>
                 </div>
               </div>
-            </div>
+                </div>
+              </>
+            )}
 
-            {/* SECCIÓN 2: Detalles del Cliente */}
-            <div className="space-y-3">
+            {activeTab === "cliente" && (
+              <>
+                {/* SECCIÓN 2: Detalles del Cliente */}
+                <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z" strokeLinecap="round" strokeLinejoin="round" />
@@ -2323,14 +2362,20 @@ export default function Ordenes() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            {tipoOrden === 'levantamiento' && (
-              <LevantamientoForm />
+                </div>
+              </>
             )}
 
-            {/* SECCIÓN 3: Descripción de la Orden */}
-            <div className="space-y-3">
+            {tipoOrden === 'levantamiento' && (
+              <div className={activeTab === 'orden' ? '' : 'hidden'}>
+                <LevantamientoForm />
+              </div>
+            )}
+
+            {activeTab === "orden" && (
+              <>
+                {/* SECCIÓN 3: Descripción de la Orden */}
+                <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
@@ -2445,10 +2490,14 @@ export default function Ordenes() {
                   <option value="resuelto">Sí, problema resuelto</option>
                 </select>
               </div>
-            </div>
+                </div>
+              </>
+            )}
 
-            {/* SECCIÓN 4: Detalles de Tiempo */}
-            <div className="space-y-3">
+            {activeTab === "cliente" && (
+              <>
+                {/* SECCIÓN 4: Detalles de Tiempo */}
+                <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
@@ -2516,10 +2565,14 @@ export default function Ordenes() {
                   </div>
                 </div>
               </div>
-            </div>
+                </div>
+              </>
+            )}
 
-            {/* SECCIÓN 5: Firmas y Archivos */}
-            <div className="space-y-3">
+            {activeTab === "cliente" && (
+              <>
+                {/* SECCIÓN 5: Firmas y Archivos */}
+                <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeLinecap="round" strokeLinejoin="round" />
@@ -2635,7 +2688,9 @@ export default function Ordenes() {
                   </div>
                 </Modal>
               </div>
-            </div>
+                </div>
+              </>
+            )}
 
             {/* Footer Buttons */}
             <div className="flex flex-col sm:flex-row justify-end gap-2 pt-1">
@@ -2649,63 +2704,83 @@ export default function Ordenes() {
                 </svg>
                 Cancelar
               </button>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isSaving ? (
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                    <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
-                  </svg>
-                ) : (
+              {activeTab === 'orden' ? (
+                <button
+                  key="orden-next"
+                  type="button"
+                  disabled={isSaving}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setActiveTab('cliente');
+                  }}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                )}
-                {isSaving ? 'Guardando...' : (editingOrden ? 'Actualizar' : 'Guardar')}
-              </button>
+                  Siguiente
+                </button>
+              ) : (
+                <button
+                  key="cliente-submit"
+                  type="submit"
+                  disabled={isSaving}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? (
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                      <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                  {isSaving ? 'Guardando...' : (editingOrden ? 'Actualizar' : 'Guardar')}
+                </button>
+              )}
             </div>
           </form>
 
         </div>
-      </Modal >
+
+      </Modal>
 
       {/* Modal Eliminar */}
-      {
-        ordenToDelete && (
-          <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} closeOnBackdropClick={false} className="w-full max-w-md mx-4 sm:mx-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-error-100 dark:bg-error-900/30">
-                <svg className="w-6 h-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">
-                ¿Eliminar Orden?
-              </h3>
-              <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
-                ¿Estás seguro de que deseas eliminar la orden para <span className="font-semibold">{ordenToDelete.cliente}</span>? Esta acción no se puede deshacer.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleCancelDelete}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleConfirmDelete}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-error-600 rounded-lg hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/50"
-                >
-                  Eliminar
-                </button>
-              </div>
+      {ordenToDelete && (
+        <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} closeOnBackdropClick={false} className="w-full max-w-md mx-4 sm:mx-auto">
+          <div className="p-6">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-error-100 dark:bg-error-900/30">
+              <svg className="w-6 h-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
             </div>
-          </Modal>
-        )
-      }
+
+            <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">
+              ¿Eliminar Orden?
+            </h3>
+            <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
+              ¿Estás seguro de que deseas eliminar la orden para <span className="font-semibold">{ordenToDelete.cliente}</span>? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleCancelDelete}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-error-600 rounded-lg hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/50"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Modal Mapa Interactivo */}
       <Modal

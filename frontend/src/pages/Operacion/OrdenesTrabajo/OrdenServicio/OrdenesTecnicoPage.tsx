@@ -92,21 +92,9 @@ export default function OrdenesTecnico() {
   };
 
   const loadServiciosDisponibles = async () => {
-    const fallbackServicios = [
-      'ALARMAS',
-      'RASTREO',
-      'INTERNET',
-      'GPS',
-      'SENSOR DE GASOLINA',
-      'SENSOR DE TEMPERATURA',
-      'CAMARA',
-      'DASHCAM',
-      'VENTA DE PRODUCTO',
-    ];
-
     const token = getToken();
     if (!token) {
-      setServiciosDisponibles(fallbackServicios);
+      setServiciosDisponibles([]);
       return;
     }
 
@@ -118,7 +106,7 @@ export default function OrdenesTecnico() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setServiciosDisponibles(fallbackServicios);
+        setServiciosDisponibles([]);
         return;
       }
 
@@ -127,10 +115,10 @@ export default function OrdenesTecnico() {
         .filter((s) => s && typeof s.nombre === 'string' && s.nombre.trim() && s.activo !== false)
         .map((s) => s.nombre.trim());
 
-      const merged = Array.from(new Set([...(names.length ? names : fallbackServicios)]));
+      const merged = Array.from(new Set(names));
       setServiciosDisponibles(merged);
     } catch {
-      setServiciosDisponibles(fallbackServicios);
+      setServiciosDisponibles([]);
     }
   };
 
@@ -209,6 +197,7 @@ export default function OrdenesTecnico() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
 
+  const [activeTab, setActiveTab] = useState<"orden" | "cliente">("orden");
   const [isSaving, setIsSaving] = useState(false);
   const [tipoOrden, setTipoOrden] = useState<'servicio_tecnico' | 'levantamiento' | 'instalaciones' | 'mantenimiento'>('servicio_tecnico');
   const [editingOrden, setEditingOrden] = useState<Orden | null>(null);
@@ -1004,6 +993,7 @@ export default function OrdenesTecnico() {
           }
         }
         setShowModal(false);
+        setActiveTab("orden");
         setFormData({
           folio: "",
           cliente_id: null,
@@ -1123,6 +1113,7 @@ export default function OrdenesTecnico() {
     }
     setEditingOrden(orden);
     setTecnicoSearch('');
+    setActiveTab("orden");
     setFormData({
       folio: ((orden as any).folio ?? '').toString(),
       cliente_id: orden.cliente_id || null,
@@ -1150,6 +1141,7 @@ export default function OrdenesTecnico() {
   const handleCloseModal = () => {
     formNonceRef.current += 1;
     setShowModal(false);
+    setActiveTab("orden");
     setTipoOrden('servicio_tecnico');
     setFormData({
       folio: "",
@@ -1601,6 +1593,7 @@ export default function OrdenesTecnico() {
                   });
                 }
                 setTipoOrden('servicio_tecnico');
+                setActiveTab("orden");
                 setShowModal(true);
               }}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -2057,36 +2050,68 @@ export default function OrdenesTecnico() {
               </div>
             )}
 
-            {/* Selector de Tipo de Orden */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tipo de Orden de Trabajo</h4>
-              </div>
-              <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs">
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Selecciona el tipo de orden</label>
-                <select
-                  value={tipoOrden}
-                  onChange={(e) => setTipoOrden(e.target.value as any)}
-                  disabled={isReadOnly}
-                  className={`w-full h-10 rounded-lg border border-gray-300 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40'}`}
-                >
-                  <option value="servicio_tecnico">Servicio Técnico</option>
-                  <option value="levantamiento">Levantamiento</option>
-                  <option value="instalaciones">Instalaciones</option>
-                  <option value="mantenimiento">Mantenimiento</option>
-                </select>
-              </div>
+            {/* Tabs (igual que ClientesPage) */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab("orden")}
+                className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === "orden"
+                  ? "border-brand-500 bg-brand-500 text-white"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  }`}
+              >
+                Datos de la orden
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("cliente")}
+                className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === "cliente"
+                  ? "border-brand-500 bg-brand-500 text-white"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  }`}
+              >
+                Datos de cliente
+              </button>
             </div>
 
-            {tipoOrden === 'levantamiento' && (
-              <LevantamientoForm />
+            {activeTab === "orden" && (
+              <>
+                {/* Selector de Tipo de Orden */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tipo de Orden de Trabajo</h4>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs">
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Selecciona el tipo de orden</label>
+                    <select
+                      value={tipoOrden}
+                      onChange={(e) => setTipoOrden(e.target.value as any)}
+                      disabled={isReadOnly}
+                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40'}`}
+                    >
+                      <option value="servicio_tecnico">Servicio Técnico</option>
+                      <option value="levantamiento">Levantamiento</option>
+                      <option value="instalaciones">Instalaciones</option>
+                      <option value="mantenimiento">Mantenimiento</option>
+                    </select>
+                  </div>
+                </div>
+              </>
             )}
 
-            {/* SECCIÓN 1: Detalles Generales */}
-            <div className="space-y-3">
+            {tipoOrden === 'levantamiento' && (
+              <div className={activeTab === 'orden' ? '' : 'hidden'}>
+                <LevantamientoForm />
+              </div>
+            )}
+
+            {activeTab === "cliente" && (
+              <>
+                {/* SECCIÓN 1: Detalles Generales */}
+                <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
@@ -2103,7 +2128,7 @@ export default function OrdenesTecnico() {
                       readOnly={isReadOnly}
                       disabled={isReadOnly}
                       onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
-                      className={`w-full h-10 rounded-lg border border-gray-300 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
+                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
                       placeholder="Ej: ATX2000"
                     />
                   </div>
@@ -2183,7 +2208,7 @@ export default function OrdenesTecnico() {
                       readOnly={isReadOnly}
                       disabled={isReadOnly}
                       onChange={(e) => setFormData({ ...formData, nombre_cliente: e.target.value })}
-                      className={`w-full h-10 rounded-lg border border-gray-300 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
+                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
                       placeholder="Nombre completo del cliente"
                     />
                   </div>
@@ -2235,10 +2260,14 @@ export default function OrdenesTecnico() {
                 </div>
 
               </div>
-            </div>
+                </div>
+              </>
+            )}
 
-            {/* SECCIÓN 2: Detalles del Cliente */}
-            <div className="space-y-3">
+            {activeTab === "cliente" && (
+              <>
+                {/* SECCIÓN 2: Detalles del Cliente */}
+                <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" strokeLinecap="round" strokeLinejoin="round" />
@@ -2264,7 +2293,7 @@ export default function OrdenesTecnico() {
                           e.preventDefault();
                         }
                       }}
-                      className={`w-full h-10 rounded-lg border border-gray-300 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
+                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
                       placeholder="Teléfono del cliente"
                       maxLength={10}
                     />
@@ -2306,7 +2335,7 @@ export default function OrdenesTecnico() {
                       disabled={isReadOnly}
                       onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
                       rows={2}
-                      className={`w-full rounded-lg border border-gray-300 text-sm px-3 py-2 pr-12 shadow-theme-xs outline-none resize-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
+                      className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 pr-12 shadow-theme-xs outline-none resize-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
                       placeholder="Dirección, coordenadas o URL de Google Maps"
                     />
                     {formData.direccion && (
@@ -2345,10 +2374,14 @@ export default function OrdenesTecnico() {
                   </div>
                 </div>
               </div>
-            </div>
+                </div>
+              </>
+            )}
 
-            {/* SECCIÓN 3: Descripción de la Orden */}
-            <div className="space-y-3">
+            {activeTab === "orden" && (
+              <>
+                {/* SECCIÓN 3: Descripción de la Orden */}
+                <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
@@ -2365,7 +2398,7 @@ export default function OrdenesTecnico() {
                     disabled={isReadOnly}
                     onChange={(e) => setFormData({ ...formData, problematica: e.target.value })}
                     rows={3}
-                    className={`w-full rounded-lg border border-gray-300 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
+                    className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70'}`}
                     placeholder="Describe el problema reportado"
                   />
                 </div>
@@ -2469,11 +2502,14 @@ export default function OrdenesTecnico() {
                 </div>
               </div>
             </div>
+              </>
+            )}
 
+            {activeTab === "cliente" && (
+              <>
+                {/* SECCIÓN 4: Detalles de Tiempo */}
 
-            {/* SECCIÓN 4: Detalles de Tiempo */}
-
-            <div className="space-y-3">
+                <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
@@ -2546,9 +2582,13 @@ export default function OrdenesTecnico() {
                 </div>
               </div>
             </div>
+              </>
+            )}
 
-            {/* SECCIÓN 5: Firmas y Archivos */}
-            <div className="space-y-3">
+            {activeTab === "cliente" && (
+              <>
+                {/* SECCIÓN 5: Firmas y Archivos */}
+                <div className="space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeLinecap="round" strokeLinejoin="round" />
@@ -2668,7 +2708,9 @@ export default function OrdenesTecnico() {
                   </div>
                 </Modal>
               </div>
-            </div>
+                </div>
+              </>
+            )}
 
             {/* Footer Buttons */}
             <div className="flex flex-col sm:flex-row justify-end gap-2 pt-1">
@@ -2682,24 +2724,44 @@ export default function OrdenesTecnico() {
                 </svg>
                 Cancelar
               </button>
-              {(editingOrden ? canOrdenesEdit : canOrdenesCreate) && (
+              {activeTab === 'orden' ? (
                 <button
-                  type="submit"
+                  key="orden-next"
+                  type="button"
                   disabled={isSaving}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setActiveTab('cliente');
+                  }}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {isSaving ? (
-                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                      <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                  {isSaving ? 'Guardando...' : (editingOrden ? 'Actualizar' : 'Guardar')}
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Siguiente
                 </button>
+              ) : (
+                (editingOrden ? canOrdenesEdit : canOrdenesCreate) && (
+                  <button
+                    key="cliente-submit"
+                    type="submit"
+                    disabled={isSaving}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? (
+                      <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                        <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                    {isSaving ? 'Guardando...' : (editingOrden ? 'Actualizar' : 'Guardar')}
+                  </button>
+                )
               )}
             </div>
           </form>
