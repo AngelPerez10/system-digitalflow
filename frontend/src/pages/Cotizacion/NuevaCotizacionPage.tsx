@@ -569,7 +569,7 @@ export default function NuevaCotizacionPage() {
       texto_arriba_precios: String(textoArribaPrecios || ''),
       terminos: String(terminos || ''),
       items: computed.lines.map((c, i) => ({
-        producto_id: c.producto_id,
+        producto_externo_id: c.producto_externo_id ?? '',
         producto_nombre: c.producto_nombre,
         producto_descripcion: c.producto_descripcion,
         unidad: c.unidad,
