@@ -10,6 +10,13 @@ import { PencilIcon, TrashBinIcon } from "../../icons";
 import { MobileTareaList } from "./MobileTareaCard";
 import { draggable, dropTargetForElements, monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 
+ let tareasPagePermissionsInFlight: Promise<any> | null = null;
+ let tareasPagePermissionsLastFetchAt = 0;
+ const TAREAS_PAGE_PERMS_TTL_MS = 2 * 60 * 1000;
+
+ let tareasPageUsuariosInFlight: Promise<any> | null = null;
+ let tareasPageTareasInFlight: Promise<any> | null = null;
+
 interface Tarea {
     id: number;
     usuario_asignado: number | null;
@@ -108,23 +115,53 @@ export default function TareasPage() {
     useEffect(() => {
         const token = getToken();
         if (!token) return;
+        const now = Date.now();
+        if (now - tareasPagePermissionsLastFetchAt < TAREAS_PAGE_PERMS_TTL_MS) return;
+
+        try {
+            const storedAtRaw = localStorage.getItem('permissions_fetched_at') || sessionStorage.getItem('permissions_fetched_at');
+            const storedAt = storedAtRaw ? Number(storedAtRaw) : 0;
+            if (storedAt && now - storedAt < TAREAS_PAGE_PERMS_TTL_MS) {
+                return;
+            }
+        } catch { }
+
         const load = async () => {
             try {
-                const res = await fetch(apiUrl('/api/me/permissions/'), {
-                    method: 'GET',
-                    headers: { Authorization: `Bearer ${token}` },
-                    cache: 'no-store' as RequestCache,
-                });
-                const data = await res.json().catch(() => null);
-                if (!res.ok) return;
-                const p = JSON.stringify(data?.permissions || {});
-                localStorage.setItem('permissions', p);
-                sessionStorage.setItem('permissions', p);
-                setPermissions(data?.permissions || {});
+                if (tareasPagePermissionsInFlight) {
+                    await tareasPagePermissionsInFlight;
+                    return;
+                }
+
+                tareasPagePermissionsLastFetchAt = Date.now();
+                tareasPagePermissionsInFlight = (async () => {
+                    const res = await fetch(apiUrl('/api/me/permissions/'), {
+                        method: 'GET',
+                        headers: { Authorization: `Bearer ${token}` },
+                        cache: 'no-store' as RequestCache,
+                    });
+                    const data = await res.json().catch(() => null);
+                    if (!res.ok) return data;
+
+                    const p = JSON.stringify(data?.permissions || {});
+                    localStorage.setItem('permissions', p);
+                    sessionStorage.setItem('permissions', p);
+                    const at = String(Date.now());
+                    localStorage.setItem('permissions_fetched_at', at);
+                    sessionStorage.setItem('permissions_fetched_at', at);
+                    setPermissions(data?.permissions || {});
+                    window.dispatchEvent(new Event('permissions:updated'));
+                    return data;
+                })();
+
+                await tareasPagePermissionsInFlight;
             } catch {
                 // ignore
+            } finally {
+                tareasPagePermissionsInFlight = null;
             }
         };
+
         load();
     }, []);
 
@@ -284,20 +321,32 @@ export default function TareasPage() {
             const token = getToken();
             if (!token) return;
 
-            const response = await fetch(apiUrl("/api/users/accounts/"), {
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const rows = Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
-                setUsuarios(rows);
+            if (tareasPageUsuariosInFlight) {
+                await tareasPageUsuariosInFlight;
+                return;
             }
+
+            tareasPageUsuariosInFlight = (async () => {
+                const response = await fetch(apiUrl("/api/users/accounts/"), {
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const rows = Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
+                    setUsuarios(rows);
+                }
+            })();
+
+            await tareasPageUsuariosInFlight;
+            return;
         } catch (error) {
             console.error("Error al cargar usuarios:", error);
+        } finally {
+            tareasPageUsuariosInFlight = null;
         }
     };
 
@@ -315,23 +364,34 @@ export default function TareasPage() {
                 return;
             }
 
-            const response = await fetch(apiUrl("/api/tareas/"), {
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setTareas(Array.isArray(data) ? data : []);
-            } else {
-                setTareas([]);
+            if (tareasPageTareasInFlight) {
+                await tareasPageTareasInFlight;
+                return;
             }
+
+            tareasPageTareasInFlight = (async () => {
+                const response = await fetch(apiUrl("/api/tareas/"), {
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setTareas(Array.isArray(data) ? data : []);
+                } else {
+                    setTareas([]);
+                }
+            })();
+
+            await tareasPageTareasInFlight;
+            return;
         } catch (error) {
             console.error("Error al cargar tareas:", error);
             setTareas([]);
         } finally {
+            tareasPageTareasInFlight = null;
             setLoading(false);
         }
     };

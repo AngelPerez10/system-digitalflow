@@ -10,7 +10,7 @@ class CotizacionItemSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'cotizacion',
-            'producto_id',
+            'producto_externo_id',
             'producto_nombre',
             'producto_descripcion',
             'unidad',

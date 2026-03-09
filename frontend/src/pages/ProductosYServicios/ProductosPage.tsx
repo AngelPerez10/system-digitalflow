@@ -1,900 +1,473 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  buildProductosQuery,
+  fetchSyscomTipoCambio,
+  formatPrecioPublicoMxnConIva,
+  fetchSyscomProductoDetalle,
+  getAuthToken,
+  getProductoImageUrl,
+  getProductoImagenesUrls,
+  getProductoLink,
+  type SyscomCategoria,
+  type SyscomMarca,
+  type SyscomProducto,
+  type SyscomProductoDetalle,
+  type SyscomProductosResponse,
+  type SyscomSearchParams,
+  fetchSyscom,
+} from "./syscomCatalog";
 import { Modal } from "@/components/ui/modal";
-import Alert from "@/components/ui/alert/Alert";
-import { apiUrl } from "@/config/api";
-import { PencilIcon, TrashBinIcon } from "@/icons";
-import Label from "@/components/form/Label";
-import Input from "@/components/form/input/InputField";
-import FileInput from "@/components/form/input/FileInput";
 
-interface ProductoMedia {
-  id?: number;
-  url?: string;
-  public_id?: string;
-  nombre_original?: string;
-}
+const ORDEN_OPTIONS: { value: NonNullable<SyscomSearchParams["orden"]>; label: string }[] = [
+  { value: "relevancia", label: "Relevancia" },
+  { value: "precio:asc", label: "Precio ascendente" },
+  { value: "precio:desc", label: "Precio descendente" },
+  { value: "modelo:asc", label: "Modelo A-Z" },
+  { value: "marca:asc", label: "Marca A-Z" },
+  { value: "topseller", label: "Más vendidos" },
+];
 
-interface Producto {
-  id: number;
-  idx: number;
-  nombre: string;
-  unidad?: string;
-  proveedor?: string;
+const MARCAS_SELECT_LIMIT = 200;
+const AUTO_DEFAULT_SEARCH = "camara";
 
-  categoria?: string;
-  descripcion?: string;
-  precio_venta?: number | string | null;
-  precio_venta_2?: number | string | null;
-  precio_venta_3?: number | string | null;
-  iva_pct?: number | string | null;
+const inputLikeClassName =
+  "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
+const selectLikeClassName =
+  "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
 
-  modelo?: string;
-  codigo_fabrica?: string;
-  fabricante_marca?: string;
 
-  punto_pedido?: number | null;
-  stock_inicial?: number | null;
-  stock_minimo?: number | null;
-  stock?: number | null;
-
-  sku?: string;
-  codigo_sat?: string;
-
-  imagen?: ProductoMedia | null;
-}
-
-type AlertState = {
-  show: boolean;
-  variant: "success" | "error" | "warning" | "info";
-  title: string;
-  message: string;
-};
-
-const TrashButton = ({ onClick, title, disabled }: { onClick: () => void; title: string; disabled?: boolean }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled}
-    className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-    title={title}
-    aria-label={title}
-  >
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M3 6h18" strokeLinecap="round" />
-      <path d="M8 6V4h8v2" strokeLinecap="round" />
-      <path d="M6 6l1 16h10l1-16" strokeLinejoin="round" />
-      <path d="M10 11v6M14 11v6" strokeLinecap="round" />
-    </svg>
-  </button>
-);
-
-const categoriaOptions = ["Por definir", "Producto", "Refacciones"] as const;
-const unidadOptions = [
-  "Por definir",
-  "Conjunto",
-  "Cubeta",
-  "Gramo",
-  "Galon",
-  "Kilogramo",
-  "Kit",
-  "Libra",
-  "Litros",
-  "Metro cuadrado",
-  "Metro cubico",
-  "Metro",
-  "Onza",
-  "Pieza",
-  "Rollo",
-  "Saco",
-  "Servicio",
-  "Tramo",
-] as const;
-const proveedorOptions = ["Por definir"] as const;
-
-const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token") || "";
-
-const formatApiErrors = (txt: string): string => {
-  try {
-    const data = JSON.parse(txt);
-    if (data && typeof data === 'object') {
-      const parts: string[] = [];
-      Object.entries(data).forEach(([k, v]) => {
-        if (Array.isArray(v)) parts.push(`${k}: ${v.join(', ')}`);
-        else if (typeof v === 'string') parts.push(`${k}: ${v}`);
-      });
-      return parts.join(' | ');
-    }
-  } catch { }
-  return txt;
-};
-
-export default function Productos() {
-  const asBool = (v: any, defaultValue: boolean) => {
-    if (typeof v === 'boolean') return v;
-    if (typeof v === 'string') {
-      const s = v.trim().toLowerCase();
-      if (s === 'true') return true;
-      if (s === 'false') return false;
-    }
-    return defaultValue;
-  };
-
-  const getPermissionsFromStorage = () => {
-    try {
-      const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  };
-
-  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
-
-  const canProductosView = asBool(permissions?.productos?.view, true);
-  const canProductosCreate = asBool(permissions?.productos?.create, false);
-  const canProductosEdit = asBool(permissions?.productos?.edit, false);
-  const canProductosDelete = asBool(permissions?.productos?.delete, false);
-
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
+export default function ProductosPage() {
+  const [productos, setProductos] = useState<SyscomProducto[]>([]);
+  const [pagina, setPagina] = useState(1);
+  const [paginas, setPaginas] = useState(1);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [showModal, setShowModal] = useState(false);
-  const [editingProducto, setEditingProducto] = useState<Producto | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'more'>('general');
+  const [busquedaInput, setBusquedaInput] = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const [categoriaId, setCategoriaId] = useState("");
+  const [marcaId, setMarcaId] = useState("");
+  const [orden, setOrden] = useState<NonNullable<SyscomSearchParams["orden"]>>("relevancia");
 
-  const [claveAlternativa, setClaveAlternativa] = useState('');
-  const [isServicio, setIsServicio] = useState(false);
+  const [categorias, setCategorias] = useState<SyscomCategoria[]>([]);
+  const [marcas, setMarcas] = useState<SyscomMarca[]>([]);
+  const [loadingCatalogos, setLoadingCatalogos] = useState(false);
+  const [tipoCambio, setTipoCambio] = useState<number | null>(null);
 
-  const [alert, setAlert] = useState<AlertState>({ show: false, variant: 'info', title: '', message: '' });
-  const [modalError, setModalError] = useState<string>('');
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const hasFiltro = Boolean(busqueda.trim() || categoriaId || marcaId);
+  const [autoCatalog, setAutoCatalog] = useState(true);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 50;
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [detailProduct, setDetailProduct] = useState<SyscomProductoDetalle | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchTerm), 500);
-    return () => clearTimeout(t);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearch]);
-
-  const [imageFile, setImageFile] = useState<File | null>(null);
-
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [productoToDelete, setProductoToDelete] = useState<Producto | null>(null);
-  const [displayPrices, setDisplayPrices] = useState({
-    precio_venta: "",
-    precio_venta_2: "",
-    precio_venta_3: "",
-  });
-
-  useEffect(() => {
-    const token = getToken();
+  const loadCatalogos = useCallback(async () => {
+    const token = getAuthToken();
     if (!token) return;
-
-    const load = async () => {
-      try {
-        const res = await fetch(apiUrl('/api/me/permissions/'), {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store' as RequestCache,
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) return;
-        const p = data?.permissions || {};
-        const pStr = JSON.stringify(p);
-        localStorage.setItem('permissions', pStr);
-        sessionStorage.setItem('permissions', pStr);
-        setPermissions(p);
-        window.dispatchEvent(new Event('permissions:updated'));
-      } catch {
-        // ignore
+    setLoadingCatalogos(true);
+    try {
+      const [tc, catRes, marRes] = await Promise.all([
+        fetchSyscomTipoCambio(token).catch(() => null),
+        fetchSyscom("categorias/", token),
+        fetchSyscom("marcas/", token),
+      ]);
+      if (catRes.ok) {
+        const data = await catRes.json().catch(() => []);
+        setCategorias(Array.isArray(data) ? data : []);
       }
-    };
-
-    load();
-  }, []);
-
-  useEffect(() => {
-    const sync = () => setPermissions(getPermissionsFromStorage());
-    window.addEventListener('storage', sync);
-    window.addEventListener('focus', sync);
-    document.addEventListener('visibilitychange', sync);
-    window.addEventListener('permissions:updated' as any, sync);
-    return () => {
-      window.removeEventListener('storage', sync);
-      window.removeEventListener('focus', sync);
-      document.removeEventListener('visibilitychange', sync);
-      window.removeEventListener('permissions:updated' as any, sync);
-    };
-  }, []);
-
-  const selectLikeClassName = "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
-
-  const [formData, setFormData] = useState<any>({
-    nombre: "",
-    categoria: "Por definir",
-    unidad: "Por definir",
-    descripcion: "",
-    precio_venta: "" as any,
-    precio_venta_2: "" as any,
-    precio_venta_3: "" as any,
-    iva_pct: 16 as any,
-    modelo: "",
-    codigo_fabrica: "",
-    proveedor: "Por definir",
-    fabricante_marca: "",
-    punto_pedido: 1 as string | number | null,
-    stock_inicial: 1 as string | number | null,
-    stock_minimo: 1 as string | number | null,
-    sku: "",
-    codigo_sat: "",
-  });
-
-  const fetchProductos = async (page = 1, search = ""): Promise<Producto[]> => {
-    if (!canProductosView) {
-      setProductos([]);
-      setTotalCount(0);
-      setLoading(false);
-      return [];
+      if (marRes.ok) {
+        const data = await marRes.json().catch(() => []);
+        setMarcas(Array.isArray(data) ? data : []);
+      }
+      setTipoCambio(tc);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingCatalogos(false);
     }
-    const token = getToken();
+  }, []);
+
+  const loadProductos = useCallback(async () => {
+    if (!hasFiltro && !autoCatalog) return;
+    const token = getAuthToken();
     if (!token) {
-      setLoading(false);
-      return [];
+      setError("Debe iniciar sesión para ver el catálogo.");
+      return;
     }
     setLoading(true);
+    setError(null);
+    const isAuto = autoCatalog && !hasFiltro;
+    const query = buildProductosQuery(
+      isAuto
+        ? { busqueda: AUTO_DEFAULT_SEARCH, pagina, orden: "topseller", stock: "1" }
+        : {
+            busqueda: busqueda.trim() || undefined,
+            categoria: categoriaId || undefined,
+            marca: marcaId || undefined,
+            pagina,
+            orden,
+          }
+    );
     try {
-      const query = new URLSearchParams({
-        page: String(page),
-        page_size: String(itemsPerPage),
-      });
-      if (search.trim()) query.set('search', search.trim());
-      query.set('ordering', 'idx');
-
-      const res = await fetch(apiUrl(`/api/productos/?${query.toString()}`), {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store' as RequestCache,
-      });
-      const data = await res.json().catch(() => ({ results: [], count: 0 }));
+      const res = await fetchSyscom(`productos/?${query}`, token);
+      const data: SyscomProductosResponse = await res.json().catch(() => ({}));
       if (!res.ok) {
         setProductos([]);
-        setTotalCount(0);
-        return [];
+        setError((data as { detail?: string }).detail || "Error al cargar productos.");
+        return;
       }
-      const list = Array.isArray((data as any)?.results) ? ((data as any).results as Producto[]) : [];
-      const count = typeof (data as any)?.count === 'number' ? (data as any).count : list.length;
-      setProductos(list);
-      setTotalCount(count);
-      return list;
+      setProductos(data.productos ?? []);
+      setPaginas(data.paginas ?? 1);
+      setTotal(data.cantidad ?? 0);
     } catch {
       setProductos([]);
-      setTotalCount(0);
-      return [];
+      setError("Error de conexión con el catálogo.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const refreshEditingProducto = (productoId: number, list?: Producto[]) => {
-    const src = list || productos;
-    const next = src.find((x) => x.id === productoId) || null;
-    setEditingProducto(next);
-  };
+  }, [busqueda, categoriaId, marcaId, orden, pagina, hasFiltro, autoCatalog]);
 
   useEffect(() => {
-    fetchProductos(currentPage, debouncedSearch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canProductosView, currentPage, debouncedSearch]);
+    loadCatalogos();
+  }, [loadCatalogos]);
 
-  const totalPages = Math.ceil(totalCount / itemsPerPage) || 1;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentProductos = productos;
+  useEffect(() => {
+    loadProductos();
+  }, [loadProductos]);
 
-  const stats = useMemo(() => {
-    const total = totalCount || productos.length;
-    const conStock = productos.filter((p) => (p.stock ?? 0) > 0).length;
-    const sinStock = Math.max(0, productos.length - conStock);
-    return { total, conStock, sinStock };
-  }, [productos, totalCount]);
-
-  const openCreate = () => {
-    if (!canProductosCreate) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear productos.' });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
+  useEffect(() => {
+    if (!detailModalOpen || !selectedProductId) {
+      setDetailProduct(null);
       return;
     }
-    setEditingProducto(null);
-    setModalError('');
-    setActiveTab('general');
-    setImageFile(null);
-    setClaveAlternativa('');
-    setIsServicio(false);
-    setFormData({
-      nombre: "",
-      categoria: "Por definir",
-      unidad: "Por definir",
-      descripcion: "",
-      precio_venta: "",
-      precio_venta_2: "",
-      precio_venta_3: "",
-      iva_pct: 16,
-      modelo: "",
-      codigo_fabrica: "",
-      proveedor: "Por definir",
-      fabricante_marca: "",
-      punto_pedido: 1,
-      stock_inicial: 1,
-      stock_minimo: 1,
-      sku: "",
-      codigo_sat: "",
-    });
-    setDisplayPrices({
-      precio_venta: "",
-      precio_venta_2: "",
-      precio_venta_3: "",
-    });
-    setShowModal(true);
-  };
-
-  const handleEdit = (p: Producto) => {
-    if (!canProductosEdit) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar productos.' });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
-      return;
-    }
-    setEditingProducto(p);
-    setModalError('');
-    setActiveTab('general');
-    setImageFile(null);
-    setClaveAlternativa('');
-    setIsServicio(false);
-    setFormData({
-      nombre: p.nombre || "",
-      categoria: p.categoria || "Por definir",
-      unidad: p.unidad || "Por definir",
-      descripcion: p.descripcion || "",
-      precio_venta: p.precio_venta ?? "",
-      precio_venta_2: p.precio_venta_2 ?? "",
-      precio_venta_3: p.precio_venta_3 ?? "",
-      iva_pct: p.iva_pct ?? 16,
-      modelo: p.modelo || "",
-      codigo_fabrica: p.codigo_fabrica || "",
-      proveedor: p.proveedor || "Por definir",
-      fabricante_marca: p.fabricante_marca || "",
-      punto_pedido: (p.punto_pedido as any) ?? "",
-      stock_inicial: (p.stock_inicial as any) ?? "",
-      stock_minimo: (p.stock_minimo as any) ?? "",
-      sku: p.sku || "",
-      codigo_sat: p.codigo_sat || "",
-    });
-
-    const iva = Number(p.iva_pct ?? 16);
-    const withIvaStr = (val: any) => {
-      const num = parseFloat(val);
-      if (isNaN(num)) return "";
-      return (num * (1 + iva / 100)).toFixed(2);
-    };
-
-    setDisplayPrices({
-      precio_venta: withIvaStr(p.precio_venta),
-      precio_venta_2: withIvaStr(p.precio_venta_2),
-      precio_venta_3: withIvaStr(p.precio_venta_3),
-    });
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingProducto(null);
-    setModalError('');
-    setActiveTab('general');
-    setImageFile(null);
-  };
-
-  const handleDeleteClick = (p: Producto) => {
-    if (!canProductosDelete) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar productos.' });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
-      return;
-    }
-    setProductoToDelete(p);
-    setShowDeleteModal(true);
-  };
-
-  const handleCancelDelete = () => {
-    setProductoToDelete(null);
-    setShowDeleteModal(false);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!productoToDelete) return;
-    const token = getToken();
+    const token = getAuthToken();
     if (!token) return;
+    setLoadingDetail(true);
+    setDetailProduct(null);
+    fetchSyscomProductoDetalle(token, selectedProductId)
+      .then((data) => {
+        setDetailProduct(data ?? null);
+        setSelectedImageIndex(0);
+      })
+      .finally(() => setLoadingDetail(false));
+  }, [detailModalOpen, selectedProductId]);
 
-    if (!canProductosDelete) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar productos.' });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
-      return;
-    }
-
-    try {
-      const res = await fetch(apiUrl(`/api/productos/${productoToDelete.id}/`), {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        setAlert({ show: true, variant: 'error', title: 'Error', message: formatApiErrors(txt) || 'No se pudo eliminar el producto.' });
-        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
-        return;
-      }
-      await fetchProductos();
-      setShowDeleteModal(false);
-      setProductoToDelete(null);
-      setAlert({ show: true, variant: 'success', title: 'Producto eliminado', message: 'El producto ha sido eliminado.' });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
-    } catch (e) {
-      setAlert({ show: true, variant: 'error', title: 'Error', message: String(e) });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
-    }
+  const openDetailModal = (productId: string) => {
+    setSelectedProductId(productId);
+    setDetailModalOpen(true);
   };
 
-  const handleDeleteImagen = async () => {
-    if (!editingProducto?.imagen?.id) return;
-    const token = getToken();
-    if (!token) return;
-
-    try {
-      const res = await fetch(apiUrl(`/api/producto-imagenes/${editingProducto.imagen.id}/`), {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        setModalError(formatApiErrors(txt) || 'No se pudo eliminar la imagen.');
-        return;
-      }
-
-      const prevId = editingProducto.id;
-      const list = await fetchProductos();
-      refreshEditingProducto(prevId, list);
-      setAlert({ show: true, variant: 'success', title: 'Imagen eliminada', message: 'La imagen ha sido eliminada.' });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
-    } catch (e) {
-      setModalError(String(e));
-    }
+  const closeDetailModal = () => {
+    setDetailModalOpen(false);
+    setSelectedProductId(null);
+    setDetailProduct(null);
   };
 
-
-
-  const uploadIfPresent = async (productoId: number, token: string) => {
-    if (imageFile) {
-      const allowed = ['jpeg', 'jpg', 'bmp', 'png'];
-      const ext = (imageFile.name.split('.').pop() || '').toLowerCase();
-      if (!allowed.includes(ext)) {
-        throw new Error('Formato no permitido para Imagen.');
-      }
-      if (imageFile.size > 10 * 1024 * 1024) {
-        throw new Error('La imagen excede 10MB.');
-      }
-      const fd = new FormData();
-      fd.append('producto', String(productoId));
-      fd.append('archivo', imageFile);
-      const up = await fetch(apiUrl('/api/producto-imagenes/'), {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
-      if (!up.ok) {
-        const txt = await up.text().catch(() => '');
-        throw new Error(formatApiErrors(txt) || 'No se pudo subir la imagen.');
-      }
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setModalError('');
-
-    if (!editingProducto && !canProductosCreate) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear productos.' });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
-      return;
-    }
-
-    if (editingProducto && !canProductosEdit) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar productos.' });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
-      return;
-    }
-
-    const requiredMissing = [
-      !String(formData.categoria || '').trim() ? 'Categoría de producto' : null,
-      !String(formData.unidad || '').trim() ? 'Unidad' : null,
-      !String(formData.descripcion || '').trim() ? 'Descripción' : null,
-      formData.precio_venta === '' || formData.precio_venta === null ? 'Precio de venta' : null,
-      formData.punto_pedido === '' || formData.punto_pedido === null ? 'Punto de Pedido' : null,
-      formData.stock_inicial === '' || formData.stock_inicial === null ? 'Stock Inicial' : null,
-      formData.stock_minimo === '' || formData.stock_minimo === null ? 'Stock Mínimo' : null,
-    ].filter(Boolean) as string[];
-
-    if (requiredMissing.length) {
-      setModalError(`Faltan campos requeridos: ${requiredMissing.join(', ')}`);
-      return;
-    }
-
-    const parseNumberOrThrow = (value: string | number | null | undefined, fieldLabel: string) => {
-      if (value === '' || value === null || value === undefined) return null;
-      const n = typeof value === 'number' ? value : Number(String(value).trim());
-      if (Number.isNaN(n)) {
-        throw new Error(`El campo "${fieldLabel}" debe ser un número válido.`);
-      }
-      return n;
-    };
-
-    const token = getToken();
-    if (!token) {
-      setModalError('No hay token de sesión.');
-      return;
-    }
-
-    const url = editingProducto ? apiUrl(`/api/productos/${editingProducto.id}/`) : apiUrl('/api/productos/');
-    const method = editingProducto ? 'PUT' : 'POST';
-    const nombreProducto = formData.nombre;
-    const isEditing = !!editingProducto;
-
-    try {
-      const precioVentaNumber = parseNumberOrThrow(formData.precio_venta, 'Precio 1');
-      const precioVenta2Number = parseNumberOrThrow(formData.precio_venta_2, 'Precio 2');
-      const precioVenta3Number = parseNumberOrThrow(formData.precio_venta_3, 'Precio 3');
-      const ivaPctNumber = parseNumberOrThrow(formData.iva_pct, 'IVA %');
-      const puntoPedidoNumber = parseNumberOrThrow(formData.punto_pedido, 'Punto de Pedido');
-      const stockInicialNumber = parseNumberOrThrow(formData.stock_inicial, 'Stock Inicial');
-      const stockMinimoNumber = parseNumberOrThrow(formData.stock_minimo, 'Stock Mínimo');
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          precio_venta: precioVentaNumber,
-          precio_venta_2: precioVenta2Number,
-          precio_venta_3: precioVenta3Number,
-          iva_pct: ivaPctNumber,
-          punto_pedido: puntoPedidoNumber,
-          stock_inicial: stockInicialNumber,
-          stock_minimo: stockMinimoNumber,
-        }),
-      });
-
-      if (!response.ok) {
-        const txt = await response.text().catch(() => '');
-        setModalError(formatApiErrors(txt) || 'No se pudo guardar el producto.');
-        return;
-      }
-
-      const saved = await response.json().catch(() => null);
-      const productoId = saved?.id || editingProducto?.id;
-      if (!productoId) {
-        setModalError('No se pudo obtener el ID del producto guardado.');
-        return;
-      }
-
-      try {
-        await uploadIfPresent(productoId, token);
-      } catch (err) {
-        const msg = String(err || '');
-        const isCloudinaryMissing = msg.toLowerCase().includes('cloudinary_url') || msg.toLowerCase().includes('cloudinary');
-        if (!isCloudinaryMissing) {
-          setModalError(msg);
-          return;
-        }
-
-        await fetchProductos();
-        setShowModal(false);
-        setEditingProducto(null);
-        setImageFile(null);
-
-        setAlert({
-          show: true,
-          variant: 'warning',
-          title: isEditing ? 'Producto actualizado' : 'Producto creado',
-          message: 'El producto se guardó, pero no se pudieron subir archivos porque Cloudinary no está configurado.',
-        });
-        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
-        return;
-      }
-
-      await fetchProductos();
-      setShowModal(false);
-      setEditingProducto(null);
-      setImageFile(null);
-
-      setAlert({
-        show: true,
-        variant: 'success',
-        title: isEditing ? 'Producto actualizado' : 'Producto creado',
-        message: isEditing
-          ? `El producto "${nombreProducto}" ha sido actualizado exitosamente.`
-          : `El producto "${nombreProducto}" ha sido creado exitosamente.`,
-      });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
-    } catch (error) {
-      setModalError(String(error));
-    }
+    const q = busquedaInput.trim();
+    setBusqueda(q);
+    setAutoCatalog(!q && !categoriaId && !marcaId);
+    setPagina(1);
   };
+
+  const resetPage = useCallback(() => setPagina(1), []);
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <PageMeta title="Productos | Sistema" description="Gestión de productos" />
+    <>
+      <PageMeta title="Productos | Catálogo" description="Catálogo de productos" />
       <PageBreadcrumb pageTitle="Productos" />
 
-      {alert.show && (
-        <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
-      )}
-
-      {!canProductosView ? (
-        <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No tienes permiso para ver Productos.</div>
-      ) : (
-        <>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
-            <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-              <div className="flex items-center gap-4">
-                <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shadow-sm">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M20 7h-9" />
-                    <path d="M20 12h-9" />
-                    <path d="M20 17h-9" />
-                    <path d="M7 7h.01" />
-                    <path d="M7 12h.01" />
-                    <path d="M7 17h.01" />
-                  </svg>
-                </span>
-                <div className="flex flex-col">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Productos</p>
-                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.total}</p>
-                </div>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
+                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
-            </div>
-
-            <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-              <div className="flex items-center gap-4">
-                <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 shadow-sm">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-                <div className="flex flex-col">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Con stock</p>
-                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.conStock}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-              <div className="flex items-center gap-4">
-                <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 shadow-sm">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
-                </span>
-                <div className="flex flex-col">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Sin stock</p>
-                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.sinStock}</p>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Catálogo de productos</h2>
+                <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">
+                  Busca productos. Escribe algo, elige categoría o marca y pulsa Buscar.
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div className="min-w-0">
+        <form onSubmit={handleSearch} className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Buscar</label>
+            <input
+              type="text"
+              value={busquedaInput}
+              onChange={(e) => setBusquedaInput(e.target.value)}
+              placeholder="Modelo, nombre, palabra clave..."
+              className={inputLikeClassName}
+            />
+          </div>
+          <div className="w-40">
+            <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Categoría</label>
+            <select
+              value={categoriaId}
+              onChange={(e) => {
+                setCategoriaId(e.target.value);
+                setAutoCatalog(false);
+                resetPage();
+              }}
+              className={selectLikeClassName}
+            >
+              <option value="">Todas</option>
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+              {loadingCatalogos && !categorias.length && <option disabled>Cargando...</option>}
+            </select>
+          </div>
+          <div className="w-40">
+            <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Marca</label>
+            <select
+              value={marcaId}
+              onChange={(e) => {
+                setMarcaId(e.target.value);
+                setAutoCatalog(false);
+                resetPage();
+              }}
+              className={selectLikeClassName}
+            >
+              <option value="">Todas</option>
+              {marcas.slice(0, MARCAS_SELECT_LIMIT).map((m) => (
+                <option key={m.id} value={m.id}>{m.nombre}</option>
+              ))}
+              {loadingCatalogos && !marcas.length && <option disabled>Cargando...</option>}
+            </select>
+          </div>
+          <div className="w-36">
+            <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Orden</label>
+            <select
+              value={orden}
+              onChange={(e) => {
+                setOrden(e.target.value as NonNullable<SyscomSearchParams["orden"]>);
+                setAutoCatalog(false);
+                resetPage();
+              }}
+              className={selectLikeClassName}
+            >
+              {ORDEN_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="submit"
+            className="h-10 px-4 rounded-xl bg-brand-600 text-white text-xs font-semibold shadow-theme-xs hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+          >
+            Buscar
+          </button>
+        </form>
+
+        {error && (
+          <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/80 dark:bg-red-950/30 px-4 py-3">
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+              No pudimos conectar con el catálogo de productos. Intenta más tarde o contacta a soporte.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-4 pt-1">
+          <ComponentCard
+            title="Listado"
+            actions={
+              (hasFiltro || autoCatalog) && productos.length > 0 && !loading ? (
                 <div className="flex items-center gap-2">
-                  <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
-                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-                      <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Productos</h2>
-                    <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">Administra, edita y elimina productos.</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="relative w-full sm:w-[320px]">
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar por nombre, unidad, proveedor o código"
-                    className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
-                  />
-                  {searchTerm && (
+                  <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-0.5">
                     <button
                       type="button"
-                      onClick={() => setSearchTerm('')}
-                      aria-label="Limpiar búsqueda"
-                      className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5"
+                      onClick={() => setViewMode("table")}
+                      title="Vista tabla"
+                      className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition ${viewMode === "table" ? "bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}
                     >
-                      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                        <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 6h16" />
+                        <path d="M4 12h16" />
+                        <path d="M4 18h16" />
                       </svg>
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("cards")}
+                      title="Vista tarjetas"
+                      className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition ${viewMode === "cards" ? "bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                        <rect x="14" y="14" width="7" height="7" rx="1" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={openCreate}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                  </svg>
-                  Nuevo Producto
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-1">
-            <ComponentCard title="Listado">
-              <div className="p-2 pt-0">
+              ) : null
+            }
+          >
+            <div className="p-2 pt-0">
+              {viewMode === "cards" && !loading && productos.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {productos.map((p) => (
+                    <div
+                      key={p.producto_id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openDetailModal(p.producto_id)}
+                      onKeyDown={(e) => e.key === "Enter" && openDetailModal(p.producto_id)}
+                      className="flex gap-3 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white dark:bg-gray-800/60 p-3 hover:border-brand-500/50 dark:hover:border-brand-500/40 hover:bg-gray-50/80 dark:hover:bg-gray-800/80 transition cursor-pointer"
+                    >
+                      <div className="w-16 h-16 shrink-0 rounded-lg bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center overflow-hidden">
+                        {getProductoImageUrl(p.img_portada) ? (
+                          <img src={getProductoImageUrl(p.img_portada)!} alt="" className="w-full h-full object-contain" loading="lazy" />
+                        ) : (
+                          <span className="text-[10px] text-gray-400">—</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">{p.titulo}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{p.marca} · {p.modelo}</p>
+                        <p className="mt-1 text-sm font-semibold text-brand-600 dark:text-brand-400 tabular-nums">{formatPrecioPublicoMxnConIva(p, tipoCambio)}</p>
+                        {p.total_existencia != null && <p className="text-[11px] text-gray-500 dark:text-gray-400">Stock {p.total_existencia}</p>}
+                        <a
+                          href={getProductoLink(p)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[11px] font-medium text-brand-600 dark:text-brand-400 mt-1 inline-block hover:underline"
+                        >
+                          Ver más →
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : viewMode === "cards" ? (
+                <div className="rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 py-16 text-center text-sm text-gray-500 dark:text-gray-400">
+                  {loading && "Cargando..."}
+                  {!loading && productos.length === 0 && !error && (autoCatalog ? "No hay productos para mostrar." : "Escribe algo en búsqueda o elige categoría/marca y pulsa Buscar.")}
+                </div>
+              ) : (
                 <div className="overflow-x-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40">
-                  <Table className="w-full table-fixed">
+                  <Table className="w-full">
                     <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
                       <TableRow>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[72px] text-gray-700 dark:text-gray-300">ID</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[150px] text-gray-700 dark:text-gray-300">Unidad</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[260px] text-gray-700 dark:text-gray-300">Nombre</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[140px] text-gray-700 dark:text-gray-300">Precio</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-gray-700 dark:text-gray-300">Stock</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[220px] text-gray-700 dark:text-gray-300">Proveedor</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-center w-[126px] text-gray-700 dark:text-gray-300">Acciones</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[64px] text-gray-700 dark:text-gray-300">Imagen</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left min-w-[200px] text-gray-700 dark:text-gray-300">Producto</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[100px] text-gray-700 dark:text-gray-300">Marca</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-gray-700 dark:text-gray-300">Modelo</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-gray-700 dark:text-gray-300">Precio</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[80px] text-gray-700 dark:text-gray-300">Stock</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-center w-[100px] text-gray-700 dark:text-gray-300">Acción</TableCell>
                       </TableRow>
                     </TableHeader>
                     <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
                       {loading && (
                         <TableRow>
-                          <TableCell className="px-3 py-3" colSpan={7}>Cargando...</TableCell>
+                          <TableCell colSpan={7} className="px-3 py-4 text-center text-gray-500 dark:text-gray-400">
+                            Cargando...
+                          </TableCell>
                         </TableRow>
                       )}
-
-                      {!loading && currentProductos.map((p, idx) => (
-                        <TableRow key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                          <TableCell className="px-3 py-2 w-[72px] whitespace-nowrap">{startIndex + idx + 1}</TableCell>
-                          <TableCell className="px-3 py-2 w-[150px] whitespace-nowrap">{p.unidad || '-'}</TableCell>
-                          <TableCell className="px-3 py-2 w-[260px] text-gray-900 dark:text-white truncate">{p.nombre}</TableCell>
-                          <TableCell className="px-3 py-2 w-[140px] whitespace-nowrap">
-                            {p.precio_venta
-                              ? (Number(p.precio_venta) * (1 + (Number(p.iva_pct) || 0) / 100)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                              : '-'
-                            }
-                          </TableCell>
-                          <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap">{p.stock ?? '-'}</TableCell>
-                          <TableCell className="px-3 py-2 w-[220px] truncate">{p.proveedor || '-'}</TableCell>
-                          <TableCell className="px-3 py-2 text-center w-[126px]">
-                            <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
-                              <button
-                                onClick={() => handleEdit(p)}
-                                className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
-                                title="Editar"
-                              >
-                                <PencilIcon className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteClick(p)}
-                                className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
-                                title="Eliminar"
-                              >
-                                <TrashBinIcon className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-
-                      {!productos.length && !loading && (
+                      {!loading && productos.length === 0 && !error && (
                         <TableRow>
-                          <TableCell className="px-3 py-2" colSpan={7}>
-                            <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Sin productos</div>
+                          <TableCell colSpan={7} className="px-3 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                            {autoCatalog ? "No hay productos para mostrar." : "Escribe algo en búsqueda o elige categoría/marca y pulsa Buscar."}
                           </TableCell>
                         </TableRow>
                       )}
+                      {!loading && productos.length > 0 &&
+                        productos.map((p) => {
+                          const imgUrl = getProductoImageUrl(p.img_portada);
+                          const link = getProductoLink(p);
+                          return (
+                            <TableRow key={p.producto_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                              <TableCell className="px-3 py-2 w-[64px] align-middle">
+                                <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center overflow-hidden shrink-0">
+                                  {imgUrl ? (
+                                    <img src={imgUrl} alt="" className="w-full h-full object-contain" loading="lazy" />
+                                  ) : (
+                                    <span className="text-[10px] text-gray-400">—</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="px-3 py-2 min-w-[200px] max-w-[280px]">
+                                <button
+                                  type="button"
+                                  onClick={() => openDetailModal(p.producto_id)}
+                                  className="block w-full text-left truncate text-gray-900 dark:text-white hover:text-brand-600 dark:hover:text-brand-400 hover:underline font-medium"
+                                  title={p.titulo}
+                                >
+                                  {p.titulo}
+                                </button>
+                              </TableCell>
+                              <TableCell className="px-3 py-2 w-[100px] whitespace-nowrap">{p.marca}</TableCell>
+                              <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap">{p.modelo}</TableCell>
+                              <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap font-medium text-brand-600 dark:text-brand-400 tabular-nums">
+                                {formatPrecioPublicoMxnConIva(p, tipoCambio)}
+                              </TableCell>
+                              <TableCell className="px-3 py-2 w-[80px] whitespace-nowrap">{p.total_existencia ?? "—"}</TableCell>
+                              <TableCell className="px-3 py-2 text-center w-[100px]">
+                                <a
+                                  href={link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                                >
+                                  Ver más
+                                </a>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                     </TableBody>
                   </Table>
                 </div>
+              )}
 
-                {!loading && totalCount > 0 && currentProductos.length > 0 && (
-                  <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Mostrando <span className="font-medium text-gray-900 dark:text-white">{startIndex + 1}</span> a{" "}
-                        <span className="font-medium text-gray-900 dark:text-white">{Math.min(endIndex, totalCount)}</span> de{" "}
-                        <span className="font-medium text-gray-900 dark:text-white">{totalCount}</span> productos
-                      </p>
-
+              {!loading && total > 0 && productos.length > 0 && (
+                <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {total} resultado(s)
+                      {paginas > 1 && (
+                        <> · Página <span className="font-medium text-gray-900 dark:text-white">{pagina}</span> de <span className="font-medium text-gray-900 dark:text-white">{paginas}</span></>
+                      )}
+                    </p>
+                    {paginas > 1 && (
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                          disabled={currentPage === 1}
+                          type="button"
+                          onClick={() => setPagina((prev) => Math.max(1, prev - 1))}
+                          disabled={pagina <= 1}
                           className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                         >
                           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M15 18l-6-6 6-6" />
                           </svg>
                         </button>
-
-                        <div className="flex items-center gap-1">
-                          {currentPage > 3 && (
-                            <>
-                              <button
-                                onClick={() => setCurrentPage(1)}
-                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-800 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                              >
-                                1
-                              </button>
-                              {currentPage > 4 && <span className="px-1 text-gray-400">...</span>}
-                            </>
-                          )}
-
-                          {Array.from({ length: totalPages }, (_, i) => i + 1)
-                            .filter(page => {
-                              if (totalPages <= 5) return true;
-                              return Math.abs(page - currentPage) <= 2;
-                            })
-                            .map(page => (
-                              <button
-                                key={page}
-                                onClick={() => setCurrentPage(page)}
-                                className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border text-sm font-medium transition-colors ${currentPage === page
-                                  ? 'border-brand-500 bg-brand-500 text-white'
-                                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
-                                  }`}
-                              >
-                                {page}
-                              </button>
-                            ))}
-
-                          {currentPage < totalPages - 2 && (
-                            <>
-                              {currentPage < totalPages - 3 && <span className="px-1 text-gray-400">...</span>}
-                              <button
-                                onClick={() => setCurrentPage(totalPages)}
-                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                              >
-                                {totalPages}
-                              </button>
-                            </>
-                          )}
-                        </div>
-
                         <button
-                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                          disabled={currentPage === totalPages}
+                          type="button"
+                          onClick={() => setPagina((prev) => Math.min(paginas, prev + 1))}
+                          disabled={pagina >= paginas}
                           className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                         >
                           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -902,385 +475,172 @@ export default function Productos() {
                           </svg>
                         </button>
                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </ComponentCard>
-          </div>
-
-          <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-full max-w-5xl p-0 overflow-hidden">
-            <div>
-              <div className="px-5 pt-5 pb-4 bg-linear-to-r from-brand-50 via-transparent to-transparent dark:from-gray-800/70 dark:via-gray-900/20 border-b border-gray-100 dark:border-white/10">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300 shadow-theme-xs">
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
-                      <path d="M20 22a8 8 0 1 0-16 0" />
-                    </svg>
-                  </span>
-                  <div className="flex-1">
-                    <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-                      {editingProducto ? 'Editar Producto' : 'Nuevo Producto'}
-                    </h5>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                      Captura y revisa los datos antes de guardar
-                    </p>
+                    )}
                   </div>
                 </div>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 max-h-[78vh] overflow-y-auto custom-scrollbar">
-                {modalError && (
-                  <Alert variant="error" title="Error" message={modalError} showLink={false} />
-                )}
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('general')}
-                    className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === 'general'
-                      ? 'border-brand-500 bg-brand-500 text-white'
-                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
-                      }`}
-                  >
-                    Datos generales
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('more')}
-                    className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === 'more'
-                      ? 'border-brand-500 bg-brand-500 text-white'
-                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
-                      }`}
-                  >
-                    Más información
-                  </button>
-                </div>
-
-                {activeTab === 'general' && (
-                  <div className="space-y-4">
-                    <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div className="md:col-span-2">
-                            <label className="inline-flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/40 px-3 py-2 shadow-theme-xs">
-                              <input
-                                type="checkbox"
-                                checked={isServicio}
-                                onChange={(e) => setIsServicio(e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                              />
-                              <span className="text-sm text-gray-800 dark:text-gray-200">Servicio</span>
-                            </label>
-                          </div>
-                          <div>
-                            <Label>Nombre *</Label>
-                            <Input value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
-                          </div>
-                          <div>
-                            <Label>Clave alternativa</Label>
-                            <Input value={claveAlternativa} onChange={(e) => setClaveAlternativa(e.target.value)} placeholder="Ej. SKU interno" />
-                          </div>
-                        </div>
-                        <div>
-                          <Label>Categoría de producto *</Label>
-                          <select
-                            value={formData.categoria || "Por definir"}
-                            onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
-                            className={selectLikeClassName}
-                          >
-                            {categoriaOptions.map((c) => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <Label>Unidad *</Label>
-                          <select
-                            value={formData.unidad || "Por definir"}
-                            onChange={(e) => setFormData({ ...formData, unidad: e.target.value })}
-                            className={selectLikeClassName}
-                          >
-                            {unidadOptions.map((u) => (
-                              <option key={u} value={u}>{u}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <Label>Proveedor</Label>
-                          <select
-                            value={formData.proveedor || "Por definir"}
-                            onChange={(e) => setFormData({ ...formData, proveedor: e.target.value })}
-                            className={selectLikeClassName}
-                          >
-                            {proveedorOptions.map((p) => (
-                              <option key={p} value={p}>{p}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div>
-                            <Label>Precio 1 *</Label>
-                            <Input
-                              type="number"
-                              step={0.01}
-                              value={displayPrices.precio_venta}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setDisplayPrices(prev => ({ ...prev, precio_venta: val }));
-                                if (val === "") {
-                                  setFormData({ ...formData, precio_venta: "" });
-                                  return;
-                                }
-                                const total = parseFloat(val) || 0;
-                                const iva = (Number(formData.iva_pct) || 0) / 100;
-                                setFormData({ ...formData, precio_venta: total / (1 + iva) });
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <Label>Precio 2</Label>
-                            <Input
-                              type="number"
-                              step={0.01}
-                              value={displayPrices.precio_venta_2}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setDisplayPrices(prev => ({ ...prev, precio_venta_2: val }));
-                                if (val === "") {
-                                  setFormData({ ...formData, precio_venta_2: "" });
-                                  return;
-                                }
-                                const total = parseFloat(val) || 0;
-                                const iva = (Number(formData.iva_pct) || 0) / 100;
-                                setFormData({ ...formData, precio_venta_2: total / (1 + iva) });
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <Label>Precio 3</Label>
-                            <Input
-                              type="number"
-                              step={0.01}
-                              value={displayPrices.precio_venta_3}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setDisplayPrices(prev => ({ ...prev, precio_venta_3: val }));
-                                if (val === "") {
-                                  setFormData({ ...formData, precio_venta_3: "" });
-                                  return;
-                                }
-                                const total = parseFloat(val) || 0;
-                                const iva = (Number(formData.iva_pct) || 0) / 100;
-                                setFormData({ ...formData, precio_venta_3: total / (1 + iva) });
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label>IVA % *</Label>
-                          <Input
-                            type="number"
-                            step={0.01}
-                            value={formData.iva_pct ?? ''}
-                            onChange={(e) => {
-                              const newIvaStr = e.target.value;
-                              const newIvaNum = parseFloat(newIvaStr) || 0;
-
-                              // Recalcular display prices basándose en los BASE prices actuales
-                              const updateDisplay = (base: any) => {
-                                const num = parseFloat(base);
-                                if (isNaN(num)) return "";
-                                return (num * (1 + newIvaNum / 100)).toFixed(2);
-                              };
-
-                              setFormData({ ...formData, iva_pct: newIvaStr });
-                              setDisplayPrices({
-                                precio_venta: updateDisplay(formData.precio_venta),
-                                precio_venta_2: updateDisplay(formData.precio_venta_2),
-                                precio_venta_3: updateDisplay(formData.precio_venta_3),
-                              });
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <Label>Modelo</Label>
-                          <Input value={formData.modelo} onChange={(e) => setFormData({ ...formData, modelo: e.target.value })} />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label>Descripción *</Label>
-                        <textarea
-                          rows={4}
-                          value={formData.descripcion}
-                          onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-
-                        <div>
-                          <Label>Código de fábrica</Label>
-                          <Input value={formData.codigo_fabrica} onChange={(e) => setFormData({ ...formData, codigo_fabrica: e.target.value })} />
-                        </div>
-                        <div>
-                          <Label>Fabricante/Marca</Label>
-                          <Input value={formData.fabricante_marca} onChange={(e) => setFormData({ ...formData, fabricante_marca: e.target.value })} />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                          <Label>Punto de Pedido *</Label>
-                          <Input
-                            type="number"
-                            value={formData.punto_pedido ?? ''}
-                            onChange={(e) => setFormData({ ...formData, punto_pedido: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Stock Inicial *</Label>
-                          <Input
-                            type="number"
-                            value={formData.stock_inicial ?? ''}
-                            onChange={(e) => setFormData({ ...formData, stock_inicial: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Stock Mínimo *</Label>
-                          <Input
-                            type="number"
-                            value={formData.stock_minimo ?? ''}
-                            onChange={(e) => setFormData({ ...formData, stock_minimo: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3">
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Imagen del producto</p>
-                      {editingProducto?.imagen?.url && (
-                        <div className="flex items-center justify-between gap-2">
-                          <a
-                            href={editingProducto.imagen.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[12px] text-brand-600 hover:underline truncate"
-                            title={editingProducto.imagen.nombre_original || 'Ver imagen'}
-                          >
-                            {editingProducto.imagen.nombre_original || 'Ver imagen'}
-                          </a>
-                          <TrashButton
-                            onClick={handleDeleteImagen}
-                            title="Eliminar imagen"
-                            disabled={!editingProducto?.imagen?.id}
-                          />
-                        </div>
-                      )}
-                      <FileInput
-                        onChange={(e) => {
-                          const f = (e.target as HTMLInputElement).files?.[0] || null;
-                          if (!f) {
-                            setImageFile(null);
-                            return;
-                          }
-                          const allowed = ['jpeg', 'jpg', 'bmp', 'png'];
-                          const ext = (f.name.split('.').pop() || '').toLowerCase();
-                          if (!allowed.includes(ext)) {
-                            setModalError('Formato no permitido para Imagen (jpeg, jpg, bmp, png).');
-                            (e.target as HTMLInputElement).value = '';
-                            setImageFile(null);
-                            return;
-                          }
-                          if (f.size > 10 * 1024 * 1024) {
-                            setModalError('La imagen excede 10MB.');
-                            (e.target as HTMLInputElement).value = '';
-                            setImageFile(null);
-                            return;
-                          }
-                          setModalError('');
-                          setImageFile(f);
-                        }}
-                      />
-                    </div>
-
-
-                  </div>
-                )}
-
-                {activeTab === 'more' && (
-                  <div className="space-y-4">
-                    <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                          <Label>SKU</Label>
-                          <Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} />
-                        </div>
-                        <div>
-                          <Label>Código SAT</Label>
-                          <Input value={formData.codigo_sat} onChange={(e) => setFormData({ ...formData, codigo_sat: e.target.value })} />
-                        </div>
-
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex flex-col sm:flex-row justify-end gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30"
-                  >
-                    {editingProducto ? 'Actualizar' : 'Guardar'}
-                  </button>
-                </div>
-              </form>
+              )}
             </div>
-          </Modal>
+          </ComponentCard>
+        </div>
+      </div>
 
-          {productoToDelete && (
-            <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-[94vw] max-w-md p-0 overflow-hidden">
-              <div>
-                <div className="px-6 pt-6 pb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Eliminar Producto</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Esta acción no se puede deshacer</p>
+      <Modal isOpen={detailModalOpen} onClose={closeDetailModal} className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-white dark:bg-gray-900 shadow-xl dark:shadow-none">
+        {loadingDetail && (
+          <div className="px-6 py-16 text-center">
+            <div className="inline-flex h-12 w-12 animate-spin rounded-full border-2 border-gray-200 dark:border-gray-700 border-t-brand-500 dark:border-t-brand-400" aria-hidden />
+            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Cargando detalle...</p>
+          </div>
+        )}
+        {!loadingDetail && detailProduct && (() => {
+          const imageUrls = getProductoImagenesUrls(detailProduct);
+          const mainImage = imageUrls[selectedImageIndex] ?? imageUrls[0];
+          return (
+          <div className="p-6 space-y-6">
+            {imageUrls.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Galería
                 </div>
-                <div className="px-6 py-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    ¿Estás seguro de que deseas eliminar el producto{' '}
-                    <span className="font-semibold text-gray-900 dark:text-white">{productoToDelete.nombre}</span>?
-                  </p>
-                </div>
-                <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-end gap-3">
-                  <button
-                    onClick={handleCancelDelete}
-                    className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleConfirmDelete}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors"
-                  >
-                    <TrashBinIcon className="w-4 h-4" />
-                    Eliminar
-                  </button>
+                <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 overflow-hidden">
+                  <div className="aspect-square max-h-80 w-full flex items-center justify-center p-4">
+                    <img src={mainImage} alt="" className="max-h-full w-full object-contain" />
+                  </div>
+                  {imageUrls.length > 1 && (
+                    <div className="flex gap-2 p-3 border-t border-gray-100 dark:border-gray-700 overflow-x-auto">
+                      {imageUrls.map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setSelectedImageIndex(i)}
+                          className={`shrink-0 w-14 h-14 rounded-lg border-2 overflow-hidden flex items-center justify-center transition ${i === selectedImageIndex ? "border-brand-500 dark:border-brand-400 ring-2 ring-brand-200 dark:ring-brand-900/50" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}
+                        >
+                          <img src={url} alt="" className="w-full h-full object-contain" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-            </Modal>
-          )}
-        </>
-      )}
-    </div>
+            )}
+
+            <div className="flex gap-4">
+              {imageUrls.length === 0 && (
+                <div className="w-20 h-20 shrink-0 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/50 flex items-center justify-center">
+                  <svg className="w-10 h-10 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white leading-snug">
+                  {detailProduct.titulo}
+                </h3>
+                <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="inline-flex items-center gap-1.5 text-lg font-semibold tabular-nums text-brand-600 dark:text-brand-400">
+                    <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {formatPrecioPublicoMxnConIva(detailProduct, tipoCambio)}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">IVA incluido</span>
+                </div>
+              </div>
+            </div>
+
+            
+
+            {detailProduct.caracteristicas && detailProduct.caracteristicas.length > 0 && (
+              <div className="border-t border-gray-100 dark:border-gray-800 pt-5">
+                <h4 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  Características
+                </h4>
+                <ul className="space-y-2">
+                  {detailProduct.caracteristicas.map((c, i) => (
+                    <li key={i} className="flex gap-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                      <span className="mt-1.5 shrink-0 text-brand-500 dark:text-brand-400" aria-hidden>
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </span>
+                      <span>{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 px-4 py-4 space-y-3">
+              <h4 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Especificaciones
+              </h4>
+              <dl className="grid gap-3 sm:grid-cols-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <dt className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    Modelo
+                  </dt>
+                  <dd className="text-sm text-gray-900 dark:text-white">{detailProduct.modelo || "—"}</dd>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <dt className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Marca
+                  </dt>
+                  <dd className="text-sm text-gray-900 dark:text-white">{detailProduct.marca || "—"}</dd>
+                </div>
+                {detailProduct.sat_key && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <dt className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Código SAT
+                    </dt>
+                    <dd className="text-sm font-mono tabular-nums text-gray-900 dark:text-white">{detailProduct.sat_key}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+
+            <div className="border-t border-gray-100 dark:border-gray-800 pt-5">
+              <a
+                href={getProductoLink(detailProduct)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-brand-300 dark:hover:border-brand-700 hover:text-brand-600 dark:hover:text-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition"
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Ver más información
+              </a>
+            </div>
+          </div>
+          );
+        })()}
+        {!loadingDetail && !detailProduct && selectedProductId && (
+          <div className="px-6 py-16 text-center">
+            <svg className="mx-auto w-12 h-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">No se pudo cargar el detalle del producto.</p>
+          </div>
+        )}
+      </Modal>
+    </>
   );
 }

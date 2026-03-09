@@ -11,6 +11,13 @@ import PageMeta from "@/components/common/PageMeta";
 import { apiUrl } from "@/config/api";
 import DatePicker from "@/components/form/date-picker";
 
+ let calendarPermissionsInFlight: Promise<any> | null = null;
+ let calendarPermissionsLastFetchAt = 0;
+ const CALENDAR_PERMS_TTL_MS = 2 * 60 * 1000;
+
+ let calendarOrdenesInFlight: Promise<any> | null = null;
+ let calendarTecnicosInFlight: Promise<any> | null = null;
+
 interface CalendarEvent extends EventInput {
   extendedProps: {
     calendar: string;
@@ -178,45 +185,58 @@ const Calendar: React.FC = () => {
           return;
         }
 
-        const res = await fetch(apiUrl('/api/ordenes/'), {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          setEvents([]);
+        if (calendarOrdenesInFlight) {
+          await calendarOrdenesInFlight;
           return;
         }
 
-        const rows: Orden[] = Array.isArray(data)
-          ? data
-          : Array.isArray((data as any)?.results)
-            ? (data as any).results
-            : [];
+        calendarOrdenesInFlight = (async () => {
+          const res = await fetch(apiUrl('/api/ordenes/'), {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
 
-        try {
-          const rawMe = localStorage.getItem('user') || sessionStorage.getItem('user');
-          const me = rawMe ? JSON.parse(rawMe) : null;
-          const isAdmin = !!(me?.is_superuser || me?.is_staff);
-          const meId = typeof me?.id === 'number' ? me.id : me?.id ? Number(me.id) : null;
-          if (!isAdmin && meId != null) {
-            const filtered = rows.filter((o) => Number(o.tecnico_asignado) === Number(meId));
-            rows.length = 0;
-            rows.push(...filtered);
+          const data = await res.json().catch(() => null);
+          if (!res.ok) {
+            setEvents([]);
+            setOrdenes([]);
+            return;
           }
-        } catch {
-          // ignore
-        }
 
-        setOrdenes(rows);
-        const mapped = rows.map(orderToEvent).filter(Boolean) as CalendarEvent[];
-        setEvents(mapped);
+          const rows: Orden[] = Array.isArray(data)
+            ? data
+            : Array.isArray((data as any)?.results)
+              ? (data as any).results
+              : [];
+
+          try {
+            const rawMe = localStorage.getItem('user') || sessionStorage.getItem('user');
+            const me = rawMe ? JSON.parse(rawMe) : null;
+            const isAdmin = !!(me?.is_superuser || me?.is_staff);
+            const meId = typeof me?.id === 'number' ? me.id : me?.id ? Number(me.id) : null;
+            if (!isAdmin && meId != null) {
+              const filtered = rows.filter((o) => Number(o.tecnico_asignado) === Number(meId));
+              rows.length = 0;
+              rows.push(...filtered);
+            }
+          } catch {
+            // ignore
+          }
+
+          setOrdenes(rows);
+          const mapped = rows.map(orderToEvent).filter(Boolean) as CalendarEvent[];
+          setEvents(mapped);
+        })();
+
+        await calendarOrdenesInFlight;
+        return;
       } catch {
         setEvents([]);
         setOrdenes([]);
+      } finally {
+        calendarOrdenesInFlight = null;
       }
     };
 
@@ -228,28 +248,40 @@ const Calendar: React.FC = () => {
           return;
         }
 
-        const res = await fetch(apiUrl('/api/users/accounts/'), {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          setTecnicos([]);
+        if (calendarTecnicosInFlight) {
+          await calendarTecnicosInFlight;
           return;
         }
 
-        const rows: Usuario[] = Array.isArray(data)
-          ? data
-          : Array.isArray((data as any)?.results)
-            ? (data as any).results
-            : [];
+        calendarTecnicosInFlight = (async () => {
+          const res = await fetch(apiUrl('/api/users/accounts/'), {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
 
-        setTecnicos(rows.filter((u) => !(u.is_superuser || u.is_staff)));
+          const data = await res.json().catch(() => null);
+          if (!res.ok) {
+            setTecnicos([]);
+            return;
+          }
+
+          const rows: Usuario[] = Array.isArray(data)
+            ? data
+            : Array.isArray((data as any)?.results)
+              ? (data as any).results
+              : [];
+
+          setTecnicos(rows.filter((u) => !(u.is_superuser || u.is_staff)));
+        })();
+
+        await calendarTecnicosInFlight;
+        return;
       } catch {
         setTecnicos([]);
+      } finally {
+        calendarTecnicosInFlight = null;
       }
     };
 
@@ -267,23 +299,52 @@ const Calendar: React.FC = () => {
   useEffect(() => {
     const token = getToken();
     if (!token) return;
+
+    const now = Date.now();
+    if (now - calendarPermissionsLastFetchAt < CALENDAR_PERMS_TTL_MS) return;
+    try {
+      const storedAtRaw = localStorage.getItem('permissions_fetched_at') || sessionStorage.getItem('permissions_fetched_at');
+      const storedAt = storedAtRaw ? Number(storedAtRaw) : 0;
+      if (storedAt && now - storedAt < CALENDAR_PERMS_TTL_MS) {
+        return;
+      }
+    } catch { }
+
     const load = async () => {
       try {
-        const res = await fetch(apiUrl('/api/me/permissions/'), {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store' as RequestCache,
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) return;
-        const p = JSON.stringify(data?.permissions || {});
-        localStorage.setItem('permissions', p);
-        sessionStorage.setItem('permissions', p);
-        setPermissions(data?.permissions || {});
+        if (calendarPermissionsInFlight) {
+          await calendarPermissionsInFlight;
+          return;
+        }
+
+        calendarPermissionsLastFetchAt = Date.now();
+        calendarPermissionsInFlight = (async () => {
+          const res = await fetch(apiUrl('/api/me/permissions/'), {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store' as RequestCache,
+          });
+          const data = await res.json().catch(() => null);
+          if (!res.ok) return data;
+          const p = JSON.stringify(data?.permissions || {});
+          localStorage.setItem('permissions', p);
+          sessionStorage.setItem('permissions', p);
+          const at = String(Date.now());
+          localStorage.setItem('permissions_fetched_at', at);
+          sessionStorage.setItem('permissions_fetched_at', at);
+          setPermissions(data?.permissions || {});
+          window.dispatchEvent(new Event('permissions:updated'));
+          return data;
+        })();
+
+        await calendarPermissionsInFlight;
       } catch {
         // ignore
+      } finally {
+        calendarPermissionsInFlight = null;
       }
     };
+
     load();
   }, []);
 

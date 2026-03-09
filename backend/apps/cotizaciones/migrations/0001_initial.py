@@ -10,74 +10,180 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('clientes', '0001_initial'),
-        ('productos', '0001_initial'),
+        ("clientes", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Cotizacion',
+            name="Cotizacion",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('idx', models.IntegerField(blank=True, db_index=True, null=True, unique=True)),
-                ('cliente', models.CharField(blank=True, default='', max_length=100)),
-                ('prospecto', models.BooleanField(default=False)),
-                ('contacto', models.CharField(blank=True, default='', max_length=200)),
-                ('fecha', models.DateField(blank=True, null=True)),
-                ('vencimiento', models.DateField(blank=True, null=True)),
-                ('subtotal', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
-                ('iva_pct', models.DecimalField(decimal_places=2, default=16, max_digits=5)),
-                ('iva', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
-                ('total', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
-                ('texto_arriba_precios', models.TextField(blank=True, default='')),
-                ('terminos', models.TextField(blank=True, default='')),
-                ('fecha_creacion', models.DateTimeField(auto_now_add=True)),
-                ('fecha_actualizacion', models.DateTimeField(auto_now=True)),
-                ('cliente_id', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='cotizaciones', to='clientes.cliente')),
-                ('creado_por', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='cotizaciones_creadas', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "idx",
+                    models.IntegerField(
+                        blank=True, db_index=True, null=True, unique=True
+                    ),
+                ),
+                ("cliente", models.CharField(max_length=100, blank=True, default="")),
+                ("prospecto", models.BooleanField(default=False)),
+                ("contacto", models.CharField(max_length=200, blank=True, default="")),
+                ("fecha", models.DateField(blank=True, null=True)),
+                ("vencimiento", models.DateField(blank=True, null=True)),
+                (
+                    "subtotal",
+                    models.DecimalField(
+                        max_digits=12, decimal_places=2, default=0
+                    ),
+                ),
+                (
+                    "iva_pct",
+                    models.DecimalField(
+                        max_digits=5, decimal_places=2, default=16
+                    ),
+                ),
+                (
+                    "iva",
+                    models.DecimalField(
+                        max_digits=12, decimal_places=2, default=0
+                    ),
+                ),
+                (
+                    "total",
+                    models.DecimalField(
+                        max_digits=12, decimal_places=2, default=0
+                    ),
+                ),
+                ("texto_arriba_precios", models.TextField(blank=True, default="")),
+                ("terminos", models.TextField(blank=True, default="")),
+                ("fecha_creacion", models.DateTimeField(auto_now_add=True)),
+                ("fecha_actualizacion", models.DateTimeField(auto_now=True)),
+                (
+                    "cliente_id",
+                    models.ForeignKey(
+                        "clientes.Cliente",
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="cotizaciones",
+                    ),
+                ),
+                (
+                    "creado_por",
+                    models.ForeignKey(
+                        settings.AUTH_USER_MODEL,
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="cotizaciones_creadas",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['idx'],
+                "ordering": ["idx"],
             },
         ),
         migrations.CreateModel(
-            name='CotizacionItem',
+            name="CotizacionItem",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('producto_nombre', models.CharField(blank=True, default='', max_length=255)),
-                ('producto_descripcion', models.TextField(blank=True, default='')),
-                ('unidad', models.CharField(blank=True, default='', max_length=50)),
-                ('thumbnail_url', models.URLField(blank=True, default='')),
-                ('cantidad', models.DecimalField(decimal_places=2, default=1, max_digits=12)),
-                ('precio_lista', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
-                ('descuento_pct', models.DecimalField(decimal_places=2, default=0, max_digits=5)),
-                ('orden', models.IntegerField(default=0)),
-                ('cotizacion', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='items', to='cotizaciones.cotizacion')),
-                ('producto_id', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='cotizacion_items', to='productos.producto')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "producto_nombre",
+                    models.CharField(max_length=255, blank=True, default=""),
+                ),
+                (
+                    "producto_descripcion",
+                    models.TextField(blank=True, default=""),
+                ),
+                ("unidad", models.CharField(max_length=50, blank=True, default="")),
+                ("thumbnail_url", models.URLField(blank=True, default="")),
+                (
+                    "cantidad",
+                    models.DecimalField(
+                        max_digits=12, decimal_places=2, default=1
+                    ),
+                ),
+                (
+                    "precio_lista",
+                    models.DecimalField(
+                        max_digits=12, decimal_places=2, default=0
+                    ),
+                ),
+                (
+                    "descuento_pct",
+                    models.DecimalField(
+                        max_digits=5, decimal_places=2, default=0
+                    ),
+                ),
+                ("orden", models.IntegerField(default=0)),
+                (
+                    "cotizacion",
+                    models.ForeignKey(
+                        "cotizaciones.Cotizacion",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="items",
+                    ),
+                ),
+                # Campo de compatibilidad histórica: se eliminará en 0005
+                (
+                    "producto_id",
+                    models.ForeignKey(
+                        "clientes.Cliente",
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="cotizacion_items",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['orden', 'id'],
+                "ordering": ["orden", "id"],
             },
         ),
         migrations.AddIndex(
-            model_name='cotizacion',
-            index=models.Index(fields=['idx'], name='cotizacione_idx_ed2ce0_idx'),
+            model_name="cotizacion",
+            index=models.Index(
+                fields=["idx"], name="cotizacione_idx_ed2ce0_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='cotizacion',
-            index=models.Index(fields=['cliente'], name='cotizacione_cliente_627c19_idx'),
+            model_name="cotizacion",
+            index=models.Index(
+                fields=["cliente"], name="cotizacione_cliente_627c19_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='cotizacion',
-            index=models.Index(fields=['fecha'], name='cotizacione_fecha_cbf604_idx'),
+            model_name="cotizacion",
+            index=models.Index(
+                fields=["fecha"], name="cotizacione_fecha_cbf604_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='cotizacionitem',
-            index=models.Index(fields=['cotizacion'], name='cotizacione_cotizac_668816_idx'),
+            model_name="cotizacionitem",
+            index=models.Index(
+                fields=["cotizacion"], name="cotizacione_cotizac_668816_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='cotizacionitem',
-            index=models.Index(fields=['producto_id'], name='cotizacione_product_cb7a6c_idx'),
+            model_name="cotizacionitem",
+            index=models.Index(
+                fields=["producto_id"], name="cotizacione_product_cb7a6c_idx"
+            ),
         ),
     ]

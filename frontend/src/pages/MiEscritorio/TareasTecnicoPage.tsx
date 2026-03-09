@@ -10,6 +10,8 @@ import { MobileTareaList } from "./MobileTareaCard";
 import { PencilIcon, TrashBinIcon } from "../../icons";
 import { draggable, dropTargetForElements, monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 
+ let tareasTecnicoTareasInFlight: Promise<any> | null = null;
+
 interface Tarea {
   id: number;
   usuario_asignado: number | null;
@@ -439,26 +441,37 @@ export default function TareasTecnicoPage() {
         return;
       }
 
-      const response = await fetch(apiUrl("/api/tareas/"), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const rows = Array.isArray(data) ? data : [];
-        const onlyMine = myId ? rows.filter((t: any) => Number(t.usuario_asignado) === myId) : [];
-        setTareas(onlyMine);
-      } else {
-        setTareas([]);
+      if (tareasTecnicoTareasInFlight) {
+        await tareasTecnicoTareasInFlight;
+        return;
       }
+
+      tareasTecnicoTareasInFlight = (async () => {
+        const response = await fetch(apiUrl("/api/tareas/"), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const rows = Array.isArray(data) ? data : [];
+          const onlyMine = myId ? rows.filter((t: any) => Number(t.usuario_asignado) === myId) : [];
+          setTareas(onlyMine);
+        } else {
+          setTareas([]);
+        }
+      })();
+
+      await tareasTecnicoTareasInFlight;
+      return;
     } catch (e) {
       setTareas([]);
       setAlert({ show: true, variant: "error", title: "Error", message: String(e) });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
     } finally {
+      tareasTecnicoTareasInFlight = null;
       setLoading(false);
     }
   };

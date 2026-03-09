@@ -21,6 +21,10 @@ import {
   phoneCountryOptions,
 } from "./clientesCatalogos";
 
+ let clientesPagePermissionsInFlight: Promise<any> | null = null;
+ let clientesPagePermissionsLastFetchAt = 0;
+ const CLIENTES_PAGE_PERMS_TTL_MS = 2 * 60 * 1000;
+
 interface Cliente {
   id: number;
   idx: number;
@@ -189,6 +193,9 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
+
+  const clientesFetchInFlightRef = useRef(false);
+  const lastClientesFetchKeyRef = useRef<string>("");
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -416,21 +423,50 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   useEffect(() => {
     const token = getToken();
     if (!token) return;
+    const now = Date.now();
+    if (now - clientesPagePermissionsLastFetchAt < CLIENTES_PAGE_PERMS_TTL_MS) return;
+
+    try {
+      const storedAtRaw = localStorage.getItem('permissions_fetched_at') || sessionStorage.getItem('permissions_fetched_at');
+      const storedAt = storedAtRaw ? Number(storedAtRaw) : 0;
+      if (storedAt && now - storedAt < CLIENTES_PAGE_PERMS_TTL_MS) {
+        return;
+      }
+    } catch { }
+
     const load = async () => {
       try {
-        const res = await fetch(apiUrl('/api/me/permissions/'), {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store' as RequestCache,
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) return;
-        const p = JSON.stringify(data?.permissions || {});
-        localStorage.setItem('permissions', p);
-        sessionStorage.setItem('permissions', p);
-        setPermissions(data?.permissions || {});
+        if (clientesPagePermissionsInFlight) {
+          await clientesPagePermissionsInFlight;
+          return;
+        }
+
+        clientesPagePermissionsLastFetchAt = Date.now();
+        clientesPagePermissionsInFlight = (async () => {
+          const res = await fetch(apiUrl('/api/me/permissions/'), {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store' as RequestCache,
+          });
+          const data = await res.json().catch(() => null);
+          if (!res.ok) return data;
+
+          const p = JSON.stringify(data?.permissions || {});
+          localStorage.setItem('permissions', p);
+          sessionStorage.setItem('permissions', p);
+          const at = String(Date.now());
+          localStorage.setItem('permissions_fetched_at', at);
+          sessionStorage.setItem('permissions_fetched_at', at);
+          setPermissions(data?.permissions || {});
+          window.dispatchEvent(new Event('permissions:updated'));
+          return data;
+        })();
+
+        await clientesPagePermissionsInFlight;
       } catch {
         // ignore
+      } finally {
+        clientesPagePermissionsInFlight = null;
       }
     };
     load();
@@ -480,7 +516,13 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
       setLoading(false);
       return;
     }
-    fetchClientes(currentPage, debouncedSearch);
+    const key = `${currentPage}::${debouncedSearch.trim()}::${fixedTipo || ''}`;
+    if (clientesFetchInFlightRef.current && lastClientesFetchKeyRef.current === key) return;
+    lastClientesFetchKeyRef.current = key;
+    clientesFetchInFlightRef.current = true;
+    Promise.resolve(fetchClientes(currentPage, debouncedSearch)).finally(() => {
+      clientesFetchInFlightRef.current = false;
+    });
   }, [canClientesView, currentPage, debouncedSearch, fixedTipo]);
 
   const handleSubmit = async (e: React.FormEvent) => {

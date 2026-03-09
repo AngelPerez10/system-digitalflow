@@ -10,7 +10,6 @@ import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { apiUrl } from "@/config/api";
 import { PencilIcon, TrashBinIcon } from "@/icons";
-import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 
 type ClienteContacto = {
   id?: number;
@@ -33,27 +32,9 @@ type Cliente = {
   contactos?: ClienteContacto[];
 };
 
-type ProductoMedia = {
-  id?: number;
-  url?: string;
-  public_id?: string;
-  nombre_original?: string;
-};
-
-type Producto = {
-  id: number;
-  idx: number;
-  nombre: string;
-  unidad?: string;
-  descripcion?: string;
-  modelo?: string;
-  precio_venta?: number | string | null;
-  imagen?: ProductoMedia | null;
-};
-
 type Concepto = {
   id: string;
-  producto_id: number | null;
+  producto_externo_id: string;
   producto_nombre: string;
   producto_descripcion: string;
   unidad: string;
@@ -65,7 +46,7 @@ type Concepto = {
 
 type ApiCotizacionItem = {
   id?: number;
-  producto_id: number | null;
+  producto_externo_id?: string;
   producto_nombre: string;
   producto_descripcion: string;
   unidad: string;
@@ -150,7 +131,6 @@ export default function NuevaCotizacionPage() {
 
   const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
   const canCotizacionesView = asBool(permissions?.cotizaciones?.view, true);
-  const canProductosView = asBool(permissions?.productos?.view, true);
 
   const navigate = useNavigate();
   const params = useParams();
@@ -211,9 +191,6 @@ export default function NuevaCotizacionPage() {
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
 
-  const [loadingProductos, setLoadingProductos] = useState(false);
-  const [productos, setProductos] = useState<Producto[]>([]);
-
   const [clienteId, setClienteId] = useState<number | "">("");
   const [clienteSearch, setClienteSearch] = useState("");
   const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
@@ -222,9 +199,8 @@ export default function NuevaCotizacionPage() {
   const [contactoNombre, setContactoNombre] = useState("");
 
   const [cantidad, setCantidad] = useState<number>(1);
-  const [productoId, setProductoId] = useState<number | "">("");
-  const [productoSearch, setProductoSearch] = useState("");
-  const [productoDescripcion, setProductoDescripcion] = useState("");
+  const [conceptoNombre, setConceptoNombre] = useState("");
+  const [conceptoDescripcion, setConceptoDescripcion] = useState("");
   const [unidad, setUnidad] = useState("");
   const [precioLista, setPrecioLista] = useState<number>(0);
   const [descuentoPct, setDescuentoPct] = useState<number>(0);
@@ -311,11 +287,6 @@ export default function NuevaCotizacionPage() {
       .filter(Boolean);
   }, [selectedCliente]);
 
-  const selectedProducto = useMemo(() => {
-    if (!productoId) return null;
-    return productos.find((p) => p.id === productoId) || null;
-  }, [productos, productoId]);
-
   const preview = useMemo(() => {
     const qty = Math.max(0, toNumber(cantidad, 0));
     const pl = Math.max(0, toNumber(precioLista, 0));
@@ -354,48 +325,6 @@ export default function NuevaCotizacionPage() {
       setLoadingClientes(false);
     }
   };
-
-  useEffect(() => {
-    const fetchProductos = async () => {
-      if (!canProductosView) {
-        setProductos([]);
-        return;
-      }
-      const token = getToken();
-      if (!token) return;
-      setLoadingProductos(true);
-      try {
-        const query = new URLSearchParams({
-          page: '1',
-          page_size: '5000',
-          ordering: 'idx',
-        });
-        if (String(productoSearch || '').trim()) {
-          query.set('search', String(productoSearch || '').trim());
-        }
-
-        const res = await fetch(apiUrl(`/api/productos/?${query.toString()}`), {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          cache: "no-store" as RequestCache,
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          const msg = (data as any)?.detail || (typeof data === 'string' ? data : '') || `No se pudieron cargar productos (HTTP ${res.status}).`;
-          setProductos([]);
-          setAlert({ show: true, variant: 'warning', title: 'Productos', message: String(msg) });
-          return;
-        }
-        const list = Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
-        setProductos(list as Producto[]);
-      } finally {
-        setLoadingProductos(false);
-      }
-    };
-
-    fetchProductos();
-  }, [canProductosView, productoSearch]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -472,7 +401,7 @@ export default function NuevaCotizacionPage() {
         const conceptosList: Concepto[] = Array.isArray(data.items)
           ? data.items.map((it) => ({
             id: uid(),
-            producto_id: it.producto_id ?? null,
+            producto_externo_id: String((it as any).producto_externo_id ?? ''),
             producto_nombre: String(it.producto_nombre || ''),
             producto_descripcion: String(it.producto_descripcion || ''),
             unidad: String(it.unidad || ''),
@@ -533,16 +462,11 @@ export default function NuevaCotizacionPage() {
   }, [selectedCliente, hydratingFromStorage, editingCotizacionId, descuentoClienteTouched]);
 
   useEffect(() => {
-    if (!selectedProducto) {
-      setProductoDescripcion("");
+    if (!conceptoNombre.trim()) {
       setUnidad("");
       setPrecioLista(0);
-      return;
     }
-    setProductoDescripcion(String(selectedProducto.descripcion || ""));
-    setUnidad(String(selectedProducto.unidad || ""));
-    setPrecioLista(toNumber(selectedProducto.precio_venta, 0));
-  }, [selectedProducto]);
+  }, [conceptoNombre]);
 
   useEffect(() => {
     if (!alert.show) return;
@@ -694,17 +618,17 @@ export default function NuevaCotizacionPage() {
   const canAddConcepto = useMemo(() => {
     const v = validateClienteContacto();
     const qtyOk = toNumber(cantidad, 0) > 0;
-    const prodOk = !!productoId;
-    return v.ok && qtyOk && prodOk;
+    const nameOk = String(conceptoNombre || "").trim() !== "";
+    const priceOk = toNumber(precioLista, 0) >= 0;
+    return v.ok && qtyOk && nameOk && priceOk;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clienteId, contactoNombre, cantidad, productoId]);
+  }, [clienteId, contactoNombre, cantidad, conceptoNombre, precioLista]);
 
   const clearConceptoForm = () => {
     setEditingConceptoId(null);
     setCantidad(1);
-    setProductoId("");
-    setProductoSearch("");
-    setProductoDescripcion("");
+    setConceptoNombre("");
+    setConceptoDescripcion("");
     setUnidad("");
     setPrecioLista(0);
     setDescuentoPct(0);
@@ -725,11 +649,10 @@ export default function NuevaCotizacionPage() {
     const qty = Math.max(0, toNumber(cantidad, 0));
     const pl = Math.max(0, toNumber(precioLista, 0));
     const desc = clampPct(toNumber(descuentoPct, 0));
+    const nombre = String(conceptoNombre || "").trim();
+    const descripcion = String(conceptoDescripcion || "").trim();
 
-    const prod = selectedProducto;
-
-    if (!prod) return;
-    if (qty <= 0) return;
+    if (qty <= 0 || !nombre) return;
 
     if (editingConceptoId) {
       setConceptos((prev) =>
@@ -737,11 +660,10 @@ export default function NuevaCotizacionPage() {
           x.id === editingConceptoId
             ? {
               ...x,
-              producto_id: prod.id,
-              producto_nombre: String(prod.nombre || ""),
-              producto_descripcion: String(productoDescripcion || ""),
+              producto_externo_id: "",
+              producto_nombre: nombre,
+              producto_descripcion: descripcion,
               unidad: String(unidad || ""),
-              thumbnail_url: prod.imagen?.url || undefined,
               cantidad: qty,
               precio_lista: pl,
               descuento_pct: desc,
@@ -755,11 +677,10 @@ export default function NuevaCotizacionPage() {
         ...prev,
         {
           id: uid(),
-          producto_id: prod.id,
-          producto_nombre: String(prod.nombre || ""),
-          producto_descripcion: String(productoDescripcion || ""),
+          producto_externo_id: "",
+          producto_nombre: nombre,
+          producto_descripcion: descripcion,
           unidad: String(unidad || ""),
-          thumbnail_url: prod.imagen?.url || undefined,
           cantidad: qty,
           precio_lista: pl,
           descuento_pct: desc,
@@ -768,9 +689,8 @@ export default function NuevaCotizacionPage() {
     }
 
     setCantidad(1);
-    setProductoId("");
-    setProductoSearch("");
-    setProductoDescripcion("");
+    setConceptoNombre("");
+    setConceptoDescripcion("");
     setUnidad("");
     setPrecioLista(0);
     setDescuentoPct(0);
@@ -786,9 +706,8 @@ export default function NuevaCotizacionPage() {
     if (!c) return;
     setEditingConceptoId(id);
     setCantidad(toNumber(c.cantidad, 1));
-    setProductoId(c.producto_id ?? "");
-    setProductoSearch(String(c.producto_nombre || ""));
-    setProductoDescripcion(String(c.producto_descripcion || ""));
+    setConceptoNombre(String(c.producto_nombre || ""));
+    setConceptoDescripcion(String(c.producto_descripcion || ""));
     setUnidad(String(c.unidad || ""));
     setPrecioLista(toNumber(c.precio_lista, 0));
     setDescuentoPct(clampPct(toNumber(c.descuento_pct, 0)));
@@ -821,8 +740,8 @@ export default function NuevaCotizacionPage() {
     setStatus('PENDIENTE');
 
     setCantidad(1);
-    setProductoId("");
-    setProductoDescripcion("");
+    setConceptoNombre("");
+    setConceptoDescripcion("");
     setUnidad("");
     setPrecioLista(0);
     setDescuentoPct(0);
@@ -902,7 +821,7 @@ export default function NuevaCotizacionPage() {
       texto_arriba_precios: String(textoArribaPrecios || ""),
       terminos: String(terminos || ""),
       items: computed.lines.map((c, i) => ({
-        producto_id: c.producto_id,
+        producto_externo_id: c.producto_externo_id || "",
         producto_nombre: c.producto_nombre,
         producto_descripcion: c.producto_descripcion,
         unidad: c.unidad,
@@ -1168,40 +1087,21 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div className="lg:col-span-5">
-                      <div className="mt-1">
-                        <ActionSearchBar
-                          label={loadingProductos ? "Cargando productos..." : "Productos o servicios"}
-                          placeholder={loadingProductos ? "Cargando..." : "Buscar por nombre, modelo o descripción"}
-                          value={productoSearch}
-                          onQueryChange={(q) => setProductoSearch(q)}
-                          actions={productos.map((p) => ({
-                            id: String(p.id),
-                            label: String(p.nombre || ""),
-                            icon: (
-                              <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200 text-[10px] font-semibold">
-                                {(String(p.nombre || "?").trim().slice(0, 1) || "?").toUpperCase()}
-                              </span>
-                            ),
-                            description: String(p.modelo || p.descripcion || "").trim() || undefined,
-                            end: p.precio_venta != null && String(p.precio_venta) !== "" ? formatMoney(toNumber(p.precio_venta, 0)) : "",
-                          }))}
-                          onSelectAction={(a) => {
-                            const id = Number(a?.id);
-                            if (!Number.isFinite(id)) return;
-                            setProductoId(id);
-                            setProductoSearch(String(a?.label || ""));
-                          }}
-                          showAllActions={false}
-                        />
-                      </div>
-                      {!loadingProductos && productos.length === 0 && (
-                        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">No hay productos disponibles o no tienes permiso para verlos.</p>
-                      )}
-                      {!!selectedProducto?.descripcion && (
-                        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">
-                          {String(selectedProducto.descripcion)}
-                        </p>
-                      )}
+                      <Label>Concepto / nombre</Label>
+                      <Input
+                        className={inputLikeClassName}
+                        value={conceptoNombre}
+                        onChange={(e) => setConceptoNombre(e.target.value)}
+                        placeholder="Nombre del producto o servicio"
+                      />
+                      <Label className="mt-2">Descripción (opcional)</Label>
+                      <textarea
+                        className={textareaLikeClassName}
+                        value={conceptoDescripcion}
+                        onChange={(e) => setConceptoDescripcion(e.target.value)}
+                        placeholder="Descripción del concepto"
+                        rows={2}
+                      />
                     </div>
 
                     <div className="lg:col-span-3">

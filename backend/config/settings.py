@@ -61,7 +61,7 @@ else:
 
 if DEBUG:
     # Allow common LAN hosts for local development when running on 0.0.0.0
-    for h in ['0.0.0.0', '10.0.0.6', '10.0.0.5', '192.168.1.70']:
+    for h in ['0.0.0.0', '10.0.0.6', '10.0.0.5', '192.168.1.76']:
         if h not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(h)
 
@@ -130,7 +130,7 @@ if DEBUG:
         'http://localhost:5173',
         'http://10.0.0.5:5173',
         'http://10.0.0.6:5173',
-        'http://192.168.1.70:5173',
+        'http://192.168.1.76:5173',
     ]
     CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 else:
@@ -278,3 +278,9 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
+
+# SYSCOM API (proveedor mayorista) — credenciales desde env
+SYSCOM_API_BASE = os.environ.get('SYSCOM_API_BASE', 'https://developers.syscom.mx/api/v1')
+SYSCOM_OAUTH_URL = os.environ.get('SYSCOM_OAUTH_URL', 'https://developers.syscom.mx/oauth/token')
+SYSCOM_CLIENT_ID = os.environ.get('SYSCOM_CLIENT_ID', '')
+SYSCOM_CLIENT_SECRET = os.environ.get('SYSCOM_CLIENT_SECRET', '')

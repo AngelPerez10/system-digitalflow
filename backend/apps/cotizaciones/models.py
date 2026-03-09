@@ -107,13 +107,8 @@ class Cotizacion(models.Model):
 class CotizacionItem(models.Model):
     cotizacion = models.ForeignKey(Cotizacion, on_delete=models.CASCADE, related_name='items')
 
-    producto_id = models.ForeignKey(
-        'productos.Producto',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='cotizacion_items',
-    )
+    # Referencia externa opcional (ej. ID SYSCOM); ya no hay FK a productos locales
+    producto_externo_id = models.CharField(max_length=100, blank=True, default='')
 
     producto_nombre = models.CharField(max_length=255, blank=True, default='')
     producto_descripcion = models.TextField(blank=True, default='')
@@ -133,5 +128,4 @@ class CotizacionItem(models.Model):
         ordering = ['orden', 'id']
         indexes = [
             models.Index(fields=['cotizacion']),
-            models.Index(fields=['producto_id']),
         ]
