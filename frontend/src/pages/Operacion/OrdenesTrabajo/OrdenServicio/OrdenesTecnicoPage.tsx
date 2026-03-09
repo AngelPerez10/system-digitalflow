@@ -81,6 +81,7 @@ export default function OrdenesTecnico() {
   const navigate = useNavigate();
 
   const formNonceRef = useRef(0);
+  const formScrollRef = useRef<HTMLFormElement>(null);
 
   const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string } | null>(null);
 
@@ -2027,7 +2028,7 @@ export default function OrdenesTecnico() {
 
           {/* Body */}
 
-          <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar">
+          <form ref={formScrollRef} onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar">
 
             {/* Modal Alert */}
             {modalAlert.show && (
@@ -2725,6 +2726,9 @@ export default function OrdenesTecnico() {
                     e.preventDefault();
                     e.stopPropagation();
                     setActiveTab('orden');
+                    requestAnimationFrame(() => {
+                      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                    });
                   }}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
                 >

@@ -1,5 +1,5 @@
-﻿import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
@@ -71,8 +71,10 @@ const ORDENES_PAGE_INIT_THROTTLE_MS = 800;
 
 export default function Ordenes() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const formNonceRef = useRef(0);
+  const formScrollRef = useRef<HTMLFormElement>(null);
 
   const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string } | null>(null);
 
@@ -239,6 +241,18 @@ export default function Ordenes() {
     if (filterOpen) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [filterOpen]);
+
+  // Abrir modal de nueva orden con tipo "levantamiento" al llegar desde /levantamiento (Nueva Orden)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('nueva') === 'levantamiento' && canOrdenesCreate) {
+      setShowModal(true);
+      setTipoOrden('levantamiento');
+      setActiveTab('cliente');
+      setEditingOrden(null);
+      navigate('/ordenes', { replace: true });
+    }
+  }, [location.search, canOrdenesCreate, navigate]);
 
   useEffect(() => {
     const now = Date.now();
@@ -2028,7 +2042,7 @@ export default function Ordenes() {
 
           {/* Body */}
 
-          <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar">
+          <form ref={formScrollRef} onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar">
 
             {/* Modal Alert */}
             {modalAlert.show && (
@@ -2702,6 +2716,9 @@ export default function Ordenes() {
                     e.preventDefault();
                     e.stopPropagation();
                     setActiveTab('orden');
+                    requestAnimationFrame(() => {
+                      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                    });
                   }}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
                 >

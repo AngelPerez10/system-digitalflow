@@ -208,6 +208,7 @@ export default function LevantamientoPage() {
 
             <button
               type="button"
+              onClick={() => navigate("/ordenes?nueva=levantamiento")}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
