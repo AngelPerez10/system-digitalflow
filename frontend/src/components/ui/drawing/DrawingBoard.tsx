@@ -625,6 +625,10 @@ export default function DrawingBoard({
       setShapes([]);
       setIsEmpty(false);
     };
+    img.onerror = () => {
+      // Fallback si la URL no carga (ej. CORS o 404); permite reintentar con otra URL
+      lastLoadedValueRef.current = undefined;
+    };
     img.src = value;
   }, [value, width, height]);
 

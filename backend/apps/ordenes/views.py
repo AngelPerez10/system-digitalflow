@@ -281,13 +281,24 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
         ser.is_valid(raise_exception=True)
 
+        # Si el dibujo viene como data URL (base64), subirlo a Cloudinary para que sea persistente y visible por otros usuarios
+        validated = ser.validated_data
+        dibujo_url = validated.get('dibujo_url') or ''
+        if _is_data_url(dibujo_url):
+            dibujo_url = _upload_data_url(
+                dibujo_url,
+                folder='ordenes/levantamiento/dibujos',
+                max_size_kb=200,
+            )
+            validated['dibujo_url'] = dibujo_url
+
         if existing:
             obj = ser.save()
         else:
             obj = OrdenLevantamiento.objects.create(
                 orden=orden,
-                payload=ser.validated_data.get('payload', {}),
-                dibujo_url=ser.validated_data.get('dibujo_url', ''),
+                payload=validated.get('payload', {}),
+                dibujo_url=validated.get('dibujo_url', ''),
                 creado_por=getattr(request, 'user', None) if getattr(request, 'user', None) and request.user.is_authenticated else None,
             )
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DrawingBoard from '@/components/ui/drawing/DrawingBoard';
 import Alert from '@/components/ui/alert/Alert';
+import { TrashBinIcon } from '@/icons';
 import { apiUrl } from '@/config/api';
 
 type LevantamientoTipo = '' | 'camara' | 'cerco' | 'alarmas';
@@ -68,6 +69,18 @@ type LevantamientoFormValue = {
   cerco_altura_metros: string;
   cerco_tipo: string;
   cerco_porton: boolean;
+
+  cerco_metros: string;
+  cerco_lineas: number;
+  cerco_metrajes: string[];
+  cerco_metraje_distribucion: '' | 'si' | 'no';
+  cerco_tipo_material: '' | 'acero' | 'aluminio' | 'galvanizado';
+  cerco_color: '' | 'ninguno' | 'blanco' | 'negro';
+  cerco_tipo_energizador: string;
+  cerco_gabinete: '' | 'si' | 'no';
+  cerco_sirena: '' | 'si' | 'no';
+  cerco_cables_tierra: number;
+  cerco_adicionales: string;
 
   alarmas_zonas: string;
   alarmas_sensores_movimiento: boolean;
@@ -137,6 +150,18 @@ const defaultValue: LevantamientoFormValue = {
   cerco_altura_metros: '',
   cerco_tipo: '',
   cerco_porton: false,
+
+  cerco_metros: '',
+  cerco_lineas: 0,
+  cerco_metrajes: [''],
+  cerco_metraje_distribucion: '',
+  cerco_tipo_material: '',
+  cerco_color: '',
+  cerco_tipo_energizador: '',
+  cerco_gabinete: '',
+  cerco_sirena: '',
+  cerco_cables_tierra: 0,
+  cerco_adicionales: '',
 
   alarmas_zonas: '',
   alarmas_sensores_movimiento: true,
@@ -253,7 +278,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
 
       <div className="mb-3">
         <div className="text-[11px] text-gray-500 dark:text-gray-400">
-          {loadingRemote ? 'Cargando levantamiento...' : (!ordenId ? 'Guarda la orden para habilitar el guardado del levantamiento.' : '')}
+          {loadingRemote ? 'Cargando levantamiento...' : (!ordenId ? '' : '')}
         </div>
       </div>
       <div className="mt-4 rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
@@ -318,6 +343,21 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
               camara_turret_cantidad: 0,
               camara_turret_megapixeles: 0,
               camara_turret_detalles: [],
+              ...(nextTipo === 'cerco'
+                ? {
+                    cerco_metros: '',
+                    cerco_lineas: 0,
+                    cerco_metrajes: [''],
+                    cerco_metraje_distribucion: '' as const,
+                    cerco_tipo_material: '' as const,
+                    cerco_color: '' as const,
+                    cerco_tipo_energizador: '',
+                    cerco_gabinete: '' as const,
+                    cerco_sirena: '' as const,
+                    cerco_cables_tierra: 0,
+                    cerco_adicionales: '',
+                  }
+                : {}),
             }));
           }}
           className={inputBaseClass}
@@ -330,7 +370,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
 
         {v.tipo === 'camara' && (
           <>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Tipo de cámara</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2 mt-6">Tipo de cámara</label>
 
             <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-gray-900/35 overflow-hidden">
               <div className="divide-y divide-gray-200 dark:divide-white/10">
@@ -1698,6 +1738,242 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
                   <option value="no">No</option>
                 </select>
               </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {v.tipo === 'cerco' && (
+        <>
+          <div className="mt-6 rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4 mb-3">
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+              <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Datos del cerco</h4>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Metros de cerco</label>
+                <input
+                  type="text"
+                  value={v.cerco_metros}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_metros: e.target.value }))}
+                  placeholder="Ej: 50"
+                  className={inputBaseClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">A cuántas líneas</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={v.cerco_lineas ? v.cerco_lineas : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setV((prev) => ({ ...prev, cerco_lineas: 0 }));
+                      return;
+                    }
+                    setV((prev) => ({ ...prev, cerco_lineas: Math.max(0, Number(raw)) }));
+                  }}
+                  placeholder="0"
+                  className={inputBaseClass}
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Metraje</label>
+                  <input
+                    type="text"
+                    value={(v.cerco_metrajes || [''])[0] ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setV((prev) => {
+                        const arr = prev.cerco_metrajes || [''];
+                        const next = [...arr];
+                        next[0] = value;
+                        return { ...prev, cerco_metrajes: next.length ? next : [''] };
+                      });
+                    }}
+                    placeholder="m"
+                    className={inputBaseClass}
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Distribución</label>
+                  <select
+                    value={v.cerco_metraje_distribucion}
+                    onChange={(e) =>
+                      setV((prev) => ({
+                        ...prev,
+                        cerco_metraje_distribucion: (e.target.value as '' | 'si' | 'no') || '',
+                      }))
+                    }
+                    className={inputBaseClass}
+                  >
+                    <option value="">Seleccionar...</option>
+                    <option value="si">Sí</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+              </div>
+              {v.cerco_metraje_distribucion === 'si' && (
+                <>
+                  <div className="flex items-center justify-between gap-2 mb-2 mt-3">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Detalle por metraje</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setV((prev) => ({
+                          ...prev,
+                          cerco_metrajes: [...(prev.cerco_metrajes || ['']), ''],
+                        }))
+                      }
+                      className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                    >
+                      + Agregar metraje
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {(v.cerco_metrajes || ['']).map((val, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 min-w-[72px]">Metraje {idx + 1}</span>
+                        <input
+                          type="text"
+                          value={val}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setV((prev) => {
+                              const next = [...(prev.cerco_metrajes || [''])];
+                              next[idx] = value;
+                              return { ...prev, cerco_metrajes: next };
+                            });
+                          }}
+                          placeholder="m"
+                          className={inputBaseClass}
+                        />
+                        {(v.cerco_metrajes || []).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setV((prev) => {
+                                const next = (prev.cerco_metrajes || ['']).filter((_, i) => i !== idx);
+                                return { ...prev, cerco_metrajes: next.length >= 1 ? next : [''] };
+                              })
+                            }
+                            className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            aria-label="Quitar metraje"
+                          >
+                            <TrashBinIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de material</label>
+                <select
+                  value={v.cerco_tipo_material}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_tipo_material: (e.target.value as any) || '' }))}
+                  className={inputBaseClass}
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="acero">Acero</option>
+                  <option value="aluminio">Aluminio</option>
+                  <option value="galvanizado">Galvanizado</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Color del cercado</label>
+                <select
+                  value={v.cerco_color}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_color: (e.target.value as any) || '' }))}
+                  className={inputBaseClass}
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="ninguno">Ninguno</option>
+                  <option value="blanco">Blanco</option>
+                  <option value="negro">Negro</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de energizador</label>
+              <input
+                type="text"
+                value={v.cerco_tipo_energizador}
+                onChange={(e) => setV((prev) => ({ ...prev, cerco_tipo_energizador: e.target.value }))}
+                placeholder="Ej: capacidad por metros"
+                className={inputBaseClass}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿Lleva gabinete?</label>
+                <select
+                  value={v.cerco_gabinete}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_gabinete: (e.target.value as any) || '' }))}
+                  className={inputBaseClass}
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="si">Sí</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿Lleva sirena?</label>
+                <select
+                  value={v.cerco_sirena}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_sirena: (e.target.value as any) || '' }))}
+                  className={inputBaseClass}
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="si">Sí</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿Cuántos metros de cable de tierra?</label>
+              <input
+                type="number"
+                min={0}
+                value={v.cerco_cables_tierra ? v.cerco_cables_tierra : ''}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') {
+                    setV((prev) => ({ ...prev, cerco_cables_tierra: 0 }));
+                    return;
+                  }
+                  setV((prev) => ({ ...prev, cerco_cables_tierra: Math.max(0, Number(raw)) }));
+                }}
+                placeholder="0"
+                className={inputBaseClass}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Adicionales</label>
+              <textarea
+                value={v.cerco_adicionales}
+                onChange={(e) => setV((prev) => ({ ...prev, cerco_adicionales: e.target.value }))}
+                placeholder="Notas o datos adicionales"
+                rows={3}
+                className={`${inputBaseClass} min-h-[80px] resize-y`}
+              />
             </div>
           </div>
         </>

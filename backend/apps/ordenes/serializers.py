@@ -114,6 +114,34 @@ class OrdenLevantamientoSerializer(serializers.ModelSerializer):
             if 'bobina_cable_metraje' in payload:
                 payload.pop('bobina_cable_metraje', None)
 
+        # Normalizar datos de cerco para levantamientos tipo cerco
+        if payload.get('tipo') == 'cerco':
+            # cerco_metrajes: lista de strings
+            metrajes = payload.get('cerco_metrajes')
+            if metrajes is not None:
+                if not isinstance(metrajes, list):
+                    payload['cerco_metrajes'] = [str(metrajes).strip()] if metrajes else ['']
+                else:
+                    payload['cerco_metrajes'] = [str(m).strip() if m is not None else '' for m in metrajes]
+                    if not payload['cerco_metrajes']:
+                        payload['cerco_metrajes'] = ['']
+            else:
+                payload['cerco_metrajes'] = ['']
+
+            # cerco_metraje_distribucion: '' | 'si' | 'no'
+            dist = payload.get('cerco_metraje_distribucion')
+            if dist not in ('', 'si', 'no'):
+                payload['cerco_metraje_distribucion'] = ''
+
+            # cerco_lineas, cerco_cables_tierra: enteros >= 0
+            for key in ('cerco_lineas', 'cerco_cables_tierra'):
+                val = payload.get(key)
+                try:
+                    n = int(val) if val is not None else 0
+                    payload[key] = max(0, n)
+                except (TypeError, ValueError):
+                    payload[key] = 0
+
         return payload
 
     class Meta:
