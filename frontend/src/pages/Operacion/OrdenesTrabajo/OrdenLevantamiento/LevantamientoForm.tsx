@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DrawingBoard from '@/components/ui/drawing/DrawingBoard';
 import Alert from '@/components/ui/alert/Alert';
-import { TrashBinIcon } from '@/icons';
 import { apiUrl } from '@/config/api';
+import {
+  buildProductosQuery,
+  fetchSyscom,
+  getAuthToken,
+  getProductoImageUrl,
+  type SyscomProducto,
+} from '@/pages/ProductosYServicios/syscomCatalog';
 
 type LevantamientoTipo = '' | 'camara' | 'cerco' | 'alarmas';
 
@@ -74,11 +80,14 @@ type LevantamientoFormValue = {
   cerco_lineas: number;
   cerco_metrajes: string[];
   cerco_metraje_distribucion: '' | 'si' | 'no';
-  cerco_tipo_material: '' | 'acero' | 'aluminio' | 'galvanizado';
-  cerco_color: '' | 'ninguno' | 'blanco' | 'negro';
+  cerco_tipo_material: '' | 'acero_inoxidable' | 'aluminio';
+  cerco_color: '' | 'blanco' | 'negro' | 'galvanizado';
   cerco_tipo_energizador: string;
   cerco_gabinete: '' | 'si' | 'no';
-  cerco_sirena: '' | 'si' | 'no';
+  cerco_marca_energizador: '' | 'yonusa' | 'sfire';
+  cerco_sirena: '' | 'si' | 'no' | '30w' | '15w';
+  cerco_kit_tierra_fisica: '' | 'si' | 'no';
+  cerco_antiplantas: '' | 'si' | 'no';
   cerco_cables_tierra: number;
   cerco_adicionales: string;
 
@@ -89,6 +98,43 @@ type LevantamientoFormValue = {
   alarmas_comunicacion: 'wifi' | 'ethernet' | 'gsm' | '';
 
   dibujo_url: string;
+};
+
+/** Modelos de producto cerco (catálogo Syscom). */
+const CERCO_PRODUCT_MODELS = {
+  KIT_METROS_75: 'SYSNGHS-KIT',
+  KIT_METROS_500: 'SYSNGV2-KIT',
+  KIT_METROS_800: 'SYS12000/127V3H',
+  ANTIPLANTAS: 'SYS12000/127AFV3',
+  SFIRE_ENERGIZADOR: 'SF-SMART-FENCE',
+  KIT_TIERRA_FISICA: 'TG-KIT-VAR15',
+} as const;
+
+/** Modelo de kit según metros de cerco: ≤75, 76–500, 501–800. */
+function getModelForMetros(metros: number): string | null {
+  if (!Number.isFinite(metros) || metros < 0) return null;
+  if (metros <= 75) return CERCO_PRODUCT_MODELS.KIT_METROS_75;
+  if (metros <= 500) return CERCO_PRODUCT_MODELS.KIT_METROS_500;
+  if (metros <= 800) return CERCO_PRODUCT_MODELS.KIT_METROS_800;
+  return null;
+}
+
+/** Estado inicial de la sección cerco (evita duplicar en defaultValue y al cambiar tipo). */
+const cercoInitialState = {
+  cerco_metros: '',
+  cerco_lineas: 0,
+  cerco_metrajes: [''] as string[],
+  cerco_metraje_distribucion: '' as '' | 'si' | 'no',
+  cerco_tipo_material: '' as LevantamientoFormValue['cerco_tipo_material'],
+  cerco_color: '' as LevantamientoFormValue['cerco_color'],
+  cerco_tipo_energizador: '',
+  cerco_gabinete: '' as '' | 'si' | 'no',
+  cerco_marca_energizador: '' as '' | 'yonusa' | 'sfire',
+  cerco_sirena: '' as LevantamientoFormValue['cerco_sirena'],
+  cerco_kit_tierra_fisica: '' as '' | 'si' | 'no',
+  cerco_antiplantas: '' as '' | 'si' | 'no',
+  cerco_cables_tierra: 0,
+  cerco_adicionales: '',
 };
 
 const defaultValue: LevantamientoFormValue = {
@@ -151,17 +197,7 @@ const defaultValue: LevantamientoFormValue = {
   cerco_tipo: '',
   cerco_porton: false,
 
-  cerco_metros: '',
-  cerco_lineas: 0,
-  cerco_metrajes: [''],
-  cerco_metraje_distribucion: '',
-  cerco_tipo_material: '',
-  cerco_color: '',
-  cerco_tipo_energizador: '',
-  cerco_gabinete: '',
-  cerco_sirena: '',
-  cerco_cables_tierra: 0,
-  cerco_adicionales: '',
+  ...cercoInitialState,
 
   alarmas_zonas: '',
   alarmas_sensores_movimiento: true,
@@ -196,6 +232,8 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
   };
 
   const [v, setV] = useState<LevantamientoFormValue>(defaultValue);
+  const [materialesCerco, setMaterialesCerco] = useState<SyscomProducto[]>([]);
+  const [loadingMateriales, setLoadingMateriales] = useState(false);
   const [loadingRemote, setLoadingRemote] = useState(false);
   const [alert, setAlert] = useState<{ show: boolean; variant: 'success' | 'error' | 'warning' | 'info'; title: string; message: string }>({
     show: false,
@@ -261,6 +299,68 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
     });
   }, [v, onSnapshot]);
 
+  const cercoMetrosNum = useMemo(() => {
+    if (v.tipo !== 'cerco') return null;
+    const raw = String(v.cerco_metros || '').replace(',', '.').trim();
+    const n = parseFloat(raw);
+    return Number.isFinite(n) ? n : null;
+  }, [v.tipo, v.cerco_metros]);
+
+  const cercoKitModel = useMemo(
+    () => (cercoMetrosNum !== null ? getModelForMetros(cercoMetrosNum) : null),
+    [cercoMetrosNum]
+  );
+
+  /** Modelos a buscar según opciones de cerco (kit por metros, antiplantas, SFIRE, kit tierra). */
+  const cercoModelosToFetch = useMemo(() => {
+    if (v.tipo !== 'cerco') return [];
+    const models: string[] = [];
+    if (cercoKitModel) models.push(cercoKitModel);
+    if (v.cerco_antiplantas === 'si') models.push(CERCO_PRODUCT_MODELS.ANTIPLANTAS);
+    if (v.cerco_marca_energizador === 'sfire') models.push(CERCO_PRODUCT_MODELS.SFIRE_ENERGIZADOR);
+    if (v.cerco_kit_tierra_fisica === 'si') models.push(CERCO_PRODUCT_MODELS.KIT_TIERRA_FISICA);
+    return [...new Set(models)];
+  }, [v.tipo, v.cerco_antiplantas, v.cerco_marca_energizador, v.cerco_kit_tierra_fisica, cercoKitModel]);
+
+  useEffect(() => {
+    if (v.tipo !== 'cerco') {
+      setMaterialesCerco([]);
+      return;
+    }
+    const token = getAuthToken();
+    if (!token || cercoModelosToFetch.length === 0) {
+      setMaterialesCerco([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingMateriales(true);
+    const fetchOne = (modelo: string): Promise<SyscomProducto | null> =>
+      fetchSyscom(`productos/?${buildProductosQuery({ busqueda: modelo, pagina: 1 })}`, token)
+        .then((res) => res.json().catch(() => ({})))
+        .then((data: { productos?: SyscomProducto[] }) => {
+          const list = data.productos ?? [];
+          return list.find((p) => (p.modelo || '').toUpperCase() === modelo.toUpperCase()) ?? list[0] ?? null;
+        })
+        .catch(() => null);
+
+    Promise.all(cercoModelosToFetch.map(fetchOne))
+      .then((results) => {
+        if (cancelled) return;
+        const seen = new Set<string>();
+        const merged = results.filter((p): p is SyscomProducto => p != null && !seen.has(p.producto_id) && (seen.add(p.producto_id), true));
+        setMaterialesCerco(merged);
+      })
+      .catch(() => {
+        if (!cancelled) setMaterialesCerco([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMateriales(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [v.tipo, cercoModelosToFetch.join(',')]);
+
   return (
     <>
       {alert.show && (
@@ -301,7 +401,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
               camara_grabado_compuertas: '',
               camara_grabado_compuertas_cantidad: 0,
               camara_grabado_switch_poe_piezas: 0,
-              camara_grabado_switch_poe_capacidad: '',
+              camara_grabado_switch_poe_capacidades: [],
               camara_grabado_puertos_hdd: 0,
               camara_grabado_almacenamiento: '',
               camara_grabado_capacidad_tb: 1,
@@ -343,21 +443,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
               camara_turret_cantidad: 0,
               camara_turret_megapixeles: 0,
               camara_turret_detalles: [],
-              ...(nextTipo === 'cerco'
-                ? {
-                    cerco_metros: '',
-                    cerco_lineas: 0,
-                    cerco_metrajes: [''],
-                    cerco_metraje_distribucion: '' as const,
-                    cerco_tipo_material: '' as const,
-                    cerco_color: '' as const,
-                    cerco_tipo_energizador: '',
-                    cerco_gabinete: '' as const,
-                    cerco_sirena: '' as const,
-                    cerco_cables_tierra: 0,
-                    cerco_adicionales: '',
-                  }
-                : {}),
+...(nextTipo === 'cerco' ? cercoInitialState : {}),
             }));
           }}
           className={inputBaseClass}
@@ -1765,163 +1851,88 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">A cuántas líneas</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={v.cerco_lineas ? v.cerco_lineas : ''}
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿A cuántas líneas?</label>
+                <select
+                  value={v.cerco_lineas ? String(v.cerco_lineas) : ''}
                   onChange={(e) => {
                     const raw = e.target.value;
-                    if (raw === '') {
-                      setV((prev) => ({ ...prev, cerco_lineas: 0 }));
-                      return;
-                    }
-                    setV((prev) => ({ ...prev, cerco_lineas: Math.max(0, Number(raw)) }));
+                    setV((prev) => ({
+                      ...prev,
+                      cerco_lineas: raw ? (raw === '5' ? 5 : 3) : 0,
+                    }));
                   }}
-                  placeholder="0"
                   className={inputBaseClass}
-                />
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="5">5 líneas</option>
+                  <option value="3">3 líneas</option>
+                </select>
               </div>
-            </div>
-
-            <div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Metraje</label>
-                  <input
-                    type="text"
-                    value={(v.cerco_metrajes || [''])[0] ?? ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setV((prev) => {
-                        const arr = prev.cerco_metrajes || [''];
-                        const next = [...arr];
-                        next[0] = value;
-                        return { ...prev, cerco_metrajes: next.length ? next : [''] };
-                      });
-                    }}
-                    placeholder="m"
-                    className={inputBaseClass}
-                  />
-                </div>
-                <div className="sm:col-span-1">
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Distribución</label>
-                  <select
-                    value={v.cerco_metraje_distribucion}
-                    onChange={(e) =>
-                      setV((prev) => ({
-                        ...prev,
-                        cerco_metraje_distribucion: (e.target.value as '' | 'si' | 'no') || '',
-                      }))
-                    }
-                    className={inputBaseClass}
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="si">Sí</option>
-                    <option value="no">No</option>
-                  </select>
-                </div>
-              </div>
-              {v.cerco_metraje_distribucion === 'si' && (
-                <>
-                  <div className="flex items-center justify-between gap-2 mb-2 mt-3">
-                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Detalle por metraje</span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setV((prev) => ({
-                          ...prev,
-                          cerco_metrajes: [...(prev.cerco_metrajes || ['']), ''],
-                        }))
-                      }
-                      className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
-                    >
-                      + Agregar metraje
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {(v.cerco_metrajes || ['']).map((val, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 min-w-[72px]">Metraje {idx + 1}</span>
-                        <input
-                          type="text"
-                          value={val}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setV((prev) => {
-                              const next = [...(prev.cerco_metrajes || [''])];
-                              next[idx] = value;
-                              return { ...prev, cerco_metrajes: next };
-                            });
-                          }}
-                          placeholder="m"
-                          className={inputBaseClass}
-                        />
-                        {(v.cerco_metrajes || []).length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setV((prev) => {
-                                const next = (prev.cerco_metrajes || ['']).filter((_, i) => i !== idx);
-                                return { ...prev, cerco_metrajes: next.length >= 1 ? next : [''] };
-                              })
-                            }
-                            className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                            aria-label="Quitar metraje"
-                          >
-                            <TrashBinIcon className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de material</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de alambre</label>
                 <select
                   value={v.cerco_tipo_material}
                   onChange={(e) => setV((prev) => ({ ...prev, cerco_tipo_material: (e.target.value as any) || '' }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
-                  <option value="acero">Acero</option>
+                  <option value="acero">Acero Inoxidable</option>
                   <option value="aluminio">Aluminio</option>
-                  <option value="galvanizado">Galvanizado</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Color del cercado</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Color del poste</label>
                 <select
                   value={v.cerco_color}
                   onChange={(e) => setV((prev) => ({ ...prev, cerco_color: (e.target.value as any) || '' }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
-                  <option value="ninguno">Ninguno</option>
                   <option value="blanco">Blanco</option>
                   <option value="negro">Negro</option>
+                  <option value="galvanizado">Galvanizado</option>
                 </select>
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de energizador</label>
-              <input
-                type="text"
-                value={v.cerco_tipo_energizador}
-                onChange={(e) => setV((prev) => ({ ...prev, cerco_tipo_energizador: e.target.value }))}
-                placeholder="Ej: capacidad por metros"
-                className={inputBaseClass}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Marca de energizador</label>
+                <select
+                  value={v.cerco_marca_energizador}
+                  onChange={(e) => {
+                    const value = (e.target.value as '' | 'yonusa' | 'sfire') || '';
+                    setV((prev) => ({
+                      ...prev,
+                      cerco_marca_energizador: value,
+                      cerco_tipo_energizador: value === 'sfire' ? CERCO_PRODUCT_MODELS.SFIRE_ENERGIZADOR : prev.cerco_tipo_energizador,
+                    }));
+                  }}
+                  className={inputBaseClass}
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="yonusa">Yonusa</option>
+                  <option value="sfire">SFIRE</option>
+                </select>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿Lleva gabinete?</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de energizador</label>
+                <input
+                  type="text"
+                  value={v.cerco_tipo_energizador}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_tipo_energizador: e.target.value }))}
+                  placeholder="Ej: capacidad por metros"
+                  className={inputBaseClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Gabinete de energizador</label>
                 <select
                   value={v.cerco_gabinete}
                   onChange={(e) => setV((prev) => ({ ...prev, cerco_gabinete: (e.target.value as any) || '' }))}
@@ -1932,11 +1943,42 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
                   <option value="no">No</option>
                 </select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿Lleva sirena?</label>
                 <select
                   value={v.cerco_sirena}
                   onChange={(e) => setV((prev) => ({ ...prev, cerco_sirena: (e.target.value as any) || '' }))}
+                  className={inputBaseClass}
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="30w">30 W</option>
+                  <option value="15w">15 W</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Kit tierra física</label>
+                <select
+                  value={v.cerco_kit_tierra_fisica}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_kit_tierra_fisica: (e.target.value as any) || '' }))}
+                  className={inputBaseClass}
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="si">Sí</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Antiplantas</label>
+                <select
+                  value={v.cerco_antiplantas}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_antiplantas: (e.target.value as any) || '' }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -1947,7 +1989,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿Cuántos metros de cable de tierra?</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Metros de cerco</label>
               <input
                 type="number"
                 min={0}
@@ -1975,6 +2017,52 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
                 className={`${inputBaseClass} min-h-[80px] resize-y`}
               />
             </div>
+          </div>
+
+          {/* Sección Materiales (productos según metros de cerco) */}
+          <div className="mt-6 rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs">
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+              <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Materiales</h4>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 mb-3">
+              Productos sugeridos según metros de cerco
+            </p>
+            {loadingMateriales ? (
+              <div className="py-4 text-center text-sm text-gray-500 dark:text-gray-400">Cargando productos...</div>
+            ) : materialesCerco.length === 0 ? (
+              <div className="py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                {cercoModelosToFetch.length === 0
+                  ? 'Ingresa metros de cerco, o elige Antiplantas (Sí), Marca SFIRE o Kit tierra física (Sí) para ver productos sugeridos.'
+                  : 'No se encontró alguno de los productos en el catálogo.'}
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {materialesCerco.map((p) => {
+                  const imgUrl = getProductoImageUrl(p.img_portada);
+                  return (
+                    <li
+                      key={p.producto_id}
+                      className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-white/10 p-3 bg-gray-50/50 dark:bg-gray-800/30"
+                    >
+                      {imgUrl && (
+                        <img
+                          src={imgUrl}
+                          alt=""
+                          className="h-14 w-14 object-contain rounded border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-800"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{p.modelo}</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{p.titulo || p.marca}</div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </>
       )}
