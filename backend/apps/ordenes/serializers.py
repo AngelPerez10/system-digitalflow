@@ -133,14 +133,32 @@ class OrdenLevantamientoSerializer(serializers.ModelSerializer):
             if dist not in ('', 'si', 'no'):
                 payload['cerco_metraje_distribucion'] = ''
 
+            # cerco_metros y metros por tramo: strings
+            for key in (
+                'cerco_metros',
+                'cerco_metros_tramo_1',
+                'cerco_metros_tramo_2',
+            ):
+                val = payload.get(key)
+                payload[key] = str(val).strip() if val is not None else ''
+
             # cerco_lineas, cerco_cables_tierra: enteros >= 0
-            for key in ('cerco_lineas', 'cerco_cables_tierra'):
+            for key in (
+                'cerco_lineas',
+                'cerco_lineas_tramo_1',
+                'cerco_lineas_tramo_2',
+                'cerco_cables_tierra',
+            ):
                 val = payload.get(key)
                 try:
                     n = int(val) if val is not None else 0
                     payload[key] = max(0, n)
                 except (TypeError, ValueError):
                     payload[key] = 0
+
+            # Valores fijos de líneas por tramo
+            payload['cerco_lineas_tramo_1'] = 5
+            payload['cerco_lineas_tramo_2'] = 3
 
         return payload
 

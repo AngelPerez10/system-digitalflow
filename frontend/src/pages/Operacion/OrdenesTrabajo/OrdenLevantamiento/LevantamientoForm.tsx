@@ -77,7 +77,11 @@ type LevantamientoFormValue = {
   cerco_porton: boolean;
 
   cerco_metros: string;
+  cerco_metros_tramo_1: string;
+  cerco_metros_tramo_2: string;
   cerco_lineas: number;
+  cerco_lineas_tramo_1: number;
+  cerco_lineas_tramo_2: number;
   cerco_metrajes: string[];
   cerco_metraje_distribucion: '' | 'si' | 'no';
   cerco_tipo_material: '' | 'acero_inoxidable' | 'aluminio';
@@ -86,6 +90,7 @@ type LevantamientoFormValue = {
   cerco_gabinete: '' | 'si' | 'no';
   cerco_marca_energizador: '' | 'yonusa' | 'sfire';
   cerco_sirena: '' | 'si' | 'no' | '30w' | '15w';
+  cerco_sirena_con_gabinete: '' | 'si' | 'no';
   cerco_kit_tierra_fisica: '' | 'si' | 'no';
   cerco_antiplantas: '' | 'si' | 'no';
   cerco_cables_tierra: number;
@@ -107,22 +112,37 @@ const CERCO_PRODUCT_MODELS = {
   KIT_METROS_800: 'SYS12000/127V3H',
   ANTIPLANTAS: 'SYS12000/127AFV3',
   SFIRE_ENERGIZADOR: 'SF-SMART-FENCE',
+  GABINETE_ENERGIZADOR: 'PST-4040-20A',
   KIT_TIERRA_FISICA: 'TG-KIT-VAR15',
+  SIRENA_30W: 'SF-581A',
+  SIRENA_15W: 'SF-520A',
+  SIRENA_30W_CON_GABINETE: 'IMP-30-V3',
+  SIRENA_15W_CON_GABINETE: 'IMP15NV2',
 } as const;
 
 /** Modelo de kit según metros de cerco: ≤75, 76–500, 501–800. */
 function getModelForMetros(metros: number): string | null {
-  if (!Number.isFinite(metros) || metros < 0) return null;
+  if (!Number.isFinite(metros) || metros < 1) return null;
   if (metros <= 75) return CERCO_PRODUCT_MODELS.KIT_METROS_75;
   if (metros <= 500) return CERCO_PRODUCT_MODELS.KIT_METROS_500;
   if (metros <= 800) return CERCO_PRODUCT_MODELS.KIT_METROS_800;
   return null;
 }
 
+type CercoMaterialItem = {
+  modelo: string;
+  cantidad: number;
+  producto: SyscomProducto;
+};
+
 /** Estado inicial de la sección cerco (evita duplicar en defaultValue y al cambiar tipo). */
 const cercoInitialState = {
   cerco_metros: '',
+  cerco_metros_tramo_1: '',
+  cerco_metros_tramo_2: '',
   cerco_lineas: 0,
+  cerco_lineas_tramo_1: 5,
+  cerco_lineas_tramo_2: 3,
   cerco_metrajes: [''] as string[],
   cerco_metraje_distribucion: '' as '' | 'si' | 'no',
   cerco_tipo_material: '' as LevantamientoFormValue['cerco_tipo_material'],
@@ -131,6 +151,7 @@ const cercoInitialState = {
   cerco_gabinete: '' as '' | 'si' | 'no',
   cerco_marca_energizador: '' as '' | 'yonusa' | 'sfire',
   cerco_sirena: '' as LevantamientoFormValue['cerco_sirena'],
+  cerco_sirena_con_gabinete: '' as '' | 'si' | 'no',
   cerco_kit_tierra_fisica: '' as '' | 'si' | 'no',
   cerco_antiplantas: '' as '' | 'si' | 'no',
   cerco_cables_tierra: 0,
@@ -232,7 +253,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
   };
 
   const [v, setV] = useState<LevantamientoFormValue>(defaultValue);
-  const [materialesCerco, setMaterialesCerco] = useState<SyscomProducto[]>([]);
+  const [materialesCerco, setMaterialesCerco] = useState<CercoMaterialItem[]>([]);
   const [loadingMateriales, setLoadingMateriales] = useState(false);
   const [loadingRemote, setLoadingRemote] = useState(false);
   const [alert, setAlert] = useState<{ show: boolean; variant: 'success' | 'error' | 'warning' | 'info'; title: string; message: string }>({
@@ -299,28 +320,55 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
     });
   }, [v, onSnapshot]);
 
-  const cercoMetrosNum = useMemo(() => {
-    if (v.tipo !== 'cerco') return null;
+  const cercoKitQtyByModel = useMemo(() => {
+    if (v.tipo !== 'cerco') return {} as Record<string, number>;
+
+    const raw1 = String(v.cerco_metros_tramo_1 || '').replace(',', '.').trim();
+    const raw2 = String(v.cerco_metros_tramo_2 || '').replace(',', '.').trim();
+    const hasTramos = raw1.length > 0 || raw2.length > 0;
+
+    const qty: Record<string, number> = {};
+
+    if (hasTramos) {
+      const n1 = raw1 ? parseFloat(raw1) : NaN;
+      const n2 = raw2 ? parseFloat(raw2) : NaN;
+      const m1 = Number.isFinite(n1) ? getModelForMetros(n1) : null;
+      const m2 = Number.isFinite(n2) ? getModelForMetros(n2) : null;
+      if (m1) qty[m1] = (qty[m1] || 0) + 1;
+      if (m2) qty[m2] = (qty[m2] || 0) + 1;
+      return qty;
+    }
+
     const raw = String(v.cerco_metros || '').replace(',', '.').trim();
-    const n = parseFloat(raw);
-    return Number.isFinite(n) ? n : null;
-  }, [v.tipo, v.cerco_metros]);
+    const n = raw ? parseFloat(raw) : NaN;
+    const model = Number.isFinite(n) ? getModelForMetros(n) : null;
+    if (model) qty[model] = 1;
+    return qty;
+  }, [v.tipo, v.cerco_metros, v.cerco_metros_tramo_1, v.cerco_metros_tramo_2]);
 
-  const cercoKitModel = useMemo(
-    () => (cercoMetrosNum !== null ? getModelForMetros(cercoMetrosNum) : null),
-    [cercoMetrosNum]
-  );
-
-  /** Modelos a buscar según opciones de cerco (kit por metros, antiplantas, SFIRE, kit tierra). */
+  /** Modelos a buscar: kit por metros solo si no Antiplantas ni SFIRE; Antiplantas/SFIRE sustituyen al kit por metros. */
   const cercoModelosToFetch = useMemo(() => {
     if (v.tipo !== 'cerco') return [];
     const models: string[] = [];
-    if (cercoKitModel) models.push(cercoKitModel);
-    if (v.cerco_antiplantas === 'si') models.push(CERCO_PRODUCT_MODELS.ANTIPLANTAS);
-    if (v.cerco_marca_energizador === 'sfire') models.push(CERCO_PRODUCT_MODELS.SFIRE_ENERGIZADOR);
+    const usaAntiplantas = v.cerco_antiplantas === 'si';
+    const usaSfire = v.cerco_marca_energizador === 'sfire';
+    if (!usaAntiplantas && !usaSfire) models.push(...Object.keys(cercoKitQtyByModel));
+    if (usaAntiplantas) models.push(CERCO_PRODUCT_MODELS.ANTIPLANTAS);
+    if (usaSfire) models.push(CERCO_PRODUCT_MODELS.SFIRE_ENERGIZADOR);
+    if (v.cerco_gabinete === 'si') models.push(CERCO_PRODUCT_MODELS.GABINETE_ENERGIZADOR);
     if (v.cerco_kit_tierra_fisica === 'si') models.push(CERCO_PRODUCT_MODELS.KIT_TIERRA_FISICA);
+
+    if (v.cerco_sirena === '30w') {
+      models.push(CERCO_PRODUCT_MODELS.SIRENA_30W);
+      if (v.cerco_sirena_con_gabinete === 'si') models.push(CERCO_PRODUCT_MODELS.SIRENA_30W_CON_GABINETE);
+    }
+    if (v.cerco_sirena === '15w') {
+      models.push(CERCO_PRODUCT_MODELS.SIRENA_15W);
+      if (v.cerco_sirena_con_gabinete === 'si') models.push(CERCO_PRODUCT_MODELS.SIRENA_15W_CON_GABINETE);
+    }
+
     return [...new Set(models)];
-  }, [v.tipo, v.cerco_antiplantas, v.cerco_marca_energizador, v.cerco_kit_tierra_fisica, cercoKitModel]);
+  }, [v.tipo, v.cerco_antiplantas, v.cerco_marca_energizador, v.cerco_gabinete, v.cerco_kit_tierra_fisica, v.cerco_sirena, v.cerco_sirena_con_gabinete, cercoKitQtyByModel]);
 
   useEffect(() => {
     if (v.tipo !== 'cerco') {
@@ -334,21 +382,27 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
     }
     let cancelled = false;
     setLoadingMateriales(true);
-    const fetchOne = (modelo: string): Promise<SyscomProducto | null> =>
+    const fetchOne = (modelo: string): Promise<{ modelo: string; producto: SyscomProducto | null }> =>
       fetchSyscom(`productos/?${buildProductosQuery({ busqueda: modelo, pagina: 1 })}`, token)
         .then((res) => res.json().catch(() => ({})))
         .then((data: { productos?: SyscomProducto[] }) => {
           const list = data.productos ?? [];
-          return list.find((p) => (p.modelo || '').toUpperCase() === modelo.toUpperCase()) ?? list[0] ?? null;
+          const producto = list.find((p) => (p.modelo || '').toUpperCase() === modelo.toUpperCase()) ?? list[0] ?? null;
+          return { modelo, producto };
         })
-        .catch(() => null);
+        .catch(() => ({ modelo, producto: null }));
 
     Promise.all(cercoModelosToFetch.map(fetchOne))
       .then((results) => {
         if (cancelled) return;
-        const seen = new Set<string>();
-        const merged = results.filter((p): p is SyscomProducto => p != null && !seen.has(p.producto_id) && (seen.add(p.producto_id), true));
-        setMaterialesCerco(merged);
+        const items: CercoMaterialItem[] = [];
+        for (const r of results) {
+          if (!r.producto) continue;
+          const isKitMetros = Object.prototype.hasOwnProperty.call(cercoKitQtyByModel, r.modelo);
+          const cantidad = isKitMetros ? (cercoKitQtyByModel[r.modelo] || 1) : 1;
+          items.push({ modelo: r.modelo, cantidad, producto: r.producto });
+        }
+        setMaterialesCerco(items);
       })
       .catch(() => {
         if (!cancelled) setMaterialesCerco([]);
@@ -359,7 +413,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
     return () => {
       cancelled = true;
     };
-  }, [v.tipo, cercoModelosToFetch.join(',')]);
+  }, [v.tipo, cercoModelosToFetch.join(','), cercoKitQtyByModel]);
 
   return (
     <>
@@ -1844,29 +1898,46 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Metros de cerco</label>
                 <input
                   type="text"
-                  value={v.cerco_metros}
-                  onChange={(e) => setV((prev) => ({ ...prev, cerco_metros: e.target.value }))}
+                  value={v.cerco_metros_tramo_1}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_metros_tramo_1: e.target.value }))}
                   placeholder="Ej: 50"
                   className={inputBaseClass}
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿A cuántas líneas?</label>
-                <select
-                  value={v.cerco_lineas ? String(v.cerco_lineas) : ''}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    setV((prev) => ({
-                      ...prev,
-                      cerco_lineas: raw ? (raw === '5' ? 5 : 3) : 0,
-                    }));
-                  }}
+                <input
+                  type="number"
+                  min={0}
+                  value={v.cerco_lineas_tramo_1}
+                  disabled
+                  placeholder="0"
                   className={inputBaseClass}
-                >
-                  <option value="">Seleccionar...</option>
-                  <option value="5">5 líneas</option>
-                  <option value="3">3 líneas</option>
-                </select>
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Metros de cerco</label>
+                <input
+                  type="text"
+                  value={v.cerco_metros_tramo_2}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_metros_tramo_2: e.target.value }))}
+                  placeholder="Ej: 30"
+                  className={inputBaseClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿A cuántas líneas?</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={v.cerco_lineas_tramo_2}
+                  disabled
+                  placeholder="0"
+                  className={inputBaseClass}
+                />
               </div>
             </div>
 
@@ -1908,7 +1979,6 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
                     setV((prev) => ({
                       ...prev,
                       cerco_marca_energizador: value,
-                      cerco_tipo_energizador: value === 'sfire' ? CERCO_PRODUCT_MODELS.SFIRE_ENERGIZADOR : prev.cerco_tipo_energizador,
                     }));
                   }}
                   className={inputBaseClass}
@@ -1950,7 +2020,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿Lleva sirena?</label>
                 <select
                   value={v.cerco_sirena}
-                  onChange={(e) => setV((prev) => ({ ...prev, cerco_sirena: (e.target.value as any) || '' }))}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_sirena: (e.target.value as any) || '', cerco_sirena_con_gabinete: '' }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -1959,6 +2029,20 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
                   <option value="no">No</option>
                 </select>
               </div>
+              {(v.cerco_sirena === '30w' || v.cerco_sirena === '15w') && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿Con gabinete?</label>
+                  <select
+                    value={v.cerco_sirena_con_gabinete}
+                    onChange={(e) => setV((prev) => ({ ...prev, cerco_sirena_con_gabinete: (e.target.value as any) || '' }))}
+                    className={inputBaseClass}
+                  >
+                    <option value="">Seleccionar...</option>
+                    <option value="si">Sí</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1986,25 +2070,6 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
                   <option value="no">No</option>
                 </select>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Metros de cerco</label>
-              <input
-                type="number"
-                min={0}
-                value={v.cerco_cables_tierra ? v.cerco_cables_tierra : ''}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === '') {
-                    setV((prev) => ({ ...prev, cerco_cables_tierra: 0 }));
-                    return;
-                  }
-                  setV((prev) => ({ ...prev, cerco_cables_tierra: Math.max(0, Number(raw)) }));
-                }}
-                placeholder="0"
-                className={inputBaseClass}
-              />
             </div>
 
             <div>
@@ -2040,7 +2105,8 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
               </div>
             ) : (
               <ul className="space-y-3">
-                {materialesCerco.map((p) => {
+                {materialesCerco.map((item) => {
+                  const p = item.producto;
                   const imgUrl = getProductoImageUrl(p.img_portada);
                   return (
                     <li
@@ -2055,7 +2121,14 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
                         />
                       )}
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{p.modelo}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{p.modelo}</div>
+                          {item.cantidad > 1 && (
+                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300 border border-brand-200/70 dark:border-brand-400/20">
+                              x{item.cantidad}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{p.titulo || p.marca}</div>
                       </div>
                     </li>
