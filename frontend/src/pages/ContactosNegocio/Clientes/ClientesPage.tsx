@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import PageMeta from "@/components/common/PageMeta";
@@ -592,11 +592,15 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
         return;
       }
 
-      for (const id of deletedContactIds) {
-        await fetch(apiUrl(`/api/cliente-contactos/${id}/`), {
+      const idsToDelete = [...new Set(deletedContactIds)];
+      for (const id of idsToDelete) {
+        const res = await fetch(apiUrl(`/api/cliente-contactos/${id}/`), {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         }).catch(() => null);
+        if (res && !res.ok && res.status !== 404) {
+          console.warn(`DELETE contacto ${id} falló:`, res.status);
+        }
       }
 
       for (const c of contactos) {

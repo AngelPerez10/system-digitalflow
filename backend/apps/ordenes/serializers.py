@@ -8,6 +8,7 @@ class OrdenSerializer(serializers.ModelSerializer):
     tecnico_asignado_username = serializers.CharField(source='tecnico_asignado.username', read_only=True)
     tecnico_asignado_full_name = serializers.SerializerMethodField()
     creado_por_username = serializers.CharField(source='creado_por.username', read_only=True)
+    tipo_orden = serializers.SerializerMethodField()
 
     def validate_folio(self, value):
         if isinstance(value, str) and value.strip() == '':
@@ -23,12 +24,23 @@ class OrdenSerializer(serializers.ModelSerializer):
             return obj.tecnico_asignado.username or obj.tecnico_asignado.email
         return None
 
+    def get_tipo_orden(self, obj):
+        if getattr(obj, 'tiene_levantamiento', False):
+            return 'levantamiento'
+        try:
+            if hasattr(obj, 'levantamiento') and obj.levantamiento is not None:
+                return 'levantamiento'
+        except Exception:
+            pass
+        return 'servicio_tecnico'
+
     class Meta:
         model = Orden
         fields = [
             'id',
             'idx',
             'folio',
+            'tipo_orden',
             'cliente_id',
             'cliente_nombre',
             'cliente',
@@ -61,6 +73,7 @@ class OrdenSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id',
             'idx',
+            'tipo_orden',
             'cliente_nombre',
             'tecnico_asignado_username',
             'tecnico_asignado_full_name',

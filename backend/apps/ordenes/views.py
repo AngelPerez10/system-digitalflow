@@ -12,7 +12,7 @@ from rest_framework.response import Response
 
 from django.http import HttpResponse
 from django.db import transaction
-from django.db.models import F
+from django.db.models import Exists, F, OuterRef
 
 from PIL import Image
 
@@ -247,10 +247,15 @@ def _img_url_to_data_uri(url: str) -> str:
 
 
 class OrdenViewSet(viewsets.ModelViewSet):
-    queryset = Orden.objects.select_related('cliente_id', 'tecnico_asignado', 'creado_por').order_by(
-        F('fecha_inicio').desc(nulls_last=True),
-        F('fecha_creacion').desc(nulls_last=True),
-        '-id',
+    queryset = (
+        Orden.objects
+        .annotate(tiene_levantamiento=Exists(OrdenLevantamiento.objects.filter(orden_id=OuterRef('pk'))))
+        .select_related('cliente_id', 'tecnico_asignado', 'creado_por')
+        .order_by(
+            F('fecha_inicio').desc(nulls_last=True),
+            F('fecha_creacion').desc(nulls_last=True),
+            '-id',
+        )
     )
     serializer_class = OrdenSerializer
 

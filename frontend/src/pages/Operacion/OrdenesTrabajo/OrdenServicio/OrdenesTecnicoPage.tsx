@@ -12,7 +12,7 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { apiUrl } from "@/config/api";
-import { PencilIcon, TrashBinIcon, TimeIcon } from "../../../../icons";
+import { PencilIcon, TrashBinIcon, TimeIcon } from "@/icons";
 import { MobileOrderList } from "./MobileOrderCard";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
@@ -48,6 +48,7 @@ interface Orden {
   fotos_urls: string[];
   pdf_url?: string;
   fecha_creacion: string;
+  tipo_orden?: 'servicio_tecnico' | 'levantamiento' | string;
 }
 
 interface Usuario {
@@ -522,6 +523,7 @@ export default function OrdenesTecnico() {
   const [formData, setFormData] = useState({
     folio: "",
     cliente_id: null as number | null,
+    contacto_id: null as number | null,
     cliente: "",
     direccion: "",
     telefono_cliente: "",
@@ -893,6 +895,7 @@ export default function OrdenesTecnico() {
       const payload: any = { ...formData };
       // Firma del encargado se maneja desde el perfil del usuario (no enviar base64 desde órdenes)
       delete payload.firma_encargado_url;
+      delete payload.contacto_id;
       if (payload.tecnico_asignado == null) {
         delete payload.tecnico_asignado;
       }
@@ -940,6 +943,16 @@ export default function OrdenesTecnico() {
               dibujo_url: snap.dibujo_url || '',
             }),
           }).catch(() => null);
+          setOrdenes((prev) => {
+            const list = Array.isArray(prev) ? prev : [];
+            const idx = list.findIndex((o) => (o as any).id === savedOrden.id);
+            if (idx >= 0) {
+              const copy = list.slice();
+              copy[idx] = { ...copy[idx], tipo_orden: 'levantamiento' as const };
+              return copy;
+            }
+            return prev;
+          });
         }
         if (cid && (payload?.direccion || payload?.telefono_cliente)) {
           const existingCliente = clientes.find(c => c.id === cid);
@@ -969,19 +982,36 @@ export default function OrdenesTecnico() {
 
         if (cid && (payload?.nombre_cliente || payload?.telefono_cliente)) {
           const existingCliente = clientes.find(c => c.id === cid);
-          const contactos = (existingCliente as any)?.contactos;
-          const principal = Array.isArray(contactos)
-            ? (contactos.find((c: any) => c?.is_principal) || contactos[0])
-            : null;
+          const contactos = Array.isArray((existingCliente as any)?.contactos) ? (existingCliente as any).contactos : [];
           const nombre = String(payload?.nombre_cliente || '').trim();
           const celular = String(payload?.telefono_cliente || '').trim();
-
-          if (principal?.id) {
+          const contactoIdToUpdate = formData.contacto_id != null ? Number(formData.contacto_id) : null;
+          let contactUpdated = false;
+          if (contactoIdToUpdate != null) {
             const body: any = {};
             if (nombre) body.nombre_apellido = nombre;
             if (celular) body.celular = celular;
             if (Object.keys(body).length > 0) {
-              await fetch(apiUrl(`/api/cliente-contactos/${principal.id}/`), {
+              const res = await fetch(apiUrl(`/api/cliente-contactos/${contactoIdToUpdate}/`), {
+                method: 'PATCH',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body),
+              }).catch(() => null);
+              if (res?.ok) contactUpdated = true;
+            }
+          }
+
+          if (!contactUpdated) {
+            const targetContact = contactos.find((c: any) => c?.is_principal) || contactos[0] || null;
+          if (targetContact?.id) {
+            const body: any = {};
+            if (nombre) body.nombre_apellido = nombre;
+            if (celular) body.celular = celular;
+            if (Object.keys(body).length > 0) {
+              await fetch(apiUrl(`/api/cliente-contactos/${targetContact.id}/`), {
                 method: 'PATCH',
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -1007,6 +1037,7 @@ export default function OrdenesTecnico() {
                 is_principal: true,
               }),
             }).catch(() => null);
+          }
           }
         }
 
@@ -1043,6 +1074,7 @@ export default function OrdenesTecnico() {
         setFormData({
           folio: "",
           cliente_id: null,
+          contacto_id: null,
           cliente: "",
           direccion: "",
           telefono_cliente: "",
@@ -1160,9 +1192,12 @@ export default function OrdenesTecnico() {
     setEditingOrden(orden);
     setTecnicoSearch('');
     setActiveTab("cliente");
+    const orderType = (orden as any)?.tipo_orden;
+    setTipoOrden(String(orderType || '').toLowerCase() === 'levantamiento' ? 'levantamiento' : 'servicio_tecnico');
     setFormData({
       folio: ((orden as any).folio ?? '').toString(),
       cliente_id: orden.cliente_id || null,
+      contacto_id: null,
       cliente: orden.cliente || "",
       direccion: orden.direccion || "",
       telefono_cliente: orden.telefono_cliente || "",
@@ -1192,6 +1227,7 @@ export default function OrdenesTecnico() {
     setFormData({
       folio: "",
       cliente_id: null,
+      contacto_id: null,
       cliente: "",
       direccion: "",
       telefono_cliente: "",
@@ -1414,16 +1450,16 @@ export default function OrdenesTecnico() {
 
   const selectCliente = (cliente: Cliente | null) => {
     if (cliente) {
-      // Obtener el contacto principal (primer contacto o el marcado como principal)
       const contactoPrincipal = (cliente.contactos || []).find((c: any) => c.is_principal) || (cliente.contactos || [])[0];
       const nombreContacto = contactoPrincipal?.nombre_apellido || '';
 
       setFormData({
         ...formData,
         cliente_id: cliente.id,
+        contacto_id: null,
         cliente: cliente.nombre,
         direccion: cliente.direccion,
-        telefono_cliente: cliente.telefono,
+        telefono_cliente: cliente.telefono ?? '',
         nombre_cliente: nombreContacto
       });
       setClienteSearch(cliente.nombre);
@@ -1431,6 +1467,7 @@ export default function OrdenesTecnico() {
       setFormData({
         ...formData,
         cliente_id: null,
+        contacto_id: null,
         cliente: '',
         nombre_cliente: '',
         direccion: '',
@@ -2155,6 +2192,7 @@ export default function OrdenesTecnico() {
                           setFormData({
                             ...formData,
                             cliente_id: c.id,
+                            contacto_id: contacto?.id != null ? Number(contacto.id) : null,
                             cliente: c.nombre,
                             direccion: c.direccion,
                             telefono_cliente: String(contacto?.celular || c.telefono || ''),
