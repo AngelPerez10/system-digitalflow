@@ -432,16 +432,15 @@ export default function CotizacionesPage() {
                   <Table className="w-full table-fixed">
                     <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
                       <TableRow>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[78px] text-gray-700 dark:text-gray-300">Folio</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-gray-700 dark:text-gray-300">Fecha</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[160px] text-gray-700 dark:text-gray-300">Medio</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[130px] text-gray-700 dark:text-gray-300">Status</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[160px] text-gray-700 dark:text-gray-300">Creada por</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[160px] text-gray-700 dark:text-gray-300">Editada por</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[220px] text-gray-700 dark:text-gray-300">Cliente</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[200px] text-gray-700 dark:text-gray-300">Contacto</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[140px] text-gray-700 dark:text-gray-300">Monto</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-center w-[126px] text-gray-700 dark:text-gray-300">Acciones</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-gray-700 dark:text-gray-300">Folio</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[120px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Fecha</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[150px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">Medio</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[130px] min-w-[120px] whitespace-nowrap text-gray-700 dark:text-gray-300">Status</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[180px] min-w-[150px] whitespace-nowrap text-gray-700 dark:text-gray-300">Creada por</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[180px] min-w-[150px] whitespace-nowrap text-gray-700 dark:text-gray-300">Editada por</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[220px] min-w-[200px] whitespace-nowrap text-gray-700 dark:text-gray-300">Cliente</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[110px] min-w-[120px] whitespace-nowrap text-gray-700 dark:text-gray-300">Monto</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-center w-[126px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
                       </TableRow>
                     </TableHeader>
 
@@ -457,76 +456,102 @@ export default function CotizacionesPage() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                      shownList.map((r) => {
-                        return (
-                          <TableRow key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                            <TableCell className="px-3 py-2 whitespace-nowrap font-semibold text-gray-900 dark:text-white tabular-nums">{r.idx ? r.idx : "—"}</TableCell>
-                            <TableCell className="px-3 py-2 whitespace-nowrap">{formatDMY(r.fecha)}</TableCell>
-                            <TableCell className="px-3 py-2 whitespace-nowrap">
-                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ${medioChipClass(r.medioContacto)}`}>
-                                {normalizeMedioLabel(r.medioContacto)}
-                              </span>
-                            </TableCell>
-                            <TableCell className="px-3 py-2 whitespace-nowrap">
-                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ${statusChipClass(r.status)}`}>
-                                {String(r.status || 'PENDIENTE').toUpperCase() === 'PENDIENTE' ? 'Pendiente' : String(r.status || '—').charAt(0).toUpperCase() + String(r.status || '—').slice(1).toLowerCase()}
-                              </span>
-                            </TableCell>
-                            <TableCell className="px-3 py-2 whitespace-nowrap">{r.creadaPor}</TableCell>
-                            <TableCell className="px-3 py-2 whitespace-nowrap">{r.editadaPor}</TableCell>
-                            <TableCell className="px-3 py-2 whitespace-nowrap">{r.cliente}</TableCell>
-                            <TableCell className="px-3 py-2 whitespace-nowrap">{r.contacto}</TableCell>
-                            <TableCell className="px-3 py-2 whitespace-nowrap font-semibold text-gray-900 dark:text-white tabular-nums">{r.monto}</TableCell>
-                            <TableCell className="px-3 py-2 text-center">
-                              <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/cotizacion/${r.id}/pdf`)}
-                                  className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 transition"
-                                  title="PDF"
-                                >
-                                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                    <path d="M14 2v6h6" />
-                                    <path d="M8 13h2.5a1.5 1.5 0 0 1 0 3H8v-3Z" />
-                                    <path d="M13 16v-3h1.5a1.5 1.5 0 0 1 0 3H13Z" />
-                                    <path d="M18 16v-3h2" />
-                                  </svg>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (!canCotizacionesEdit) {
-                                      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar cotizaciones.' });
-                                      window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
-                                      return;
-                                    }
-                                    navigate(`/cotizacion/${r.id}/editar`);
-                                  }}
-                                  className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
-                                  title="Editar"
-                                >
-                                  <PencilIcon className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleAskDelete(r)}
-                                  className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
-                                  title="Eliminar"
-                                >
-                                  <TrashBinIcon className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
+                        shownList.map((r) => {
+                          const statusUpper = String(r.status || 'PENDIENTE').toUpperCase();
+                          return (
+                            <TableRow key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
+                              <TableCell className="px-3 py-2 whitespace-nowrap">
+                                <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white text-[11px] font-semibold tabular-nums">
+                                  {r.idx ? r.idx : "—"}
+                                </span>
+                              </TableCell>
+                              <TableCell className="px-3 py-2 whitespace-nowrap">
+                                <div className="text-[12px] text-gray-900 dark:text-white">{formatDMY(r.fecha)}</div>
+                              </TableCell>
+                              <TableCell className="px-3 py-2 whitespace-nowrap">
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ${medioChipClass(r.medioContacto)}`}>
+                                  {normalizeMedioLabel(r.medioContacto)}
+                                </span>
+                              </TableCell>
+                              <TableCell className="px-3 py-2 whitespace-nowrap">
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ${statusChipClass(r.status)}`}>
+                                  {statusUpper === 'PENDIENTE'
+                                    ? 'Pendiente'
+                                    : String(r.status || '—').charAt(0).toUpperCase() + String(r.status || '—').slice(1).toLowerCase()}
+                                </span>
+                              </TableCell>
+                              <TableCell className="px-3 py-2 whitespace-nowrap">
+                                <div className="flex flex-col">
+                                  <span className="text-[12px] text-gray-900 dark:text-white truncate">{r.creadaPor}</span>
+                                  <span className="text-[11px] text-gray-500 dark:text-gray-400">Creada</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="px-3 py-2 whitespace-nowrap">
+                                <div className="flex flex-col">
+                                  <span className="text-[12px] text-gray-900 dark:text-white truncate">{r.editadaPor}</span>
+                                  <span className="text-[11px] text-gray-500 dark:text-gray-400">Última edición</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="px-3 py-2 whitespace-nowrap">
+                                <div className="flex flex-col">
+                                  <span className="text-[12px] font-medium text-gray-900 dark:text-white truncate">{r.cliente}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="px-3 py-2 whitespace-nowrap text-left">
+                                <span className="inline-flex items-center justify-start px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white text-[12px] font-semibold tabular-nums">
+                                  {r.monto}
+                                </span>
+                              </TableCell>
+                              <TableCell className="px-3 py-2 text-center">
+                                <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate(`/cotizacion/${r.id}/pdf`)}
+                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 transition"
+                                    title="PDF"
+                                  >
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                      <path d="M14 2v6h6" />
+                                      <path d="M8 13h2.5a1.5 1.5 0 0 1 0 3H8v-3Z" />
+                                      <path d="M13 16v-3h1.5a1.5 1.5 0 0 1 0 3H13Z" />
+                                      <path d="M18 16v-3h2" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!canCotizacionesEdit) {
+                                        setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar cotizaciones.' });
+                                        window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
+                                        return;
+                                      }
+                                      navigate(`/cotizacion/${r.id}/editar`);
+                                    }}
+                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                                    title="Editar"
+                                  >
+                                    <PencilIcon className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAskDelete(r)}
+                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                                    title="Eliminar"
+                                  >
+                                    <TrashBinIcon className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
-            </div>
-          </ComponentCard>
+            </ComponentCard>
           </div>
 
           {cotizacionToDelete && (

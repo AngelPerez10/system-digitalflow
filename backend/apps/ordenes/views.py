@@ -453,30 +453,30 @@ class OrdenViewSet(viewsets.ModelViewSet):
       .logo {{ width: 96px; height: 96px; border-radius: 0; background: transparent; border: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto; }}
       .logo img {{ width: 100%; height: 100%; object-fit: contain; }}
       .brand {{ min-width: 0; }}
-      .brand .name {{ font-size: 15px; font-weight: 900; color: var(--blue-900); letter-spacing: -0.2px; }}
+      .brand .name {{ font-size: 15px; font-weight: 700; color: var(--blue-900); letter-spacing: -0.2px; }}
       .brand .meta {{ margin-top: 6px; font-size: 11px; line-height: 1.25; color: var(--muted); max-width: 330px; }}
-      .brand .meta b {{ color: var(--text); font-weight: 800; }}
+      .brand .meta b {{ color: var(--text); font-weight: 600; }}
       .status {{ text-align: right; max-width: 45%; margin-left: auto; }}
-      .status .pill {{ display: inline-block; font-size: 12px; font-weight: 900; letter-spacing: .7px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); }}
+      .status .pill {{ display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .7px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); }}
       .status .dates {{ margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.35; }}
-      .status .folio {{ font-size: 17px; color: var(--muted); margin-bottom: 6px; font-weight: 800; }}
-      .status .folio .num {{ color: #dc2626; font-weight: 900; }}
+      .status .folio {{ font-size: 17px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }}
+      .status .folio .num {{ color: #dc2626; font-weight: 700; }}
       .hero {{ border: 1px solid var(--border); border-left: 6px solid var(--blue-700); border-radius: 14px; padding: 14px 14px 12px 14px; background: #eff6ff; margin-bottom: 14px; }}
-      .hero .title {{ font-size: 19px; font-weight: 950; color: var(--blue-900); letter-spacing: -0.3px; }}
+      .hero .title {{ font-size: 19px; font-weight: 700; color: var(--blue-900); letter-spacing: -0.3px; }}
       .hero .sub {{ margin-top: 5px; font-size: 11px; color: var(--muted); }}
       .grid2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
       .card {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
-      .card h3 {{ margin: 0 0 10px 0; font-size: 13px; font-weight: 950; color: var(--blue-900); letter-spacing: .3px; text-transform: uppercase; }}
+      .card h3 {{ margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: var(--blue-900); letter-spacing: .3px; text-transform: uppercase; }}
       .row {{ display: flex; gap: 12px; }}
       .col {{ flex: 1; min-width: 0; }}
-      .label {{ font-size: 11px; font-weight: 900; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }}
+      .label {{ font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }}
       .value {{ margin-top: 4px; font-size: 13px; color: var(--text); }}
       .pre {{ white-space: pre-wrap; overflow-wrap: anywhere; }}
       .muted {{ color: var(--muted); font-size: 13px; }}
       .services {{ margin-top: 6px; }}
-      .service-pill {{ display: inline-block; font-size: 11px; font-weight: 800; color: #fff; padding: 4px 10px; border-radius: 999px; background: #2563eb; margin: 4px 6px 0 0; }}
+      .service-pill {{ display: inline-block; font-size: 11px; font-weight: 600; color: #fff; padding: 4px 10px; border-radius: 999px; background: #2563eb; margin: 4px 6px 0 0; }}
       .section {{ margin-top: 12px; }}
-      .section-title {{ margin: 0 0 10px 0; font-size: 13px; font-weight: 950; color: var(--blue-900); letter-spacing: .3px; text-transform: uppercase; }}
+      .section-title {{ margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: var(--blue-900); letter-spacing: .3px; text-transform: uppercase; }}
       .box {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
       .photos {{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }}
       .photo-box {{ border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--blue-50); height: 260px; display: flex; align-items: center; justify-content: center; }}
@@ -487,7 +487,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
       .sigimgwrap {{ height: 105px; border-radius: 12px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--blue-50); margin-top: 8px; }}
       .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; }}
       .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 12px; color: var(--muted); }}
-      .sigline b {{ font-weight: 950; color: var(--text); }}
+      .sigline b {{ font-weight: 700; color: var(--text); }}
     </style>
   </head>
   <body>

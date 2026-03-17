@@ -10,7 +10,7 @@ import DatePicker from "@/components/form/date-picker";
 import { apiUrl } from "@/config/api";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { MobileOrderList } from "../OrdenServicio/MobileOrderCard";
-import OrdenServicioModal from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenServicioModal";
+import OrdenServicioModal from "@/pages/Operacion/OrdenesTrabajo/OrdenLevantamiento/OrdenLevantamientoModal";
 
 type Orden = {
   id: number;

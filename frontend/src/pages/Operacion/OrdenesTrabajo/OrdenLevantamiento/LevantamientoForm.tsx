@@ -5,6 +5,7 @@ import { apiUrl } from '@/config/api';
 import {
   buildProductosQuery,
   fetchSyscom,
+  fetchSyscomTipoCambio,
   getAuthToken,
   getProductoImageUrl,
   type SyscomProducto,
@@ -232,10 +233,22 @@ const defaultValue: LevantamientoFormValue = {
 const inputBaseClass =
   'w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none';
 
+const round2 = (v: number) => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+};
+
+type LevantamientoSnapshot = {
+  payload: any;
+  dibujo_url: string;
+  cerco_materiales?: any[];
+};
+
 type Props = {
   ordenId?: number | null;
   disabled?: boolean;
-  onSnapshot?: (snapshot: { payload: any; dibujo_url: string }) => void;
+  onSnapshot?: (snapshot: LevantamientoSnapshot) => void;
 };
 
 export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Props) {
@@ -254,6 +267,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
 
   const [v, setV] = useState<LevantamientoFormValue>(defaultValue);
   const [materialesCerco, setMaterialesCerco] = useState<CercoMaterialItem[]>([]);
+  const [tipoCambio, setTipoCambio] = useState<number | null>(null);
   const [loadingMateriales, setLoadingMateriales] = useState(false);
   const [loadingRemote, setLoadingRemote] = useState(false);
   const [alert, setAlert] = useState<{ show: boolean; variant: 'success' | 'error' | 'warning' | 'info'; title: string; message: string }>({
@@ -266,6 +280,18 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
   const lastLoadedOrdenIdRef = useRef<number | null>(null);
 
   const getToken = () => localStorage.getItem('token') || sessionStorage.getItem('token');
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetchSyscomTipoCambio(token)
+      .then((tc) => {
+        if (tc && Number.isFinite(tc)) setTipoCambio(tc);
+      })
+      .catch(() => {
+        // si falla el tipo de cambio, simplemente no generamos materiales para cotización
+      });
+  }, []);
 
   useEffect(() => {
     const oid = typeof ordenId === 'number' ? ordenId : null;
@@ -314,11 +340,40 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
 
   useEffect(() => {
     if (!onSnapshot) return;
+
+    const cercoMaterialesForSnapshot =
+      v.tipo === 'cerco' && tipoCambio
+        ? materialesCerco.map((item) => {
+            const p = item.producto;
+            const precios = p.precios || null;
+            // Syscom devuelve precios en USD → convertimos a MXN sin IVA (para que la cotización calcule el IVA 16%)
+            const usdLista = Number(precios?.precio_lista ?? 0) || 0;
+            const precioLista = usdLista > 0 ? round2(usdLista * tipoCambio) : 0;
+
+            const nombre = p.titulo || p.modelo || '';
+            const descParts = [p.marca || '', p.modelo || ''].filter(Boolean);
+            const descripcion = descParts.join(' ').trim();
+            const thumbUrl = getProductoImageUrl(p.img_portada) || '';
+
+            return {
+              producto_externo_id: String(p.producto_id || ''),
+              producto_nombre: nombre,
+              producto_descripcion: descripcion || nombre,
+              unidad: 'pieza',
+              cantidad: item.cantidad,
+              precio_lista: precioLista,
+              descuento_pct: 0,
+              thumbnail_url: thumbUrl,
+            };
+          })
+        : [];
+
     onSnapshot({
       payload: { ...v, dibujo_url: undefined },
       dibujo_url: v.dibujo_url || '',
+      cerco_materiales: cercoMaterialesForSnapshot,
     });
-  }, [v, onSnapshot]);
+  }, [v, onSnapshot, materialesCerco, tipoCambio]);
 
   const cercoKitQtyByModel = useMemo(() => {
     if (v.tipo !== 'cerco') return {} as Record<string, number>;

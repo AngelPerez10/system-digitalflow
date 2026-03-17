@@ -13,6 +13,7 @@ export default function CotizacionPdfPage() {
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
   const [filename, setFilename] = useState<string>("cotizacion.pdf");
   const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(8);
   const [alert, setAlert] = useState<{
     show: boolean;
     variant: "success" | "error" | "warning" | "info";
@@ -71,7 +72,7 @@ export default function CotizacionPdfPage() {
             } else {
               msg = (await resp.text()) || msg;
             }
-          } catch {}
+          } catch { }
 
           setAlert({ show: true, variant: "error", title: "Error", message: msg });
           setPdfObjectUrl(null);
@@ -107,6 +108,25 @@ export default function CotizacionPdfPage() {
       isMounted = false;
     };
   }, [cotizacionId]);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingProgress(100);
+      return;
+    }
+
+    setLoadingProgress(8);
+
+    const interval = window.setInterval(() => {
+      setLoadingProgress((p) => {
+        // avanza rápido al inicio y luego desacelera, sin llegar a 100 hasta terminar
+        const next = p + (p < 55 ? 10 : p < 80 ? 6 : 3);
+        return Math.min(95, next);
+      });
+    }, 650);
+
+    return () => window.clearInterval(interval);
+  }, [loading]);
 
   useEffect(() => {
     return () => {
@@ -153,40 +173,53 @@ export default function CotizacionPdfPage() {
         </div>
       </div>
 
-      <Modal isOpen={loading} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
-        <div className="p-8">
+      <Modal isOpen={loading} onClose={() => { }} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
+        <div className="p-7 sm:p-8">
           <div className="flex flex-col items-center justify-center text-center">
-            <div className="relative mb-5">
-              <div className="absolute -inset-3 rounded-full bg-linear-to-r from-brand-500/25 via-blue-500/15 to-brand-500/25 blur-xl"></div>
-              <div className="relative flex items-center justify-center w-[74px] h-[74px] rounded-2xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-gray-900/60 shadow-theme-md">
-                <div className="absolute inset-0 rounded-2xl border border-gray-100 dark:border-white/5"></div>
-                <div className="absolute inset-0 rounded-2xl border-2 border-transparent border-t-brand-600 dark:border-t-brand-500 animate-spin"></div>
-                <div className="absolute inset-2 rounded-xl border-2 border-transparent border-t-blue-600/70 dark:border-t-blue-400/70 animate-spin" style={{ animationDuration: "1.6s" }}></div>
-
-                <svg className="w-7 h-7 text-brand-700 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <path d="M14 2v6h6" />
-                  <path d="M8 13h2.5a1.5 1.5 0 0 1 0 3H8v-3Z" />
-                  <path d="M13 16v-3h1.5a1.5 1.5 0 0 1 0 3H13Z" />
-                </svg>
+            <div className="relative mb-6">
+              <div className="absolute -inset-4 rounded-full bg-linear-to-r from-brand-500/18 via-blue-500/10 to-brand-500/18 blur-2xl"></div>
+              <div className="relative flex items-center justify-center w-[80px] h-[80px] rounded-2xl border border-gray-200/70 dark:border-white/10 bg-white/90 dark:bg-gray-900/70 shadow-theme-md">
+                <div className="absolute inset-0 rounded-2xl border border-gray-100/70 dark:border-white/5" />
+                <div className="relative flex items-center justify-center w-14 h-14 rounded-full bg-gray-50 dark:bg-gray-800">
+                  <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-brand-600 border-r-blue-500 dark:border-t-brand-400 dark:border-r-blue-300 animate-spin" />
+                  <div className="absolute inset-2 rounded-full border border-dashed border-gray-200/80 dark:border-gray-600/80" />
+                  <div className="relative flex items-center justify-center">
+                    <svg
+                      className="w-8 h-8 text-brand-700 dark:text-brand-300"
+                      viewBox="0 0 512 512"
+                      fill="currentColor"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M378.413,0H208.297h-13.182L185.8,9.314L57.02,138.102l-9.314,9.314v13.176v265.514c0,47.36,38.528,85.895,85.896,85.895h244.811c47.353,0,85.881-38.535,85.881-85.895V85.896C464.294,38.528,425.766,0,378.413,0z M432.497,426.105c0,29.877-24.214,54.091-54.084,54.091H133.602c-29.884,0-54.098-24.214-54.098-54.091V160.591h83.716c24.885,0,45.077-20.178,45.077-45.07V31.804h170.116c29.87,0,54.084,24.214,54.084,54.092V426.105z" />
+                      <path d="M171.947,252.785h-28.529c-5.432,0-8.686,3.533-8.686,8.825v73.754c0,6.388,4.204,10.599,10.041,10.599c5.711,0,9.914-4.21,9.914-10.599v-22.406c0-0.545,0.279-0.817,0.824-0.817h16.436c20.095,0,32.188-12.226,32.188-29.612C204.136,264.871,192.182,252.785,171.947,252.785z M170.719,294.888h-15.208c-0.545,0-0.824-0.272-0.824-0.81v-23.23c0-0.545,0.279-0.816,0.824-0.816h15.208c8.42,0,13.447,5.027,13.447,12.498C184.167,290,179.139,294.888,170.719,294.888z" />
+                      <path d="M250.191,252.785h-21.868c-5.432,0-8.686,3.533-8.686,8.825v74.843c0,5.3,3.253,8.693,8.686,8.693h21.868c19.69,0,31.923-6.249,36.81-21.324c1.76-5.3,2.723-11.681,2.723-24.857c0-13.175-0.964-19.557-2.723-24.856C282.113,259.034,269.881,252.785,250.191,252.785z M267.856,316.896c-2.318,7.331-8.965,10.459-18.21,10.459h-9.23c-0.545,0-0.824-0.272-0.824-0.816v-55.146c0-0.545,0.279-0.817,0.824-0.817h9.23c9.245,0,15.892,3.128,18.21,10.46c0.95,3.128,1.62,8.56,1.62,17.93C269.476,308.336,268.805,313.768,267.856,316.896z" />
+                      <path d="M361.167,252.785h-44.812c-5.432,0-8.7,3.533-8.7,8.825v73.754c0,6.388,4.218,10.599,10.055,10.599c5.697,0,9.914-4.21,9.914-10.599v-26.351c0-0.538,0.265-0.81,0.81-0.81h26.086c5.837,0,9.23-3.532,9.23-8.56c0-5.028-3.393-8.553-9.23-8.553h-26.086c-0.545,0-0.81-0.272-0.81-0.817v-19.425c0-0.545,0.265-0.816,0.81-0.816h32.733c5.572,0,9.245-3.666,9.245-8.553C370.411,256.45,366.738,252.785,361.167,252.785z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
 
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Generando PDF</h3>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Preparando documento
-              <span className="inline-flex items-center gap-1 ml-1 align-middle">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "300ms" }} />
-              </span>
+            <p className="mt-1 text-[13px] text-gray-600 dark:text-gray-400">
+              Esto puede tardar unos segundos. No cierres esta ventana.
             </p>
 
-            <div className="mt-5 w-full rounded-full h-2 overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-white/10">
-              <div className="h-full w-[65%] bg-linear-to-r from-brand-600 via-blue-600 to-brand-600 animate-pulse"></div>
-            </div>
-            <div className="mt-2 w-full h-[2px] overflow-hidden rounded-full bg-transparent">
-              <div className="h-full w-1/2 bg-linear-to-r from-transparent via-white/60 to-transparent dark:via-white/25 animate-pulse"></div>
+            <div className="mt-5 w-full">
+              <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                <span>Progreso</span>
+                <span className="tabular-nums">{Math.min(99, Math.max(0, Math.round(loadingProgress)))}%</span>
+              </div>
+              <div className="mt-2 w-full rounded-full h-2.5 overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-white/10">
+                <div
+                  className="h-full bg-linear-to-r from-brand-600 via-blue-600 to-brand-600 transition-[width] duration-500 ease-out"
+                  style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
+                />
+              </div>
+
+              <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">
+                Generando archivo de cotización…
+              </div>
             </div>
           </div>
         </div>
@@ -214,7 +247,7 @@ export default function CotizacionPdfPage() {
                 <div className="min-w-0">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white leading-snug">Vista de PDF de la Cotización</h2>
                   <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400 truncate">
-                    Archivo: <span className="font-medium text-gray-800 dark:text-gray-200">{filename}</span>
+                    Archivo: <span className="font-normal text-gray-800 dark:text-gray-200">{filename}</span>
                   </p>
                   <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                     Revisa, descarga o abre el documento en una vista dedicada.

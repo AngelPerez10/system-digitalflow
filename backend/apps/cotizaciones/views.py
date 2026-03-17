@@ -255,23 +255,23 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     .logo {{ width: 240px; height: 130px; display: flex; align-items: center; }}
     .logo img {{ max-width: 240px; max-height: 130px; object-fit: contain; }}
     .company {{ font-size: 11px; line-height: 1.35; color: #374151; }}
-    .company .title {{ font-size: 13px; font-weight: 800; color: #111827; }}
+    .company .title {{ font-size: 13px; font-weight: 600; color: #111827; }}
     .box {{ border: 1px solid #e5e7eb; width: 220px; }}
     .box .r {{ padding: 8px 10px; border-top: 1px solid #e5e7eb; text-align: right; }}
     .box .r:first-child {{ border-top: none; background: #f3f4f6; }}
-    .box .lbl {{ font-size: 13px; font-weight: 800; }}
-    .box .val {{ font-size: 13px; font-weight: 700; }}
-    .box .folio {{ font-size: 16px; font-weight: 950; color: #dc2626; }}
+    .box .lbl {{ font-size: 13px; font-weight: 600; }}
+    .box .val {{ font-size: 13px; font-weight: 500; }}
+    .box .folio {{ font-size: 16px; font-weight: 800; color: #dc2626; }}
     .hr {{ height: 1px; background: #e5e7eb; margin: 14px 0; }}
     .grid2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }}
-    .k {{ font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #9ca3af; font-weight: 800; }}
+    .k {{ font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #9ca3af; font-weight: 600; }}
     .kv {{ margin-top: 6px; display: grid; grid-template-columns: 78px 1fr; gap: 4px 10px; font-size: 11px; }}
     .kv .l {{ color: #6b7280; }}
     .kv .v {{ color: #111827; }}
-    .kv .v b {{ font-weight: 800; }}
+    .kv .v b {{ font-weight: 500; }}
     .kv .v.muted {{ color: #6b7280; }}
     .note {{ font-size: 11px; color: #374151; }}
-    .auth {{ margin: 10px 0 8px; font-size: 11px; font-weight: 800; color: #111827; padding: 8px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-left: 4px solid #dc2626; }}
+    .auth {{ margin: 10px 0 8px; font-size: 11px; font-weight: 600; color: #111827; padding: 8px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-left: 4px solid #dc2626; }}
     table {{ width: 100%; border-collapse: collapse; }}
     th, td {{ border-top: 1px solid #e5e7eb; padding: 8px 6px; vertical-align: top; }}
     th {{ border-top: none; background: #f3f4f6; font-size: 11px; text-transform: uppercase; letter-spacing: .02em; }}
@@ -280,13 +280,13 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     .right {{ text-align: right; }}
     .img {{ width: 54px; height: 54px; border-radius: 6px; border: 1px solid #e5e7eb; object-fit: cover; }}
     .img.ph {{ background: #f9fafb; border-style: dashed; }}
-    .name {{ font-weight: 800; color: #111827; }}
+    .name {{ font-weight: 600; color: #111827; }}
     .desc {{ color: #4b5563; }}
     .totals {{ margin-top: 14px; width: 100%; max-width: 340px; margin-left: auto; margin-right: 16px; border-top: 1px solid #e5e7eb; padding-top: 10px; }}
     .totals .row {{ display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }}
-    .totals .row strong {{ font-weight: 950; }}
+    .totals .row strong {{ font-weight: 600; }}
     .terms {{ margin-top: 14px; border-top: 1px solid #e5e7eb; padding-top: 10px; font-size: 9px; line-height: 1.35; color: #374151; }}
-    .terms .terms-title {{ font-size: 10px; font-weight: 950; letter-spacing: .08em; text-transform: uppercase; color: #111827; margin-bottom: 6px; }}
+    .terms .terms-title {{ font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #111827; margin-bottom: 6px; }}
     .terms ul {{ margin: 0; padding-left: 16px; }}
     .terms li {{ margin: 0 0 4px 0; }}
     .terms .terms-text {{ white-space: pre-line; }}
@@ -294,7 +294,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     .pagebreak {{ page-break-before: always; }}
     .deposit {{ margin-top: 44px; }}
     .deposit-head {{ display: grid; grid-template-columns: 1fr; align-items: center; }}
-    .deposit .title {{ font-size: 18px; font-weight: 950; text-align: center; letter-spacing: .06em; color: #111827; }}
+    .deposit .title {{ font-size: 18px; font-weight: 600; text-align: center; letter-spacing: .06em; color: #111827; }}
     .deposit .sub {{ margin-top: 6px; text-align: center; font-size: 11px; color: #6b7280; }}
 
     .deposit-wrap {{ margin-top: 14px; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }}
@@ -306,26 +306,26 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     .deposit-logo img {{ display: block; margin: 0 auto; max-height: 86px; object-fit: contain; }}
 
     .boxx {{ border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; background: #fff; }}
-    .boxx .hd {{ background: #f3f4f6; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .10em; font-weight: 950; color: #374151; }}
+    .boxx .hd {{ background: #f3f4f6; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .10em; font-weight: 600; color: #374151; }}
     .boxx .bd {{ padding: 12px; font-size: 12px; }}
 
-    .rs-name {{ margin-top: 6px; font-size: 14px; font-weight: 950; color: #111827; }}
+    .rs-name {{ margin-top: 6px; font-size: 14px; font-weight: 600; color: #111827; }}
 
     .bank-top {{ display: grid; grid-template-columns: 130px 1fr; gap: 10px; align-items: center; }}
     .bank-logo {{ display: flex; justify-content: center; align-items: center; max-width: 130px; overflow: hidden; }}
     .bank-logo img {{ display: block; width: 120px; height: auto; max-height: 42px; object-fit: contain; }}
     .bank-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
     .kvbox {{ border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }}
-    .kvbox .k {{ background: #f3f4f6; padding: 8px 10px; font-size: 11px; font-weight: 950; color: #374151; text-transform: uppercase; letter-spacing: .08em; text-align: center; }}
-    .kvbox .v {{ padding: 12px 10px; font-size: 16px; font-weight: 800; color: #111827; text-align: center; }}
+    .kvbox .k {{ background: #f3f4f6; padding: 8px 10px; font-size: 11px; font-weight: 500; color: #374151; text-transform: uppercase; letter-spacing: .08em; text-align: center; }}
+    .kvbox .v {{ padding: 12px 10px; font-size: 16px; font-weight: 500; color: #111827; text-align: center; }}
     .kvbox .v.num {{ font-family: "Courier New", Courier, monospace; font-weight: 400; letter-spacing: .02em; font-size: 14px; line-height: 1.25; }}
     .kvbox .v.small {{ font-size: 14px; }}
     .kvbox .v.nowrap {{ white-space: nowrap; }}
     .kvbox .v.wrap {{ white-space: normal; word-break: break-word; }}
 
     .bottom-grid {{ margin-top: 12px; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 10px; }}
-    .concepto {{ padding: 10px; font-size: 13px; font-weight: 950; color: #111827; text-align: center; }}
-    .totalv {{ padding: 10px; font-size: 13px; font-weight: 950; color: #111827; text-align: center; }}
+    .concepto {{ padding: 10px; font-size: 13px; font-weight: 600; color: #111827; text-align: center; }}
+    .totalv {{ padding: 10px; font-size: 13px; font-weight: 600; color: #111827; text-align: center; }}
   </style>
 </head>
 <body>
@@ -434,7 +434,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             <div class='bd'>
               <div class='rs-name'>{esc(deposit_razon_social)}</div>
               <div style='margin-top: 10px; font-size: 11px; color: #6b7280;'>
-                Concepto: <b style='color:#111827;'>Cotizaciones No.{esc(folio)}</b>
+                Concepto: <span style='color:#111827; font-weight: 500;'>Cotizaciones No.{esc(folio)}</span>
               </div>
             </div>
           </div>
@@ -530,7 +530,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({"detail": "Error inesperado generando PDF", "error": str(e)}, status=500)
 
-        filename = f"Cotizacion_{cotizacion.id}.pdf"
+        idx = getattr(cotizacion, "idx", None) or cotizacion.id
+        filename = f"Cotizacion_{idx}.pdf"
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response

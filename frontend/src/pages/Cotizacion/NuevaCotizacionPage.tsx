@@ -729,7 +729,7 @@ export default function NuevaCotizacionPage() {
     const iva = subtotal * (ivaP / 100);
     const total = subtotal + iva;
 
-    return { lines, subtotalLineas, descClientePct, descuentoCliente, subtotal, iva, total };
+    return { lines, subtotalLineas, descClientePct, descuentoCliente, subtotal, iva, total, ivaPct: ivaP };
   }, [conceptos, ivaPct, descuentoClientePct]);
 
   const resetAll = () => {
@@ -868,37 +868,18 @@ export default function NuevaCotizacionPage() {
       <Modal isOpen={previewLoading} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
         <div className="p-8">
           <div className="flex flex-col items-center justify-center text-center">
-            <div className="relative mb-5">
-              <div className="absolute -inset-3 rounded-full bg-linear-to-r from-brand-500/25 via-blue-500/15 to-brand-500/25 blur-xl"></div>
-              <div className="relative flex items-center justify-center w-[74px] h-[74px] rounded-2xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-gray-900/60 shadow-theme-md">
-                <div className="absolute inset-0 rounded-2xl border border-gray-100 dark:border-white/5"></div>
-                <div className="absolute inset-0 rounded-2xl border-2 border-transparent border-t-brand-600 dark:border-t-brand-500 animate-spin"></div>
-                <div className="absolute inset-2 rounded-xl border-2 border-transparent border-t-blue-600/70 dark:border-t-blue-400/70 animate-spin" style={{ animationDuration: "1.6s" }}></div>
-
-                <svg className="w-7 h-7 text-brand-700 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <path d="M14 2v6h6" />
-                  <path d="M8 13h2.5a1.5 1.5 0 0 1 0 3H8v-3Z" />
-                  <path d="M13 16v-3h1.5a1.5 1.5 0 0 1 0 3H13Z" />
-                </svg>
-              </div>
+            <div className="relative w-16 h-16 mb-4">
+              <div className="absolute inset-0 rounded-full border-4 border-gray-200 dark:border-gray-700"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-t-brand-600 dark:border-t-brand-500 animate-spin"></div>
             </div>
-
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Generando vista previa</h3>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Preparando el PDF
-              <span className="inline-flex items-center gap-1 ml-1 align-middle">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500/70 dark:bg-gray-300/70 animate-bounce" style={{ animationDelay: "300ms" }} />
-              </span>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Generando vista previa
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Preparando el PDF de la cotización...
             </p>
-
-            <div className="mt-5 w-full rounded-full h-2 overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-white/10">
-              <div className="h-full w-[65%] bg-linear-to-r from-brand-600 via-blue-600 to-brand-600 animate-pulse"></div>
-            </div>
-            <div className="mt-2 w-full h-[2px] overflow-hidden rounded-full bg-transparent">
-              <div className="h-full w-1/2 bg-linear-to-r from-transparent via-white/60 to-transparent dark:via-white/25 animate-pulse"></div>
+            <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
+              <div className="h-full bg-brand-600 dark:bg-brand-500 rounded-full animate-pulse" style={{ width: '60%' }}></div>
             </div>
           </div>
         </div>
@@ -1094,14 +1075,6 @@ export default function NuevaCotizacionPage() {
                         onChange={(e) => setConceptoNombre(e.target.value)}
                         placeholder="Nombre del producto o servicio"
                       />
-                      <Label className="mt-2">Descripción (opcional)</Label>
-                      <textarea
-                        className={textareaLikeClassName}
-                        value={conceptoDescripcion}
-                        onChange={(e) => setConceptoDescripcion(e.target.value)}
-                        placeholder="Descripción del concepto"
-                        rows={2}
-                      />
                     </div>
 
                     <div className="lg:col-span-3">
@@ -1178,7 +1151,12 @@ export default function NuevaCotizacionPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
-                        {computed.lines.map((c) => (
+                        {computed.lines.map((c) => {
+                          const ivaFactor = 1 + (clampPct(toNumber(computed.ivaPct, 0)) / 100);
+                          const precioListaConIva = toNumber(c.precio_lista, 0) * ivaFactor;
+                          const puConIva = toNumber(c.pu, 0) * ivaFactor;
+                          const importeConIva = toNumber(c.importe, 0) * ivaFactor;
+                          return (
                           <TableRow key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
                             <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.cantidad}</TableCell>
                             <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.unidad || "—"}</TableCell>
@@ -1191,10 +1169,10 @@ export default function NuevaCotizacionPage() {
                               </div>
                             </TableCell>
                             <TableCell className="px-2 py-1.5">{c.producto_descripcion || "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.precio_lista, 0))}</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(precioListaConIva)}</TableCell>
                             <TableCell className="px-2 py-1.5 whitespace-nowrap">{clampPct(toNumber(c.descuento_pct, 0)).toFixed(2)}%</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.pu, 0))}</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.importe, 0))}</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(puConIva)}</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(importeConIva)}</TableCell>
                             <TableCell className="px-2 py-1.5 text-center">
                               <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
                                 <button
@@ -1216,7 +1194,8 @@ export default function NuevaCotizacionPage() {
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))}
+                          );
+                        })}
 
                         {!computed.lines.length && (
                           <TableRow>

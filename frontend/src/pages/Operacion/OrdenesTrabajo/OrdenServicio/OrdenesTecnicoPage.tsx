@@ -19,9 +19,6 @@ import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 import LevantamientoForm from "../OrdenLevantamiento/LevantamientoForm";
 
-
-
-
 interface Orden {
   id: number;
   idx: number;
@@ -84,7 +81,7 @@ export default function OrdenesTecnico() {
   const formNonceRef = useRef(0);
   const formScrollRef = useRef<HTMLFormElement>(null);
 
-  const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string } | null>(null);
+  const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
 
   const getToken = () => {
     return localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -361,6 +358,12 @@ export default function OrdenesTecnico() {
     const hh = String(d.getHours()).padStart(2, '0');
     const mm = String(d.getMinutes()).padStart(2, '0');
     return `${hh}:${mm}`;
+  };
+
+  const round2 = (v: number) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    return Math.round(n * 100) / 100;
   };
 
   const compressImage = async (
@@ -943,6 +946,136 @@ export default function OrdenesTecnico() {
               dibujo_url: snap.dibujo_url || '',
             }),
           }).catch(() => null);
+
+          try {
+            const payloadTipo = String(snap.payload?.tipo || '').toLowerCase();
+            const cercoItems = Array.isArray((snap as any).cerco_materiales) ? (snap as any).cerco_materiales : [];
+            if (payloadTipo === 'cerco' && cercoItems.length > 0) {
+              const todayIso = new Date().toISOString().slice(0, 10);
+              const cid = (savedOrden as any).cliente_id ?? null;
+              const clienteNombre = String((savedOrden as any).cliente || '').trim();
+              const contactoNombre = String((savedOrden as any).nombre_cliente || '').trim();
+
+              const subtotalRaw = cercoItems.reduce((acc: number, it: any) => {
+                const qty = Number(it.cantidad || 0);
+                const price = Number(it.precio_lista || 0);
+                if (!Number.isFinite(qty) || !Number.isFinite(price)) return acc;
+                return acc + qty * price;
+              }, 0);
+              const subtotal = round2(subtotalRaw);
+              const ivaPct = 16;
+              const iva = round2(subtotal * (ivaPct / 100));
+              const total = round2(subtotal + iva);
+
+              const cotPayload: any = {
+                cliente_id: cid != null ? Number(cid) : null,
+                cliente: clienteNombre,
+                prospecto: !cid,
+                contacto: contactoNombre,
+                // usar un valor válido para choices de medio_contacto (ver backend MEDIO_CONTACTO_CHOICES)
+                medio_contacto: 'OTRO',
+                status: 'PENDIENTE',
+                fecha: todayIso,
+                subtotal,
+                descuento_cliente_pct: 0,
+                iva_pct: ivaPct,
+                iva,
+                total,
+                texto_arriba_precios: 'A continuación cotización solicitada:',
+                terminos:
+                  "TÉRMINOS Y CONDICIONES\n\n" +
+                  "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
+                  "- No se programan trabajos sin anticipo confirmado.\n" +
+                  "- Precios expresados en pesos mexicanos, no incluyen IVA salvo indicación contraria.\n" +
+                  "- Vigencia de la cotización: 15 días naturales.\n" +
+                  "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
+                  "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
+                  "- La garantía no aplica por mal uso, golpes, humedad, variaciones de voltaje o manipulación por terceros.\n" +
+                  "- La cotización incluye únicamente los conceptos especificados; trabajos adicionales se cotizan aparte.\n" +
+                  "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
+                  "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
+                  "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
+                  "- El anticipo no es reembolsable en caso de cancelación.\n" +
+                  "- La aceptación de la cotización implica conformidad con estos términos.",
+                // Para evitar errores de validación de URL en el backend,
+                // NO enviamos thumbnail_url en la creación automática desde levantamiento.
+                items: cercoItems.map((it: any, index: number) => ({
+                  producto_externo_id: String(it.producto_externo_id || ''),
+                  producto_nombre: String(it.producto_nombre || ''),
+                  producto_descripcion: String(it.producto_descripcion || ''),
+                  unidad: String(it.unidad || ''),
+                  cantidad: round2(Number(it.cantidad || 0)),
+                  precio_lista: round2(Number(it.precio_lista || 0)),
+                  descuento_pct: 0,
+                  orden: index,
+                })),
+              };
+
+              try {
+                const ordenMarker = `ORDEN #${savedOrden.id}`;
+                // Buscar si ya existe una cotización ligada a esta orden
+                let existingCotizacionId: number | null = null;
+                try {
+                  const searchParam = encodeURIComponent(ordenMarker);
+                  const searchRes = await fetch(apiUrl(`/api/cotizaciones/?search=${searchParam}`), {
+                    method: 'GET',
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    cache: 'no-store' as RequestCache,
+                  });
+                  if (searchRes.ok) {
+                    const data = await searchRes.json().catch(() => null);
+                    if (Array.isArray(data) && data.length > 0 && data[0]?.id != null) {
+                      existingCotizacionId = Number(data[0].id);
+                    }
+                  }
+                } catch (searchErr) {
+                  console.warn('No se pudo buscar cotización existente para la orden desde levantamiento (OrdenesTecnicoPage):', searchErr);
+                }
+
+                const isUpdate = existingCotizacionId != null;
+                const cotUrl = isUpdate
+                  ? apiUrl(`/api/cotizaciones/${existingCotizacionId}/`)
+                  : apiUrl('/api/cotizaciones/');
+                const cotMethod = isUpdate ? 'PUT' : 'POST';
+
+                const cotRes = await fetch(cotUrl, {
+                  method: cotMethod,
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(cotPayload),
+                });
+
+                if (!cotRes.ok) {
+                  let detail: any = null;
+                  try {
+                    detail = await cotRes.json();
+                  } catch {
+                    try {
+                      detail = await cotRes.text();
+                    } catch {
+                      detail = null;
+                    }
+                  }
+                  console.warn(
+                    `No se pudo ${isUpdate ? 'actualizar' : 'crear'} la cotización desde levantamiento (OrdenesTecnicoPage). Status:`,
+                    cotRes.status,
+                    'Detalle:',
+                    typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2),
+                  );
+                }
+              } catch (cotErr) {
+                console.error('Error de red al guardar cotización desde levantamiento (OrdenesTecnicoPage):', cotErr);
+              }
+            }
+          } catch (e) {
+            console.error('Error creando cotización desde levantamiento (OrdenesTecnicoPage):', e);
+          }
+
           setOrdenes((prev) => {
             const list = Array.isArray(prev) ? prev : [];
             const idx = list.findIndex((o) => (o as any).id === savedOrden.id);
@@ -981,37 +1114,18 @@ export default function OrdenesTecnico() {
         }
 
         if (cid && (payload?.nombre_cliente || payload?.telefono_cliente)) {
-          const existingCliente = clientes.find(c => c.id === cid);
-          const contactos = Array.isArray((existingCliente as any)?.contactos) ? (existingCliente as any).contactos : [];
           const nombre = String(payload?.nombre_cliente || '').trim();
           const celular = String(payload?.telefono_cliente || '').trim();
           const contactoIdToUpdate = formData.contacto_id != null ? Number(formData.contacto_id) : null;
-          let contactUpdated = false;
+
+          // Solo actualizar un contacto existente seleccionado explícitamente.
+          // No crear contactos nuevos automáticamente aquí para evitar duplicados.
           if (contactoIdToUpdate != null) {
             const body: any = {};
             if (nombre) body.nombre_apellido = nombre;
             if (celular) body.celular = celular;
             if (Object.keys(body).length > 0) {
-              const res = await fetch(apiUrl(`/api/cliente-contactos/${contactoIdToUpdate}/`), {
-                method: 'PATCH',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(body),
-              }).catch(() => null);
-              if (res?.ok) contactUpdated = true;
-            }
-          }
-
-          if (!contactUpdated) {
-            const targetContact = contactos.find((c: any) => c?.is_principal) || contactos[0] || null;
-          if (targetContact?.id) {
-            const body: any = {};
-            if (nombre) body.nombre_apellido = nombre;
-            if (celular) body.celular = celular;
-            if (Object.keys(body).length > 0) {
-              await fetch(apiUrl(`/api/cliente-contactos/${targetContact.id}/`), {
+              await fetch(apiUrl(`/api/cliente-contactos/${contactoIdToUpdate}/`), {
                 method: 'PATCH',
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -1020,24 +1134,6 @@ export default function OrdenesTecnico() {
                 body: JSON.stringify(body),
               }).catch(() => null);
             }
-          } else if (nombre || celular) {
-            await fetch(apiUrl('/api/cliente-contactos/'), {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                cliente: cid,
-                nombre_apellido: nombre || (existingCliente?.nombre || ''),
-                titulo: '',
-                area_puesto: '',
-                celular: celular || (existingCliente?.telefono || ''),
-                correo: '',
-                is_principal: true,
-              }),
-            }).catch(() => null);
-          }
           }
         }
 

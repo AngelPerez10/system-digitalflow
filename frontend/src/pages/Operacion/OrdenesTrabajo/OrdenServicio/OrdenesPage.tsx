@@ -77,7 +77,7 @@ export default function Ordenes() {
   const formNonceRef = useRef(0);
   const formScrollRef = useRef<HTMLFormElement>(null);
 
-  const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string } | null>(null);
+  const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
 
   const getPermissionsFromStorage = () => {
     try {
@@ -341,6 +341,12 @@ export default function Ordenes() {
     return `${hh}:${mm}`;
   };
 
+  const round2 = (v: number) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    return Math.round(n * 100) / 100;
+  };
+
   const compressImage = async (
     file: File,
     maxSizeKB: number,
@@ -365,13 +371,13 @@ export default function Ordenes() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          
+
           // Búsqueda binaria para encontrar la calidad óptima más rápido
           let minQuality = 0.1;
           let maxQuality = 0.95;
           let attempts = 0;
           const maxAttempts = 8;
-          
+
           const binarySearchCompress = (low: number, high: number) => {
             if (attempts >= maxAttempts || high - low < 0.01) {
               const finalQuality = (low + high) / 2;
@@ -390,7 +396,7 @@ export default function Ordenes() {
               );
               return;
             }
-            
+
             attempts++;
             const midQuality = (low + high) / 2;
             canvas.toBlob(
@@ -414,7 +420,7 @@ export default function Ordenes() {
               midQuality
             );
           };
-          
+
           binarySearchCompress(minQuality, maxQuality);
         };
         img.onerror = () => reject(new Error('Error al cargar la imagen'));
@@ -936,37 +942,18 @@ export default function Ordenes() {
         }
 
         if (cid && (payload?.nombre_cliente || payload?.telefono_cliente)) {
-          const existingCliente = clientes.find(c => c.id === cid);
-          const contactos = Array.isArray((existingCliente as any)?.contactos) ? (existingCliente as any).contactos : [];
           const nombre = String(payload?.nombre_cliente || '').trim();
           const celular = String(payload?.telefono_cliente || '').trim();
           const contactoIdToUpdate = formData.contacto_id != null ? Number(formData.contacto_id) : null;
-          let contactUpdated = false;
+
+          // Solo actualizar un contacto existente seleccionado explícitamente.
+          // No crear contactos nuevos automáticamente aquí para evitar duplicados.
           if (contactoIdToUpdate != null) {
             const body: any = {};
             if (nombre) body.nombre_apellido = nombre;
             if (celular) body.celular = celular;
             if (Object.keys(body).length > 0) {
-              const res = await fetch(apiUrl(`/api/cliente-contactos/${contactoIdToUpdate}/`), {
-                method: 'PATCH',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(body),
-              }).catch(() => null);
-              if (res?.ok) contactUpdated = true;
-            }
-          }
-
-          if (!contactUpdated) {
-            const targetContact = contactos.find((c: any) => c?.is_principal) || contactos[0] || null;
-          if (targetContact?.id) {
-            const body: any = {};
-            if (nombre) body.nombre_apellido = nombre;
-            if (celular) body.celular = celular;
-            if (Object.keys(body).length > 0) {
-              await fetch(apiUrl(`/api/cliente-contactos/${targetContact.id}/`), {
+              await fetch(apiUrl(`/api/cliente-contactos/${contactoIdToUpdate}/`), {
                 method: 'PATCH',
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -975,24 +962,6 @@ export default function Ordenes() {
                 body: JSON.stringify(body),
               }).catch(() => null);
             }
-          } else if (nombre || celular) {
-            await fetch(apiUrl('/api/cliente-contactos/'), {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                cliente: cid,
-                nombre_apellido: nombre || (existingCliente?.nombre || ''),
-                titulo: '',
-                area_puesto: '',
-                celular: celular || (existingCliente?.telefono || ''),
-                correo: '',
-                is_principal: true,
-              }),
-            }).catch(() => null);
-          }
           }
         }
 
@@ -1022,6 +991,136 @@ export default function Ordenes() {
               dibujo_url: snap.dibujo_url || '',
             }),
           }).catch(() => null);
+
+          try {
+            const payloadTipo = String(snap.payload?.tipo || '').toLowerCase();
+            const cercoItems = Array.isArray((snap as any).cerco_materiales) ? (snap as any).cerco_materiales : [];
+            if (payloadTipo === 'cerco' && cercoItems.length > 0) {
+              const todayIso = new Date().toISOString().slice(0, 10);
+              const cid = (savedOrden as any).cliente_id ?? null;
+              const clienteNombre = String((savedOrden as any).cliente || '').trim();
+              const contactoNombre = String((savedOrden as any).nombre_cliente || '').trim();
+
+              const subtotalRaw = cercoItems.reduce((acc: number, it: any) => {
+                const qty = Number(it.cantidad || 0);
+                const price = Number(it.precio_lista || 0);
+                if (!Number.isFinite(qty) || !Number.isFinite(price)) return acc;
+                return acc + qty * price;
+              }, 0);
+              const subtotal = round2(subtotalRaw);
+              const ivaPct = 16;
+              const iva = round2(subtotal * (ivaPct / 100));
+              const total = round2(subtotal + iva);
+
+              const cotPayload: any = {
+                cliente_id: cid != null ? Number(cid) : null,
+                cliente: clienteNombre,
+                prospecto: !cid,
+                contacto: contactoNombre,
+                // usar un valor válido para choices de medio_contacto (ver backend MEDIO_CONTACTO_CHOICES)
+                medio_contacto: 'OTRO',
+                status: 'PENDIENTE',
+                fecha: todayIso,
+                subtotal,
+                descuento_cliente_pct: 0,
+                iva_pct: ivaPct,
+                iva,
+                total,
+                texto_arriba_precios: 'A continuación cotización solicitada:',
+                terminos:
+                  "TÉRMINOS Y CONDICIONES\n\n" +
+                  "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
+                  "- No se programan trabajos sin anticipo confirmado.\n" +
+                  "- Precios expresados en pesos mexicanos, no incluyen IVA salvo indicación contraria.\n" +
+                  "- Vigencia de la cotización: 15 días naturales.\n" +
+                  "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
+                  "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
+                  "- La garantía no aplica por mal uso, golpes, humedad, variaciones de voltaje o manipulación por terceros.\n" +
+                  "- La cotización incluye únicamente los conceptos especificados; trabajos adicionales se cotizan aparte.\n" +
+                  "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
+                  "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
+                  "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
+                  "- El anticipo no es reembolsable en caso de cancelación.\n" +
+                  "- La aceptación de la cotización implica conformidad con estos términos.",
+                // Para evitar errores de validación de URL en el backend,
+                // NO enviamos thumbnail_url en la creación automática desde levantamiento.
+                items: cercoItems.map((it: any, index: number) => ({
+                  producto_externo_id: String(it.producto_externo_id || ''),
+                  producto_nombre: String(it.producto_nombre || ''),
+                  producto_descripcion: String(it.producto_descripcion || ''),
+                  unidad: String(it.unidad || ''),
+                  cantidad: round2(Number(it.cantidad || 0)),
+                  precio_lista: round2(Number(it.precio_lista || 0)),
+                  descuento_pct: 0,
+                  orden: index,
+                })),
+              };
+
+              try {
+                const ordenMarker = `ORDEN #${savedOrden.id}`;
+                // Buscar si ya existe una cotización ligada a esta orden
+                let existingCotizacionId: number | null = null;
+                try {
+                  const searchParam = encodeURIComponent(ordenMarker);
+                  const searchRes = await fetch(apiUrl(`/api/cotizaciones/?search=${searchParam}`), {
+                    method: 'GET',
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    cache: 'no-store' as RequestCache,
+                  });
+                  if (searchRes.ok) {
+                    const data = await searchRes.json().catch(() => null);
+                    if (Array.isArray(data) && data.length > 0 && data[0]?.id != null) {
+                      existingCotizacionId = Number(data[0].id);
+                    }
+                  }
+                } catch (searchErr) {
+                  console.warn('No se pudo buscar cotización existente para la orden desde levantamiento (OrdenesPage):', searchErr);
+                }
+
+                const isUpdate = existingCotizacionId != null;
+                const cotUrl = isUpdate
+                  ? apiUrl(`/api/cotizaciones/${existingCotizacionId}/`)
+                  : apiUrl('/api/cotizaciones/');
+                const cotMethod = isUpdate ? 'PUT' : 'POST';
+
+                const cotRes = await fetch(cotUrl, {
+                  method: cotMethod,
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(cotPayload),
+                });
+
+                if (!cotRes.ok) {
+                  let detail: any = null;
+                  try {
+                    detail = await cotRes.json();
+                  } catch {
+                    try {
+                      detail = await cotRes.text();
+                    } catch {
+                      detail = null;
+                    }
+                  }
+                  console.warn(
+                    `No se pudo ${isUpdate ? 'actualizar' : 'crear'} la cotización desde levantamiento (OrdenesPage). Status:`,
+                    cotRes.status,
+                    'Detalle:',
+                    typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2),
+                  );
+                }
+              } catch (cotErr) {
+                console.error('Error de red al guardar cotización desde levantamiento (OrdenesPage):', cotErr);
+              }
+            }
+          } catch (e) {
+            console.error('Error creando cotización desde levantamiento (OrdenesPage):', e);
+          }
+
           setOrdenes((prev) => {
             const list = Array.isArray(prev) ? prev : [];
             const idx = list.findIndex((o) => (o as any).id === savedOrden.id);
@@ -1291,8 +1390,8 @@ export default function Ordenes() {
               label: labelBase,
               icon: (
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold">
-                {(labelBase || '?').slice(0, 1).toUpperCase()}
-              </span>
+                  {(labelBase || '?').slice(0, 1).toUpperCase()}
+                </span>
               ),
               description: c.telefono || '-',
               short: '',
@@ -1968,9 +2067,9 @@ export default function Ordenes() {
                     className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                     title="Mes siguiente"
                   >
-                  <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9 18l6-6 6 6" />
-                  </svg>
+                    <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 18l6-6 6 6" />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -2297,108 +2396,108 @@ export default function Ordenes() {
               <>
                 {/* SECCIÓN 2: Detalles del Cliente */}
                 <div className="space-y-3">
-              <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles del Cliente</h4>
-              </div>
-              <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                {/* Teléfono - Solo números */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Teléfono</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="tel"
-                      value={formData.telefono_cliente}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '');
-                        setFormData({ ...formData, telefono_cliente: value });
-                      }}
-                      onKeyPress={(e) => {
-                        if (!/[0-9]/.test(e.key)) {
-                          e.preventDefault();
-                        }
-                      }}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
-                      placeholder="Teléfono del cliente"
-                      maxLength={10}
-                    />
-                    <a
-                      href={formData.telefono_cliente ? `tel:${formData.telefono_cliente}` : undefined}
-                      onClick={(e) => {
-                        if (!formData.telefono_cliente) e.preventDefault();
-                      }}
-                      className={`shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 ${!formData.telefono_cliente ? 'opacity-50 pointer-events-none' : ''}`}
-                      title="Llamar"
-                      aria-label="Llamar"
-                    >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.86.31 1.7.57 2.5a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.58-1.09a2 2 0 0 1 2.11-.45c.8.26 1.64.45 2.5.57A2 2 0 0 1 22 16.92Z" />
-                      </svg>
-                    </a>
+                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles del Cliente</h4>
                   </div>
-                </div>
+                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                    {/* Teléfono - Solo números */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Teléfono</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="tel"
+                          value={formData.telefono_cliente}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '');
+                            setFormData({ ...formData, telefono_cliente: value });
+                          }}
+                          onKeyPress={(e) => {
+                            if (!/[0-9]/.test(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                          placeholder="Teléfono del cliente"
+                          maxLength={10}
+                        />
+                        <a
+                          href={formData.telefono_cliente ? `tel:${formData.telefono_cliente}` : undefined}
+                          onClick={(e) => {
+                            if (!formData.telefono_cliente) e.preventDefault();
+                          }}
+                          className={`shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 ${!formData.telefono_cliente ? 'opacity-50 pointer-events-none' : ''}`}
+                          title="Llamar"
+                          aria-label="Llamar"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.86.31 1.7.57 2.5a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.58-1.09a2 2 0 0 1 2.11-.45c.8.26 1.64.45 2.5.57A2 2 0 0 1 22 16.92Z" />
+                          </svg>
+                        </a>
+                      </div>
+                    </div>
 
-                {/* Dirección con botones */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Dirección</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowMapModal(true)}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                    >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                      Seleccionar en mapa
-                    </button>
+                    {/* Dirección con botones */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Dirección</label>
+                        <button
+                          type="button"
+                          onClick={() => setShowMapModal(true)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          Seleccionar en mapa
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <textarea
+                          value={formData.direccion}
+                          onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+                          rows={2}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 pr-12 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                          placeholder="Dirección, coordenadas o URL de Google Maps"
+                        />
+                        {formData.direccion && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const direccion = formData.direccion.trim();
+
+                              // Detectar si es una URL de Google Maps
+                              if (direccion.includes('google.com/maps') || direccion.includes('maps.app.goo.gl')) {
+                                window.open(direccion, '_blank');
+                                return;
+                              }
+
+                              // Detectar si son coordenadas (formato: lat,lng)
+                              const coordMatch = direccion.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+                              if (coordMatch) {
+                                const lat = coordMatch[1];
+                                const lng = coordMatch[2];
+                                window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+                                return;
+                              }
+
+                              // Si es texto normal, buscar
+                              const query = encodeURIComponent(direccion);
+                              window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+                            }}
+                            className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                            title="Abrir en Google Maps"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="relative">
-                    <textarea
-                      value={formData.direccion}
-                      onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                      rows={2}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 pr-12 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
-                      placeholder="Dirección, coordenadas o URL de Google Maps"
-                    />
-                    {formData.direccion && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const direccion = formData.direccion.trim();
-
-                          // Detectar si es una URL de Google Maps
-                          if (direccion.includes('google.com/maps') || direccion.includes('maps.app.goo.gl')) {
-                            window.open(direccion, '_blank');
-                            return;
-                          }
-
-                          // Detectar si son coordenadas (formato: lat,lng)
-                          const coordMatch = direccion.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
-                          if (coordMatch) {
-                            const lat = coordMatch[1];
-                            const lng = coordMatch[2];
-                            window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
-                            return;
-                          }
-
-                          // Si es texto normal, buscar
-                          const query = encodeURIComponent(direccion);
-                          window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
-                        }}
-                        className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                        title="Abrir en Google Maps"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
                 </div>
               </>
             )}
@@ -2419,120 +2518,120 @@ export default function Ordenes() {
               <>
                 {/* SECCIÓN 3: Descripción de la Orden */}
                 <div className="space-y-3">
-              <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Descripción de la Orden</h4>
-              </div>
-              <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                {/* Problemática */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Problemática</label>
-                  <textarea
-                    value={formData.problematica}
-                    onChange={(e) => setFormData({ ...formData, problematica: e.target.value })}
-                    rows={3}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
-                    placeholder="Describe el problema reportado"
-                  />
-                </div>
+                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Descripción de la Orden</h4>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                    {/* Problemática */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Problemática</label>
+                      <textarea
+                        value={formData.problematica}
+                        onChange={(e) => setFormData({ ...formData, problematica: e.target.value })}
+                        rows={3}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                        placeholder="Describe el problema reportado"
+                      />
+                    </div>
 
-                {/* Servicios Realizados con ActionSearchBar */}
-                <div className="flex items-start gap-2">
-                  <div className="flex-1">
-                    <ActionSearchBar
-                      actions={servicioActions as any}
-                      defaultOpen={false}
-                      label="Servicios Realizados"
-                      placeholder="Buscar o agregar servicio..."
-                      value={servicioSearch}
-                      onQueryChange={(q: string) => setServicioSearch(q)}
-                      onSelectAction={(action: any) => {
-                        if (action?.id === '__new__') {
-                          const nuevoServicio = servicioSearch.trim();
-                          if (nuevoServicio && !serviciosDisponibles.includes(nuevoServicio)) {
-                            setServiciosDisponibles([...serviciosDisponibles, nuevoServicio]);
-                          }
-                          addServicio(nuevoServicio);
-                          return;
-                        }
-                        addServicio(action.id);
-                      }}
+                    {/* Servicios Realizados con ActionSearchBar */}
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <ActionSearchBar
+                          actions={servicioActions as any}
+                          defaultOpen={false}
+                          label="Servicios Realizados"
+                          placeholder="Buscar o agregar servicio..."
+                          value={servicioSearch}
+                          onQueryChange={(q: string) => setServicioSearch(q)}
+                          onSelectAction={(action: any) => {
+                            if (action?.id === '__new__') {
+                              const nuevoServicio = servicioSearch.trim();
+                              if (nuevoServicio && !serviciosDisponibles.includes(nuevoServicio)) {
+                                setServiciosDisponibles([...serviciosDisponibles, nuevoServicio]);
+                              }
+                              addServicio(nuevoServicio);
+                              return;
+                            }
+                            addServicio(action.id);
+                          }}
+                        />
+                      </div>
+                      {formData.servicios_realizados.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, servicios_realizados: [] })}
+                          aria-label="Limpiar selección"
+                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="w-4 h-4"
+                          >
+                            <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
+                            <path d="M18 11l-4.3-4.3" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.servicios_realizados.map((servicio, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-md text-xs"
+                        >
+                          {servicio}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                servicios_realizados: formData.servicios_realizados.filter((_, i) => i !== index)
+                              });
+                            }}
+                            className="hover:text-brand-900 dark:hover:text-brand-100 ml-1"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Comentario del Técnico */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario del Técnico</label>
+                    <textarea
+                      value={formData.comentario_tecnico}
+                      onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
+                      rows={3}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                      placeholder="Observaciones del técnico..."
                     />
                   </div>
-                  {formData.servicios_realizados.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, servicios_realizados: [] })}
-                      aria-label="Limpiar selección"
-                      className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+
+                  {/* Estado del Problema */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Estado del Problema</label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as 'pendiente' | 'resuelto' })}
+                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="w-4 h-4"
-                      >
-                        <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
-                        <path d="M18 11l-4.3-4.3" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.servicios_realizados.map((servicio, index) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-md text-xs"
-                    >
-                      {servicio}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormData({
-                            ...formData,
-                            servicios_realizados: formData.servicios_realizados.filter((_, i) => i !== index)
-                          });
-                        }}
-                        className="hover:text-brand-900 dark:hover:text-brand-100 ml-1"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Comentario del Técnico */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario del Técnico</label>
-                <textarea
-                  value={formData.comentario_tecnico}
-                  onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
-                  rows={3}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
-                  placeholder="Observaciones del técnico..."
-                />
-              </div>
-
-              {/* Estado del Problema */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Estado del Problema</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'pendiente' | 'resuelto' })}
-                  className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
-                >
-                  <option value="pendiente">No, pendiente</option>
-                  <option value="resuelto">Sí, problema resuelto</option>
-                </select>
-              </div>
+                      <option value="pendiente">No, pendiente</option>
+                      <option value="resuelto">Sí, problema resuelto</option>
+                    </select>
+                  </div>
                 </div>
               </>
             )}
@@ -2541,73 +2640,73 @@ export default function Ordenes() {
               <>
                 {/* SECCIÓN 4: Detalles de Tiempo */}
                 <div className="space-y-3">
-              <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles de Tiempo</h4>
-              </div>
-              <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                {/* Fechas de Inicio */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <DatePicker
-                      id="fecha-inicio"
-                      label="Fecha Inicio"
-                      placeholder="Seleccionar fecha"
-                      defaultDate={formData.fecha_inicio || undefined}
-                      onChange={(_dates, currentDateString) => {
-                        setFormData({ ...formData, fecha_inicio: currentDateString || "" });
-                      }}
-                    />
+                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles de Tiempo</h4>
                   </div>
-                  <div>
-                    <Label htmlFor="hora-inicio">Hora Inicio</Label>
-                    <div className="relative">
-                      <Input
-                        type="time"
-                        id="hora-inicio"
-                        name="hora-inicio"
-                        value={formData.hora_inicio}
-                        onChange={(e) => setFormData({ ...formData, hora_inicio: e.target.value })}
-                      />
-                      <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
-                        <TimeIcon className="size-6" />
-                      </span>
+                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                    {/* Fechas de Inicio */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <DatePicker
+                          id="fecha-inicio"
+                          label="Fecha Inicio"
+                          placeholder="Seleccionar fecha"
+                          defaultDate={formData.fecha_inicio || undefined}
+                          onChange={(_dates, currentDateString) => {
+                            setFormData({ ...formData, fecha_inicio: currentDateString || "" });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="hora-inicio">Hora Inicio</Label>
+                        <div className="relative">
+                          <Input
+                            type="time"
+                            id="hora-inicio"
+                            name="hora-inicio"
+                            value={formData.hora_inicio}
+                            onChange={(e) => setFormData({ ...formData, hora_inicio: e.target.value })}
+                          />
+                          <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
+                            <TimeIcon className="size-6" />
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Fechas de Finalización */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <DatePicker
-                      id="fecha-finalizacion"
-                      label="Fecha Finalización"
-                      placeholder="Seleccionar fecha"
-                      defaultDate={formData.fecha_finalizacion || undefined}
-                      onChange={(_dates, currentDateString) => {
-                        setFormData({ ...formData, fecha_finalizacion: currentDateString || "" });
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="hora-termino">Hora Término</Label>
-                    <div className="relative">
-                      <Input
-                        type="time"
-                        id="hora-termino"
-                        name="hora-termino"
-                        value={formData.hora_termino}
-                        onChange={(e) => setFormData({ ...formData, hora_termino: e.target.value })}
-                      />
-                      <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
-                        <TimeIcon className="size-6" />
-                      </span>
+                    {/* Fechas de Finalización */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <DatePicker
+                          id="fecha-finalizacion"
+                          label="Fecha Finalización"
+                          placeholder="Seleccionar fecha"
+                          defaultDate={formData.fecha_finalizacion || undefined}
+                          onChange={(_dates, currentDateString) => {
+                            setFormData({ ...formData, fecha_finalizacion: currentDateString || "" });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="hora-termino">Hora Término</Label>
+                        <div className="relative">
+                          <Input
+                            type="time"
+                            id="hora-termino"
+                            name="hora-termino"
+                            value={formData.hora_termino}
+                            onChange={(e) => setFormData({ ...formData, hora_termino: e.target.value })}
+                          />
+                          <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
+                            <TimeIcon className="size-6" />
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
                 </div>
               </>
             )}
@@ -2616,121 +2715,121 @@ export default function Ordenes() {
               <>
                 {/* SECCIÓN 5: Firmas y Archivos */}
                 <div className="space-y-3">
-              <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Firmas y Archivos</h4>
-              </div>
-              <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                {/* Firmas */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <SignaturePad
-                    label="Firma del Encargado"
-                    value={tecnicoSignatureUrl || mySignatureUrl || formData.firma_encargado_url}
-                    disabled={true}
-                    onChange={() => { }}
-                    width={400}
-                    height={250}
-                  />
+                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Firmas y Archivos</h4>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                    {/* Firmas */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <SignaturePad
+                        label="Firma del Encargado"
+                        value={tecnicoSignatureUrl || mySignatureUrl || formData.firma_encargado_url}
+                        disabled={true}
+                        onChange={() => { }}
+                        width={400}
+                        height={250}
+                      />
 
-                  <SignaturePad
-                    label="Firma del Cliente"
-                    value={formData.firma_cliente_url}
-                    onChange={(signature) => setFormData({ ...formData, firma_cliente_url: signature })}
-                    width={400}
-                    height={250}
-                  />
-                </div>
+                      <SignaturePad
+                        label="Firma del Cliente"
+                        value={formData.firma_cliente_url}
+                        onChange={(signature) => setFormData({ ...formData, firma_cliente_url: signature })}
+                        width={400}
+                        height={250}
+                      />
+                    </div>
 
-                {/* Subida de Fotos - Dropzone con dz-message */}
-                <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-brand-500 dark:border-gray-700 rounded-lg hover:border-brand-500">
-                  <div
-                    {...getRootProps()}
-                    className={`dropzone rounded-lg border-dashed border-gray-300 p-4 sm:p-5 ${isDragActive ? "border-brand-500 bg-gray-100 dark:bg-gray-800" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
-                      }`}
-                    id="fotos-upload"
-                    role="button"
-                    tabIndex={0}
-                  >
-                    {/* Input oculto */}
-                    <input {...getInputProps()} />
+                    {/* Subida de Fotos - Dropzone con dz-message */}
+                    <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-brand-500 dark:border-gray-700 rounded-lg hover:border-brand-500">
+                      <div
+                        {...getRootProps()}
+                        className={`dropzone rounded-lg border-dashed border-gray-300 p-4 sm:p-5 ${isDragActive ? "border-brand-500 bg-gray-100 dark:bg-gray-800" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+                          }`}
+                        id="fotos-upload"
+                        role="button"
+                        tabIndex={0}
+                      >
+                        {/* Input oculto */}
+                        <input {...getInputProps()} />
 
-                    <div className="dz-message flex flex-col items-center m-0!">
-                      {/* Contenedor del icono */}
-                      <div className="mb-3 flex justify-center">
-                        <div className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                          <svg
-                            className="fill-current"
-                            width="22"
-                            height="22"
-                            viewBox="0 0 29 28"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              clipRule="evenodd"
-                              d="M14.5019 3.91699C14.2852 3.91699 14.0899 4.00891 13.953 4.15589L8.57363 9.53186C8.28065 9.82466 8.2805 10.2995 8.5733 10.5925C8.8661 10.8855 9.34097 10.8857 9.63396 10.5929L13.7519 6.47752V18.667C13.7519 19.0812 14.0877 19.417 14.5019 19.417C14.9161 19.417 15.2519 19.0812 15.2519 18.667V6.48234L19.3653 10.5929C19.6583 10.8857 20.1332 10.8855 20.426 10.5925C20.7188 10.2995 20.7186 9.82463 20.4256 9.53184L15.0838 4.19378C14.9463 4.02488 14.7367 3.91699 14.5019 3.91699ZM5.91626 18.667C5.91626 18.2528 5.58047 17.917 5.16626 17.917C4.75205 17.917 4.41626 18.2528 4.41626 18.667V21.8337C4.41626 23.0763 5.42362 24.0837 6.66626 24.0837H22.3339C23.5766 24.0837 24.5839 23.0763 24.5839 21.8337V18.667C24.5839 18.2528 24.2482 17.917 23.8339 17.917C23.4197 17.917 23.0839 18.2528 23.0839 18.667V21.8337C23.0839 22.2479 22.7482 22.5837 22.3339 22.5837H6.66626C6.25205 22.5837 5.91626 22.2479 5.91626 21.8337V18.667Z"
-                            />
-                          </svg>
+                        <div className="dz-message flex flex-col items-center m-0!">
+                          {/* Contenedor del icono */}
+                          <div className="mb-3 flex justify-center">
+                            <div className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                              <svg
+                                className="fill-current"
+                                width="22"
+                                height="22"
+                                viewBox="0 0 29 28"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  clipRule="evenodd"
+                                  d="M14.5019 3.91699C14.2852 3.91699 14.0899 4.00891 13.953 4.15589L8.57363 9.53186C8.28065 9.82466 8.2805 10.2995 8.5733 10.5925C8.8661 10.8855 9.34097 10.8857 9.63396 10.5929L13.7519 6.47752V18.667C13.7519 19.0812 14.0877 19.417 14.5019 19.417C14.9161 19.417 15.2519 19.0812 15.2519 18.667V6.48234L19.3653 10.5929C19.6583 10.8857 20.1332 10.8855 20.426 10.5925C20.7188 10.2995 20.7186 9.82463 20.4256 9.53184L15.0838 4.19378C14.9463 4.02488 14.7367 3.91699 14.5019 3.91699ZM5.91626 18.667C5.91626 18.2528 5.58047 17.917 5.16626 17.917C4.75205 17.917 4.41626 18.2528 4.41626 18.667V21.8337C4.41626 23.0763 5.42362 24.0837 6.66626 24.0837H22.3339C23.5766 24.0837 24.5839 23.0763 24.5839 21.8337V18.667C24.5839 18.2528 24.2482 17.917 23.8339 17.917C23.4197 17.917 23.0839 18.2528 23.0839 18.667V21.8337C23.0839 22.2479 22.7482 22.5837 22.3339 22.5837H6.66626C6.25205 22.5837 5.91626 22.2479 5.91626 21.8337V18.667Z"
+                                />
+                              </svg>
+                            </div>
+                          </div>
+
+                          {/* Contenido de texto */}
+                          <h4 className="mb-1 font-semibold text-gray-800 text-sm sm:text-base dark:text-white/90">
+                            {isDragActive ? "Suelta aquí para subir" : "Haz clic o arrastra imágenes (máx. 5)"}
+                          </h4>
+
+                          <span className="text-center mb-2 block w-full max-w-[320px] text-[12px] text-gray-700 dark:text-gray-400">
+                            Formatos: PNG, JPG, WebP o SVG
+                          </span>
+
+                          <span className="font-medium underline text-[12px] text-brand-500">
+                            Buscar archivos
+                          </span>
                         </div>
                       </div>
-
-                      {/* Contenido de texto */}
-                      <h4 className="mb-1 font-semibold text-gray-800 text-sm sm:text-base dark:text-white/90">
-                        {isDragActive ? "Suelta aquí para subir" : "Haz clic o arrastra imágenes (máx. 5)"}
-                      </h4>
-
-                      <span className="text-center mb-2 block w-full max-w-[320px] text-[12px] text-gray-700 dark:text-gray-400">
-                        Formatos: PNG, JPG, WebP o SVG
-                      </span>
-
-                      <span className="font-medium underline text-[12px] text-brand-500">
-                        Buscar archivos
-                      </span>
                     </div>
-                  </div>
-                </div>
 
-                {/* Previsualizaciones y eliminar */}
-                {Array.isArray(formData.fotos_urls) && formData.fotos_urls.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-3">
-                    {formData.fotos_urls.map((preview, index) => (
-                      <div key={index} className="relative group">
-                        <img src={preview} alt={`Preview ${index + 1}`} className="w-full h-24 object-cover rounded-lg border-2 border-gray-300 dark:border-gray-700" />
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDelete({ open: true, index, url: preview })}
-                          className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-error-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error-700"
-                          title="Eliminar imagen"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
+                    {/* Previsualizaciones y eliminar */}
+                    {Array.isArray(formData.fotos_urls) && formData.fotos_urls.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-3">
+                        {formData.fotos_urls.map((preview, index) => (
+                          <div key={index} className="relative group">
+                            <img src={preview} alt={`Preview ${index + 1}`} className="w-full h-24 object-cover rounded-lg border-2 border-gray-300 dark:border-gray-700" />
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelete({ open: true, index, url: preview })}
+                              className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-error-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error-700"
+                              title="Eliminar imagen"
+                            >
+                              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
-                {/* Modal Confirmación eliminar foto */}
-                <Modal isOpen={confirmDelete.open} onClose={() => setConfirmDelete({ open: false, index: null, url: null })} closeOnBackdropClick={false} className="max-w-sm p-6">
-                  <div className='flex flex-col gap-4'>
-                    <div className='text-center'>
-                      <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30'>
-                        <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
+                    )}
+                    {/* Modal Confirmación eliminar foto */}
+                    <Modal isOpen={confirmDelete.open} onClose={() => setConfirmDelete({ open: false, index: null, url: null })} closeOnBackdropClick={false} className="max-w-sm p-6">
+                      <div className='flex flex-col gap-4'>
+                        <div className='text-center'>
+                          <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30'>
+                            <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                          </div>
+                          <h5 className='mt-4 font-semibold text-gray-800 text-theme-lg dark:text-white/90'>Confirmar eliminación</h5>
+                          <p className='mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400'>Esta acción no se puede deshacer. ¿Eliminar la imagen seleccionada?</p>
+                        </div>
+                        <div className='flex justify-center gap-3 pt-2'>
+                          <button onClick={() => setConfirmDelete({ open: false, index: null, url: null })} className='rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3'>Cancelar</button>
+                          <button onClick={() => { if (confirmDelete.index != null && confirmDelete.url) { handleDeletePhoto(confirmDelete.index, confirmDelete.url); } }} className='rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700'>Eliminar</button>
+                        </div>
                       </div>
-                      <h5 className='mt-4 font-semibold text-gray-800 text-theme-lg dark:text-white/90'>Confirmar eliminación</h5>
-                      <p className='mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400'>Esta acción no se puede deshacer. ¿Eliminar la imagen seleccionada?</p>
-                    </div>
-                    <div className='flex justify-center gap-3 pt-2'>
-                      <button onClick={() => setConfirmDelete({ open: false, index: null, url: null })} className='rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3'>Cancelar</button>
-                      <button onClick={() => { if (confirmDelete.index != null && confirmDelete.url) { handleDeletePhoto(confirmDelete.index, confirmDelete.url); } }} className='rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700'>Eliminar</button>
-                    </div>
+                    </Modal>
                   </div>
-                </Modal>
-              </div>
                 </div>
               </>
             )}
