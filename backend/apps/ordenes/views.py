@@ -1,18 +1,22 @@
 import json
 import os
+import logging
 import base64
 import io
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound
 
 from django.http import HttpResponse
 from django.db import transaction
-from django.db.models import Exists, F, OuterRef
+from django.db.models import Exists, F, OuterRef, Q
 
 from PIL import Image
 
@@ -20,6 +24,30 @@ from .models import Orden
 from .models import OrdenLevantamiento
 from .serializers import OrdenLevantamientoSerializer, OrdenSerializer
 from apps.users.models import UserSignature
+
+logger = logging.getLogger(__name__)
+
+# Image safety limits (protect against decompression bombs / huge base64 payloads)
+MAX_IMAGE_PIXELS = int(os.environ.get("MAX_IMAGE_PIXELS", "10000000"))
+MAX_EMBED_REMOTE_BYTES = int(os.environ.get("MAX_EMBED_REMOTE_BYTES", str(6 * 1024 * 1024)))
+MAX_BASE64_INPUT_MULTIPLIER = int(os.environ.get("MAX_BASE64_INPUT_MULTIPLIER", "8"))
+
+ALLOWED_IMAGE_MIME_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+}
+
+ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES = (
+    "ordenes/fotos/",
+    "ordenes/firmas/",
+    "ordenes/levantamiento/dibujos/",
+)
+
+_allowed_embed_hosts_env = os.environ.get("IMG_EMBED_ALLOW_HOSTS", "").strip()
+IMG_EMBED_ALLOW_HOSTS = {
+    h.strip().lower() for h in (_allowed_embed_hosts_env.split(",") if _allowed_embed_hosts_env else []) if h.strip()
+}
 
 # Cloudinary setup (enabled if credentials are provided)
 try:
@@ -43,6 +71,82 @@ def _is_data_url(s: str) -> bool:
     return isinstance(s, str) and s.startswith("data:") and ";base64," in s
 
 
+def _parse_data_url_image(data_url: str) -> tuple[str, str]:
+    """
+    Parse a base64 data URL and return (mime, base64_payload).
+    Validates the MIME type against ALLOWED_IMAGE_MIME_TYPES.
+    """
+    if not isinstance(data_url, str):
+        raise ValueError("data_url inválido")
+    if not data_url.startswith("data:") or ";base64," not in data_url:
+        raise ValueError("data_url inválido")
+
+    header, b64_data = data_url.split(",", 1)
+    # header example: data:image/png;base64
+    mime_part = header[5:].split(";base64", 1)[0].strip().lower()
+    if mime_part == "image/jpg":
+        mime_part = "image/jpeg"
+
+    if mime_part not in ALLOWED_IMAGE_MIME_TYPES:
+        raise ValueError("Formato de imagen no permitido")
+    return mime_part, b64_data
+
+
+def _decode_base64_image_bytes(data_url: str, max_input_bytes: int) -> tuple[str, bytes]:
+    mime, b64_data = _parse_data_url_image(data_url)
+    b64_clean = "".join(str(b64_data).split())
+
+    # Approximation: decoded_bytes ~= len(b64) * 3/4
+    approx_decoded = int(len(b64_clean) * 3 / 4)
+    if approx_decoded > max_input_bytes:
+        raise ValueError("Imagen demasiado grande")
+
+    try:
+        raw = base64.b64decode(b64_clean, validate=True)
+    except Exception:
+        raise ValueError("data_url base64 inválido")
+
+    if len(raw) > max_input_bytes:
+        raise ValueError("Imagen demasiado grande")
+    return mime, raw
+
+
+def _open_and_verify_image(raw: bytes) -> Image.Image:
+    # Protect against decompression bombs (Pillow will throw on too-large pixel counts)
+    try:
+        Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+        img = Image.open(io.BytesIO(raw))
+        img.verify()
+        # verify() invalidates the image; reopen and load safely.
+        img2 = Image.open(io.BytesIO(raw))
+        img2.load()
+        return img2
+    except Exception:
+        # Normalize any Pillow error into ValueError so callers can reject safely.
+        raise ValueError("Imagen inválida o peligrosa")
+
+
+def _is_cloudinary_host(host: str) -> bool:
+    host = (host or "").lower()
+    return host.endswith("cloudinary.com")
+
+
+def _is_embed_url_allowed(url: str) -> bool:
+    """
+    Allow only data: URLs and approved remote hosts (Cloudinary/allowlist),
+    to avoid SSRF when embedding into HTML/PDF.
+    """
+    if not isinstance(url, str) or not url:
+        return False
+    if url.startswith("data:"):
+        return True
+    if not (url.startswith("http://") or url.startswith("https://")):
+        return False
+    host = urlparse(url).hostname or ""
+    host = host.lower()
+    return host in IMG_EMBED_ALLOW_HOSTS or _is_cloudinary_host(host)
+
+
 def _optimize_image(data_url: str, max_size_kb: int = 80) -> str:
     """Optimize image to reduce file size while maintaining transparency.
     
@@ -54,12 +158,10 @@ def _optimize_image(data_url: str, max_size_kb: int = 80) -> str:
         Optimized data URL
     """
     try:
-        # Extract base64 data
-        header, b64_data = data_url.split(",", 1)
-        img_data = base64.b64decode(b64_data)
-        
-        # Open image with PIL
-        img = Image.open(io.BytesIO(img_data))
+        max_input_bytes = max_size_kb * 1024 * MAX_BASE64_INPUT_MULTIPLIER
+        # Validate base64 payload size + image safety before processing
+        _, img_data = _decode_base64_image_bytes(data_url, max_input_bytes)
+        img = _open_and_verify_image(img_data)
         
         # Determine if image has transparency
         has_transparency = img.mode in ('RGBA', 'LA', 'P')
@@ -136,8 +238,11 @@ def _optimize_image(data_url: str, max_size_kb: int = 80) -> str:
             optimized_b64 = base64.b64encode(output.read()).decode('utf-8')
             return f"data:image/jpeg;base64,{optimized_b64}"
     
-    except Exception as e:
-        # If optimization fails, return original
+    except ValueError:
+        # Invalid/unsafe payload: propagate so endpoints can reject (HTTP 400).
+        raise
+    except Exception:
+        # If optimization fails after validation, return original (already validated/safe).
         return data_url
 
 
@@ -149,6 +254,10 @@ def _extract_public_id_from_url(url: str) -> str:
     """
     try:
         if not url or not isinstance(url, str):
+            return ""
+
+        parsed = urlparse(url)
+        if not parsed.hostname or not _is_cloudinary_host(parsed.hostname):
             return ""
         
         # Find the part after /upload/
@@ -166,7 +275,10 @@ def _extract_public_id_from_url(url: str) -> str:
         if '.' in path:
             path = path.rsplit('.', 1)[0]
         
-        return path
+        public_id = path.lstrip("/")
+        if public_id and not public_id.startswith(ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES):
+            return ""
+        return public_id
     except Exception:
         return ""
 
@@ -193,35 +305,40 @@ def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
         folder: Cloudinary folder path
         max_size_kb: Maximum file size in KB (default 80KB)
     """
-    if not cloudinary:
-        return data_url
     try:
-        # Optimize image before upload
+        # Validate + optimize first (reject invalid/unsafe payloads).
         optimized_url = _optimize_image(data_url, max_size_kb)
-        
-        # Upload to Cloudinary
+    except ValueError:
+        # Avoid leaking details to clients.
+        raise ValidationError("Imagen inválida o demasiado grande")
+
+    if not cloudinary:
+        # Cloudinary disabled: keep the safe (validated) data URI.
+        return optimized_url
+
+    try:
         res = cloudinary.uploader.upload(
             optimized_url,
             folder=folder,
             resource_type="image",
             overwrite=True,
         )
-        return res.get("secure_url") or res.get("url") or data_url
+        return res.get("secure_url") or res.get("url") or optimized_url
     except Exception:
-        return data_url
+        logger.exception("Cloudinary upload failed")
+        return optimized_url
 
 
 def _img_url_to_data_uri(url: str) -> str:
     """Download an image URL and embed as data URI for reliable PDF rendering.
 
-    If anything fails (timeout, non-image response, too large), returns the original URL.
+    If anything fails (timeout, non-image response, too large, disallowed host),
+    returns '' to avoid SSRF / external fetches.
     """
     if not isinstance(url, str) or not url:
         return ''
-    if url.startswith('data:'):
-        return url
-    if not (url.startswith('http://') or url.startswith('https://')):
-        return url
+    if not _is_embed_url_allowed(url):
+        return ''
     try:
         req = Request(
             url=url,
@@ -236,28 +353,80 @@ def _img_url_to_data_uri(url: str) -> str:
             raw = resp.read()
 
         # Guardrail: avoid embedding extremely large images
-        if raw and len(raw) > 6 * 1024 * 1024:
-            return url
+        if raw and len(raw) > MAX_EMBED_REMOTE_BYTES:
+            return ''
         if not content_type.startswith('image/'):
-            content_type = 'image/png'
+            return ''
         b64 = base64.b64encode(raw).decode('ascii')
         return f'data:{content_type};base64,{b64}'
     except Exception:
-        return url
+        return ''
 
 
 class OrdenViewSet(viewsets.ModelViewSet):
-    queryset = (
-        Orden.objects
-        .annotate(tiene_levantamiento=Exists(OrdenLevantamiento.objects.filter(orden_id=OuterRef('pk'))))
-        .select_related('cliente_id', 'tecnico_asignado', 'creado_por')
-        .order_by(
-            F('fecha_inicio').desc(nulls_last=True),
-            F('fecha_creacion').desc(nulls_last=True),
-            '-id',
-        )
-    )
+    permission_classes = [IsAuthenticated]
+    # Evitar paginación por defecto para que el frontend reciba todas las órdenes
+    # y no “se corten” (p.ej. mostrar solo hasta idx=10).
+    pagination_class = None
+    queryset = Orden.objects.all()
     serializer_class = OrdenSerializer
+
+    def get_permissions(self):
+        # Administrative reindex must be limited to staff/admin users.
+        if self.action == 'reindex':
+            return [IsAdminUser()]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        # IMPORTANTE: usar `.all()` para obtener un queryset fresco en cada request
+        # y evitar cache accidental de resultados en el queryset de clase.
+        qs = (
+            self.queryset.all()
+            .annotate(tiene_levantamiento=Exists(OrdenLevantamiento.objects.filter(orden_id=OuterRef('pk'))))
+            .select_related('cliente_id', 'tecnico_asignado', 'creado_por')
+            .order_by(
+                F('fecha_inicio').desc(nulls_last=True),
+                F('fecha_creacion').desc(nulls_last=True),
+                '-id',
+            )
+        )
+        user = getattr(self.request, 'user', None)
+        if user and (user.is_authenticated and (user.is_staff or user.is_superuser)):
+            return qs
+        if not user or not getattr(user, 'is_authenticated', False):
+            return qs.none()
+        return qs.filter(Q(tecnico_asignado=user) | Q(creado_por=user))
+
+    def get_object(self):
+        """
+        Evita que DRF oculte autorización como `404`.
+        - Si la orden NO existe: `404`
+        - Si existe pero no pertenece al usuario: `403`
+        """
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        lookup_value = self.kwargs.get(lookup_url_kwarg)
+        if lookup_value is None:
+            raise NotFound()
+
+        try:
+            # Usar una consulta simple (sin anotaciones/Exists) para evitar
+            # casos donde el listado muestra registros pero el detalle falla.
+            obj = Orden.objects.filter(**{self.lookup_field: lookup_value}).first()
+        except Exception:
+            obj = None
+
+        if not obj:
+            raise NotFound()
+
+        user = getattr(self.request, 'user', None)
+        if user and getattr(user, 'is_authenticated', False) and (user.is_staff or user.is_superuser):
+            return obj
+
+        if user and getattr(user, 'is_authenticated', False):
+            if obj.tecnico_asignado_id == user.id or obj.creado_por_id == user.id:
+                return obj
+
+        raise PermissionDenied()
 
     @action(detail=True, methods=['get', 'put', 'patch'], url_path='levantamiento')
     def levantamiento(self, request, pk=None):
@@ -369,7 +538,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
         fotos = orden.fotos_urls if isinstance(orden.fotos_urls, list) else []
         fotos = fotos[:5]
         fotos_limpias = [url for url in fotos if url]
-        has_photos = bool(fotos_limpias)
+        fotos_embedded = [_img_url_to_data_uri(url) for url in fotos_limpias]
+        fotos_embedded = [src for src in fotos_embedded if src]
+        has_photos = bool(fotos_embedded)
 
         firma_tecnico = _img_url_to_data_uri(getattr(orden, 'firma_encargado_url', None) or '')
         firma_cliente = _img_url_to_data_uri(getattr(orden, 'firma_cliente_url', None) or '')
@@ -386,7 +557,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         ) or "<span class='muted'>-</span>"
 
         fotos_grid_html = "".join(
-            f"<div class='photo-box'><img src='{esc(_img_url_to_data_uri(url))}' /></div>" for url in fotos_limpias
+            f"<div class='photo-box'><img src='{esc(src)}' /></div>" for src in fotos_embedded
         ) or "<div class='muted'>No hay fotos adjuntas.</div>"
 
         logo_data_uri = ""
@@ -597,17 +768,30 @@ class OrdenViewSet(viewsets.ModelViewSet):
         if sig and sig.url:
             data['firma_encargado_url'] = sig.url
         firma_cliente = data.get('firma_cliente_url')
-        if isinstance(firma_cliente, str) and _is_data_url(firma_cliente):
-            data['firma_cliente_url'] = _upload_data_url(firma_cliente, folder='ordenes/firmas')
+        if isinstance(firma_cliente, str):
+            if firma_cliente == "":
+                # allow cleared signature on create
+                data['firma_cliente_url'] = ""
+            elif _is_data_url(firma_cliente):
+                data['firma_cliente_url'] = _upload_data_url(firma_cliente, folder='ordenes/firmas', max_size_kb=80)
+            elif _extract_public_id_from_url(firma_cliente):
+                # Only allow Cloudinary URLs within our scope.
+                data['firma_cliente_url'] = firma_cliente
+            else:
+                raise ValidationError("firma_cliente_url inválida")
         # Upload photos if base64 list
         fotos = data.get('fotos_urls')
         if isinstance(fotos, list):
+            if len(fotos) > 5:
+                raise ValidationError("Máximo 5 fotos")
             new_fotos = []
-            for f in fotos[:5]:
+            for f in fotos:
                 if isinstance(f, str) and _is_data_url(f):
-                    new_fotos.append(_upload_data_url(f, folder='ordenes/fotos'))
-                else:
+                    new_fotos.append(_upload_data_url(f, folder='ordenes/fotos', max_size_kb=80))
+                elif isinstance(f, str) and f and _extract_public_id_from_url(f):
                     new_fotos.append(f)
+                else:
+                    raise ValidationError("fotos_urls contiene una entrada inválida")
             data['fotos_urls'] = new_fotos
         serializer.save(creado_por=self.request.user, **data)
 
@@ -626,32 +810,45 @@ class OrdenViewSet(viewsets.ModelViewSet):
         
         firma_cliente = data.get('firma_cliente_url')
         if isinstance(firma_cliente, str) and _is_data_url(firma_cliente):
-            # Delete old signature from Cloudinary if exists
-            if old_firma_cliente and old_firma_cliente.startswith('http'):
+            # Delete old signature from Cloudinary (only within our scope) if exists
+            if old_firma_cliente and _extract_public_id_from_url(old_firma_cliente):
                 _delete_cloudinary_resource(old_firma_cliente)
             # Upload new optimized signature (80KB max)
             data['firma_cliente_url'] = _upload_data_url(firma_cliente, folder='ordenes/firmas', max_size_kb=80)
         elif firma_cliente == '' or firma_cliente is None:
-            # Signature was cleared - delete from Cloudinary
-            if old_firma_cliente and old_firma_cliente.startswith('http'):
+            # Signature was cleared - delete from Cloudinary (only within our scope)
+            if old_firma_cliente and _extract_public_id_from_url(old_firma_cliente):
                 _delete_cloudinary_resource(old_firma_cliente)
+            data['firma_cliente_url'] = "" if firma_cliente == '' else None
+        elif isinstance(firma_cliente, str):
+            # Allow only safe Cloudinary URLs within our scope.
+            if not _extract_public_id_from_url(firma_cliente):
+                raise ValidationError("firma_cliente_url inválida")
+            data['firma_cliente_url'] = firma_cliente
+        else:
+            # Unexpected type
+            raise ValidationError("firma_cliente_url inválida")
         
         # Handle photo updates - delete removed photos
         fotos = data.get('fotos_urls')
         if isinstance(fotos, list):
+            if len(fotos) > 5:
+                raise ValidationError("Máximo 5 fotos")
             new_fotos = []
             # Find photos that were removed
             for old_foto in old_fotos:
-                if old_foto not in fotos and old_foto.startswith('http'):
+                if old_foto not in fotos and isinstance(old_foto, str) and _extract_public_id_from_url(old_foto):
                     _delete_cloudinary_resource(old_foto)
             
             # Process new photos
-            for f in fotos[:5]:
+            for f in fotos:
                 if isinstance(f, str) and _is_data_url(f):
                     # Upload new optimized photo (80KB max)
                     new_fotos.append(_upload_data_url(f, folder='ordenes/fotos', max_size_kb=80))
-                else:
+                elif isinstance(f, str) and f and _extract_public_id_from_url(f):
                     new_fotos.append(f)
+                else:
+                    raise ValidationError("fotos_urls contiene una entrada inválida")
             data['fotos_urls'] = new_fotos
         
         # Save updated instance
@@ -672,21 +869,23 @@ class OrdenViewSet(viewsets.ModelViewSet):
             payload = {}
         data_url = payload.get('data_url')
         folder = payload.get('folder') or 'ordenes/fotos'
+        allowed_folders = {
+            'ordenes/fotos',
+            'ordenes/firmas',
+            'ordenes/levantamiento/dibujos',
+        }
+        if not isinstance(folder, str) or folder not in allowed_folders:
+            return Response({"detail": "folder inválido"}, status=400)
         if not isinstance(data_url, str) or ';base64,' not in data_url:
             return Response({"detail": "data_url inválido"}, status=400)
         try:
-            res = cloudinary.uploader.upload(
-                data_url,
-                folder=folder,
-                resource_type="image",
-                overwrite=True,
-            )
-            url = res.get("secure_url") or res.get("url")
-            if not url:
-                return Response({"detail": "No se obtuvo URL de Cloudinary"}, status=502)
+            url = _upload_data_url(data_url, folder=folder, max_size_kb=80)
             return Response({"url": url}, status=200)
-        except Exception as e:
-            return Response({"detail": "Error subiendo imagen a Cloudinary", "error": str(e)}, status=502)
+        except ValidationError:
+            return Response({"detail": "data_url inválido"}, status=400)
+        except Exception:
+            logger.exception("Error subiendo imagen a Cloudinary")
+            return Response({"detail": "Error subiendo imagen a Cloudinary"}, status=502)
 
     @action(detail=False, methods=['post'], url_path='delete-image')
     def delete_image(self, request):
@@ -702,11 +901,19 @@ class OrdenViewSet(viewsets.ModelViewSet):
         public_id = payload.get('public_id')
         if not isinstance(public_id, str) or not public_id:
             return Response({"detail": "public_id inválido"}, status=400)
+        allowed_prefixes = (
+            'ordenes/fotos/',
+            'ordenes/firmas/',
+            'ordenes/levantamiento/dibujos/',
+        )
+        if not any(public_id.startswith(p) for p in allowed_prefixes):
+            return Response({"detail": "public_id fuera de alcance"}, status=400)
         try:
             res = cloudinary.uploader.destroy(public_id, resource_type="image")
             return Response(res, status=200)
-        except Exception as e:
-            return Response({"detail": "Error eliminando imagen en Cloudinary", "error": str(e)}, status=502)
+        except Exception:
+            logger.exception("Error eliminando imagen en Cloudinary")
+            return Response({"detail": "Error eliminando imagen en Cloudinary"}, status=502)
 
     @action(detail=True, methods=['patch'], url_path='update-photos')
     def update_photos(self, request, pk=None):
@@ -722,8 +929,20 @@ class OrdenViewSet(viewsets.ModelViewSet):
         fotos_urls = payload.get('fotos_urls')
         if not isinstance(fotos_urls, list):
             return Response({"detail": "fotos_urls debe ser una lista"}, status=400)
-        
-        orden.fotos_urls = fotos_urls
+
+        if len(fotos_urls) > 5:
+            raise ValidationError("Máximo 5 fotos")
+
+        new_fotos = []
+        for f in fotos_urls:
+            if isinstance(f, str) and _is_data_url(f):
+                new_fotos.append(_upload_data_url(f, folder='ordenes/fotos', max_size_kb=80))
+            elif isinstance(f, str) and f and _extract_public_id_from_url(f):
+                new_fotos.append(f)
+            else:
+                raise ValidationError("fotos_urls contiene una entrada inválida")
+
+        orden.fotos_urls = new_fotos
         orden.save(update_fields=['fotos_urls'])
         
         serializer = self.get_serializer(orden)
@@ -771,9 +990,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 pass
             return Response({"detail": "Error generando PDF en htmldocs", "status": e.code, "body": body}, status=502)
         except URLError as e:
-            return Response({"detail": "No se pudo conectar a htmldocs", "error": str(e)}, status=502)
-        except Exception as e:
-            return Response({"detail": "Error inesperado generando PDF", "error": str(e)}, status=500)
+            logger.exception("No se pudo conectar a htmldocs")
+            return Response({"detail": "No se pudo conectar a htmldocs"}, status=502)
+        except Exception:
+            logger.exception("Error inesperado generando PDF")
+            return Response({"detail": "Error inesperado generando PDF"}, status=500)
 
         filename = f"Ordenes_Servicio_{orden.id}.pdf"
         response = HttpResponse(pdf_bytes, content_type="application/pdf")

@@ -38,6 +38,8 @@ interface Orden {
   nombre_encargado: string;
   nombre_cliente: string;
   tecnico_asignado?: number | null;
+  quien_instalo?: number | null;
+  quien_entrego?: number | null;
   tecnico_asignado_username?: string;
   tecnico_asignado_full_name?: string;
   firma_encargado_url: string;
@@ -218,7 +220,8 @@ export default function OrdenesTecnico() {
   const [editingOrden, setEditingOrden] = useState<Orden | null>(null);
   const isReadOnly = editingOrden ? !canOrdenesEdit : !canOrdenesCreate;
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  // Por defecto no filtramos por mes para no ocultar órdenes recién creadas.
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
   // Filtros
   const [filterOpen, setFilterOpen] = useState(false);
@@ -541,6 +544,8 @@ export default function OrdenesTecnico() {
     hora_termino: "",
     nombre_encargado: "",
     tecnico_asignado: null as number | null,
+    quien_instalo: null as number | null,
+    quien_entrego: null as number | null,
     firma_encargado_url: mySignatureUrl || "",
     firma_cliente_url: "",
     fotos_urls: [] as string[]
@@ -665,6 +670,8 @@ export default function OrdenesTecnico() {
   // Estados para dropdowns personalizados
   const [clienteSearch, setClienteSearch] = useState('');
   const [tecnicoSearch, setTecnicoSearch] = useState('');
+  const [quienInstaloSearch, setQuienInstaloSearch] = useState('');
+  const [quienEntregoSearch, setQuienEntregoSearch] = useState('');
   const [servicioSearch, setServicioSearch] = useState('');
 
 
@@ -821,16 +828,21 @@ export default function OrdenesTecnico() {
         return;
       }
 
-      const response = await fetch(apiUrl("/api/ordenes/"), {
+      const response = await fetch(apiUrl(`/api/ordenes/?_ts=${Date.now()}`), {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
-        }
+        },
+        cache: "no-store" as RequestCache,
       });
 
       if (response.ok) {
         let data = await response.json();
-        let rows = Array.isArray(data) ? data : [];
+        let rows = Array.isArray(data)
+          ? data
+          : Array.isArray((data as any)?.results)
+            ? (data as any).results
+            : [];
 
         // Filter for technicians if not admin
         const role = localStorage.getItem('role');
@@ -840,13 +852,21 @@ export default function OrdenesTecnico() {
             const user = JSON.parse(userRaw);
             if (user.id) {
               const userId = Number(user.id);
-              rows = rows.filter((o: any) => Number(o.tecnico_asignado) === userId);
+              // El backend permite ver órdenes por `tecnico_asignado` o por `creado_por`.
+              // Para no ocultar órdenes recién creadas que todavía no tienen `tecnico_asignado`,
+              // filtramos por ambos campos.
+              rows = rows.filter((o: any) => {
+                const tecnicoId = Number(o.tecnico_asignado ?? NaN);
+                const creadoId = Number(o.creado_por ?? o.creado_por_id ?? NaN);
+                return tecnicoId === userId || creadoId === userId;
+              });
             }
           } catch (e) {
             console.error("Error filtering orders for technician", e);
           }
         }
 
+        console.debug("[OrdenesTecnicoPage] fetchOrdenes idx:", rows.map((r: any) => Number(r?.idx || 0)).filter((n: number) => Number.isFinite(n)));
         setOrdenes(rows);
       } else if (response.status === 401) {
         console.error("Token inválido o expirado");
@@ -901,6 +921,12 @@ export default function OrdenesTecnico() {
       delete payload.contacto_id;
       if (payload.tecnico_asignado == null) {
         delete payload.tecnico_asignado;
+      }
+      if (payload.quien_instalo == null) {
+        delete payload.quien_instalo;
+      }
+      if (payload.quien_entrego == null) {
+        delete payload.quien_entrego;
       }
 
       // Saneamiento: convertir strings vacíos a null en campos opcionales
@@ -1165,6 +1191,9 @@ export default function OrdenesTecnico() {
             });
           }
         }
+        // Refresh from backend to avoid any stale client state/caching.
+        await fetchOrdenes();
+
         setShowModal(false);
         setActiveTab("cliente");
         setFormData({
@@ -1185,6 +1214,8 @@ export default function OrdenesTecnico() {
           hora_termino: "",
           nombre_encargado: "",
           tecnico_asignado: null,
+          quien_instalo: null,
+          quien_entrego: null,
           firma_encargado_url: "",
           firma_cliente_url: "",
           fotos_urls: []
@@ -1267,6 +1298,18 @@ export default function OrdenesTecnico() {
         });
         setOrdenToDelete(null);
         setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
+      } else {
+        if (response.status === 403) {
+          setAlert({ show: true, variant: "error", title: "Sin permisos", message: "No tienes permisos para eliminar esta orden." });
+        } else if (response.status === 404) {
+          setAlert({ show: true, variant: "error", title: "No encontrada", message: "La orden no existe o ya no tienes acceso." });
+        } else {
+          setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo eliminar la orden." });
+        }
+        await fetchOrdenes();
+        setShowDeleteModal(false);
+        setOrdenToDelete(null);
+        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3500);
       }
     } catch (error) {
       console.error("Error al eliminar orden:", error);
@@ -1308,6 +1351,8 @@ export default function OrdenesTecnico() {
       fecha_finalizacion: orden.fecha_finalizacion || "",
       hora_termino: orden.hora_termino || "",
       tecnico_asignado: orden.tecnico_asignado ? Number(orden.tecnico_asignado) : null,
+      quien_instalo: (orden as any).quien_instalo ? Number((orden as any).quien_instalo) : null,
+      quien_entrego: (orden as any).quien_entrego ? Number((orden as any).quien_entrego) : null,
       firma_encargado_url: mySignatureUrl || orden.firma_encargado_url || "",
       firma_cliente_url: orden.firma_cliente_url || "",
       fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : []
@@ -1338,6 +1383,8 @@ export default function OrdenesTecnico() {
       hora_termino: "",
       nombre_encargado: "",
       tecnico_asignado: null,
+      quien_instalo: null,
+      quien_entrego: null,
       firma_encargado_url: "",
       firma_cliente_url: "",
       fotos_urls: []
@@ -1346,6 +1393,8 @@ export default function OrdenesTecnico() {
     // Limpiar estados de búsqueda de dropdowns
     setClienteSearch('');
     setTecnicoSearch('');
+    setQuienInstaloSearch('');
+    setQuienEntregoSearch('');
     setServicioSearch('');
   };
 
@@ -1583,6 +1632,28 @@ export default function OrdenesTecnico() {
       setFormData({ ...formData, tecnico_asignado: null });
       setTecnicoSearch('');
       setTecnicoSignatureUrl('');
+    }
+  };
+
+  const selectQuienInstalo = (usuario: Usuario | null) => {
+    if (usuario) {
+      setFormData({ ...formData, quien_instalo: usuario.id });
+      const nombre = usuario.first_name && usuario.last_name ? `${usuario.first_name} ${usuario.last_name}` : usuario.email;
+      setQuienInstaloSearch(nombre);
+    } else {
+      setFormData({ ...formData, quien_instalo: null });
+      setQuienInstaloSearch('');
+    }
+  };
+
+  const selectQuienEntrego = (usuario: Usuario | null) => {
+    if (usuario) {
+      setFormData({ ...formData, quien_entrego: usuario.id });
+      const nombre = usuario.first_name && usuario.last_name ? `${usuario.first_name} ${usuario.last_name}` : usuario.email;
+      setQuienEntregoSearch(nombre);
+    } else {
+      setFormData({ ...formData, quien_entrego: null });
+      setQuienEntregoSearch('');
     }
   };
 
@@ -1986,7 +2057,7 @@ export default function OrdenesTecnico() {
                   <TableRow>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2 text-center text-[12px] text-gray-500">Sin órdenes para el mes seleccionado</TableCell>
+                    <TableCell className="px-2 py-2 text-center text-[12px] text-gray-500">Sin órdenes</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
@@ -2011,6 +2082,7 @@ export default function OrdenesTecnico() {
                   <button
                     type="button"
                     onClick={() => {
+                      if (!selectedMonth) return;
                       try {
                         const [y, m] = selectedMonth.split('-').map(Number);
                         const d = new Date(y, m - 2, 1);
@@ -2031,13 +2103,14 @@ export default function OrdenesTecnico() {
                         const [y, m] = selectedMonth.split('-').map(Number);
                         return new Date(y, m - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
                       } catch {
-                        return selectedMonth;
+                        return selectedMonth ? selectedMonth : 'Todos los meses';
                       }
                     })()}
                   </span>
                   <button
                     type="button"
                     onClick={() => {
+                      if (!selectedMonth) return;
                       try {
                         const [y, m] = selectedMonth.split('-').map(Number);
                         const d = new Date(y, m, 1);
@@ -2385,6 +2458,76 @@ export default function OrdenesTecnico() {
 
 
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1">
+                      <ActionSearchBar
+                        actions={tecnicoActions as any}
+                        defaultOpen={false}
+                        label="¿Quien instaló?"
+                        placeholder="Buscar técnico..."
+                        value={quienInstaloSearch || (formData.quien_instalo ? (() => {
+                          const tecnicoId = Number(formData.quien_instalo);
+                          const u = usuarios.find(u => u.id === tecnicoId);
+                          return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : '';
+                        })() : '')}
+                        onQueryChange={(q: string) => setQuienInstaloSearch(q)}
+                        onSelectAction={(action: any) => {
+                          const id = Number(action?.id);
+                          const u = (usuarios || []).find((x) => Number(x.id) === id);
+                          if (u) selectQuienInstalo(u);
+                        }}
+                      />
+                    </div>
+                    {formData.quien_instalo && !isReadOnly && (
+                      <button
+                        type="button"
+                        onClick={() => selectQuienInstalo(null)}
+                        aria-label="Limpiar selección"
+                        className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                          <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
+                          <path d="M18 11l-4.3-4.3" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1">
+                      <ActionSearchBar
+                        actions={tecnicoActions as any}
+                        defaultOpen={false}
+                        label="¿Quien entregó?"
+                        placeholder="Buscar técnico..."
+                        value={quienEntregoSearch || (formData.quien_entrego ? (() => {
+                          const tecnicoId = Number(formData.quien_entrego);
+                          const u = usuarios.find(u => u.id === tecnicoId);
+                          return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : '';
+                        })() : '')}
+                        onQueryChange={(q: string) => setQuienEntregoSearch(q)}
+                        onSelectAction={(action: any) => {
+                          const id = Number(action?.id);
+                          const u = (usuarios || []).find((x) => Number(x.id) === id);
+                          if (u) selectQuienEntrego(u);
+                        }}
+                      />
+                    </div>
+                    {formData.quien_entrego && !isReadOnly && (
+                      <button
+                        type="button"
+                        onClick={() => selectQuienEntrego(null)}
+                        aria-label="Limpiar selección"
+                        className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                          <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
+                          <path d="M18 11l-4.3-4.3" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
 
               </div>
                 </div>
@@ -2603,14 +2746,16 @@ export default function OrdenesTecnico() {
                   ))}
                 </div>
 
-                {/* Comentario del Técnico */}
+                {/* Comentario del Técnico (misma sección / card que Descripción de la Orden) */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario del Técnico</label>
                   <textarea
                     value={formData.comentario_tecnico}
+                    readOnly={isReadOnly}
+                    disabled={isReadOnly}
                     onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
                     rows={3}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                    className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40'}`}
                     placeholder="Observaciones del técnico..."
                   />
                 </div>
@@ -2620,8 +2765,9 @@ export default function OrdenesTecnico() {
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Estado del Problema</label>
                   <select
                     value={formData.status}
+                    disabled={isReadOnly}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as 'pendiente' | 'resuelto' })}
-                    className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                    className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40'}`}
                   >
                     <option value="pendiente">No, pendiente</option>
                     <option value="resuelto">Sí, problema resuelto</option>

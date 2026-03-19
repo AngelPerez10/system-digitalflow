@@ -51,6 +51,20 @@ class Orden(models.Model):
         blank=True,
         related_name='ordenes_asignadas',
     )
+    quien_instalo = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ordenes_instaladas',
+    )
+    quien_entrego = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ordenes_entregadas',
+    )
     nombre_cliente = models.CharField(max_length=100, blank=True, null=True)
 
     fotos_urls = models.JSONField(default=list, blank=True)

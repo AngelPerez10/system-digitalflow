@@ -206,12 +206,25 @@ export default function LevantamientoPage() {
         setAlert({ show: true, variant: "success", title: "Orden eliminada", message: `La orden para "${ordenToDelete.cliente}" ha sido eliminada.` });
         setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
       } else {
-        setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo eliminar la orden." });
+        if (response.status === 403) {
+          setAlert({ show: true, variant: "error", title: "Sin permisos", message: "No tienes permisos para eliminar esta orden." });
+        } else if (response.status === 404) {
+          setAlert({ show: true, variant: "error", title: "No encontrada", message: "La orden no existe o ya no tienes acceso." });
+        } else {
+          setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo eliminar la orden." });
+        }
+        // Si ya fue eliminada en BD (404) u ocurre un problema de permisos,
+        // recargamos para sincronizar UI con el backend.
+        await fetchOrdenes();
+        setShowDeleteModal(false);
+        setOrdenToDelete(null);
         setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
       }
     } catch {
       setAlert({ show: true, variant: "error", title: "Error", message: "Error al eliminar la orden." });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
+      // Mantener la UI consistente ante fallos de red/back.
+      await fetchOrdenes();
     }
   };
 
@@ -224,9 +237,17 @@ export default function LevantamientoPage() {
     const token = getToken();
     if (!token) return;
     try {
-      const res = await fetch(apiUrl("/api/ordenes/"), { method: "GET", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+      const res = await fetch(apiUrl(`/api/ordenes/?_ts=${Date.now()}`), {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        cache: "no-store" as RequestCache,
+      });
       const data = await res.json().catch(() => null);
-      if (res.ok) setOrdenes(Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : []);
+      if (res.ok) {
+        const rows = Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
+        console.debug("[LevantamientoPage] fetchOrdenes idx:", rows.map((r: any) => Number(r?.idx || 0)).filter((n: number) => Number.isFinite(n)));
+        setOrdenes(rows);
+      }
     } catch {
       setOrdenes([]);
     }

@@ -9,6 +9,7 @@ import { apiUrl } from "@/config/api";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 import LevantamientoForm from "./LevantamientoForm";
 import SignaturePad from "@/components/ui/signature/SignaturePad";
+import { TimeIcon } from "@/icons";
 import { Cliente } from "@/types/cliente";
 
 interface ServicioCatalogo {
@@ -54,6 +55,8 @@ const initialFormData = {
   hora_termino: "",
   nombre_encargado: "",
   tecnico_asignado: null as number | null,
+  quien_instalo: null as number | null,
+  quien_entrego: null as number | null,
   firma_encargado_url: "",
   firma_cliente_url: "",
   fotos_urls: [] as string[],
@@ -76,6 +79,8 @@ export default function OrdenServicioModal({
   const tipoOrden = forceTipoOrden === "levantamiento" ? "levantamiento" : (orden?.tipo_orden || "levantamiento");
   const [clienteSearch, setClienteSearch] = useState("");
   const [tecnicoSearch, setTecnicoSearch] = useState("");
+  const [quienInstaloSearch, setQuienInstaloSearch] = useState("");
+  const [quienEntregoSearch, setQuienEntregoSearch] = useState("");
   const [servicioSearch, setServicioSearch] = useState("");
   const [modalAlert, setModalAlert] = useState<{
     show: boolean;
@@ -91,6 +96,122 @@ export default function OrdenServicioModal({
   });
   const formScrollRef = useRef<HTMLFormElement | null>(null);
   const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
+
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const zoomRef = useRef<number>(15);
+  const mapContainerId = "leaflet-map-orden-lev-modal";
+
+  // Cargar Leaflet e inicializar mapa al abrir modal (mismo flujo que OrdenesPage)
+  useEffect(() => {
+    if (!showMapModal) {
+      if (mapRef.current) {
+        try {
+          mapRef.current.remove();
+        } catch {
+          /* ignore */
+        }
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+      return;
+    }
+
+    const parseCoordsFromDireccion = (): { lat: number; lng: number } | null => {
+      const d = (formData.direccion || "").trim();
+      const m = d.match(/q=([\-\d\.]+),([\-\d\.]+)/);
+      if (m) {
+        const lat = parseFloat(m[1]);
+        const lng = parseFloat(m[2]);
+        if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+      }
+      return null;
+    };
+
+    const ensureLeaflet = async () => {
+      const w: any = window as any;
+      if (w.L) return w.L;
+      if (!document.getElementById("leaflet-css-lev")) {
+        const link = document.createElement("link");
+        link.id = "leaflet-css-lev";
+        link.rel = "stylesheet";
+        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+        link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
+        link.crossOrigin = "";
+        document.head.appendChild(link);
+      }
+      await new Promise<void>((resolve, reject) => {
+        if (document.getElementById("leaflet-js-lev")) return resolve();
+        const script = document.createElement("script");
+        script.id = "leaflet-js-lev";
+        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+        script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
+        script.crossOrigin = "";
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Leaflet load error"));
+        document.body.appendChild(script);
+      });
+      return (window as any).L;
+    };
+
+    (async () => {
+      try {
+        const L = await ensureLeaflet();
+        const parsed = parseCoordsFromDireccion();
+        const initialCenter = parsed || { lat: 19.0653, lng: -104.2831 };
+        setSelectedLocation(initialCenter);
+        const container = document.getElementById(mapContainerId);
+        if (!container) return;
+        const map = L.map(container).setView([initialCenter.lat, initialCenter.lng], zoomRef.current || 15);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors",
+        }).addTo(map);
+        map.on("zoomend", () => {
+          try {
+            zoomRef.current = map.getZoom();
+          } catch {
+            /* ignore */
+          }
+        });
+        map.on("click", (e: any) => {
+          const { lat, lng } = e.latlng;
+          setSelectedLocation({ lat, lng });
+        });
+        mapRef.current = map;
+        markerRef.current = L.marker([initialCenter.lat, initialCenter.lng]).addTo(map);
+      } catch {
+        setModalAlert({
+          show: true,
+          variant: "error",
+          title: "Error de mapa",
+          message: "No se pudo cargar el mapa interactivo.",
+        });
+        setTimeout(() => setModalAlert((p) => ({ ...p, show: false })), 3000);
+      }
+    })();
+  }, [showMapModal]);
+
+  useEffect(() => {
+    const L: any = (window as any).L;
+    if (!mapRef.current || !selectedLocation || !L) return;
+    const map = mapRef.current;
+    const currentZoom = typeof zoomRef.current === "number" ? zoomRef.current : map.getZoom?.() || 15;
+    map.setView([selectedLocation.lat, selectedLocation.lng], currentZoom);
+    if (markerRef.current) {
+      markerRef.current.setLatLng([selectedLocation.lat, selectedLocation.lng]);
+    } else {
+      markerRef.current = L.marker([selectedLocation.lat, selectedLocation.lng]).addTo(map);
+    }
+  }, [selectedLocation]);
+
+  const handleCloseModal = () => {
+    setShowMapModal(false);
+    setActiveTab("cliente");
+    onClose();
+  };
 
   // Load data when modal opens
   useEffect(() => {
@@ -159,6 +280,8 @@ export default function OrdenServicioModal({
         fecha_finalizacion: orden.fecha_finalizacion ?? "",
         hora_termino: orden.hora_termino ?? "",
         tecnico_asignado: orden.tecnico_asignado != null ? Number(orden.tecnico_asignado) : null,
+        quien_instalo: orden.quien_instalo != null ? Number(orden.quien_instalo) : null,
+        quien_entrego: orden.quien_entrego != null ? Number(orden.quien_entrego) : null,
         firma_encargado_url: orden.firma_encargado_url ?? "",
         firma_cliente_url: orden.firma_cliente_url ?? "",
         fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : [],
@@ -169,10 +292,22 @@ export default function OrdenServicioModal({
         const u = usuarios.find((x) => x.id === tid);
         if (u) setTecnicoSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
       } else setTecnicoSearch("");
+      const quienInstaloId = orden.quien_instalo != null ? Number(orden.quien_instalo) : null;
+      if (quienInstaloId) {
+        const u = usuarios.find((x) => x.id === quienInstaloId);
+        if (u) setQuienInstaloSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
+      } else setQuienInstaloSearch("");
+      const quienEntregoId = orden.quien_entrego != null ? Number(orden.quien_entrego) : null;
+      if (quienEntregoId) {
+        const u = usuarios.find((x) => x.id === quienEntregoId);
+        if (u) setQuienEntregoSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
+      } else setQuienEntregoSearch("");
     } else {
       setFormData({ ...initialFormData, fecha_inicio: new Date().toISOString().split("T")[0] });
       setClienteSearch("");
       setTecnicoSearch("");
+      setQuienInstaloSearch("");
+      setQuienEntregoSearch("");
       setServicioSearch("");
     }
   }, [open, orden?.id]);
@@ -183,6 +318,18 @@ export default function OrdenServicioModal({
     const u = usuarios.find((x) => x.id === formData.tecnico_asignado);
     if (u) setTecnicoSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
   }, [open, formData.tecnico_asignado, usuarios]);
+
+  useEffect(() => {
+    if (!open || !formData.quien_instalo || !usuarios.length) return;
+    const u = usuarios.find((x) => x.id === formData.quien_instalo);
+    if (u) setQuienInstaloSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
+  }, [open, formData.quien_instalo, usuarios]);
+
+  useEffect(() => {
+    if (!open || !formData.quien_entrego || !usuarios.length) return;
+    const u = usuarios.find((x) => x.id === formData.quien_entrego);
+    if (u) setQuienEntregoSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
+  }, [open, formData.quien_entrego, usuarios]);
 
   const selectCliente = (cliente: Cliente | null) => {
     if (cliente) {
@@ -219,6 +366,26 @@ export default function OrdenServicioModal({
     } else {
       setFormData((prev) => ({ ...prev, tecnico_asignado: null }));
       setTecnicoSearch("");
+    }
+  };
+
+  const selectQuienInstalo = (usuario: Usuario | null) => {
+    if (usuario) {
+      setFormData((prev) => ({ ...prev, quien_instalo: usuario.id }));
+      setQuienInstaloSearch(usuario.first_name && usuario.last_name ? `${usuario.first_name} ${usuario.last_name}` : usuario.email);
+    } else {
+      setFormData((prev) => ({ ...prev, quien_instalo: null }));
+      setQuienInstaloSearch("");
+    }
+  };
+
+  const selectQuienEntrego = (usuario: Usuario | null) => {
+    if (usuario) {
+      setFormData((prev) => ({ ...prev, quien_entrego: usuario.id }));
+      setQuienEntregoSearch(usuario.first_name && usuario.last_name ? `${usuario.first_name} ${usuario.last_name}` : usuario.email);
+    } else {
+      setFormData((prev) => ({ ...prev, quien_entrego: null }));
+      setQuienEntregoSearch("");
     }
   };
 
@@ -473,6 +640,8 @@ export default function OrdenServicioModal({
       delete payload.firma_encargado_url;
       delete payload.contacto_id;
       if (payload.tecnico_asignado == null) delete payload.tecnico_asignado;
+      if (payload.quien_instalo == null) delete payload.quien_instalo;
+      if (payload.quien_entrego == null) delete payload.quien_entrego;
 
       const toNullIfEmpty = (v: any) => (typeof v === "string" && v.trim() === "" ? null : v);
       payload.direccion = toNullIfEmpty(payload.direccion);
@@ -594,22 +763,45 @@ export default function OrdenServicioModal({
             const clienteNombre = String((savedOrden as any).cliente || '').trim();
             const contactoNombre = String((savedOrden as any).nombre_cliente || '').trim();
 
-            const subtotal = cercoItems.reduce((acc: number, it: any) => {
-              const qty = Number(it.cantidad || 0);
-              const price = Number(it.precio_lista || 0);
-              if (!Number.isFinite(qty) || !Number.isFinite(price)) return acc;
-              return acc + qty * price;
-            }, 0);
+            const toFiniteNumber = (v: unknown, fallback = 0) => {
+              const n = typeof v === "number" ? v : Number(v);
+              return Number.isFinite(n) ? n : fallback;
+            };
+            const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+            const subtotal = round2(
+              cercoItems.reduce((acc: number, it: any) => {
+                const qty = toFiniteNumber(it.cantidad, 0);
+                const price = toFiniteNumber(it.precio_lista, 0);
+                return acc + qty * price;
+              }, 0)
+            );
             const ivaPct = 16;
-            const iva = subtotal * (ivaPct / 100);
-            const total = subtotal + iva;
+            const iva = round2(subtotal * (ivaPct / 100));
+            const total = round2(subtotal + iva);
+
+            const sanitizeThumbnailUrl = (raw: unknown): string => {
+              const s = typeof raw === "string" ? raw.trim() : "";
+              if (!s) return "";
+              // Django URLField rechaza URLs con espacios, así que las normalizamos.
+              const candidate = s.replace(/\s+/g, "%20");
+              try {
+                const u = new URL(candidate);
+                const proto = u.protocol.toLowerCase();
+                if (proto === "http:" || proto === "https:") return u.href;
+                return "";
+              } catch {
+                return "";
+              }
+            };
 
             const cotPayload: any = {
               cliente_id: cid != null ? Number(cid) : null,
               cliente: clienteNombre,
               prospecto: !cid,
               contacto: contactoNombre,
-              medio_contacto: '',
+              // DRF valida `choices` del campo; si no tenemos info, mandamos un valor válido.
+              medio_contacto: 'OTRO',
               status: 'PENDIENTE',
               fecha: todayIso,
               subtotal,
@@ -624,10 +816,10 @@ export default function OrdenServicioModal({
                 producto_nombre: String(it.producto_nombre || ''),
                 producto_descripcion: String(it.producto_descripcion || ''),
                 unidad: String(it.unidad || ''),
-                thumbnail_url: String(it.thumbnail_url || ''),
-                cantidad: Number(it.cantidad || 0),
-                precio_lista: Number(it.precio_lista || 0),
-                descuento_pct: Number(it.descuento_pct || 0),
+                thumbnail_url: sanitizeThumbnailUrl(it.thumbnail_url),
+                cantidad: round2(toFiniteNumber(it.cantidad, 0)),
+                precio_lista: round2(toFiniteNumber(it.precio_lista, 0)),
+                descuento_pct: round2(toFiniteNumber(it.descuento_pct, 0)),
                 orden: index,
               })),
             };
@@ -641,9 +833,29 @@ export default function OrdenServicioModal({
               body: JSON.stringify(cotPayload),
             }).catch(() => null as any);
 
+            if (cotRes && cotRes.ok) {
+              // Para que la UI de `CotizacionesPage` se refresque al crear desde otro módulo.
+              window.dispatchEvent(new Event('cotizaciones:updated'));
+            }
+
             if (cotRes && !cotRes.ok) {
-              // Silenciar error; la orden ya fue guardada
-              // Opcionalmente podríamos mostrar un mensaje en modalAlert
+              let details = "";
+              try {
+                const err = await cotRes.json();
+                details = err?.detail || JSON.stringify(err);
+              } catch {
+                details = await cotRes.text().catch(() => "");
+              }
+              console.error("Error creando cotización desde levantamiento:", details, cotPayload);
+              setModalAlert({
+                show: true,
+                variant: "warning",
+                title: "Orden guardada",
+                message: details
+                  ? `La orden se guardó, pero la cotización no se pudo crear. Detalle: ${details}`
+                  : "La orden se guardó, pero la cotización no se pudo crear.",
+              });
+              window.setTimeout(() => setModalAlert((p) => ({ ...p, show: false })), 6000);
             }
           }
         } catch (e) {
@@ -671,9 +883,10 @@ export default function OrdenServicioModal({
   const title = orden?.id ? "Editar Orden de Levantamiento" : "Nueva Orden de Levantamiento";
 
   return (
+    <>
     <Modal
       isOpen={open}
-      onClose={onClose}
+      onClose={handleCloseModal}
       closeOnBackdropClick={false}
       className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden"
     >
@@ -842,15 +1055,144 @@ export default function OrdenServicioModal({
                       )}
                     </div>
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <ActionSearchBar
+                          actions={tecnicoActions as any}
+                          defaultOpen={false}
+                          label="¿Quien instaló?"
+                          placeholder="Buscar técnico..."
+                          value={quienInstaloSearch || (formData.quien_instalo ? (() => {
+                            const tecnicoId = Number(formData.quien_instalo);
+                            const u = usuarios.find((u) => u.id === tecnicoId);
+                            return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : "";
+                          })() : "")}
+                          onQueryChange={(q: string) => setQuienInstaloSearch(q)}
+                          onSelectAction={(action: any) => {
+                            const id = Number(action?.id);
+                            const u = (usuarios || []).find((x) => Number(x.id) === id);
+                            if (u) selectQuienInstalo(u);
+                          }}
+                        />
+                      </div>
+                      {formData.quien_instalo && (
+                        <button
+                          type="button"
+                          onClick={() => selectQuienInstalo(null)}
+                          aria-label="Limpiar selección"
+                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                            <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
+                            <path d="M18 11l-4.3-4.3" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <ActionSearchBar
+                          actions={tecnicoActions as any}
+                          defaultOpen={false}
+                          label="¿Quien entregó?"
+                          placeholder="Buscar técnico..."
+                          value={quienEntregoSearch || (formData.quien_entrego ? (() => {
+                            const tecnicoId = Number(formData.quien_entrego);
+                            const u = usuarios.find((u) => u.id === tecnicoId);
+                            return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : "";
+                          })() : "")}
+                          onQueryChange={(q: string) => setQuienEntregoSearch(q)}
+                          onSelectAction={(action: any) => {
+                            const id = Number(action?.id);
+                            const u = (usuarios || []).find((x) => Number(x.id) === id);
+                            if (u) selectQuienEntrego(u);
+                          }}
+                        />
+                      </div>
+                      {formData.quien_entrego && (
+                        <button
+                          type="button"
+                          onClick={() => selectQuienEntrego(null)}
+                          aria-label="Limpiar selección"
+                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                            <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
+                            <path d="M18 11l-4.3-4.3" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECCIÓN: Detalles del Cliente (dirección y teléfono) */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                  <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles del Cliente</h4>
+                </div>
+                <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                  {/* Dirección con botones (igual que OrdenesPage) */}
                   <div>
-                    <Label>Dirección</Label>
-                    <textarea
-                      value={formData.direccion}
-                      onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                      rows={2}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2"
-                      placeholder="Dirección"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Dirección</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowMapModal(true)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path
+                            d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        Seleccionar en mapa
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <textarea
+                        value={formData.direccion}
+                        onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+                        rows={2}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 pr-12 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                        placeholder="Dirección, coordenadas o URL de Google Maps"
+                      />
+                      {formData.direccion && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const direccion = formData.direccion.trim();
+                            if (direccion.includes("google.com/maps") || direccion.includes("maps.app.goo.gl")) {
+                              window.open(direccion, "_blank");
+                              return;
+                            }
+                            const coordMatch = direccion.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+                            if (coordMatch) {
+                              const lat = coordMatch[1];
+                              const lng = coordMatch[2];
+                              window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank");
+                              return;
+                            }
+                            const query = encodeURIComponent(direccion);
+                            window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
+                          }}
+                          className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                          title="Abrir en Google Maps"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <Label>Teléfono</Label>
@@ -865,13 +1207,84 @@ export default function OrdenServicioModal({
                 </div>
               </div>
 
-              {/* SECCIÓN 2: Detalles de la Orden (Problemática y tiempos) */}
+              {/* SECCIÓN: Tiempos de la orden */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                  <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tiempos de la orden</h4>
+                </div>
+                <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+                  {/* Fechas de Inicio (igual que OrdenesPage) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <DatePicker
+                        id="modal-fecha-inicio"
+                        label="Fecha Inicio"
+                        placeholder="Seleccionar fecha"
+                        defaultDate={formData.fecha_inicio || undefined}
+                        onChange={(_dates, currentDateString) => {
+                          setFormData({ ...formData, fecha_inicio: currentDateString || "" });
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="modal-hora-inicio">Hora Inicio</Label>
+                      <div className="relative">
+                        <Input
+                          type="time"
+                          id="modal-hora-inicio"
+                          name="modal-hora-inicio"
+                          value={formData.hora_inicio}
+                          onChange={(e) => setFormData({ ...formData, hora_inicio: e.target.value })}
+                        />
+                        <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
+                          <TimeIcon className="size-6" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fechas de Finalización (igual que OrdenesPage) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <DatePicker
+                        id="modal-fecha-finalizacion"
+                        label="Fecha Finalización"
+                        placeholder="Seleccionar fecha"
+                        defaultDate={formData.fecha_finalizacion || undefined}
+                        onChange={(_dates, currentDateString) => {
+                          setFormData({ ...formData, fecha_finalizacion: currentDateString || "" });
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="modal-hora-termino">Hora Término</Label>
+                      <div className="relative">
+                        <Input
+                          type="time"
+                          id="modal-hora-termino"
+                          name="modal-hora-termino"
+                          value={formData.hora_termino}
+                          onChange={(e) => setFormData({ ...formData, hora_termino: e.target.value })}
+                        />
+                        <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
+                          <TimeIcon className="size-6" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECCIÓN: Descripción de la Orden */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                   <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Descripción y tiempos</h4>
+                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Descripción de la Orden</h4>
                 </div>
                 <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
                   <div>
@@ -951,48 +1364,6 @@ export default function OrdenServicioModal({
                       className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2"
                       placeholder="Observaciones..."
                     />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <DatePicker
-                      id="modal-fecha-inicio"
-                      label="Fecha Inicio"
-                      placeholder="Seleccionar"
-                      defaultDate={formData.fecha_inicio || undefined}
-                      onChange={(_dates, currentDateString) =>
-                        setFormData({ ...formData, fecha_inicio: currentDateString || "" })
-                      }
-                    />
-                    <div>
-                      <Label htmlFor="modal-hora-inicio">Hora Inicio</Label>
-                      <Input
-                        type="time"
-                        id="modal-hora-inicio"
-                        value={formData.hora_inicio}
-                        onChange={(e) => setFormData({ ...formData, hora_inicio: e.target.value })}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <DatePicker
-                      id="modal-fecha-fin"
-                      label="Fecha Finalización"
-                      placeholder="Seleccionar"
-                      defaultDate={formData.fecha_finalizacion || undefined}
-                      onChange={(_dates, currentDateString) =>
-                        setFormData({ ...formData, fecha_finalizacion: currentDateString || "" })
-                      }
-                    />
-                    <div>
-                      <Label htmlFor="modal-hora-termino">Hora Término</Label>
-                      <Input
-                        type="time"
-                        id="modal-hora-termino"
-                        value={formData.hora_termino}
-                        onChange={(e) => setFormData({ ...formData, hora_termino: e.target.value })}
-                        className="w-full"
-                      />
-                    </div>
                   </div>
                 </div>
               </div>
@@ -1166,10 +1537,11 @@ export default function OrdenServicioModal({
             </>
           )}
 
+          {/* Footer Buttons (igual que OrdenesPage) */}
           <div className="flex flex-col sm:flex-row justify-end gap-2 pt-1">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCloseModal}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1177,26 +1549,211 @@ export default function OrdenServicioModal({
               </svg>
               Cancelar
             </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isSaving ? (
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                  <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
-                </svg>
-              ) : (
+            {activeTab === "cliente" ? (
+              <button
+                key="cliente-next"
+                type="button"
+                disabled={isSaving}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setActiveTab("orden");
+                  requestAnimationFrame(() => {
+                    formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+                  });
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              )}
-              {isSaving ? "Guardando..." : "Guardar"}
-            </button>
+                Siguiente
+              </button>
+            ) : (
+              <button
+                key="orden-submit"
+                type="submit"
+                disabled={isSaving}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                    <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+                {isSaving ? "Guardando..." : orden?.id ? "Actualizar" : "Guardar"}
+              </button>
+            )}
           </div>
         </form>
       </div>
     </Modal>
+
+      {/* Modal Mapa Interactivo (igual que OrdenesPage; id de contenedor único) */}
+      <Modal
+        isOpen={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        closeOnBackdropClick={false}
+        className="w-[96vw] sm:w-[90vw] md:w-[80vw] max-w-3xl mx-0 sm:mx-auto"
+      >
+        <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-3xl">
+          <div className="px-4 sm:px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30">
+                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path
+                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">Seleccionar Ubicación</h5>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Haz clic en el mapa para seleccionar la ubicación</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-5 flex-1 overflow-auto">
+            <div className="space-y-4">
+              <div className="relative w-full h-[50vh] sm:h-[55vh] md:h-[60vh] rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div id={mapContainerId} className="absolute inset-0" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">
+                  O ingresa las coordenadas manualmente
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Latitud (ej: 19.0653)"
+                      value={selectedLocation?.lat ?? ""}
+                      onChange={(e) => {
+                        const lat = parseFloat(e.target.value);
+                        if (!isNaN(lat)) {
+                          setSelectedLocation({
+                            lat,
+                            lng: selectedLocation?.lng ?? -104.2831,
+                          });
+                        }
+                      }}
+                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Longitud (ej: -104.2831)"
+                      value={selectedLocation?.lng ?? ""}
+                      onChange={(e) => {
+                        const lng = parseFloat(e.target.value);
+                        if (!isNaN(lng)) {
+                          setSelectedLocation({
+                            lat: selectedLocation?.lat ?? 19.0653,
+                            lng,
+                          });
+                        }
+                      }}
+                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                    />
+                  </div>
+                </div>
+                {selectedLocation && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    URL: https://www.google.com/maps?q={selectedLocation.lat},{selectedLocation.lng}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-4 sm:px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowMapModal(false)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!navigator.geolocation) {
+                  setModalAlert({
+                    show: true,
+                    variant: "warning",
+                    title: "Geolocalización no disponible",
+                    message: "Tu navegador no soporta geolocalización.",
+                  });
+                  setTimeout(() => setModalAlert((p) => ({ ...p, show: false })), 2500);
+                  return;
+                }
+                if (!window.isSecureContext) {
+                  setModalAlert({
+                    show: true,
+                    variant: "warning",
+                    title: "Se requiere conexión segura",
+                    message:
+                      "La geolocalización requiere HTTPS (o localhost). Abre el sistema con HTTPS o en localhost e inténtalo de nuevo.",
+                  });
+                  setTimeout(() => setModalAlert((p) => ({ ...p, show: false })), 3200);
+                  return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    setSelectedLocation({ lat: latitude, lng: longitude });
+                    const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
+                    setFormData((prev) => ({ ...prev, direccion: url }));
+                    setShowMapModal(false);
+                    setSelectedLocation(null);
+                  },
+                  () => {
+                    setModalAlert({
+                      show: true,
+                      variant: "warning",
+                      title: "No se pudo obtener ubicación",
+                      message: "Activa permisos de ubicación e inténtalo de nuevo.",
+                    });
+                    setTimeout(() => setModalAlert((p) => ({ ...p, show: false })), 2500);
+                  },
+                  { enableHighAccuracy: true, timeout: 8000 }
+                );
+              }}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 focus:ring-2 focus:ring-blue-300/40 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7z" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Usar mi ubicación
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const loc = selectedLocation || { lat: 19.0653, lng: -104.2831 };
+                const url = `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
+                setFormData((prev) => ({ ...prev, direccion: url }));
+                setShowMapModal(false);
+                setSelectedLocation(null);
+              }}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Usar esta ubicación
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 }

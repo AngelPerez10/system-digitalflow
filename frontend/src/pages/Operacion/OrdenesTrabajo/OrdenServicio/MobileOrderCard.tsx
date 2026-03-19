@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { PencilIcon, TrashBinIcon } from "../../../../icons";
+import { Modal } from "@/components/ui/modal";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;
@@ -42,6 +44,7 @@ export function MobileOrderCard({
   canDelete,
   tecnicoNombre,
 }: MobileOrderCardProps) {
+  const [showProblematicaModal, setShowProblematicaModal] = useState(false);
   const fechaInicio = orden.fecha_inicio || orden.fecha_creacion || '';
   const fechaInicioFmt = fechaInicio ? formatDate(fechaInicio) : '-';
   const fechaFinFmt = orden.fecha_finalizacion ? formatDate(orden.fecha_finalizacion) : '-';
@@ -64,6 +67,17 @@ export function MobileOrderCard({
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={() => onPdf(orden.id)} className="p-1.5 text-gray-500 hover:text-red-600" title="PDF">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowProblematicaModal(true)}
+            className="p-1.5 text-gray-500 hover:text-blue-600"
+            title="Ver problemática"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
           </button>
           {canEdit && onEdit && (
             <button onClick={() => onEdit(orden)} className="p-1.5 text-gray-500 hover:text-brand-600" title="Editar">
@@ -121,6 +135,34 @@ export function MobileOrderCard({
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={showProblematicaModal}
+        onClose={() => setShowProblematicaModal(false)}
+        closeOnBackdropClick={false}
+        className="max-w-2xl w-[92vw]"
+      >
+        <div className="p-0 overflow-hidden rounded-2xl">
+          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Problemática</h3>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">Detalle completo reportado por el cliente</p>
+          </div>
+          <div className="p-4 text-sm text-gray-800 dark:text-gray-200 max-h-[60vh] overflow-y-auto custom-scrollbar">
+            <pre className="whitespace-pre-wrap break-words leading-relaxed rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-gray-900/40 p-3">
+              {orden.problematica || "-"}
+            </pre>
+          </div>
+          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 text-right">
+            <button
+              type="button"
+              onClick={() => setShowProblematicaModal(false)}
+              className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

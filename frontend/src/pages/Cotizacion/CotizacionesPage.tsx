@@ -176,6 +176,17 @@ export default function CotizacionesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canCotizacionesView]);
 
+  useEffect(() => {
+    const onUpdated = () => {
+      if (!canCotizacionesView) return;
+      fetchCotizaciones();
+    };
+
+    window.addEventListener("cotizaciones:updated", onUpdated as any);
+    return () => window.removeEventListener("cotizaciones:updated", onUpdated as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canCotizacionesView]);
+
   const deleteCotizacion = async (id: string) => {
     if (!canCotizacionesDelete) {
       setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar cotizaciones.' });
@@ -230,8 +241,10 @@ export default function CotizacionesPage() {
 
   const formatDMY = (iso: string) => {
     if (!iso) return "";
-    const [y, m, d] = iso.split("-");
-    return `${d}/${m}/${y}`;
+    const datePart = String(iso).trim().slice(0, 10);
+    const [y, m, d] = datePart.split("-");
+    if (!y || !m || !d) return "";
+    return `${d}-${m}-${y}`;
   };
 
   const normalizeMedioLabel = (raw: string) => {

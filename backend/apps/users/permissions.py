@@ -71,16 +71,22 @@ class ModulePermission(BasePermission):
         # Be tolerant to inconsistent casing in stored JSON keys.
         # Some clients/admins may store module keys as "Servicios" instead of "servicios".
         module_perms = permissions.get(self.module_key) or {}
+        if not isinstance(module_perms, dict):
+            module_perms = {}
         if not module_perms and isinstance(permissions, dict):
             key_l = (self.module_key or '').lower()
             if key_l:
                 lower_map = {str(k).lower(): v for k, v in permissions.items()}
                 module_perms = lower_map.get(key_l) or {}
+                if not isinstance(module_perms, dict):
+                    module_perms = {}
 
         # Map HTTP method to permission key
         method = (request.method or '').upper()
         if method in ('GET', 'HEAD', 'OPTIONS'):
-            return self._as_bool(module_perms.get('view'), True)
+            # Deny by default: if permissions_profile/module_key/view is missing,
+            # we must not grant read access implicitly.
+            return self._as_bool(module_perms.get('view'), False)
         if method == 'POST':
             return self._as_bool(module_perms.get('create'), False)
         if method in ('PUT', 'PATCH'):

@@ -7,6 +7,10 @@ class OrdenSerializer(serializers.ModelSerializer):
     cliente_nombre = serializers.CharField(source='cliente_id.nombre', read_only=True)
     tecnico_asignado_username = serializers.CharField(source='tecnico_asignado.username', read_only=True)
     tecnico_asignado_full_name = serializers.SerializerMethodField()
+    quien_instalo_username = serializers.CharField(source='quien_instalo.username', read_only=True)
+    quien_instalo_full_name = serializers.SerializerMethodField()
+    quien_entrego_username = serializers.CharField(source='quien_entrego.username', read_only=True)
+    quien_entrego_full_name = serializers.SerializerMethodField()
     creado_por_username = serializers.CharField(source='creado_por.username', read_only=True)
     tipo_orden = serializers.SerializerMethodField()
 
@@ -34,6 +38,24 @@ class OrdenSerializer(serializers.ModelSerializer):
             pass
         return 'servicio_tecnico'
 
+    def get_quien_instalo_full_name(self, obj):
+        if obj.quien_instalo:
+            first = obj.quien_instalo.first_name
+            last = obj.quien_instalo.last_name
+            if first or last:
+                return f"{first} {last}".strip()
+            return obj.quien_instalo.username or obj.quien_instalo.email
+        return None
+
+    def get_quien_entrego_full_name(self, obj):
+        if obj.quien_entrego:
+            first = obj.quien_entrego.first_name
+            last = obj.quien_entrego.last_name
+            if first or last:
+                return f"{first} {last}".strip()
+            return obj.quien_entrego.username or obj.quien_entrego.email
+        return None
+
     class Meta:
         model = Orden
         fields = [
@@ -59,6 +81,12 @@ class OrdenSerializer(serializers.ModelSerializer):
             'tecnico_asignado',
             'tecnico_asignado_username',
             'tecnico_asignado_full_name',
+            'quien_instalo',
+            'quien_instalo_username',
+            'quien_instalo_full_name',
+            'quien_entrego',
+            'quien_entrego_username',
+            'quien_entrego_full_name',
             'nombre_cliente',
             'fotos_urls',
             'pdf_generado',
@@ -77,6 +105,10 @@ class OrdenSerializer(serializers.ModelSerializer):
             'cliente_nombre',
             'tecnico_asignado_username',
             'tecnico_asignado_full_name',
+            'quien_instalo_username',
+            'quien_instalo_full_name',
+            'quien_entrego_username',
+            'quien_entrego_full_name',
             'creado_por',
             'creado_por_username',
             'pdf_url',

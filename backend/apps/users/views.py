@@ -95,8 +95,9 @@ def login_view(request):
     refresh = RefreshToken.for_user(user)
     access = refresh.access_token
 
-    perms_obj = UserPermissions.objects.filter(user=user).first()
-    perms = perms_obj.permissions if perms_obj else {}
+    # Ensure the permissions profile exists for every authenticated user.
+    perms_obj, _ = UserPermissions.objects.get_or_create(user=user)
+    perms = perms_obj.permissions or {}
 
     resp = Response(
         {
