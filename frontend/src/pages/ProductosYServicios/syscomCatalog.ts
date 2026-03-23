@@ -16,9 +16,14 @@ export type SyscomMarca = {
 export type SyscomProducto = {
   producto_id: string;
   modelo: string;
+  sku?: string;
   total_existencia: number;
   titulo: string;
   marca: string;
+  fuente?: string;
+  estado?: string;
+  estado_inventario?: string;
+  precio_mxn?: string | number;
   sat_key?: string;
   img_portada?: string;
   categorías?: Array<{ id: string; nombre: string }>;
@@ -51,6 +56,7 @@ export type SyscomSearchParams = {
 };
 
 export type SyscomPriceKind = "lista" | "especial" | "descuento" | "auto";
+export type IntraxFuente = "syscom" | "manual";
 
 export const getAuthToken = () => localStorage.getItem("token") || sessionStorage.getItem("token") || "";
 
@@ -60,6 +66,81 @@ export const fetchSyscom = (path: string, token: string) => {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
+
+const INTRAX_PRODUCTOS_URL = "https://intrax.mx/wp-json/custom/v1/productos";
+
+export type IntraxProducto = {
+  id_producto: number;
+  nombre: string;
+  sku: string;
+  fuente: IntraxFuente;
+  estado: string;
+  precio_normal: string;
+  precio_mayoreo: string;
+  existencias: number;
+  estado_inventario: string;
+  imagen?: string;
+};
+
+type IntraxResumen = {
+  total_resultados?: number;
+  pagina?: number;
+  resultados_por_pagina?: number;
+  total_paginas?: number;
+};
+
+export type IntraxProductosResponse = {
+  resumen?: IntraxResumen;
+  productos?: IntraxProducto[];
+};
+
+export type IntraxSearchParams = {
+  fuente?: IntraxFuente;
+  estado?: string;
+  sku?: string;
+  buscar?: string;
+  pagina?: number;
+  por_pagina?: number;
+};
+
+export const buildIntraxProductosQuery = (params: IntraxSearchParams) => {
+  const sp = new URLSearchParams();
+  if (params.fuente) sp.set("fuente", params.fuente);
+  if (params.estado) sp.set("estado", params.estado);
+  if (params.sku) sp.set("sku", params.sku.trim());
+  if (params.buscar) sp.set("buscar", params.buscar.trim());
+  if (params.pagina) sp.set("pagina", String(params.pagina));
+  if (params.por_pagina) sp.set("por_pagina", String(params.por_pagina));
+  return sp.toString();
+};
+
+export async function fetchIntraxProductos(params: IntraxSearchParams): Promise<IntraxProductosResponse> {
+  const query = buildIntraxProductosQuery(params);
+  const res = await fetch(query ? `${INTRAX_PRODUCTOS_URL}?${query}` : INTRAX_PRODUCTOS_URL);
+  if (!res.ok) {
+    throw new Error("No se pudo consultar el catalogo de Intrax.");
+  }
+  const data = await res.json().catch(() => ({}));
+  return data as IntraxProductosResponse;
+}
+
+export const mapIntraxProductoToSyscom = (p: IntraxProducto): SyscomProducto => ({
+  producto_id: String(p.id_producto),
+  modelo: p.sku || "",
+  sku: p.sku || "",
+  total_existencia: Number.isFinite(p.existencias) ? p.existencias : 0,
+  titulo: p.nombre || "",
+  marca: "Intrax",
+  fuente: p.fuente,
+  estado: p.estado,
+  estado_inventario: p.estado_inventario,
+  precio_mxn: p.precio_normal,
+  img_portada: p.imagen,
+  link: `https://intrax.mx/?s=${encodeURIComponent(p.sku || p.nombre || "")}&post_type=product`,
+  precios: {
+    precio_lista: p.precio_normal,
+  },
+});
 
 export const buildProductosQuery = (params: SyscomSearchParams) => {
   const sp = new URLSearchParams();
@@ -188,6 +269,10 @@ const IVA_MX = 1.16;
 
 /** Precio al público en MXN con IVA incluido (precio_lista × tipo de cambio × 1.16). */
 export const formatPrecioPublicoMxnConIva = (p: SyscomProducto, tipoCambio: number | null): string => {
+  const precioMxn = asNumber(p.precio_mxn);
+  if (precioMxn !== null) {
+    return precioMxn.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+  }
   const usd = getPrecioPublicoUsd(p);
   if (usd === null) return "—";
   if (!tipoCambio) return "—";

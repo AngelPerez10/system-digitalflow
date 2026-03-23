@@ -71,6 +71,7 @@ export default function LevantamientoPage() {
   });
 
   const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token");
+  const normalizeStatus = (value: unknown) => String(value ?? "").trim().toLowerCase();
 
   const formatYmdToDMY = (ymd: string | null | undefined) => {
     if (!ymd) return "-";
@@ -151,7 +152,7 @@ export default function LevantamientoPage() {
           (o?.problematica ?? "").toLowerCase().includes(q) ||
           (o?.nombre_encargado ?? "").toLowerCase().includes(q));
       if (!matchText) return false;
-      if (filterStatus && String(o?.status ?? "").toLowerCase() !== filterStatus) return false;
+      if (filterStatus && normalizeStatus(o?.status) !== normalizeStatus(filterStatus)) return false;
       if (filterDate) {
         const base = (o?.fecha_inicio ?? o?.fecha_creacion ?? "").toString().slice(0, 10);
         if (!base.startsWith(filterDate)) return false;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import PageMeta from "@/components/common/PageMeta";
@@ -9,10 +9,13 @@ import {
   fetchSyscomTipoCambio,
   formatPrecioPublicoMxnConIva,
   fetchSyscomProductoDetalle,
+  fetchIntraxProductos,
   getAuthToken,
   getProductoImageUrl,
   getProductoImagenesUrls,
   getProductoLink,
+  mapIntraxProductoToSyscom,
+  type IntraxFuente,
   type SyscomCategoria,
   type SyscomMarca,
   type SyscomProducto,
@@ -54,6 +57,7 @@ export default function ProductosPage() {
   const [categoriaId, setCategoriaId] = useState("");
   const [marcaId, setMarcaId] = useState("");
   const [orden, setOrden] = useState<NonNullable<SyscomSearchParams["orden"]>>("relevancia");
+  const [fuente, setFuente] = useState<"" | IntraxFuente>("");
 
   const [categorias, setCategorias] = useState<SyscomCategoria[]>([]);
   const [marcas, setMarcas] = useState<SyscomMarca[]>([]);
@@ -61,14 +65,16 @@ export default function ProductosPage() {
   const [tipoCambio, setTipoCambio] = useState<number | null>(null);
 
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
-  const hasFiltro = Boolean(busqueda.trim() || categoriaId || marcaId);
+  const hasFiltro = Boolean(busqueda.trim() || categoriaId || marcaId || fuente);
   const [autoCatalog, setAutoCatalog] = useState(true);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [detailProduct, setDetailProduct] = useState<SyscomProductoDetalle | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const productosRef = useRef<SyscomProducto[]>([]);
 
   const loadCatalogos = useCallback(async () => {
     const token = getAuthToken();
@@ -98,26 +104,41 @@ export default function ProductosPage() {
 
   const loadProductos = useCallback(async () => {
     if (!hasFiltro && !autoCatalog) return;
-    const token = getAuthToken();
-    if (!token) {
-      setError("Debe iniciar sesión para ver el catálogo.");
-      return;
-    }
     setLoading(true);
     setError(null);
-    const isAuto = autoCatalog && !hasFiltro;
-    const query = buildProductosQuery(
-      isAuto
-        ? { busqueda: AUTO_DEFAULT_SEARCH, pagina, orden: "topseller", stock: "1" }
-        : {
-            busqueda: busqueda.trim() || undefined,
-            categoria: categoriaId || undefined,
-            marca: marcaId || undefined,
-            pagina,
-            orden,
-          }
-    );
     try {
+      if (fuente) {
+        const isAuto = autoCatalog && !busqueda.trim();
+        const data = await fetchIntraxProductos({
+          fuente,
+          buscar: isAuto ? AUTO_DEFAULT_SEARCH : (busqueda.trim() || undefined),
+          pagina,
+          por_pagina: 50,
+        });
+        const intraxProductos = (data.productos ?? []).map(mapIntraxProductoToSyscom);
+        setProductos(intraxProductos);
+        setPaginas(data.resumen?.total_paginas ?? 1);
+        setTotal(data.resumen?.total_resultados ?? intraxProductos.length);
+        return;
+      }
+      const token = getAuthToken();
+      if (!token) {
+        setError("Debe iniciar sesión para ver el catálogo.");
+        setProductos([]);
+        return;
+      }
+      const isAuto = autoCatalog && !hasFiltro;
+      const query = buildProductosQuery(
+        isAuto
+          ? { busqueda: AUTO_DEFAULT_SEARCH, pagina, orden: "topseller", stock: "1" }
+          : {
+              busqueda: busqueda.trim() || undefined,
+              categoria: categoriaId || undefined,
+              marca: marcaId || undefined,
+              pagina,
+              orden,
+            }
+      );
       const res = await fetchSyscom(`productos/?${query}`, token);
       const data: SyscomProductosResponse = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -125,7 +146,11 @@ export default function ProductosPage() {
         setError((data as { detail?: string }).detail || "Error al cargar productos.");
         return;
       }
-      setProductos(data.productos ?? []);
+      const productosSyscomConFuente = (data.productos ?? []).map((p) => ({
+        ...p,
+        fuente: p.fuente || "syscom",
+      }));
+      setProductos(productosSyscomConFuente);
       setPaginas(data.paginas ?? 1);
       setTotal(data.cantidad ?? 0);
     } catch {
@@ -134,7 +159,7 @@ export default function ProductosPage() {
     } finally {
       setLoading(false);
     }
-  }, [busqueda, categoriaId, marcaId, orden, pagina, hasFiltro, autoCatalog]);
+  }, [busqueda, categoriaId, marcaId, orden, pagina, hasFiltro, autoCatalog, fuente]);
 
   useEffect(() => {
     loadCatalogos();
@@ -145,8 +170,18 @@ export default function ProductosPage() {
   }, [loadProductos]);
 
   useEffect(() => {
+    productosRef.current = productos;
+  }, [productos]);
+
+  useEffect(() => {
     if (!detailModalOpen || !selectedProductId) {
       setDetailProduct(null);
+      return;
+    }
+    if (fuente) {
+      const intraxProduct = productosRef.current.find((p) => p.producto_id === selectedProductId);
+      setDetailProduct((intraxProduct as SyscomProductoDetalle) ?? null);
+      setLoadingDetail(false);
       return;
     }
     const token = getAuthToken();
@@ -159,7 +194,7 @@ export default function ProductosPage() {
         setSelectedImageIndex(0);
       })
       .finally(() => setLoadingDetail(false));
-  }, [detailModalOpen, selectedProductId]);
+  }, [detailModalOpen, selectedProductId, fuente]);
 
   const openDetailModal = (productId: string) => {
     setSelectedProductId(productId);
@@ -176,11 +211,22 @@ export default function ProductosPage() {
     e.preventDefault();
     const q = busquedaInput.trim();
     setBusqueda(q);
-    setAutoCatalog(!q && !categoriaId && !marcaId);
+    setAutoCatalog(!q && !categoriaId && !marcaId && !fuente);
     setPagina(1);
   };
 
   const resetPage = useCallback(() => setPagina(1), []);
+
+  const clearFiltros = () => {
+    setBusquedaInput("");
+    setBusqueda("");
+    setCategoriaId("");
+    setMarcaId("");
+    setFuente("");
+    setOrden("relevancia");
+    setAutoCatalog(true);
+    setPagina(1);
+  };
 
   return (
     <>
@@ -206,75 +252,143 @@ export default function ProductosPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSearch} className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Buscar</label>
-            <input
-              type="text"
-              value={busquedaInput}
-              onChange={(e) => setBusquedaInput(e.target.value)}
-              placeholder="Modelo, nombre, palabra clave..."
-              className={inputLikeClassName}
-            />
+        <form onSubmit={handleSearch} className="rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white/80 dark:bg-gray-900/35 p-4 md:p-5 space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+            <div className="flex-1 min-w-[260px]">
+              <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Buscar producto</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={busquedaInput}
+                  onChange={(e) => setBusquedaInput(e.target.value)}
+                  placeholder="Ej. Hikvision, DS-2CE, No break..."
+                  className={`${inputLikeClassName} pr-10`}
+                />
+                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+              </div>
+            </div>
+
+            <div className="w-full lg:w-52">
+              <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Orden</label>
+              <select
+                value={orden}
+                onChange={(e) => {
+                  setOrden(e.target.value as NonNullable<SyscomSearchParams["orden"]>);
+                  setAutoCatalog(false);
+                  resetPage();
+                }}
+                className={selectLikeClassName}
+              >
+                {ORDEN_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 lg:pb-0.5">
+              <button
+                type="submit"
+                className="h-10 px-4 rounded-xl bg-brand-600 text-white text-xs font-semibold shadow-theme-xs hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+              >
+                Buscar
+              </button>
+              <button
+                type="button"
+                onClick={clearFiltros}
+                className="h-10 px-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 inline-flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 1024 1024" fill="currentColor" aria-hidden>
+                  <path d="M899.1 869.6l-53-305.6H864c14.4 0 26-11.6 26-26V346c0-14.4-11.6-26-26-26H618V138c0-14.4-11.6-26-26-26H432c-14.4 0-26 11.6-26 26v182H160c-14.4 0-26 11.6-26 26v192c0 14.4 11.6 26 26 26h17.9l-53 305.6c-0.3 1.5-0.4 3-0.4 4.4 0 14.4 11.6 26 26 26h723c1.5 0 3-0.1 4.4-0.4 14.2-2.4 23.7-15.9 21.2-30zM204 390h272V182h72v208h272v104H204V390z m468 440V674c0-4.4-3.6-8-8-8h-48c-4.4 0-8 3.6-8 8v156H416V674c0-4.4-3.6-8-8-8h-48c-4.4 0-8 3.6-8 8v156H202.8l45.1-260H776l45.1 260H672z" />
+                </svg>
+                Limpiar
+              </button>
+            </div>
           </div>
-          <div className="w-40">
-            <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Categoría</label>
-            <select
-              value={categoriaId}
-              onChange={(e) => {
-                setCategoriaId(e.target.value);
-                setAutoCatalog(false);
-                resetPage();
-              }}
-              className={selectLikeClassName}
+
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Fuente</p>
+              <div className="inline-flex rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/60 p-1">
+                {[
+                  { value: "", label: "Todas" },
+                  { value: "syscom", label: "Syscom" },
+                  { value: "manual", label: "Manual" },
+                ].map((option) => {
+                  const active = fuente === option.value;
+                  return (
+                    <button
+                      key={option.label}
+                      type="button"
+                      onClick={() => {
+                        setFuente(option.value as "" | IntraxFuente);
+                        setAutoCatalog(false);
+                        resetPage();
+                      }}
+                      className={`h-8 px-4 rounded-lg text-xs font-semibold transition ${
+                        active
+                          ? "bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm"
+                          : "text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters((v) => !v)}
+              className="h-9 px-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
-              <option value="">Todas</option>
-              {categorias.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
-              {loadingCatalogos && !categorias.length && <option disabled>Cargando...</option>}
-            </select>
+              {showAdvancedFilters ? "Ocultar filtros avanzados" : "Mostrar filtros avanzados"}
+            </button>
           </div>
-          <div className="w-40">
-            <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Marca</label>
-            <select
-              value={marcaId}
-              onChange={(e) => {
-                setMarcaId(e.target.value);
-                setAutoCatalog(false);
-                resetPage();
-              }}
-              className={selectLikeClassName}
-            >
-              <option value="">Todas</option>
-              {marcas.slice(0, MARCAS_SELECT_LIMIT).map((m) => (
-                <option key={m.id} value={m.id}>{m.nombre}</option>
-              ))}
-              {loadingCatalogos && !marcas.length && <option disabled>Cargando...</option>}
-            </select>
-          </div>
-          <div className="w-36">
-            <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Orden</label>
-            <select
-              value={orden}
-              onChange={(e) => {
-                setOrden(e.target.value as NonNullable<SyscomSearchParams["orden"]>);
-                setAutoCatalog(false);
-                resetPage();
-              }}
-              className={selectLikeClassName}
-            >
-              {ORDEN_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            className="h-10 px-4 rounded-xl bg-brand-600 text-white text-xs font-semibold shadow-theme-xs hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
-          >
-            Buscar
-          </button>
+
+          {showAdvancedFilters && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-gray-200/70 dark:border-white/10 pt-3">
+              <div>
+                <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Categoría</label>
+                <select
+                  value={categoriaId}
+                  onChange={(e) => {
+                    setCategoriaId(e.target.value);
+                    setAutoCatalog(false);
+                    resetPage();
+                  }}
+                  className={selectLikeClassName}
+                >
+                  <option value="">Todas</option>
+                  {categorias.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                  ))}
+                  {loadingCatalogos && !categorias.length && <option disabled>Cargando...</option>}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Marca</label>
+                <select
+                  value={marcaId}
+                  onChange={(e) => {
+                    setMarcaId(e.target.value);
+                    setAutoCatalog(false);
+                    resetPage();
+                  }}
+                  className={selectLikeClassName}
+                >
+                  <option value="">Todas</option>
+                  {marcas.slice(0, MARCAS_SELECT_LIMIT).map((m) => (
+                    <option key={m.id} value={m.id}>{m.nombre}</option>
+                  ))}
+                  {loadingCatalogos && !marcas.length && <option disabled>Cargando...</option>}
+                </select>
+              </div>
+            </div>
+          )}
         </form>
 
         {error && (
@@ -344,7 +458,10 @@ export default function ProductosPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">{p.titulo}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{p.marca} · {p.modelo}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {p.marca} · {p.modelo}
+                          {p.fuente ? ` · ${p.fuente}` : ""}
+                        </p>
                         <p className="mt-1 text-sm font-semibold text-brand-600 dark:text-brand-400 tabular-nums">{formatPrecioPublicoMxnConIva(p, tipoCambio)}</p>
                         {p.total_existencia != null && <p className="text-[11px] text-gray-500 dark:text-gray-400">Stock {p.total_existencia}</p>}
                         <a
@@ -374,6 +491,7 @@ export default function ProductosPage() {
                         <TableCell isHeader className="px-3 py-2 text-left min-w-[200px] text-gray-700 dark:text-gray-300">Producto</TableCell>
                         <TableCell isHeader className="px-3 py-2 text-left w-[100px] text-gray-700 dark:text-gray-300">Marca</TableCell>
                         <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-gray-700 dark:text-gray-300">Modelo</TableCell>
+                        <TableCell isHeader className="px-3 py-2 text-left w-[90px] text-gray-700 dark:text-gray-300">Fuente</TableCell>
                         <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-gray-700 dark:text-gray-300">Precio</TableCell>
                         <TableCell isHeader className="px-3 py-2 text-left w-[80px] text-gray-700 dark:text-gray-300">Stock</TableCell>
                         <TableCell isHeader className="px-3 py-2 text-center w-[100px] text-gray-700 dark:text-gray-300">Acción</TableCell>
@@ -382,14 +500,14 @@ export default function ProductosPage() {
                     <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
                       {loading && (
                         <TableRow>
-                          <TableCell colSpan={7} className="px-3 py-4 text-center text-gray-500 dark:text-gray-400">
+                          <TableCell colSpan={8} className="px-3 py-4 text-center text-gray-500 dark:text-gray-400">
                             Cargando...
                           </TableCell>
                         </TableRow>
                       )}
                       {!loading && productos.length === 0 && !error && (
                         <TableRow>
-                          <TableCell colSpan={7} className="px-3 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                          <TableCell colSpan={8} className="px-3 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                             {autoCatalog ? "No hay productos para mostrar." : "Escribe algo en búsqueda o elige categoría/marca y pulsa Buscar."}
                           </TableCell>
                         </TableRow>
@@ -421,6 +539,7 @@ export default function ProductosPage() {
                               </TableCell>
                               <TableCell className="px-3 py-2 w-[100px] whitespace-nowrap">{p.marca}</TableCell>
                               <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap">{p.modelo}</TableCell>
+                              <TableCell className="px-3 py-2 w-[90px] whitespace-nowrap capitalize">{p.fuente || "—"}</TableCell>
                               <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap font-medium text-brand-600 dark:text-brand-400 tabular-nums">
                                 {formatPrecioPublicoMxnConIva(p, tipoCambio)}
                               </TableCell>
@@ -611,6 +730,47 @@ export default function ProductosPage() {
                   </dt>
                   <dd className="text-sm text-gray-900 dark:text-white">{detailProduct.marca || "—"}</dd>
                 </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <dt className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h10M7 12h10M7 17h10" />
+                    </svg>
+                    Fuente
+                  </dt>
+                  <dd className="text-sm text-gray-900 dark:text-white capitalize">{detailProduct.fuente || "—"}</dd>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <dt className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5v14" />
+                    </svg>
+                    SKU
+                  </dt>
+                  <dd className="text-sm text-gray-900 dark:text-white">{detailProduct.sku || detailProduct.modelo || "—"}</dd>
+                </div>
+                {detailProduct.estado && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <dt className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" />
+                        <circle cx="12" cy="12" r="9" />
+                      </svg>
+                      Estado publicación
+                    </dt>
+                    <dd className="text-sm text-gray-900 dark:text-white capitalize">{detailProduct.estado}</dd>
+                  </div>
+                )}
+                {detailProduct.estado_inventario && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <dt className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M4 12h16M4 17h16" />
+                      </svg>
+                      Estado inventario
+                    </dt>
+                    <dd className="text-sm text-gray-900 dark:text-white capitalize">{detailProduct.estado_inventario.replace(/_/g, " ")}</dd>
+                  </div>
+                )}
                 {detailProduct.sat_key && (
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <dt className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">

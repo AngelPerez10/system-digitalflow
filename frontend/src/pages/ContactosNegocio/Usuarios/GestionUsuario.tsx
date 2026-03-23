@@ -188,6 +188,11 @@ export default function UserProfiles() {
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
+  const isAdminUser = (u: UserAccount) => {
+    const explicitRole = String((u as any)?.role ?? '').trim().toLowerCase();
+    return explicitRole === 'admin' || !!u.is_superuser || !!u.is_staff;
+  };
+
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserAccount | null>(null);
   const [editForm, setEditForm] = useState<EditUserForm>({ ...emptyEditForm });
@@ -395,7 +400,7 @@ export default function UserProfiles() {
     const q = query.trim().toLowerCase();
     return users
       .filter((u) => {
-        const isAdmin = u.is_superuser || u.is_staff;
+        const isAdmin = isAdminUser(u);
         if (roleFilter === 'admin' && !isAdmin) return false;
         if (roleFilter === 'tecnico' && isAdmin) return false;
         return true;
@@ -410,8 +415,8 @@ export default function UserProfiles() {
         );
       })
       .sort((a, b) => {
-        const aAdmin = a.is_superuser || a.is_staff;
-        const bAdmin = b.is_superuser || b.is_staff;
+        const aAdmin = isAdminUser(a);
+        const bAdmin = isAdminUser(b);
         if (aAdmin !== bAdmin) return aAdmin ? -1 : 1;
         const an = `${a.first_name || ''} ${a.last_name || ''}`.trim().toLowerCase() || a.username.toLowerCase();
         const bn = `${b.first_name || ''} ${b.last_name || ''}`.trim().toLowerCase() || b.username.toLowerCase();
@@ -424,7 +429,7 @@ export default function UserProfiles() {
     let admins = 0;
     let tecnicos = 0;
     for (const u of users) {
-      const isAdmin = u.is_superuser || u.is_staff;
+      const isAdmin = isAdminUser(u);
       if (isAdmin) admins++;
       else tecnicos++;
     }
@@ -446,7 +451,7 @@ export default function UserProfiles() {
   };
 
   const openEdit = (u: UserAccount) => {
-    const isAdmin = u.is_superuser || u.is_staff;
+    const isAdmin = isAdminUser(u);
     setEditUser(u);
     setEditError(null);
     setSignatureError(null);
@@ -660,7 +665,7 @@ export default function UserProfiles() {
   };
 
   const roleBadge = (u: UserAccount) => {
-    const isAdmin = u.is_superuser || u.is_staff;
+    const isAdmin = isAdminUser(u);
     return isAdmin
       ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
       : 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300';
@@ -798,21 +803,32 @@ export default function UserProfiles() {
               Filtros
             </button>
             {filterOpen && (
-              <div className="absolute right-0 z-20 mt-2 w-64 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/95 dark:bg-gray-900/80 p-4 shadow-lg backdrop-blur-sm">
+              <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/95 dark:bg-gray-900/80 p-4 shadow-lg backdrop-blur-sm">
                 <div className="mb-2">
                   <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Rol</label>
-                  <select
-                    value={roleFilter}
-                    onChange={(e) => {
-                      setRoleFilter(e.target.value as any);
-                      setFilterOpen(false);
-                    }}
-                    className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 px-3 text-xs text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
-                  >
-                    <option value="all">Todos</option>
-                    <option value="admin">Admins</option>
-                    <option value="tecnico">Técnicos</option>
-                  </select>
+                  <div className="inline-flex w-full rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 p-1">
+                    {[
+                      { value: 'all', label: 'Todos' },
+                      { value: 'admin', label: 'Admins' },
+                      { value: 'tecnico', label: 'Técnicos' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setRoleFilter(opt.value as 'all' | Role);
+                          setFilterOpen(false);
+                        }}
+                        className={`h-8 flex-1 rounded-lg text-xs font-semibold transition ${
+                          roleFilter === opt.value
+                            ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300'
+                            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100/80 dark:hover:bg-white/10'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -826,7 +842,7 @@ export default function UserProfiles() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((u) => {
               const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
-              const isAdmin = u.is_superuser || u.is_staff;
+              const isAdmin = isAdminUser(u);
               const initials = (fullName || u.username)
                 .split(' ')
                 .filter(Boolean)

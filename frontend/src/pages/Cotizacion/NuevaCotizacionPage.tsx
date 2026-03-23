@@ -219,7 +219,7 @@ export default function NuevaCotizacionPage() {
     "TÉRMINOS Y CONDICIONES\n\n" +
       "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
       "- No se programan trabajos sin anticipo confirmado.\n" +
-      "- Precios expresados en pesos mexicanos, no incluyen IVA salvo indicación contraria.\n" +
+      "- Precios expresados en pesos mexicanos.\n" +
       "- Vigencia de la cotización: 15 días naturales.\n" +
       "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
       "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
@@ -757,7 +757,7 @@ export default function NuevaCotizacionPage() {
       "TÉRMINOS Y CONDICIONES\n\n" +
         "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
         "- No se programan trabajos sin anticipo confirmado.\n" +
-        "- Precios expresados en pesos mexicanos, no incluyen IVA salvo indicación contraria.\n" +
+        "- Precios expresados en pesos mexicanos.\n" +
         "- Vigencia de la cotización: 15 días naturales.\n" +
         "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
         "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +

@@ -70,6 +70,10 @@ interface ServicioCatalogo {
 
 let ordenesPageInitialDataLastLoadAt = 0;
 const ORDENES_PAGE_INIT_THROTTLE_MS = 800;
+const getCurrentYearMonth = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
 
 let ordenesTecnicoPermissionsLastLoadAt = 0;
 let ordenesTecnicoSignatureLastLoadAt = 0;
@@ -221,7 +225,7 @@ export default function OrdenesTecnico() {
   const isReadOnly = editingOrden ? !canOrdenesEdit : !canOrdenesCreate;
   const [searchTerm, setSearchTerm] = useState("");
   // Por defecto no filtramos por mes para no ocultar órdenes recién creadas.
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
   // Filtros
   const [filterOpen, setFilterOpen] = useState(false);
@@ -258,6 +262,16 @@ export default function OrdenesTecnico() {
     const mm = String(dt.getMonth() + 1).padStart(2, '0');
     const yy = dt.getFullYear();
     return `${dd}/${mm}/${yy}`;
+  };
+
+  const normalizeStatus = (value: unknown) => String(value || "").trim().toLowerCase();
+  const parseYearMonth = (value: string) => {
+    const m = /^(\d{4})-(\d{2})$/.exec((value || "").trim());
+    if (!m) return null;
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    if (!Number.isFinite(year) || month < 1 || month > 12) return null;
+    return { year, month };
   };
 
   // Cerrar dropdown de filtros al hacer click fuera
@@ -1012,7 +1026,7 @@ export default function OrdenesTecnico() {
                   "TÉRMINOS Y CONDICIONES\n\n" +
                   "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
                   "- No se programan trabajos sin anticipo confirmado.\n" +
-                  "- Precios expresados en pesos mexicanos, no incluyen IVA salvo indicación contraria.\n" +
+                  "- Precios expresados en pesos mexicanos.\n" +
                   "- Vigencia de la cotización: 15 días naturales.\n" +
                   "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
                   "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
@@ -1411,13 +1425,14 @@ export default function OrdenesTecnico() {
       );
       if (!matchText) return false;
       // filtro por mes
-      if (!selectedMonth) return true;
-      const month = selectedMonth; // YYYY-MM
-      const fecha = (o.fecha_inicio || o.fecha_creacion || '').toString();
-      const matchMonth = fecha.startsWith(month);
-      if (!matchMonth) return false;
+      if (selectedMonth) {
+        const month = selectedMonth; // YYYY-MM
+        const fecha = (o.fecha_inicio || o.fecha_creacion || '').toString();
+        const matchMonth = fecha.startsWith(month);
+        if (!matchMonth) return false;
+      }
       // filtro por status
-      if (filterStatus && o.status !== filterStatus) return false;
+      if (filterStatus && normalizeStatus(o.status) !== normalizeStatus(filterStatus)) return false;
       // filtro por servicio realizado (debe contener TODOS los seleccionados)
       if (filterServicio && filterServicio.length > 0) {
         const ordenServicios = Array.isArray(o.servicios_realizados) ? o.servicios_realizados : [];
@@ -2082,13 +2097,11 @@ export default function OrdenesTecnico() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (!selectedMonth) return;
-                      try {
-                        const [y, m] = selectedMonth.split('-').map(Number);
-                        const d = new Date(y, m - 2, 1);
-                        const mm = String(d.getMonth() + 1).padStart(2, '0');
-                        setSelectedMonth(`${d.getFullYear()}-${mm}`);
-                      } catch { }
+                      const ym = parseYearMonth(selectedMonth);
+                      if (!ym) return;
+                      const d = new Date(ym.year, ym.month - 2, 1);
+                      const mm = String(d.getMonth() + 1).padStart(2, '0');
+                      setSelectedMonth(`${d.getFullYear()}-${mm}`);
                     }}
                     className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                     title="Mes anterior"
@@ -2099,24 +2112,19 @@ export default function OrdenesTecnico() {
                   </button>
                   <span className="min-w-[130px] sm:min-w-[160px] text-center text-[11px] sm:text-[12px] text-gray-700 dark:text-gray-300">
                     {(() => {
-                      try {
-                        const [y, m] = selectedMonth.split('-').map(Number);
-                        return new Date(y, m - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
-                      } catch {
-                        return selectedMonth ? selectedMonth : 'Todos los meses';
-                      }
+                      const ym = parseYearMonth(selectedMonth);
+                      if (!ym) return selectedMonth ? selectedMonth : 'Todos los meses';
+                      return new Date(ym.year, ym.month - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
                     })()}
                   </span>
                   <button
                     type="button"
                     onClick={() => {
-                      if (!selectedMonth) return;
-                      try {
-                        const [y, m] = selectedMonth.split('-').map(Number);
-                        const d = new Date(y, m, 1);
-                        const mm = String(d.getMonth() + 1).padStart(2, '0');
-                        setSelectedMonth(`${d.getFullYear()}-${mm}`);
-                      } catch { }
+                      const ym = parseYearMonth(selectedMonth);
+                      if (!ym) return;
+                      const d = new Date(ym.year, ym.month, 1);
+                      const mm = String(d.getMonth() + 1).padStart(2, '0');
+                      setSelectedMonth(`${d.getFullYear()}-${mm}`);
                     }}
                     className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                     title="Mes siguiente"
