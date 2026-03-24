@@ -652,7 +652,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
             return esc(str(d))
 
         creado = reporte.fecha_creacion
-        creado_str = creado.strftime('%d/%m/%Y %H:%M') if creado else '-'
+        # fecha_creacion está en UTC (USE_TZ); mostrar en TIME_ZONE (p. ej. America/Mexico_City)
+        if creado:
+            creado_str = timezone.localtime(creado).strftime('%d/%m/%Y %H:%M')
+        else:
+            creado_str = '-'
 
         ordenes = reporte.ordenes if isinstance(reporte.ordenes, list) else []
 
