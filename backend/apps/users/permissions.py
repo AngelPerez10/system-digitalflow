@@ -81,6 +81,21 @@ class ModulePermission(BasePermission):
                 if not isinstance(module_perms, dict):
                     module_perms = {}
 
+        # Reportes semanales: sin clave explícita, alinear con órdenes (usuarios previos).
+        if (
+            self.module_key == 'reportes'
+            and not module_perms
+            and isinstance(permissions, dict)
+        ):
+            ord_src = permissions.get('ordenes')
+            if isinstance(ord_src, dict):
+                module_perms = {
+                    'view': ord_src.get('view'),
+                    'create': ord_src.get('create'),
+                    'edit': False,
+                    'delete': ord_src.get('delete'),
+                }
+
         # Map HTTP method to permission key
         method = (request.method or '').upper()
         if method in ('GET', 'HEAD', 'OPTIONS'):

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import logging
 import base64
 import io
@@ -14,18 +15,99 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound
 
+from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.db import transaction
 from django.db.models import Exists, F, OuterRef, Q
+from django.utils import timezone
+
+from apps.users.permissions import ModulePermission
 
 from PIL import Image
 
+from datetime import date, datetime, time, timedelta
+
 from .models import Orden
-from .models import OrdenLevantamiento
-from .serializers import OrdenLevantamientoSerializer, OrdenSerializer
+from .models import OrdenLevantamiento, ReporteSemanal
+from .serializers import OrdenLevantamientoSerializer, OrdenSerializer, ReporteSemanalSerializer
 from apps.users.models import UserSignature
 
 logger = logging.getLogger(__name__)
+
+User = get_user_model()
+
+
+class ReportesPermission(ModulePermission):
+    """Permisos JSON del módulo reportes (reportes semanales)."""
+
+    module_key = 'reportes'
+
+
+def _pdf_response_from_html(html: str, filename: str):
+    """Convierte HTML a PDF vía htmldocs; sin API key devuelve HTML para vista previa."""
+    if not html:
+        return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
+
+    api_key = os.environ.get('HTMLEDOCS_API_KEY')
+    if not api_key:
+        return HttpResponse(html, content_type="text/html; charset=utf-8")
+
+    payload = {
+        "html": html,
+        "format": "pdf",
+        "size": "A4",
+        "orientation": "portrait",
+    }
+
+    req = Request(
+        url="https://htmldocs.com/api/generate",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(req, timeout=60) as resp:
+            pdf_bytes = resp.read()
+    except HTTPError as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+        return Response({"detail": "Error generando PDF en htmldocs", "status": e.code, "body": body}, status=502)
+    except URLError:
+        logger.exception("No se pudo conectar a htmldocs")
+        return Response({"detail": "No se pudo conectar a htmldocs"}, status=502)
+    except Exception:
+        logger.exception("Error inesperado generando PDF")
+        return Response({"detail": "Error inesperado generando PDF"}, status=500)
+
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+
+def _filename_reporte_semanal_pdf(reporte: ReporteSemanal) -> str:
+    """Nombre descargable: Reporte_semanal_tecnico_YYYY-MM-DD_YYYY-MM-DD.pdf"""
+    t = reporte.tecnico
+    nombre = (
+        f"{t.first_name} {t.last_name}".strip()
+        or (t.username or "")
+        or f"tecnico_{t.pk}"
+    )
+    slug = re.sub(r"\s+", "_", nombre.strip())
+    slug = re.sub(r"[^\w\-]", "_", slug, flags=re.UNICODE)
+    slug = re.sub(r"_+", "_", slug).strip("_") or "tecnico"
+    if len(slug) > 80:
+        slug = slug[:80]
+    ini = reporte.semana_inicio.isoformat()
+    fin = reporte.semana_fin.isoformat()
+    return f"Reporte_semanal_{slug}_{ini}_{fin}.pdf"
+
 
 # Image safety limits (protect against decompression bombs / huge base64 payloads)
 MAX_IMAGE_PIXELS = int(os.environ.get("MAX_IMAGE_PIXELS", "10000000"))
@@ -375,6 +457,10 @@ class OrdenViewSet(viewsets.ModelViewSet):
         # Administrative reindex must be limited to staff/admin users.
         if self.action == 'reindex':
             return [IsAdminUser()]
+        if self.action in ('reportes_semanales', 'reporte_semanal_pdf', 'reporte_semanal_delete'):
+            return [IsAuthenticated(), ReportesPermission()]
+        if self.action == 'reportes_tecnico_opciones':
+            return [IsAuthenticated()]
         return super().get_permissions()
 
     def get_queryset(self):
@@ -427,6 +513,436 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 return obj
 
         raise PermissionDenied()
+
+    @action(detail=False, methods=['get', 'post'], url_path='reportes-semanales')
+    def reportes_semanales(self, request):
+        if request.method.upper() == 'POST':
+            return self._crear_reporte_semanal(request)
+        user = request.user
+        qs = ReporteSemanal.objects.select_related('tecnico').all()
+        if not (user.is_staff or user.is_superuser):
+            qs = qs.filter(tecnico=user)
+        serializer = ReporteSemanalSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    def _crear_reporte_semanal(self, request):
+        user = request.user
+        payload = request.data if isinstance(request.data, dict) else {}
+
+        target_user = user
+        tecnico_raw = payload.get('tecnico_id')
+        if tecnico_raw is not None and str(tecnico_raw).strip() != '':
+            if not (user.is_staff or user.is_superuser):
+                raise PermissionDenied('Solo administradores pueden generar el reporte para otro técnico.')
+            try:
+                tid = int(tecnico_raw)
+            except (TypeError, ValueError):
+                raise ValidationError('tecnico_id inválido.')
+            target = User.objects.filter(pk=tid).first()
+            if not target:
+                raise ValidationError('Técnico no encontrado.')
+            if not target.is_active:
+                raise ValidationError('El usuario seleccionado no está activo.')
+            target_user = target
+
+        semana_fin_raw = str(payload.get('semana_fin') or '').strip()
+        try:
+            semana_fin = None
+            if semana_fin_raw:
+                semana_fin = date.fromisoformat(semana_fin_raw)
+        except Exception:
+            semana_fin = None
+
+        # Si no envían fecha, usamos el sábado de la semana actual.
+        now_date = timezone.now().date()
+        if semana_fin is None:
+            # weekday: lunes=0 ... domingo=6. sábado=5
+            delta_to_saturday = (5 - now_date.weekday()) % 7
+            semana_fin = now_date + timedelta(days=delta_to_saturday)
+
+        # Forzamos que la fecha límite no pase de sábado.
+        if semana_fin.weekday() != 5:
+            raise ValidationError("La fecha límite del reporte debe ser sábado (YYYY-MM-DD).")
+
+        semana_inicio = semana_fin - timedelta(days=5)  # lunes
+
+        ordenes_qs = Orden.objects.filter(
+            Q(fecha_inicio__gte=semana_inicio, fecha_inicio__lte=semana_fin)
+            & (Q(tecnico_asignado=target_user) | Q(creado_por=target_user))
+        ).order_by('fecha_inicio', 'id')
+
+        ordenes_payload = []
+        for o in ordenes_qs:
+            prob = (o.problematica or "").strip()
+            ordenes_payload.append({
+                "id": o.id,
+                "idx": o.idx,
+                "folio": o.folio,
+                "cliente": o.cliente,
+                "status": o.status,
+                "fecha_inicio": o.fecha_inicio.isoformat() if o.fecha_inicio else None,
+                "hora_inicio": o.hora_inicio.isoformat() if o.hora_inicio else None,
+                "fecha_finalizacion": o.fecha_finalizacion.isoformat() if o.fecha_finalizacion else None,
+                "hora_termino": o.hora_termino.isoformat() if o.hora_termino else None,
+                "servicios_realizados": o.servicios_realizados if isinstance(o.servicios_realizados, list) else [],
+                "problematica": prob[:500] if prob else "",
+            })
+
+        reporte = ReporteSemanal.objects.create(
+            tecnico=target_user,
+            semana_inicio=semana_inicio,
+            semana_fin=semana_fin,
+            ordenes=ordenes_payload,
+            total_ordenes=len(ordenes_payload),
+        )
+        serializer = ReporteSemanalSerializer(reporte)
+        return Response(serializer.data, status=201)
+
+    def _get_reporte_semanal_for_user(self, request, reporte_id):
+        try:
+            rid = int(reporte_id)
+        except (TypeError, ValueError):
+            raise NotFound()
+        reporte = ReporteSemanal.objects.select_related('tecnico').filter(pk=rid).first()
+        if not reporte:
+            raise NotFound()
+        user = request.user
+        if user.is_staff or user.is_superuser:
+            return reporte
+        if reporte.tecnico_id == user.id:
+            return reporte
+        raise PermissionDenied()
+
+    def _generate_reporte_semanal_pdf_html(self, reporte: ReporteSemanal) -> str:
+        """HTML para PDF del reporte semanal (mismo flujo que cotizaciones / orden pdf)."""
+
+        def esc(v):
+            return (
+                str(v if v is not None else '')
+                .replace('&', '&amp;')
+                .replace('<', '&lt;')
+                .replace('>', '&gt;')
+                .replace('"', '&quot;')
+                .replace("'", '&#39;')
+            )
+
+        logo_data_uri = ""
+        try:
+            repo_root = Path(__file__).resolve().parents[3]
+            logo_path = repo_root / "frontend" / "public" / "images" / "logo" / "intrax-logo.png"
+            if logo_path.exists():
+                b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+                logo_data_uri = f"data:image/png;base64,{b64}"
+        except Exception:
+            logo_data_uri = ""
+
+        t = reporte.tecnico
+        tecnico_nombre = (
+            f"{t.first_name} {t.last_name}".strip()
+            or getattr(t, 'email', None)
+            or getattr(t, 'username', None)
+            or f"#{t.id}"
+        )
+
+        def fmt_date(d):
+            if not d:
+                return '-'
+            if hasattr(d, 'strftime'):
+                return d.strftime('%d/%m/%Y')
+            return esc(str(d))
+
+        creado = reporte.fecha_creacion
+        creado_str = creado.strftime('%d/%m/%Y %H:%M') if creado else '-'
+
+        ordenes = reporte.ordenes if isinstance(reporte.ordenes, list) else []
+
+        def status_text(raw):
+            s = str(raw or '').strip()
+            return esc(s or '—')
+
+        def parse_fecha_val(raw):
+            if raw is None:
+                return None
+            try:
+                return date.fromisoformat(str(raw)[:10])
+            except Exception:
+                return None
+
+        def parse_hora_val(raw):
+            if raw is None:
+                return None
+            s = str(raw).strip()
+            if not s:
+                return None
+            try:
+                if 'T' in s:
+                    return datetime.fromisoformat(s.replace('Z', '').split('+')[0].split('.')[0]).time()
+                return time.fromisoformat(s.split('.')[0])
+            except Exception:
+                return None
+
+        def fmt_fecha_hora(fecha_raw, hora_raw):
+            d = parse_fecha_val(fecha_raw)
+            if not d:
+                return '—'
+            t = parse_hora_val(hora_raw)
+            ds = d.strftime('%d/%m/%Y')
+            if t:
+                return f"{ds} {t.strftime('%H:%M')}"
+            return ds
+
+        def duracion_str(o):
+            d0 = parse_fecha_val(o.get('fecha_inicio'))
+            d1 = parse_fecha_val(o.get('fecha_finalizacion'))
+            if not d0 or not d1:
+                return '—'
+            t0 = parse_hora_val(o.get('hora_inicio'))
+            t1 = parse_hora_val(o.get('hora_termino'))
+            try:
+                if t0 is not None and t1 is not None:
+                    dt0 = datetime.combine(d0, t0)
+                    dt1 = datetime.combine(d1, t1)
+                    if dt1 < dt0:
+                        return '—'
+                    sec = int((dt1 - dt0).total_seconds())
+                    if sec <= 0:
+                        return '—'
+                    days, rem = divmod(sec, 86400)
+                    hours, rem = divmod(rem, 3600)
+                    mins, _ = divmod(rem, 60)
+                    parts = []
+                    if days:
+                        parts.append(f'{days}d')
+                    if hours:
+                        parts.append(f'{hours}h')
+                    if mins or not parts:
+                        parts.append(f'{mins}min')
+                    return ' '.join(parts) if parts else '—'
+                days = (d1 - d0).days
+                if days < 0:
+                    return '—'
+                if days == 0:
+                    return 'Mismo día'
+                return f'{days} día(s)' if days != 1 else '1 día'
+            except Exception:
+                return '—'
+
+        def texto_problematica(o):
+            # Mismo campo que el textarea "Problemática" en órdenes (sin sustituir por servicios).
+            prob = (o.get('problematica') or '').strip()
+            if not prob:
+                return '—'
+            text = prob if len(prob) <= 500 else prob[:497] + '…'
+            return esc(text)
+
+        n_resueltas = 0
+        n_pendientes = 0
+        rows = []
+        for o in ordenes:
+            if not isinstance(o, dict):
+                continue
+            folio = o.get('folio') or o.get('idx') or o.get('id') or '-'
+            cliente = o.get('cliente') or '-'
+            st = o.get('status') or ''
+            st_l = str(st).lower().strip()
+            if st_l == 'resuelto':
+                n_resueltas += 1
+            else:
+                n_pendientes += 1
+            fini = fmt_fecha_hora(o.get('fecha_inicio'), o.get('hora_inicio'))
+            ffin = fmt_fecha_hora(o.get('fecha_finalizacion'), o.get('hora_termino'))
+            dur = duracion_str(o)
+            col_problematica = texto_problematica(o)
+            rows.append(
+                f"""
+                <tr>
+                  <td class='mono td-folio'>{esc(folio)}</td>
+                  <td class='td-cliente'>{esc(cliente)}</td>
+                  <td class='td-status capitalize'>{status_text(st)}</td>
+                  <td class='td-date'>{esc(fini)}</td>
+                  <td class='td-date'>{esc(ffin)}</td>
+                  <td class='td-dur'>{esc(dur)}</td>
+                  <td class='td-problematica'>{col_problematica}</td>
+                </tr>
+                """
+            )
+        rows_html = ''.join(rows) or (
+            "<tr><td colspan='7' class='empty-row'>No hay órdenes registradas en este periodo.</td></tr>"
+        )
+
+        periodo = f"{fmt_date(reporte.semana_inicio)} — {fmt_date(reporte.semana_fin)}"
+        logo_html = (
+            f"<div class='logo'><img src='{esc(logo_data_uri)}' alt='Intrax' /></div>"
+            if logo_data_uri
+            else ""
+        )
+
+        html = f"""<!doctype html>
+<html lang='es'>
+<head>
+  <meta charset='utf-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1' />
+  <title>Reporte semanal de trabajo</title>
+  <style>
+    @page {{ size: A4; margin: 12mm; }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      font-family: Arial, Helvetica, sans-serif;
+      color: #111827;
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.45;
+    }}
+    .top {{ display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 12px; }}
+    .head-text {{ flex: 1; min-width: 0; }}
+    .k {{ font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #9ca3af; font-weight: 600; margin: 0 0 4px 0; }}
+    .doc-title {{ font-size: 16px; font-weight: 700; color: #111827; margin: 0 0 4px 0; }}
+    .doc-sub {{ font-size: 10px; color: #6b7280; margin: 0; line-height: 1.4; max-width: 420px; }}
+    .logo {{ width: 200px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: flex-end; }}
+    .logo img {{ max-width: 200px; max-height: 72px; object-fit: contain; }}
+    .hr {{ height: 1px; background: #e5e7eb; margin: 12px 0; }}
+    .kv {{ display: grid; grid-template-columns: 88px 1fr; gap: 6px 14px; font-size: 11px; margin-bottom: 10px; }}
+    .kv .l {{ color: #6b7280; }}
+    .kv .v {{ color: #111827; font-weight: 500; }}
+    .summary {{ font-size: 10px; color: #6b7280; margin: 0 0 12px 0; padding: 8px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; }}
+    .summary strong {{ color: #374151; font-weight: 600; }}
+    .section-title {{ font-size: 11px; font-weight: 600; color: #111827; margin: 0 0 8px 0; letter-spacing: .02em; }}
+    table.data {{ width: 100%; border-collapse: collapse; font-size: 9px; border: 1px solid #93c5fd; }}
+    table.data th, table.data td {{ border: 1px solid #e5e7eb; padding: 7px 8px; vertical-align: top; }}
+    table.data thead th {{
+      background: #dbeafe;
+      font-size: 9.5px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #1e3a8a;
+      font-weight: 700;
+      text-align: left;
+      border-color: #93c5fd;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }}
+    table.data thead th:nth-child(3) {{ text-align: center; }}
+    table.data tbody td {{ border-top: none; }}
+    table.data tbody tr:nth-child(even) td {{ background: #fafafa; }}
+    .center {{ text-align: center; }}
+    .mono {{ font-family: Consolas, 'Courier New', monospace; color: #111827; }}
+    .capitalize {{ text-transform: capitalize; }}
+    .td-status {{ text-align: center; }}
+    .td-date {{ font-size: 9.5px; white-space: nowrap; }}
+    .td-dur {{ font-size: 9.5px; white-space: nowrap; color: #374151; }}
+    .td-problematica {{
+      font-size: 9px;
+      line-height: 1.35;
+      color: #374151;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }}
+    .empty-row {{
+      text-align: center;
+      padding: 20px 12px !important;
+      color: #9ca3af;
+      font-style: italic;
+      background: #f9fafb !important;
+    }}
+    .foot {{
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 9px;
+      color: #9ca3af;
+      text-align: center;
+    }}
+  </style>
+</head>
+<body>
+  <div class='top'>
+    <div class='head-text'>
+      <p class='k'>Reporte operativo</p>
+      <h1 class='doc-title'>Reporte semanal de trabajo</h1>
+      <p class='doc-sub'>Resumen de órdenes de servicio del periodo (lunes a sábado). Documento interno Intrax.</p>
+    </div>
+    {logo_html}
+  </div>
+
+  <div class='hr'></div>
+
+  <div class='kv'>
+    <span class='l'>Técnico</span><span class='v'>{esc(tecnico_nombre)}</span>
+    <span class='l'>Periodo</span><span class='v'>{esc(periodo)}</span>
+    <span class='l'>Generado</span><span class='v'>{esc(creado_str)}</span>
+  </div>
+
+  <p class='summary'>
+    <strong>Resumen:</strong> {n_resueltas} resuelta{'s' if n_resueltas != 1 else ''} · {n_pendientes} pendiente{'s' if n_pendientes != 1 else ''}
+  </p>
+
+  <p class='section-title'>Detalle de órdenes</p>
+  <table class='data'>
+    <thead>
+      <tr>
+        <th>Folio</th>
+        <th>Cliente</th>
+        <th>Estado</th>
+        <th>Fecha inicio</th>
+        <th>Fecha fin</th>
+        <th>Duración</th>
+        <th>Problemática</th>
+      </tr>
+    </thead>
+    <tbody>
+      {rows_html}
+    </tbody>
+  </table>
+
+  <div class='foot'>
+    Intrax · Documento generado electrónicamente
+  </div>
+</body>
+</html>"""
+        return html
+
+    @action(detail=False, methods=['get'], url_path=r'reportes-semanales/(?P<reporte_id>[^/.]+)/pdf')
+    def reporte_semanal_pdf(self, request, reporte_id=None):
+        reporte = self._get_reporte_semanal_for_user(request, reporte_id)
+        html = self._generate_reporte_semanal_pdf_html(reporte)
+        filename = _filename_reporte_semanal_pdf(reporte)
+        return _pdf_response_from_html(html, filename)
+
+    @action(detail=False, methods=['delete'], url_path=r'reportes-semanales/(?P<reporte_id>[^/.]+)')
+    def reporte_semanal_delete(self, request, reporte_id=None):
+        """Eliminar: permiso JSON reportes.delete (o staff, vía ReportesPermission)."""
+        try:
+            rid = int(reporte_id)
+        except (TypeError, ValueError):
+            raise NotFound()
+        deleted, _ = ReporteSemanal.objects.filter(pk=rid).delete()
+        if not deleted:
+            raise NotFound()
+        return Response(status=204)
+
+    @action(detail=False, methods=['get'], url_path='reportes-tecnico-opciones')
+    def reportes_tecnico_opciones(self, request):
+        """Usuarios activos para selector de técnico al generar reporte (solo staff/superuser)."""
+        user = request.user
+        if not user.is_authenticated:
+            raise PermissionDenied()
+        if not (user.is_staff or user.is_superuser):
+            raise PermissionDenied()
+        qs = User.objects.filter(is_active=True).order_by('first_name', 'last_name', 'id')
+        data = [
+            {
+                'id': u.id,
+                'nombre': (
+                    f"{u.first_name} {u.last_name}".strip()
+                    or u.username
+                    or u.email
+                    or f"#{u.id}"
+                ),
+                'username': u.username or '',
+            }
+            for u in qs
+        ]
+        return Response(data)
 
     @action(detail=True, methods=['get', 'put', 'patch'], url_path='levantamiento')
     def levantamiento(self, request, pk=None):
@@ -951,52 +1467,6 @@ class OrdenViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='pdf')
     def pdf(self, request, pk=None):
         orden = self.get_object()
-        
-        # Generate HTML using the shared method
         html = self._generate_pdf_html(orden)
-        if not html:
-            return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
-        
-        api_key = os.environ.get('HTMLEDOCS_API_KEY')
-        if not api_key:
-            return HttpResponse(html, content_type="text/html; charset=utf-8")
-        
-        # Use the HTML generated by the shared method
-        payload = {
-            "html": html,
-            "format": "pdf",
-            "size": "A4",
-            "orientation": "portrait",
-        }
-
-        req = Request(
-            url="https://htmldocs.com/api/generate",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-
-        try:
-            with urlopen(req, timeout=60) as resp:
-                pdf_bytes = resp.read()
-        except HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode("utf-8", errors="ignore")
-            except Exception:
-                pass
-            return Response({"detail": "Error generando PDF en htmldocs", "status": e.code, "body": body}, status=502)
-        except URLError as e:
-            logger.exception("No se pudo conectar a htmldocs")
-            return Response({"detail": "No se pudo conectar a htmldocs"}, status=502)
-        except Exception:
-            logger.exception("Error inesperado generando PDF")
-            return Response({"detail": "Error inesperado generando PDF"}, status=500)
-
         filename = f"Ordenes_Servicio_{orden.id}.pdf"
-        response = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = f'inline; filename="{filename}"'
-        return response
+        return _pdf_response_from_html(html, filename)

@@ -198,6 +198,7 @@ const AppSidebar: React.FC = () => {
           { name: "Instalación", path: "/instalacion", pro: false },
           { name: "Mantenimiento", path: "/mantenimiento", pro: false },
           { name: "Órdenes del Tecnico", path: "/mantenimiento", pro: false },
+          { name: "Reportes", path: "/reportes", pro: false },
           { name: "Tiket", path: "/tiket", pro: false },
           { name: "Vehículo", path: "/vehiculo", pro: false },
           { name: "Técnico", path: "/tecnico", pro: false },
@@ -216,6 +217,10 @@ const AppSidebar: React.FC = () => {
       
       if (permissions?.ordenes?.view !== false) {
         subItems.push({ name: "Órdenes de Servicios", path: "/ordenes-tecnico", pro: false });
+      }
+
+      if (permissions?.reportes?.view !== false) {
+        subItems.push({ name: "Reportes", path: "/reportes", pro: false });
       }
 
       if (permissions?.tareas?.view !== false) {

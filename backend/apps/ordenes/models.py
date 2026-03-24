@@ -140,3 +140,35 @@ class OrdenLevantamiento(models.Model):
     class Meta:
         verbose_name = 'Levantamiento'
         verbose_name_plural = 'Levantamientos'
+
+
+class ReporteSemanal(models.Model):
+    tecnico = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='reportes_semanales',
+    )
+    semana_inicio = models.DateField()
+    semana_fin = models.DateField()
+    ordenes = models.JSONField(default=list, blank=True)
+    total_ordenes = models.PositiveIntegerField(default=0)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-fecha_creacion']
+        verbose_name = 'Reporte semanal'
+        verbose_name_plural = 'Reportes semanales'
+        indexes = [
+            models.Index(fields=['tecnico', 'semana_inicio', 'semana_fin']),
+            models.Index(fields=['fecha_creacion']),
+        ]
+
+    def __str__(self):
+        tecnico_nombre = (
+            f"{self.tecnico.first_name} {self.tecnico.last_name}".strip()
+            or self.tecnico.username
+            or self.tecnico.email
+            or f"#{self.tecnico_id}"
+        )
+        return f"Reporte {tecnico_nombre} ({self.semana_inicio} a {self.semana_fin})"

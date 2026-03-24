@@ -37,6 +37,7 @@ import CotizacionesPage from "@/pages/Cotizacion/CotizacionesPage";
 import NuevaCotizacionPage from "@/pages/Cotizacion/NuevaCotizacionPage";
 import CotizacionPdfPage from "@/pages/Cotizacion/CotizacionPdfPage";
 import IaPage from "@/pages/IA/iaPage";
+import ReportesPage from "@/pages/Operacion/Reportes/ReportesPage";
 
 export default function App() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="/ordenes" element={<RequireAdmin><Ordenes /></RequireAdmin>} />
             <Route path="/ordenes/:id/pdf" element={<OrdenPdfPage />} />
             <Route path="/ordenes-tecnico" element={<OrdenesTecnico />} />
+            <Route path="/reportes" element={<ReportesPage />} />
             <Route path="/levantamiento" element={<RequireAdmin><LevantamientoPage /></RequireAdmin>} />
             <Route path="/clientes" element={<RequireAdmin><Clientes /></RequireAdmin>} />
             <Route path="/empresas" element={<RequireAdmin><EmpresaPage /></RequireAdmin>} />

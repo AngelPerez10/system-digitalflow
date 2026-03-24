@@ -35,6 +35,7 @@ type PermissionsPayload = {
   cotizaciones?: Partial<CrudPerms>;
   tareas?: Partial<CrudPerms>;
   usuarios?: Partial<CrudPerms>;
+  reportes?: Partial<CrudPerms>;
 };
 
 type UserAccount = {
@@ -112,6 +113,7 @@ const seedAdminPerms = async (userId: number) => {
     kpis: { view: true, create: true, edit: true, delete: true },
     tareas: { view: true, create: true, edit: true, delete: true },
     usuarios: { view: true, create: true, edit: true, delete: true },
+    reportes: { view: true, create: true, edit: true, delete: true },
   };
   const res = await fetch(apiUrl(`/api/users/accounts/${userId}/permissions/`), {
     method: 'PUT',
@@ -231,6 +233,7 @@ export default function UserProfiles() {
       kpis: { view: true, create: false, edit: false, delete: false },
       tareas: { view: true, create: false, edit: false, delete: false },
       usuarios: { view: true, create: false, edit: false, delete: false },
+      reportes: { view: true, create: true, edit: false, delete: false },
     };
     const safe = (v: any) => (typeof v === 'boolean' ? v : undefined);
     const mergeCrud = (dst: any, src: any) => {
@@ -251,6 +254,7 @@ export default function UserProfiles() {
       kpis: mergeCrud(base.kpis, p?.kpis),
       tareas: mergeCrud(base.tareas, p?.tareas),
       usuarios: mergeCrud(base.usuarios, p?.usuarios),
+      reportes: mergeCrud(base.reportes, p?.reportes),
     };
   };
 
@@ -306,6 +310,7 @@ export default function UserProfiles() {
     setPermsSaving(true);
     try {
       const isAdmin = permsUser.is_superuser || permsUser.is_staff;
+      const merged = normalizePerms(permsForm);
       const payloadPerms = isAdmin
         ? permsForm
         : {
@@ -314,6 +319,7 @@ export default function UserProfiles() {
             cotizaciones: { view: false, create: false, edit: false, delete: false },
             kpis: { view: false, create: false, edit: false, delete: false },
             usuarios: { view: false, create: false, edit: false, delete: false },
+            reportes: { ...merged.reportes, delete: false },
           };
 
       const res = await fetch(apiUrl(`/api/users/accounts/${permsUser.id}/permissions/`), {
@@ -1160,6 +1166,15 @@ export default function UserProfiles() {
                         </svg>
                       );
                     }
+                    if (key === 'reportes') {
+                      return (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M6 6h12" />
+                          <path d="M6 12h12" />
+                          <path d="M6 18h12" />
+                        </svg>
+                      );
+                    }
                     return (
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                         <path d="M4 19V5" />
@@ -1176,7 +1191,14 @@ export default function UserProfiles() {
                         { key: 'productos_servicios' as const, label: 'Productos y Servicios', modules: [{ key: 'productos' as const, label: 'Productos' }, { key: 'servicios' as const, label: 'Servicios' }] },
                         { key: 'compras_gastos' as const, label: 'Compras y Gastos', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
                         { key: 'ventas' as const, label: 'Ventas', modules: [{ key: 'cotizaciones' as const, label: 'Cotizaciones' }] },
-                        { key: 'operaciones' as const, label: 'Operaciones', modules: [{ key: 'ordenes' as const, label: 'Órdenes de Servicios' }] },
+                        {
+                          key: 'operaciones' as const,
+                          label: 'Operaciones',
+                          modules: [
+                            { key: 'ordenes' as const, label: 'Órdenes de Servicios' },
+                            { key: 'reportes' as const, label: 'Reportes semanales' },
+                          ],
+                        },
                         { key: 'kpis' as const, label: 'KPI’S', modules: [{ key: 'kpis' as const, label: 'KPI Ventas' }] },
                       ] as const)
                     : ([
@@ -1185,7 +1207,14 @@ export default function UserProfiles() {
                         { key: 'productos_servicios' as const, label: 'Productos y Servicios', modules: [{ key: 'productos' as const, label: 'Productos' }, { key: 'servicios' as const, label: 'Servicios' }] },
                         { key: 'compras_gastos' as const, label: 'Compras y Gastos', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
                         { key: 'ventas' as const, label: 'Ventas', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
-                        { key: 'operaciones' as const, label: 'Operaciones', modules: [{ key: 'ordenes' as const, label: 'Órdenes de Servicios' }] },
+                        {
+                          key: 'operaciones' as const,
+                          label: 'Operaciones',
+                          modules: [
+                            { key: 'ordenes' as const, label: 'Órdenes de Servicios' },
+                            { key: 'reportes' as const, label: 'Reportes semanales' },
+                          ],
+                        },
                         { key: 'kpis' as const, label: 'KPI’S', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
                       ] as const);
 

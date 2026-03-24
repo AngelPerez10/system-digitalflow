@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Orden, OrdenLevantamiento
+from .models import Orden, OrdenLevantamiento, ReporteSemanal
 
 
 class OrdenSerializer(serializers.ModelSerializer):
@@ -222,6 +222,38 @@ class OrdenLevantamientoSerializer(serializers.ModelSerializer):
             'id',
             'orden',
             'creado_por',
+            'fecha_creacion',
+            'fecha_actualizacion',
+        ]
+
+
+class ReporteSemanalSerializer(serializers.ModelSerializer):
+    tecnico_nombre = serializers.SerializerMethodField()
+
+    def get_tecnico_nombre(self, obj):
+        if not obj.tecnico:
+            return "-"
+        nombre = f"{obj.tecnico.first_name or ''} {obj.tecnico.last_name or ''}".strip()
+        return nombre or obj.tecnico.username or obj.tecnico.email or "-"
+
+    class Meta:
+        model = ReporteSemanal
+        fields = [
+            'id',
+            'tecnico',
+            'tecnico_nombre',
+            'semana_inicio',
+            'semana_fin',
+            'ordenes',
+            'total_ordenes',
+            'fecha_creacion',
+            'fecha_actualizacion',
+        ]
+        read_only_fields = [
+            'id',
+            'tecnico',
+            'tecnico_nombre',
+            'total_ordenes',
             'fecha_creacion',
             'fecha_actualizacion',
         ]
