@@ -315,8 +315,8 @@ export default function UserProfiles() {
         ? permsForm
         : {
             ...permsForm,
-            // Permitimos productos y servicios en técnicos
-            cotizaciones: { view: false, create: false, edit: false, delete: false },
+            // Cotizaciones: los técnicos pueden tener permisos granulares (ver/crear/editar/eliminar)
+            cotizaciones: merged.cotizaciones,
             kpis: { view: false, create: false, edit: false, delete: false },
             usuarios: { view: false, create: false, edit: false, delete: false },
             reportes: { ...merged.reportes, delete: false },
@@ -1206,7 +1206,7 @@ export default function UserProfiles() {
                         { key: 'contactos' as const, label: 'Contacto de negocio', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
                         { key: 'productos_servicios' as const, label: 'Productos y Servicios', modules: [{ key: 'productos' as const, label: 'Productos' }, { key: 'servicios' as const, label: 'Servicios' }] },
                         { key: 'compras_gastos' as const, label: 'Compras y Gastos', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
-                        { key: 'ventas' as const, label: 'Ventas', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
+                        { key: 'ventas' as const, label: 'Ventas', modules: [{ key: 'cotizaciones' as const, label: 'Cotizaciones' }] },
                         {
                           key: 'operaciones' as const,
                           label: 'Operaciones',

@@ -234,6 +234,14 @@ const AppSidebar: React.FC = () => {
           subItems,
         });
       }
+
+      if (permissions?.cotizaciones?.view !== false) {
+        items.push({
+          icon: <PieChartIcon />,
+          name: "Ventas",
+          subItems: [{ name: "Cotizaciones", path: "/cotizacion", pro: false }],
+        });
+      }
     }
 
     // KPI'S (Admin only)

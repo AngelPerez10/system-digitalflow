@@ -20,6 +20,7 @@ import { ScrollToTop } from "@/components/common/ScrollToTop";
 import Home from "@/pages/Dashboard/Home";
 import RequireAuth from "@/components/auth/RequireAuth";
 import RequireAdmin from "@/components/auth/RequireAdmin";
+import RequireCotizacionPermission from "@/components/auth/RequireCotizacionPermission";
 import Ordenes from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenesPage";
 import OrdenPdfPage from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenPdfPage";
 import OrdenesTecnico from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenesTecnicoPage";
@@ -65,9 +66,9 @@ export default function App() {
             <Route path="/proveedores" element={<RequireAdmin><ProveedoresPage /></RequireAdmin>} />
             <Route path="/productos" element={<RequireAdmin><Productos /></RequireAdmin>} />
             <Route path="/servicios" element={<RequireAdmin><Servicios /></RequireAdmin>} />
-            <Route path="/cotizacion" element={<RequireAdmin><CotizacionesPage /></RequireAdmin>} />
-            <Route path="/cotizacion/nueva" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />
-            <Route path="/cotizacion/:id/editar" element={<RequireAdmin><NuevaCotizacionPage /></RequireAdmin>} />
+            <Route path="/cotizacion" element={<RequireCotizacionPermission required="view"><CotizacionesPage /></RequireCotizacionPermission>} />
+            <Route path="/cotizacion/nueva" element={<RequireCotizacionPermission required="create"><NuevaCotizacionPage /></RequireCotizacionPermission>} />
+            <Route path="/cotizacion/:id/editar" element={<RequireCotizacionPermission required="edit"><NuevaCotizacionPage /></RequireCotizacionPermission>} />
             <Route path="/cotizacion/:id/pdf" element={<CotizacionPdfPage />} />
 
             {/* IA (Admin only) */}
