@@ -545,43 +545,26 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 raise ValidationError('El usuario seleccionado no está activo.')
             target_user = target
 
-        fecha_inicio_raw = str(payload.get('fecha_inicio') or '').strip()
-        fecha_fin_raw = str(payload.get('fecha_fin') or '').strip()
-        is_custom_range = bool(fecha_inicio_raw or fecha_fin_raw)
-        if is_custom_range and not (user.is_staff or user.is_superuser):
-            raise PermissionDenied('Solo administradores pueden generar un reporte con rango personalizado.')
+        semana_fin_raw = str(payload.get('semana_fin') or '').strip()
+        try:
+            semana_fin = None
+            if semana_fin_raw:
+                semana_fin = date.fromisoformat(semana_fin_raw)
+        except Exception:
+            semana_fin = None
 
-        if is_custom_range:
-            if not fecha_inicio_raw or not fecha_fin_raw:
-                raise ValidationError('Para rango personalizado debes enviar fecha_inicio y fecha_fin.')
-            try:
-                semana_inicio = date.fromisoformat(fecha_inicio_raw)
-                semana_fin = date.fromisoformat(fecha_fin_raw)
-            except Exception:
-                raise ValidationError('fecha_inicio y fecha_fin deben tener formato YYYY-MM-DD.')
-            if semana_inicio > semana_fin:
-                raise ValidationError('fecha_inicio no puede ser mayor que fecha_fin.')
-        else:
-            semana_fin_raw = str(payload.get('semana_fin') or '').strip()
-            try:
-                semana_fin = None
-                if semana_fin_raw:
-                    semana_fin = date.fromisoformat(semana_fin_raw)
-            except Exception:
-                semana_fin = None
+        # Si no envían fecha, usamos el sábado de la semana actual.
+        now_date = timezone.now().date()
+        if semana_fin is None:
+            # weekday: lunes=0 ... domingo=6. sábado=5
+            delta_to_saturday = (5 - now_date.weekday()) % 7
+            semana_fin = now_date + timedelta(days=delta_to_saturday)
 
-            # Si no envían fecha, usamos el sábado de la semana actual.
-            now_date = timezone.now().date()
-            if semana_fin is None:
-                # weekday: lunes=0 ... domingo=6. sábado=5
-                delta_to_saturday = (5 - now_date.weekday()) % 7
-                semana_fin = now_date + timedelta(days=delta_to_saturday)
+        # Forzamos que la fecha límite no pase de sábado.
+        if semana_fin.weekday() != 5:
+            raise ValidationError("La fecha límite del reporte debe ser sábado (YYYY-MM-DD).")
 
-            # Forzamos que la fecha límite no pase de sábado.
-            if semana_fin.weekday() != 5:
-                raise ValidationError("La fecha límite del reporte debe ser sábado (YYYY-MM-DD).")
-
-            semana_inicio = semana_fin - timedelta(days=5)  # lunes
+        semana_inicio = semana_fin - timedelta(days=5)  # lunes
 
         ordenes_qs = Orden.objects.filter(
             Q(fecha_inicio__gte=semana_inicio, fecha_inicio__lte=semana_fin)

@@ -31,12 +31,7 @@ export default function SignInForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(() =>
-    localStorage.getItem("auth_token") ||
-      sessionStorage.getItem("auth_token") ||
-      localStorage.getItem("token") ||
-      sessionStorage.getItem("token")
-  );
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'));
   const [username, setUsername] = useState<string | null>(() => localStorage.getItem('username') || sessionStorage.getItem('username'));
   const navigate = useNavigate();
   const location = useLocation() as any;

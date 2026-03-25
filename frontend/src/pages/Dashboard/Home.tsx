@@ -1,23 +1,15 @@
-import { lazy, Suspense } from "react";
 import EcommerceMetrics from "../../components/ecommerce/EcommerceMetrics";
 import MonthlySalesChart from "../../components/ecommerce/MonthlySalesChart";
 import StatisticsChart from "../../components/ecommerce/StatisticsChart";
 import MonthlyTarget from "../../components/ecommerce/MonthlyTarget";
 import RecentOrders from "../../components/ecommerce/RecentOrders";
+import DemographicCard from "../../components/ecommerce/DemographicCard";
 import PageMeta from "../../components/common/PageMeta";
-import ErrorBoundary from "../../components/common/ErrorBoundary";
 import TechnicianDashboard from "./TechnicianDashboard";
 
-/** Chunk aparte: @react-jvectormap usa eval y no debe bloquear el bundle principal en producción */
-const DemographicCard = lazy(() => import("../../components/ecommerce/DemographicCard"));
-
 export default function Home() {
-  const role = (
-    localStorage.getItem("role") ||
-    sessionStorage.getItem("role") ||
-    ""
-  ).toLowerCase();
-  const isAdmin = role === "admin";
+  const role = localStorage.getItem('role');
+  const isAdmin = role === 'admin';
 
   if (!isAdmin) {
     return <TechnicianDashboard />;
@@ -45,15 +37,7 @@ export default function Home() {
         </div>
 
         <div className="col-span-12 xl:col-span-5">
-          <ErrorBoundary>
-            <Suspense
-              fallback={
-                <div className="h-[420px] animate-pulse rounded-2xl border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-gray-800/50" />
-              }
-            >
-              <DemographicCard />
-            </Suspense>
-          </ErrorBoundary>
+          <DemographicCard />
         </div>
 
         <div className="col-span-12 xl:col-span-7">
