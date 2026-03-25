@@ -1,93 +1,77 @@
-// react plugin for creating vector maps
-import { VectorMap } from "@react-jvectormap/core";
-import { worldMill } from "@react-jvectormap/world";
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  Marker,
+} from "react-simple-maps";
+import type { FC } from "react";
+import countries from "world-atlas/countries-110m.json";
 
-// Define the component props
 interface CountryMapProps {
   mapColor?: string;
 }
 
-const CountryMap: React.FC<CountryMapProps> = ({ mapColor }) => {
+/** [longitude, latitude] — react-simple-maps uses GeoJSON order */
+const MARKERS: { coordinates: [number, number]; name: string }[] = [
+  { coordinates: [-104.657039, 37.2580397], name: "United States" },
+  { coordinates: [73.7276105, 20.7504374], name: "India" },
+  { coordinates: [-11.6368, 53.613], name: "United Kingdom" },
+  { coordinates: [18.0686, 59.3293], name: "Sweden" },
+];
+
+const CountryMap: FC<CountryMapProps> = ({ mapColor }) => {
+  const fill = mapColor ?? "#D0D5DD";
+  const hoverFill = "#465fff";
+
   return (
-    <VectorMap
-      map={worldMill}
-      backgroundColor="transparent"
-      markerStyle={{
-        initial: {
-          fill: "#465FFF",
-          r: 4, // Custom radius for markers
-        } as any, // Type assertion to bypass strict CSS property checks
+    <ComposableMap
+      projection="geoMercator"
+      projectionConfig={{
+        scale: 90,
+        center: [0, 15],
       }}
-      markersSelectable={true}
-      markers={[
-        {
-          latLng: [37.2580397, -104.657039],
-          name: "United States",
-          style: {
-            fill: "#465FFF",
-            borderWidth: 1,
-            borderColor: "white",
-            stroke: "#383f47",
-          },
-        },
-        {
-          latLng: [20.7504374, 73.7276105],
-          name: "India",
-          style: { fill: "#465FFF", borderWidth: 1, borderColor: "white" },
-        },
-        {
-          latLng: [53.613, -11.6368],
-          name: "United Kingdom",
-          style: { fill: "#465FFF", borderWidth: 1, borderColor: "white" },
-        },
-        {
-          latLng: [-25.0304388, 115.2092761],
-          name: "Sweden",
-          style: {
-            fill: "#465FFF",
-            borderWidth: 1,
-            borderColor: "white",
-            strokeOpacity: 0,
-          },
-        },
-      ]}
-      zoomOnScroll={false}
-      zoomMax={12}
-      zoomMin={1}
-      zoomAnimate={true}
-      zoomStep={1.5}
-      regionStyle={{
-        initial: {
-          fill: mapColor || "#D0D5DD",
-          fillOpacity: 1,
-          fontFamily: "Outfit",
-          stroke: "none",
-          strokeWidth: 0,
-          strokeOpacity: 0,
-        },
-        hover: {
-          fillOpacity: 0.7,
-          cursor: "pointer",
-          fill: "#465fff",
-          stroke: "none",
-        },
-        selected: {
-          fill: "#465FFF",
-        },
-        selectedHover: {},
-      }}
-      regionLabelStyle={{
-        initial: {
-          fill: "#35373e",
-          fontWeight: 500,
-          fontSize: "13px",
-          stroke: "none",
-        },
-        hover: {},
-        selected: {},
-        selectedHover: {},
-      }}
-    />
+      width={800}
+      height={420}
+      className="h-full w-full max-w-full [&_svg]:block [&_svg]:h-full [&_svg]:w-full"
+      style={{ backgroundColor: "transparent" }}
+    >
+      <Geographies geography={countries}>
+        {({ geographies }) =>
+          geographies.map((geo) => (
+            <Geography
+              key={geo.rsmKey}
+              geography={geo}
+              style={{
+                default: {
+                  fill,
+                  stroke: "transparent",
+                  strokeWidth: 0,
+                  outline: "none",
+                },
+                hover: {
+                  fill: hoverFill,
+                  fillOpacity: 0.7,
+                  cursor: "pointer",
+                  outline: "none",
+                },
+                pressed: { outline: "none" },
+              }}
+            />
+          ))
+        }
+      </Geographies>
+      {MARKERS.map((m) => (
+        <Marker key={m.name} coordinates={m.coordinates}>
+          <circle
+            r={4}
+            fill="#465FFF"
+            stroke="white"
+            strokeWidth={1}
+            className="dark:stroke-gray-800"
+          />
+        </Marker>
+      ))}
+    </ComposableMap>
   );
 };
 
