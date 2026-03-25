@@ -30,5 +30,17 @@ export default defineConfig(() => {
       port: 5173,
       hmr: disableHmr ? false : (hmrHost ? { host: hmrHost } : undefined),
     },
+    build: {
+      // Main bundle is large (SPA); avoid noisy 500 kB warning in CI/Render logs.
+      chunkSizeWarningLimit: 3500,
+      // @react-jvectormap/core uses webpack-style eval() in prebuilt dist; we cannot fix upstream.
+      // https://rolldown.rs/options/checks#eval
+      rolldownOptions: {
+        checks: {
+          eval: false,
+          pluginTimings: false,
+        },
+      },
+    },
   };
 });
