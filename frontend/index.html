@@ -14,28 +14,40 @@
         var p = window.location.pathname;
         var isRoot = (p === '/' || p === '/index.html');
         var isSignin = (p === '/signin' || p === '/signin/');
-        var userRaw = localStorage.getItem('user');
-        var token = localStorage.getItem('auth_token');
-        var userObj = null;
-        if (userRaw) { try { userObj = JSON.parse(userRaw); } catch (e) { } }
 
-        // Si está en /signin y YA es admin autenticado -> mandar a root
+        function getToken() {
+          try {
+            return (
+              localStorage.getItem('auth_token') ||
+              sessionStorage.getItem('auth_token') ||
+              localStorage.getItem('token') ||
+              sessionStorage.getItem('token')
+            );
+          } catch (e) {
+            return null;
+          }
+        }
+
+        var userRaw = localStorage.getItem('user') || sessionStorage.getItem('user');
+        var token = getToken();
+        var userObj = null;
+        if (userRaw) {
+          try {
+            userObj = JSON.parse(userRaw);
+          } catch (e) {}
+        }
+
+        // En /signin: si ya hay sesión de admin, ir al inicio (evita parpadeo)
         if (isSignin && userObj && (userObj.is_staff || userObj.is_superuser) && token) {
           window.history.replaceState(null, '', '/');
           return;
         }
 
-        // Solo permitir root si admin (is_staff o is_superuser)
-        if (isRoot) {
-          if (!(userObj && (userObj.is_staff || userObj.is_superuser))) {
-            if (!token) {
-              window.history.replaceState(null, '', '/signin');
-            } else {
-              window.history.replaceState(null, '', '/signin');
-            }
-          }
+        // En /: solo forzar login si NO hay token (técnicos y admins autenticados usan la app en React)
+        if (isRoot && !token) {
+          window.history.replaceState(null, '', '/signin');
         }
-      } catch (e) { }
+      } catch (e) {}
     })();
   </script>
   <div id="root"></div>
