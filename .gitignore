@@ -2,6 +2,8 @@
 venv/
 .env
 .env.*
+*.env
+*.env.*
 *.py[cod]
 __pycache__/
 **/__pycache__/ 
@@ -70,6 +72,24 @@ pytest-report.html
 # Cache de ESLint / TypeScript
 .eslintcache
 .tsbuildinfo
+
+# ---- Security / Secrets (never commit) ----
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+id_rsa
+id_ed25519
+service-account*.json
+credentials*.json
+secrets*.json
+
+# ---- Cursor / Agents local state ----
+.cursor/
+.agents/
 
 # ---- Keep lockfiles (NO ignorar) ----
 # package-lock.json

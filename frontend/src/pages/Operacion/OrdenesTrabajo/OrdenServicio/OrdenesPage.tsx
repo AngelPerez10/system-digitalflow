@@ -12,6 +12,8 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { apiUrl } from "@/config/api";
+import * as L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { PencilIcon, TrashBinIcon, TimeIcon } from "@/icons";
 import { MobileOrderList } from "./MobileOrderCard";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
@@ -584,38 +586,8 @@ export default function Ordenes() {
       return false;
     };
 
-    const ensureLeaflet = async () => {
-      const w: any = window as any;
-      if (w.L) return w.L;
-      // CSS
-      if (!document.getElementById('leaflet-css')) {
-        const link = document.createElement('link');
-        link.id = 'leaflet-css';
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
-        link.crossOrigin = '';
-        document.head.appendChild(link);
-      }
-      // JS
-      await new Promise<void>((resolve, reject) => {
-        if (document.getElementById('leaflet-js')) return resolve();
-        const script = document.createElement('script');
-        script.id = 'leaflet-js';
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
-        script.crossOrigin = '';
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Leaflet load error'));
-        document.body.appendChild(script);
-      });
-      return (window as any).L;
-    };
-
     (async () => {
       try {
-        const L = await ensureLeaflet();
-
         // Inicializar selectedLocation
         const had = initFromDireccion();
         if (!had && !selectedLocation) {
@@ -653,8 +625,7 @@ export default function Ordenes() {
 
   // Sincronizar marker y vista cuando cambia selectedLocation
   useEffect(() => {
-    const L: any = (window as any).L;
-    if (!mapRef.current || !selectedLocation || !L) return;
+    if (!mapRef.current || !selectedLocation) return;
     const map = mapRef.current;
     const currentZoom = typeof zoomRef.current === 'number' ? zoomRef.current : map.getZoom?.() || 15;
     map.setView([selectedLocation.lat, selectedLocation.lng], currentZoom);
