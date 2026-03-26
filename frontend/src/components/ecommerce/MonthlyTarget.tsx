@@ -486,7 +486,7 @@ export default function MonthlyTarget() {
                 id: `perm-${u?.id}-${updated}`,
                 when: updated,
                 actor: "Sistema",
-                text: `Se actualizó permisos de ${targetName}`,
+                text: `actualizó permisos de ${targetName}`,
                 detail: `Usuario afectado: ${targetName}`,
                 module: "usuarios" as ModuleKey,
                 viewName: "Gestion de usuarios",
