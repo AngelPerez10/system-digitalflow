@@ -103,6 +103,37 @@ const getAuthHeaders = (): Record<string, string> => {
   return h;
 };
 
+const SYSTEM_ACTIVITY_LOG_KEY = 'system_activity_log';
+
+const appendSystemHistoryEvent = (event: {
+  actor: string;
+  text: string;
+  module?: 'usuarios';
+  viewName?: string;
+  viewPath?: string;
+}) => {
+  try {
+    const raw = localStorage.getItem(SYSTEM_ACTIVITY_LOG_KEY) || '[]';
+    const rows = JSON.parse(raw);
+    const list = Array.isArray(rows) ? rows : [];
+    const next = [
+      {
+        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        when: new Date().toISOString(),
+        actor: event.actor || 'usuario',
+        text: event.text,
+        module: event.module || 'usuarios',
+        viewName: event.viewName || 'Gestion de usuarios',
+        viewPath: event.viewPath || '/profile',
+      },
+      ...list,
+    ].slice(0, 200);
+    localStorage.setItem(SYSTEM_ACTIVITY_LOG_KEY, JSON.stringify(next));
+  } catch {
+    // ignore local history persistence errors
+  }
+};
+
 const seedAdminPerms = async (userId: number) => {
   const full: Required<PermissionsPayload> = {
     ordenes: { view: true, create: true, edit: true, delete: true },
@@ -345,6 +376,13 @@ export default function UserProfiles() {
         // ignore
       }
       window.dispatchEvent(new Event('permissions:updated'));
+      appendSystemHistoryEvent({
+        actor: localStorage.getItem('username') || sessionStorage.getItem('username') || 'usuario',
+        text: `actualizo permisos de usuario ${permsUser.username}`,
+        module: 'usuarios',
+        viewName: 'Gestion de usuarios',
+        viewPath: '/profile',
+      });
 
       setSuccess('Permisos actualizados');
       setIsPermsOpen(false);
@@ -648,6 +686,7 @@ export default function UserProfiles() {
 
   const doDelete = async () => {
     if (confirmDeleteId == null) return;
+    const deletedUser = users.find((u) => u.id === confirmDeleteId);
     setError(null);
     setSuccess(null);
     setDeleting(true);
@@ -662,6 +701,13 @@ export default function UserProfiles() {
       if (!res.ok) throw new Error(data?.detail || 'Error al eliminar usuario');
       setUsers((prev) => prev.filter((u) => u.id !== confirmDeleteId));
       setConfirmDeleteId(null);
+      appendSystemHistoryEvent({
+        actor: localStorage.getItem('username') || sessionStorage.getItem('username') || 'usuario',
+        text: `elimino al usuario ${deletedUser?.username || `#${confirmDeleteId}`}`,
+        module: 'usuarios',
+        viewName: 'Gestion de usuarios',
+        viewPath: '/profile',
+      });
       setSuccess('Usuario eliminado');
     } catch (e: any) {
       setError(e?.message || 'Error');

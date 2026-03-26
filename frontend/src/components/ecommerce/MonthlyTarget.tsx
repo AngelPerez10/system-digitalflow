@@ -1,197 +1,547 @@
-import Chart from "react-apexcharts";
-import { ApexOptions } from "apexcharts";
-import { useState } from "react";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { MoreDotIcon } from "../../icons";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { apiUrl } from "@/config/api";
+import {
+  ArrowRightIcon,
+  BoxCubeIcon,
+  CheckLineIcon,
+  GridIcon,
+  PencilIcon,
+  PieChartIcon,
+  PlugInIcon,
+  TableIcon,
+  TrashBinIcon,
+  UserCircleIcon,
+} from "@/icons";
+
+type ModuleKey =
+  | "contactos"
+  | "cotizacion"
+  | "escritorio"
+  | "operacion"
+  | "productos_servicios"
+  | "usuarios";
+
+type ActivityItem = {
+  id: string;
+  when: string;
+  actor: string;
+  text: string;
+  detail?: string;
+  module: ModuleKey;
+  viewName: string;
+  viewPath: string;
+};
+
+const MAX_ITEMS = 40;
+const LOCAL_HISTORY_KEY = "system_activity_log";
+
+const toIso = (v: unknown): string => {
+  if (!v) return "";
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+};
+
+const timeAgo = (iso: string) => {
+  if (!iso) return "sin fecha";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "sin fecha";
+  const diff = Math.max(0, Date.now() - t);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "hace segundos";
+  if (mins < 60) return `hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `hace ${hrs} h`;
+  const days = Math.floor(hrs / 24);
+  return `hace ${days} d`;
+};
+
+const formatDateTime = (iso: string) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("es-MX", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatNumberWithCommas = (value: unknown) => {
+  if (value == null || value === "") return "";
+  const n = Number(value);
+  if (Number.isNaN(n)) return String(value);
+  return n.toLocaleString("en-US");
+};
+
+const normalizeRows = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  return [];
+};
+
+const firstNonEmpty = (...values: unknown[]) => {
+  for (const v of values) {
+    const s = String(v ?? "").trim();
+    if (s) return s;
+  }
+  return "";
+};
+
+const normalizeOrderStatus = (raw: unknown) => {
+  const v = String(raw ?? "").trim().toLowerCase();
+  if (!v) return "Pendiente";
+  if (v.includes("resuel") || v.includes("complet") || v.includes("cerrad") || v.includes("finaliz")) return "Resuelto";
+  if (v.includes("proceso") || v.includes("curso") || v.includes("asign")) return "En proceso";
+  if (v.includes("cancel")) return "Cancelado";
+  if (v.includes("pend")) return "Pendiente";
+  return v.charAt(0).toUpperCase() + v.slice(1);
+};
+
+const moduleMeta = (module: ModuleKey) => {
+  if (module === "contactos") {
+    return {
+      Icon: UserCircleIcon,
+      tone: "bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300",
+    };
+  }
+  if (module === "cotizacion") {
+    return {
+      Icon: PieChartIcon,
+      tone: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300",
+    };
+  }
+  if (module === "escritorio") {
+    return {
+      Icon: GridIcon,
+      tone: "bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-300",
+    };
+  }
+  if (module === "operacion") {
+    return {
+      Icon: PlugInIcon,
+      tone: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300",
+    };
+  }
+  if (module === "productos_servicios") {
+    return {
+      Icon: BoxCubeIcon,
+      tone: "bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300",
+    };
+  }
+  return {
+    Icon: TableIcon,
+    tone: "bg-gray-100 text-gray-600 dark:bg-gray-700/60 dark:text-gray-300",
+  };
+};
+
+const actionMeta = (text: string) => {
+  const t = text.toLowerCase();
+  if (t.includes("elimino")) {
+    return {
+      Icon: TrashBinIcon,
+      tone: "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300",
+    };
+  }
+  if (t.includes("actualizo")) {
+    return {
+      Icon: PencilIcon,
+      tone: "bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300",
+    };
+  }
+  return {
+    Icon: CheckLineIcon,
+    tone: "bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-300",
+  };
+};
 
 export default function MonthlyTarget() {
-  const series = [75.55];
-  const options: ApexOptions = {
-    colors: ["#465FFF"],
-    chart: {
-      fontFamily: "Outfit, sans-serif",
-      type: "radialBar",
-      height: 330,
-      sparkline: {
-        enabled: true,
-      },
-    },
-    plotOptions: {
-      radialBar: {
-        startAngle: -85,
-        endAngle: 85,
-        hollow: {
-          size: "80%",
-        },
-        track: {
-          background: "#E4E7EC",
-          strokeWidth: "100%",
-          margin: 5, // margin is in pixels
-        },
-        dataLabels: {
-          name: {
-            show: false,
-          },
-          value: {
-            fontSize: "36px",
-            fontWeight: "600",
-            offsetY: -40,
-            color: "#1D2939",
-            formatter: function (val) {
-              return val + "%";
-            },
-          },
-        },
-      },
-    },
-    fill: {
-      type: "solid",
-      colors: ["#465FFF"],
-    },
-    stroke: {
-      lineCap: "round",
-    },
-    labels: ["Progress"],
-  };
-  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+  const [allItems, setAllItems] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  function toggleDropdown() {
-    setIsOpen(!isOpen);
-  }
+  useEffect(() => {
+    const token =
+      localStorage.getItem("auth_token") ||
+      sessionStorage.getItem("auth_token") ||
+      localStorage.getItem("token") ||
+      sessionStorage.getItem("token") ||
+      "";
 
-  function closeDropdown() {
-    setIsOpen(false);
-  }
+    if (!token) {
+      setLoading(false);
+      setError("No hay sesion activa.");
+      return;
+    }
+
+    const role = (localStorage.getItem("role") || sessionStorage.getItem("role") || "").toLowerCase();
+    const isSuperuser =
+      (localStorage.getItem("is_superuser") || sessionStorage.getItem("is_superuser") || "").toLowerCase() === "true";
+    const isAdmin = role === "admin" || isSuperuser;
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const getJson = async (path: string) => {
+      const res = await fetch(apiUrl(path), { headers, cache: "no-store" as RequestCache });
+      if (!res.ok) return null;
+      return res.json().catch(() => null);
+    };
+
+    const load = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const [ordenesData, cotizacionesData, clientesData, tareasData, serviciosData, reportesData, usersData] =
+          await Promise.all([
+            getJson("/api/ordenes/"),
+            getJson("/api/cotizaciones/"),
+            getJson("/api/clientes/"),
+            getJson("/api/tareas/"),
+            getJson("/api/servicios/"),
+            getJson("/api/ordenes/reportes-semanales/"),
+            isAdmin ? getJson("/api/users/accounts/") : Promise.resolve(null),
+          ]);
+
+        const items: ActivityItem[] = [];
+
+        for (const o of normalizeRows(ordenesData)) {
+          const created = toIso(o?.fecha_creacion);
+          const updated = toIso(o?.fecha_actualizacion);
+          const actor = firstNonEmpty(
+            o?.actualizado_por_username,
+            o?.creado_por_username,
+            o?.tecnico_asignado_username,
+            o?.tecnico_nombre,
+            o?.usuario_nombre,
+            o?.user?.username
+          ) || "sistema";
+          const folio = String(o?.folio || o?.idx || o?.id || "-");
+          const cliente = String(o?.cliente_nombre || o?.cliente?.nombre || "sin cliente");
+          const tecnico = String(o?.tecnico_asignado_username || o?.tecnico_nombre || "sin técnico");
+          const estado = normalizeOrderStatus(
+            o?.estado ?? o?.status ?? o?.estatus ?? o?.estado_orden ?? o?.situacion
+          );
+          if (created) {
+            items.push({
+              id: `orden-create-${o?.id || folio}`,
+              when: created,
+              actor,
+              text: `creó la orden #${folio}`,
+              detail: `Cliente: ${cliente} · Técnico: ${tecnico} · Estado: ${estado}`,
+              module: "operacion",
+              viewName: "Ordenes de trabajo",
+              viewPath: "/ordenes",
+            });
+          }
+          if (updated && updated !== created) {
+            items.push({
+              id: `orden-update-${o?.id || folio}`,
+              when: updated,
+              actor,
+              text: `actualizó la orden #${folio}`,
+              detail: `Cliente: ${cliente} · Técnico: ${tecnico} · Estado: ${estado}`,
+              module: "operacion",
+              viewName: "Ordenes de trabajo",
+              viewPath: "/ordenes",
+            });
+          }
+        }
+
+        for (const c of normalizeRows(cotizacionesData)) {
+          const created = toIso(c?.fecha_creacion);
+          const updated = toIso(c?.fecha_actualizacion);
+          const creator = String(c?.creado_por_username || "usuario");
+          const updater = String(c?.actualizado_por_username || creator);
+          const folio = String(c?.idx || c?.id || "-");
+          const cliente = String(c?.cliente_nombre || c?.cliente?.nombre || "sin cliente");
+          const total = c?.monto_total ?? c?.total ?? c?.subtotal;
+          if (created) {
+            items.push({
+              id: `cot-create-${c?.id || folio}`,
+              when: created,
+              actor: creator,
+              text: `creó la cotización #${folio}`,
+              detail: `Cliente: ${cliente}${total != null ? ` · Total: $${formatNumberWithCommas(total)}` : ""}`,
+              module: "cotizacion",
+              viewName: "Cotizaciones",
+              viewPath: "/cotizacion",
+            });
+          }
+          if (updated && updated !== created) {
+            items.push({
+              id: `cot-update-${c?.id || folio}`,
+              when: updated,
+              actor: updater,
+              text: `actualizó la cotización #${folio}`,
+              detail: `Cliente: ${cliente}${total != null ? ` · Total: $${formatNumberWithCommas(total)}` : ""}`,
+              module: "cotizacion",
+              viewName: "Cotizaciones",
+              viewPath: "/cotizacion",
+            });
+          }
+        }
+
+        for (const cl of normalizeRows(clientesData)) {
+          const created = toIso(cl?.fecha_creacion);
+          const updated = toIso(cl?.fecha_actualizacion);
+          const name = String(cl?.nombre || `cliente-${cl?.id}`);
+          const creador =
+            firstNonEmpty(
+              cl?.creado_por_username,
+              cl?.actualizado_por_username,
+              cl?.usuario_creador,
+              cl?.asesor_username,
+              cl?.vendedor_username,
+              cl?.owner?.username
+            ) || "sistema";
+          const actualizador =
+            firstNonEmpty(
+              cl?.actualizado_por_username,
+              cl?.creado_por_username,
+              cl?.asesor_username,
+              cl?.vendedor_username,
+              cl?.owner?.username
+            ) || creador;
+          const tipo = String(cl?.tipo || cl?.tipo_cliente || "general");
+          if (created) {
+            items.push({
+              id: `cliente-create-${cl?.id || name}`,
+              when: created,
+              actor: creador,
+              text: `agregó cliente "${name}"`,
+              detail: `Tipo: ${tipo} · ID: ${cl?.id ?? "-"}`,
+              module: "contactos",
+              viewName: "Contactos de negocio",
+              viewPath: "/clientes",
+            });
+          }
+          if (updated && updated !== created) {
+            items.push({
+              id: `cliente-update-${cl?.id || name}`,
+              when: updated,
+              actor: actualizador,
+              text: `actualizó cliente "${name}"`,
+              detail: `Tipo: ${tipo} · ID: ${cl?.id ?? "-"}`,
+              module: "contactos",
+              viewName: "Contactos de negocio",
+              viewPath: "/clientes",
+            });
+          }
+        }
+
+        for (const t of normalizeRows(tareasData)) {
+          const created = toIso(t?.fecha_creacion);
+          const updated = toIso(t?.fecha_actualizacion);
+          const creator = String(t?.creado_por_username || "usuario");
+          const assignee = String(t?.usuario_asignado_full_name || t?.usuario_asignado_username || "usuario");
+          const title = String(t?.titulo || t?.asunto || t?.nombre || `Tarea #${t?.id ?? "-"}`);
+          const status = String(t?.estado || t?.status || "sin estado");
+          if (created) {
+            items.push({
+              id: `tarea-create-${t?.id}`,
+              when: created,
+              actor: creator,
+              text: `creó tarea "${title}" para ${assignee}`,
+              detail: `Estado: ${status} · ID: ${t?.id ?? "-"}`,
+              module: "escritorio",
+              viewName: "Tareas",
+              viewPath: "/tareas",
+            });
+          }
+          if (updated && updated !== created) {
+            items.push({
+              id: `tarea-update-${t?.id}`,
+              when: updated,
+              actor: creator,
+              text: `actualizó tarea "${title}"`,
+              detail: `Asignado a: ${assignee} · Estado: ${status} · ID: ${t?.id ?? "-"}`,
+              module: "escritorio",
+              viewName: "Tareas",
+              viewPath: "/tareas",
+            });
+          }
+        }
+
+        for (const s of normalizeRows(serviciosData)) {
+          const created = toIso(s?.fecha_creacion);
+          const updated = toIso(s?.fecha_actualizacion);
+          const name = String(s?.nombre || `servicio-${s?.id}`);
+          const actor = String(s?.creado_por_username || s?.actualizado_por_username || "usuario");
+          const categoria = String(s?.categoria_nombre || s?.categoria || "sin categoría");
+          const precio = s?.precio ?? s?.costo;
+          if (created) {
+            items.push({
+              id: `servicio-create-${s?.id || name}`,
+              when: created,
+              actor,
+              text: `agregó servicio "${name}"`,
+              detail: `${categoria}${precio != null ? ` · Precio: $${precio}` : ""} · ID: ${s?.id ?? "-"}`,
+              module: "productos_servicios",
+              viewName: "Servicios",
+              viewPath: "/servicios",
+            });
+          }
+          if (updated && updated !== created) {
+            items.push({
+              id: `servicio-update-${s?.id || name}`,
+              when: updated,
+              actor,
+              text: `actualizó servicio "${name}"`,
+              detail: `${categoria}${precio != null ? ` · Precio: $${precio}` : ""} · ID: ${s?.id ?? "-"}`,
+              module: "productos_servicios",
+              viewName: "Servicios",
+              viewPath: "/servicios",
+            });
+          }
+        }
+
+        for (const r of normalizeRows(reportesData)) {
+          const created = toIso(r?.fecha_creacion);
+          const actor = String(r?.tecnico_nombre || "usuario");
+          if (created) {
+            items.push({
+              id: `reporte-create-${r?.id}`,
+              when: created,
+              actor,
+              text: "generó reporte semanal",
+              detail: `Semana: ${r?.semana ?? "-"} · Ordenes: ${r?.total_ordenes ?? r?.ordenes ?? "-"} · ID: ${r?.id ?? "-"}`,
+              module: "operacion",
+              viewName: "Reportes",
+              viewPath: "/reportes",
+            });
+          }
+        }
+
+        if (isAdmin && Array.isArray(usersData)) {
+          const permsRows = await Promise.all(
+            usersData.map(async (u: any) => {
+              const r = await fetch(apiUrl(`/api/users/accounts/${u.id}/permissions/`), {
+                headers,
+                cache: "no-store" as RequestCache,
+              });
+              if (!r.ok) return null;
+              const d = await r.json().catch(() => null);
+              const updated = toIso(d?.updated_at);
+              if (!updated) return null;
+              return {
+                id: `perm-${u?.id}-${updated}`,
+                when: updated,
+                actor: String(u?.username || u?.email || `user-${u?.id}`),
+                text: "actualizó permisos de usuario",
+                detail: `Usuario afectado: ${u?.username || u?.email || `#${u?.id}`}`,
+                module: "usuarios" as ModuleKey,
+                viewName: "Gestion de usuarios",
+                viewPath: "/profile",
+              };
+            })
+          );
+          items.push(...(permsRows.filter(Boolean) as ActivityItem[]));
+        }
+
+        try {
+          const localRaw = localStorage.getItem(LOCAL_HISTORY_KEY) || "[]";
+          const localRows = JSON.parse(localRaw);
+          if (Array.isArray(localRows)) {
+            for (const ev of localRows) {
+              const when = toIso(ev?.when);
+              if (!when) continue;
+              items.push({
+                id: String(ev?.id || `local-${when}`),
+                when,
+                actor: String(ev?.actor || "usuario"),
+                text: String(ev?.text || "realizo una accion"),
+                detail: typeof ev?.detail === "string" ? ev.detail : "",
+                module: (ev?.module as ModuleKey) || "usuarios",
+                viewName: String(ev?.viewName || "Gestion de usuarios"),
+                viewPath: String(ev?.viewPath || "/profile"),
+              });
+            }
+          }
+        } catch {
+          // ignore local malformed history
+        }
+
+        const merged = items
+          .filter((x) => !!x.when)
+          .sort((a, b) => (a.when < b.when ? 1 : -1))
+          .slice(0, MAX_ITEMS);
+
+        setAllItems(merged);
+      } catch {
+        setError("No se pudo cargar el historial global.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, []);
+
+  const filteredItems = useMemo(() => allItems, [allItems]);
+
   return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-white/[0.03]">
-      <div className="px-5 pt-5 bg-white shadow-default rounded-2xl pb-11 dark:bg-gray-900 sm:px-6 sm:pt-6">
-        <div className="flex justify-between">
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
+      <div className="mb-4 border-b border-gray-100 pb-4 dark:border-white/10">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-              Monthly Target
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Historial global del sistema</h3>
             <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
-              Target you’ve set for each month
+              Historial global del sistema de seguimiento de actividades.
             </p>
           </div>
-          <div className="relative inline-block">
-            <button className="dropdown-toggle" onClick={toggleDropdown}>
-              <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-            </button>
-            <Dropdown
-              isOpen={isOpen}
-              onClose={closeDropdown}
-              className="w-40 p-2"
-            >
-              <DropdownItem
-                onItemClick={closeDropdown}
-                className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-              >
-                View More
-              </DropdownItem>
-              <DropdownItem
-                onItemClick={closeDropdown}
-                className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-              >
-                Delete
-              </DropdownItem>
-            </Dropdown>
-          </div>
         </div>
-        <div className="relative ">
-          <div className="max-h-[330px]" id="chartDarkStyle">
-            <Chart
-              options={options}
-              series={series}
-              type="radialBar"
-              height={330}
-            />
-          </div>
-
-          <span className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-[95%] rounded-full bg-success-50 px-3 py-1 text-xs font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500">
-            +10%
-          </span>
-        </div>
-        <p className="mx-auto mt-10 w-full max-w-[380px] text-center text-sm text-gray-500 sm:text-base">
-          You earn $3287 today, it's higher than last month. Keep up your good
-          work!
-        </p>
       </div>
 
-      <div className="flex items-center justify-center gap-5 px-6 py-3.5 sm:gap-8 sm:py-5">
-        <div>
-          <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-            Target
-          </p>
-          <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            $20K
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M7.26816 13.6632C7.4056 13.8192 7.60686 13.9176 7.8311 13.9176C7.83148 13.9176 7.83187 13.9176 7.83226 13.9176C8.02445 13.9178 8.21671 13.8447 8.36339 13.6981L12.3635 9.70076C12.6565 9.40797 12.6567 8.9331 12.3639 8.6401C12.0711 8.34711 11.5962 8.34694 11.3032 8.63973L8.5811 11.36L8.5811 2.5C8.5811 2.08579 8.24531 1.75 7.8311 1.75C7.41688 1.75 7.0811 2.08579 7.0811 2.5L7.0811 11.3556L4.36354 8.63975C4.07055 8.34695 3.59568 8.3471 3.30288 8.64009C3.01008 8.93307 3.01023 9.40794 3.30321 9.70075L7.26816 13.6632Z"
-                fill="#D92D20"
-              />
-            </svg>
-          </p>
-        </div>
-
-        <div className="w-px bg-gray-200 h-7 dark:bg-gray-800"></div>
-
-        <div>
-          <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-            Revenue
-          </p>
-          <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            $20K
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M7.60141 2.33683C7.73885 2.18084 7.9401 2.08243 8.16435 2.08243C8.16475 2.08243 8.16516 2.08243 8.16556 2.08243C8.35773 2.08219 8.54998 2.15535 8.69664 2.30191L12.6968 6.29924C12.9898 6.59203 12.9899 7.0669 12.6971 7.3599C12.4044 7.6529 11.9295 7.65306 11.6365 7.36027L8.91435 4.64004L8.91435 13.5C8.91435 13.9142 8.57856 14.25 8.16435 14.25C7.75013 14.25 7.41435 13.9142 7.41435 13.5L7.41435 4.64442L4.69679 7.36025C4.4038 7.65305 3.92893 7.6529 3.63613 7.35992C3.34333 7.06693 3.34348 6.59206 3.63646 6.29926L7.60141 2.33683Z"
-                fill="#039855"
-              />
-            </svg>
-          </p>
-        </div>
-
-        <div className="w-px bg-gray-200 h-7 dark:bg-gray-800"></div>
-
-        <div>
-          <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-            Today
-          </p>
-          <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            $20K
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M7.60141 2.33683C7.73885 2.18084 7.9401 2.08243 8.16435 2.08243C8.16475 2.08243 8.16516 2.08243 8.16556 2.08243C8.35773 2.08219 8.54998 2.15535 8.69664 2.30191L12.6968 6.29924C12.9898 6.59203 12.9899 7.0669 12.6971 7.3599C12.4044 7.6529 11.9295 7.65306 11.6365 7.36027L8.91435 4.64004L8.91435 13.5C8.91435 13.9142 8.57856 14.25 8.16435 14.25C7.75013 14.25 7.41435 13.9142 7.41435 13.5L7.41435 4.64442L4.69679 7.36025C4.4038 7.65305 3.92893 7.6529 3.63613 7.35992C3.34333 7.06693 3.34348 6.59206 3.63646 6.29926L7.60141 2.33683Z"
-                fill="#039855"
-              />
-            </svg>
-          </p>
-        </div>
+      <div>
+        {loading ? (
+          <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Cargando historial...</div>
+        ) : error ? (
+          <div className="py-10 text-center text-sm text-red-500">{error}</div>
+        ) : filteredItems.length === 0 ? (
+          <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No hay movimientos para este filtro.</div>
+        ) : (
+          <div className="max-h-[380px] space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">
+            {filteredItems.map((i) => {
+              const mod = moduleMeta(i.module);
+              const action = actionMeta(i.text);
+              return (
+                <button
+                  type="button"
+                  key={i.id}
+                  onClick={() => navigate(i.viewPath)}
+                  className="group w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-left shadow-theme-xs transition hover:border-brand-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-500/40 dark:hover:bg-white/[0.04]"
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg ${mod.tone}`}>
+                        <mod.Icon className="h-4 w-4" />
+                      </span>
+                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                        {i.viewName}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-[11px] text-gray-500 dark:text-gray-400">{timeAgo(i.when)}</span>
+                      <span className="block text-[10px] text-gray-400 dark:text-gray-500">{formatDateTime(i.when)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${action.tone}`}>
+                      <action.Icon className="h-3.5 w-3.5" />
+                    </span>
+                    <p className="text-sm text-gray-800 dark:text-gray-100">
+                      <span className="font-semibold">{i.actor}</span> {i.text}
+                    </p>
+                    <ArrowRightIcon className="ml-auto h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500" />
+                  </div>
+                  {!!i.detail && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{i.detail}</p>}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
