@@ -189,6 +189,10 @@ export default function MonthlyTarget() {
       return;
     }
 
+    const role = (localStorage.getItem("role") || sessionStorage.getItem("role") || "").toLowerCase();
+    const isSuperuser =
+      (localStorage.getItem("is_superuser") || sessionStorage.getItem("is_superuser") || "").toLowerCase() === "true";
+    const isAdmin = role === "admin" || isSuperuser;
     const headers = { Authorization: `Bearer ${token}` };
 
     const getJson = async (path: string) => {
@@ -201,7 +205,7 @@ export default function MonthlyTarget() {
       setLoading(true);
       setError("");
       try {
-        const [ordenesData, cotizacionesData, clientesData, tareasData, serviciosData, reportesData] =
+        const [ordenesData, cotizacionesData, clientesData, tareasData, serviciosData, reportesData, usersData] =
           await Promise.all([
             getJson("/api/ordenes/"),
             getJson("/api/cotizaciones/"),
@@ -209,6 +213,7 @@ export default function MonthlyTarget() {
             getJson("/api/tareas/"),
             getJson("/api/servicios/"),
             getJson("/api/ordenes/reportes-semanales/"),
+            isAdmin ? getJson("/api/users/accounts/") : Promise.resolve(null),
           ]);
 
         const items: ActivityItem[] = [];
@@ -463,6 +468,33 @@ export default function MonthlyTarget() {
               viewPath: "/reportes",
             });
           }
+        }
+
+        if (isAdmin && Array.isArray(usersData)) {
+          const permsRows = await Promise.all(
+            usersData.map(async (u: any) => {
+              const r = await fetch(apiUrl(`/api/users/accounts/${u.id}/permissions/`), {
+                headers,
+                cache: "no-store" as RequestCache,
+              });
+              if (!r.ok) return null;
+              const d = await r.json().catch(() => null);
+              const updated = toIso(d?.updated_at);
+              if (!updated) return null;
+              const targetName = displayName(u?.first_name, u?.last_name, u?.username, u?.email, `user-${u?.id}`);
+              return {
+                id: `perm-${u?.id}-${updated}`,
+                when: updated,
+                actor: "Sistema",
+                text: `Se actualizó permisos de ${targetName}`,
+                detail: `Usuario afectado: ${targetName}`,
+                module: "usuarios" as ModuleKey,
+                viewName: "Gestion de usuarios",
+                viewPath: "/profile",
+              };
+            })
+          );
+          items.push(...(permsRows.filter(Boolean) as ActivityItem[]));
         }
 
         try {
