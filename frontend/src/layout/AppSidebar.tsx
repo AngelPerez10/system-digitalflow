@@ -330,6 +330,8 @@ const AppSidebar: React.FC = () => {
     type: "main" | "others";
     index: number;
   } | null>(null);
+
+  const [openNestedSubmenus, setOpenNestedSubmenus] = useState<Record<string, boolean>>({});
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
     {}
   );
@@ -393,6 +395,10 @@ const AppSidebar: React.FC = () => {
       }
       return { type: menuType, index };
     });
+  };
+
+  const toggleNestedSubmenu = (key: string) => {
+    setOpenNestedSubmenus((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
@@ -505,26 +511,40 @@ const AppSidebar: React.FC = () => {
                     );
                   }
 
+                  const nestedKey = `${menuType}-${index}-${subItem.name}`;
+                  const isOpen = !!openNestedSubmenus[nestedKey];
+
                   return (
                     <li key={subItem.name}>
-                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        {subItem.name}
-                      </div>
-                      <ul className="space-y-1 ml-4">
-                        {subItem.subItems.map((child) => (
-                          <li key={child.name}>
-                            <Link
-                              to={child.path}
-                              className={`menu-dropdown-item ${isActive(child.path)
-                                ? "menu-dropdown-item-active"
-                                : "menu-dropdown-item-inactive"
-                                }`}
-                            >
-                              {child.name}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+                      <button
+                        type="button"
+                        onClick={() => toggleNestedSubmenu(nestedKey)}
+                        className="w-full px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center justify-between"
+                        aria-expanded={isOpen}
+                      >
+                        <span className="truncate">{subItem.name}</span>
+                        <ChevronDownIcon
+                          className={`w-4 h-4 shrink-0 transition-transform ${isOpen ? "rotate-180 text-brand-500" : ""}`}
+                        />
+                      </button>
+
+                      {isOpen && (
+                        <ul className="space-y-1 ml-4">
+                          {subItem.subItems.map((child) => (
+                            <li key={child.name}>
+                              <Link
+                                to={child.path}
+                                className={`menu-dropdown-item ${isActive(child.path)
+                                  ? "menu-dropdown-item-active"
+                                  : "menu-dropdown-item-inactive"
+                                  }`}
+                              >
+                                {child.name}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   );
                 })}
