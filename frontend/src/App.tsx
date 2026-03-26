@@ -21,6 +21,7 @@ import Home from "@/pages/Dashboard/Home";
 import RequireAuth from "@/components/auth/RequireAuth";
 import RequireAdmin from "@/components/auth/RequireAdmin";
 import RequireCotizacionPermission from "@/components/auth/RequireCotizacionPermission";
+import RequireClientePermission from "@/components/auth/RequireClientePermission";
 import Ordenes from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenesPage";
 import OrdenPdfPage from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenPdfPage";
 import OrdenesTecnico from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenesTecnicoPage";
@@ -60,10 +61,10 @@ export default function App() {
             <Route path="/ordenes-tecnico" element={<OrdenesTecnico />} />
             <Route path="/reportes" element={<ReportesPage />} />
             <Route path="/levantamiento" element={<RequireAdmin><LevantamientoPage /></RequireAdmin>} />
-            <Route path="/clientes" element={<RequireAdmin><Clientes /></RequireAdmin>} />
-            <Route path="/empresas" element={<RequireAdmin><EmpresaPage /></RequireAdmin>} />
-            <Route path="/personas" element={<RequireAdmin><PersonasPage /></RequireAdmin>} />
-            <Route path="/proveedores" element={<RequireAdmin><ProveedoresPage /></RequireAdmin>} />
+            <Route path="/clientes" element={<RequireClientePermission required="view"><Clientes /></RequireClientePermission>} />
+            <Route path="/empresas" element={<RequireClientePermission required="view"><EmpresaPage /></RequireClientePermission>} />
+            <Route path="/personas" element={<RequireClientePermission required="view"><PersonasPage /></RequireClientePermission>} />
+            <Route path="/proveedores" element={<RequireClientePermission required="view"><ProveedoresPage /></RequireClientePermission>} />
             <Route path="/productos" element={<RequireAdmin><Productos /></RequireAdmin>} />
             <Route path="/servicios" element={<RequireAdmin><Servicios /></RequireAdmin>} />
             <Route path="/cotizacion" element={<RequireCotizacionPermission required="view"><CotizacionesPage /></RequireCotizacionPermission>} />

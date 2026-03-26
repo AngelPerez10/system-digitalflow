@@ -235,6 +235,19 @@ const AppSidebar: React.FC = () => {
         });
       }
 
+      if (permissions?.clientes?.view !== false) {
+        items.push({
+          icon: <UserCircleIcon />,
+          name: "Contactos de Negocio",
+          subItems: [
+            { name: "Todos", path: "/clientes", pro: false },
+            { name: "Empresas", path: "/empresas", pro: false },
+            { name: "Personas", path: "/personas", pro: false },
+            { name: "Proveedores", path: "/proveedores", pro: false },
+          ],
+        });
+      }
+
       if (permissions?.cotizaciones?.view !== false) {
         items.push({
           icon: <PieChartIcon />,
