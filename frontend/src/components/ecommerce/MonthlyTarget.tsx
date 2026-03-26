@@ -90,6 +90,18 @@ const firstNonEmpty = (...values: unknown[]) => {
   return "";
 };
 
+const displayName = (
+  firstName: unknown,
+  lastName: unknown,
+  fallbackA?: unknown,
+  fallbackB?: unknown,
+  fallbackC?: unknown
+) => {
+  const full = `${String(firstName ?? "").trim()} ${String(lastName ?? "").trim()}`.trim();
+  if (full) return full;
+  return firstNonEmpty(fallbackA, fallbackB, fallbackC) || "sistema";
+};
+
 const normalizeOrderStatus = (raw: unknown) => {
   const v = String(raw ?? "").trim().toLowerCase();
   if (!v) return "Pendiente";
@@ -209,14 +221,13 @@ export default function MonthlyTarget() {
         for (const o of normalizeRows(ordenesData)) {
           const created = toIso(o?.fecha_creacion);
           const updated = toIso(o?.fecha_actualizacion);
-          const actor = firstNonEmpty(
-            o?.actualizado_por_username,
-            o?.creado_por_username,
-            o?.tecnico_asignado_username,
-            o?.tecnico_nombre,
-            o?.usuario_nombre,
-            o?.user?.username
-          ) || "sistema";
+          const actor = displayName(
+            o?.actualizado_por_first_name || o?.creado_por_first_name || o?.tecnico_asignado_first_name,
+            o?.actualizado_por_last_name || o?.creado_por_last_name || o?.tecnico_asignado_last_name,
+            o?.actualizado_por_full_name,
+            o?.creado_por_full_name,
+            o?.tecnico_asignado_full_name
+          ) || firstNonEmpty(o?.actualizado_por_username, o?.creado_por_username, o?.tecnico_asignado_username);
           const folio = String(o?.folio || o?.idx || o?.id || "-");
           const cliente = String(o?.cliente_nombre || o?.cliente?.nombre || "sin cliente");
           const tecnico = String(o?.tecnico_asignado_username || o?.tecnico_nombre || "sin técnico");
@@ -252,8 +263,19 @@ export default function MonthlyTarget() {
         for (const c of normalizeRows(cotizacionesData)) {
           const created = toIso(c?.fecha_creacion);
           const updated = toIso(c?.fecha_actualizacion);
-          const creator = String(c?.creado_por_username || "usuario");
-          const updater = String(c?.actualizado_por_username || creator);
+          const creatorName = displayName(
+            c?.creado_por_first_name,
+            c?.creado_por_last_name,
+            c?.creado_por_full_name,
+            c?.creado_por_username
+          );
+          const updaterName = displayName(
+            c?.actualizado_por_first_name,
+            c?.actualizado_por_last_name,
+            c?.actualizado_por_full_name,
+            c?.actualizado_por_username,
+            creatorName
+          );
           const folio = String(c?.idx || c?.id || "-");
           const cliente = String(c?.cliente_nombre || c?.cliente?.nombre || "sin cliente");
           const total = c?.monto_total ?? c?.total ?? c?.subtotal;
@@ -261,7 +283,7 @@ export default function MonthlyTarget() {
             items.push({
               id: `cot-create-${c?.id || folio}`,
               when: created,
-              actor: creator,
+              actor: creatorName,
               text: `creó la cotización #${folio}`,
               detail: `Cliente: ${cliente}${total != null ? ` · Total: $${formatNumberWithCommas(total)}` : ""}`,
               module: "cotizacion",
@@ -273,7 +295,7 @@ export default function MonthlyTarget() {
             items.push({
               id: `cot-update-${c?.id || folio}`,
               when: updated,
-              actor: updater,
+              actor: updaterName,
               text: `actualizó la cotización #${folio}`,
               detail: `Cliente: ${cliente}${total != null ? ` · Total: $${formatNumberWithCommas(total)}` : ""}`,
               module: "cotizacion",
@@ -288,6 +310,13 @@ export default function MonthlyTarget() {
           const updated = toIso(cl?.fecha_actualizacion);
           const name = String(cl?.nombre || `cliente-${cl?.id}`);
           const creador =
+            displayName(
+              cl?.creado_por_first_name || cl?.asesor_first_name || cl?.vendedor_first_name,
+              cl?.creado_por_last_name || cl?.asesor_last_name || cl?.vendedor_last_name,
+              cl?.creado_por_full_name,
+              cl?.asesor_nombre_completo,
+              cl?.vendedor_nombre_completo
+            ) ||
             firstNonEmpty(
               cl?.creado_por_username,
               cl?.actualizado_por_username,
@@ -295,15 +324,24 @@ export default function MonthlyTarget() {
               cl?.asesor_username,
               cl?.vendedor_username,
               cl?.owner?.username
-            ) || "sistema";
+            ) ||
+            "sistema";
           const actualizador =
+            displayName(
+              cl?.actualizado_por_first_name || cl?.asesor_first_name || cl?.vendedor_first_name,
+              cl?.actualizado_por_last_name || cl?.asesor_last_name || cl?.vendedor_last_name,
+              cl?.actualizado_por_full_name,
+              cl?.asesor_nombre_completo,
+              cl?.vendedor_nombre_completo
+            ) ||
             firstNonEmpty(
               cl?.actualizado_por_username,
               cl?.creado_por_username,
               cl?.asesor_username,
               cl?.vendedor_username,
               cl?.owner?.username
-            ) || creador;
+            ) ||
+            creador;
           const tipo = String(cl?.tipo || cl?.tipo_cliente || "general");
           if (created) {
             items.push({
@@ -334,7 +372,13 @@ export default function MonthlyTarget() {
         for (const t of normalizeRows(tareasData)) {
           const created = toIso(t?.fecha_creacion);
           const updated = toIso(t?.fecha_actualizacion);
-          const creator = String(t?.creado_por_username || "usuario");
+          const creator = displayName(
+            t?.creado_por_first_name,
+            t?.creado_por_last_name,
+            t?.creado_por_full_name,
+            t?.creado_por_username,
+            "usuario"
+          );
           const assignee = String(t?.usuario_asignado_full_name || t?.usuario_asignado_username || "usuario");
           const title = String(t?.titulo || t?.asunto || t?.nombre || `Tarea #${t?.id ?? "-"}`);
           const status = String(t?.estado || t?.status || "sin estado");
@@ -368,7 +412,13 @@ export default function MonthlyTarget() {
           const created = toIso(s?.fecha_creacion);
           const updated = toIso(s?.fecha_actualizacion);
           const name = String(s?.nombre || `servicio-${s?.id}`);
-          const actor = String(s?.creado_por_username || s?.actualizado_por_username || "usuario");
+          const actor = displayName(
+            s?.actualizado_por_first_name || s?.creado_por_first_name,
+            s?.actualizado_por_last_name || s?.creado_por_last_name,
+            s?.actualizado_por_full_name,
+            s?.creado_por_full_name,
+            s?.actualizado_por_username || s?.creado_por_username || "usuario"
+          );
           const categoria = String(s?.categoria_nombre || s?.categoria || "sin categoría");
           const precio = s?.precio ?? s?.costo;
           if (created) {
@@ -399,7 +449,13 @@ export default function MonthlyTarget() {
 
         for (const r of normalizeRows(reportesData)) {
           const created = toIso(r?.fecha_creacion);
-          const actor = String(r?.tecnico_nombre || "usuario");
+          const actor = displayName(
+            r?.tecnico_first_name,
+            r?.tecnico_last_name,
+            r?.tecnico_nombre_completo,
+            r?.tecnico_nombre,
+            r?.tecnico_username || "usuario"
+          );
           if (created) {
             items.push({
               id: `reporte-create-${r?.id}`,
@@ -428,7 +484,7 @@ export default function MonthlyTarget() {
               return {
                 id: `perm-${u?.id}-${updated}`,
                 when: updated,
-                actor: String(u?.username || u?.email || `user-${u?.id}`),
+                actor: displayName(u?.first_name, u?.last_name, u?.username, u?.email, `user-${u?.id}`),
                 text: "actualizó permisos de usuario",
                 detail: `Usuario afectado: ${u?.username || u?.email || `#${u?.id}`}`,
                 module: "usuarios" as ModuleKey,
@@ -450,7 +506,7 @@ export default function MonthlyTarget() {
               items.push({
                 id: String(ev?.id || `local-${when}`),
                 when,
-                actor: String(ev?.actor || "usuario"),
+                actor: String(ev?.actor_name || ev?.actor || "usuario"),
                 text: String(ev?.text || "realizo una accion"),
                 detail: typeof ev?.detail === "string" ? ev.detail : "",
                 module: (ev?.module as ModuleKey) || "usuarios",
