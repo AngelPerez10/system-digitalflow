@@ -10,6 +10,14 @@ import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { apiUrl } from "@/config/api";
 import { PencilIcon, TrashBinIcon } from "@/icons";
+import {
+  buildProductosQuery,
+  fetchSyscom,
+  fetchSyscomTipoCambio,
+  getProductoImageUrl,
+  type SyscomProducto,
+  type SyscomProductosResponse,
+} from "@/pages/ProductosYServicios/syscomCatalog";
 
 type ClienteContacto = {
   id?: number;
@@ -109,6 +117,29 @@ const formatMoney = (n: number) => {
 
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+const toFinite = (v: unknown): number | null => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const getSyscomPrecioListaMxnConIva = (p: SyscomProducto, tipoCambio: number | null) => {
+  const directMxn = toFinite(p.precio_mxn);
+  if (directMxn !== null && directMxn > 0) return Math.max(0, directMxn);
+
+  const lista = toFinite(p.precios?.precio_lista);
+  const especial = toFinite(p.precios?.precio_especial);
+  const descuento = toFinite(p.precios?.precio_descuento);
+  const usdBase = lista ?? especial ?? descuento;
+
+  if (usdBase == null) return 0;
+  if (!tipoCambio) {
+    // Fallback: mostrar algo útil aunque no haya tipo de cambio.
+    return Math.max(0, usdBase);
+  }
+
+  return Math.max(0, usdBase * tipoCambio * 1.16);
+};
+
 export default function NuevaCotizacionPage() {
   const asBool = (v: any, defaultValue: boolean) => {
     if (typeof v === 'boolean') return v;
@@ -146,6 +177,24 @@ export default function NuevaCotizacionPage() {
   }>({ show: false, variant: "info", title: "", message: "" });
 
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(8);
+
+  useEffect(() => {
+    if (!previewLoading) {
+      setLoadingProgress(100);
+      return;
+    }
+
+    setLoadingProgress(8);
+    const interval = window.setInterval(() => {
+      setLoadingProgress((p) => {
+        const next = p + (p < 55 ? 10 : p < 80 ? 6 : 3);
+        return Math.min(95, next);
+      });
+    }, 650);
+
+    return () => window.clearInterval(interval);
+  }, [previewLoading]);
 
   useEffect(() => {
     const token = getToken();
@@ -204,6 +253,12 @@ export default function NuevaCotizacionPage() {
   const [unidad, setUnidad] = useState("");
   const [precioLista, setPrecioLista] = useState<number>(0);
   const [descuentoPct, setDescuentoPct] = useState<number>(0);
+  const [syscomTipoCambio, setSyscomTipoCambio] = useState<number | null>(null);
+  const [syscomOpen, setSyscomOpen] = useState(false);
+  const [loadingSyscom, setLoadingSyscom] = useState(false);
+  const [syscomProductos, setSyscomProductos] = useState<SyscomProducto[]>([]);
+  const [syscomError, setSyscomError] = useState("");
+  const [selectedSyscomProducto, setSelectedSyscomProducto] = useState<SyscomProducto | null>(null);
   const [descuentoClientePct, setDescuentoClientePct] = useState<number>(0);
   const [descuentoClienteTouched, setDescuentoClienteTouched] = useState<boolean>(false);
   const [ivaPct, setIvaPct] = useState<number>(16);
@@ -465,8 +520,68 @@ export default function NuevaCotizacionPage() {
     if (!conceptoNombre.trim()) {
       setUnidad("");
       setPrecioLista(0);
+      setSyscomProductos([]);
+      setSyscomOpen(false);
     }
   }, [conceptoNombre]);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetchSyscomTipoCambio(token)
+      .then((tc) => setSyscomTipoCambio(tc))
+      .catch(() => {
+        // ignore
+      });
+  }, []);
+
+  useEffect(() => {
+    const q = conceptoNombre.trim();
+    if (q.length < 2) {
+      setSyscomProductos([]);
+      setSyscomError("");
+      if (!q) setSyscomOpen(false);
+      return;
+    }
+    const token = getToken();
+    if (!token) return;
+    setSyscomOpen(true);
+    const timer = window.setTimeout(async () => {
+      setLoadingSyscom(true);
+      setSyscomError("");
+      try {
+        const query = buildProductosQuery({
+          busqueda: q,
+          pagina: 1,
+          orden: "relevancia",
+          stock: "1",
+        });
+        const res = await fetchSyscom(`productos/?${query}`, token);
+        const data: SyscomProductosResponse = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setSyscomProductos([]);
+          setSyscomError("No se pudo consultar SYSCOM en este momento.");
+          return;
+        }
+        setSyscomProductos((data.productos || []).slice(0, 8));
+      } catch {
+        setSyscomProductos([]);
+        setSyscomError("Error de conexión con SYSCOM.");
+      } finally {
+        setLoadingSyscom(false);
+      }
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [conceptoNombre]);
+
+  const selectSyscomProducto = (p: SyscomProducto) => {
+    setSelectedSyscomProducto(p);
+    setConceptoNombre(String(p.titulo || p.modelo || ""));
+    setConceptoDescripcion(String([p.marca, p.modelo].filter(Boolean).join(" · ") || p.titulo || ""));
+    setUnidad((u) => (u.trim() ? u : "PZA"));
+    setPrecioLista(round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio)));
+    setSyscomOpen(false);
+  };
 
   useEffect(() => {
     if (!alert.show) return;
@@ -632,6 +747,10 @@ export default function NuevaCotizacionPage() {
     setUnidad("");
     setPrecioLista(0);
     setDescuentoPct(0);
+    setSelectedSyscomProducto(null);
+    setSyscomProductos([]);
+    setSyscomError("");
+    setSyscomOpen(false);
   };
 
   const addConcepto = () => {
@@ -651,6 +770,10 @@ export default function NuevaCotizacionPage() {
     const desc = clampPct(toNumber(descuentoPct, 0));
     const nombre = String(conceptoNombre || "").trim();
     const descripcion = String(conceptoDescripcion || "").trim();
+    const productoExternoId = selectedSyscomProducto?.producto_id || "";
+    const thumbnail = selectedSyscomProducto?.img_portada
+      ? getProductoImageUrl(selectedSyscomProducto.img_portada) || undefined
+      : undefined;
 
     if (qty <= 0 || !nombre) return;
 
@@ -660,10 +783,11 @@ export default function NuevaCotizacionPage() {
           x.id === editingConceptoId
             ? {
               ...x,
-              producto_externo_id: "",
+              producto_externo_id: productoExternoId || x.producto_externo_id || "",
               producto_nombre: nombre,
               producto_descripcion: descripcion,
               unidad: String(unidad || ""),
+              thumbnail_url: thumbnail || x.thumbnail_url,
               cantidad: qty,
               precio_lista: pl,
               descuento_pct: desc,
@@ -677,10 +801,11 @@ export default function NuevaCotizacionPage() {
         ...prev,
         {
           id: uid(),
-          producto_externo_id: "",
+          producto_externo_id: productoExternoId,
           producto_nombre: nombre,
           producto_descripcion: descripcion,
           unidad: String(unidad || ""),
+          thumbnail_url: thumbnail,
           cantidad: qty,
           precio_lista: pl,
           descuento_pct: desc,
@@ -694,6 +819,10 @@ export default function NuevaCotizacionPage() {
     setUnidad("");
     setPrecioLista(0);
     setDescuentoPct(0);
+    setSelectedSyscomProducto(null);
+    setSyscomProductos([]);
+    setSyscomError("");
+    setSyscomOpen(false);
   };
 
   const removeConcepto = (id: string) => {
@@ -711,6 +840,9 @@ export default function NuevaCotizacionPage() {
     setUnidad(String(c.unidad || ""));
     setPrecioLista(toNumber(c.precio_lista, 0));
     setDescuentoPct(clampPct(toNumber(c.descuento_pct, 0)));
+    setSelectedSyscomProducto(null);
+    setSyscomError("");
+    setSyscomOpen(false);
   };
 
   const computed = useMemo(() => {
@@ -866,20 +998,51 @@ export default function NuevaCotizacionPage() {
       <PageMeta title="Nueva Cotización | Sistema Grupo Intrax GPS" description="Crear nueva cotización" />
 
       <Modal isOpen={previewLoading} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
-        <div className="p-8">
+        <div className="p-7 sm:p-8">
           <div className="flex flex-col items-center justify-center text-center">
-            <div className="relative w-16 h-16 mb-4">
-              <div className="absolute inset-0 rounded-full border-4 border-gray-200 dark:border-gray-700"></div>
-              <div className="absolute inset-0 rounded-full border-4 border-t-brand-600 dark:border-t-brand-500 animate-spin"></div>
+            <div className="relative mb-6">
+              <div className="absolute -inset-4 rounded-full bg-linear-to-r from-brand-500/18 via-blue-500/10 to-brand-500/18 blur-2xl" />
+              <div className="relative flex items-center justify-center w-[80px] h-[80px] rounded-2xl border border-gray-200/70 dark:border-white/10 bg-white/90 dark:bg-gray-900/70 shadow-theme-md">
+                <div className="absolute inset-0 rounded-2xl border border-gray-100/70 dark:border-white/5" />
+                <div className="relative flex items-center justify-center w-14 h-14 rounded-full bg-gray-50 dark:bg-gray-800">
+                  <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-brand-600 border-r-blue-500 dark:border-t-brand-400 dark:border-r-blue-300 animate-spin" />
+                  <div className="absolute inset-2 rounded-full border border-dashed border-gray-200/80 dark:border-gray-600/80" />
+                  <div className="relative flex items-center justify-center">
+                    <svg
+                      className="w-8 h-8 text-brand-700 dark:text-brand-300"
+                      viewBox="0 0 512 512"
+                      fill="currentColor"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M378.413,0H208.297h-13.182L185.8,9.314L57.02,138.102l-9.314,9.314v13.176v265.514c0,47.36,38.528,85.895,85.896,85.895h244.811c47.353,0,85.881-38.535,85.881-85.895V85.896C464.294,38.528,425.766,0,378.413,0z M432.497,426.105c0,29.877-24.214,54.091-54.084,54.091H133.602c-29.884,0-54.098-24.214-54.098-54.091V160.591h83.716c24.885,0,45.077-20.178,45.077-45.07V31.804h170.116c29.87,0,54.084,24.214,54.084,54.092V426.105z" />
+                      <path d="M171.947,252.785h-28.529c-5.432,0-8.686,3.533-8.686,8.825v73.754c0,6.388,4.204,10.599,10.041,10.599c5.711,0,9.914-4.21,9.914-10.599v-22.406c0-0.545,0.279-0.817,0.824-0.817h16.436c20.095,0,32.188-12.226,32.188-29.612C204.136,264.871,192.182,252.785,171.947,252.785z M170.719,294.888h-15.208c-0.545,0-0.824-0.272-0.824-0.81v-23.23c0-0.545,0.279-0.816,0.824-0.816h15.208c8.42,0,13.447,5.027,13.447,12.498C184.167,290,179.139,294.888,170.719,294.888z" />
+                      <path d="M250.191,252.785h-21.868c-5.432,0-8.686,3.533-8.686,8.825v74.843c0,5.3,3.253,8.693,8.686,8.693h21.868c19.69,0,31.923-6.249,36.81-21.324c1.76-5.3,2.723-11.681,2.723-24.857c0-13.175-0.964-19.557-2.723-24.856C282.113,259.034,269.881,252.785,250.191,252.785z M267.856,316.896c-2.318,7.331-8.965,10.459-18.21,10.459h-9.23c-0.545,0-0.824-0.272-0.824-0.816v-55.146c0-0.545,0.279-0.817,0.824-0.817h9.23c9.245,0,15.892,3.128,18.21,10.46c0.95,3.128,1.62,8.56,1.62,17.93C269.476,308.336,268.805,313.768,267.856,316.896z" />
+                      <path d="M361.167,252.785h-44.812c-5.432,0-8.7,3.533-8.7,8.825v73.754c0,6.388,4.218,10.599,10.055,10.599c5.697,0,9.914-4.21,9.914-10.599v-26.351c0-0.538,0.265-0.81,0.81-0.81h26.086c5.837,0,9.23-3.532,9.23-8.56c0-5.028-3.393-8.553-9.23-8.553h-26.086c-0.545,0-0.81-0.272-0.81-0.817v-19.425c0-0.545,0.265-0.816,0.81-0.816h32.733c5.572,0,9.245-3.666,9.245-8.553C370.411,256.45,366.738,252.785,361.167,252.785z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Generando vista previa
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Preparando el PDF de la cotización...
+
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Generando vista previa</h3>
+            <p className="mt-1 text-[13px] text-gray-600 dark:text-gray-400">
+              Esto puede tardar unos segundos. No cierres esta ventana.
             </p>
-            <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
-              <div className="h-full bg-brand-600 dark:bg-brand-500 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+
+            <div className="mt-5 w-full">
+              <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                <span>Progreso</span>
+                <span className="tabular-nums">{Math.min(99, Math.max(0, Math.round(loadingProgress)))}%</span>
+              </div>
+              <div className="mt-2 w-full rounded-full h-2.5 overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-white/10">
+                <div
+                  className="h-full bg-linear-to-r from-brand-600 via-blue-600 to-brand-600 transition-[width] duration-500 ease-out"
+                  style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
+                />
+              </div>
+              <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">
+                Generando archivo de cotización…
+              </div>
             </div>
           </div>
         </div>
@@ -1069,12 +1232,64 @@ export default function NuevaCotizacionPage() {
 
                     <div className="lg:col-span-5">
                       <Label>Concepto / nombre</Label>
-                      <Input
-                        className={inputLikeClassName}
-                        value={conceptoNombre}
-                        onChange={(e) => setConceptoNombre(e.target.value)}
-                        placeholder="Nombre del producto o servicio"
-                      />
+                      <div className="relative">
+                        <input
+                          className={inputLikeClassName}
+                          value={conceptoNombre}
+                          onFocus={() => {
+                            if (syscomProductos.length > 0) setSyscomOpen(true);
+                          }}
+                          onChange={(e) => {
+                            setConceptoNombre(e.target.value);
+                            setSelectedSyscomProducto(null);
+                          }}
+                          placeholder="Buscar producto Syscom o escribir manualmente"
+                        />
+                        {syscomOpen && (loadingSyscom || syscomProductos.length > 0 || !!syscomError || conceptoNombre.trim().length >= 2) && (
+                          <div className="absolute z-30 mt-1 w-full max-h-72 overflow-auto rounded-xl border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-900 shadow-theme-md custom-scrollbar">
+                            {loadingSyscom && (
+                              <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">Buscando en Syscom...</div>
+                            )}
+                            {!loadingSyscom && !!syscomError && (
+                              <div className="px-3 py-2 text-xs text-red-600 dark:text-red-400">{syscomError}</div>
+                            )}
+                            {!loadingSyscom && syscomProductos.map((p) => {
+                              const price = round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio));
+                              const imgUrl = getProductoImageUrl(p.img_portada || "");
+                              return (
+                                <button
+                                  key={`${p.fuente || "syscom"}-${p.producto_id}`}
+                                  type="button"
+                                  onClick={() => selectSyscomProducto(p)}
+                                  className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition border-b border-gray-100 dark:border-gray-800 last:border-b-0"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-9 h-9 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center shrink-0">
+                                      {imgUrl ? (
+                                        <img src={imgUrl} alt="" className="w-full h-full object-contain" />
+                                      ) : (
+                                        <span className="text-[10px] text-gray-400">—</span>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-xs font-medium text-gray-800 dark:text-gray-100 truncate">{p.titulo}</p>
+                                      <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                                        {p.marca} · {p.modelo}
+                                      </p>
+                                    </div>
+                                    <span className="text-xs font-semibold text-brand-600 dark:text-brand-400 whitespace-nowrap">
+                                      {formatMoney(price)}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                            {!loadingSyscom && !syscomError && syscomProductos.length === 0 && conceptoNombre.trim().length >= 2 && (
+                              <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">Sin resultados</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="lg:col-span-3">
@@ -1272,15 +1487,17 @@ export default function NuevaCotizacionPage() {
                           <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.subtotalLineas)}</span>
                         </div>
                         {!!toNumber(computed.descClientePct, 0) && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-[12px] text-gray-500 dark:text-gray-400">Descuento cliente ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</span>
-                            <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">-{formatMoney(computed.descuentoCliente)}</span>
-                          </div>
+                          <>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[12px] text-gray-500 dark:text-gray-400">Descuento ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</span>
+                              <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">-{formatMoney(computed.descuentoCliente)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[12px] text-gray-500 dark:text-gray-400">Descuento</span>
+                              <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.subtotal)}</span>
+                            </div>
+                          </>
                         )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-[12px] text-gray-500 dark:text-gray-400">Subtotal con descuento</span>
-                          <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.subtotal)}</span>
-                        </div>
                         <div className="flex items-center justify-between">
                           <span className="text-[12px] text-gray-500 dark:text-gray-400">IVA ({clampPct(toNumber(ivaPct, 16)).toFixed(2)}%)</span>
                           <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.iva)}</span>

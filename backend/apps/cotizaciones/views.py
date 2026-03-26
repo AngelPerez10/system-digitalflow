@@ -403,10 +403,10 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     </table>
   </div>
 
-  <div class='totals'>
+    <div class='totals'>
     <div class='row'><span>Subtotal</span><strong>$ {subtotal_lineas:,.2f}</strong></div>
-    {f"<div class='row'><span>Descuento cliente ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_cliente_monto:,.2f}</strong></div>" if descuento_cliente_pct else ""}
-    <div class='row'><span>Subtotal con descuento</span><strong>$ {subtotal_con_descuento_cliente:,.2f}</strong></div>
+    {f"<div class='row'><span>Descuento ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_cliente_monto:,.2f}</strong></div>" if descuento_cliente_pct else ""}
+    {f"<div class='row'><span>Descuento</span><strong>$ {subtotal_con_descuento_cliente:,.2f}</strong></div>" if descuento_cliente_pct else ""}
     <div class='row'><span>IVA ({iva_pct:,.2f}%)</span><strong>$ {iva:,.2f}</strong></div>
     <div class='row'><span>Total</span><strong>$ {total:,.2f}</strong></div>
   </div>

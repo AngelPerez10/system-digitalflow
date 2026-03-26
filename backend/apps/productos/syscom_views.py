@@ -4,6 +4,7 @@ OAuth 2.0 client_credentials + búsqueda de productos.
 Las credenciales se leen de settings (SYSCOM_CLIENT_ID, SYSCOM_CLIENT_SECRET).
 """
 import logging
+import time
 import urllib.parse
 
 import requests
@@ -17,6 +18,35 @@ from apps.users.permissions import ModulePermission
 
 logger = logging.getLogger(__name__)
 
+_SYSCOM_TOKEN_CACHE = {
+    'access_token': None,
+    'expires_at': 0.0,
+}
+
+
+def _safe_error_text(exc: requests.RequestException, default_msg: str) -> str:
+    if isinstance(exc, requests.Timeout):
+        return f'{default_msg} (timeout con SYSCOM).'
+    if isinstance(exc, requests.ConnectionError):
+        return f'{default_msg} (error de conexión con SYSCOM).'
+    return default_msg
+
+
+def _syscom_get(url: str, token: str, timeout_seconds: int = 20, retries: int = 1):
+    last_exc = None
+    for _ in range(max(1, retries) + 1):
+        try:
+            r = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=timeout_seconds)
+            r.raise_for_status()
+            return r
+        except requests.Timeout as e:
+            last_exc = e
+            continue
+        except requests.RequestException:
+            raise
+    if last_exc:
+        raise last_exc
+
 
 def _get_syscom_token():
     """Obtiene access_token de SYSCOM OAuth (client_credentials)."""
@@ -26,6 +56,12 @@ def _get_syscom_token():
 
     if not client_id or not client_secret:
         return None, 'SYSCOM_CLIENT_ID y SYSCOM_CLIENT_SECRET deben estar configurados en el entorno.'
+
+    now = time.time()
+    cached_token = _SYSCOM_TOKEN_CACHE.get('access_token')
+    cached_expires_at = float(_SYSCOM_TOKEN_CACHE.get('expires_at') or 0)
+    if cached_token and cached_expires_at > now + 30:
+        return cached_token, None
 
     data = {
         'client_id': client_id,
@@ -39,13 +75,16 @@ def _get_syscom_token():
         token = body.get('access_token')
         if not token:
             return None, body.get('error_description', 'No se recibió access_token')
+        expires_in = int(body.get('expires_in') or 3600)
+        _SYSCOM_TOKEN_CACHE['access_token'] = token
+        _SYSCOM_TOKEN_CACHE['expires_at'] = time.time() + max(60, expires_in - 30)
         return token, None
     except requests.RequestException as e:
         logger.exception('SYSCOM OAuth error')
-        return None, str(e)
+        return None, _safe_error_text(e, 'No se pudo autenticar con SYSCOM')
     except Exception as e:
         logger.exception('SYSCOM OAuth parse error')
-        return None, str(e)
+        return None, f'No se pudo procesar autenticación SYSCOM: {e}'
 
 
 class SyscomProductosPermission(ModulePermission):
@@ -85,8 +124,7 @@ class SyscomProductosSearchView(APIView):
             url += '?' + urllib.parse.urlencode(params)
 
         try:
-            r = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=30)
-            r.raise_for_status()
+            r = _syscom_get(url, token, timeout_seconds=20, retries=1)
             return Response(r.json())
         except requests.RequestException as e:
             logger.exception('SYSCOM productos request error')
@@ -95,7 +133,7 @@ class SyscomProductosSearchView(APIView):
             except Exception:
                 body = {}
             return Response(
-                body if body else {'detail': str(e)},
+                body if body else {'detail': _safe_error_text(e, 'No se pudo consultar productos en SYSCOM')},
                 status=getattr(e.response, 'status_code', status.HTTP_502_BAD_GATEWAY)
             )
 
@@ -111,13 +149,12 @@ class SyscomCategoriasView(APIView):
             return Response({'detail': f'Error SYSCOM: {err}'}, status=status.HTTP_502_BAD_GATEWAY)
         url = f'{base}/categorias'
         try:
-            r = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=15)
-            r.raise_for_status()
+            r = _syscom_get(url, token, timeout_seconds=15, retries=1)
             return Response(r.json())
         except requests.RequestException as e:
             logger.exception('SYSCOM categorias request error')
             return Response(
-                {'detail': getattr(e, 'response', None) and e.response.text or str(e)},
+                {'detail': _safe_error_text(e, 'No se pudo consultar categorías en SYSCOM')},
                 status=getattr(getattr(e, 'response', None), 'status_code', status.HTTP_502_BAD_GATEWAY)
             )
 
@@ -133,13 +170,12 @@ class SyscomMarcasView(APIView):
             return Response({'detail': f'Error SYSCOM: {err}'}, status=status.HTTP_502_BAD_GATEWAY)
         url = f'{base}/marcas'
         try:
-            r = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=15)
-            r.raise_for_status()
+            r = _syscom_get(url, token, timeout_seconds=15, retries=1)
             return Response(r.json())
         except requests.RequestException as e:
             logger.exception('SYSCOM marcas request error')
             return Response(
-                {'detail': getattr(e, 'response', None) and e.response.text or str(e)},
+                {'detail': _safe_error_text(e, 'No se pudo consultar marcas en SYSCOM')},
                 status=getattr(getattr(e, 'response', None), 'status_code', status.HTTP_502_BAD_GATEWAY)
             )
 
@@ -155,13 +191,12 @@ class SyscomProductoDetalleView(APIView):
             return Response({'detail': f'Error SYSCOM: {err}'}, status=status.HTTP_502_BAD_GATEWAY)
         url = f'{base}/productos/{product_id}'
         try:
-            r = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=15)
-            r.raise_for_status()
+            r = _syscom_get(url, token, timeout_seconds=15, retries=1)
             return Response(r.json())
         except requests.RequestException as e:
             logger.exception('SYSCOM producto detalle request error')
             return Response(
-                {'detail': getattr(e, 'response', None) and e.response.text or str(e)},
+                {'detail': _safe_error_text(e, 'No se pudo consultar detalle de producto en SYSCOM')},
                 status=getattr(getattr(e, 'response', None), 'status_code', status.HTTP_502_BAD_GATEWAY)
             )
 
@@ -177,12 +212,11 @@ class SyscomTipoCambioView(APIView):
             return Response({'detail': f'Error SYSCOM: {err}'}, status=status.HTTP_502_BAD_GATEWAY)
         url = f'{base}/tipocambio'
         try:
-            r = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=15)
-            r.raise_for_status()
+            r = _syscom_get(url, token, timeout_seconds=15, retries=1)
             return Response(r.json())
         except requests.RequestException as e:
             logger.exception('SYSCOM tipocambio request error')
             return Response(
-                {'detail': getattr(e, 'response', None) and e.response.text or str(e)},
+                {'detail': _safe_error_text(e, 'No se pudo consultar tipo de cambio en SYSCOM')},
                 status=getattr(getattr(e, 'response', None), 'status_code', status.HTTP_502_BAD_GATEWAY)
             )
