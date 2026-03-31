@@ -2173,6 +2173,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
                           src={imgUrl}
                           alt=""
                           className="h-14 w-14 object-contain rounded border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-800"
+                          style={{ filter: 'none', mixBlendMode: 'normal' }}
                         />
                       )}
                       <div className="min-w-0 flex-1">

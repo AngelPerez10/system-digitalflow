@@ -32,7 +32,6 @@ import PersonasPage from "@/pages/ContactosNegocio/Clientes/PersonasPage";
 import ProveedoresPage from "@/pages/ContactosNegocio/Clientes/ProveedoresPage";
 import Productos from "@/pages/ProductosYServicios/ProductosPage";
 import Servicios from "@/pages/ProductosYServicios/ServiciosPage";
-import KpiVentasPage from "@/pages/Kpis/KpiVentasPage";
 import CorreoPage from "@/pages/MiEscritorio/CorreoPage";
 import TareasTecnicoPage from "@/pages/MiEscritorio/TareasTecnicoPage";
 import CotizacionesPage from "@/pages/Cotizacion/CotizacionesPage";
@@ -85,7 +84,6 @@ export default function App() {
             {/* Others Page */}
             <Route path="/profile" element={<RequireAdmin><UserProfiles /></RequireAdmin>} />
             <Route path="/calendar" element={<Calendar />} />
-            <Route path="/kpis/ventas" element={<RequireAdmin><KpiVentasPage /></RequireAdmin>} />
             <Route path="/blank" element={<Blank />} />
 
             {/* Forms */}

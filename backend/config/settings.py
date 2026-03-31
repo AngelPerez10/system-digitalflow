@@ -93,7 +93,6 @@ INSTALLED_APPS = [
     'apps.productos',
     'apps.ordenes',
     'apps.operacion',
-    'apps.kpis',
     'apps.cotizaciones',
     'apps.escritorio',
     'apps.ai',

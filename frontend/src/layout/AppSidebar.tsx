@@ -257,15 +257,6 @@ const AppSidebar: React.FC = () => {
       }
     }
 
-    // KPI'S (Admin only)
-    if (isAdmin) {
-      items.push({
-        icon: <PieChartIcon />,
-        name: "KPI’S",
-        subItems: [{ name: "KPI Ventas", path: "/kpis/ventas", pro: false }],
-      });
-    }
-
     if (isAdmin && username === 'AngelPerez10') {
         items.push({
           name: "Formularios",
@@ -399,6 +390,20 @@ const AppSidebar: React.FC = () => {
 
   const toggleNestedSubmenu = (key: string) => {
     setOpenNestedSubmenus((prev) => ({ ...prev, [key]: !prev[key] }));
+
+    // Recalcular la altura del submenu abierto (overflow-hidden) para que
+    // el contenido anidado no quede recortado.
+    if (openSubmenu) {
+      window.requestAnimationFrame(() => {
+        const submenuKey = `${openSubmenu.type}-${openSubmenu.index}`;
+        const el = subMenuRefs.current[submenuKey];
+        if (!el) return;
+        setSubMenuHeight((prevHeights) => ({
+          ...prevHeights,
+          [submenuKey]: el.scrollHeight || 0,
+        }));
+      });
+    }
   };
 
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (

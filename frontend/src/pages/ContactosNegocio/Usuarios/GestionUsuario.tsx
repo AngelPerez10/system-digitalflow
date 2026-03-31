@@ -29,7 +29,6 @@ type UserSignaturePayload = {
 type PermissionsPayload = {
   ordenes?: Partial<CrudPerms>;
   clientes?: Partial<CrudPerms>;
-  kpis?: Partial<CrudPerms>;
   productos?: Partial<CrudPerms>;
   servicios?: Partial<CrudPerms>;
   cotizaciones?: Partial<CrudPerms>;
@@ -141,7 +140,6 @@ const seedAdminPerms = async (userId: number) => {
     productos: { view: true, create: true, edit: true, delete: true },
     servicios: { view: true, create: true, edit: true, delete: true },
     cotizaciones: { view: true, create: true, edit: true, delete: true },
-    kpis: { view: true, create: true, edit: true, delete: true },
     tareas: { view: true, create: true, edit: true, delete: true },
     usuarios: { view: true, create: true, edit: true, delete: true },
     reportes: { view: true, create: true, edit: true, delete: true },
@@ -261,7 +259,6 @@ export default function UserProfiles() {
       productos: { view: true, create: false, edit: false, delete: false },
       servicios: { view: true, create: false, edit: false, delete: false },
       cotizaciones: { view: true, create: false, edit: false, delete: false },
-      kpis: { view: true, create: false, edit: false, delete: false },
       tareas: { view: true, create: false, edit: false, delete: false },
       usuarios: { view: true, create: false, edit: false, delete: false },
       reportes: { view: true, create: true, edit: false, delete: false },
@@ -282,7 +279,6 @@ export default function UserProfiles() {
       productos: mergeCrud(base.productos, p?.productos),
       servicios: mergeCrud(base.servicios, p?.servicios),
       cotizaciones: mergeCrud(base.cotizaciones, p?.cotizaciones),
-      kpis: mergeCrud(base.kpis, p?.kpis),
       tareas: mergeCrud(base.tareas, p?.tareas),
       usuarios: mergeCrud(base.usuarios, p?.usuarios),
       reportes: mergeCrud(base.reportes, p?.reportes),
@@ -348,7 +344,6 @@ export default function UserProfiles() {
             ...permsForm,
             // Cotizaciones: los técnicos pueden tener permisos granulares (ver/crear/editar/eliminar)
             cotizaciones: merged.cotizaciones,
-            kpis: { view: false, create: false, edit: false, delete: false },
             usuarios: { view: false, create: false, edit: false, delete: false },
             reportes: { ...merged.reportes, delete: false },
           };
@@ -1245,7 +1240,6 @@ export default function UserProfiles() {
                             { key: 'reportes' as const, label: 'Reportes semanales' },
                           ],
                         },
-                        { key: 'kpis' as const, label: 'KPI’S', modules: [{ key: 'kpis' as const, label: 'KPI Ventas' }] },
                       ] as const)
                     : ([
                         { key: 'escritorio' as const, label: 'Mi escritorio', modules: [{ key: 'tareas' as const, label: 'Tareas' }] },
@@ -1261,7 +1255,6 @@ export default function UserProfiles() {
                             { key: 'reportes' as const, label: 'Reportes semanales' },
                           ],
                         },
-                        { key: 'kpis' as const, label: 'KPI’S', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
                       ] as const);
 
                   const actionLabels: { key: keyof CrudPerms; label: string }[] = [
