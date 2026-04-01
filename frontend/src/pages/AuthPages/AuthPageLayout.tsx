@@ -21,13 +21,10 @@ export default function AuthLayout({
                 <img
                   width={231}
                   height={48}
-                  src="/images/logo/auth-logo.svg"
+                  src="/images/logo/intrax-logo.png"
                   alt="Logo"
                 />
               </Link>
-              <p className="text-center text-gray-400 dark:text-white/60">
-                Sistema Grupo Intrax GPS
-              </p>
             </div>
           </div>
         </div>
