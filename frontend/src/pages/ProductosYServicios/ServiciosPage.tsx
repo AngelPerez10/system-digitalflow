@@ -504,15 +504,15 @@ export default function Servicios() {
           <ComponentCard compact title="Listado" desc="Servicios según búsqueda y paginación del servidor." className={`overflow-hidden ${cardShellClass}`}>
             <div className="p-2 pt-0">
               <div className="overflow-x-auto rounded-xl border border-gray-200/80 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/30">
-                <Table className="w-full min-w-[640px] table-fixed sm:min-w-0 xl:min-w-full">
+                <Table className="w-full min-w-[920px] border-collapse">
                   <TableHeader className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 text-[11px] font-semibold text-gray-900 dark:border-white/[0.06] dark:bg-gray-900/80 dark:text-white">
                     <TableRow>
-                      <TableCell isHeader className="px-3 py-2 text-left w-[72px] text-gray-700 dark:text-gray-300">ID</TableCell>
-                      <TableCell isHeader className="px-3 py-2 text-left w-[220px] text-gray-700 dark:text-gray-300">Nombre</TableCell>
-                      <TableCell isHeader className="px-3 py-2 text-left w-[200px] text-gray-700 dark:text-gray-300">Categoría</TableCell>
-                      <TableCell isHeader className="px-3 py-2 text-left text-gray-700 dark:text-gray-300">Descripción</TableCell>
-                      <TableCell isHeader className="px-3 py-2 text-center w-[120px] text-gray-700 dark:text-gray-300">Status</TableCell>
-                      <TableCell isHeader className="px-3 py-2 text-center w-[120px] text-gray-700 dark:text-gray-300">Acciones</TableCell>
+                      <TableCell isHeader className="w-[72px] min-w-[72px] whitespace-nowrap px-3 py-2 text-left text-gray-700 dark:text-gray-300">ID</TableCell>
+                      <TableCell isHeader className="min-w-[160px] max-w-[220px] px-3 py-2 text-left text-gray-700 dark:text-gray-300">Nombre</TableCell>
+                      <TableCell isHeader className="min-w-[140px] max-w-[200px] px-3 py-2 text-left text-gray-700 dark:text-gray-300">Categoría</TableCell>
+                      <TableCell isHeader className="min-w-[200px] px-3 py-2 text-left text-gray-700 dark:text-gray-300">Descripción</TableCell>
+                      <TableCell isHeader className="w-[100px] min-w-[100px] whitespace-nowrap px-3 py-2 text-center text-gray-700 dark:text-gray-300">Status</TableCell>
+                      <TableCell isHeader className="w-[112px] min-w-[112px] whitespace-nowrap px-3 py-2 text-center text-gray-700 dark:text-gray-300">Acciones</TableCell>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
@@ -523,14 +523,18 @@ export default function Servicios() {
                     )}
 
                     {!loading && servicios.map((s, idx) => (
-                      <TableRow key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                        <TableCell className="px-3 py-2 w-[72px] whitespace-nowrap">{startIndex + idx + 1}</TableCell>
-                        <TableCell className="px-3 py-2 w-[220px] text-gray-900 dark:text-white truncate">{s.nombre}</TableCell>
-                        <TableCell className="px-3 py-2 w-[200px] truncate">{s.categoria || "-"}</TableCell>
-                        <TableCell className="px-3 py-2">
-                          <span className="block max-w-[640px] truncate" title={s.descripcion || ""}>{s.descripcion || "-"}</span>
+                      <TableRow key={s.id} className="align-top hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                        <TableCell className="w-[72px] min-w-[72px] whitespace-nowrap px-3 py-2 align-middle">{startIndex + idx + 1}</TableCell>
+                        <TableCell className="min-w-0 max-w-[220px] px-3 py-2 align-middle">
+                          <span className="block truncate text-gray-900 dark:text-white" title={s.nombre}>{s.nombre}</span>
                         </TableCell>
-                        <TableCell className="px-3 py-2 text-center w-[120px]">
+                        <TableCell className="min-w-0 max-w-[200px] px-3 py-2 align-middle">
+                          <span className="block truncate" title={s.categoria || ""}>{s.categoria || "-"}</span>
+                        </TableCell>
+                        <TableCell className="min-w-[200px] max-w-md px-3 py-2 align-middle">
+                          <span className="block truncate" title={s.descripcion || ""}>{s.descripcion || "-"}</span>
+                        </TableCell>
+                        <TableCell className="w-[100px] min-w-[100px] whitespace-nowrap px-3 py-2 text-center align-middle">
                           <span
                             className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${s.activo !== false
                               ? "border-emerald-200/80 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300"
@@ -539,7 +543,7 @@ export default function Servicios() {
                             {s.activo !== false ? "Activo" : "Inactivo"}
                           </span>
                         </TableCell>
-                        <TableCell className="px-3 py-2 text-center w-[120px]">
+                        <TableCell className="w-[112px] min-w-[112px] whitespace-nowrap px-3 py-2 text-center align-middle">
                           <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
                             <button
                               onClick={() => handleEdit(s)}

@@ -488,18 +488,18 @@ export default function CotizacionesPage() {
               Desliza horizontalmente para ver el listado completo
             </p>
             <div className="touch-pan-x overflow-x-auto overscroll-x-contain rounded-xl border border-gray-200/70 bg-white/70 [-webkit-overflow-scrolling:touch] dark:border-white/[0.08] dark:bg-gray-900/40">
-                  <Table className="w-full min-w-[1000px] table-fixed sm:min-w-0 xl:min-w-full">
+                  <Table className="w-full min-w-[1080px] border-collapse">
                     <TableHeader className="sticky top-0 z-10 border-b border-gray-200/80 bg-gray-100/90 text-[10px] font-semibold text-gray-700 backdrop-blur-sm dark:border-white/[0.06] dark:bg-gray-900/90 dark:text-gray-200 sm:text-[11px]">
                       <TableRow>
-                        <TableCell isHeader className="w-[88px] min-w-[80px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Folio</TableCell>
-                        <TableCell isHeader className="w-[112px] min-w-[100px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Fecha</TableCell>
-                        <TableCell isHeader className="w-[128px] min-w-[112px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3 xl:w-[11%]">Medio</TableCell>
-                        <TableCell isHeader className="w-[112px] min-w-[100px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3 xl:w-[10%]">Status</TableCell>
-                        <TableCell isHeader className="min-w-[140px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3 xl:w-[13%]">Creada por</TableCell>
-                        <TableCell isHeader className="min-w-[140px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3 xl:w-[13%]">Editada por</TableCell>
-                        <TableCell isHeader className="min-w-[180px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3 xl:min-w-[12rem] xl:w-[24%]">Cliente</TableCell>
-                        <TableCell isHeader className="w-[120px] min-w-[108px] whitespace-nowrap px-2 py-2 text-right text-gray-700 dark:text-gray-300 sm:px-3">Monto</TableCell>
-                        <TableCell isHeader className="w-[120px] min-w-[108px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300 sm:px-3">Acciones</TableCell>
+                        <TableCell isHeader className="w-[80px] min-w-[80px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Folio</TableCell>
+                        <TableCell isHeader className="w-[104px] min-w-[104px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Fecha</TableCell>
+                        <TableCell isHeader className="min-w-[120px] max-w-[160px] px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Medio</TableCell>
+                        <TableCell isHeader className="w-[108px] min-w-[108px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Status</TableCell>
+                        <TableCell isHeader className="min-w-[132px] max-w-[180px] px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Creada por</TableCell>
+                        <TableCell isHeader className="min-w-[132px] max-w-[180px] px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Editada por</TableCell>
+                        <TableCell isHeader className="min-w-[160px] px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Cliente</TableCell>
+                        <TableCell isHeader className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-right text-gray-700 dark:text-gray-300 sm:px-3">Monto</TableCell>
+                        <TableCell isHeader className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300 sm:px-3">Acciones</TableCell>
                       </TableRow>
                     </TableHeader>
 
@@ -520,52 +520,52 @@ export default function CotizacionesPage() {
                         shownList.map((r) => {
                           const statusUpper = String(r.status || 'PENDIENTE').toUpperCase();
                           return (
-                            <TableRow key={r.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                              <TableCell className="whitespace-nowrap px-2 py-2 sm:px-3">
+                            <TableRow key={r.id} className="align-top transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                              <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
                                 <span className="inline-flex items-center justify-center rounded-md border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-gray-900 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-white sm:text-[11px]">
                                   {r.idx ? r.idx : "—"}
                                 </span>
                               </TableCell>
-                              <TableCell className="whitespace-nowrap px-2 py-2 sm:px-3">
+                              <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
                                 <div className="text-[11px] text-gray-900 dark:text-white sm:text-[12px]">{formatDMY(r.fecha)}</div>
                               </TableCell>
-                              <TableCell className="whitespace-nowrap px-2 py-2 sm:px-3">
+                              <TableCell className="min-w-0 max-w-[160px] px-2 py-2 align-middle sm:px-3">
                                 <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${medioChipClass}`}>
                                   {normalizeMedioLabel(r.medioContacto)}
                                 </span>
                               </TableCell>
-                              <TableCell className="whitespace-nowrap px-2 py-2 sm:px-3">
+                              <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
                                 <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${statusChipClass(r.status)}`}>
                                   {statusUpper === 'PENDIENTE'
                                     ? 'Pendiente'
                                     : String(r.status || '—').charAt(0).toUpperCase() + String(r.status || '—').slice(1).toLowerCase()}
                                 </span>
                               </TableCell>
-                              <TableCell className="min-w-[140px] px-2 py-2 sm:px-3 xl:w-[13%]">
-                                <div className="flex min-w-0 flex-col">
-                                  <span className="truncate text-[11px] text-gray-900 dark:text-white sm:text-[12px]">{r.creadaPor}</span>
-                                  <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Creada</span>
+                              <TableCell className="min-w-0 max-w-[180px] px-2 py-2 align-top sm:px-3">
+                                <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
+                                  <span className="truncate text-[11px] text-gray-900 dark:text-white sm:text-[12px]" title={r.creadaPor}>{r.creadaPor}</span>
+                                  <span className="shrink-0 text-[10px] leading-tight text-gray-500 dark:text-gray-400 sm:text-[11px]">Creada</span>
                                 </div>
                               </TableCell>
-                              <TableCell className="min-w-[140px] px-2 py-2 sm:px-3 xl:w-[13%]">
-                                <div className="flex min-w-0 flex-col">
-                                  <span className="truncate text-[11px] text-gray-900 dark:text-white sm:text-[12px]">{r.editadaPor}</span>
-                                  <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Última edición</span>
+                              <TableCell className="min-w-0 max-w-[180px] px-2 py-2 align-top sm:px-3">
+                                <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
+                                  <span className="truncate text-[11px] text-gray-900 dark:text-white sm:text-[12px]" title={r.editadaPor}>{r.editadaPor}</span>
+                                  <span className="shrink-0 text-[10px] leading-tight text-gray-500 dark:text-gray-400 sm:text-[11px]">Última edición</span>
                                 </div>
                               </TableCell>
-                              <TableCell className="min-w-[180px] px-2 py-2 sm:px-3 xl:w-[24%]">
-                                <div className="flex min-w-0 flex-col">
-                                  <span className="truncate text-[11px] font-medium text-gray-900 dark:text-white sm:text-[12px]" title={r.cliente}>
+                              <TableCell className="min-w-[160px] max-w-[280px] px-2 py-2 align-top sm:px-3">
+                                <div className="min-w-0 overflow-hidden">
+                                  <span className="block truncate text-[11px] font-medium text-gray-900 dark:text-white sm:text-[12px]" title={r.cliente}>
                                     {r.cliente}
                                   </span>
                                 </div>
                               </TableCell>
-                              <TableCell className="whitespace-nowrap px-2 py-2 text-right sm:px-3">
-                                <span className="inline-flex items-center justify-start rounded-md border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-gray-900 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-white sm:text-[12px]">
+                              <TableCell className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-right align-middle sm:px-3">
+                                <span className="inline-flex max-w-full justify-end rounded-md border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-gray-900 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-white sm:text-[12px]">
                                   {r.monto}
                                 </span>
                               </TableCell>
-                              <TableCell className="px-2 py-2 text-center sm:px-3">
+                              <TableCell className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-center align-middle sm:px-3">
                                 <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
                                   <button
                                     type="button"
