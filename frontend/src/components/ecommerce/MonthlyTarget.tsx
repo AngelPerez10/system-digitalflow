@@ -31,6 +31,8 @@ type ActivityItem = {
   module: ModuleKey;
   viewName: string;
   viewPath: string;
+  /** Si existe, al hacer clic se navega con ?abrir=<id> para abrir el detalle en modal (p. ej. órdenes). */
+  openEntityId?: number;
 };
 
 const MAX_ITEMS = 40;
@@ -234,6 +236,7 @@ export default function MonthlyTarget() {
           const estado = normalizeOrderStatus(
             o?.estado ?? o?.status ?? o?.estatus ?? o?.estado_orden ?? o?.situacion
           );
+          const ordenPk = typeof o?.id === "number" && Number.isFinite(o.id) ? o.id : undefined;
           if (created) {
             items.push({
               id: `orden-create-${o?.id || folio}`,
@@ -244,6 +247,7 @@ export default function MonthlyTarget() {
               module: "operacion",
               viewName: "Ordenes de trabajo",
               viewPath: "/ordenes",
+              openEntityId: ordenPk,
             });
           }
           if (updated && updated !== created) {
@@ -256,6 +260,7 @@ export default function MonthlyTarget() {
               module: "operacion",
               viewName: "Ordenes de trabajo",
               viewPath: "/ordenes",
+              openEntityId: ordenPk,
             });
           }
         }
@@ -567,7 +572,14 @@ export default function MonthlyTarget() {
                 <button
                   type="button"
                   key={i.id}
-                  onClick={() => navigate(i.viewPath)}
+                  onClick={() => {
+                    const id = i.openEntityId;
+                    if (i.viewPath === "/ordenes" && typeof id === "number" && id > 0) {
+                      navigate(`${i.viewPath}?abrir=${id}`);
+                      return;
+                    }
+                    navigate(i.viewPath);
+                  }}
                   className="group w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-left shadow-theme-xs transition hover:border-brand-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-500/40 dark:hover:bg-white/[0.04]"
                 >
                   <div className="mb-2 flex items-center justify-between gap-2">

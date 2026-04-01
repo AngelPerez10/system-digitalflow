@@ -267,7 +267,7 @@ export default function ProfilePage() {
                 Foto y datos personales
               </h2>
               <p className="mt-1 max-w-3xl text-xs leading-relaxed text-gray-500 dark:text-gray-400 sm:text-sm">
-                Imagen JPG, PNG o WEBP (máx. 5 MB) y datos de contacto. Se reflejan en la barra superior y en el menú de usuario.
+                Foto de perfil y datos de contacto. Se reflejan en la barra superior y en el menú de usuario.
               </p>
             </div>
 

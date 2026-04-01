@@ -1347,6 +1347,58 @@ export default function Ordenes() {
     setShowModal(true);
   };
 
+  const handleEditRef = useRef(handleEdit);
+  handleEditRef.current = handleEdit;
+
+  const abrirOrdenFromQueryDoneRef = useRef<string | null>(null);
+
+  // Desde historial global (MonthlyTarget): /ordenes?abrir=<id> abre el modal de edición de esa orden
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get("abrir");
+    if (!raw) {
+      abrirOrdenFromQueryDoneRef.current = null;
+      return;
+    }
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) {
+      navigate("/ordenes", { replace: true });
+      return;
+    }
+    if (loading) return;
+
+    const doneKey = `abrir-${id}`;
+    if (abrirOrdenFromQueryDoneRef.current === doneKey) return;
+
+    const open = async () => {
+      let orden: Orden | undefined = ordenes.find((o) => o.id === id);
+      if (!orden) {
+        const token = getToken();
+        if (!token) return;
+        try {
+          const res = await fetch(apiUrl(`/api/ordenes/${id}/`), {
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            cache: "no-store" as RequestCache,
+          });
+          if (res.ok) {
+            orden = (await res.json()) as Orden;
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!orden) {
+        navigate("/ordenes", { replace: true });
+        return;
+      }
+      abrirOrdenFromQueryDoneRef.current = doneKey;
+      handleEditRef.current(orden);
+      navigate("/ordenes", { replace: true });
+    };
+
+    void open();
+  }, [loading, ordenes, location.search, navigate]);
+
   const handleCloseModal = () => {
     formNonceRef.current += 1;
     setShowModal(false);
