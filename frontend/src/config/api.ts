@@ -24,5 +24,13 @@ export const apiUrl = (path: string) => {
   if (!path.startsWith("/")) path = "/" + path;
   return `${API_BASE.replace(/\/$/, "")}${path}`;
 };
+
+/** URLs absolutas (p. ej. Cloudinary) se devuelven tal cual; rutas /media/... se resuelven contra el API. */
+export function resolveMediaUrl(url: string | null | undefined): string {
+  const u = (url || "").trim();
+  if (!u) return "";
+  if (u.startsWith("http://") || u.startsWith("https://")) return u;
+  return apiUrl(u.startsWith("/") ? u : `/${u}`);
+}
 export const PUBLIC_ORIGIN = (import.meta.env.VITE_PUBLIC_ORIGIN || (isBrowser ? window.location.origin : '')).replace(/\/$/, '');
 export const publicUrl = (path: string) => `${PUBLIC_ORIGIN}${path}`;

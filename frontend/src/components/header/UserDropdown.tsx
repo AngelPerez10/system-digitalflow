@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router-dom";
-import { apiUrl } from "@/config/api";
+import { apiUrl, resolveMediaUrl } from "@/config/api";
 
 let userDropdownMeLoadedOnce = false;
 
@@ -22,11 +22,17 @@ export default function UserDropdown() {
     []
   );
 
-  useEffect(() => {
+  const syncMeFromStorage = () => {
     try {
       const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
       if (raw) setMe(JSON.parse(raw));
-    } catch {}
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(() => {
+    syncMeFromStorage();
 
     if (userDropdownMeLoadedOnce) return;
     userDropdownMeLoadedOnce = true;
@@ -49,6 +55,12 @@ export default function UserDropdown() {
       }
     };
     load();
+  }, [token]);
+
+  useEffect(() => {
+    const onUserUpdated = () => syncMeFromStorage();
+    window.addEventListener('user:updated', onUserUpdated);
+    return () => window.removeEventListener('user:updated', onUserUpdated);
   }, []);
 
   const displayName = useMemo(() => {
@@ -68,6 +80,20 @@ export default function UserDropdown() {
     if (role === 'admin') return 'Administrador';
     if (role === 'tecnico') return 'Técnico';
     return me?.username || 'Usuario';
+  }, [me]);
+
+  const avatarSrc = useMemo(() => {
+    const u = (me?.avatar_url || '').trim();
+    return u ? resolveMediaUrl(u) : '';
+  }, [me?.avatar_url]);
+
+  const avatarInitials = useMemo(() => {
+    const a = ((me?.first_name || '') as string).trim().charAt(0).toUpperCase();
+    const b = ((me?.last_name || '') as string).trim().charAt(0).toUpperCase();
+    if (a && b) return a + b;
+    if (a) return a;
+    const un = ((me?.username || '') as string).trim() || 'U';
+    return un.slice(0, 2).toUpperCase();
   }, [me]);
 
   function toggleDropdown() {
@@ -106,8 +132,12 @@ export default function UserDropdown() {
         onClick={toggleDropdown}
         className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <img src="/images/user/owner.jpg" alt="Usuario" />
+        <span className="mr-3 flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-semibold text-white ring-2 ring-white/90 dark:ring-gray-900/80">
+          {avatarSrc ? (
+            <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span aria-hidden>{avatarInitials}</span>
+          )}
         </span>
 
         <span className="block mr-1 font-medium text-theme-sm">{displayName}</span>
@@ -149,7 +179,6 @@ export default function UserDropdown() {
         </div>
 
         <ul className="flex flex-col gap-1 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">
-          {isAdmin && (
           <li>
             <DropdownItem
               onItemClick={closeDropdown}
@@ -175,14 +204,13 @@ export default function UserDropdown() {
               Editar perfil
             </DropdownItem>
           </li>
-          )}
 
           {isAdmin && (
           <li>
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
-              to="/profile"
+              to="/usuarios"
               className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               <svg
@@ -200,7 +228,7 @@ export default function UserDropdown() {
                   fill=""
                 />
               </svg>
-              Configuración
+              Gestión de usuarios
             </DropdownItem>
           </li>
           )}

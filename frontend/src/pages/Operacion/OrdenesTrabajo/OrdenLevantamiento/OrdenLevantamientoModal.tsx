@@ -94,7 +94,9 @@ export default function OrdenServicioModal({
     index: null,
     url: null,
   });
+  const [deletingPhoto, setDeletingPhoto] = useState(false);
   const formScrollRef = useRef<HTMLFormElement | null>(null);
+  const formNonceRef = useRef(0);
   const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
 
   const [showMapModal, setShowMapModal] = useState(false);
@@ -208,6 +210,7 @@ export default function OrdenServicioModal({
   }, [selectedLocation]);
 
   const handleCloseModal = () => {
+    formNonceRef.current += 1;
     setShowMapModal(false);
     setActiveTab("cliente");
     onClose();
@@ -395,34 +398,129 @@ export default function OrdenServicioModal({
     setServicioSearch("");
   };
 
-  const formNonceRef = useRef<number>(Date.now());
+  const compressImage = async (
+    file: File,
+    maxSizeKB: number,
+    maxWidth: number = 1400,
+    maxHeight: number = 1400
+  ): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let { width, height } = img;
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.floor(width * ratio);
+            height = Math.floor(height * ratio);
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, width, height);
+          }
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          let minQuality = 0.1;
+          let maxQuality = 0.95;
+          let attempts = 0;
+          const maxAttempts = 8;
+
+          const binarySearchCompress = (low: number, high: number) => {
+            if (attempts >= maxAttempts || high - low < 0.01) {
+              const finalQuality = (low + high) / 2;
+              canvas.toBlob(
+                (blob) => {
+                  if (!blob) {
+                    reject(new Error("Error al comprimir la imagen"));
+                    return;
+                  }
+                  const r = new FileReader();
+                  r.readAsDataURL(blob);
+                  r.onloadend = () => resolve(r.result as string);
+                },
+                "image/jpeg",
+                finalQuality
+              );
+              return;
+            }
+
+            attempts++;
+            const midQuality = (low + high) / 2;
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) {
+                  reject(new Error("Error al comprimir la imagen"));
+                  return;
+                }
+                const sizeKB = blob.size / 1024;
+                if (Math.abs(sizeKB - maxSizeKB) < 5) {
+                  const r = new FileReader();
+                  r.readAsDataURL(blob);
+                  r.onloadend = () => resolve(r.result as string);
+                } else if (sizeKB > maxSizeKB) {
+                  binarySearchCompress(low, midQuality);
+                } else {
+                  binarySearchCompress(midQuality, high);
+                }
+              },
+              "image/jpeg",
+              midQuality
+            );
+          };
+
+          binarySearchCompress(minQuality, maxQuality);
+        };
+        img.onerror = () => reject(new Error("Error al cargar la imagen"));
+      };
+      reader.onerror = () => reject(new Error("Error al leer el archivo"));
+    });
+  };
 
   const onDropPhotos = async (acceptedFiles: File[]) => {
-    if (!acceptedFiles.length) return;
+    const nonce = formNonceRef.current;
+    const current = Array.isArray(formData.fotos_urls) ? formData.fotos_urls : [];
+    const remainingSlots = 5 - current.length;
+    if (remainingSlots <= 0) return;
+
+    const files = acceptedFiles.slice(0, remainingSlots).filter((f) => f.type.startsWith("image/"));
+    if (!files.length) return;
+
     const token = getToken();
     if (!token) return;
 
-    const nonce = Date.now();
-    formNonceRef.current = nonce;
-
-    const urls: string[] = [];
-    for (const file of acceptedFiles) {
-      const formDataUpload = new FormData();
-      formDataUpload.append("file", file);
+    const uploadOne = async (file: File): Promise<string | null> => {
       try {
-        const res = await fetch(apiUrl("/api/ordenes/upload-photo/"), {
+        const compressed = await compressImage(file, 80, 1400, 1400);
+        const resp = await fetch(apiUrl("/api/ordenes/upload-image/"), {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: formDataUpload,
+          body: JSON.stringify({ data_url: compressed, folder: "ordenes/fotos" }),
         });
-        if (res.ok) {
-          const data = await res.json().catch(() => null);
-          if (data?.url) urls.push(String(data.url));
-        }
+        if (!resp.ok) return null;
+        const data = await resp.json().catch(() => null);
+        return data?.url ? String(data.url) : null;
       } catch {
-        // ignore upload errors per file
+        return null;
+      }
+    };
+
+    const concurrency = 5;
+    const urls: string[] = [];
+    for (let i = 0; i < files.length; i += concurrency) {
+      const chunk = files.slice(i, i + concurrency);
+      const results = await Promise.allSettled(chunk.map(uploadOne));
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value) urls.push(r.value);
       }
     }
 
@@ -465,6 +563,7 @@ export default function OrdenServicioModal({
 
   const handleDeletePhoto = async (index: number, url: string) => {
     const updated = (Array.isArray(formData.fotos_urls) ? formData.fotos_urls : []).filter((_, i) => i !== index);
+    setDeletingPhoto(true);
     try {
       const token = getToken();
       const publicId = getPublicIdFromUrl(url);
@@ -502,6 +601,9 @@ export default function OrdenServicioModal({
       }
     } catch {
       setFormData((prev) => ({ ...prev, fotos_urls: updated }));
+    } finally {
+      setConfirmDelete({ open: false, index: null, url: null });
+      setDeletingPhoto(false);
     }
   };
 
@@ -888,6 +990,7 @@ export default function OrdenServicioModal({
       isOpen={open}
       onClose={handleCloseModal}
       closeOnBackdropClick={false}
+      closeOnEscape={!confirmDelete.open}
       className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden"
     >
       <div>
@@ -1473,46 +1576,70 @@ export default function OrdenServicioModal({
                     </div>
                   )}
 
-                  {/* Modal Confirmación eliminar foto */}
+                  {/* Modal Confirmación eliminar foto (type="button" evita submit del formulario padre) */}
                   <Modal
                     isOpen={confirmDelete.open}
-                    onClose={() => setConfirmDelete({ open: false, index: null, url: null })}
+                    onClose={() => {
+                      if (!deletingPhoto) setConfirmDelete({ open: false, index: null, url: null });
+                    }}
                     closeOnBackdropClick={false}
-                    className="max-w-sm p-6"
+                    showCloseButton={!deletingPhoto}
+                    className="max-w-sm p-6 z-[100000]"
                   >
                     <div className="flex flex-col gap-4">
                       <div className="text-center">
                         <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30">
-                          <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                            />
-                          </svg>
+                          {deletingPhoto ? (
+                            <svg className="h-7 w-7 animate-spin text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" aria-hidden>
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                          ) : (
+                            <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                              />
+                            </svg>
+                          )}
                         </div>
-                        <h5 className="mt-4 font-semibold text-gray-800 text-theme-lg dark:text-white/90">Confirmar eliminación</h5>
+                        <h5 className="mt-4 font-semibold text-gray-800 text-theme-lg dark:text-white/90">
+                          {deletingPhoto ? "Eliminando imagen…" : "Confirmar eliminación"}
+                        </h5>
                         <p className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                          Esta acción no se puede deshacer. ¿Eliminar la imagen seleccionada?
+                          {deletingPhoto
+                            ? "Por favor espera; esto puede tardar unos segundos."
+                            : "Esta acción no se puede deshacer. ¿Eliminar la imagen seleccionada?"}
                         </p>
                       </div>
                       <div className="flex justify-center gap-3 pt-2">
                         <button
+                          type="button"
+                          disabled={deletingPhoto}
                           onClick={() => setConfirmDelete({ open: false, index: null, url: null })}
-                          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3"
+                          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3"
                         >
                           Cancelar
                         </button>
                         <button
+                          type="button"
+                          disabled={deletingPhoto}
                           onClick={() => {
                             if (confirmDelete.index != null && confirmDelete.url) {
-                              handleDeletePhoto(confirmDelete.index, confirmDelete.url);
+                              void handleDeletePhoto(confirmDelete.index, confirmDelete.url);
                             }
                           }}
-                          className="rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700"
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          Eliminar
+                          {deletingPhoto && (
+                            <svg className="h-4 w-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden>
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                          )}
+                          {deletingPhoto ? "Eliminando…" : "Eliminar"}
                         </button>
                       </div>
                     </div>

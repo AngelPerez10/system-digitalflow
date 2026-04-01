@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Modal } from "@/components/ui/modal";
@@ -10,12 +10,18 @@ import { PencilIcon, TrashBinIcon } from "../../icons";
 import { MobileTareaList } from "./MobileTareaCard";
 import { draggable, dropTargetForElements, monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 
- let tareasPagePermissionsInFlight: Promise<any> | null = null;
- let tareasPagePermissionsLastFetchAt = 0;
- const TAREAS_PAGE_PERMS_TTL_MS = 2 * 60 * 1000;
+const cardShellClass =
+    "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
 
- let tareasPageUsuariosInFlight: Promise<any> | null = null;
- let tareasPageTareasInFlight: Promise<any> | null = null;
+const searchInputClass =
+    "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
+
+let tareasPagePermissionsInFlight: Promise<any> | null = null;
+let tareasPagePermissionsLastFetchAt = 0;
+const TAREAS_PAGE_PERMS_TTL_MS = 2 * 60 * 1000;
+
+let tareasPageUsuariosInFlight: Promise<any> | null = null;
+let tareasPageTareasInFlight: Promise<any> | null = null;
 
 interface Tarea {
     id: number;
@@ -831,11 +837,23 @@ export default function TareasPage() {
     return (
         <>
             <PageMeta title="Tareas" description="Gestión de tareas del sistema" />
-            <div className="p-4 sm:p-6 space-y-4">
-                <PageBreadcrumb pageTitle="Tareas" />
+            <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
+            <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
+                <nav
+                    className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+                    aria-label="Migas de pan"
+                >
+                    <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
+                        Inicio
+                    </Link>
+                    <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+                        /
+                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Tareas</span>
+                </nav>
 
                 {alert.show && (
-                    <div className="mb-2">
+                    <div>
                         <Alert
                             variant={alert.variant}
                             title={alert.title}
@@ -845,101 +863,117 @@ export default function TareasPage() {
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-                    <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-                        <div className="flex items-center gap-4">
-                            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shadow-sm">
-                                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
+                    <div className="flex min-w-0 gap-3 sm:gap-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+                            <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+                            </svg>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+                                Mi escritorio
+                            </p>
+                            <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Tareas</h1>
+                            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+                                Organiza el trabajo en columnas, asigna responsables y adjunta evidencia. Arrastra las tarjetas para cambiar de estado.
+                            </p>
+                        </div>
+                    </div>
+                </header>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+                    <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+                        <div className="flex items-center gap-2.5 sm:gap-3">
+                            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+                                <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                                     <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
                                 </svg>
                             </span>
-                            <div className="flex flex-col">
-                                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Tareas totales</p>
-                                <p className="mt-1 text-xl font-semibold text-gray-800 dark:text-gray-100">{tareaStats.total}</p>
+                            <div className="min-w-0">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Tareas totales</p>
+                                <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.total}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-                        <div className="flex items-center gap-4">
-                            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300 shadow-sm">
-                                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+                        <div className="flex items-center gap-2.5 sm:gap-3">
+                            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
+                                <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                                     <path d="M20 21v-1a4 4 0 0 0-3-3.87" />
                                     <path d="M4 21v-1a4 4 0 0 1 3-3.87" />
                                     <circle cx="12" cy="7" r="4" />
                                 </svg>
                             </span>
-                            <div className="flex flex-col">
-                                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Asignadas</p>
-                                <p className="mt-1 text-xl font-semibold text-gray-800 dark:text-gray-100">{tareaStats.asignadas}</p>
+                            <div className="min-w-0">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Asignadas</p>
+                                <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.asignadas}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-                        <div className="flex items-center gap-4">
-                            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300 shadow-sm">
-                                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4 sm:col-span-2 lg:col-span-1`}>
+                        <div className="flex items-center gap-2.5 sm:gap-3">
+                            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
+                                <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                                     <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
                                     <circle cx="12" cy="13" r="3" />
                                 </svg>
                             </span>
-                            <div className="flex flex-col">
-                                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Con fotos</p>
-                                <p className="mt-1 text-xl font-semibold text-gray-800 dark:text-gray-100">{tareaStats.conFotos}</p>
+                            <div className="min-w-0">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Con fotos</p>
+                                <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.conFotos}</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Listado de Tareas</h2>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:flex-1 sm:min-w-[260px] sm:justify-end">
-                        <div className="relative w-full sm:max-w-xs md:max-w-sm">
-                            <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none">
-                                <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            <input
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Buscar"
-                                className="w-full rounded-lg border border-gray-300 bg-white pl-8 pr-3 py-2 text-[13px] text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-white/90"
-                            />
-                            {searchTerm && (
-                                <button
-                                    type="button"
-                                    onClick={() => setSearchTerm('')}
-                                    aria-label="Limpiar búsqueda"
-                                    className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/60"
-                                >
-                                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                                        <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                                    </svg>
-                                </button>
-                            )}
-                        </div>
-                        {canTareasCreate && (
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
+                    <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
+                        <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <input
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Buscar por descripción o responsable…"
+                            className={searchInputClass}
+                        />
+                        {searchTerm && (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setEditingTarea(null);
-                                    setShowModal(true);
-                                }}
-                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:bg-brand-500 dark:hover:bg-brand-600"
+                                onClick={() => setSearchTerm('')}
+                                aria-label="Limpiar búsqueda"
+                                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
                             >
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <path d="M12 5v14M5 12h14M4 12h16" strokeLinecap="round" />
+                                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
                                 </svg>
-                                Nueva Tarea
                             </button>
                         )}
                     </div>
+                    {canTareasCreate && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setEditingTarea(null);
+                                setShowModal(true);
+                            }}
+                            className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
+                        >
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                            </svg>
+                            Nueva tarea
+                        </button>
+                    )}
                 </div>
                 <ComponentCard
-                    title="Listado"
-                    actions={null}
+                    compact
+                    title="Tablero"
+                    desc="Arrastra tarjetas entre columnas para actualizar el estado. En móvil usa el listado inferior."
+                    className={`overflow-hidden ${cardShellClass}`}
                 >
                     {!canTareasView ? (
                         <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
@@ -1010,7 +1044,7 @@ export default function TareasPage() {
 
                             <div ref={kanbanRootRef} className="hidden md:block">
                                 <div className="overflow-x-auto md:overflow-visible -mx-2 px-2">
-                                    <div className="min-w-[680px] md:min-w-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 rounded-2xl bg-gray-100/70 dark:bg-gray-950/20 p-2">
+                                    <div className="min-w-[680px] md:min-w-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 rounded-xl border border-gray-200/80 bg-gray-50/50 p-3 dark:border-white/[0.06] dark:bg-gray-950/30">
                                         {KANBAN_COLUMNS.map((col) => {
                                             const columnRef = (el: HTMLDivElement | null) => {
                                                 if (!el) return;
@@ -1032,11 +1066,11 @@ export default function TareasPage() {
                                                 <div
                                                     key={col.key}
                                                     ref={columnRef}
-                                                    className="rounded-2xl border border-gray-200/80 dark:border-white/10 bg-gray-50/90 dark:bg-gray-900/50 p-3 shadow-theme-xs"
+                                                    className="rounded-xl border border-gray-200/80 bg-white dark:border-white/[0.06] dark:bg-gray-900/50 p-3 shadow-sm"
                                                 >
-                                                    <div className="flex items-center justify-between gap-2 mb-3">
-                                                        <div className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight">{col.label}</div>
-                                                        <div className="text-[11px] px-2 py-0.5 rounded-full bg-white/90 dark:bg-white/10 border border-gray-200/80 dark:border-white/10 text-gray-700 dark:text-gray-300">
+                                                    <div className="mb-3 flex items-center justify-between gap-2 border-b border-gray-100 pb-2 dark:border-white/[0.06]">
+                                                        <div className="text-[12px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">{col.label}</div>
+                                                        <div className="text-[11px] tabular-nums rounded-full border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 font-medium text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
                                                             {list.length}
                                                         </div>
                                                     </div>
@@ -1153,6 +1187,7 @@ export default function TareasPage() {
                     )}
                 </ComponentCard>
             </div>
+            </div>
 
             <Modal
                 isOpen={showModal}
@@ -1162,9 +1197,9 @@ export default function TareasPage() {
             >
                 <div className="p-0 overflow-hidden rounded-2xl">
                     {/* Encabezado del modal con icono y título */}
-                    <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/70 backdrop-blur-sm">
+                    <div className="border-b border-gray-100 px-5 py-4 dark:border-white/[0.06]">
                         <div className="flex items-center gap-3">
-                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
+                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300">
                                 <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                                     <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" />
                                     <path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" />

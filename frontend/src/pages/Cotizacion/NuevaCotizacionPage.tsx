@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
@@ -84,11 +84,25 @@ type ApiCotizacion = {
   items: ApiCotizacionItem[];
 };
 
+/** Controles: superficie inset; `text-sm` en móvil para densidad (evitar sensación de texto “grande”) */
 const inputLikeClassName =
-  "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
+  "w-full min-h-[40px] rounded-lg border border-gray-200/90 dark:border-white/[0.08] bg-gray-50/90 dark:bg-gray-950/40 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 transition-colors focus:border-brand-500/80 focus:bg-white dark:focus:bg-gray-900/60 focus:ring-2 focus:ring-brand-500/20 dark:focus:border-brand-400 dark:focus:ring-brand-900/35 outline-none sm:min-h-[2.75rem] sm:py-2.5";
 
 const textareaLikeClassName =
-  "w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
+  "w-full min-h-[7rem] rounded-lg border border-gray-200/90 dark:border-white/[0.08] bg-gray-50/90 dark:bg-gray-950/40 px-3 py-2.5 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 transition-colors focus:border-brand-500/80 focus:bg-white dark:focus:bg-gray-900/60 focus:ring-2 focus:ring-brand-500/20 dark:focus:border-brand-400 dark:focus:ring-brand-900/35 outline-none sm:min-h-[8rem] sm:py-3";
+
+const cardShellClass =
+  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+
+const cardShellMutedClass =
+  "overflow-hidden rounded-2xl border border-gray-200/70 bg-gray-50/50 dark:border-white/[0.06] dark:bg-gray-950/30";
+
+/** Misma escala que inputs nativos de la página */
+const inputFieldInsetClass =
+  "!text-sm !bg-gray-50/90 !border-gray-200/90 dark:!bg-gray-950/40 dark:!border-white/[0.08] focus:!ring-brand-500/25";
+
+/** Etiquetas de formulario ligeramente más pequeñas en móvil */
+const labelPageClass = "!mb-1 !text-xs !font-medium sm:!mb-1.5 sm:!text-sm";
 
 const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token") || "";
 
@@ -864,6 +878,14 @@ export default function NuevaCotizacionPage() {
     return { lines, subtotalLineas, descClientePct, descuentoCliente, subtotal, iva, total, ivaPct: ivaP };
   }, [conceptos, ivaPct, descuentoClientePct]);
 
+  /** Cliente, contacto y al menos un concepto (misma regla que validateClienteContacto + líneas) */
+  const canGuardarCotizacion = useMemo(() => {
+    if (!clienteId) return false;
+    if (!String(contactoNombre || "").trim()) return false;
+    if (!computed.lines.length) return false;
+    return true;
+  }, [clienteId, contactoNombre, computed.lines.length]);
+
   const resetAll = () => {
     setClienteId("");
     setContactoNombre("");
@@ -994,19 +1016,17 @@ export default function NuevaCotizacionPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
+    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
+      <div className="mx-auto max-w-7xl space-y-5 px-3 pb-8 pt-5 text-sm sm:space-y-8 sm:px-5 sm:pb-12 sm:pt-8 sm:text-base md:px-6 lg:px-8">
       <PageMeta title="Nueva Cotización | Sistema Grupo Intrax GPS" description="Crear nueva cotización" />
 
       <Modal isOpen={previewLoading} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
         <div className="p-7 sm:p-8">
           <div className="flex flex-col items-center justify-center text-center">
             <div className="relative mb-6">
-              <div className="absolute -inset-4 rounded-full bg-linear-to-r from-brand-500/18 via-blue-500/10 to-brand-500/18 blur-2xl" />
-              <div className="relative flex items-center justify-center w-[80px] h-[80px] rounded-2xl border border-gray-200/70 dark:border-white/10 bg-white/90 dark:bg-gray-900/70 shadow-theme-md">
-                <div className="absolute inset-0 rounded-2xl border border-gray-100/70 dark:border-white/5" />
-                <div className="relative flex items-center justify-center w-14 h-14 rounded-full bg-gray-50 dark:bg-gray-800">
-                  <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-brand-600 border-r-blue-500 dark:border-t-brand-400 dark:border-r-blue-300 animate-spin" />
-                  <div className="absolute inset-2 rounded-full border border-dashed border-gray-200/80 dark:border-gray-600/80" />
+              <div className="relative flex items-center justify-center w-[76px] h-[76px] rounded-2xl border border-gray-200/80 dark:border-white/10 bg-gray-50 dark:bg-gray-900/80">
+                <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-white/5">
+                  <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-brand-600 dark:border-t-brand-400 animate-spin" />
                   <div className="relative flex items-center justify-center">
                     <svg
                       className="w-8 h-8 text-brand-700 dark:text-brand-300"
@@ -1024,19 +1044,19 @@ export default function NuevaCotizacionPage() {
               </div>
             </div>
 
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Generando vista previa</h3>
-            <p className="mt-1 text-[13px] text-gray-600 dark:text-gray-400">
+            <h3 className="text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">Generando vista previa</h3>
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
               Esto puede tardar unos segundos. No cierres esta ventana.
             </p>
 
-            <div className="mt-5 w-full">
-              <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+            <div className="mt-6 w-full">
+              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                 <span>Progreso</span>
-                <span className="tabular-nums">{Math.min(99, Math.max(0, Math.round(loadingProgress)))}%</span>
+                <span className="tabular-nums font-medium">{Math.min(99, Math.max(0, Math.round(loadingProgress)))}%</span>
               </div>
-              <div className="mt-2 w-full rounded-full h-2.5 overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-white/10">
+              <div className="mt-2 w-full rounded-full h-2 overflow-hidden bg-gray-100 dark:bg-gray-800/80 border border-gray-200/60 dark:border-white/[0.06]">
                 <div
-                  className="h-full bg-linear-to-r from-brand-600 via-blue-600 to-brand-600 transition-[width] duration-500 ease-out"
+                  className="h-full bg-brand-600 dark:bg-brand-500 transition-[width] duration-500 ease-out"
                   style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
                 />
               </div>
@@ -1053,38 +1073,96 @@ export default function NuevaCotizacionPage() {
       )}
 
       {!canCotizacionesView ? (
-        <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No tienes permiso para ver Cotizaciones.</div>
+        <div className="py-10 text-center text-xs text-gray-500 dark:text-gray-400 sm:text-sm">No tienes permiso para ver Cotizaciones.</div>
       ) : (
         <>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">Nueva Cotización</h2>
-              <p className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">Completa los datos del cliente y agrega productos/servicios.</p>
+          <nav
+            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+            aria-label="Migas de pan"
+          >
+            <Link
+              to="/"
+              className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
+            >
+              Inicio
+            </Link>
+            <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+              /
+            </span>
+            <Link
+              to="/cotizacion"
+              className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
+            >
+              Cotizaciones
+            </Link>
+            <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+              /
+            </span>
+            <span className="font-medium text-gray-700 dark:text-gray-300">
+              {editingCotizacionId ? "Editar" : "Nueva"}
+            </span>
+          </nav>
+
+          <header className={`flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
+            <div className="flex min-w-0 gap-3 sm:gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+                <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+                    Cotización
+                  </p>
+                </div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
+                  <h1 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">
+                    {editingCotizacionId ? "Editar cotización" : "Nueva cotización"}
+                  </h1>
+                  {!!editingCotizacionId && (
+                    <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/[0.12] dark:text-amber-200">
+                      Edición · #{editingCotizacionId}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+                  {editingCotizacionId
+                    ? "Ajusta cliente, conceptos y totales; guarda los cambios o revisa el PDF antes de enviar."
+                    : "Define el cliente, agrega productos o servicios y revisa el resumen antes de guardar o generar la vista previa."}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
               <button
                 type="button"
                 onClick={() => navigate("/cotizacion")}
-                className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200"
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-800 transition-colors hover:border-gray-300 hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:hover:bg-white/[0.04] sm:w-auto sm:min-h-0"
                 aria-label="Regresar a cotizaciones"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10 19 3 12l7-7" />
                   <path d="M3 12h18" />
                 </svg>
-                <span className="hidden sm:inline">Regresar</span>
+                <span className="hidden sm:inline">Volver al listado</span>
+                <span className="sm:hidden">Volver</span>
               </button>
             </div>
-          </div>
+          </header>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-            <div className="lg:col-span-8 space-y-4">
-              <ComponentCard title="Datos de Cliente">
-                <div className="p-5">
-                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
+            <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-8">
+              <ComponentCard
+                title="Datos del cliente"
+                desc="Busca por nombre o teléfono y completa contacto, descuento y estado."
+                className={cardShellClass}
+                compact
+              >
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Cliente</label>
+                      <label className="mb-1 block text-[11px] font-medium text-gray-600 dark:text-gray-400 sm:text-xs">Cliente</label>
                       <div className="relative">
                         <div className="relative">
                           <svg className='absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'><circle cx='11' cy='11' r='7' /><path d='m20 20-2-2' /></svg>
@@ -1094,7 +1172,7 @@ export default function NuevaCotizacionPage() {
                             onFocus={() => setClienteOpen(true)}
                             placeholder={loadingClientes ? 'Cargando clientes...' : 'Buscar cliente por nombre o teléfono...'}
                             disabled={loadingClientes}
-                            className='block w-full rounded-lg border border-gray-300 bg-white pl-8 pr-20 py-2.5 text-[13px] text-gray-800 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                            className="block min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-8 pr-20 text-sm text-gray-800 outline-none transition-colors focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5"
                           />
                           <div className='absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5'>
                             {(clienteId || clienteSearch) && (
@@ -1106,7 +1184,7 @@ export default function NuevaCotizacionPage() {
                           </div>
                         </div>
                         {clienteOpen && (
-                          <div className='absolute z-20 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white/95 dark:bg-gray-900/95 backdrop-blur max-h-64 overflow-auto custom-scrollbar divide-y divide-gray-100 dark:divide-gray-800 shadow-theme-md'>
+                          <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto divide-y divide-gray-100 rounded-lg border border-gray-200/80 bg-white shadow-sm backdrop-blur-sm dark:divide-white/[0.06] dark:border-white/[0.08] dark:bg-gray-900/95 custom-scrollbar">
                             <button type='button' onClick={() => selectCliente(null)} className={`w-full text-left px-3 py-2 text-[11px] hover:bg-brand-50 dark:hover:bg-gray-800 dark:text-white ${!clienteId ? 'bg-brand-50/60 dark:bg-gray-800/50 font-medium text-brand-700 dark:text-white' : ''}`}>Selecciona cliente</button>
                             {filteredClientes.map(c => (
                               <button key={c.id} type='button' onClick={() => selectCliente(c)} className='w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition'>
@@ -1135,7 +1213,7 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div>
-                      <Label>Contacto</Label>
+                      <Label className={labelPageClass}>Contacto</Label>
                       <input
                         value={contactoNombre}
                         onChange={(e) => setContactoNombre(e.target.value)}
@@ -1151,8 +1229,9 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div>
-                      <Label>Descuento de Cliente (%)</Label>
+                      <Label className={labelPageClass}>Descuento de Cliente (%)</Label>
                       <Input
+                        className={inputFieldInsetClass}
                         type="number"
                         value={String(descuentoClientePct)}
                         onChange={(e) => {
@@ -1167,7 +1246,7 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div>
-                      <Label>Medio de Contacto</Label>
+                      <Label className={labelPageClass}>Medio de Contacto</Label>
                       <select
                         value={medioContacto}
                         onChange={(e) => setMedioContacto(e.target.value)}
@@ -1183,7 +1262,7 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div>
-                      <Label>Status</Label>
+                      <Label className={labelPageClass}>Status</Label>
                       <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputLikeClassName}>
                         {STATUS_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -1193,16 +1272,18 @@ export default function NuevaCotizacionPage() {
                       </select>
                     </div>
                   </div>
-                </div>
               </ComponentCard>
 
               <ComponentCard
                 title="Agregar productos o servicios"
+                desc="Integra con catálogo Syscom o captura manualmente cantidad, precio y descuento."
+                className={cardShellClass}
+                compact
                 actions={
                   <button
                     type="button"
                     onClick={clearConceptoForm}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-gray-200 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200 dark:hover:bg-gray-800"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200/90 bg-white text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/25 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:bg-white/[0.04]"
                     aria-label="Limpiar sección de producto"
                     title="Limpiar"
                   >
@@ -1216,11 +1297,11 @@ export default function NuevaCotizacionPage() {
                   </button>
                 }
               >
-                <div className="p-5">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-x-6">
-                    <div className="lg:col-span-2">
-                      <Label>Cant</Label>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-6 lg:grid-cols-12 lg:gap-x-6">
+                    <div className="sm:col-span-2 lg:col-span-2">
+                      <Label className={labelPageClass}>Cant</Label>
                       <Input
+                        className={inputFieldInsetClass}
                         type="number"
                         value={String(cantidad)}
                         onChange={(e) => setCantidad(toNumber(e.target.value, 0))}
@@ -1230,8 +1311,8 @@ export default function NuevaCotizacionPage() {
                       />
                     </div>
 
-                    <div className="lg:col-span-5">
-                      <Label>Concepto / nombre</Label>
+                    <div className="sm:col-span-4 lg:col-span-5">
+                      <Label className={labelPageClass}>Concepto / nombre</Label>
                       <div className="relative">
                         <input
                           className={inputLikeClassName}
@@ -1246,7 +1327,7 @@ export default function NuevaCotizacionPage() {
                           placeholder="Buscar producto Syscom o escribir manualmente"
                         />
                         {syscomOpen && (loadingSyscom || syscomProductos.length > 0 || !!syscomError || conceptoNombre.trim().length >= 2) && (
-                          <div className="absolute z-30 mt-1 w-full max-h-72 overflow-auto rounded-xl border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-900 shadow-theme-md custom-scrollbar">
+                          <div className="absolute z-30 mt-1 w-full max-h-72 overflow-auto rounded-lg border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.08] dark:bg-gray-900 custom-scrollbar">
                             {loadingSyscom && (
                               <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">Buscando en Syscom...</div>
                             )}
@@ -1292,9 +1373,10 @@ export default function NuevaCotizacionPage() {
                       </div>
                     </div>
 
-                    <div className="lg:col-span-3">
-                      <Label>Precio del producto</Label>
+                    <div className="sm:col-span-3 lg:col-span-3">
+                      <Label className={labelPageClass}>Precio del producto</Label>
                       <Input
+                        className={inputFieldInsetClass}
                         type="number"
                         value={String(precioLista)}
                         onChange={(e) => setPrecioLista(toNumber(e.target.value, 0))}
@@ -1304,9 +1386,10 @@ export default function NuevaCotizacionPage() {
                       />
                     </div>
 
-                    <div className="lg:col-span-2">
-                      <Label>Desct%</Label>
+                    <div className="sm:col-span-3 lg:col-span-2">
+                      <Label className={labelPageClass}>Desct%</Label>
                       <Input
+                        className={inputFieldInsetClass}
                         type="number"
                         value={String(descuentoPct)}
                         onChange={(e) => setDescuentoPct(clampPct(toNumber(e.target.value, 0)))}
@@ -1317,42 +1400,50 @@ export default function NuevaCotizacionPage() {
                       />
                     </div>
 
-                    <div className="lg:col-span-12">
-                      <div className="rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 px-4 py-3 shadow-theme-xs">
-                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+                    <div className="sm:col-span-6 lg:col-span-12">
+                      <div className={`${cardShellMutedClass} px-4 py-3`}>
+                        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
                           <div>
-                            <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Precio unitario</div>
-                            <div className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(preview.pu)}</div>
+                            <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Precio unitario</div>
+                            <div className="mt-1 text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{formatMoney(preview.pu)}</div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Importe</div>
-                            <div className="mt-0.5 text-base font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(preview.importe)}</div>
+                          <div className="text-left sm:text-right">
+                            <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Importe de línea</div>
+                            <div className="mt-1 text-base font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white sm:text-lg">{formatMoney(preview.importe)}</div>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="lg:col-span-12 pt-1">
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
+                    <div className="sm:col-span-6 lg:col-span-12 pt-1">
+                      <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:items-center sm:gap-3">
                         <button
                           type="button"
                           onClick={addConcepto}
                           disabled={!canAddConcepto}
-                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                         >
                           {editingConceptoId ? "Actualizar" : "Agregar"}
                         </button>
                       </div>
                     </div>
                   </div>
-                </div>
               </ComponentCard>
 
-              <ComponentCard title="Productos o servicios">
-                <div className="p-2">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader className="bg-linear-to-r from-brand-50 to-transparent dark:from-gray-800 dark:to-gray-800/60 sticky top-0 z-10 text-[11px] font-medium text-gray-900 dark:text-white">
+              <ComponentCard
+                title="Detalle de conceptos"
+                desc="Revisa cantidades, precios con IVA y acciones por línea."
+                className={cardShellClass}
+                compact
+              >
+                <p className="mb-2 flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400 sm:hidden">
+                  <span className="inline-block h-px w-4 bg-brand-400/60" aria-hidden />
+                  Desliza horizontalmente para ver todas las columnas
+                </p>
+                <div className="-mx-3 overflow-hidden rounded-xl border border-gray-200/70 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/25 sm:mx-0">
+                  <div className="touch-pan-x overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] px-1 pb-1 sm:px-0 sm:pb-0">
+                    <Table className="min-w-[720px]">
+                      <TableHeader className="sticky top-0 z-10 border-b border-gray-200/80 bg-gray-100/90 text-[10px] font-semibold text-gray-700 backdrop-blur-sm dark:border-white/[0.06] dark:bg-gray-900/90 dark:text-gray-200 sm:text-[11px]">
                         <TableRow>
                           <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Cant.</TableCell>
                           <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Unidad</TableCell>
@@ -1365,7 +1456,7 @@ export default function NuevaCotizacionPage() {
                           <TableCell isHeader className="px-2 py-2 text-center w-1/12 text-gray-700 dark:text-gray-300"> </TableCell>
                         </TableRow>
                       </TableHeader>
-                      <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
+                      <TableBody className="divide-y divide-gray-100 text-[11px] text-gray-700 dark:divide-white/[0.06] dark:text-gray-200 sm:text-[12px]">
                         {computed.lines.map((c) => {
                           const ivaFactor = 1 + (clampPct(toNumber(computed.ivaPct, 0)) / 100);
                           const precioListaConIva = toNumber(c.precio_lista, 0) * ivaFactor;
@@ -1393,18 +1484,18 @@ export default function NuevaCotizacionPage() {
                                 <button
                                   type="button"
                                   onClick={() => editConcepto(c.id)}
-                                  className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                                  className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
                                   title="Editar"
                                 >
-                                  <PencilIcon className="w-4 h-4" />
+                                  <PencilIcon className="h-4 w-4" />
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => removeConcepto(c.id)}
-                                  className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                                  className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
                                   title="Eliminar"
                                 >
-                                  <TrashBinIcon className="w-4 h-4" />
+                                  <TrashBinIcon className="h-4 w-4" />
                                 </button>
                               </div>
                             </TableCell>
@@ -1417,12 +1508,17 @@ export default function NuevaCotizacionPage() {
                             <TableCell className="px-2 py-2"> </TableCell>
                             <TableCell className="px-2 py-2"> </TableCell>
                             <TableCell className="px-2 py-2"> </TableCell>
-                            <TableCell className="px-2 py-2 text-center text-sm text-gray-500">Sin conceptos</TableCell>
-                            <TableCell className="px-2 py-2"> </TableCell>
-                            <TableCell className="px-2 py-2"> </TableCell>
-                            <TableCell className="px-2 py-2"> </TableCell>
-                            <TableCell className="px-2 py-2"> </TableCell>
-                            <TableCell className="px-2 py-2"> </TableCell>
+                            <TableCell colSpan={6} className="px-4 py-10 text-center">
+                              <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
+                                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400">
+                                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                                  </svg>
+                                </span>
+                                <p className="text-xs font-medium text-gray-700 dark:text-gray-200 sm:text-sm">Aún no hay conceptos</p>
+                                <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 sm:text-xs">Usa el formulario de arriba para agregar productos o servicios.</p>
+                              </div>
+                            </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
@@ -1431,17 +1527,22 @@ export default function NuevaCotizacionPage() {
                 </div>
               </ComponentCard>
 
-              <ComponentCard title="Notas">
+              <ComponentCard
+                title="Notas y condiciones"
+                desc="Texto opcional que aparecerá en el documento de cotización."
+                className={cardShellClass}
+                compact
+              >
                 <div className="grid grid-cols-1 gap-5">
                   <div>
                     <div className="flex items-baseline justify-between gap-3">
-                      <Label>Texto arriba de los precios</Label>
-                      <span className="text-[11px] text-gray-500 dark:text-gray-400">Máx. 5000</span>
+                      <Label className={labelPageClass}>Texto arriba de los precios</Label>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Máx. 5000</span>
                     </div>
                     <textarea
                       value={textoArribaPrecios}
                       onChange={(e) => setTextoArribaPrecios(e.target.value.slice(0, 5000))}
-                      className={`${textareaLikeClassName} mt-2 rounded-xl bg-white/70 dark:bg-gray-900/40 border-gray-200/70 dark:border-white/10`}
+                      className={`${textareaLikeClassName} mt-2 rounded-lg`}
                       rows={6}
                     />
                   </div>
@@ -1450,13 +1551,13 @@ export default function NuevaCotizacionPage() {
                 <div className="grid grid-cols-1 gap-5">
                   <div>
                     <div className="flex items-baseline justify-between gap-3">
-                      <Label>Términos y condiciones</Label>
-                      <span className="text-[11px] text-gray-500 dark:text-gray-400">Máx. 8000</span>
+                      <Label className={labelPageClass}>Términos y condiciones</Label>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Máx. 8000</span>
                     </div>
                     <textarea
                       value={terminos}
                       onChange={(e) => setTerminos(e.target.value.slice(0, 8000))}
-                      className={`${textareaLikeClassName} mt-2 rounded-xl bg-white/70 dark:bg-gray-900/40 border-gray-200/70 dark:border-white/10`}
+                      className={`${textareaLikeClassName} mt-2 rounded-lg`}
                       rows={15}
                     />
                   </div>
@@ -1464,67 +1565,89 @@ export default function NuevaCotizacionPage() {
               </ComponentCard>
             </div>
 
-            <div className="lg:col-span-4 lg:sticky lg:top-4 space-y-4">
-              <ComponentCard title="Resumen Cotización">
-                <div className="p-4">
-                  <div className="grid grid-cols-1 gap-3">
-                    <div className="flex items-center justify-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                      <svg className="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M8 2v3M16 2v3M4 7h16M6 10h12v10H6z" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                      <span>{formatDMY(todayIso)}</span>
+            <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-4 lg:sticky lg:top-6 lg:self-start xl:top-8">
+              <ComponentCard
+                title="Resumen"
+                desc="Totales y acciones principales."
+                className={cardShellClass}
+                compact
+              >
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200/80 bg-gray-50/60 px-3 py-2.5 dark:border-white/[0.06] dark:bg-gray-950/35">
+                      <div className="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-200 sm:text-sm">
+                        <svg className="h-3.5 w-3.5 shrink-0 text-gray-500 dark:text-gray-400 sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M8 2v3M16 2v3M4 7h16M6 10h12v10H6z" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span>Fecha de cotización</span>
+                      </div>
+                      <span className="text-xs font-semibold tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatDMY(todayIso)}</span>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 p-4 shadow-theme-xs">
-                      <div className="flex items-baseline justify-between">
-                        <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Total</div>
-                        <div className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.total)}</div>
+                    <div className="rounded-xl border border-gray-200/80 bg-white p-4 dark:border-white/[0.08] dark:bg-gray-950/40">
+                      <div className="flex items-end justify-between gap-3 border-b border-gray-100 pb-3 dark:border-white/[0.06]">
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Total estimado</div>
+                          <div className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white sm:text-2xl">{formatMoney(computed.total)}</div>
+                        </div>
+                        <div className="text-right text-[9px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500 sm:text-[10px]">MXN</div>
                       </div>
 
-                      <div className="mt-3 pt-3 border-t border-gray-200/70 dark:border-white/10 grid grid-cols-1 gap-2">
+                      <div className="mt-3 grid grid-cols-1 gap-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[12px] text-gray-500 dark:text-gray-400">Subtotal</span>
-                          <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.subtotalLineas)}</span>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Subtotal líneas</span>
+                          <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.subtotalLineas)}</span>
                         </div>
                         {!!toNumber(computed.descClientePct, 0) && (
                           <>
                             <div className="flex items-center justify-between">
-                              <span className="text-[12px] text-gray-500 dark:text-gray-400">Descuento ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</span>
-                              <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">-{formatMoney(computed.descuentoCliente)}</span>
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Descuento cliente ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</span>
+                              <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">-{formatMoney(computed.descuentoCliente)}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-[12px] text-gray-500 dark:text-gray-400">Descuento</span>
-                              <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.subtotal)}</span>
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Base</span>
+                              <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.subtotal)}</span>
                             </div>
                           </>
                         )}
                         <div className="flex items-center justify-between">
-                          <span className="text-[12px] text-gray-500 dark:text-gray-400">IVA ({clampPct(toNumber(ivaPct, 16)).toFixed(2)}%)</span>
-                          <span className="text-[13px] font-semibold text-gray-900 dark:text-white tabular-nums">{formatMoney(computed.iva)}</span>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">IVA ({clampPct(toNumber(ivaPct, 16)).toFixed(2)}%)</span>
+                          <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.iva)}</span>
                         </div>
                       </div>
                     </div>
 
+                    {!canGuardarCotizacion && (
+                      <div className="rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 dark:border-amber-500/25 dark:bg-amber-500/[0.08]">
+                        <p className="text-xs font-semibold text-amber-950 dark:text-amber-100/95">Completa lo siguiente para guardar</p>
+                        <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-xs text-amber-900/90 dark:text-amber-200/90">
+                          {!clienteId && <li>Selecciona un cliente</li>}
+                          {!!clienteId && !String(contactoNombre || "").trim() && <li>Indica el nombre del contacto</li>}
+                          {!computed.lines.length && <li>Agrega al menos un producto o servicio</li>}
+                        </ul>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 gap-2">
                       <button
                         type="button"
-                        disabled={!computed.lines.length}
+                        disabled={!canGuardarCotizacion}
                         onClick={() => {
                           void handleSaveCotizacion(true);
                         }}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={!clienteId ? "Selecciona un cliente" : undefined}
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-3 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                       >
-                        {editingCotizacionId ? "Actualizar Cotización" : "Guardar Cotización"}
+                        {editingCotizacionId ? "Actualizar cotización" : "Guardar cotización"}
                       </button>
                       <button
                         type="button"
-                        disabled={!computed.lines.length || previewLoading}
+                        disabled={!canGuardarCotizacion || previewLoading}
                         onClick={handlePreviewPdf}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-xs font-semibold text-blue-700 shadow-theme-xs hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-900/40 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-brand-200/90 bg-white px-4 py-3 text-xs font-semibold text-brand-800 transition-colors hover:bg-brand-50/80 focus:outline-none focus:ring-2 focus:ring-brand-500/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-500/30 dark:bg-transparent dark:text-brand-200 dark:hover:bg-brand-500/[0.08] sm:min-h-0"
                       >
                         {previewLoading ? (
                           <>
-                            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
                             </svg>
                             Generando...
@@ -1536,12 +1659,11 @@ export default function NuevaCotizacionPage() {
                       <button
                         type="button"
                         onClick={resetAll}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs font-semibold text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200"
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-white px-4 py-3 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-transparent dark:text-gray-200 dark:hover:bg-white/[0.04] sm:min-h-0"
                       >
-                        Limpiar
+                        Limpiar formulario
                       </button>
                     </div>
-                  </div>
                 </div>
               </ComponentCard>
             </div>
@@ -1549,6 +1671,7 @@ export default function NuevaCotizacionPage() {
 
         </>
       )}
+      </div>
     </div>
   );
 }

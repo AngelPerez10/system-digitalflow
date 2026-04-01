@@ -1,13 +1,22 @@
 import PageMeta from "@/components/common/PageMeta";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { useEffect, useMemo, useState } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { PencilIcon, TrashBinIcon } from "@/icons";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { apiUrl } from "@/config/api";
+
+const cardShellClass =
+  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+
+const searchInputClass =
+  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
+
+/** Medio en gris neutro; el estado usa color semántico */
+const medioChipClass =
+  "border border-gray-200/80 bg-gray-50/90 text-gray-800 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200";
 
 let lastPermissionsFetchAt = 0;
 let lastCotizacionesFetchAt = 0;
@@ -270,26 +279,12 @@ export default function CotizacionesPage() {
   const statusChipClass = (raw: string) => {
     const s = String(raw || '').trim().toUpperCase();
     if (s === 'AUTORIZADA') {
-      return 'bg-emerald-50 text-emerald-700 ring-emerald-200/70 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20';
+      return 'border border-emerald-200/80 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/[0.08] dark:text-emerald-200';
     }
     if (s === 'CANCELADA') {
-      return 'bg-rose-50 text-rose-700 ring-rose-200/70 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/20';
+      return 'border border-rose-200/80 bg-rose-50/90 text-rose-800 dark:border-rose-500/25 dark:bg-rose-500/[0.08] dark:text-rose-200';
     }
-    return 'bg-amber-50 text-amber-700 ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20';
-  };
-
-  const medioChipClass = (raw: string) => {
-    const s = String(raw || '').trim().toUpperCase();
-    if (s === 'BNI' || s === 'REFERIDO') {
-      return 'bg-indigo-50 text-indigo-700 ring-indigo-200/70 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20';
-    }
-    if (s === 'WEB' || s === 'GOOGLE_MAPS' || s === 'YOUTUBE') {
-      return 'bg-sky-50 text-sky-700 ring-sky-200/70 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-500/20';
-    }
-    if (s === 'FACEBOOK' || s === 'INSTAGRAM' || s === 'TIKTOK') {
-      return 'bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-200/70 dark:bg-fuchsia-500/10 dark:text-fuchsia-300 dark:ring-fuchsia-500/20';
-    }
-    return 'bg-gray-50 text-gray-700 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10';
+    return 'border border-amber-200/80 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/[0.08] dark:text-amber-200';
   };
 
   const shownList = useMemo(() => {
@@ -315,212 +310,267 @@ export default function CotizacionesPage() {
   }, [rows]);
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
+    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
+      <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
       <PageMeta title="Cotizaciones | Sistema Grupo Intrax GPS" description="Gestión de cotizaciones" />
-      <PageBreadcrumb pageTitle="Cotizaciones" />
 
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
       )}
 
       {!canCotizacionesView ? (
-        <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No tienes permiso para ver Cotizaciones.</div>
+        <div className={`rounded-2xl border border-gray-200/80 bg-white px-4 py-10 text-center text-xs text-gray-500 shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:text-gray-400 sm:text-sm`}>
+          No tienes permiso para ver Cotizaciones.
+        </div>
       ) : (
-        <div>
+        <>
+          <nav
+            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+            aria-label="Migas de pan"
+          >
+            <Link
+              to="/"
+              className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
+            >
+              Inicio
+            </Link>
+            <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+              /
+            </span>
+            <span className="font-medium text-gray-700 dark:text-gray-300">Cotizaciones</span>
+          </nav>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
-            <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-              <div className="flex items-center gap-4">
-                <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shadow-sm">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M6 6h12" />
-                    <path d="M6 12h12" />
-                    <path d="M6 18h12" />
+          <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
+            <div className="flex min-w-0 gap-3 sm:gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+                <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+                  Ventas
+                </p>
+                <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">
+                  Cotizaciones
+                </h1>
+                <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+                  Consulta el historial, filtra por cliente o folio, abre el PDF y administra el estado de cada cotización.
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <div className="grid w-full grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4 lg:gap-4 xl:gap-5">
+            <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M6 6h12M6 12h12M6 18h12" strokeLinecap="round" />
                   </svg>
                 </span>
-                <div className="flex flex-col">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Cotizaciones</p>
-                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.total}</p>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Total</p>
+                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.total}</p>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-              <div className="flex items-center gap-4">
-                <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 shadow-sm">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <div className={`${cardShellClass} p-3 sm:p-4`}>
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/80 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/[0.08] dark:text-emerald-300 sm:h-10 sm:w-10">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                     <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
-                <div className="flex flex-col">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Autorizadas</p>
-                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.autorizadas}</p>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Autorizadas</p>
+                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.autorizadas}</p>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-              <div className="flex items-center gap-4">
-                <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300 shadow-sm">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <div className={`${cardShellClass} p-3 sm:p-4`}>
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/80 text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/[0.08] dark:text-amber-200 sm:h-10 sm:w-10">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                     <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                   </svg>
                 </span>
-                <div className="flex flex-col">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Pendientes</p>
-                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{stats.pendientes}</p>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Pendientes</p>
+                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.pendientes}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className={`${cardShellClass} p-3 sm:p-4`}>
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-rose-200/70 bg-rose-50/80 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/[0.08] dark:text-rose-300 sm:h-10 sm:w-10">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Canceladas</p>
+                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.canceladas}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
-                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-                      <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Cotizaciones</h2>
-                    <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">Administra, edita y genera PDF.</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="relative w-full sm:w-[320px]">
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar por folio, cliente, contacto o usuario"
-                    className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
-                  />
-                  {searchTerm && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchTerm('')}
-                      aria-label="Limpiar búsqueda"
-                      className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5"
-                    >
-                      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                        <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
+            <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
+              <svg
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path
+                  d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Folio, cliente, contacto o usuario…"
+                className={searchInputClass}
+              />
+              {searchTerm && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!canCotizacionesCreate) {
-                      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear cotizaciones.' });
-                      window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
-                      return;
-                    }
-                    navigate("/cotizacion/nueva");
-                  }}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  onClick={() => setSearchTerm("")}
+                  aria-label="Limpiar búsqueda"
+                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
                   </svg>
-                  Nueva Cotización
                 </button>
-              </div>
+              )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!canCotizacionesCreate) {
+                  setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para crear cotizaciones." });
+                  window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
+                  return;
+                }
+                navigate("/cotizacion/nueva");
+              }}
+              className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+              Nueva cotización
+            </button>
           </div>
 
-          <div className="mt-4 pt-1">
-            <ComponentCard title="Listado">
-              <div className="p-2 pt-0">
-                <div className="overflow-x-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40">
-                  <Table className="w-full table-fixed">
-                    <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
+          <ComponentCard
+            title="Listado de cotizaciones"
+            desc="Resultados según tu búsqueda. En pantallas pequeñas desplázate horizontalmente para ver todas las columnas."
+            className={cardShellClass}
+            compact
+          >
+            <p className="mb-2 flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400 sm:hidden">
+              <span className="inline-block h-px w-4 bg-brand-400/60" aria-hidden />
+              Desliza horizontalmente para ver el listado completo
+            </p>
+            <div className="touch-pan-x overflow-x-auto overscroll-x-contain rounded-xl border border-gray-200/70 bg-white/70 [-webkit-overflow-scrolling:touch] dark:border-white/[0.08] dark:bg-gray-900/40">
+                  <Table className="w-full min-w-[1000px] table-fixed sm:min-w-0 xl:min-w-full">
+                    <TableHeader className="sticky top-0 z-10 border-b border-gray-200/80 bg-gray-100/90 text-[10px] font-semibold text-gray-700 backdrop-blur-sm dark:border-white/[0.06] dark:bg-gray-900/90 dark:text-gray-200 sm:text-[11px]">
                       <TableRow>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-gray-700 dark:text-gray-300">Folio</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[120px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Fecha</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[150px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">Medio</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[130px] min-w-[120px] whitespace-nowrap text-gray-700 dark:text-gray-300">Status</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[180px] min-w-[150px] whitespace-nowrap text-gray-700 dark:text-gray-300">Creada por</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[180px] min-w-[150px] whitespace-nowrap text-gray-700 dark:text-gray-300">Editada por</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[220px] min-w-[200px] whitespace-nowrap text-gray-700 dark:text-gray-300">Cliente</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-left w-[110px] min-w-[120px] whitespace-nowrap text-gray-700 dark:text-gray-300">Monto</TableCell>
-                        <TableCell isHeader className="px-3 py-2 text-center w-[126px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
+                        <TableCell isHeader className="w-[88px] min-w-[80px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Folio</TableCell>
+                        <TableCell isHeader className="w-[112px] min-w-[100px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Fecha</TableCell>
+                        <TableCell isHeader className="w-[128px] min-w-[112px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3 xl:w-[11%]">Medio</TableCell>
+                        <TableCell isHeader className="w-[112px] min-w-[100px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3 xl:w-[10%]">Status</TableCell>
+                        <TableCell isHeader className="min-w-[140px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3 xl:w-[13%]">Creada por</TableCell>
+                        <TableCell isHeader className="min-w-[140px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3 xl:w-[13%]">Editada por</TableCell>
+                        <TableCell isHeader className="min-w-[180px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3 xl:min-w-[12rem] xl:w-[24%]">Cliente</TableCell>
+                        <TableCell isHeader className="w-[120px] min-w-[108px] whitespace-nowrap px-2 py-2 text-right text-gray-700 dark:text-gray-300 sm:px-3">Monto</TableCell>
+                        <TableCell isHeader className="w-[120px] min-w-[108px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300 sm:px-3">Acciones</TableCell>
                       </TableRow>
                     </TableHeader>
 
-                    <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
+                    <TableBody className="divide-y divide-gray-100 text-[11px] text-gray-700 dark:divide-white/[0.06] dark:text-gray-200 sm:text-[12px]">
                       {loading ? (
                         <TableRow>
-                          <TableCell className="px-3 py-3" colSpan={10}>Cargando...</TableCell>
+                          <TableCell className="px-3 py-3 text-gray-500 dark:text-gray-400" colSpan={9}>
+                            Cargando…
+                          </TableCell>
                         </TableRow>
                       ) : shownList.length === 0 ? (
                         <TableRow>
-                          <TableCell className="px-3 py-2" colSpan={10}>
-                            <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No hay cotizaciones.</div>
+                          <TableCell className="px-3 py-2" colSpan={9}>
+                            <div className="py-8 text-center text-xs text-gray-500 dark:text-gray-400 sm:text-sm">No hay cotizaciones.</div>
                           </TableCell>
                         </TableRow>
                       ) : (
                         shownList.map((r) => {
                           const statusUpper = String(r.status || 'PENDIENTE').toUpperCase();
                           return (
-                            <TableRow key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
-                              <TableCell className="px-3 py-2 whitespace-nowrap">
-                                <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white text-[11px] font-semibold tabular-nums">
+                            <TableRow key={r.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                              <TableCell className="whitespace-nowrap px-2 py-2 sm:px-3">
+                                <span className="inline-flex items-center justify-center rounded-md border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-gray-900 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-white sm:text-[11px]">
                                   {r.idx ? r.idx : "—"}
                                 </span>
                               </TableCell>
-                              <TableCell className="px-3 py-2 whitespace-nowrap">
-                                <div className="text-[12px] text-gray-900 dark:text-white">{formatDMY(r.fecha)}</div>
+                              <TableCell className="whitespace-nowrap px-2 py-2 sm:px-3">
+                                <div className="text-[11px] text-gray-900 dark:text-white sm:text-[12px]">{formatDMY(r.fecha)}</div>
                               </TableCell>
-                              <TableCell className="px-3 py-2 whitespace-nowrap">
-                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ${medioChipClass(r.medioContacto)}`}>
+                              <TableCell className="whitespace-nowrap px-2 py-2 sm:px-3">
+                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${medioChipClass}`}>
                                   {normalizeMedioLabel(r.medioContacto)}
                                 </span>
                               </TableCell>
-                              <TableCell className="px-3 py-2 whitespace-nowrap">
-                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ${statusChipClass(r.status)}`}>
+                              <TableCell className="whitespace-nowrap px-2 py-2 sm:px-3">
+                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${statusChipClass(r.status)}`}>
                                   {statusUpper === 'PENDIENTE'
                                     ? 'Pendiente'
                                     : String(r.status || '—').charAt(0).toUpperCase() + String(r.status || '—').slice(1).toLowerCase()}
                                 </span>
                               </TableCell>
-                              <TableCell className="px-3 py-2 whitespace-nowrap">
-                                <div className="flex flex-col">
-                                  <span className="text-[12px] text-gray-900 dark:text-white truncate">{r.creadaPor}</span>
-                                  <span className="text-[11px] text-gray-500 dark:text-gray-400">Creada</span>
+                              <TableCell className="min-w-[140px] px-2 py-2 sm:px-3 xl:w-[13%]">
+                                <div className="flex min-w-0 flex-col">
+                                  <span className="truncate text-[11px] text-gray-900 dark:text-white sm:text-[12px]">{r.creadaPor}</span>
+                                  <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Creada</span>
                                 </div>
                               </TableCell>
-                              <TableCell className="px-3 py-2 whitespace-nowrap">
-                                <div className="flex flex-col">
-                                  <span className="text-[12px] text-gray-900 dark:text-white truncate">{r.editadaPor}</span>
-                                  <span className="text-[11px] text-gray-500 dark:text-gray-400">Última edición</span>
+                              <TableCell className="min-w-[140px] px-2 py-2 sm:px-3 xl:w-[13%]">
+                                <div className="flex min-w-0 flex-col">
+                                  <span className="truncate text-[11px] text-gray-900 dark:text-white sm:text-[12px]">{r.editadaPor}</span>
+                                  <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Última edición</span>
                                 </div>
                               </TableCell>
-                              <TableCell className="px-3 py-2 whitespace-nowrap">
-                                <div className="flex flex-col">
-                                  <span className="text-[12px] font-medium text-gray-900 dark:text-white truncate">{r.cliente}</span>
+                              <TableCell className="min-w-[180px] px-2 py-2 sm:px-3 xl:w-[24%]">
+                                <div className="flex min-w-0 flex-col">
+                                  <span className="truncate text-[11px] font-medium text-gray-900 dark:text-white sm:text-[12px]" title={r.cliente}>
+                                    {r.cliente}
+                                  </span>
                                 </div>
                               </TableCell>
-                              <TableCell className="px-3 py-2 whitespace-nowrap text-left">
-                                <span className="inline-flex items-center justify-start px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white text-[12px] font-semibold tabular-nums">
+                              <TableCell className="whitespace-nowrap px-2 py-2 text-right sm:px-3">
+                                <span className="inline-flex items-center justify-start rounded-md border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-gray-900 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-white sm:text-[12px]">
                                   {r.monto}
                                 </span>
                               </TableCell>
-                              <TableCell className="px-3 py-2 text-center">
+                              <TableCell className="px-2 py-2 text-center sm:px-3">
                                 <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
                                   <button
                                     type="button"
                                     onClick={() => navigate(`/cotizacion/${r.id}/pdf`)}
-                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 transition"
+                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
                                     title="PDF"
                                   >
                                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -541,7 +591,7 @@ export default function CotizacionesPage() {
                                       }
                                       navigate(`/cotizacion/${r.id}/editar`);
                                     }}
-                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
                                     title="Editar"
                                   >
                                     <PencilIcon className="w-4 h-4" />
@@ -549,7 +599,7 @@ export default function CotizacionesPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleAskDelete(r)}
-                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
                                     title="Eliminar"
                                   >
                                     <TrashBinIcon className="w-4 h-4" />
@@ -562,16 +612,14 @@ export default function CotizacionesPage() {
                       )}
                     </TableBody>
                   </Table>
-                </div>
-              </div>
+            </div>
             </ComponentCard>
-          </div>
 
           {cotizacionToDelete && (
-            <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-full max-w-md mx-4 sm:mx-auto">
-              <div className="p-6">
-                <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-error-100 dark:bg-error-900/30">
-                  <svg className="w-6 h-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="mx-4 w-full max-w-md sm:mx-auto">
+              <div className="border-b border-gray-100 p-5 dark:border-white/[0.06] sm:p-6">
+                <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-error-200/80 bg-error-50/90 dark:border-error-500/25 dark:bg-error-500/[0.12]">
+                  <svg className="h-5 w-5 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -580,22 +628,25 @@ export default function CotizacionesPage() {
                     />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">¿Eliminar Cotización?</h3>
-                <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
-                  ¿Estás seguro de que deseas eliminar la cotización para <span className="font-semibold">{cotizacionToDelete.cliente}</span>? Esta acción no se puede deshacer.
+                <h3 className="mb-2 text-center text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">
+                  ¿Eliminar cotización?
+                </h3>
+                <p className="mb-6 text-center text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
+                  ¿Seguro que deseas eliminar la cotización de{" "}
+                  <span className="font-semibold text-gray-900 dark:text-white">{cotizacionToDelete.cliente}</span>? Esta acción no se puede deshacer.
                 </p>
-                <div className="flex gap-3">
+                <div className="flex gap-2 sm:gap-3">
                   <button
                     type="button"
                     onClick={handleCancelDelete}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="flex-1 rounded-lg border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:bg-white/[0.04] sm:text-sm"
                   >
                     Cancelar
                   </button>
                   <button
                     type="button"
                     onClick={handleConfirmDelete}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-error-600 rounded-lg hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/50"
+                    className="flex-1 rounded-lg bg-error-600 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/40 sm:text-sm"
                   >
                     Eliminar
                   </button>
@@ -604,8 +655,9 @@ export default function CotizacionesPage() {
             </Modal>
           )}
 
-        </div>
+        </>
       )}
+      </div>
     </div>
   );
 }

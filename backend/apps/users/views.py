@@ -1,4 +1,7 @@
+import base64
 import os
+import re
+from pathlib import Path
 
 from django.contrib.auth import authenticate, get_user_model
 from django.db.models import Q
@@ -58,6 +61,53 @@ def _delete_signature_public_id(public_id: str) -> None:
         cloudinary.uploader.destroy(public_id, resource_type='image')
     except Exception:
         return
+
+
+def _upload_avatar_data_url_local(user_id: int, data_url: str) -> tuple[str, str]:
+    m = re.match(r'^data:(image/[\w.+-]+);base64,(.+)$', data_url, re.DOTALL | re.IGNORECASE)
+    if not m:
+        raise ValueError('Imagen inválida')
+    raw = base64.b64decode(m.group(2), validate=True)
+    if len(raw) > 5 * 1024 * 1024:
+        raise ValueError('La imagen supera 5MB')
+    sub = m.group(1).lower()
+    ext = '.png' if 'png' in sub else '.jpg'
+    rel = f'avatars/user_{user_id}{ext}'
+    dest = Path(settings.MEDIA_ROOT) / rel
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(raw)
+    base = settings.MEDIA_URL.rstrip('/') + '/' + rel.replace('\\', '/')
+    public_id = f'local:{rel}'
+    return base, public_id
+
+
+def _upload_avatar_data_url(user_id: int, data_url: str) -> tuple[str, str]:
+    if cloudinary is not None:
+        up = cloudinary.uploader.upload(
+            data_url,
+            folder='users/avatars',
+            resource_type='image',
+            overwrite=True,
+        )
+        url = up.get('secure_url') or up.get('url') or ''
+        public_id = up.get('public_id') or ''
+        return url, public_id
+    return _upload_avatar_data_url_local(user_id, data_url)
+
+
+def _delete_avatar_public_id(public_id: str) -> None:
+    if not public_id:
+        return
+    if public_id.startswith('local:'):
+        rel = public_id.split(':', 1)[1]
+        p = Path(settings.MEDIA_ROOT) / rel
+        try:
+            if p.exists():
+                p.unlink()
+        except Exception:
+            return
+        return
+    _delete_signature_public_id(public_id)
 
 
 class UserAccountViewSet(viewsets.ModelViewSet):
@@ -125,11 +175,63 @@ def logout_view(request):
     return Response({'detail': 'ok'})
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def me(request):
-    serializer = UserAccountSerializer(request.user)
-    return Response(serializer.data)
+    User = get_user_model()
+    user = request.user
+
+    if request.method == 'GET':
+        UserPermissions.objects.get_or_create(user=user)
+        user = User.objects.select_related('permissions_profile').get(pk=user.pk)
+        serializer = UserAccountSerializer(user)
+        return Response(serializer.data)
+
+    # PATCH — actualizar nombre, correo y/o foto de perfil
+    UserPermissions.objects.get_or_create(user=user)
+    perms_obj = UserPermissions.objects.filter(user=user).first()
+
+    if 'first_name' in request.data:
+        user.first_name = (request.data.get('first_name') or '').strip()[:150]
+    if 'last_name' in request.data:
+        user.last_name = (request.data.get('last_name') or '').strip()[:150]
+    if 'email' in request.data:
+        email = (request.data.get('email') or '').strip().lower()
+        if email:
+            if User.objects.exclude(pk=user.pk).filter(email__iexact=email).exists():
+                return Response({'detail': 'Ya existe otro usuario con ese correo.'}, status=status.HTTP_400_BAD_REQUEST)
+            user.email = email[:254]
+
+    if 'avatar' in request.data and perms_obj is not None:
+        avatar = (request.data.get('avatar') or '').strip()
+        if avatar == '':
+            _delete_avatar_public_id(perms_obj.avatar_public_id)
+            perms_obj.avatar_url = ''
+            perms_obj.avatar_public_id = ''
+            perms_obj.save(update_fields=['avatar_url', 'avatar_public_id', 'updated_at'])
+        elif _is_data_url(avatar):
+            try:
+                _delete_avatar_public_id(perms_obj.avatar_public_id)
+                url, public_id = _upload_avatar_data_url(user.id, avatar)
+                perms_obj.avatar_url = url
+                perms_obj.avatar_public_id = public_id
+                perms_obj.save(update_fields=['avatar_url', 'avatar_public_id', 'updated_at'])
+            except ValueError as e:
+                return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception:
+                return Response(
+                    {'detail': 'Error al procesar la imagen. Intente con otra foto o más tarde.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            return Response(
+                {'detail': 'La foto debe ser una imagen en base64 (data URL).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    user.save()
+    user = User.objects.select_related('permissions_profile').get(pk=user.pk)
+    return Response(UserAccountSerializer(user).data)
 
 
 @api_view(['GET'])

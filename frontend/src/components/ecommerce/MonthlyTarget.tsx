@@ -490,7 +490,7 @@ export default function MonthlyTarget() {
                 detail: `Usuario afectado: ${targetName}`,
                 module: "usuarios" as ModuleKey,
                 viewName: "Gestion de usuarios",
-                viewPath: "/profile",
+                viewPath: "/usuarios",
               };
             })
           );
@@ -512,7 +512,7 @@ export default function MonthlyTarget() {
                 detail: typeof ev?.detail === "string" ? ev.detail : "",
                 module: (ev?.module as ModuleKey) || "usuarios",
                 viewName: String(ev?.viewName || "Gestion de usuarios"),
-                viewPath: String(ev?.viewPath || "/profile"),
+                viewPath: String(ev?.viewPath || "/usuarios"),
               });
             }
           }
@@ -551,7 +551,7 @@ export default function MonthlyTarget() {
         </div>
       </div>
 
-      <div>
+        <div>
         {loading ? (
           <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Cargando historial...</div>
         ) : error ? (
@@ -583,7 +583,7 @@ export default function MonthlyTarget() {
                       <span className="block text-[11px] text-gray-500 dark:text-gray-400">{timeAgo(i.when)}</span>
                       <span className="block text-[10px] text-gray-400 dark:text-gray-500">{formatDateTime(i.when)}</span>
                     </div>
-                  </div>
+        </div>
                   <div className="flex items-center gap-2">
                     <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${action.tone}`}>
                       <action.Icon className="h-3.5 w-3.5" />
@@ -592,12 +592,12 @@ export default function MonthlyTarget() {
                       <span className="font-semibold">{i.actor}</span> {i.text}
                     </p>
                     <ArrowRightIcon className="ml-auto h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500" />
-                  </div>
+        </div>
                   {!!i.detail && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{i.detail}</p>}
                 </button>
               );
             })}
-          </div>
+        </div>
         )}
       </div>
     </div>

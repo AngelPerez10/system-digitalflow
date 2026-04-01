@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import Alert from "@/components/ui/alert/Alert";
@@ -682,114 +682,137 @@ export default function TareasTecnicoPage() {
   return (
     <>
       <PageMeta title="Mis tareas" description="Tareas asignadas al técnico" />
-      <div className="p-4 sm:p-6 space-y-4">
-        <PageBreadcrumb pageTitle="Mis tareas" />
+      <div className="min-h-[calc(100vh-5rem)] bg-gradient-to-b from-slate-50/90 via-white to-gray-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950/90">
+      <div className="mx-auto w-full max-w-[min(100%,1920px)] 2xl:max-w-[min(100%,2200px)] space-y-5 px-3 pb-10 pt-5 sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 md:px-6 lg:px-8 xl:px-10">
+        <nav
+          className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-gray-500 dark:text-gray-400 sm:text-[13px]"
+          aria-label="Migas de pan"
+        >
+          <Link to="/" className="transition-colors hover:text-brand-600 dark:hover:text-brand-400">
+            Inicio
+          </Link>
+          <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+            /
+          </span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">Mis tareas</span>
+        </nav>
 
         {alert.show && (
-          <div className="mb-2">
+          <div>
             <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
-          <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-            <div className="flex items-center gap-4">
-              <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shadow-sm">
-                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <div className="flex flex-col gap-4 rounded-2xl border border-gray-200/90 bg-white/95 p-4 shadow-theme-sm ring-1 ring-gray-200/50 backdrop-blur dark:border-gray-800 dark:bg-gray-900/75 dark:ring-white/5 sm:flex-row sm:items-start sm:justify-between sm:gap-6 sm:p-6">
+          <div className="flex min-w-0 gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-md sm:h-12 sm:w-12">
+              <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Mis tareas</h1>
+              <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
+                Solo ves lo asignado a ti. Crea tareas propias, actualiza el tablero y adjunta fotos como evidencia.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
+          <div className="rounded-2xl border border-gray-200/80 bg-white/90 p-4 shadow-theme-sm ring-1 ring-gray-200/40 transition-colors hover:ring-brand-200/50 dark:border-white/10 dark:bg-gray-900/50 dark:ring-white/5 dark:hover:ring-brand-500/20">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-100 to-brand-50 text-brand-700 shadow-sm dark:from-brand-500/20 dark:to-brand-500/5 dark:text-brand-300">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
                 </svg>
               </span>
-              <div className="flex flex-col">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Tareas totales</p>
-                <p className="mt-1 text-xl font-semibold text-gray-800 dark:text-gray-100">{tareaStats.total}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:text-[11px]">Tareas totales</p>
+                <p className="mt-0.5 text-lg font-semibold tabular-nums text-gray-900 dark:text-white sm:text-xl">{tareaStats.total}</p>
               </div>
             </div>
           </div>
 
-          <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-            <div className="flex items-center gap-4">
-              <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300 shadow-sm">
-                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <div className="rounded-2xl border border-gray-200/80 bg-white/90 p-4 shadow-theme-sm ring-1 ring-gray-200/40 transition-colors hover:ring-emerald-200/50 dark:border-white/10 dark:bg-gray-900/50 dark:ring-white/5 dark:hover:ring-emerald-500/20">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-700 shadow-sm dark:from-emerald-500/20 dark:to-emerald-500/5 dark:text-emerald-300">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path d="M20 21v-1a4 4 0 0 0-3-3.87" />
                   <path d="M4 21v-1a4 4 0 0 1 3-3.87" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
               </span>
-              <div className="flex flex-col">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Asignadas</p>
-                <p className="mt-1 text-xl font-semibold text-gray-800 dark:text-gray-100">{tareaStats.asignadas}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:text-[11px]">Asignadas</p>
+                <p className="mt-0.5 text-lg font-semibold tabular-nums text-gray-900 dark:text-white sm:text-xl">{tareaStats.asignadas}</p>
               </div>
             </div>
           </div>
 
-          <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-            <div className="flex items-center gap-4">
-              <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300 shadow-sm">
-                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <div className="rounded-2xl border border-gray-200/80 bg-white/90 p-4 shadow-theme-sm ring-1 ring-gray-200/40 transition-colors hover:ring-amber-200/50 dark:border-white/10 dark:bg-gray-900/50 dark:ring-white/5 dark:hover:ring-amber-500/20 sm:col-span-2 lg:col-span-1">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-100 to-amber-50 text-amber-800 shadow-sm dark:from-amber-500/20 dark:to-amber-500/5 dark:text-amber-300">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
                   <circle cx="12" cy="13" r="3" />
                 </svg>
               </span>
-              <div className="flex flex-col">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Con fotos</p>
-                <p className="mt-1 text-xl font-semibold text-gray-800 dark:text-gray-100">{tareaStats.conFotos}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:text-[11px]">Con fotos</p>
+                <p className="mt-0.5 text-lg font-semibold tabular-nums text-gray-900 dark:text-white sm:text-xl">{tareaStats.conFotos}</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Tareas asignadas</h2>
-            <p className="text-[12px] text-gray-500 dark:text-gray-400">Solo tareas asignadas a tu usuario</p>
-          </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:flex-1 sm:min-w-[260px] sm:justify-end">
-            <div className="relative w-full sm:max-w-xs md:max-w-sm">
-              <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar"
-                className="w-full rounded-lg border border-gray-300 bg-white pl-8 pr-3 py-2 text-[13px] text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-white/90"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm("")}
-                  aria-label="Limpiar búsqueda"
-                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/60"
-                >
-                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            {canTareasCreate && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3">
+          <div className="relative min-w-0 w-full shrink-0 sm:w-[min(100%,28rem)] md:w-[min(100%,34rem)] lg:w-[min(100%,40rem)]">
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar en tus tareas…"
+              className="min-h-[44px] w-full rounded-xl border border-gray-200/80 bg-white/95 py-2.5 pl-9 pr-10 text-base text-gray-800 shadow-theme-xs outline-none placeholder:text-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:border-white/10 dark:bg-gray-900/60 dark:text-gray-100 md:min-h-10 md:text-sm"
+            />
+            {searchTerm && (
               <button
                 type="button"
-                onClick={openCreate}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:bg-brand-500 dark:hover:bg-brand-600"
+                onClick={() => setSearchTerm("")}
+                aria-label="Limpiar búsqueda"
+                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-w-[44px] items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/5"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M12 5v14M5 12h14M4 12h16" strokeLinecap="round" />
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                  <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
                 </svg>
-                Nueva Tarea
               </button>
             )}
           </div>
+
+          {canTareasCreate && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white shadow-theme-xs transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/45 active:scale-[0.99] sm:w-auto sm:min-h-0"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+              Nueva tarea
+            </button>
+          )}
         </div>
 
-        <ComponentCard title="Listado" actions={null}>
+        <ComponentCard
+          title="Tablero"
+          desc="Vista Kanban de tus tareas. Solo puedes editar o eliminar lo que te pertenece."
+          className="overflow-hidden shadow-theme-sm ring-1 ring-gray-200/60 dark:ring-white/5"
+          actions={null}
+        >
           {!canTareasView ? (
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
               <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">
@@ -829,7 +852,7 @@ export default function TareasTecnicoPage() {
 
               <div ref={kanbanRootRef} className="hidden md:block">
                 <div className="overflow-x-auto md:overflow-visible -mx-2 px-2">
-                  <div className="min-w-[680px] md:min-w-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 rounded-2xl bg-gray-100/70 dark:bg-gray-950/20 p-2">
+                  <div className="min-w-[680px] md:min-w-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 rounded-2xl border border-gray-200/60 bg-gray-50/80 p-3 shadow-inner dark:border-white/5 dark:bg-gray-950/40">
                     {KANBAN_COLUMNS.map((col) => {
                       const columnRef = (el: HTMLDivElement | null) => {
                         if (!el) return;
@@ -851,11 +874,11 @@ export default function TareasTecnicoPage() {
                         <div
                           key={col.key}
                           ref={columnRef}
-                          className="rounded-2xl border border-gray-200/80 dark:border-white/10 bg-gray-50/90 dark:bg-gray-900/50 p-3 shadow-theme-xs"
+                          className="rounded-2xl border border-gray-200/70 dark:border-white/10 bg-white/90 dark:bg-gray-900/55 p-3 shadow-theme-xs ring-1 ring-gray-200/30 dark:ring-white/5"
                         >
-                          <div className="flex items-center justify-between gap-2 mb-3">
-                            <div className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight">{col.label}</div>
-                            <div className="text-[11px] px-2 py-0.5 rounded-full bg-white/90 dark:bg-white/10 border border-gray-200/80 dark:border-white/10 text-gray-700 dark:text-gray-300">
+                          <div className="flex items-center justify-between gap-2 mb-3 border-b border-gray-100/90 pb-2 dark:border-white/5">
+                            <div className="text-[12px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">{col.label}</div>
+                            <div className="text-[11px] tabular-nums rounded-full border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 font-medium text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
                               {list.length}
                             </div>
                           </div>
@@ -953,6 +976,8 @@ export default function TareasTecnicoPage() {
             </>
           )}
         </ComponentCard>
+      </div>
+      </div>
 
         <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-[94vw] max-w-2xl max-h-[92vh] p-0 overflow-hidden">
           <div className="p-0 overflow-hidden rounded-2xl">
@@ -1225,7 +1250,6 @@ export default function TareasTecnicoPage() {
             </div>
           </div>
         </Modal>
-      </div>
     </>
   );
 }

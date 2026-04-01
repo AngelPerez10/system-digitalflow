@@ -7,7 +7,6 @@ import {
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
-  ListIcon,
   PageIcon,
   PieChartIcon,
   PlugInIcon,
@@ -145,7 +144,7 @@ const AppSidebar: React.FC = () => {
           { name: "Empresas", path: "/empresas", pro: false },
           { name: "Personas", path: "/personas", pro: false },
           { name: "Proveedores", path: "/proveedores", pro: false },
-          { name: "Usuarios", path: "/profile", pro: false },
+          { name: "Usuarios", path: "/usuarios", pro: false },
         ],
       });
 
@@ -257,27 +256,6 @@ const AppSidebar: React.FC = () => {
       }
     }
 
-    if (isAdmin && username === 'AngelPerez10') {
-        items.push({
-          name: "Formularios",
-          icon: <ListIcon />,
-          subItems: [{ name: "Elementos de Formulario", path: "/form-elements", pro: false }],
-        });
-        items.push({
-          name: "Tablas",
-          icon: <TableIcon />,
-          subItems: [{ name: "Tablas Básicas", path: "/basic-tables", pro: false }],
-        });
-        items.push({
-          name: "Páginas",
-          icon: <PageIcon />,
-          subItems: [
-            { name: "Página en Blanco", path: "/blank", pro: false },
-            { name: "Error 404", path: "/error-404", pro: false },
-          ],
-        });
-    }
-
     return items;
   }, [isAdmin, permissions, username]);
 
@@ -297,22 +275,7 @@ const AppSidebar: React.FC = () => {
       {
         icon: <BoxCubeIcon />,
         name: "Elementos UI",
-        subItems: [
-          { name: "Alertas", path: "/alerts", pro: false },
-          { name: "Avatares", path: "/avatars", pro: false },
-          { name: "Insignias", path: "/badge", pro: false },
-          { name: "Botones", path: "/buttons", pro: false },
-          { name: "Imágenes", path: "/images", pro: false },
-          { name: "Videos", path: "/videos", pro: false },
-        ],
-      },
-      {
-        icon: <PlugInIcon />,
-        name: "Autenticación",
-        subItems: [
-          { name: "Iniciar Sesión", path: "/signin", pro: false },
-          { name: "Registrarse", path: "/signup", pro: false },
-        ],
+        subItems: [{ name: "Imágenes", path: "/images", pro: false }],
       },
     ];
   }, [isAdmin, username]);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import PageMeta from "@/components/common/PageMeta";
+import { Link } from "react-router-dom";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
@@ -21,8 +21,14 @@ import {
   phoneCountryOptions,
 } from "./clientesCatalogos";
 
- let clientesPagePermissionsInFlight: Promise<any> | null = null;
- let clientesPagePermissionsLastFetchAt = 0;
+const cardShellClass =
+  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+
+const searchInputClass =
+  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
+
+let clientesPagePermissionsInFlight: Promise<any> | null = null;
+let clientesPagePermissionsLastFetchAt = 0;
  const CLIENTES_PAGE_PERMS_TTL_MS = 2 * 60 * 1000;
 
 interface Cliente {
@@ -94,10 +100,10 @@ type ClienteDocumento = {
 };
 
 const inputLikeClassName =
-  "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
+  "w-full h-10 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 dark:focus:border-brand-400 dark:focus:ring-brand-900/35";
 
 const selectLikeClassName =
-  "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
+  "w-full h-10 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none transition-colors focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60 dark:focus:border-brand-400 dark:focus:ring-brand-900/35";
 
 const formatApiErrors = (txt: string) => {
   if (!txt) return "";
@@ -915,14 +921,13 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
+    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
+      <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
       <PageMeta
         title={`${viewPlural} | Sistema Grupo Intrax GPS`}
         description={`Gestión de ${viewPlural.toLowerCase()} para el sistema de administración Grupo Intrax GPS`}
       />
-      <PageBreadcrumb pageTitle={viewPlural} />
 
-      {/* Alert */}
       {alert.show && (
         <Alert
           variant={alert.variant}
@@ -933,97 +938,128 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
       )}
 
       {!canClientesView ? (
-        <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No tienes permiso para ver {viewPlural}.</div>
+        <div className="rounded-2xl border border-gray-200/80 bg-white px-4 py-10 text-center text-xs text-gray-500 shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:text-gray-400 sm:text-sm">
+          No tienes permiso para ver {viewPlural}.
+        </div>
       ) : (
-        <div>
+        <>
+          <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]" aria-label="Migas de pan">
+            <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
+              Inicio
+            </Link>
+            <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+              /
+            </span>
+            <span className="font-medium text-gray-700 dark:text-gray-300">{viewPlural}</span>
+          </nav>
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
-            <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-              <div className="flex items-center gap-4">
-                <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shadow-sm">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
+            <div className="flex min-w-0 gap-3 sm:gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+                <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+                  <path d="M20 22a8 8 0 1 0-16 0" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+                  Contactos
+                </p>
+                <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">{viewPlural}</h1>
+                <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+                  Consulta, crea y edita registros con contactos, dirección y datos fiscales.
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <div className="grid w-full grid-cols-1 gap-2 sm:gap-3 lg:max-w-md">
+            <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                     <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
                     <path d="M20 22a8 8 0 1 0-16 0" />
                   </svg>
                 </span>
-                <div className="flex flex-col">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Total {viewPlural}</p>
-                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{totalCount}</p>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Total {viewPlural}</p>
+                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{totalCount}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
-                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
-                      <path d="M20 22a8 8 0 1 0-16 0" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">{viewPlural}</h2>
-                    <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">Administra {viewPlural.toLowerCase()}, contactos y datos fiscales.</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="relative w-full sm:w-[320px]">
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder={`Buscar ${viewPlural.toLowerCase()}`}
-                    className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70"
-                  />
-                  {searchTerm && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchTerm('')}
-                      aria-label="Limpiar búsqueda"
-                      className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5"
-                    >
-                      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                        <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
+            <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
+              <svg
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path
+                  d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={`Buscar ${viewPlural.toLowerCase()}…`}
+                className={searchInputClass}
+              />
+              {searchTerm && (
                 <button
-                  onClick={() => {
-                    if (!canClientesCreate) {
-                      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear clientes.' });
-                      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-                      return;
-                    }
-                    openCreate();
-                  }}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  aria-label="Limpiar búsqueda"
+                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
                   </svg>
-                  Nuevo {viewSingular}
                 </button>
-              </div>
+              )}
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!canClientesCreate) {
+                  setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para crear clientes." });
+                  setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
+                  return;
+                }
+                openCreate();
+              }}
+              className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+              Nuevo {viewSingular}
+            </button>
           </div>
 
-          <div className="mt-4 pt-1">
-            <ComponentCard title="Listado">
-              <div className="p-2 pt-0">
-
-                {/* Table - Responsive */}
-                <div className="overflow-x-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40">
-                  <Table className="w-full table-fixed">
-                    <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
+          <div className="mt-1">
+            <ComponentCard
+              compact
+              title={`Listado de ${viewPlural.toLowerCase()}`}
+              desc="En pantallas pequeñas desplázate horizontalmente para ver todas las columnas."
+              className={`overflow-hidden ${cardShellClass}`}
+            >
+              <p className="mb-2 flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 sm:hidden">
+                <span className="inline-block h-px w-4 bg-brand-400/60" aria-hidden />
+                Desliza horizontalmente para ver el listado completo
+              </p>
+              <div className="-mx-1 overflow-hidden rounded-xl border border-gray-200/80 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/30 sm:mx-0 sm:bg-transparent">
+                <div className="touch-pan-x overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] px-1 pb-1 sm:px-0 sm:pb-0">
+                  <Table className="w-full min-w-[920px] table-fixed sm:min-w-0 xl:min-w-full">
+                    <TableHeader className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 text-[11px] font-semibold text-gray-900 dark:border-white/[0.06] dark:bg-gray-900/80 dark:text-white">
                       <TableRow>
                         <TableCell isHeader className="px-1.5 py-1 text-left w-[64px] text-gray-700 dark:text-gray-300">ID</TableCell>
                         <TableCell isHeader className="px-1.5 py-1 text-left w-[170px] text-gray-700 dark:text-gray-300">{nombreColHeader}</TableCell>
@@ -1111,7 +1147,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                                 {canClientesEdit && (
                                   <button
                                     onClick={() => handleEdit(cliente)}
-                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
                                     title="Editar"
                                   >
                                     <PencilIcon className="w-4 h-4" />
@@ -1120,7 +1156,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                                 {canClientesDelete && (
                                   <button
                                     onClick={() => handleDeleteClick(cliente)}
-                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
                                     title="Eliminar"
                                   >
                                     <TrashBinIcon className="w-4 h-4" />
@@ -1134,10 +1170,11 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                     </TableBody>
                   </Table>
                 </div>
+              </div>
 
                 {/* Paginación */}
                 {!loading && totalCount > 0 && currentClientes.length > 0 && (
-                  <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
+                  <div className="border-t border-gray-100 px-4 py-3 dark:border-white/[0.06] sm:px-5 sm:py-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Mostrando <span className="font-medium text-gray-900 dark:text-white">{startIndex + 1}</span> a{" "}
@@ -1216,19 +1253,18 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                     </div>
                   </div>
                 )}
-              </div>
             </ComponentCard>
           </div>
 
-      </div>
+        </>
       )}
 
       {/* Modal Crear/Editar */}
       <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-full max-w-4xl p-0 overflow-hidden">
         <div>
-          <div className="px-5 pt-5 pb-4 bg-linear-to-r from-brand-50 via-transparent to-transparent dark:from-gray-800/70 dark:via-gray-900/20 border-b border-gray-100 dark:border-white/10">
+          <div className="border-b border-gray-100 px-5 pb-4 pt-5 dark:border-white/[0.06]">
             <div className="flex items-center gap-3">
-              <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300 shadow-theme-xs">
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
                   <path d="M20 22a8 8 0 1 0-16 0" />
@@ -1997,6 +2033,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
           </Modal>
         )
       }
+      </div>
     </div>
   );
 };

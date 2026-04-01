@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,6 +26,9 @@ import {
 } from "./syscomCatalog";
 import { Modal } from "@/components/ui/modal";
 
+const cardShellClass =
+  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+
 const ORDEN_OPTIONS: { value: NonNullable<SyscomSearchParams["orden"]>; label: string }[] = [
   { value: "relevancia", label: "Relevancia" },
   { value: "precio:asc", label: "Precio ascendente" },
@@ -39,9 +42,9 @@ const MARCAS_SELECT_LIMIT = 200;
 const AUTO_DEFAULT_SEARCH = "camara";
 
 const inputLikeClassName =
-  "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
+  "w-full h-10 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 dark:focus:border-brand-400 dark:focus:ring-brand-900/35";
 const selectLikeClassName =
-  "w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none";
+  "w-full h-10 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none transition-colors focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60 dark:focus:border-brand-400 dark:focus:ring-brand-900/35";
 
 
 export default function ProductosPage() {
@@ -231,28 +234,42 @@ export default function ProductosPage() {
   return (
     <>
       <PageMeta title="Productos | Catálogo" description="Catálogo de productos" />
-      <PageBreadcrumb pageTitle="Productos" />
+      <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
+      <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
+      <nav
+        className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+        aria-label="Migas de pan"
+      >
+        <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
+          Inicio
+        </Link>
+        <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+          /
+        </span>
+        <span className="font-medium text-gray-700 dark:text-gray-300">Productos</span>
+      </nav>
 
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
-                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Catálogo de productos</h2>
-                <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">
-                  Busca productos. Escribe algo, elige categoría o marca y pulsa Buscar.
-                </div>
-              </div>
+        <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
+          <div className="flex min-w-0 gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+              <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+                Catálogo
+              </p>
+              <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Productos</h1>
+              <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+                Consulta precios con IVA, existencias y fichas técnicas. Filtra por fuente, categoría o marca cuando necesites resultados más precisos.
+              </p>
             </div>
           </div>
-        </div>
+        </header>
 
-        <form onSubmit={handleSearch} className="rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white/80 dark:bg-gray-900/35 p-4 md:p-5 space-y-4">
+        <form onSubmit={handleSearch} className={`space-y-4 ${cardShellClass} p-4 md:p-5`}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
             <div className="flex-1 min-w-[260px]">
               <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Buscar producto</label>
@@ -291,14 +308,14 @@ export default function ProductosPage() {
             <div className="flex items-center gap-2 lg:pb-0.5">
               <button
                 type="submit"
-                className="h-10 px-4 rounded-xl bg-brand-600 text-white text-xs font-semibold shadow-theme-xs hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                className="h-10 rounded-lg bg-brand-600 px-4 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
               >
                 Buscar
               </button>
               <button
                 type="button"
                 onClick={clearFiltros}
-                className="h-10 px-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 inline-flex items-center gap-1.5"
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300/90 hover:bg-white dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-300 dark:hover:bg-gray-900/60"
               >
                 <svg className="w-4 h-4" viewBox="0 0 1024 1024" fill="currentColor" aria-hidden>
                   <path d="M899.1 869.6l-53-305.6H864c14.4 0 26-11.6 26-26V346c0-14.4-11.6-26-26-26H618V138c0-14.4-11.6-26-26-26H432c-14.4 0-26 11.6-26 26v182H160c-14.4 0-26 11.6-26 26v192c0 14.4 11.6 26 26 26h17.9l-53 305.6c-0.3 1.5-0.4 3-0.4 4.4 0 14.4 11.6 26 26 26h723c1.5 0 3-0.1 4.4-0.4 14.2-2.4 23.7-15.9 21.2-30zM204 390h272V182h72v208h272v104H204V390z m468 440V674c0-4.4-3.6-8-8-8h-48c-4.4 0-8 3.6-8 8v156H416V674c0-4.4-3.6-8-8-8h-48c-4.4 0-8 3.6-8 8v156H202.8l45.1-260H776l45.1 260H672z" />
@@ -311,7 +328,7 @@ export default function ProductosPage() {
           <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Fuente</p>
-              <div className="inline-flex rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/60 p-1">
+              <div className="inline-flex rounded-lg border border-gray-200/90 bg-gray-50/90 p-1 dark:border-white/[0.08] dark:bg-gray-950/40">
                 {[
                   { value: "", label: "Todas" },
                   { value: "syscom", label: "Syscom" },
@@ -343,14 +360,14 @@ export default function ProductosPage() {
             <button
               type="button"
               onClick={() => setShowAdvancedFilters((v) => !v)}
-              className="h-9 px-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              className="h-9 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300/90 hover:bg-white dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-300 dark:hover:bg-gray-900/60"
             >
               {showAdvancedFilters ? "Ocultar filtros avanzados" : "Mostrar filtros avanzados"}
             </button>
           </div>
 
           {showAdvancedFilters && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-gray-200/70 dark:border-white/10 pt-3">
+              <div className="grid grid-cols-1 gap-3 border-t border-gray-100 pt-3 dark:border-white/[0.06] sm:grid-cols-2">
               <div>
                 <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Categoría</label>
                 <select
@@ -392,21 +409,28 @@ export default function ProductosPage() {
         </form>
 
         {error && (
-          <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/80 dark:bg-red-950/30 px-4 py-3">
-            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-            <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+          <div className="rounded-2xl border border-red-200/80 bg-red-50/90 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30">
+            <p className="text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
+            <p className="mt-1 text-xs text-red-700/90 dark:text-red-300/80">
               No pudimos conectar con el catálogo de productos. Intenta más tarde o contacta a soporte.
             </p>
           </div>
         )}
 
-        <div className="mt-4 pt-1">
+        <div className="pt-1">
           <ComponentCard
-            title="Listado"
+            compact
+            title="Resultados"
+            desc={
+              (hasFiltro || autoCatalog) && total > 0
+                ? `${total.toLocaleString("es-MX")} artículo${total === 1 ? "" : "s"} encontrados${paginas > 1 ? ` · página ${pagina} de ${paginas}` : ""}.`
+                : "Los resultados aparecen aquí según tu búsqueda y filtros."
+            }
+            className={`overflow-hidden ${cardShellClass}`}
             actions={
               (hasFiltro || autoCatalog) && productos.length > 0 && !loading ? (
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-0.5">
+                  <div className="flex items-center gap-0.5 rounded-lg border border-gray-200/90 bg-gray-50/90 p-0.5 dark:border-white/[0.08] dark:bg-gray-950/40">
                     <button
                       type="button"
                       onClick={() => setViewMode("table")}
@@ -483,9 +507,9 @@ export default function ProductosPage() {
                   {!loading && productos.length === 0 && !error && (autoCatalog ? "No hay productos para mostrar." : "Escribe algo en búsqueda o elige categoría/marca y pulsa Buscar.")}
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40">
-                  <Table className="w-full">
-                    <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
+                <div className="overflow-x-auto rounded-xl border border-gray-200/80 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/30">
+                  <Table className="w-full min-w-[720px] sm:min-w-0 xl:min-w-full">
+                    <TableHeader className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 text-[11px] font-semibold text-gray-900 dark:border-white/[0.06] dark:bg-gray-900/80 dark:text-white">
                       <TableRow>
                         <TableCell isHeader className="px-3 py-2 text-left w-[64px] text-gray-700 dark:text-gray-300">Imagen</TableCell>
                         <TableCell isHeader className="px-3 py-2 text-left min-w-[200px] text-gray-700 dark:text-gray-300">Producto</TableCell>
@@ -563,7 +587,7 @@ export default function ProductosPage() {
               )}
 
               {!loading && total > 0 && productos.length > 0 && (
-                <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
+                <div className="border-t border-gray-100 px-4 py-3 dark:border-white/[0.06] sm:px-5 sm:py-4">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       {total} resultado(s)
@@ -601,6 +625,8 @@ export default function ProductosPage() {
             </div>
           </ComponentCard>
         </div>
+      </div>
+      </div>
       </div>
 
       <Modal isOpen={detailModalOpen} onClose={closeDetailModal} className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-white dark:bg-gray-900 shadow-xl dark:shadow-none">

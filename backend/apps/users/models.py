@@ -9,6 +9,8 @@ class UserPermissions(models.Model):
         related_name='permissions_profile',
     )
     permissions = models.JSONField(default=dict, blank=True)
+    avatar_url = models.URLField(blank=True, default='')
+    avatar_public_id = models.CharField(max_length=255, blank=True, default='')
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

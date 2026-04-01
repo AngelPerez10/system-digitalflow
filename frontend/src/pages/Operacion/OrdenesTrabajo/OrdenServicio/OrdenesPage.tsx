@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,6 +17,12 @@ import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 import LevantamientoForm from "../OrdenLevantamiento/LevantamientoForm";
+
+const cardShellClass =
+  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+
+const searchInputClass =
+  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
 
 interface ServicioCatalogo {
   id: number;
@@ -122,6 +127,7 @@ export default function Ordenes() {
   // si caen fuera del mes “actual” según cuándo se abrió la pantalla.
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
+  const [deletingPhoto, setDeletingPhoto] = useState(false);
   // Filtros
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'' | 'pendiente' | 'resuelto'>('');
@@ -309,6 +315,7 @@ export default function Ordenes() {
     const publicId = getPublicIdFromUrl(url);
     const updated = (Array.isArray(formData.fotos_urls) ? formData.fotos_urls : []).filter((_, i) => i !== index);
 
+    setDeletingPhoto(true);
     try {
       const token = getToken();
       // Eliminar de Cloudinary
@@ -350,6 +357,7 @@ export default function Ordenes() {
         setFormData((prev) => ({ ...prev, fotos_urls: updated }));
       }
       setConfirmDelete({ open: false, index: null, url: null });
+      setDeletingPhoto(false);
     }
   };
 
@@ -1702,144 +1710,156 @@ export default function Ordenes() {
   }, [ordenes, currentMonthKey]);
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
+    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
+    <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
       <PageMeta
         title="Órdenes de Trabajo | Sistema Grupo Intrax GPS"
         description="Gestión de órdenes de servicio para el sistema de administración Grupo Intrax GPS"
       />
-      <PageBreadcrumb pageTitle="Órdenes de Trabajo" />
+      <nav
+        className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+        aria-label="Migas de pan"
+      >
+        <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
+          Inicio
+        </Link>
+        <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+          /
+        </span>
+        <span className="font-medium text-gray-700 dark:text-gray-300">Órdenes de trabajo</span>
+      </nav>
 
-      {/* Alert */}
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
       )}
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
-        <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
+        <div className="flex min-w-0 gap-3 sm:gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+            <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+              Operación
+            </p>
+            <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Órdenes de trabajo</h1>
+            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+              Administra órdenes de servicio, fotos, firmas y PDF. Filtra por estado, servicio o fecha en el listado.
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M6 6h12" />
                 <path d="M6 12h12" />
                 <path d="M6 18h12" />
               </svg>
             </span>
-            <div className="flex flex-col">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Órdenes del mes</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{ordenStats.monthTotal}</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Órdenes del mes</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{ordenStats.monthTotal}</p>
             </div>
           </div>
         </div>
 
-        <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
-            <div className="flex flex-col">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Completadas</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{ordenStats.monthCompleted}</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Completadas</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{ordenStats.monthCompleted}</p>
             </div>
           </div>
         </div>
 
-        <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4 sm:col-span-2 lg:col-span-1`}>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </span>
-            <div className="flex flex-col min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Cliente estrella</p>
-              <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{ordenStats.estrella}</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Cliente estrella</p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white">{ordenStats.estrella}</p>
               <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">Servicios: {ordenStats.estrellaServices}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
-                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3 7h13" />
-                  <path d="M3 12h10" />
-                  <path d="M3 17h7" />
-                  <path d="M18 7v10" />
-                  <path d="M21 10l-3-3-3 3" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Órdenes de Trabajo</h2>
-                <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">Administra órdenes, fotos, firmas y PDF.</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative w-full sm:w-[320px]">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar por folio, cliente, técnico o estado"
-                className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm('')}
-                  aria-label="Limpiar búsqueda"
-                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5"
-                >
-                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
+        <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
+          <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por folio, cliente, técnico o estado…"
+            className={searchInputClass}
+          />
+          {searchTerm && (
             <button
-              onClick={() => {
-                formNonceRef.current += 1;
-                if (!canOrdenesCreate) {
-                  setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear órdenes.' });
-                  setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-                  return;
-                }
-                if (!editingOrden) {
-                  const today = new Date().toISOString().slice(0, 10);
-                  setFormData({
-                    ...formData,
-                    fecha_inicio: formData.fecha_inicio || today,
-                    hora_inicio: getNowHHMM(),
-                  });
-                }
-                setTipoOrden('servicio_tecnico');
-                setActiveTab("cliente");
-                setShowModal(true);
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              type="button"
+              onClick={() => setSearchTerm('')}
+              aria-label="Limpiar búsqueda"
+              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 5v14M5 12h14M4 12h16" strokeLinecap="round" />
+              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
               </svg>
-              Nueva Orden
             </button>
-          </div>
+          )}
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            formNonceRef.current += 1;
+            if (!canOrdenesCreate) {
+              setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear órdenes.' });
+              setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
+              return;
+            }
+            if (!editingOrden) {
+              const today = new Date().toISOString().slice(0, 10);
+              setFormData({
+                ...formData,
+                fecha_inicio: formData.fecha_inicio || today,
+                hora_inicio: getNowHHMM(),
+              });
+            }
+            setTipoOrden('servicio_tecnico');
+            setActiveTab("cliente");
+            setShowModal(true);
+          }}
+          className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+          </svg>
+          Nueva orden
+        </button>
       </div>
 
       <ComponentCard
+        compact
         title="Listado"
+        desc="Resultados según búsqueda y filtros. En pantallas pequeñas desplázate horizontalmente si hace falta."
+        className={`overflow-hidden ${cardShellClass}`}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
             {/* Filtro desplegable */}
@@ -1847,7 +1867,7 @@ export default function Ordenes() {
               <button
                 type="button"
                 onClick={() => setFilterOpen(v => !v)}
-                className="shadow-theme-xs flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 sm:min-w-[86px] text-xs font-semibold leading-none whitespace-nowrap"
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:border-gray-300/90 hover:bg-white dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:border-white/[0.12] dark:hover:bg-gray-900/40 sm:w-auto sm:min-w-[86px]"
               >
 
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1860,13 +1880,13 @@ export default function Ordenes() {
                 Filtros
               </button>
               {filterOpen && (
-                <div className="absolute right-0 z-20 mt-2 w-72 max-h-80 overflow-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/95 dark:bg-gray-900/80 p-4 shadow-lg backdrop-blur-sm">
+                <div className="absolute right-0 z-20 mt-2 w-72 max-h-80 overflow-auto rounded-xl border border-gray-200/70 bg-white p-4 shadow-lg dark:border-white/[0.08] dark:bg-gray-900/95">
                   <div className="mb-4">
                     <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Estado</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value as any)}
-                      className="h-10 w-full rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 px-3 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40"
+                      className="h-10 w-full rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60"
                     >
 
                       <option value="">Todos</option>
@@ -1952,7 +1972,7 @@ export default function Ordenes() {
             usuarios={usuarios}
           />
           <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40">
-            <Table className="w-full min-w-[900px] sm:min-w-0 table-fixed">
+            <Table className="w-full min-w-[900px] table-fixed sm:min-w-0 xl:min-w-full">
               <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
                 <TableRow>
                   <TableCell isHeader className="px-2 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-gray-700 dark:text-gray-300">Folio</TableCell>
@@ -2233,7 +2253,13 @@ export default function Ordenes() {
       </Modal>
 
       {/* Modal Crear/Editar */}
-      <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden">
+      <Modal
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        closeOnBackdropClick={false}
+        closeOnEscape={!confirmDelete.open}
+        className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden"
+      >
         <div>
           {/* Header */}
           <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-white/10">
@@ -2957,21 +2983,66 @@ export default function Ordenes() {
                         ))}
                       </div>
                     )}
-                    {/* Modal Confirmación eliminar foto */}
-                    <Modal isOpen={confirmDelete.open} onClose={() => setConfirmDelete({ open: false, index: null, url: null })} closeOnBackdropClick={false} className="max-w-sm p-6">
-                      <div className='flex flex-col gap-4'>
-                        <div className='text-center'>
-                          <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30'>
-                            <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
+                    {/* Modal Confirmación eliminar foto (type="button" evita submit del formulario padre) */}
+                    <Modal
+                      isOpen={confirmDelete.open}
+                      onClose={() => {
+                        if (!deletingPhoto) setConfirmDelete({ open: false, index: null, url: null });
+                      }}
+                      closeOnBackdropClick={false}
+                      showCloseButton={!deletingPhoto}
+                      className="max-w-sm p-6 z-[100000]"
+                    >
+                      <div className="flex flex-col gap-4">
+                        <div className="text-center">
+                          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30">
+                            {deletingPhoto ? (
+                              <svg className="h-7 w-7 animate-spin text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" aria-hidden>
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                            ) : (
+                              <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                            )}
                           </div>
-                          <h5 className='mt-4 font-semibold text-gray-800 text-theme-lg dark:text-white/90'>Confirmar eliminación</h5>
-                          <p className='mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400'>Esta acción no se puede deshacer. ¿Eliminar la imagen seleccionada?</p>
+                          <h5 className="mt-4 font-semibold text-gray-800 text-theme-lg dark:text-white/90">
+                            {deletingPhoto ? 'Eliminando imagen…' : 'Confirmar eliminación'}
+                          </h5>
+                          <p className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                            {deletingPhoto
+                              ? 'Por favor espera; esto puede tardar unos segundos.'
+                              : 'Esta acción no se puede deshacer. ¿Eliminar la imagen seleccionada?'}
+                          </p>
                         </div>
-                        <div className='flex justify-center gap-3 pt-2'>
-                          <button onClick={() => setConfirmDelete({ open: false, index: null, url: null })} className='rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3'>Cancelar</button>
-                          <button onClick={() => { if (confirmDelete.index != null && confirmDelete.url) { handleDeletePhoto(confirmDelete.index, confirmDelete.url); } }} className='rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700'>Eliminar</button>
+                        <div className="flex justify-center gap-3 pt-2">
+                          <button
+                            type="button"
+                            disabled={deletingPhoto}
+                            onClick={() => setConfirmDelete({ open: false, index: null, url: null })}
+                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deletingPhoto}
+                            onClick={() => {
+                              if (confirmDelete.index != null && confirmDelete.url) {
+                                void handleDeletePhoto(confirmDelete.index, confirmDelete.url);
+                              }
+                            }}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {deletingPhoto && (
+                              <svg className="h-4 w-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden>
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                            )}
+                            {deletingPhoto ? 'Eliminando…' : 'Eliminar'}
+                          </button>
                         </div>
                       </div>
                     </Modal>
@@ -3230,6 +3301,7 @@ export default function Ordenes() {
         editingCliente={null}
         permissions={permissions}
       />
+    </div>
     </div>
   );
 }

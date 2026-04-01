@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import Alert from "@/components/ui/alert/Alert";
@@ -7,6 +7,12 @@ import { Modal } from "@/components/ui/modal";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { apiUrl } from "@/config/api";
 import { TrashBinIcon } from "@/icons";
+
+const cardShellClass =
+  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+
+const searchInputClass =
+  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
 
 type OrdenResumen = {
   id: number;
@@ -432,136 +438,165 @@ export default function ReportesPage() {
 
   if (!canReportesView) {
     return (
-      <div className="p-4 sm:p-6 space-y-4">
+      <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
+      <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
         <PageMeta title="Reportes semanales" description="Reportes de técnicos por semana" />
-        <PageBreadcrumb pageTitle="Reportes" />
+        <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]" aria-label="Migas de pan">
+          <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
+            Inicio
+          </Link>
+          <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+            /
+          </span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">Reportes</span>
+        </nav>
         <Alert
           variant="error"
           title="Sin acceso"
           message="No tienes permiso para ver reportes semanales. Un administrador puede habilitarlo en Usuarios → Permisos (Reportes semanales → Ver)."
         />
       </div>
+      </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
+    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
+    <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
       <PageMeta title="Reportes semanales" description="Reportes de técnicos por semana" />
-      <PageBreadcrumb pageTitle="Reportes" />
+      <nav
+        className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+        aria-label="Migas de pan"
+      >
+        <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
+          Inicio
+        </Link>
+        <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+          /
+        </span>
+        <span className="font-medium text-gray-700 dark:text-gray-300">Reportes</span>
+      </nav>
 
       {error && <Alert variant="error" title="Error" message={error} />}
       {success && <Alert variant="success" title="Listo" message={success} />}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
-        <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
+        <div className="flex min-w-0 gap-3 sm:gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+            <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+              <path d="M4 6h16" />
+              <path d="M4 12h16" />
+              <path d="M4 18h16" />
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+              Operación
+            </p>
+            <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Reportes semanales</h1>
+            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+              Historial por técnico y semana (lunes a sábado). Genera PDF, crea nuevos cortes y revisa órdenes incluidas.
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M6 6h12" />
                 <path d="M6 12h12" />
                 <path d="M6 18h12" />
               </svg>
             </span>
-            <div className="flex flex-col">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Reportes</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{reportes.length}</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Reportes</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{reportes.length}</p>
             </div>
           </div>
         </div>
-        <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
-            <div className="flex flex-col">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Órdenes reportadas</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{totalOrdenes}</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Órdenes reportadas</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{totalOrdenes}</p>
             </div>
           </div>
         </div>
-        <div className="p-4 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 backdrop-blur-sm transition-colors">
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4 sm:col-span-2 lg:col-span-1`}>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
                 <path d="M4 22a8 8 0 0 1 16 0" />
               </svg>
             </span>
-            <div className="flex flex-col">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Técnicos con reporte</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{totalTecnicos}</p>
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Técnicos con reporte</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{totalTecnicos}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gray-50 text-gray-700 ring-1 ring-gray-200/70 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10">
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M4 6h16" />
-                <path d="M4 12h16" />
-                <path d="M4 18h16" />
-              </svg>
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Reportes semanales</h2>
-              <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">
-                Historial semanal por técnico con órdenes trabajadas.
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="flex w-full sm:w-auto items-center gap-2">
-          <div className="relative w-full sm:w-[320px]">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por técnico, semana, folio, cliente o trabajo"
-              className="w-full h-10 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 pl-9 pr-9 text-[13px] text-gray-800 dark:text-gray-200 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40"
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => setSearchTerm("")}
-                aria-label="Limpiar búsqueda"
-                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5"
-              >
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                  <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                </svg>
-              </button>
-            )}
-          </div>
-          {canReportesCreate && (
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
+        <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
+          <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por técnico, semana, folio, cliente…"
+            className={searchInputClass}
+          />
+          {searchTerm && (
             <button
               type="button"
-              onClick={() => {
-                if (isAdmin) setAdminCrearModalOpen(true);
-                else void handleCrearReporte();
-              }}
-              disabled={saving}
-              className="h-10 px-4 rounded-xl bg-blue-600 text-white text-xs font-semibold shadow-theme-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-60 whitespace-nowrap"
+              onClick={() => setSearchTerm("")}
+              aria-label="Limpiar búsqueda"
+              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
             >
-              {saving ? "Guardando..." : isAdmin ? "Nuevo reporte" : "Crear reporte"}
+              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+              </svg>
             </button>
           )}
         </div>
+        {canReportesCreate && (
+          <button
+            type="button"
+            onClick={() => {
+              if (isAdmin) setAdminCrearModalOpen(true);
+              else void handleCrearReporte();
+            }}
+            disabled={saving}
+            className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 disabled:opacity-60 whitespace-nowrap lg:shrink-0"
+          >
+            {saving ? "Guardando..." : isAdmin ? "Nuevo reporte" : "Crear reporte"}
+          </button>
+        )}
       </div>
 
-      <ComponentCard title="Listado">
+      <ComponentCard
+        compact
+        title="Listado"
+        desc="Reportes guardados y filtrados por tu búsqueda. En móvil verás tarjetas; en escritorio, tabla."
+        className={`overflow-hidden ${cardShellClass}`}
+      >
         <div className="space-y-4 p-2 pt-0">
           {canReportesCreate && !isAdmin && (
-              <div className="rounded-xl border border-gray-200/70 dark:border-white/10 p-4 bg-white/70 dark:bg-gray-900/40">
+              <div className={`${cardShellClass} p-4`}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shrink-0">
+                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300">
                       <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                         <path d="M8 6h13" />
                         <path d="M8 12h13" />
@@ -583,7 +618,7 @@ export default function ReportesPage() {
                     </label>
                     <div
                       id="week-range-controls"
-                      className="rounded-2xl border border-gray-200/80 dark:border-white/10 bg-gradient-to-b from-white/90 to-gray-50/80 dark:from-gray-900/50 dark:to-gray-900/80 p-3 shadow-theme-xs sm:p-3.5"
+                      className="rounded-xl border border-gray-200/80 bg-gray-50/50 p-3 dark:border-white/[0.06] dark:bg-gray-950/30 sm:p-3.5"
                     >
                       <div className="flex w-full min-w-0 items-stretch gap-2 sm:gap-3">
                         <button
@@ -642,7 +677,7 @@ export default function ReportesPage() {
               </div>
           )}
 
-          <div className="rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 overflow-hidden">
+          <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/30">
             {/* Vista móvil / tablet: tarjetas */}
             <div className="lg:hidden divide-y divide-gray-100 dark:divide-white/10">
               {loading && (
@@ -708,8 +743,8 @@ export default function ReportesPage() {
 
             {/* Escritorio: tabla */}
             <div className="hidden lg:block overflow-x-auto">
-              <Table className="w-full min-w-[960px]">
-                <TableHeader className="bg-gradient-to-b from-gray-50 to-gray-50/80 dark:from-gray-900/80 dark:to-gray-900/60 sticky top-0 z-10 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+              <Table className="w-full min-w-[960px] xl:min-w-full">
+                <TableHeader className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:border-white/[0.06] dark:bg-gray-900/80 dark:text-gray-300">
                   <TableRow className="hover:bg-transparent">
                     <TableCell isHeader className="px-4 py-3 text-left whitespace-nowrap">
                       Técnico
@@ -1113,6 +1148,7 @@ export default function ReportesPage() {
           </div>
         </div>
       </Modal>
+    </div>
     </div>
   );
 }

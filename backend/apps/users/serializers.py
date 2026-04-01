@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 
 from .models import UserPermissions, UserSignature
@@ -9,6 +10,7 @@ User = get_user_model()
 
 class UserAccountSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -23,8 +25,15 @@ class UserAccountSerializer(serializers.ModelSerializer):
             'is_superuser',
             'date_joined',
             'password',
+            'avatar_url',
         ]
-        read_only_fields = ['id', 'date_joined']
+        read_only_fields = ['id', 'date_joined', 'avatar_url']
+
+    def get_avatar_url(self, obj):
+        try:
+            return (obj.permissions_profile.avatar_url or '').strip()
+        except ObjectDoesNotExist:
+            return ''
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
