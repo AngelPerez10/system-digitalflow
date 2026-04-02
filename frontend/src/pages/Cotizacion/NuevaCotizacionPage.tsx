@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import PageMeta from "@/components/common/PageMeta";
@@ -65,6 +66,8 @@ type ApiCotizacionItem = {
   orden?: number;
 };
 
+type SyscomPopPos = { left: number; width: number; top?: number; bottom?: number; maxHeight: number };
+
 type ApiCotizacion = {
   id: number;
   idx: number;
@@ -98,6 +101,12 @@ const cardShellClass =
 
 const cardShellMutedClass =
   "overflow-hidden rounded-2xl border border-gray-200/70 bg-gray-50/50 dark:border-white/[0.06] dark:bg-gray-950/30";
+
+const cloneModalPanelClass =
+  "rounded-xl border border-gray-200/70 bg-white/90 p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] dark:border-white/[0.07] dark:bg-gray-900/45 dark:shadow-none sm:p-5";
+
+const cloneModalSearchInputClass =
+  "min-h-[44px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2.5 pl-10 pr-3 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60";
 
 /** Misma escala que inputs nativos de la página */
 const inputFieldInsetClass =
@@ -178,6 +187,7 @@ export default function NuevaCotizacionPage() {
 
   const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
   const canCotizacionesView = asBool(permissions?.cotizaciones?.view, true);
+  const canCotizacionesCreate = asBool(permissions?.cotizaciones?.create, false);
 
   const navigate = useNavigate();
   const params = useParams();
@@ -194,6 +204,15 @@ export default function NuevaCotizacionPage() {
 
   const [previewLoading, setPreviewLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(8);
+
+  const [cloneModalOpen, setCloneModalOpen] = useState(false);
+  const [cloneSearch, setCloneSearch] = useState("");
+  const [cloneSearchDebounced, setCloneSearchDebounced] = useState("");
+  const [cloneRows, setCloneRows] = useState<
+    { id: number; idx: number; cliente: string; contacto: string; fecha: string; total: number }[]
+  >([]);
+  const [cloneListLoading, setCloneListLoading] = useState(false);
+  const [clonePickingId, setClonePickingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!previewLoading) {
@@ -278,6 +297,10 @@ export default function NuevaCotizacionPage() {
   const [syscomProductos, setSyscomProductos] = useState<SyscomProducto[]>([]);
   const [syscomError, setSyscomError] = useState("");
   const [selectedSyscomProducto, setSelectedSyscomProducto] = useState<SyscomProducto | null>(null);
+
+  const syscomInputWrapRef = useRef<HTMLDivElement>(null);
+  const syscomPopRef = useRef<HTMLDivElement>(null);
+  const [syscomPopPos, setSyscomPopPos] = useState<SyscomPopPos | null>(null);
   const [descuentoClientePct, setDescuentoClientePct] = useState<number>(0);
   const [descuentoClienteTouched, setDescuentoClienteTouched] = useState<boolean>(false);
   const [ivaPct, setIvaPct] = useState<number>(16);
@@ -439,6 +462,73 @@ export default function NuevaCotizacionPage() {
 
   const filteredClientes = clientes;
 
+  const hydrateFormFromCotizacionDetail = useCallback(
+    async (data: ApiCotizacion, token: string, opts: { updateIdxBadge: boolean }) => {
+      if (opts.updateIdxBadge) {
+        setEditingCotizacionIdx(Number.isFinite(Number(data.idx)) ? Number(data.idx) : null);
+      }
+
+      setClienteId(data.cliente_id ? Number(data.cliente_id) : "");
+      const nombreDesdeApi = String(data.cliente_nombre || data.cliente || "").trim();
+      setClienteSearch(nombreDesdeApi);
+      setContactoNombre(String(data.contacto || ""));
+      setMedioContacto(String((data as any)?.medio_contacto || ""));
+      setStatus(String((data as any)?.status || "PENDIENTE"));
+      setDescuentoClientePct(clampPct(toNumber((data as any)?.descuento_cliente_pct, 0)));
+      setDescuentoClienteTouched(true);
+      setIvaPct(clampPct(toNumber(data.iva_pct, 16)));
+      setTextoArribaPrecios(String(data.texto_arriba_precios || ""));
+      {
+        const incoming = String((data as any).terminos || "").trim();
+        if (incoming) setTerminos(incoming);
+      }
+
+      const conceptosList: Concepto[] = Array.isArray(data.items)
+        ? data.items.map((it) => ({
+            id: uid(),
+            producto_externo_id: String((it as any).producto_externo_id ?? ""),
+            producto_nombre: String(it.producto_nombre || ""),
+            producto_descripcion: String(it.producto_descripcion || ""),
+            unidad: String(it.unidad || ""),
+            thumbnail_url: it.thumbnail_url || undefined,
+            cantidad: toNumber(it.cantidad, 0),
+            precio_lista: toNumber(it.precio_lista, 0),
+            descuento_pct: clampPct(toNumber(it.descuento_pct, 0)),
+          }))
+        : [];
+      setConceptos(conceptosList);
+      setEditingConceptoId(null);
+      setClienteOpen(false);
+
+      const cid = data.cliente_id ? Number(data.cliente_id) : null;
+      if (cid) {
+        try {
+          const cr = await fetch(apiUrl(`/api/clientes/${cid}/`), {
+            method: "GET",
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store" as RequestCache,
+          });
+          const one = (await cr.json().catch(() => null)) as Cliente | null;
+          if (cr.ok && one && typeof one.id === "number") {
+            setClientes((prev) => {
+              if (prev.some((c) => c.id === one.id)) {
+                return prev.map((c) => (c.id === one.id ? { ...c, ...one } : c));
+              }
+              return [one, ...prev];
+            });
+            const n = String(one.nombre || "").trim();
+            if (n && !String(nombreDesdeApi).trim()) {
+              setClienteSearch(n);
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     if (!editingCotizacionId) {
       setEditingCotizacionIdx(null);
@@ -454,95 +544,134 @@ export default function NuevaCotizacionPage() {
     const load = async () => {
       try {
         const res = await fetch(apiUrl(`/api/cotizaciones/${editingCotizacionId}/`), {
-          method: 'GET',
+          method: "GET",
           headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store' as RequestCache,
+          cache: "no-store" as RequestCache,
         });
         const data = (await res.json().catch(() => null)) as ApiCotizacion | null;
         if (!res.ok || !data) {
           setEditingCotizacionIdx(null);
           setAlert({
             show: true,
-            variant: 'warning',
-            title: 'Cotización no encontrada',
-            message: 'No se encontró la cotización. Regresando al listado.',
+            variant: "warning",
+            title: "Cotización no encontrada",
+            message: "No se encontró la cotización. Regresando al listado.",
           });
-          window.setTimeout(() => navigate('/cotizacion'), 450);
+          window.setTimeout(() => navigate("/cotizacion"), 450);
           return;
         }
 
-        setEditingCotizacionIdx(Number.isFinite(Number(data.idx)) ? Number(data.idx) : null);
-
-        setClienteId(data.cliente_id ? Number(data.cliente_id) : '');
-        const nombreDesdeApi = String(data.cliente_nombre || data.cliente || '').trim();
-        setClienteSearch(nombreDesdeApi);
-        setContactoNombre(String(data.contacto || ''));
-        setMedioContacto(String((data as any)?.medio_contacto || ''));
-        setStatus(String((data as any)?.status || 'PENDIENTE'));
-        setDescuentoClientePct(clampPct(toNumber((data as any)?.descuento_cliente_pct, 0)));
-        setDescuentoClienteTouched(true);
-        setIvaPct(clampPct(toNumber(data.iva_pct, 16)));
-        setTextoArribaPrecios(String(data.texto_arriba_precios || ''));
-        {
-          const incoming = String((data as any).terminos || '').trim();
-          if (incoming) setTerminos(incoming);
-        }
-
-        const conceptosList: Concepto[] = Array.isArray(data.items)
-          ? data.items.map((it) => ({
-            id: uid(),
-            producto_externo_id: String((it as any).producto_externo_id ?? ''),
-            producto_nombre: String(it.producto_nombre || ''),
-            producto_descripcion: String(it.producto_descripcion || ''),
-            unidad: String(it.unidad || ''),
-            thumbnail_url: it.thumbnail_url || undefined,
-            cantidad: toNumber(it.cantidad, 0),
-            precio_lista: toNumber(it.precio_lista, 0),
-            descuento_pct: clampPct(toNumber(it.descuento_pct, 0)),
-          }))
-          : [];
-        setConceptos(conceptosList);
-
-        const cid = data.cliente_id ? Number(data.cliente_id) : null;
-        if (cid) {
-          try {
-            const cr = await fetch(apiUrl(`/api/clientes/${cid}/`), {
-              method: 'GET',
-              headers: { Authorization: `Bearer ${token}` },
-              cache: 'no-store' as RequestCache,
-            });
-            const one = (await cr.json().catch(() => null)) as Cliente | null;
-            if (cr.ok && one && typeof one.id === 'number') {
-              setClientes((prev) => {
-                if (prev.some((c) => c.id === one.id)) {
-                  return prev.map((c) => (c.id === one.id ? { ...c, ...one } : c));
-                }
-                return [one, ...prev];
-              });
-              const n = String(one.nombre || '').trim();
-              if (n && !String(nombreDesdeApi).trim()) {
-                setClienteSearch(n);
-              }
-            }
-          } catch {
-            /* ignore: el nombre en cabecera ya viene de cliente_nombre / cliente */
-          }
-        }
+        await hydrateFormFromCotizacionDetail(data, token, { updateIdxBadge: true });
       } catch {
         setAlert({
           show: true,
-          variant: 'error',
-          title: 'Error',
-          message: 'No se pudo cargar la cotización.',
+          variant: "error",
+          title: "Error",
+          message: "No se pudo cargar la cotización.",
         });
       } finally {
         setHydratingFromStorage(false);
       }
     };
 
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingCotizacionId]);
+    void load();
+  }, [editingCotizacionId, hydrateFormFromCotizacionDetail, navigate]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setCloneSearchDebounced(cloneSearch.trim()), 400);
+    return () => clearTimeout(t);
+  }, [cloneSearch]);
+
+  useEffect(() => {
+    if (!cloneModalOpen || !canCotizacionesView) return;
+    const token = getToken();
+    if (!token) return;
+    if (cloneSearchDebounced.length < 1) {
+      setCloneRows([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setCloneListLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set("search", cloneSearchDebounced);
+        const res = await fetch(apiUrl(`/api/cotizaciones/?${params.toString()}`), {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store" as RequestCache,
+        });
+        const data = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (!res.ok) {
+          setCloneRows([]);
+          return;
+        }
+        const list = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+        const mapped = list
+          .map((x: Record<string, unknown>) => ({
+            id: Number(x?.id || 0),
+            idx: Number(x?.idx || 0),
+            cliente: String(x?.cliente_nombre || x?.cliente || "—"),
+            contacto: String(x?.contacto || "—"),
+            fecha: String(x?.fecha || ""),
+            total: Number(x?.total ?? 0),
+          }))
+          .filter((row: { id: number }) => row.id > 0)
+          .slice(0, 60);
+        setCloneRows(mapped);
+      } finally {
+        if (!cancelled) setCloneListLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cloneModalOpen, cloneSearchDebounced, canCotizacionesView]);
+
+  const handleClonePick = async (id: number) => {
+    const token = getToken();
+    if (!token) return;
+    setClonePickingId(id);
+    setHydratingFromStorage(true);
+    try {
+      const res = await fetch(apiUrl(`/api/cotizaciones/${id}/`), {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store" as RequestCache,
+      });
+      const data = (await res.json().catch(() => null)) as ApiCotizacion | null;
+      if (!res.ok || !data) {
+        setAlert({
+          show: true,
+          variant: "error",
+          title: "Error",
+          message: "No se pudo cargar la cotización seleccionada.",
+        });
+        return;
+      }
+      await hydrateFormFromCotizacionDetail(data, token, { updateIdxBadge: false });
+      setCloneModalOpen(false);
+      setCloneSearch("");
+      setCloneSearchDebounced("");
+      setCloneRows([]);
+      setAlert({
+        show: true,
+        variant: "success",
+        title: "Cotización clonada",
+        message: `Se copiaron los datos del folio #${data.idx}. Revisa la información y guarda como cotización nueva.`,
+      });
+    } catch {
+      setAlert({
+        show: true,
+        variant: "error",
+        title: "Error",
+        message: "No se pudo clonar la cotización.",
+      });
+    } finally {
+      setHydratingFromStorage(false);
+      setClonePickingId(null);
+    }
+  };
 
   useEffect(() => {
     if (hydratingFromStorage) return;
@@ -551,8 +680,7 @@ export default function NuevaCotizacionPage() {
       return;
     }
 
-    // In edit mode, preserve the stored contacto if already present.
-    if (editingCotizacionId && String(contactoNombre || "").trim()) return;
+    if (String(contactoNombre || "").trim()) return;
 
     const principal = (selectedCliente.contactos || []).find((x) => x.is_principal);
     const first = (selectedCliente.contactos || [])[0];
@@ -643,6 +771,76 @@ export default function NuevaCotizacionPage() {
     setPrecioLista(round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio)));
     setSyscomOpen(false);
   };
+
+  const showSyscomPanel = useMemo(
+    () =>
+      syscomOpen &&
+      (loadingSyscom || syscomProductos.length > 0 || !!syscomError || conceptoNombre.trim().length >= 2),
+    [syscomOpen, loadingSyscom, syscomProductos.length, syscomError, conceptoNombre]
+  );
+
+  useLayoutEffect(() => {
+    if (!showSyscomPanel) {
+      setSyscomPopPos(null);
+      return;
+    }
+    const el = syscomInputWrapRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const margin = 8;
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+      const preferredMax = Math.min(288, vh * 0.42);
+      const spaceBelow = vh - rect.bottom - margin;
+      const spaceAbove = rect.top - margin;
+      const width = Math.min(Math.max(rect.width, 280), vw - margin * 2);
+      let left = rect.left;
+      if (left + width > vw - margin) left = Math.max(margin, vw - width - margin);
+
+      const openAbove = spaceBelow < 160 && spaceAbove > spaceBelow;
+
+      if (openAbove) {
+        const maxHeight = Math.max(120, Math.min(preferredMax, spaceAbove - 4));
+        setSyscomPopPos({
+          left,
+          width,
+          bottom: vh - rect.top + margin,
+          maxHeight,
+        });
+      } else {
+        const top = rect.bottom + margin;
+        const maxHeight = Math.max(120, Math.min(preferredMax, vh - top - margin));
+        setSyscomPopPos({
+          left,
+          width,
+          top,
+          maxHeight,
+        });
+      }
+    };
+
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [showSyscomPanel, loadingSyscom, syscomProductos.length]);
+
+  useEffect(() => {
+    if (!showSyscomPanel) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (syscomInputWrapRef.current?.contains(t)) return;
+      if (syscomPopRef.current?.contains(t)) return;
+      setSyscomOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [showSyscomPanel]);
 
   useEffect(() => {
     if (!alert.show) return;
@@ -936,6 +1134,9 @@ export default function NuevaCotizacionPage() {
 
   const resetAll = () => {
     setClienteId("");
+    setClienteSearch("");
+    setClienteOpen(false);
+    setDebouncedClienteSearch("");
     setContactoNombre("");
 
     setMedioContacto('');
@@ -947,6 +1148,10 @@ export default function NuevaCotizacionPage() {
     setUnidad("");
     setPrecioLista(0);
     setDescuentoPct(0);
+    setSelectedSyscomProducto(null);
+    setSyscomProductos([]);
+    setSyscomError("");
+    setSyscomOpen(false);
     setDescuentoClientePct(0);
     setDescuentoClienteTouched(false);
     setIvaPct(16);
@@ -1115,6 +1320,230 @@ export default function NuevaCotizacionPage() {
           </div>
         </div>
       </Modal>
+
+      <Modal
+        isOpen={cloneModalOpen}
+        onClose={() => {
+          if (clonePickingId != null) return;
+          setCloneModalOpen(false);
+        }}
+        closeOnBackdropClick={clonePickingId == null}
+        closeOnEscape={clonePickingId == null}
+        className="mx-4 flex max-h-[min(90vh,640px)] w-[min(96vw,28rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/75 p-0 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.14)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:mx-auto sm:max-w-lg"
+      >
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+          <header className="relative shrink-0 border-b border-gray-200/60 bg-gray-50/80 px-5 py-5 pr-12 dark:border-white/[0.06] dark:bg-gray-950/40 sm:px-6 sm:pr-14">
+            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-brand-500/80 dark:bg-brand-400/70" aria-hidden />
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-500/12 bg-white text-brand-700 shadow-sm dark:border-brand-400/15 dark:bg-gray-900/60 dark:text-brand-300 sm:h-11 sm:w-11">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
+                  <path d="M16 3h2a2 2 0 0 1 2 2v2M8 3H6a2 2 0 0 0-2 2v2" strokeLinecap="round" />
+                  <path d="M8 21h8M12 17v4M9 17h6" strokeLinecap="round" strokeLinejoin="round" />
+                  <rect x="3" y="7" width="18" height="10" rx="2" strokeLinejoin="round" />
+                  <path d="M7 11h2M11 11h2M15 11h.01" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]">Cotización</p>
+                <h3 className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Clonar desde existente</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
+                  Busque por <span className="font-medium text-gray-800 dark:text-gray-200">cliente</span> o{" "}
+                  <span className="font-medium text-gray-800 dark:text-gray-200">folio</span>. Al elegir una fila se copian cliente, contacto,
+                  descuentos, conceptos y textos al borrador actual.
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden bg-gray-50/40 px-5 py-5 dark:bg-gray-950/25 sm:px-6">
+            <section className={cloneModalPanelClass}>
+              <label htmlFor="clone-cotizacion-search" className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm">
+                Buscar cotización
+              </label>
+              <div className="relative">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden
+                >
+                  <circle cx="8.5" cy="8.5" r="5.5" />
+                  <path d="M14 14 18 18" strokeLinecap="round" />
+                </svg>
+                <input
+                  id="clone-cotizacion-search"
+                  type="search"
+                  value={cloneSearch}
+                  onChange={(e) => setCloneSearch(e.target.value)}
+                  placeholder="Folio (ej. 42) o nombre de cliente…"
+                  autoFocus
+                  className={cloneModalSearchInputClass}
+                />
+              </div>
+            </section>
+
+            <div className="flex min-h-0 flex-1 flex-col gap-2">
+              <div className="flex items-center justify-between gap-2 px-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]">Resultados</span>
+                {!cloneListLoading && cloneSearchDebounced.length >= 1 && cloneRows.length > 0 && (
+                  <span className="tabular-nums text-[11px] font-medium text-gray-400 dark:text-gray-500">{cloneRows.length}</span>
+                )}
+              </div>
+              <div className="relative min-h-[12rem] flex-1 overflow-hidden rounded-xl border border-gray-200/80 bg-white/60 dark:border-white/[0.08] dark:bg-gray-900/40">
+                <div className="custom-scrollbar max-h-[min(48vh,320px)] overflow-y-auto overscroll-contain sm:max-h-[min(50vh,340px)]">
+                  {cloneListLoading && (
+                    <div className="flex flex-col items-center justify-center gap-3 px-4 py-14">
+                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600 dark:border-gray-700 dark:border-t-brand-400" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Buscando cotizaciones…</p>
+                    </div>
+                  )}
+                  {!cloneListLoading && cloneSearchDebounced.length < 1 && (
+                    <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
+                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-50 text-gray-400 dark:border-white/[0.08] dark:bg-gray-950/50 dark:text-gray-500">
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                          <path d="M12 19V5M5 12h14" strokeLinecap="round" />
+                        </svg>
+                      </span>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Empiece a escribir</p>
+                      <p className="max-w-[240px] text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                        Escriba al menos un carácter para buscar en el directorio de cotizaciones.
+                      </p>
+                    </div>
+                  )}
+                  {!cloneListLoading && cloneSearchDebounced.length >= 1 && cloneRows.length === 0 && (
+                    <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
+                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-50 text-gray-400 dark:border-white/[0.08] dark:bg-gray-950/50 dark:text-gray-500">
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                          <circle cx="11" cy="11" r="7" />
+                          <path d="m20 20-3-3M8 11h6" strokeLinecap="round" />
+                        </svg>
+                      </span>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Sin coincidencias</p>
+                      <p className="max-w-[260px] text-xs text-gray-500 dark:text-gray-400">Pruebe otro folio o parte del nombre del cliente.</p>
+                    </div>
+                  )}
+                  {!cloneListLoading && cloneRows.length > 0 && (
+                    <ul className="space-y-2 p-3 sm:p-3.5">
+                      {cloneRows.map((row) => (
+                        <li key={row.id}>
+                          <button
+                            type="button"
+                            disabled={clonePickingId != null}
+                            onClick={() => void handleClonePick(row.id)}
+                            className="flex w-full flex-col gap-2 rounded-xl border border-gray-200/80 bg-white p-3.5 text-left shadow-sm transition-all hover:border-brand-300/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/35 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-gray-900/55 dark:hover:border-brand-500/30 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                          >
+                            <div className="flex min-w-0 flex-1 items-start gap-3">
+                              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500/[0.1] text-sm font-bold tabular-nums text-brand-800 dark:bg-brand-500/15 dark:text-brand-200">
+                                #{row.idx}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{row.cliente}</p>
+                                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                  {row.contacto && row.contacto !== "—" && <span>Contacto: {row.contacto}</span>}
+                                  {row.fecha && (
+                                    <span className="tabular-nums text-gray-400 dark:text-gray-500">{formatDMY(row.fecha)}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="shrink-0 rounded-lg border border-gray-200/80 bg-gray-50/90 px-2.5 py-1 text-xs font-semibold tabular-nums text-gray-800 dark:border-white/[0.08] dark:bg-white/[0.06] dark:text-gray-100">
+                              {formatMoney(row.total)}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {clonePickingId != null && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/55 backdrop-blur-[2px] dark:bg-gray-950/50">
+                    <div className="flex items-center gap-2 rounded-xl border border-gray-200/80 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-md dark:border-white/[0.1] dark:bg-gray-900 dark:text-gray-200">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-brand-600 dark:border-gray-600 dark:border-t-brand-400" />
+                      Cargando cotización…
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {showSyscomPanel &&
+        syscomPopPos &&
+        createPortal(
+          <div
+            ref={syscomPopRef}
+            role="listbox"
+            aria-label="Resultados Syscom"
+            style={{
+              position: "fixed",
+              zIndex: 2147483646,
+              left: syscomPopPos.left,
+              width: syscomPopPos.width,
+              maxHeight: syscomPopPos.maxHeight,
+              ...(syscomPopPos.top != null ? { top: syscomPopPos.top } : { bottom: syscomPopPos.bottom }),
+            }}
+            className="flex flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white/98 shadow-2xl shadow-gray-900/20 ring-1 ring-black/[0.06] backdrop-blur-md dark:border-white/[0.12] dark:bg-gray-900/98 dark:shadow-black/50 dark:ring-white/[0.08]"
+          >
+            <div className="shrink-0 border-b border-gray-100/90 bg-gradient-to-r from-brand-50/95 to-transparent px-3 py-2 dark:border-white/[0.06] dark:from-brand-950/50 dark:to-transparent">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-800 dark:text-brand-200">Catálogo Syscom</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">Selecciona un producto o sigue escribiendo</p>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-1.5 custom-scrollbar">
+              {loadingSyscom && (
+                <div className="flex items-center gap-2 rounded-lg px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" aria-hidden />
+                  Buscando en Syscom…
+                </div>
+              )}
+              {!loadingSyscom && !!syscomError && (
+                <div className="rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">{syscomError}</div>
+              )}
+              {!loadingSyscom &&
+                syscomProductos.map((p) => {
+                  const price = round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio));
+                  const imgUrl = getProductoImageUrl(p.img_portada || "");
+                  return (
+                    <button
+                      key={`${p.fuente || "syscom"}-${p.producto_id}`}
+                      type="button"
+                      role="option"
+                      onClick={() => selectSyscomProducto(p)}
+                      className="group mb-1 flex w-full rounded-xl px-2 py-2 text-left transition-colors last:mb-0 hover:bg-brand-50/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:hover:bg-white/[0.06]"
+                    >
+                      <div className="flex w-full items-center gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200/80 bg-gray-50 dark:border-white/[0.08] dark:bg-gray-800/80">
+                          {imgUrl ? (
+                            <img src={imgUrl} alt="" className="h-full w-full object-contain p-0.5" />
+                          ) : (
+                            <span className="text-[10px] font-medium text-gray-400">—</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium leading-snug text-gray-900 group-hover:text-brand-900 dark:text-gray-100 dark:group-hover:text-brand-100">
+                            {p.titulo}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                            {[p.marca, p.modelo].filter(Boolean).join(" · ")}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-md bg-brand-500/10 px-2 py-1 text-xs font-semibold tabular-nums text-brand-700 dark:bg-brand-400/15 dark:text-brand-300">
+                          {formatMoney(price)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              {!loadingSyscom && !syscomError && syscomProductos.length === 0 && conceptoNombre.trim().length >= 2 && (
+                <div className="rounded-lg px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400">Sin resultados en Syscom</div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
 
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
@@ -1377,7 +1806,7 @@ export default function NuevaCotizacionPage() {
 
                     <div className="sm:col-span-4 lg:col-span-5">
                       <Label className={labelPageClass}>Concepto / nombre</Label>
-                      <div className="relative">
+                      <div ref={syscomInputWrapRef} className="relative">
                         <input
                           className={inputLikeClassName}
                           value={conceptoNombre}
@@ -1389,51 +1818,8 @@ export default function NuevaCotizacionPage() {
                             setSelectedSyscomProducto(null);
                           }}
                           placeholder="Buscar producto Syscom o escribir manualmente"
+                          autoComplete="off"
                         />
-                        {syscomOpen && (loadingSyscom || syscomProductos.length > 0 || !!syscomError || conceptoNombre.trim().length >= 2) && (
-                          <div className="absolute z-30 mt-1 w-full max-h-72 overflow-auto rounded-lg border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.08] dark:bg-gray-900 custom-scrollbar">
-                            {loadingSyscom && (
-                              <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">Buscando en Syscom...</div>
-                            )}
-                            {!loadingSyscom && !!syscomError && (
-                              <div className="px-3 py-2 text-xs text-red-600 dark:text-red-400">{syscomError}</div>
-                            )}
-                            {!loadingSyscom && syscomProductos.map((p) => {
-                              const price = round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio));
-                              const imgUrl = getProductoImageUrl(p.img_portada || "");
-                              return (
-                                <button
-                                  key={`${p.fuente || "syscom"}-${p.producto_id}`}
-                                  type="button"
-                                  onClick={() => selectSyscomProducto(p)}
-                                  className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition border-b border-gray-100 dark:border-gray-800 last:border-b-0"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-9 h-9 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center shrink-0">
-                                      {imgUrl ? (
-                                        <img src={imgUrl} alt="" className="w-full h-full object-contain" />
-                                      ) : (
-                                        <span className="text-[10px] text-gray-400">—</span>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-xs font-medium text-gray-800 dark:text-gray-100 truncate">{p.titulo}</p>
-                                      <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                                        {p.marca} · {p.modelo}
-                                      </p>
-                                    </div>
-                                    <span className="text-xs font-semibold text-brand-600 dark:text-brand-400 whitespace-nowrap">
-                                      {formatMoney(price)}
-                                    </span>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                            {!loadingSyscom && !syscomError && syscomProductos.length === 0 && conceptoNombre.trim().length >= 2 && (
-                              <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">Sin resultados</div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -1727,6 +2113,24 @@ export default function NuevaCotizacionPage() {
                       >
                         Limpiar formulario
                       </button>
+                      {!editingCotizacionId && canCotizacionesCreate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCloneSearch("");
+                            setCloneSearchDebounced("");
+                            setCloneRows([]);
+                            setCloneModalOpen(true);
+                          }}
+                          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-brand-200/90 bg-brand-50/80 px-4 py-3 text-xs font-semibold text-brand-800 transition-colors hover:bg-brand-100/90 active:scale-[0.99] dark:border-brand-500/30 dark:bg-brand-500/[0.12] dark:text-brand-100 dark:hover:bg-brand-500/20 sm:min-h-0"
+                        >
+                          <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          Clonar cotización
+                        </button>
+                      )}
                     </div>
                 </div>
               </ComponentCard>
