@@ -69,6 +69,8 @@ type ApiCotizacion = {
   id: number;
   idx: number;
   cliente_id: number | null;
+  /** Nombre desde FK (siempre que exista cliente_id); preferir sobre `cliente` guardado. */
+  cliente_nombre?: string;
   cliente: string;
   prospecto: boolean;
   contacto: string;
@@ -259,6 +261,9 @@ export default function NuevaCotizacionPage() {
   const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
   const [clienteOpen, setClienteOpen] = useState(false);
 
+  /** Folio visible en UI al editar (modelo `idx`), no el id de base de datos. */
+  const [editingCotizacionIdx, setEditingCotizacionIdx] = useState<number | null>(null);
+
   const [contactoNombre, setContactoNombre] = useState("");
 
   const [cantidad, setCantidad] = useState<number>(1);
@@ -406,20 +411,28 @@ export default function NuevaCotizacionPage() {
     fetchClientes(debouncedClienteSearch);
   }, [debouncedClienteSearch]);
 
+  const contactoPrincipalDeCliente = (cliente: Cliente) => {
+    const principal = (cliente.contactos || []).find((x) => x.is_principal);
+    const first = (cliente.contactos || [])[0];
+    return String(principal?.nombre_apellido || first?.nombre_apellido || "").trim();
+  };
+
   const selectCliente = (cliente: Cliente | null) => {
     if (cliente) {
       setClienteId(cliente.id);
-      setClienteSearch(cliente.nombre);
+      setClienteSearch(String(cliente.nombre || "").trim());
 
       const desc = clampPct(toNumber((cliente as any)?.descuento_pct, 0));
       setDescuentoClientePct(desc);
       setDescuentoClienteTouched(false);
+      setContactoNombre(contactoPrincipalDeCliente(cliente));
     } else {
       setClienteId("");
       setClienteSearch("");
 
       setDescuentoClientePct(0);
       setDescuentoClienteTouched(false);
+      setContactoNombre("");
     }
     setClienteOpen(false);
   };
@@ -427,7 +440,10 @@ export default function NuevaCotizacionPage() {
   const filteredClientes = clientes;
 
   useEffect(() => {
-    if (!editingCotizacionId) return;
+    if (!editingCotizacionId) {
+      setEditingCotizacionIdx(null);
+      return;
+    }
     setHydratingFromStorage(true);
     const token = getToken();
     if (!token) {
@@ -444,6 +460,7 @@ export default function NuevaCotizacionPage() {
         });
         const data = (await res.json().catch(() => null)) as ApiCotizacion | null;
         if (!res.ok || !data) {
+          setEditingCotizacionIdx(null);
           setAlert({
             show: true,
             variant: 'warning',
@@ -454,8 +471,11 @@ export default function NuevaCotizacionPage() {
           return;
         }
 
+        setEditingCotizacionIdx(Number.isFinite(Number(data.idx)) ? Number(data.idx) : null);
+
         setClienteId(data.cliente_id ? Number(data.cliente_id) : '');
-        setClienteSearch(String(data.cliente || "").trim());
+        const nombreDesdeApi = String(data.cliente_nombre || data.cliente || '').trim();
+        setClienteSearch(nombreDesdeApi);
         setContactoNombre(String(data.contacto || ''));
         setMedioContacto(String((data as any)?.medio_contacto || ''));
         setStatus(String((data as any)?.status || 'PENDIENTE'));
@@ -482,6 +502,32 @@ export default function NuevaCotizacionPage() {
           }))
           : [];
         setConceptos(conceptosList);
+
+        const cid = data.cliente_id ? Number(data.cliente_id) : null;
+        if (cid) {
+          try {
+            const cr = await fetch(apiUrl(`/api/clientes/${cid}/`), {
+              method: 'GET',
+              headers: { Authorization: `Bearer ${token}` },
+              cache: 'no-store' as RequestCache,
+            });
+            const one = (await cr.json().catch(() => null)) as Cliente | null;
+            if (cr.ok && one && typeof one.id === 'number') {
+              setClientes((prev) => {
+                if (prev.some((c) => c.id === one.id)) {
+                  return prev.map((c) => (c.id === one.id ? { ...c, ...one } : c));
+                }
+                return [one, ...prev];
+              });
+              const n = String(one.nombre || '').trim();
+              if (n && !String(nombreDesdeApi).trim()) {
+                setClienteSearch(n);
+              }
+            }
+          } catch {
+            /* ignore: el nombre en cabecera ya viene de cliente_nombre / cliente */
+          }
+        }
       } catch {
         setAlert({
           show: true,
@@ -1126,7 +1172,8 @@ export default function NuevaCotizacionPage() {
                   </h1>
                   {!!editingCotizacionId && (
                     <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/[0.12] dark:text-amber-200">
-                      Edición · #{editingCotizacionId}
+                      Edición · #
+                      {editingCotizacionIdx != null ? editingCotizacionIdx : editingCotizacionId}
                     </span>
                   )}
                 </div>
