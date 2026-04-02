@@ -1506,8 +1506,6 @@ export default function NuevaCotizacionPage() {
                         {!computed.lines.length && (
                           <TableRow>
                             <TableCell className="px-2 py-2"> </TableCell>
-                            <TableCell className="px-2 py-2"> </TableCell>
-                            <TableCell className="px-2 py-2"> </TableCell>
                             <TableCell colSpan={6} className="px-4 py-10 text-center">
                               <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
                                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400">
@@ -1519,6 +1517,8 @@ export default function NuevaCotizacionPage() {
                                 <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 sm:text-xs">Usa el formulario de arriba para agregar productos o servicios.</p>
                               </div>
                             </TableCell>
+                            <TableCell className="px-2 py-2"> </TableCell>
+                            <TableCell className="px-2 py-2"> </TableCell>
                           </TableRow>
                         )}
                       </TableBody>

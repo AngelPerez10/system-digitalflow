@@ -43,6 +43,7 @@ type UserAccount = {
   email: string;
   first_name: string;
   last_name: string;
+  is_active?: boolean;
   is_staff: boolean;
   is_superuser: boolean;
   password_enabled?: boolean;
@@ -247,6 +248,7 @@ export default function UserProfiles() {
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [togglingActiveId, setTogglingActiveId] = useState<number | null>(null);
 
   const [isPermsOpen, setIsPermsOpen] = useState(false);
   const [permsUser, setPermsUser] = useState<UserAccount | null>(null);
@@ -685,6 +687,37 @@ export default function UserProfiles() {
     }
   };
 
+  const toggleUserActive = async (u: UserAccount) => {
+    const currentlyActive = u.is_active !== false;
+    if (u.username === 'AngelPerez10' && currentlyActive) {
+      setError('Este usuario no puede desactivarse desde aquí.');
+      window.setTimeout(() => setError(null), 3500);
+      return;
+    }
+    const next = !currentlyActive;
+    setTogglingActiveId(u.id);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch(apiUrl(`/api/users/accounts/${u.id}/`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ is_active: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.detail || 'No se pudo actualizar el estado');
+      setUsers((prev) => prev.map((row) => (row.id === u.id ? { ...row, ...(data as UserAccount) } : row)));
+      setSuccess(next === true ? 'Usuario activado' : 'Usuario desactivado');
+    } catch (e: any) {
+      setError(e?.message || 'Error');
+    } finally {
+      setTogglingActiveId(null);
+    }
+  };
+
   const doDelete = async () => {
     if (confirmDeleteId == null) return;
     const deletedUser = users.find((u) => u.id === confirmDeleteId);
@@ -869,7 +902,7 @@ export default function UserProfiles() {
         compact
         title="Listado de usuarios"
         desc="Filtra por rol con el botón Filtros, busca en tiempo real y abre el menú de cada tarjeta para editar, permisos o firma."
-        className={`overflow-hidden ${cardShellClass}`}
+        className={`!overflow-visible ${cardShellClass}`}
         actions={(
           <div className="relative w-full sm:w-auto" ref={filterRef}>
             <button
@@ -923,18 +956,21 @@ export default function UserProfiles() {
             {filtered.map((u) => {
               const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
               const isAdmin = isAdminUser(u);
+              const isActive = u.is_active !== false;
               const initials = (fullName || u.username)
                 .split(' ')
                 .filter(Boolean)
                 .slice(0, 2)
                 .map((p) => p[0]?.toUpperCase())
                 .join('');
+              const switchDisabled =
+                togglingActiveId === u.id || (u.username === 'AngelPerez10' && isActive);
 
               return (
                 <div
                   data-anim="user-card"
                   key={u.id}
-                  className={`group relative ${cardShellClass} p-4 transition-shadow hover:border-gray-300/90 dark:hover:border-white/[0.1]`}
+                  className={`group relative overflow-visible rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm transition-shadow hover:border-gray-300/90 dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none dark:hover:border-white/[0.1]`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
@@ -952,7 +988,7 @@ export default function UserProfiles() {
                       </div>
                     </div>
 
-                    <div className="relative" ref={openMenuId === u.id ? menuRef : null}>
+                    <div className="relative z-[80]" ref={openMenuId === u.id ? menuRef : null}>
                       <button
                         type="button"
                         onClick={() => setOpenMenuId((prev) => (prev === u.id ? null : u.id))}
@@ -962,15 +998,21 @@ export default function UserProfiles() {
                       </button>
 
                       {openMenuId === u.id && (
-                        <div className="shadow-theme-lg dark:bg-gray-dark absolute top-full right-0 z-50 w-40 space-y-1 rounded-2xl border border-gray-200 bg-white p-2 dark:border-gray-800">
+                        <div className="absolute right-0 top-full z-[200] mt-1.5 w-44 overflow-hidden rounded-xl border border-gray-200/90 bg-white py-1 shadow-lg ring-1 ring-black/5 dark:border-gray-700 dark:bg-gray-900 dark:ring-white/10">
                           <button
                             type="button"
                             onClick={() => {
                               setOpenMenuId(null);
                               openEdit(u);
                             }}
-                            className="text-theme-xs flex w-full rounded-lg px-3 py-2 text-left font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/[0.06]"
                           >
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                            </span>
                             Editar
                           </button>
                           <button
@@ -978,8 +1020,13 @@ export default function UserProfiles() {
                             onClick={() => {
                               openPerms(u);
                             }}
-                            className="text-theme-xs flex w-full rounded-lg px-3 py-2 text-left font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/[0.06]"
                           >
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                              </svg>
+                            </span>
                             Permisos
                           </button>
                           {u.username !== 'AngelPerez10' && (
@@ -989,8 +1036,13 @@ export default function UserProfiles() {
                                 setOpenMenuId(null);
                                 setConfirmDeleteId(u.id);
                               }}
-                              className="text-theme-xs flex w-full rounded-lg px-3 py-2 text-left font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-error-600 transition-colors hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-500/10"
                             >
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400">
+                                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
+                              </span>
                               Eliminar
                             </button>
                           )}
@@ -1012,6 +1064,35 @@ export default function UserProfiles() {
                         </svg>
                         Acceso con contraseña
                       </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 py-2.5 dark:border-white/[0.08] dark:bg-gray-950/40">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Acceso al sistema</p>
+                        <p className="mt-0.5 text-sm text-gray-900 dark:text-white">
+                          {isActive ? 'Cuenta habilitada' : 'Cuenta deshabilitada'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isActive}
+                        aria-label={isActive ? 'Desactivar cuenta' : 'Activar cuenta'}
+                        disabled={switchDisabled}
+                        onClick={() => void toggleUserActive(u)}
+                        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-50 dark:focus-visible:ring-offset-gray-950 ${
+                          switchDisabled
+                            ? 'cursor-not-allowed border border-gray-200/80 bg-gray-200/90 opacity-60 dark:border-white/[0.08] dark:bg-gray-800'
+                            : isActive
+                              ? 'bg-emerald-600 dark:bg-emerald-500'
+                              : 'bg-gray-300 dark:bg-gray-600'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${
+                            isActive ? 'translate-x-5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
                     </div>
                   </div>
                 </div>
