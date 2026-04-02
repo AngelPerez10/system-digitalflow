@@ -94,7 +94,7 @@ export const Modal: React.FC<ModalProps> = ({
             </svg>
           </button>
         )}
-        <div>{children}</div>
+        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">{children}</div>
       </div>
     </div>
   );

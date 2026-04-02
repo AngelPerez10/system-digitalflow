@@ -455,6 +455,7 @@ export default function NuevaCotizacionPage() {
         }
 
         setClienteId(data.cliente_id ? Number(data.cliente_id) : '');
+        setClienteSearch(String(data.cliente || "").trim());
         setContactoNombre(String(data.contacto || ''));
         setMedioContacto(String((data as any)?.medio_contacto || ''));
         setStatus(String((data as any)?.status || 'PENDIENTE'));
@@ -613,8 +614,9 @@ export default function NuevaCotizacionPage() {
   };
 
   const resolveClienteNombre = () => {
-    const c = selectedCliente;
-    return String(c?.nombre || "").trim();
+    const fromList = String(selectedCliente?.nombre || "").trim();
+    if (fromList) return fromList;
+    return String(clienteSearch || "").trim();
   };
 
   const handleSaveCotizacion = async (navigateAfterSave = true): Promise<string | null> => {
@@ -1167,16 +1169,31 @@ export default function NuevaCotizacionPage() {
                         <div className="relative">
                           <svg className='absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'><circle cx='11' cy='11' r='7' /><path d='m20 20-2-2' /></svg>
                           <input
-                            value={clienteSearch || (clienteId ? clientes.find(c => c.id === clienteId)?.nombre || '' : '')}
-                            onChange={(e) => { setClienteSearch(e.target.value); setClienteOpen(true); }}
+                            value={
+                              clienteSearch ||
+                              (clienteId ? clientes.find((c) => c.id === clienteId)?.nombre || "" : "")
+                            }
+                            onChange={(e) => {
+                              setClienteSearch(e.target.value);
+                              setClienteOpen(true);
+                            }}
                             onFocus={() => setClienteOpen(true)}
-                            placeholder={loadingClientes ? 'Cargando clientes...' : 'Buscar cliente por nombre o teléfono...'}
+                            placeholder={loadingClientes ? "Cargando clientes..." : "Buscar cliente por nombre o teléfono..."}
                             disabled={loadingClientes}
                             className="block min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-8 pr-20 text-sm text-gray-800 outline-none transition-colors focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5"
                           />
-                          <div className='absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5'>
-                            {(clienteId || clienteSearch) && (
-                              <button type='button' onClick={() => { selectCliente(null); }} className='h-8 px-2 rounded-md text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition'>Limpiar</button>
+                          <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
+                            {(!!clienteId || clienteSearch.trim().length > 0) && (
+                              <button
+                                type="button"
+                                onClick={() => selectCliente(null)}
+                                aria-label="Limpiar cliente"
+                                className="inline-flex h-8 min-w-[32px] items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300 sm:h-9 sm:min-w-[36px] sm:rounded-lg"
+                              >
+                                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                                  <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                                </svg>
+                              </button>
                             )}
                             <button type='button' onClick={() => setClienteOpen(o => !o)} className='h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-300 transition'>
                               <svg className={`w-3.5 h-3.5 transition-transform ${clienteOpen ? 'rotate-180' : ''}`} viewBox='0 0 20 20' fill='none'><path d='M5.25 7.5 10 12.25 14.75 7.5' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' /></svg>

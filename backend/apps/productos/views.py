@@ -2,7 +2,7 @@
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import filters, viewsets
 
-from apps.users.permissions import ModulePermission
+from apps.users.permissions import ModulePermission, user_has_any_ordenes_access
 
 from .models import Servicio
 from .serializers import ServicioSerializer
@@ -10,7 +10,22 @@ from .serializers import ServicioSerializer
 
 class ServiciosPermission(ModulePermission):
     """Permission class for servicios module."""
+
     module_key = 'servicios'
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        method = (request.method or '').upper()
+        if method in ('GET', 'HEAD', 'OPTIONS'):
+            perms_obj = getattr(user, 'permissions_profile', None)
+            permissions = getattr(perms_obj, 'permissions', None) or {}
+            if user_has_any_ordenes_access(permissions):
+                return True
+        return super().has_permission(request, view)
 
 
 class ServiciosPagination(PageNumberPagination):

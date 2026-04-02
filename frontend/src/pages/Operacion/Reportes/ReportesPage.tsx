@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/modal";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { apiUrl } from "@/config/api";
 import { TrashBinIcon } from "@/icons";
+import DatePicker from "@/components/form/date-picker";
 
 const cardShellClass =
   "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
@@ -192,6 +193,15 @@ export default function ReportesPage() {
   const [tecnicosCuentas, setTecnicosCuentas] = useState<CuentaTecnico[]>([]);
   const [adminTecnicoId, setAdminTecnicoId] = useState<number | null>(null);
   const [adminCrearModalOpen, setAdminCrearModalOpen] = useState(false);
+  const [adminRangoDesde, setAdminRangoDesde] = useState("");
+  const [adminRangoHasta, setAdminRangoHasta] = useState("");
+
+  const onAdminRangoDesdeChange = useCallback((_dates: Date[], currentDateString: string) => {
+    setAdminRangoDesde(currentDateString || "");
+  }, []);
+  const onAdminRangoHastaChange = useCallback((_dates: Date[], currentDateString: string) => {
+    setAdminRangoHasta(currentDateString || "");
+  }, []);
 
   useEffect(() => {
     const sync = () => setPermissions(getPermissionsFromStorage());
@@ -275,12 +285,14 @@ export default function ReportesPage() {
     const token = getToken();
     if (!token) return;
     if (!canReportesCreate) return;
-    if (!weekFrom || !weekTo) {
-      setError("Selecciona un rango de semana válido.");
+    const desdeIso = isAdmin ? adminRangoDesde : weekFrom;
+    const hastaIso = isAdmin ? adminRangoHasta : weekTo;
+    if (!desdeIso || !hastaIso) {
+      setError(isAdmin ? "Selecciona fecha de inicio y fecha final." : "Selecciona un rango de semana válido.");
       return;
     }
-    const from = new Date(`${weekFrom}T00:00:00`);
-    const to = new Date(`${weekTo}T00:00:00`);
+    const from = new Date(`${desdeIso}T00:00:00`);
+    const to = new Date(`${hastaIso}T00:00:00`);
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) {
       setError("El rango de fechas no es válido.");
       return;
@@ -293,10 +305,9 @@ export default function ReportesPage() {
     setError(null);
     setSuccess(null);
     try {
-      const body: Record<string, unknown> = { semana_fin: weekTo };
-      if (isAdmin && adminTecnicoId != null) {
-        body.tecnico_id = adminTecnicoId;
-      }
+      const body: Record<string, unknown> = isAdmin
+        ? { semana_inicio: desdeIso, semana_fin: hastaIso, tecnico_id: adminTecnicoId }
+        : { semana_fin: weekTo };
       const res = await fetch(apiUrl("/api/ordenes/reportes-semanales/"), {
         method: "POST",
         headers: {
@@ -574,8 +585,11 @@ export default function ReportesPage() {
           <button
             type="button"
             onClick={() => {
-              if (isAdmin) setAdminCrearModalOpen(true);
-              else void handleCrearReporte();
+              if (isAdmin) {
+                setAdminRangoDesde(weekFrom);
+                setAdminRangoHasta(weekTo);
+                setAdminCrearModalOpen(true);
+              } else void handleCrearReporte();
             }}
             disabled={saving}
             className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 disabled:opacity-60 whitespace-nowrap lg:shrink-0"
@@ -915,71 +929,33 @@ export default function ReportesPage() {
                 </div>
               </div>
 
-              {/* Sección: Rango de semana */}
+              {/* Sección: Rango de fechas (admin: cualquier rango con el mismo calendario que órdenes) */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                   <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Rango de semana</h4>
+                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Rango del reporte</h4>
                 </div>
                 <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Corte de lunes a sábado. Usa las flechas para cambiar de semana.</p>
-                  <div
-                    id="week-range-controls-modal"
-                    className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50 p-3 sm:p-3.5"
-                  >
-                    <div className="flex w-full min-w-0 items-stretch gap-2 sm:gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setWeekOffset((prev) => prev - 1)}
-                        className="h-10 w-10 shrink-0 self-center inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                        title="Semana anterior"
-                        aria-label="Semana anterior"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                          <path d="m15 18-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-                      <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-                        <div className="flex min-w-0 flex-col gap-1">
-                          <span className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:sr-only">
-                            Desde
-                          </span>
-                          <input
-                            type="date"
-                            value={weekFrom}
-                            readOnly
-                            aria-label="Fecha inicio de semana"
-                            className="h-10 w-full min-w-0 rounded-lg border border-gray-300 dark:border-gray-700 bg-white px-2.5 text-sm text-gray-800 shadow-theme-xs outline-none dark:bg-gray-800 dark:text-gray-200"
-                          />
-                        </div>
-                        <div className="flex min-w-0 flex-col gap-1">
-                          <span className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:sr-only">
-                            Hasta
-                          </span>
-                          <input
-                            type="date"
-                            value={weekTo}
-                            readOnly
-                            aria-label="Fecha fin de semana"
-                            className="h-10 w-full min-w-0 rounded-lg border border-gray-300 dark:border-gray-700 bg-white px-2.5 text-sm text-gray-800 shadow-theme-xs outline-none dark:bg-gray-800 dark:text-gray-200"
-                          />
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setWeekOffset((prev) => Math.min(0, prev + 1))}
-                        disabled={weekOffset === 0}
-                        className="h-10 w-10 shrink-0 self-center inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-theme-xs hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                        title="Semana siguiente"
-                        aria-label="Semana siguiente"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                          <path d="m9 18 6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-                    </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Como administrador puedes elegir cualquier periodo. Se incluyen órdenes cuya fecha de inicio esté entre ambas fechas.
+                  </p>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <DatePicker
+                      id="reporte-admin-fecha-desde"
+                      label="Fecha inicio"
+                      placeholder="Seleccionar fecha"
+                      defaultDate={adminRangoDesde || undefined}
+                      onChange={onAdminRangoDesdeChange}
+                    />
+                    <DatePicker
+                      id="reporte-admin-fecha-hasta"
+                      label="Fecha final"
+                      placeholder="Seleccionar fecha"
+                      defaultDate={adminRangoHasta || undefined}
+                      onChange={onAdminRangoHastaChange}
+                    />
                   </div>
                 </div>
               </div>

@@ -6,23 +6,44 @@ import cloudinary.uploader
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
 from rest_framework import filters, status, viewsets
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.serializers import ValidationError as DrfValidationError
 
-from apps.users.permissions import ModulePermission
+from apps.users.permissions import ModulePermission, user_has_any_ordenes_access
 
 from .models import Cliente, ClienteContacto, ClienteDocumento
 from .serializers import ClienteContactoSerializer, ClienteDocumentoSerializer, ClienteSerializer
 
 
-class ClientesPermission(ModulePermission):
-    """Permission class for clientes module."""
+class ClientesModulePermission(ModulePermission):
+    """Permisos estrictos del módulo clientes (contactos, documentos)."""
+
     module_key = 'clientes'
 
 
-from rest_framework.pagination import PageNumberPagination
+class ClientesCatalogPermission(ClientesModulePermission):
+    """
+    Clientes (lista/detalle): GET permitido también si el usuario usa órdenes de trabajo,
+    para catálogos en formularios sin dar acceso al módulo Contactos en menú.
+    """
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        method = (request.method or '').upper()
+        if method in ('GET', 'HEAD', 'OPTIONS'):
+            perms_obj = getattr(user, 'permissions_profile', None)
+            permissions = getattr(perms_obj, 'permissions', None) or {}
+            if user_has_any_ordenes_access(permissions):
+                return True
+        return super().has_permission(request, view)
+
 
 class ClientePagination(PageNumberPagination):
     page_size = 50
@@ -37,7 +58,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
     """
     queryset = Cliente.objects.prefetch_related('contactos').select_related('documento').all()
     serializer_class = ClienteSerializer
-    permission_classes = [ClientesPermission]
+    permission_classes = [ClientesCatalogPermission]
     pagination_class = ClientePagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
 
@@ -93,7 +114,7 @@ class ClienteContactoViewSet(viewsets.ModelViewSet):
     """
     queryset = ClienteContacto.objects.select_related('cliente').all()
     serializer_class = ClienteContactoSerializer
-    permission_classes = [ClientesPermission]
+    permission_classes = [ClientesModulePermission]
     pagination_class = None
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]

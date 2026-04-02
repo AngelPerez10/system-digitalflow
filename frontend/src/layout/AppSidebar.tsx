@@ -148,8 +148,8 @@ const AppSidebar: React.FC = () => {
           { name: "Proveedores", path: "/proveedores", pro: false },
         ];
         if (permissions?.usuarios?.view !== false) {
-          contactosSub.push({ name: "Usuarios", path: "/usuarios", pro: false });
-        }
+          contactosSub.push({ name: "Gestión de Usuarios", path: "/usuarios", pro: false });
+        } 
         items.push({
           icon: <UserCircleIcon />,
           name: "Contactos de Negocio",

@@ -1863,7 +1863,7 @@ export default function OrdenesTecnico() {
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <path d="M12 5v14M5 12h14" strokeLinecap="round" />
             </svg>
-            Nueva orden · {tipoOrdenLabel}
+            Nueva orden
           </button>
         )}
       </div>

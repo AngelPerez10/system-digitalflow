@@ -4,6 +4,48 @@ Custom permission classes for JSON-based module permissions.
 from rest_framework.permissions import BasePermission
 
 
+def _as_bool_value(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == 'true':
+            return True
+        if normalized == 'false':
+            return False
+    return default
+
+
+def _module_perms_for_key(permissions, module_key):
+    """Resolve module dict from JSON profile (same casing rules as ModulePermission)."""
+    if not isinstance(permissions, dict):
+        return {}
+    module_perms = permissions.get(module_key) or {}
+    if not isinstance(module_perms, dict):
+        module_perms = {}
+    if not module_perms:
+        key_l = (module_key or '').lower()
+        if key_l:
+            lower_map = {str(k).lower(): v for k, v in permissions.items()}
+            module_perms = lower_map.get(key_l) or {}
+            if not isinstance(module_perms, dict):
+                module_perms = {}
+    return module_perms
+
+
+def user_has_any_ordenes_access(permissions):
+    """
+    True if the user can use the órdenes de trabajo module in any capacity.
+    Used to allow read-only access to catálogos (clientes, servicios) needed by
+    las pantallas de orden sin abrir el módulo Contactos / Productos en el menú.
+    """
+    o = _module_perms_for_key(permissions or {}, 'ordenes')
+    for key in ('view', 'create', 'edit', 'delete'):
+        if _as_bool_value(o.get(key), False):
+            return True
+    return False
+
+
 class ModulePermission(BasePermission):
     """
     Base permission class that checks user permissions from JSON profile.

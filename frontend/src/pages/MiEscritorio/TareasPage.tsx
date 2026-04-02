@@ -16,6 +16,23 @@ const cardShellClass =
 const searchInputClass =
     "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
 
+const sectionLabelClass =
+    "text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]";
+
+const modalFieldLabelClass = "mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm";
+
+const modalUsuarioInputClass =
+    "block w-full min-h-[44px] rounded-lg border border-gray-200/90 bg-gray-50/90 py-2.5 pl-8 pr-[5.25rem] text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60";
+
+const modalTextareaClass =
+    "w-full min-h-[7.5rem] rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 resize-none";
+
+/** Panel interior del modal: superficie ligeramente elevada, sin sombras fuertes (oscuro: solo borde). */
+const modalPanelClass =
+    "rounded-xl border border-gray-200/70 bg-white/90 p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] dark:border-white/[0.07] dark:bg-gray-900/45 dark:shadow-none sm:p-5";
+
+const modalRequiredMark = "ml-0.5 text-gray-400 dark:text-gray-500";
+
 let tareasPagePermissionsInFlight: Promise<any> | null = null;
 let tareasPagePermissionsLastFetchAt = 0;
 const TAREAS_PAGE_PERMS_TTL_MS = 2 * 60 * 1000;
@@ -46,6 +63,21 @@ interface Usuario {
     last_name: string;
     is_staff?: boolean;
     is_superuser?: boolean;
+}
+
+/** Texto del campo Usuario en el modal (misma lógica que al elegir en la lista). */
+function labelForUsuarioAsignado(tarea: Tarea, lista: Usuario[]) {
+    if (!tarea.usuario_asignado) return "";
+    const u = lista.find((x) => x.id === tarea.usuario_asignado);
+    if (u) {
+        return u.first_name || u.last_name
+            ? `${u.first_name} ${u.last_name}`.trim()
+            : u.username || u.email || "";
+    }
+    const full = tarea.usuario_asignado_full_name?.trim();
+    if (full) return full;
+    if (tarea.usuario_asignado_username) return tarea.usuario_asignado_username;
+    return "";
 }
 
 export default function TareasPage() {
@@ -578,7 +610,7 @@ export default function TareasPage() {
             return;
         }
         setEditingTarea(tarea);
-        setUsuarioSearch('');
+        setUsuarioSearch(labelForUsuarioAsignado(tarea, usuarios));
         setUsuarioOpen(false);
         setFormData({
             usuario_asignado: tarea.usuario_asignado || null,
@@ -619,6 +651,14 @@ export default function TareasPage() {
         }
         setUsuarioOpen(false);
     };
+
+    /** Si la lista de usuarios llega después de abrir edición, rellenar el campo vacío. */
+    useEffect(() => {
+        if (!showModal || !editingTarea?.usuario_asignado) return;
+        const label = labelForUsuarioAsignado(editingTarea, usuarios);
+        if (!label) return;
+        setUsuarioSearch((prev) => (prev.trim() === "" ? label : prev));
+    }, [showModal, editingTarea, usuarios]);
 
     const filteredUsuarios = useMemo(() => {
         if (!usuarioSearch.trim()) return usuarios;
@@ -757,8 +797,8 @@ export default function TareasPage() {
             fromEstado === destEstado
                 ? []
                 : list
-                      .filter((t) => getEstado(t) === fromEstado)
-                      .sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0));
+                    .filter((t) => getEstado(t) === fromEstado)
+                    .sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0));
         fromExisting.forEach((t, idx) => (t.orden = idx));
 
         const movedIds = new Set<number>([...destExisting, ...fromExisting].map((t) => t.id));
@@ -812,8 +852,8 @@ export default function TareasPage() {
                         fromEstado === destEstado
                             ? []
                             : nextSnapshot
-                                  .filter((t) => getEstado(t) === fromEstado)
-                                  .sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0));
+                                .filter((t) => getEstado(t) === fromEstado)
+                                .sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0));
 
                     await Promise.all([
                         persistColumnOrders(destEstado, destList),
@@ -838,555 +878,601 @@ export default function TareasPage() {
         <>
             <PageMeta title="Tareas" description="Gestión de tareas del sistema" />
             <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
-            <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
-                <nav
-                    className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
-                    aria-label="Migas de pan"
-                >
-                    <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
-                        Inicio
-                    </Link>
-                    <span className="text-gray-300 dark:text-gray-600" aria-hidden>
-                        /
-                    </span>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">Tareas</span>
-                </nav>
+                <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
+                    <nav
+                        className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+                        aria-label="Migas de pan"
+                    >
+                        <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
+                            Inicio
+                        </Link>
+                        <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+                            /
+                        </span>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">Tareas</span>
+                    </nav>
 
-                {alert.show && (
-                    <div>
-                        <Alert
-                            variant={alert.variant}
-                            title={alert.title}
-                            message={alert.message}
-                            showLink={false}
-                        />
-                    </div>
-                )}
-
-                <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
-                    <div className="flex min-w-0 gap-3 sm:gap-4">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
-                            <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
-                            </svg>
+                    {alert.show && (
+                        <div>
+                            <Alert
+                                variant={alert.variant}
+                                title={alert.title}
+                                message={alert.message}
+                                showLink={false}
+                            />
                         </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
-                                Mi escritorio
-                            </p>
-                            <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Tareas</h1>
-                            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
-                                Organiza el trabajo en columnas, asigna responsables y adjunta evidencia. Arrastra las tarjetas para cambiar de estado.
-                            </p>
-                        </div>
-                    </div>
-                </header>
+                    )}
 
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
-                    <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
-                        <div className="flex items-center gap-2.5 sm:gap-3">
-                            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
-                                <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <header className={`flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 ${cardShellClass} p-4 sm:p-6`}>
+                        <div className="flex min-w-0 gap-3 sm:gap-4">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+                                <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                                     <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
                                 </svg>
-                            </span>
-                            <div className="min-w-0">
-                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Tareas totales</p>
-                                <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.total}</p>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+                                    Mi escritorio
+                                </p>
+                                <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Tareas</h1>
+                                <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+                                    Organiza el trabajo en columnas, asigna responsables y adjunta evidencia. Arrastra las tarjetas para cambiar de estado.
+                                </p>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+                        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+                            <div className="flex items-center gap-2.5 sm:gap-3">
+                                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+                                    <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+                                    </svg>
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Tareas totales</p>
+                                    <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.total}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+                            <div className="flex items-center gap-2.5 sm:gap-3">
+                                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
+                                    <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                        <path d="M20 21v-1a4 4 0 0 0-3-3.87" />
+                                        <path d="M4 21v-1a4 4 0 0 1 3-3.87" />
+                                        <circle cx="12" cy="7" r="4" />
+                                    </svg>
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Asignadas</p>
+                                    <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.asignadas}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4 sm:col-span-2 lg:col-span-1`}>
+                            <div className="flex items-center gap-2.5 sm:gap-3">
+                                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
+                                    <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                        <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
+                                        <circle cx="12" cy="13" r="3" />
+                                    </svg>
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Con fotos</p>
+                                    <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.conFotos}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
-                        <div className="flex items-center gap-2.5 sm:gap-3">
-                            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
-                                <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <path d="M20 21v-1a4 4 0 0 0-3-3.87" />
-                                    <path d="M4 21v-1a4 4 0 0 1 3-3.87" />
-                                    <circle cx="12" cy="7" r="4" />
-                                </svg>
-                            </span>
-                            <div className="min-w-0">
-                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Asignadas</p>
-                                <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.asignadas}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4 sm:col-span-2 lg:col-span-1`}>
-                        <div className="flex items-center gap-2.5 sm:gap-3">
-                            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
-                                <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
-                                    <circle cx="12" cy="13" r="3" />
-                                </svg>
-                            </span>
-                            <div className="min-w-0">
-                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Con fotos</p>
-                                <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.conFotos}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
-                    <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
-                        <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        <input
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Buscar por descripción o responsable…"
-                            className={searchInputClass}
-                        />
-                        {searchTerm && (
-                            <button
-                                type="button"
-                                onClick={() => setSearchTerm('')}
-                                aria-label="Limpiar búsqueda"
-                                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
-                            >
-                                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                                </svg>
-                            </button>
-                        )}
-                    </div>
-                    {canTareasCreate && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setEditingTarea(null);
-                                setShowModal(true);
-                            }}
-                            className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
-                        >
-                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+                        <div className="relative min-w-0 flex-1">
+                            <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
-                            Nueva tarea
-                        </button>
-                    )}
-                </div>
-                <ComponentCard
-                    compact
-                    title="Tablero"
-                    desc="Arrastra tarjetas entre columnas para actualizar el estado. En móvil usa el listado inferior."
-                    className={`overflow-hidden ${cardShellClass}`}
-                >
-                    {!canTareasView ? (
-                        <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">
-                                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <path d="M12 3l7 4v6c0 5-3 8-7 8s-7-3-7-8V7l7-4Z" />
-                                    <path d="M9 12h6" />
-                                </svg>
-                            </span>
-                            <div>
-                                <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Sin acceso</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">No tienes permisos para ver las tareas.</div>
-                            </div>
-                        </div>
-                    ) : loading ? (
-                        <div className="flex items-center justify-center py-10">
-                            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-                                </svg>
-                                Cargando tareas...
-                            </div>
-                        </div>
-                    ) : shownList.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
-                                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" />
-                                    <path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" />
-                                    <path d="M9 11h6" />
-                                    <path d="M9 15h3" />
-                                </svg>
-                            </span>
-                            <div>
-                                <div className="text-sm font-medium text-gray-800 dark:text-gray-100">No hay tareas</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">Crea una nueva tarea para empezar.</div>
-                            </div>
-                            {canTareasCreate && (
+                            <input
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Buscar por descripción o responsable…"
+                                className={searchInputClass}
+                                aria-label="Buscar tareas"
+                            />
+                            {searchTerm && (
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        setEditingTarea(null);
-                                        setShowModal(true);
-                                    }}
-                                    className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600"
+                                    onClick={() => setSearchTerm("")}
+                                    aria-label="Limpiar búsqueda"
+                                    className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
                                 >
-                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M12 5v14M5 12h14" />
+                                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                                        <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
                                     </svg>
-                                    Crear tarea
                                 </button>
                             )}
                         </div>
-                    ) : (
-                        <>
-                            <MobileTareaList
-                                tareas={shownList}
-                                startIndex={0}
-                                loading={loading}
-                                formatDate={(date: string) => formatDate(date)}
-                                onDescripcion={(t: any) => openDescripcionModal(t)}
-                                onFotos={(t: any) => openFotosModal(t)}
-                                onEdit={canTareasEdit ? (t: any) => handleEdit(t) : undefined}
-                                onDelete={canTareasDelete ? (t: any) => handleDeleteClick(t) : undefined}
-                                canEdit={canTareasEdit}
-                                canDelete={canTareasDelete}
-                            />
+                        {canTareasCreate && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setEditingTarea(null);
+                                    setShowModal(true);
+                                }}
+                                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40 active:scale-[0.99] dark:bg-brand-600 dark:hover:bg-brand-500 sm:w-auto sm:min-h-0"
+                            >
+                                <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                                    <path d="M12 5v14M5 12h14" />
+                                </svg>
+                                Nueva tarea
+                            </button>
+                        )}
+                    </div>
+                    <ComponentCard
+                        compact
+                        title="Tablero"
+                        desc="Arrastra tarjetas entre columnas para actualizar el estado. En móvil usa el listado inferior."
+                        className={`overflow-hidden ${cardShellClass}`}
+                    >
+                        {!canTareasView ? (
+                            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                                <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                                    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                        <path d="M12 3l7 4v6c0 5-3 8-7 8s-7-3-7-8V7l7-4Z" />
+                                        <path d="M9 12h6" />
+                                    </svg>
+                                </span>
+                                <div>
+                                    <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Sin acceso</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">No tienes permisos para ver las tareas.</div>
+                                </div>
+                            </div>
+                        ) : loading ? (
+                            <div className="flex items-center justify-center py-10">
+                                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                                    </svg>
+                                    Cargando tareas...
+                                </div>
+                            </div>
+                        ) : shownList.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                                <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
+                                    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                        <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" />
+                                        <path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" />
+                                        <path d="M9 11h6" />
+                                        <path d="M9 15h3" />
+                                    </svg>
+                                </span>
+                                <div>
+                                    <div className="text-sm font-medium text-gray-800 dark:text-gray-100">No hay tareas</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">Crea una nueva tarea para empezar.</div>
+                                </div>
+                                {canTareasCreate && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setEditingTarea(null);
+                                            setShowModal(true);
+                                        }}
+                                        className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-brand-700"
+                                    >
+                                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                                            <path d="M12 5v14M5 12h14" />
+                                        </svg>
+                                        Crear tarea
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <MobileTareaList
+                                    tareas={shownList}
+                                    startIndex={0}
+                                    loading={loading}
+                                    formatDate={(date: string) => formatDate(date)}
+                                    onDescripcion={(t: any) => openDescripcionModal(t)}
+                                    onFotos={(t: any) => openFotosModal(t)}
+                                    onEdit={canTareasEdit ? (t: any) => handleEdit(t) : undefined}
+                                    onDelete={canTareasDelete ? (t: any) => handleDeleteClick(t) : undefined}
+                                    canEdit={canTareasEdit}
+                                    canDelete={canTareasDelete}
+                                />
 
-                            <div ref={kanbanRootRef} className="hidden md:block">
-                                <div className="overflow-x-auto md:overflow-visible -mx-2 px-2">
-                                    <div className="min-w-[680px] md:min-w-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 rounded-xl border border-gray-200/80 bg-gray-50/50 p-3 dark:border-white/[0.06] dark:bg-gray-950/30">
-                                        {KANBAN_COLUMNS.map((col) => {
-                                            const columnRef = (el: HTMLDivElement | null) => {
-                                                if (!el) return;
-                                                const existing = dndCleanupRef.current.get(el);
-                                                if (existing) existing();
-                                                const cleanup = dropTargetForElements({
-                                                    element: el,
-                                                    getData: () => ({
-                                                        kind: "column",
-                                                        estado: col.key,
-                                                        index: (tasksByEstado[col.key] || []).length,
-                                                    }),
-                                                });
-                                                dndCleanupRef.current.set(el, cleanup);
-                                            };
+                                <div ref={kanbanRootRef} className="hidden md:block">
+                                    <div className="overflow-x-auto md:overflow-visible -mx-2 px-2">
+                                        <div className="min-w-[680px] md:min-w-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 rounded-xl border border-gray-200/80 bg-gray-50/50 p-3 dark:border-white/[0.06] dark:bg-gray-950/30">
+                                            {KANBAN_COLUMNS.map((col) => {
+                                                const columnRef = (el: HTMLDivElement | null) => {
+                                                    if (!el) return;
+                                                    const existing = dndCleanupRef.current.get(el);
+                                                    if (existing) existing();
+                                                    const cleanup = dropTargetForElements({
+                                                        element: el,
+                                                        getData: () => ({
+                                                            kind: "column",
+                                                            estado: col.key,
+                                                            index: (tasksByEstado[col.key] || []).length,
+                                                        }),
+                                                    });
+                                                    dndCleanupRef.current.set(el, cleanup);
+                                                };
 
-                                            const list = tasksByEstado[col.key] || [];
-                                            return (
-                                                <div
-                                                    key={col.key}
-                                                    ref={columnRef}
-                                                    className="rounded-xl border border-gray-200/80 bg-white dark:border-white/[0.06] dark:bg-gray-900/50 p-3 shadow-sm"
-                                                >
-                                                    <div className="mb-3 flex items-center justify-between gap-2 border-b border-gray-100 pb-2 dark:border-white/[0.06]">
-                                                        <div className="text-[12px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">{col.label}</div>
-                                                        <div className="text-[11px] tabular-nums rounded-full border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 font-medium text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
-                                                            {list.length}
+                                                const list = tasksByEstado[col.key] || [];
+                                                return (
+                                                    <div
+                                                        key={col.key}
+                                                        ref={columnRef}
+                                                        className="rounded-xl border border-gray-200/80 bg-white dark:border-white/[0.06] dark:bg-gray-900/50 p-3 shadow-sm"
+                                                    >
+                                                        <div className="mb-3 flex items-center justify-between gap-2 border-b border-gray-100 pb-2 dark:border-white/[0.06]">
+                                                            <div className="text-[12px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">{col.label}</div>
+                                                            <div className="text-[11px] tabular-nums rounded-full border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 font-medium text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
+                                                                {list.length}
+                                                            </div>
                                                         </div>
-                                                    </div>
 
-                                                    <div className="space-y-2 min-h-[60px]">
-                                                        {list.map((tarea, idx) => {
-                                                            const usuarioNombre =
-                                                                tarea.usuario_asignado_full_name || tarea.usuario_asignado_username || "-";
-                                                            const initial =
-                                                                usuarioNombre && usuarioNombre !== "-"
-                                                                    ? usuarioNombre.slice(0, 1).toUpperCase()
-                                                                    : "-";
-                                                            const cardRef = (el: HTMLDivElement | null) => {
-                                                                if (!el) return;
-                                                                const existing = dndCleanupRef.current.get(el);
-                                                                if (existing) existing();
-                                                                const cleanupDrag = draggable({
-                                                                    element: el,
-                                                                    getInitialData: () => ({ type: "tarea", id: tarea.id }),
-                                                                });
-                                                                const cleanupDrop = dropTargetForElements({
-                                                                    element: el,
-                                                                    getData: () => ({
-                                                                        kind: "card",
-                                                                        estado: col.key,
-                                                                        index: idx,
-                                                                        id: tarea.id,
-                                                                    }),
-                                                                });
-                                                                dndCleanupRef.current.set(el, () => {
-                                                                    cleanupDrag();
-                                                                    cleanupDrop();
-                                                                });
-                                                            };
+                                                        <div className="space-y-2 min-h-[60px]">
+                                                            {list.map((tarea, idx) => {
+                                                                const usuarioNombre =
+                                                                    tarea.usuario_asignado_full_name || tarea.usuario_asignado_username || "-";
+                                                                const initial =
+                                                                    usuarioNombre && usuarioNombre !== "-"
+                                                                        ? usuarioNombre.slice(0, 1).toUpperCase()
+                                                                        : "-";
+                                                                const cardRef = (el: HTMLDivElement | null) => {
+                                                                    if (!el) return;
+                                                                    const existing = dndCleanupRef.current.get(el);
+                                                                    if (existing) existing();
+                                                                    const cleanupDrag = draggable({
+                                                                        element: el,
+                                                                        getInitialData: () => ({ type: "tarea", id: tarea.id }),
+                                                                    });
+                                                                    const cleanupDrop = dropTargetForElements({
+                                                                        element: el,
+                                                                        getData: () => ({
+                                                                            kind: "card",
+                                                                            estado: col.key,
+                                                                            index: idx,
+                                                                            id: tarea.id,
+                                                                        }),
+                                                                    });
+                                                                    dndCleanupRef.current.set(el, () => {
+                                                                        cleanupDrag();
+                                                                        cleanupDrop();
+                                                                    });
+                                                                };
 
-                                                            return (
-                                                                <div
-                                                                    key={tarea.id}
-                                                                    ref={cardRef}
-                                                                    className="group rounded-xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-gray-950/30 p-3 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-white/20 transition-all cursor-grab active:cursor-grabbing"
-                                                                >
-                                                                    <div className="flex items-start justify-between gap-2">
-                                                                        <div className="min-w-0">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300 text-xs font-semibold">
-                                                                                    {initial}
-                                                                                </span>
-                                                                                <div className="min-w-0">
-                                                                                    <div className="text-[12px] font-medium text-gray-900 dark:text-white truncate">
-                                                                                        {usuarioNombre}
-                                                                                    </div>
-                                                                                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                                                                                        {formatDate(tarea.fecha_creacion)}
+                                                                return (
+                                                                    <div
+                                                                        key={tarea.id}
+                                                                        ref={cardRef}
+                                                                        className="group rounded-xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-gray-950/30 p-3 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-white/20 transition-all cursor-grab active:cursor-grabbing"
+                                                                    >
+                                                                        <div className="flex items-start justify-between gap-2">
+                                                                            <div className="min-w-0">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300 text-xs font-semibold">
+                                                                                        {initial}
+                                                                                    </span>
+                                                                                    <div className="min-w-0">
+                                                                                        <div className="text-[12px] font-medium text-gray-900 dark:text-white truncate">
+                                                                                            {usuarioNombre}
+                                                                                        </div>
+                                                                                        <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                                                                                            {formatDate(tarea.fecha_creacion)}
+                                                                                        </div>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
+
+                                                                            {(canTareasEdit || canTareasDelete) && (
+                                                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                                                                    {canTareasEdit && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => handleEdit(tarea)}
+                                                                                            className="inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                                                                                            title="Editar"
+                                                                                            aria-label="Editar"
+                                                                                        >
+                                                                                            <PencilIcon className="w-4 h-4" />
+                                                                                        </button>
+                                                                                    )}
+                                                                                    {canTareasDelete && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => handleDeleteClick(tarea)}
+                                                                                            className="inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                                                                                            title="Eliminar"
+                                                                                            aria-label="Eliminar"
+                                                                                        >
+                                                                                            <TrashBinIcon className="w-4 h-4" />
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
                                                                         </div>
 
-                                                                        {(canTareasEdit || canTareasDelete) && (
-                                                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                                                                                {canTareasEdit && (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => handleEdit(tarea)}
-                                                                                        className="inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
-                                                                                        title="Editar"
-                                                                                        aria-label="Editar"
-                                                                                    >
-                                                                                        <PencilIcon className="w-4 h-4" />
-                                                                                    </button>
-                                                                                )}
-                                                                                {canTareasDelete && (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => handleDeleteClick(tarea)}
-                                                                                        className="inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
-                                                                                        title="Eliminar"
-                                                                                        aria-label="Eliminar"
-                                                                                    >
-                                                                                        <TrashBinIcon className="w-4 h-4" />
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        )}
+                                                                        <div className="mt-2 flex flex-wrap gap-2">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => openDescripcionModal(tarea)}
+                                                                                className="text-[11px] text-blue-600 hover:underline dark:text-blue-400"
+                                                                            >
+                                                                                Descripción
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => openFotosModal(tarea)}
+                                                                                className="text-[11px] text-blue-600 hover:underline dark:text-blue-400"
+                                                                            >
+                                                                                Fotos
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
-
-                                                                    <div className="mt-2 flex flex-wrap gap-2">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => openDescripcionModal(tarea)}
-                                                                            className="text-[11px] text-blue-600 hover:underline dark:text-blue-400"
-                                                                        >
-                                                                            Descripción
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => openFotosModal(tarea)}
-                                                                            className="text-[11px] text-blue-600 hover:underline dark:text-blue-400"
-                                                                        >
-                                                                            Fotos
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </>
-                    )}
-                </ComponentCard>
-            </div>
+                            </>
+                        )}
+                    </ComponentCard>
+                </div>
             </div>
 
             <Modal
                 isOpen={showModal}
                 onClose={handleCloseModal}
                 closeOnBackdropClick={false}
-                className="w-[94vw] max-w-3xl max-h-[92vh] p-0 overflow-hidden"
+                className="flex max-h-[min(92vh,720px)] w-[min(96vw,36rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/75 p-0 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:max-w-xl"
             >
-                <div className="p-0 overflow-hidden rounded-2xl">
-                    {/* Encabezado del modal con icono y título */}
-                    <div className="border-b border-gray-100 px-5 py-4 dark:border-white/[0.06]">
-                        <div className="flex items-center gap-3">
-                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300">
-                                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" />
-                                    <path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" />
-                                    <path d="M9 11h6" />
-                                    <path d="M9 15h3" />
+                <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+                    <header className="relative shrink-0 border-b border-gray-200/60 bg-gray-50/80 px-6 py-5 pr-14 dark:border-white/[0.06] dark:bg-gray-950/40 sm:pr-16">
+                        <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-brand-500/80 dark:bg-brand-400/70" aria-hidden />
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-brand-500/12 bg-white text-brand-700 shadow-sm dark:border-brand-400/15 dark:bg-gray-900/60 dark:text-brand-300">
+                                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
+                                    <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" strokeLinejoin="round" />
+                                    <path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" strokeLinejoin="round" />
+                                    <path d="M9 11h6M9 15h3" strokeLinecap="round" />
                                 </svg>
-                            </span>
-                            <div className="min-w-0">
-                                <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white truncate">
-                                    {editingTarea ? "Editar tarea" : "Nueva tarea"}
+                            </div>
+                            <div className="min-w-0 flex-1 pt-0.5">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <p className={sectionLabelClass}>Mi escritorio · Tareas</p>
+                                    {editingTarea ? (
+                                        <span className="rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">
+                                            Edición
+                                        </span>
+                                    ) : (
+                                        <span className="rounded-md border border-gray-200/80 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:border-white/[0.08] dark:bg-gray-900/60 dark:text-gray-400">
+                                            Nueva
+                                        </span>
+                                    )}
+                                </div>
+                                <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl">
+                                    {editingTarea ? "Editar tarea" : "Crear tarea"}
                                 </h2>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                                    Asigna un usuario, describe la tarea y adjunta hasta 2 fotos.
+                                <p className="mt-1.5 max-w-md text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+                                    Defina responsable y descripción; las fotos son opcionales (máx. 2).
                                 </p>
                             </div>
                         </div>
-                    </div>
+                    </header>
 
-                    <div className="p-4 sm:p-5 space-y-4 max-h-[72vh] overflow-y-auto">
-                        {modalAlert.show && (
-                            <div className="mb-2">
-                                <Alert
-                                    variant={modalAlert.variant}
-                                    title={modalAlert.title}
-                                    message={modalAlert.message}
-                                    showLink={false}
-                                />
-                            </div>
-                        )}
+                    <form onSubmit={handleSubmit} className="flex min-h-0 w-full flex-1 flex-col bg-gray-50/40 dark:bg-gray-950/20">
+                        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 pb-6 sm:px-6 custom-scrollbar">
+                            {modalAlert.show && (
+                                <Alert variant={modalAlert.variant} title={modalAlert.title} message={modalAlert.message} showLink={false} />
+                            )}
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="min-w-0">
-                                    <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-                                        <svg className="w-4 h-4 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20 21v-1a4 4 0 0 0-3-3.87" /><path d="M4 21v-1a4 4 0 0 1 3-3.87" /><circle cx="12" cy="7" r="4" /></svg>
-                                        Usuario Asignado <span className="text-red-500">*</span>
+                            <section className={modalPanelClass}>
+                                <div className="mb-4 flex flex-col gap-0.5 border-b border-gray-100/90 pb-3 dark:border-white/[0.06]">
+                                    <p className={sectionLabelClass}>Asignación</p>
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">Persona responsable</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Busque por nombre o correo en el directorio.</p>
+                                </div>
+                                <div className="relative min-w-0">
+                                    <label htmlFor="tarea-usuario-search" className={modalFieldLabelClass}>
+                                        Usuario<span className={modalRequiredMark}>*</span>
                                     </label>
-                                    <div className="relative min-w-0">
-                                        <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7" /><path d="m20 20-2-2" /></svg>
+                                    <div className="relative mt-2">
+                                        <svg
+                                            className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-gray-400"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="1.6"
+                                            aria-hidden
+                                        >
+                                            <circle cx="11" cy="11" r="7" />
+                                            <path d="m20 20-2-2" />
+                                        </svg>
                                         <input
+                                            id="tarea-usuario-search"
                                             value={usuarioSearch}
-                                            onChange={(e) => { setUsuarioSearch(e.target.value); setUsuarioOpen(true); }}
+                                            onChange={(e) => {
+                                                setUsuarioSearch(e.target.value);
+                                                setUsuarioOpen(true);
+                                            }}
                                             onFocus={() => setUsuarioOpen(true)}
-                                            placeholder="Buscar usuario..."
-                                            className="block w-full rounded-lg border border-gray-300 bg-white pl-8 pr-20 py-2.5 text-[13px] text-gray-800 shadow-theme-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                            placeholder="Nombre o correo…"
+                                            className={`${modalUsuarioInputClass} pl-9 pr-[5.5rem]`}
+                                            autoComplete="off"
                                         />
-                                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                                        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
                                             {formData.usuario_asignado && (
                                                 <button
                                                     type="button"
                                                     onClick={() => selectUsuario(null)}
-                                                    className="h-8 px-2 rounded-md text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                                                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-gray-500 transition-colors hover:border-gray-200/90 hover:bg-white hover:text-gray-800 dark:hover:border-white/[0.08] dark:hover:bg-white/[0.05] dark:hover:text-gray-200"
+                                                    aria-label="Quitar usuario asignado"
                                                 >
-                                                    Limpiar
+                                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                                        <path d="M18 6 6 18" />
+                                                        <path d="m6 6 12 12" />
+                                                    </svg>
                                                 </button>
                                             )}
                                             <button
                                                 type="button"
-                                                onClick={() => setUsuarioOpen(o => !o)}
-                                                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                                                onClick={() => setUsuarioOpen((o) => !o)}
+                                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200/80 bg-white text-gray-500 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:bg-gray-900/50 dark:hover:bg-white/[0.05]"
                                                 aria-label="Abrir selector de usuario"
                                             >
-                                                <svg className={`w-3.5 h-3.5 transition-transform ${usuarioOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="none"><path d="M5.25 7.5 10 12.25 14.75 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                                <svg className={`h-3.5 w-3.5 transition-transform duration-200 ${usuarioOpen ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="none" aria-hidden>
+                                                    <path d="M5.25 7.5 10 12.25 14.75 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                                                </svg>
                                             </button>
                                         </div>
+                                    </div>
 
-                                        {usuarioOpen && (
-                                            <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white/95 dark:bg-gray-900/95 backdrop-blur max-h-64 overflow-auto shadow-theme-md">
+                                    {usuarioOpen && (
+                                        <div className="absolute z-30 mt-2 max-h-52 w-full overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-lg shadow-gray-900/[0.04] ring-1 ring-black/[0.02] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-none dark:ring-white/[0.04]">
+                                            <div className="max-h-52 overflow-y-auto py-0.5">
                                                 <button
                                                     type="button"
                                                     onClick={() => selectUsuario(null)}
-                                                    className={`w-full text-left px-3 py-2 text-[11px] hover:bg-brand-50 dark:hover:bg-brand-500/15 ${!formData.usuario_asignado ? 'bg-brand-50/60 dark:bg-brand-500/20 font-medium text-brand-700 dark:text-brand-300' : ''}`}
+                                                    className={`w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.04] ${!formData.usuario_asignado ? "bg-brand-500/[0.07] font-medium text-brand-800 dark:bg-brand-500/12 dark:text-brand-200" : "text-gray-800 dark:text-gray-200"}`}
                                                 >
-                                                    Selecciona un usuario
+                                                    Sin asignar
                                                 </button>
                                                 {filteredUsuarios.map((u) => {
-                                                    const nombre = (u.first_name || u.last_name)
-                                                        ? `${u.first_name} ${u.last_name}`.trim()
-                                                        : (u.username || u.email);
+                                                    const nombre =
+                                                        u.first_name || u.last_name
+                                                            ? `${u.first_name} ${u.last_name}`.trim()
+                                                            : u.username || u.email;
                                                     return (
                                                         <button
                                                             key={u.id}
                                                             type="button"
                                                             onClick={() => selectUsuario(u)}
-                                                            className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition"
+                                                            className="flex w-full items-center gap-3 border-t border-gray-100 px-4 py-2.5 text-left transition-colors hover:bg-gray-50 dark:border-white/[0.05] dark:hover:bg-white/[0.04]"
                                                         >
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300 text-[11px] font-semibold">
-                                                                    {nombre.slice(0, 1).toUpperCase()}
-                                                                </span>
-                                                                <div className="flex flex-col min-w-0">
-                                                                    <span className="text-[12px] font-medium text-gray-800 dark:text-gray-100 truncate">{nombre}</span>
-                                                                    <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{u.email}</span>
-                                                                </div>
+                                                            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                                                                {nombre.slice(0, 1).toUpperCase()}
+                                                            </span>
+                                                            <div className="min-w-0 flex-1">
+                                                                <span className="block truncate text-sm font-medium text-gray-900 dark:text-white">{nombre}</span>
+                                                                <span className="block truncate text-xs text-gray-500 dark:text-gray-400">{u.email}</span>
                                                             </div>
                                                         </button>
                                                     );
                                                 })}
                                                 {filteredUsuarios.length === 0 && (
-                                                    <div className="px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400">Sin resultados</div>
+                                                    <div className="border-t border-gray-100 px-4 py-4 text-center text-sm text-gray-500 dark:border-white/[0.05] dark:text-gray-400">
+                                                        Sin coincidencias
+                                                    </div>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
+                            </section>
 
-                            <div>
-                                <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-                                    <svg className="w-4 h-4 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 19.5V4a2 2 0 0 1 2-2h10l4 4v13.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" /><path d="M14 2v4h4" /><path d="M8 10h8" /><path d="M8 14h8" /></svg>
-                                    Descripción de la Tarea <span className="text-red-500">*</span>
+                            <section className={modalPanelClass}>
+                                <div className="mb-3 border-b border-gray-100/90 pb-3 dark:border-white/[0.06]">
+                                    <p className={sectionLabelClass}>Descripción</p>
+                                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Qué hay que hacer y en qué contexto.</p>
+                                </div>
+                                <label htmlFor="descripcion" className={modalFieldLabelClass}>
+                                    Detalle de la tarea<span className={modalRequiredMark}>*</span>
                                 </label>
                                 <textarea
                                     id="descripcion"
                                     value={formData.descripcion}
                                     onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                                     rows={4}
-                                    placeholder="Ej: Ocupo que me ayudes en algo en la oficina"
-                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                                    placeholder="Ej. Revisar inventario en almacén B el martes antes del corte."
+                                    className={`${modalTextareaClass} mt-2`}
                                 />
-                            </div>
+                            </section>
 
-                            <div>
-                                <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-                                    <svg className="w-4 h-4 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" /><circle cx="12" cy="13" r="3" /></svg>
-                                    Fotos (Máximo 2)
-                                </label>
+                            <section className={modalPanelClass}>
+                                <div className="mb-3 flex flex-wrap items-end justify-between gap-2 border-b border-gray-100/90 pb-3 dark:border-white/[0.06]">
+                                    <div>
+                                        <p className={sectionLabelClass}>Evidencia</p>
+                                        <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">Fotos adjuntas</p>
+                                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Opcional · PNG, JPG o WEBP · máx. 2</p>
+                                    </div>
+                                    <span className="tabular-nums text-xs font-medium text-gray-400 dark:text-gray-500">
+                                        {formData.fotos_urls.length}/2
+                                    </span>
+                                </div>
                                 <div
                                     {...getRootProps()}
-                                    className={`mt-2 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition ${isDragActive
-                                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/10'
-                                        : 'border-gray-300 hover:border-gray-400 dark:border-gray-700'
-                                        } ${formData.fotos_urls.length >= 2 ? 'opacity-50 pointer-events-none' : ''}`}
+                                    className={`flex cursor-pointer flex-col gap-3 rounded-xl border border-dashed border-gray-300/80 bg-gray-50/60 px-4 py-5 transition-all dark:border-white/[0.12] dark:bg-gray-950/35 sm:flex-row sm:items-center sm:gap-4 sm:px-5 ${isDragActive ? "border-brand-400/70 bg-brand-500/[0.05] ring-2 ring-brand-500/20 dark:border-brand-400/50 dark:bg-brand-500/[0.08]" : "hover:border-gray-400/60 dark:hover:border-white/[0.18]"} ${formData.fotos_urls.length >= 2 ? "pointer-events-none opacity-45" : ""}`}
                                 >
                                     <input {...getInputProps()} />
-                                    <svg className="mb-2 h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                                        <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
-                                        <path d="M12 10v6" />
-                                        <path d="M9 13h6" />
-                                    </svg>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        {formData.fotos_urls.length >= 2
-                                            ? 'Máximo de fotos alcanzado'
-                                            : 'Arrastra fotos aquí o haz clic para seleccionar'}
-                                    </p>
-                                    <p className="mt-1 text-xs text-gray-500">PNG, JPG, WEBP (máx. 2 fotos)</p>
+                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-white text-gray-500 dark:border-white/[0.08] dark:bg-gray-900/60 dark:text-gray-400">
+                                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                                            <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" strokeLinejoin="round" />
+                                            <path d="M12 10v6M9 13h6" strokeLinecap="round" />
+                                        </svg>
+                                    </div>
+                                    <div className="min-w-0 flex-1 text-left">
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                            {formData.fotos_urls.length >= 2 ? "Límite de 2 fotos" : "Añadir imágenes"}
+                                        </p>
+                                        <p className="mt-0.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                                            {formData.fotos_urls.length >= 2
+                                                ? "Elimine una foto para subir otra."
+                                                : "Arrastre archivos aquí o pulse para elegir desde su equipo."}
+                                        </p>
+                                    </div>
                                 </div>
 
                                 {formData.fotos_urls.length > 0 && (
-                                    <div className="mt-4 grid grid-cols-2 gap-4">
+                                    <ul className="mt-4 grid grid-cols-2 gap-3 sm:gap-3.5">
                                         {formData.fotos_urls.map((url, idx) => (
-                                            <div key={idx} className="relative">
-                                                <img
-                                                    src={url}
-                                                    alt={`Foto ${idx + 1}`}
-                                                    className="h-32 w-full rounded-lg object-cover"
-                                                />
+                                            <li
+                                                key={idx}
+                                                className="relative overflow-hidden rounded-xl border border-gray-200/70 bg-white shadow-sm dark:border-white/[0.08] dark:bg-gray-900/50 dark:shadow-none"
+                                            >
+                                                <img src={url} alt={`Vista previa ${idx + 1}`} className="aspect-[4/3] h-28 w-full object-cover sm:h-32" />
                                                 <button
                                                     type="button"
                                                     onClick={() => setConfirmDelete({ open: true, index: idx, url })}
-                                                    className="absolute right-2 top-2 rounded-full bg-red-500 p-1.5 text-white shadow-lg hover:bg-red-600"
+                                                    className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/95 text-gray-700 shadow-md backdrop-blur-sm transition-colors hover:bg-white hover:text-error-600 dark:border-white/10 dark:bg-gray-900/90 dark:text-gray-200 dark:hover:text-error-400"
+                                                    aria-label={`Eliminar foto ${idx + 1}`}
                                                 >
                                                     <TrashBinIcon className="h-4 w-4" />
                                                 </button>
-                                            </div>
+                                            </li>
                                         ))}
-                                    </div>
+                                    </ul>
                                 )}
-                            </div>
+                            </section>
+                        </div>
 
-                            <div className="flex justify-end gap-3 pt-4">
+                        <div className="shrink-0 border-t border-gray-200/70 bg-white px-5 py-4 dark:border-white/[0.08] dark:bg-gray-900 sm:px-6">
+                            <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end sm:gap-3">
                                 <button
                                     type="button"
                                     onClick={handleCloseModal}
-                                    className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                    className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 ring-1 ring-inset ring-gray-200/90 transition-colors hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-100 dark:ring-white/[0.1] dark:hover:bg-white/[0.05] sm:min-h-0 sm:w-auto"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
-                                    className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600"
+                                    className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900 sm:min-h-0 sm:w-auto sm:min-w-[10.5rem]"
                                 >
-                                    {editingTarea ? "Actualizar" : "Crear"} Tarea
+                                    {editingTarea ? "Guardar cambios" : "Crear tarea"}
                                 </button>
                             </div>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
                 </div>
             </Modal>
 

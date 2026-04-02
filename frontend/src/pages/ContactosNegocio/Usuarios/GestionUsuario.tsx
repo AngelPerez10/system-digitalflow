@@ -129,7 +129,7 @@ const appendSystemHistoryEvent = (event: {
         actor: event.actor || 'usuario',
         text: event.text,
         module: event.module || 'usuarios',
-        viewName: event.viewName || 'Gestion de usuarios',
+        viewName: event.viewName || 'Gestión de usuarios',
         viewPath: event.viewPath || '/usuarios',
       },
       ...list,
@@ -384,7 +384,7 @@ export default function UserProfiles() {
         actor: localStorage.getItem('username') || sessionStorage.getItem('username') || 'usuario',
         text: `actualizo permisos de usuario ${permsUser.username}`,
         module: 'usuarios',
-        viewName: 'Gestion de usuarios',
+        viewName: 'Gestión de usuario',
         viewPath: '/usuarios',
       });
 
@@ -755,7 +755,7 @@ export default function UserProfiles() {
         actor: localStorage.getItem('username') || sessionStorage.getItem('username') || 'usuario',
         text: `elimino al usuario ${deletedUser?.username || `#${confirmDeleteId}`}`,
         module: 'usuarios',
-        viewName: 'Gestion de usuarios',
+        viewName: 'Gestión de usuario',
         viewPath: '/usuarios',
       });
       setSuccess('Usuario eliminado');
@@ -776,7 +776,7 @@ export default function UserProfiles() {
   return (
     <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
       <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
-      <PageMeta title="Gestión de Usuarios" description="Administración de usuarios" />
+      <PageMeta title="Gestión de usuario | Digitalflow" description="Administración de usuarios del sistema" />
 
       <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]" aria-label="Migas de pan">
         <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">

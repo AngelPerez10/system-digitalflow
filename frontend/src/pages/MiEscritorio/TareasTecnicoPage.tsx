@@ -10,7 +10,26 @@ import { MobileTareaList } from "./MobileTareaCard";
 import { PencilIcon, TrashBinIcon } from "../../icons";
 import { draggable, dropTargetForElements, monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 
- let tareasTecnicoTareasInFlight: Promise<any> | null = null;
+const cardShellClass =
+  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+
+const searchInputClass =
+  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
+
+const sectionLabelClass =
+  "text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]";
+
+const modalFieldLabelClass = "mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm";
+
+const modalTextareaClass =
+  "w-full min-h-[7.5rem] rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 resize-none";
+
+const modalPanelClass =
+  "rounded-xl border border-gray-200/70 bg-white/90 p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] dark:border-white/[0.07] dark:bg-gray-900/45 dark:shadow-none sm:p-5";
+
+const modalRequiredMark = "ml-0.5 text-gray-400 dark:text-gray-500";
+
+let tareasTecnicoTareasInFlight: Promise<any> | null = null;
 
 interface Tarea {
   id: number;
@@ -421,6 +440,12 @@ export default function TareasTecnicoPage() {
 
   const myId = useMemo(() => (me?.id ? Number(me.id) : null), [me?.id]);
 
+  const myDisplayName = useMemo(() => {
+    if (!me) return "Su usuario";
+    const fn = [me.first_name, me.last_name].filter(Boolean).join(" ").trim();
+    return fn || me.username || me.email || "Su usuario";
+  }, [me]);
+
   const isOwnTask = (t: Tarea | null | undefined) => {
     if (!t) return false;
     if (!myId) return false;
@@ -682,162 +707,204 @@ export default function TareasTecnicoPage() {
   return (
     <>
       <PageMeta title="Mis tareas" description="Tareas asignadas al técnico" />
-      <div className="min-h-[calc(100vh-5rem)] bg-gradient-to-b from-slate-50/90 via-white to-gray-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950/90">
-      <div className="mx-auto w-full max-w-[min(100%,1920px)] 2xl:max-w-[min(100%,2200px)] space-y-5 px-3 pb-10 pt-5 sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 md:px-6 lg:px-8 xl:px-10">
-        <nav
-          className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-gray-500 dark:text-gray-400 sm:text-[13px]"
-          aria-label="Migas de pan"
-        >
-          <Link to="/" className="transition-colors hover:text-brand-600 dark:hover:text-brand-400">
-            Inicio
-          </Link>
-          <span className="text-gray-300 dark:text-gray-600" aria-hidden>
-            /
-          </span>
-          <span className="font-medium text-gray-700 dark:text-gray-300">Mis tareas</span>
-        </nav>
+      <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
+        <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
+          <nav
+            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+            aria-label="Migas de pan"
+          >
+            <Link
+              to="/"
+              className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
+            >
+              Inicio
+            </Link>
+            <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+              /
+            </span>
+            <span className="font-medium text-gray-700 dark:text-gray-300">Mis tareas</span>
+          </nav>
 
-        {alert.show && (
-          <div>
-            <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
-          </div>
-        )}
-
-        <div className="flex flex-col gap-4 rounded-2xl border border-gray-200/90 bg-white/95 p-4 shadow-theme-sm ring-1 ring-gray-200/50 backdrop-blur dark:border-gray-800 dark:bg-gray-900/75 dark:ring-white/5 sm:flex-row sm:items-start sm:justify-between sm:gap-6 sm:p-6">
-          <div className="flex min-w-0 gap-3 sm:gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-md sm:h-12 sm:w-12">
-              <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
+          {alert.show && (
+            <div>
+              <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
             </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Mis tareas</h1>
-              <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
-                Solo ves lo asignado a ti. Crea tareas propias, actualiza el tablero y adjunta fotos como evidencia.
-              </p>
-            </div>
-          </div>
-        </div>
+          )}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
-          <div className="rounded-2xl border border-gray-200/80 bg-white/90 p-4 shadow-theme-sm ring-1 ring-gray-200/40 transition-colors hover:ring-brand-200/50 dark:border-white/10 dark:bg-gray-900/50 dark:ring-white/5 dark:hover:ring-brand-500/20">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-100 to-brand-50 text-brand-700 shadow-sm dark:from-brand-500/20 dark:to-brand-500/5 dark:text-brand-300">
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <header className={`flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 ${cardShellClass} p-4 sm:p-6`}>
+            <div className="flex min-w-0 gap-3 sm:gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+                <svg
+                  className="h-[18px] w-[18px] sm:h-6 sm:w-6"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  aria-hidden
+                >
                   <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
                 </svg>
-              </span>
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:text-[11px]">Tareas totales</p>
-                <p className="mt-0.5 text-lg font-semibold tabular-nums text-gray-900 dark:text-white sm:text-xl">{tareaStats.total}</p>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">Mi escritorio</p>
+                <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Mis tareas</h1>
+                <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+                  Solo ve lo asignado a usted. Cree tareas propias, arrastre tarjetas en el tablero y adjunte fotos como evidencia.
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+            <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Tareas totales</p>
+                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.total}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M20 21v-1a4 4 0 0 0-3-3.87" />
+                    <path d="M4 21v-1a4 4 0 0 1 3-3.87" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Asignadas</p>
+                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.asignadas}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4 sm:col-span-2 lg:col-span-1`}>
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
+                    <circle cx="12" cy="13" r="3" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Con fotos</p>
+                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{tareaStats.conFotos}</p>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-gray-200/80 bg-white/90 p-4 shadow-theme-sm ring-1 ring-gray-200/40 transition-colors hover:ring-emerald-200/50 dark:border-white/10 dark:bg-gray-900/50 dark:ring-white/5 dark:hover:ring-emerald-500/20">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-700 shadow-sm dark:from-emerald-500/20 dark:to-emerald-500/5 dark:text-emerald-300">
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M20 21v-1a4 4 0 0 0-3-3.87" />
-                  <path d="M4 21v-1a4 4 0 0 1 3-3.87" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-              </span>
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:text-[11px]">Asignadas</p>
-                <p className="mt-0.5 text-lg font-semibold tabular-nums text-gray-900 dark:text-white sm:text-xl">{tareaStats.asignadas}</p>
-              </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+            <div className="relative min-w-0 flex-1">
+              <svg
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por descripción o responsable…"
+                className={searchInputClass}
+                aria-label="Buscar tareas"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  aria-label="Limpiar búsqueda"
+                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                  </svg>
+                </button>
+              )}
             </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200/80 bg-white/90 p-4 shadow-theme-sm ring-1 ring-gray-200/40 transition-colors hover:ring-amber-200/50 dark:border-white/10 dark:bg-gray-900/50 dark:ring-white/5 dark:hover:ring-amber-500/20 sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-100 to-amber-50 text-amber-800 shadow-sm dark:from-amber-500/20 dark:to-amber-500/5 dark:text-amber-300">
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
-                  <circle cx="12" cy="13" r="3" />
-                </svg>
-              </span>
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:text-[11px]">Con fotos</p>
-                <p className="mt-0.5 text-lg font-semibold tabular-nums text-gray-900 dark:text-white sm:text-xl">{tareaStats.conFotos}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3">
-          <div className="relative min-w-0 w-full shrink-0 sm:w-[min(100%,28rem)] md:w-[min(100%,34rem)] lg:w-[min(100%,40rem)]">
-            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar en tus tareas…"
-              className="min-h-[44px] w-full rounded-xl border border-gray-200/80 bg-white/95 py-2.5 pl-9 pr-10 text-base text-gray-800 shadow-theme-xs outline-none placeholder:text-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:border-white/10 dark:bg-gray-900/60 dark:text-gray-100 md:min-h-10 md:text-sm"
-            />
-            {searchTerm && (
+            {canTareasCreate && (
               <button
                 type="button"
-                onClick={() => setSearchTerm("")}
-                aria-label="Limpiar búsqueda"
-                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-w-[44px] items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/5"
+                onClick={openCreate}
+                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40 active:scale-[0.99] dark:bg-brand-600 dark:hover:bg-brand-500 sm:w-auto sm:min-h-0"
               >
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                  <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                  <path d="M12 5v14M5 12h14" />
                 </svg>
+                Nueva tarea
               </button>
             )}
           </div>
 
-          {canTareasCreate && (
-            <button
-              type="button"
-              onClick={openCreate}
-              className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white shadow-theme-xs transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/45 active:scale-[0.99] sm:w-auto sm:min-h-0"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-              </svg>
-              Nueva tarea
-            </button>
-          )}
-        </div>
-
-        <ComponentCard
-          title="Tablero"
-          desc="Vista Kanban de tus tareas. Solo puedes editar o eliminar lo que te pertenece."
-          className="overflow-hidden shadow-theme-sm ring-1 ring-gray-200/60 dark:ring-white/5"
-          actions={null}
-        >
-          {!canTareasView ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">
-                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M12 3l7 4v6c0 5-3 8-7 8s-7-3-7-8V7l7-4Z" />
-                  <path d="M9 12h6" />
-                </svg>
-              </span>
-              <div>
-                <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Sin acceso</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">No tienes permisos para ver las tareas.</div>
+          <ComponentCard
+            compact
+            title="Tablero"
+            desc="Arrastra tarjetas entre columnas para actualizar el estado. Solo puede editar o eliminar las tareas que le pertenecen. En móvil use el listado inferior."
+            className={`overflow-hidden ${cardShellClass}`}
+          >
+            {!canTareasView ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M12 3l7 4v6c0 5-3 8-7 8s-7-3-7-8V7l7-4Z" />
+                    <path d="M9 12h6" />
+                  </svg>
+                </span>
+                <div>
+                  <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Sin acceso</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">No tienes permisos para ver las tareas.</div>
+                </div>
               </div>
-            </div>
-          ) : loading ? (
-            <div className="flex items-center justify-center py-10">
-              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-                </svg>
-                Cargando tareas...
+            ) : loading ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                  </svg>
+                  Cargando tareas...
+                </div>
               </div>
-            </div>
-          ) : (
-            <>
-              <MobileTareaList
+            ) : shownList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" />
+                    <path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" />
+                    <path d="M9 11h6" />
+                    <path d="M9 15h3" />
+                  </svg>
+                </span>
+                <div>
+                  <div className="text-sm font-medium text-gray-800 dark:text-gray-100">No hay tareas</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Cree una nueva tarea para empezar.</div>
+                </div>
+                {canTareasCreate && (
+                  <button
+                    type="button"
+                    onClick={openCreate}
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-brand-700"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Crear tarea
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <MobileTareaList
                 tareas={shownList}
                 startIndex={0}
                 loading={loading}
@@ -852,7 +919,7 @@ export default function TareasTecnicoPage() {
 
               <div ref={kanbanRootRef} className="hidden md:block">
                 <div className="overflow-x-auto md:overflow-visible -mx-2 px-2">
-                  <div className="min-w-[680px] md:min-w-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 rounded-2xl border border-gray-200/60 bg-gray-50/80 p-3 shadow-inner dark:border-white/5 dark:bg-gray-950/40">
+                  <div className="min-w-[680px] md:min-w-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 rounded-xl border border-gray-200/80 bg-gray-50/50 p-3 dark:border-white/[0.06] dark:bg-gray-950/30">
                     {KANBAN_COLUMNS.map((col) => {
                       const columnRef = (el: HTMLDivElement | null) => {
                         if (!el) return;
@@ -874,9 +941,9 @@ export default function TareasTecnicoPage() {
                         <div
                           key={col.key}
                           ref={columnRef}
-                          className="rounded-2xl border border-gray-200/70 dark:border-white/10 bg-white/90 dark:bg-gray-900/55 p-3 shadow-theme-xs ring-1 ring-gray-200/30 dark:ring-white/5"
+                          className="rounded-xl border border-gray-200/80 bg-white dark:border-white/[0.06] dark:bg-gray-900/50 p-3 shadow-sm"
                         >
-                          <div className="flex items-center justify-between gap-2 mb-3 border-b border-gray-100/90 pb-2 dark:border-white/5">
+                          <div className="mb-3 flex items-center justify-between gap-2 border-b border-gray-100 pb-2 dark:border-white/[0.06]">
                             <div className="text-[12px] font-semibold tracking-tight text-gray-900 dark:text-gray-100">{col.label}</div>
                             <div className="text-[11px] tabular-nums rounded-full border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 font-medium text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
                               {list.length}
@@ -912,7 +979,7 @@ export default function TareasTecnicoPage() {
                                 <div
                                   key={tarea.id}
                                   ref={cardRef}
-                                  className="group rounded-xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-gray-950/30 p-3 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-white/20 transition-all cursor-grab active:cursor-grabbing"
+                                  className="group cursor-grab rounded-xl border border-gray-200/80 bg-white p-3 shadow-sm transition-all hover:border-gray-300 hover:shadow-md active:cursor-grabbing dark:border-white/10 dark:bg-gray-950/30 dark:hover:border-white/20"
                                 >
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
@@ -974,117 +1041,165 @@ export default function TareasTecnicoPage() {
                 </div>
               </div>
             </>
-          )}
-        </ComponentCard>
-      </div>
+            )}
+          </ComponentCard>
+        </div>
       </div>
 
-        <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-[94vw] max-w-2xl max-h-[92vh] p-0 overflow-hidden">
-          <div className="p-0 overflow-hidden rounded-2xl">
-            <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
-                  <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" />
-                    <path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" />
-                    <path d="M9 11h6" />
-                    <path d="M9 15h3" />
-                  </svg>
-                </span>
-                <div className="min-w-0">
-                  <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white truncate">{editingTarea ? "Editar tarea" : "Nueva tarea"}</h2>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Describe la tarea y adjunta hasta 2 fotos.</p>
-                </div>
+      <Modal
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        closeOnBackdropClick={false}
+        className="flex max-h-[min(92vh,720px)] w-[min(96vw,36rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/75 p-0 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:max-w-xl"
+      >
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+          <header className="relative shrink-0 border-b border-gray-200/60 bg-gray-50/80 px-6 py-5 pr-14 dark:border-white/[0.06] dark:bg-gray-950/40 sm:pr-16">
+            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-brand-500/80 dark:bg-brand-400/70" aria-hidden />
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-brand-500/12 bg-white text-brand-700 shadow-sm dark:border-brand-400/15 dark:bg-gray-900/60 dark:text-brand-300">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
+                  <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" strokeLinejoin="round" />
+                  <path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" strokeLinejoin="round" />
+                  <path d="M9 11h6M9 15h3" strokeLinecap="round" />
+                </svg>
               </div>
-            </div>
-
-            <div className="p-4 sm:p-5 space-y-4 max-h-[72vh] overflow-y-auto">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-                    <svg className="w-4 h-4 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M4 19.5V4a2 2 0 0 1 2-2h10l4 4v13.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
-                      <path d="M14 2v4h4" />
-                      <path d="M8 10h8" />
-                      <path d="M8 14h8" />
-                    </svg>
-                    Descripción de la Tarea <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    id="descripcion"
-                    value={formData.descripcion}
-                    onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                    rows={4}
-                    placeholder="Describe la tarea"
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-                    <svg className="w-4 h-4 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
-                      <circle cx="12" cy="13" r="3" />
-                    </svg>
-                    Fotos (Máximo 2)
-                  </label>
-                  <div
-                    {...getRootProps()}
-                    className={`mt-2 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition ${isDragActive
-                      ? "border-brand-500 bg-brand-50 dark:bg-brand-900/10"
-                      : "border-gray-300 hover:border-gray-400 dark:border-gray-700"} ${formData.fotos_urls.length >= 2 ? "opacity-50 pointer-events-none" : ""}`}
-                  >
-                    <input {...getInputProps()} />
-                    <svg className="mb-2 h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
-                      <path d="M12 10v6" />
-                      <path d="M9 13h6" />
-                    </svg>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {formData.fotos_urls.length >= 2 ? "Máximo de fotos alcanzado" : "Arrastra fotos aquí o haz clic para seleccionar"}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">PNG, JPG, WEBP (máx. 2 fotos)</p>
-                  </div>
-
-                  {formData.fotos_urls.length > 0 && (
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                      {formData.fotos_urls.map((url, idx) => (
-                        <div key={idx} className="relative">
-                          <img src={url} alt={`Foto ${idx + 1}`} className="h-32 w-full rounded-lg object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDelete({ open: true, index: idx, url })}
-                            className="absolute right-2 top-2 rounded-full bg-red-500 p-1.5 text-white shadow-lg hover:bg-red-600"
-                          >
-                            <TrashBinIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={sectionLabelClass}>Mi escritorio · Mis tareas</p>
+                  {editingTarea ? (
+                    <span className="rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">
+                      Edición
+                    </span>
+                  ) : (
+                    <span className="rounded-md border border-gray-200/80 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:border-white/[0.08] dark:bg-gray-900/60 dark:text-gray-400">
+                      Nueva
+                    </span>
                   )}
                 </div>
-
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600"
-                  >
-                    {editingTarea ? "Actualizar" : "Crear"} Tarea
-                  </button>
-                </div>
-              </form>
+                <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl">
+                  {editingTarea ? "Editar tarea" : "Crear tarea"}
+                </h2>
+                <p className="mt-1.5 max-w-md text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+                  La tarea queda asignada a usted; describa el trabajo y adjunte hasta 2 fotos si aplica.
+                </p>
+              </div>
             </div>
-          </div>
-        </Modal>
+          </header>
 
-        <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} closeOnBackdropClick={false} className="w-full max-w-md">
+          <form onSubmit={handleSubmit} className="flex min-h-0 w-full flex-1 flex-col bg-gray-50/40 dark:bg-gray-950/20">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 pb-6 sm:px-6 custom-scrollbar">
+              <section className={modalPanelClass}>
+                <div className="mb-4 flex flex-col gap-0.5 border-b border-gray-100/90 pb-3 dark:border-white/[0.06]">
+                  <p className={sectionLabelClass}>Asignación</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">Persona responsable</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">En esta vista las tareas se registran siempre a su usuario.</p>
+                </div>
+                <div className="flex items-center gap-3 rounded-lg border border-gray-200/80 bg-gray-50/80 px-4 py-3 dark:border-white/[0.08] dark:bg-gray-950/40">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                    {myDisplayName.slice(0, 1).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{myDisplayName}</p>
+                    {me?.email ? <p className="truncate text-xs text-gray-500 dark:text-gray-400">{String(me.email)}</p> : null}
+                  </div>
+                </div>
+              </section>
+
+              <section className={modalPanelClass}>
+                <div className="mb-3 border-b border-gray-100/90 pb-3 dark:border-white/[0.06]">
+                  <p className={sectionLabelClass}>Descripción</p>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Qué hay que hacer y en qué contexto.</p>
+                </div>
+                <label htmlFor="descripcion-tecnico" className={modalFieldLabelClass}>
+                  Detalle de la tarea<span className={modalRequiredMark}>*</span>
+                </label>
+                <textarea
+                  id="descripcion-tecnico"
+                  value={formData.descripcion}
+                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                  rows={4}
+                  placeholder="Ej. Revisar cableado en cuarto de servicio antes del viernes."
+                  className={`${modalTextareaClass} mt-2`}
+                />
+              </section>
+
+              <section className={modalPanelClass}>
+                <div className="mb-3 flex flex-wrap items-end justify-between gap-2 border-b border-gray-100/90 pb-3 dark:border-white/[0.06]">
+                  <div>
+                    <p className={sectionLabelClass}>Evidencia</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">Fotos adjuntas</p>
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Opcional · PNG, JPG o WEBP · máx. 2</p>
+                  </div>
+                  <span className="tabular-nums text-xs font-medium text-gray-400 dark:text-gray-500">{formData.fotos_urls.length}/2</span>
+                </div>
+                <div
+                  {...getRootProps()}
+                  className={`flex cursor-pointer flex-col gap-3 rounded-xl border border-dashed border-gray-300/80 bg-gray-50/60 px-4 py-5 transition-all dark:border-white/[0.12] dark:bg-gray-950/35 sm:flex-row sm:items-center sm:gap-4 sm:px-5 ${isDragActive ? "border-brand-400/70 bg-brand-500/[0.05] ring-2 ring-brand-500/20 dark:border-brand-400/50 dark:bg-brand-500/[0.08]" : "hover:border-gray-400/60 dark:hover:border-white/[0.18]"} ${formData.fotos_urls.length >= 2 ? "pointer-events-none opacity-45" : ""}`}
+                >
+                  <input {...getInputProps()} />
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-white text-gray-500 dark:border-white/[0.08] dark:bg-gray-900/60 dark:text-gray-400">
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                      <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" strokeLinejoin="round" />
+                      <path d="M12 10v6M9 13h6" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {formData.fotos_urls.length >= 2 ? "Límite de 2 fotos" : "Añadir imágenes"}
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                      {formData.fotos_urls.length >= 2
+                        ? "Elimine una foto para subir otra."
+                        : "Arrastre archivos aquí o pulse para elegir desde su equipo."}
+                    </p>
+                  </div>
+                </div>
+
+                {formData.fotos_urls.length > 0 && (
+                  <ul className="mt-4 grid grid-cols-2 gap-3 sm:gap-3.5">
+                    {formData.fotos_urls.map((url, idx) => (
+                      <li
+                        key={idx}
+                        className="relative overflow-hidden rounded-xl border border-gray-200/70 bg-white shadow-sm dark:border-white/[0.08] dark:bg-gray-900/50 dark:shadow-none"
+                      >
+                        <img src={url} alt={`Vista previa ${idx + 1}`} className="aspect-[4/3] h-28 w-full object-cover sm:h-32" />
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDelete({ open: true, index: idx, url })}
+                          className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/95 text-gray-700 shadow-md backdrop-blur-sm transition-colors hover:bg-white hover:text-error-600 dark:border-white/10 dark:bg-gray-900/90 dark:text-gray-200 dark:hover:text-error-400"
+                          aria-label={`Eliminar foto ${idx + 1}`}
+                        >
+                          <TrashBinIcon className="h-4 w-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+
+            <div className="shrink-0 border-t border-gray-200/70 bg-white px-5 py-4 dark:border-white/[0.08] dark:bg-gray-900 sm:px-6">
+              <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end sm:gap-3">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 ring-1 ring-inset ring-gray-200/90 transition-colors hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-100 dark:ring-white/[0.1] dark:hover:bg-white/[0.05] sm:min-h-0 sm:w-auto"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900 sm:min-h-0 sm:w-auto sm:min-w-[10.5rem]"
+                >
+                  {editingTarea ? "Guardar cambios" : "Crear tarea"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} closeOnBackdropClick={false} className="w-full max-w-md">
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300">

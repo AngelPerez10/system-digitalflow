@@ -494,7 +494,7 @@ export default function MonthlyTarget() {
                 text: `actualizó permisos de ${targetName}`,
                 detail: `Usuario afectado: ${targetName}`,
                 module: "usuarios" as ModuleKey,
-                viewName: "Gestion de usuarios",
+                viewName: "Gestión de usuarios",
                 viewPath: "/usuarios",
               };
             })
@@ -516,7 +516,7 @@ export default function MonthlyTarget() {
                 text: String(ev?.text || "realizo una accion"),
                 detail: typeof ev?.detail === "string" ? ev.detail : "",
                 module: (ev?.module as ModuleKey) || "usuarios",
-                viewName: String(ev?.viewName || "Gestion de usuarios"),
+                viewName: String(ev?.viewName || "Gestión de usuario"),
                 viewPath: String(ev?.viewPath || "/usuarios"),
               });
             }

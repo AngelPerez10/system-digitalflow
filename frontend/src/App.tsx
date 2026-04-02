@@ -77,6 +77,7 @@ export default function App() {
 
             {/* Others Page */}
             <Route path="/profile" element={<ProfilePage />} />
+            {/* Gestión de usuarios */}
             <Route
               path="/usuarios"
               element={
