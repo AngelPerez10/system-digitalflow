@@ -13,6 +13,7 @@ import { ScrollToTop } from "@/components/common/ScrollToTop";
 import Home from "@/pages/Dashboard/Home";
 import RequireAuth from "@/components/auth/RequireAuth";
 import RequireAdmin from "@/components/auth/RequireAdmin";
+import RequireUsuariosView from "@/components/auth/RequireUsuariosView";
 import RequireCotizacionPermission from "@/components/auth/RequireCotizacionPermission";
 import RequireClientePermission from "@/components/auth/RequireClientePermission";
 import Ordenes from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenesPage";
@@ -76,7 +77,16 @@ export default function App() {
 
             {/* Others Page */}
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/usuarios" element={<RequireAdmin><GestionUsuario /></RequireAdmin>} />
+            <Route
+              path="/usuarios"
+              element={
+                <RequireAdmin>
+                  <RequireUsuariosView>
+                    <GestionUsuario />
+                  </RequireUsuariosView>
+                </RequireAdmin>
+              }
+            />
             <Route path="/calendar" element={<Calendar />} />
 
             {/* Ui Elements */}

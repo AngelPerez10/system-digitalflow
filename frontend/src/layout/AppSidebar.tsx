@@ -111,7 +111,11 @@ const AppSidebar: React.FC = () => {
       } catch { }
     };
     window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
+    window.addEventListener('permissions:updated', sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('permissions:updated', sync);
+    };
   }, []);
 
   const navItems: NavItem[] = useMemo(() => {
@@ -136,17 +140,22 @@ const AppSidebar: React.FC = () => {
         ],
       });
 
-      items.push({
-        icon: <UserCircleIcon />,
-        name: "Contactos de Negocio",
-        subItems: [
+      {
+        const contactosSub: SidebarSubItem[] = [
           { name: "Todos", path: "/clientes", pro: false },
           { name: "Empresas", path: "/empresas", pro: false },
           { name: "Personas", path: "/personas", pro: false },
           { name: "Proveedores", path: "/proveedores", pro: false },
-          { name: "Usuarios", path: "/usuarios", pro: false },
-        ],
-      });
+        ];
+        if (permissions?.usuarios?.view !== false) {
+          contactosSub.push({ name: "Usuarios", path: "/usuarios", pro: false });
+        }
+        items.push({
+          icon: <UserCircleIcon />,
+          name: "Contactos de Negocio",
+          subItems: contactosSub,
+        });
+      }
 
       items.push({
         icon: <BoxCubeIcon />,

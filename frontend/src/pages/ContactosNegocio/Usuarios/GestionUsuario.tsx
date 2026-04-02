@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PageMeta from '@/components/common/PageMeta';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import ComponentCard from '@/components/common/ComponentCard';
 import Label from '@/components/form/Label';
 import Input from '@/components/form/input/InputField';
@@ -205,6 +205,7 @@ const generatePassword = (username: string, firstName: string, lastName: string)
 };
 
 export default function UserProfiles() {
+  const navigate = useNavigate();
   const API = apiUrl('/api/users/accounts/');
 
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -386,6 +387,21 @@ export default function UserProfiles() {
         viewName: 'Gestion de usuarios',
         viewPath: '/usuarios',
       });
+
+      try {
+        const rawMe = localStorage.getItem('user') || sessionStorage.getItem('user');
+        const meAfter = rawMe ? JSON.parse(rawMe) : null;
+        if (meAfter && typeof meAfter?.id === 'number' && meAfter.id === permsUser.id) {
+          const effective = isAdmin ? merged.usuarios : (payloadPerms as PermissionsPayload).usuarios;
+          if (effective && effective.view === false) {
+            navigate('/', { replace: true });
+            setPermsSaving(false);
+            return;
+          }
+        }
+      } catch {
+        // ignore
+      }
 
       setSuccess('Permisos actualizados');
       setIsPermsOpen(false);
