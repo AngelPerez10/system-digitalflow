@@ -795,25 +795,6 @@ export default function OrdenesTecnico() {
   }, [debouncedClienteSearch]);
 
   const fetchUsuarios = async () => {
-    const role = localStorage.getItem('role');
-    const token = getToken();
-    if (!token) return;
-
-    if (role !== 'admin') {
-      try {
-        const res = await fetch(apiUrl("/api/me/"), {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const me = await res.json();
-          setUsuarios([me]);
-        }
-      } catch (e) {
-        console.error("Error fetching current user:", e);
-      }
-      return;
-    }
-
     try {
       const token = getToken();
       if (!token) return;
@@ -823,11 +804,9 @@ export default function OrdenesTecnico() {
         "Content-Type": "application/json"
       } as HeadersInit;
 
-      const response = await fetch(apiUrl("/api/users/accounts/"), { headers: commonHeaders });
-
-      if (response.status === 403) {
-        console.warn("Technician does not have permission to list all users. Skipping fetchUsuarios.");
-        return;
+      let response = await fetch(apiUrl("/api/ordenes/tecnico-opciones/"), { headers: commonHeaders });
+      if (!response.ok) {
+        response = await fetch(apiUrl("/api/users/accounts/"), { headers: commonHeaders });
       }
 
       if (response.ok) {
@@ -1552,8 +1531,8 @@ export default function OrdenesTecnico() {
     return [newAction, ...base];
   }, [clientes, clienteSearch]);
 
-  const tecnicoActions = useMemo(() => {
-    const q = tecnicoSearch.trim().toLowerCase();
+  const buildTecnicoActions = (searchValue: string) => {
+    const q = searchValue.trim().toLowerCase();
     return (usuarios || [])
       .filter((u) => {
         if (!q) return true;
@@ -1575,7 +1554,11 @@ export default function OrdenesTecnico() {
           end: '',
         };
       });
-  }, [usuarios, tecnicoSearch]);
+  };
+
+  const tecnicoActions = useMemo(() => buildTecnicoActions(tecnicoSearch), [usuarios, tecnicoSearch]);
+  const quienInstaloActions = useMemo(() => buildTecnicoActions(quienInstaloSearch), [usuarios, quienInstaloSearch]);
+  const quienEntregoActions = useMemo(() => buildTecnicoActions(quienEntregoSearch), [usuarios, quienEntregoSearch]);
 
   const servicioActions = useMemo(() => {
     const q = servicioSearch.trim().toLowerCase();
@@ -2470,7 +2453,7 @@ export default function OrdenesTecnico() {
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
                       <ActionSearchBar
-                        actions={tecnicoActions as any}
+                        actions={quienInstaloActions as any}
                         defaultOpen={false}
                         label="Técnico Asignado"
                         placeholder="Buscar técnico..."
@@ -2517,7 +2500,7 @@ export default function OrdenesTecnico() {
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
                       <ActionSearchBar
-                        actions={tecnicoActions as any}
+                        actions={quienEntregoActions as any}
                         defaultOpen={false}
                         label="¿Quien instaló?"
                         placeholder="Buscar técnico..."

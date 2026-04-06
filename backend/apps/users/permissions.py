@@ -46,6 +46,20 @@ def user_has_any_ordenes_access(permissions):
     return False
 
 
+class OrdenesAnyAccessPermission(BasePermission):
+    """Permite la acción si el usuario tiene cualquier permiso en el módulo órdenes."""
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        return user_has_any_ordenes_access(permissions)
+
+
 class ModulePermission(BasePermission):
     """
     Base permission class that checks user permissions from JSON profile.

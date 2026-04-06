@@ -224,7 +224,9 @@ function ActionSearchBar({
     const displayQuery = typeof value === "string" ? value : query;
 
     return (
-        <div className="w-full">
+        <div
+            className={`w-full relative ${isFocused ? "z-[80]" : "z-0"}`}
+        >
             <div className="relative">
                 <div className="w-full">
                     <label
@@ -290,7 +292,7 @@ function ActionSearchBar({
                     <AnimatePresence>
                         {isFocused && filteredActions.length > 0 && !selectedAction && (
                             <motion.div
-                                className="w-full border rounded-md shadow-xs overflow-hidden dark:border-gray-800 bg-white dark:bg-black mt-1"
+                                className="absolute left-0 right-0 top-full mt-1 z-10 w-full border rounded-md shadow-lg overflow-hidden dark:border-gray-800 bg-white dark:bg-black"
                                 variants={ANIMATION_VARIANTS.container}
                                 role="listbox"
                                 aria-label="Resultados de búsqueda"

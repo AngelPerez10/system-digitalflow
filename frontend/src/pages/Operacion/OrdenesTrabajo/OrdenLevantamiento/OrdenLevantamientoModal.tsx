@@ -224,17 +224,23 @@ export default function OrdenServicioModal({
 
     const load = async () => {
       try {
-        const [clientesRes, usuariosRes, serviciosRes] = await Promise.all([
+        const [clientesRes, serviciosRes] = await Promise.all([
           fetch(apiUrl("/api/clientes/?search=&page_size=50"), {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(apiUrl("/api/users/accounts/"), {
             headers: { Authorization: `Bearer ${token}` },
           }),
           fetch(apiUrl("/api/servicios/?page=1&page_size=500&ordering=idx"), {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
+
+        let usuariosRes = await fetch(apiUrl("/api/ordenes/tecnico-opciones/"), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!usuariosRes.ok) {
+          usuariosRes = await fetch(apiUrl("/api/users/accounts/"), {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
 
         if (clientesRes.ok) {
           const data = await clientesRes.json();
@@ -652,8 +658,8 @@ export default function OrdenServicioModal({
     return base;
   }, [clientes, clienteSearch]);
 
-  const tecnicoActions = useMemo(() => {
-    const q = tecnicoSearch.trim().toLowerCase();
+  const buildTecnicoActions = (searchValue: string) => {
+    const q = searchValue.trim().toLowerCase();
     return (usuarios || [])
       .filter((u) => {
         if (!q) return true;
@@ -671,7 +677,11 @@ export default function OrdenServicioModal({
           end: "",
         };
       });
-  }, [usuarios, tecnicoSearch]);
+  };
+
+  const tecnicoActions = useMemo(() => buildTecnicoActions(tecnicoSearch), [usuarios, tecnicoSearch]);
+  const quienInstaloActions = useMemo(() => buildTecnicoActions(quienInstaloSearch), [usuarios, quienInstaloSearch]);
+  const quienEntregoActions = useMemo(() => buildTecnicoActions(quienEntregoSearch), [usuarios, quienEntregoSearch]);
 
   const servicioActions = useMemo(() => {
     const q = servicioSearch.trim().toLowerCase();
@@ -1112,7 +1122,7 @@ export default function OrdenServicioModal({
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
                         <ActionSearchBar
-                          actions={tecnicoActions as any}
+                          actions={quienInstaloActions as any}
                           defaultOpen={false}
                           label="Técnico Asignado"
                           placeholder="Buscar técnico..."
@@ -1162,7 +1172,7 @@ export default function OrdenServicioModal({
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
                         <ActionSearchBar
-                          actions={tecnicoActions as any}
+                          actions={quienEntregoActions as any}
                           defaultOpen={false}
                           label="¿Quien instaló?"
                           placeholder="Buscar técnico..."

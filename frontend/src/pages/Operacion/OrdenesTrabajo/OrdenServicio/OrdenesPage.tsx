@@ -786,7 +786,10 @@ export default function Ordenes() {
         "Content-Type": "application/json"
       } as HeadersInit;
 
-      const response = await fetch(apiUrl("/api/users/accounts/"), { headers: commonHeaders });
+      let response = await fetch(apiUrl("/api/ordenes/tecnico-opciones/"), { headers: commonHeaders });
+      if (!response.ok) {
+        response = await fetch(apiUrl("/api/users/accounts/"), { headers: commonHeaders });
+      }
 
       if (response.ok) {
         const data = await response.json();
@@ -1571,8 +1574,8 @@ export default function Ordenes() {
     return [newAction, ...base];
   }, [clientes, clienteSearch]);
 
-  const tecnicoActions = useMemo(() => {
-    const q = tecnicoSearch.trim().toLowerCase();
+  const buildTecnicoActions = (searchValue: string) => {
+    const q = searchValue.trim().toLowerCase();
     return (usuarios || [])
       .filter((u) => {
         if (!q) return true;
@@ -1594,7 +1597,11 @@ export default function Ordenes() {
           end: '',
         };
       });
-  }, [usuarios, tecnicoSearch]);
+  };
+
+  const tecnicoActions = useMemo(() => buildTecnicoActions(tecnicoSearch), [usuarios, tecnicoSearch]);
+  const quienInstaloActions = useMemo(() => buildTecnicoActions(quienInstaloSearch), [usuarios, quienInstaloSearch]);
+  const quienEntregoActions = useMemo(() => buildTecnicoActions(quienEntregoSearch), [usuarios, quienEntregoSearch]);
 
   const servicioActions = useMemo(() => {
     const q = servicioSearch.trim().toLowerCase();
@@ -2545,7 +2552,7 @@ export default function Ordenes() {
                       <div className="flex items-start gap-2">
                         <div className="flex-1">
                           <ActionSearchBar
-                            actions={tecnicoActions as any}
+                            actions={quienInstaloActions as any}
                             defaultOpen={false}
                             label="¿Quien instaló?"
                             placeholder="Buscar técnico..."
@@ -2579,7 +2586,7 @@ export default function Ordenes() {
                       <div className="flex items-start gap-2">
                         <div className="flex-1">
                           <ActionSearchBar
-                            actions={tecnicoActions as any}
+                            actions={quienEntregoActions as any}
                             defaultOpen={false}
                             label="¿Quien entregó?"
                             placeholder="Buscar técnico..."

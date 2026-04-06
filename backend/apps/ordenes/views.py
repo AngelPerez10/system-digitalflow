@@ -21,7 +21,7 @@ from django.db import transaction
 from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 
-from apps.users.permissions import ModulePermission
+from apps.users.permissions import ModulePermission, OrdenesAnyAccessPermission
 
 from PIL import Image
 
@@ -461,6 +461,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), ReportesPermission()]
         if self.action == 'reportes_tecnico_opciones':
             return [IsAuthenticated()]
+        if self.action == 'tecnico_opciones':
+            return [IsAuthenticated(), OrdenesAnyAccessPermission()]
         return super().get_permissions()
 
     def get_queryset(self):
@@ -938,6 +940,24 @@ class OrdenViewSet(viewsets.ModelViewSet):
         if not deleted:
             raise NotFound()
         return Response(status=204)
+
+    @action(detail=False, methods=['get'], url_path='tecnico-opciones')
+    def tecnico_opciones(self, request):
+        """Usuarios activos para técnicos asignados, quien instaló, quien entregó (módulo órdenes)."""
+        qs = User.objects.filter(is_active=True).order_by('first_name', 'last_name', 'id')
+        data = [
+            {
+                'id': u.id,
+                'username': u.username or '',
+                'email': u.email or '',
+                'first_name': u.first_name or '',
+                'last_name': u.last_name or '',
+                'is_staff': bool(getattr(u, 'is_staff', False)),
+                'is_superuser': bool(getattr(u, 'is_superuser', False)),
+            }
+            for u in qs
+        ]
+        return Response(data)
 
     @action(detail=False, methods=['get'], url_path='reportes-tecnico-opciones')
     def reportes_tecnico_opciones(self, request):
