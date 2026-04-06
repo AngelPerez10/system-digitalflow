@@ -13,6 +13,7 @@ class OrdenSerializer(serializers.ModelSerializer):
     quien_entrego_full_name = serializers.SerializerMethodField()
     creado_por_username = serializers.CharField(source='creado_por.username', read_only=True)
     tipo_orden = serializers.SerializerMethodField()
+    levantamiento_tipo = serializers.SerializerMethodField()
 
     def validate_folio(self, value):
         if isinstance(value, str) and value.strip() == '':
@@ -37,6 +38,22 @@ class OrdenSerializer(serializers.ModelSerializer):
         except Exception:
             pass
         return 'servicio_tecnico'
+
+    def get_levantamiento_tipo(self, obj):
+        """Tipo del formulario de levantamiento (payload.tipo): camara | cerco | alarmas."""
+        try:
+            lev = getattr(obj, 'levantamiento', None)
+            if lev is None:
+                return None
+            payload = getattr(lev, 'payload', None) or {}
+            if not isinstance(payload, dict):
+                return None
+            t = payload.get('tipo')
+            if t in ('camara', 'cerco', 'alarmas'):
+                return t
+            return None
+        except Exception:
+            return None
 
     def get_quien_instalo_full_name(self, obj):
         if obj.quien_instalo:
@@ -63,6 +80,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'idx',
             'folio',
             'tipo_orden',
+            'levantamiento_tipo',
             'cliente_id',
             'cliente_nombre',
             'cliente',
@@ -102,6 +120,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'id',
             'idx',
             'tipo_orden',
+            'levantamiento_tipo',
             'cliente_nombre',
             'tecnico_asignado_username',
             'tecnico_asignado_full_name',

@@ -33,6 +33,8 @@ type Orden = {
   status?: "pendiente" | "resuelto" | string;
   nombre_encargado?: string;
   tecnico_asignado_full_name?: string;
+  /** Mismo `payload.tipo` que en LevantamientoForm: camara | cerco | alarmas */
+  levantamiento_tipo?: "camara" | "cerco" | "alarmas" | null;
   [k: string]: any;
 };
 
@@ -59,6 +61,7 @@ export default function LevantamientoPage() {
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<"" | "pendiente" | "resuelto">("");
+  const [filterTipoLevantamiento, setFilterTipoLevantamiento] = useState<"" | "camara" | "cerco" | "alarmas">("");
   const [filterDate, setFilterDate] = useState("");
   const filterRef = useRef<HTMLDivElement>(null);
   const [problematicaModal, setProblematicaModal] = useState<{ open: boolean; content: string }>({ open: false, content: "" });
@@ -158,6 +161,10 @@ export default function LevantamientoPage() {
           (o?.nombre_encargado ?? "").toLowerCase().includes(q));
       if (!matchText) return false;
       if (filterStatus && normalizeStatus(o?.status) !== normalizeStatus(filterStatus)) return false;
+      if (filterTipoLevantamiento) {
+        const tipo = String((o as Orden)?.levantamiento_tipo ?? "").toLowerCase();
+        if (tipo !== filterTipoLevantamiento) return false;
+      }
       if (filterDate) {
         const base = (o?.fecha_inicio ?? o?.fecha_creacion ?? "").toString().slice(0, 10);
         if (!base.startsWith(filterDate)) return false;
@@ -178,7 +185,7 @@ export default function LevantamientoPage() {
       if (bc !== ac) return bc - ac;
       return Number((b as any).id || 0) - Number((a as any).id || 0);
     });
-  }, [levantamientos, search, filterStatus, filterDate]);
+  }, [levantamientos, search, filterStatus, filterTipoLevantamiento, filterDate]);
 
   const stats = useMemo(() => {
     const total = levantamientos.length;
@@ -386,10 +393,10 @@ export default function LevantamientoPage() {
         compact
         title="Listado"
         desc="Resultados según búsqueda y filtros. En pantallas pequeñas usa el listado compacto."
-        className={`overflow-hidden ${cardShellClass}`}
+        className={`overflow-visible ${cardShellClass}`}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
-            <div className="relative w-full" ref={filterRef}>
+            <div className={`relative w-full ${filterOpen ? "z-[100]" : "z-0"}`} ref={filterRef}>
               <button
                 type="button"
                 onClick={() => setFilterOpen((v) => !v)}
@@ -405,7 +412,7 @@ export default function LevantamientoPage() {
                 Filtros
               </button>
               {filterOpen && (
-                <div className="absolute right-0 z-20 mt-2 w-72 max-h-80 overflow-auto rounded-xl border border-gray-200/70 bg-white p-4 shadow-lg dark:border-white/[0.08] dark:bg-gray-900/95">
+                <div className="absolute right-0 z-[110] mt-2 w-72 max-h-[min(80vh,24rem)] overflow-auto rounded-xl border border-gray-200/70 bg-white p-4 shadow-xl ring-1 ring-black/5 dark:border-white/[0.08] dark:bg-gray-900/95 dark:ring-white/10">
                   <div className="mb-4">
                     <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Estado</label>
                     <select
@@ -416,6 +423,21 @@ export default function LevantamientoPage() {
                       <option value="">Todos</option>
                       <option value="pendiente">Pendiente</option>
                       <option value="resuelto">Resuelto</option>
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Tipo de levantamiento</label>
+                    <select
+                      value={filterTipoLevantamiento}
+                      onChange={(e) =>
+                        setFilterTipoLevantamiento((e.target.value || "") as "" | "camara" | "cerco" | "alarmas")
+                      }
+                      className="h-10 w-full rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60"
+                    >
+                      <option value="">Todos</option>
+                      <option value="camara">Cámara</option>
+                      <option value="cerco">Cerco</option>
+                      <option value="alarmas">Alarmas</option>
                     </select>
                   </div>
                   <div className="mb-4">
@@ -443,6 +465,7 @@ export default function LevantamientoPage() {
                       type="button"
                       onClick={() => {
                         setFilterStatus("");
+                        setFilterTipoLevantamiento("");
                         setFilterDate("");
                         setFilterOpen(false);
                       }}

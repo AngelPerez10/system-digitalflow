@@ -1918,11 +1918,11 @@ export default function Ordenes() {
         compact
         title="Listado"
         desc="Resultados según búsqueda y filtros. En pantallas pequeñas desplázate horizontalmente si hace falta."
-        className={`overflow-hidden ${cardShellClass}`}
+        className={`overflow-visible ${cardShellClass}`}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
             {/* Filtro desplegable */}
-            <div className="relative w-full" ref={filterRef}>
+            <div className={`relative w-full ${filterOpen ? "z-[100]" : "z-0"}`} ref={filterRef}>
               <button
                 type="button"
                 onClick={() => setFilterOpen(v => !v)}
@@ -1939,7 +1939,7 @@ export default function Ordenes() {
                 Filtros
               </button>
               {filterOpen && (
-                <div className="absolute right-0 z-20 mt-2 w-72 max-h-80 overflow-auto rounded-xl border border-gray-200/70 bg-white p-4 shadow-lg dark:border-white/[0.08] dark:bg-gray-900/95">
+                <div className="absolute right-0 z-[110] mt-2 w-72 max-h-[min(80vh,24rem)] overflow-auto rounded-xl border border-gray-200/70 bg-white p-4 shadow-xl ring-1 ring-black/5 dark:border-white/[0.08] dark:bg-gray-900/95 dark:ring-white/10">
                   <div className="mb-4">
                     <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Estado</label>
                     <select

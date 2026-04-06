@@ -471,7 +471,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         qs = (
             self.queryset.all()
             .annotate(tiene_levantamiento=Exists(OrdenLevantamiento.objects.filter(orden_id=OuterRef('pk'))))
-            .select_related('cliente_id', 'tecnico_asignado', 'creado_por')
+            .select_related('cliente_id', 'tecnico_asignado', 'creado_por', 'levantamiento')
             .order_by(
                 F('fecha_inicio').desc(nulls_last=True),
                 F('fecha_creacion').desc(nulls_last=True),
