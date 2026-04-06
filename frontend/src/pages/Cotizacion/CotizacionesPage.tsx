@@ -253,7 +253,9 @@ export default function CotizacionesPage() {
     const datePart = String(iso).trim().slice(0, 10);
     const [y, m, d] = datePart.split("-");
     if (!y || !m || !d) return "";
-    return `${d}-${m}-${y}`;
+    const dd = d.padStart(2, "0");
+    const mm = m.padStart(2, "0");
+    return `${dd}/${mm}/${y}`;
   };
 
   const normalizeMedioLabel = (raw: string) => {
