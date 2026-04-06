@@ -1635,13 +1635,13 @@ export default function NuevaCotizacionPage() {
               <ComponentCard
                 title="Datos del cliente"
                 desc="Busca por nombre o teléfono y completa contacto, descuento y estado."
-                className={cardShellClass}
+                className={cardShellClass.replace(/^overflow-hidden\b/, "overflow-visible")}
                 compact
               >
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-[11px] font-medium text-gray-600 dark:text-gray-400 sm:text-xs">Cliente</label>
-                      <div className="relative">
+                      <div className={`relative ${clienteOpen ? "z-[100]" : "z-0"}`}>
                         <div className="relative">
                           <svg className='absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'><circle cx='11' cy='11' r='7' /><path d='m20 20-2-2' /></svg>
                           <input
@@ -1677,7 +1677,7 @@ export default function NuevaCotizacionPage() {
                           </div>
                         </div>
                         {clienteOpen && (
-                          <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto divide-y divide-gray-100 rounded-lg border border-gray-200/80 bg-white shadow-sm backdrop-blur-sm dark:divide-white/[0.06] dark:border-white/[0.08] dark:bg-gray-900/95 custom-scrollbar">
+                          <div className="absolute left-0 right-0 top-full z-[110] mt-1 w-full max-h-64 overflow-auto divide-y divide-gray-100 rounded-lg border border-gray-200/80 bg-white shadow-xl ring-1 ring-black/5 backdrop-blur-sm dark:divide-white/[0.06] dark:border-white/[0.08] dark:bg-gray-900/95 dark:ring-white/10 custom-scrollbar">
                             <button type='button' onClick={() => selectCliente(null)} className={`w-full text-left px-3 py-2 text-[11px] hover:bg-brand-50 dark:hover:bg-gray-800 dark:text-white ${!clienteId ? 'bg-brand-50/60 dark:bg-gray-800/50 font-medium text-brand-700 dark:text-white' : ''}`}>Selecciona cliente</button>
                             {filteredClientes.map(c => (
                               <button key={c.id} type='button' onClick={() => selectCliente(c)} className='w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition'>
