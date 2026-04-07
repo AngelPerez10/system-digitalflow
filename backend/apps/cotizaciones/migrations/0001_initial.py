@@ -36,12 +36,52 @@ class Migration(migrations.Migration):
                 ("cliente", models.CharField(max_length=100, blank=True, default="")),
                 ("prospecto", models.BooleanField(default=False)),
                 ("contacto", models.CharField(max_length=200, blank=True, default="")),
+                (
+                    "medio_contacto",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("BNI", "BNI"),
+                            ("REFERIDO", "Referido"),
+                            ("WEB", "Web"),
+                            ("TIENDA_ONLINE", "Tienda Online"),
+                            ("FACEBOOK", "Facebook"),
+                            ("INSTAGRAM", "Instagram"),
+                            ("TIKTOK", "Tiktok"),
+                            ("GOOGLE_MAPS", "Google Maps"),
+                            ("YOUTUBE", "Youtube"),
+                            ("TIENDA_FISICA", "Tienda Fisica"),
+                            ("OTRO", "Otro"),
+                        ],
+                        default="",
+                        max_length=30,
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("AUTORIZADA", "Autorizada"),
+                            ("PENDIENTE", "Pendiente"),
+                            ("CANCELADA", "Cancelada"),
+                        ],
+                        default="PENDIENTE",
+                        max_length=20,
+                    ),
+                ),
                 ("fecha", models.DateField(blank=True, null=True)),
                 ("vencimiento", models.DateField(blank=True, null=True)),
                 (
                     "subtotal",
                     models.DecimalField(
                         max_digits=12, decimal_places=2, default=0
+                    ),
+                ),
+                (
+                    "descuento_cliente_pct",
+                    models.DecimalField(
+                        max_digits=5, decimal_places=2, default=0
                     ),
                 ),
                 (
@@ -86,6 +126,16 @@ class Migration(migrations.Migration):
                         related_name="cotizaciones_creadas",
                     ),
                 ),
+                (
+                    "actualizado_por",
+                    models.ForeignKey(
+                        settings.AUTH_USER_MODEL,
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="cotizaciones_actualizadas",
+                    ),
+                ),
             ],
             options={
                 "ordering": ["idx"],
@@ -102,6 +152,10 @@ class Migration(migrations.Migration):
                         serialize=False,
                         verbose_name="ID",
                     ),
+                ),
+                (
+                    "producto_externo_id",
+                    models.CharField(max_length=100, blank=True, default=""),
                 ),
                 (
                     "producto_nombre",
@@ -140,17 +194,6 @@ class Migration(migrations.Migration):
                         related_name="items",
                     ),
                 ),
-                # Campo de compatibilidad histórica: se eliminará en 0005
-                (
-                    "producto_id",
-                    models.ForeignKey(
-                        "clientes.Cliente",
-                        blank=True,
-                        null=True,
-                        on_delete=django.db.models.deletion.SET_NULL,
-                        related_name="cotizacion_items",
-                    ),
-                ),
             ],
             options={
                 "ordering": ["orden", "id"],
@@ -178,12 +221,6 @@ class Migration(migrations.Migration):
             model_name="cotizacionitem",
             index=models.Index(
                 fields=["cotizacion"], name="cotizacione_cotizac_668816_idx"
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="cotizacionitem",
-            index=models.Index(
-                fields=["producto_id"], name="cotizacione_product_cb7a6c_idx"
             ),
         ),
     ]

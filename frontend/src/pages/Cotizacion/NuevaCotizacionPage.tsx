@@ -282,6 +282,10 @@ export default function NuevaCotizacionPage() {
 
   /** Folio visible en UI al editar (modelo `idx`), no el id de base de datos. */
   const [editingCotizacionIdx, setEditingCotizacionIdx] = useState<number | null>(null);
+  const [activeCotizacionId, setActiveCotizacionId] = useState<string>(editingCotizacionId || "");
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<number | null>(null);
+  const isEditingRoute = !!editingCotizacionId;
 
   const [contactoNombre, setContactoNombre] = useState("");
 
@@ -530,8 +534,73 @@ export default function NuevaCotizacionPage() {
   );
 
   useEffect(() => {
+    setActiveCotizacionId(editingCotizacionId || "");
+  }, [editingCotizacionId]);
+
+  useEffect(() => {
+    if (editingCotizacionId || activeCotizacionId || !canCotizacionesCreate) return;
+    const token = getToken();
+    if (!token) return;
+
+    let cancelled = false;
+    const createDraft = async () => {
+      try {
+        const res = await fetch(apiUrl("/api/cotizaciones/"), {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            cliente_id: null,
+            cliente: "",
+            prospecto: false,
+            contacto: "",
+            medio_contacto: String(medioContacto || ""),
+            status: String(status || "PENDIENTE"),
+            fecha: todayIso,
+            subtotal: 0,
+            descuento_cliente_pct: 0,
+            iva_pct: clampPct(toNumber(ivaPct, 16)),
+            iva: 0,
+            total: 0,
+            texto_arriba_precios: String(textoArribaPrecios || ""),
+            terminos: String(terminos || ""),
+            items: [],
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || cancelled) return;
+        const newId = String(data?.id || "").trim();
+        if (newId) {
+          setActiveCotizacionId(newId);
+          setEditingCotizacionIdx(
+            data?.idx != null && Number.isFinite(Number(data.idx)) ? Number(data.idx) : null
+          );
+        }
+      } catch {
+        // ignore: user can continue and save manually
+      }
+    };
+
+    void createDraft();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    editingCotizacionId,
+    activeCotizacionId,
+    canCotizacionesCreate,
+    medioContacto,
+    status,
+    todayIso,
+    ivaPct,
+    textoArribaPrecios,
+    terminos,
+  ]);
+
+  useEffect(() => {
     if (!editingCotizacionId) {
-      setEditingCotizacionIdx(null);
       return;
     }
     setHydratingFromStorage(true);
@@ -863,132 +932,260 @@ export default function NuevaCotizacionPage() {
     return String(clienteSearch || "").trim();
   };
 
-  const handleSaveCotizacion = async (navigateAfterSave = true): Promise<string | null> => {
-    const p = getPermissionsFromStorage();
-    const canView = asBool(p?.cotizaciones?.view, true);
-    const canCreate = asBool(p?.cotizaciones?.create, false);
-    const canEdit = asBool(p?.cotizaciones?.edit, false);
-
-    if (!canView) {
-      setAlert({
-        show: true,
-        variant: "warning",
-        title: "Sin permiso",
-        message: "No tienes permiso para ver cotizaciones.",
-      });
-      return null;
-    }
-
-    if (editingCotizacionId) {
-      if (!canEdit) {
-        setAlert({
-          show: true,
-          variant: "warning",
-          title: "Sin permiso",
-          message: "No tienes permiso para editar cotizaciones.",
-        });
-        return null;
-      }
-    } else {
-      if (!canCreate) {
-        setAlert({
-          show: true,
-          variant: "warning",
-          title: "Sin permiso",
-          message: "No tienes permiso para crear cotizaciones.",
-        });
-        return null;
-      }
-    }
-
-    const v = validateClienteContacto();
-    if (!v.ok) {
-      setAlert({
-        show: true,
-        variant: "warning",
-        title: "Faltan datos",
-        message: `Completa: ${v.missing.join(", ")}.`,
-      });
-      return null;
-    }
-    if (!computed.lines.length) {
-      setAlert({
-        show: true,
-        variant: "warning",
-        title: "Faltan conceptos",
-        message: "Agrega al menos un producto o servicio para guardar la cotización.",
-      });
-      return null;
-    }
-
+  const buildCotizacionPayload = useCallback(() => {
     const nowIso = todayIso;
     const clienteNombre = resolveClienteNombre();
     const contacto = String(contactoNombre || "").trim();
-
-    const token = getToken();
-    if (!token) return null;
-
-    const payload: any = {
+    const lines = conceptos.map((c) => {
+      const descuento = clampPct(toNumber(c.descuento_pct, 0));
+      const pu = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
+      const importe = toNumber(c.cantidad, 0) * pu;
+      return { ...c, pu, importe };
+    });
+    const subtotalLineas = lines.reduce((acc, l) => acc + (Number.isFinite(l.importe) ? l.importe : 0), 0);
+    const descClientePct = clampPct(toNumber(descuentoClientePct, 0));
+    const descuentoCliente = subtotalLineas * (descClientePct / 100);
+    const subtotal = Math.max(0, subtotalLineas - descuentoCliente);
+    const ivaP = clampPct(toNumber(ivaPct, 16));
+    const iva = subtotal * (ivaP / 100);
+    const total = subtotal + iva;
+    return {
       cliente_id: clienteId ? Number(clienteId) : null,
-      cliente: clienteNombre || '',
+      cliente: clienteNombre || "",
       prospecto: !!selectedCliente?.is_prospecto,
-      contacto: contacto || '',
-      medio_contacto: String(medioContacto || ''),
-      status: String(status || 'PENDIENTE'),
+      contacto: contacto || "",
+      medio_contacto: String(medioContacto || ""),
+      status: String(status || "PENDIENTE"),
       fecha: nowIso,
-      subtotal: round2(toNumber(computed.subtotal, 0)),
-      descuento_cliente_pct: clampPct(toNumber(descuentoClientePct, 0)),
-      iva_pct: clampPct(toNumber(ivaPct, 16)),
-      iva: round2(toNumber(computed.iva, 0)),
-      total: round2(toNumber(computed.total, 0)),
-      texto_arriba_precios: String(textoArribaPrecios || ''),
-      terminos: String(terminos || ''),
-      items: computed.lines.map((c, i) => ({
-        producto_externo_id: c.producto_externo_id ?? '',
+      subtotal: round2(subtotal),
+      descuento_cliente_pct: descClientePct,
+      iva_pct: ivaP,
+      iva: round2(iva),
+      total: round2(total),
+      texto_arriba_precios: String(textoArribaPrecios || ""),
+      terminos: String(terminos || ""),
+      items: lines.map((c, i) => ({
+        producto_externo_id: c.producto_externo_id ?? "",
         producto_nombre: c.producto_nombre,
         producto_descripcion: c.producto_descripcion,
         unidad: c.unidad,
-        thumbnail_url: c.thumbnail_url || '',
+        thumbnail_url: c.thumbnail_url || "",
         cantidad: toNumber(c.cantidad, 0),
         precio_lista: toNumber(c.precio_lista, 0),
         descuento_pct: clampPct(toNumber(c.descuento_pct, 0)),
         orden: i,
       })),
     };
+  }, [
+    todayIso,
+    selectedCliente,
+    clienteId,
+    clienteSearch,
+    contactoNombre,
+    medioContacto,
+    status,
+    conceptos,
+    descuentoClientePct,
+    ivaPct,
+    textoArribaPrecios,
+    terminos,
+  ]);
+
+  const upsertCotizacion = useCallback(async (opts?: {
+    navigateAfterSave?: boolean;
+    validateRequired?: boolean;
+    silent?: boolean;
+    autosave?: boolean;
+  }): Promise<string | null> => {
+    const navigateAfterSave = !!opts?.navigateAfterSave;
+    const validateRequired = opts?.validateRequired !== false;
+    const silent = !!opts?.silent;
+    const autosave = !!opts?.autosave;
+    const p = getPermissionsFromStorage();
+    const canView = asBool(p?.cotizaciones?.view, true);
+    const canCreate = asBool(p?.cotizaciones?.create, false);
+    const canEdit = asBool(p?.cotizaciones?.edit, false);
+    const targetId = (editingCotizacionId || activeCotizacionId || "").trim();
+
+    if (!canView) {
+      if (!silent) {
+        setAlert({
+          show: true,
+          variant: "warning",
+          title: "Sin permiso",
+          message: "No tienes permiso para ver cotizaciones.",
+        });
+      }
+      return null;
+    }
+
+    if (targetId) {
+      if (!canEdit) {
+        if (!silent) {
+          setAlert({
+            show: true,
+            variant: "warning",
+            title: "Sin permiso",
+            message: "No tienes permiso para editar cotizaciones.",
+          });
+        }
+        return null;
+      }
+    } else {
+      if (!canCreate) {
+        if (!silent) {
+          setAlert({
+            show: true,
+            variant: "warning",
+            title: "Sin permiso",
+            message: "No tienes permiso para crear cotizaciones.",
+          });
+        }
+        return null;
+      }
+    }
+
+    if (validateRequired) {
+      const v = validateClienteContacto();
+      if (!v.ok) {
+        if (!silent) {
+          setAlert({
+            show: true,
+            variant: "warning",
+            title: "Faltan datos",
+            message: `Completa: ${v.missing.join(", ")}.`,
+          });
+        }
+        return null;
+      }
+      if (!conceptos.length) {
+        if (!silent) {
+          setAlert({
+            show: true,
+            variant: "warning",
+            title: "Faltan conceptos",
+            message: "Agrega al menos un producto o servicio para guardar la cotización.",
+          });
+        }
+        return null;
+      }
+    }
+
+    const token = getToken();
+    if (!token) return null;
+    const payload: any = buildCotizacionPayload();
 
     try {
-      const isEdit = !!editingCotizacionId;
-      const res = await fetch(apiUrl(isEdit ? `/api/cotizaciones/${editingCotizacionId}/` : '/api/cotizaciones/'), {
-        method: isEdit ? 'PUT' : 'POST',
+      if (autosave) setIsAutoSaving(true);
+      const isEdit = !!targetId;
+      const res = await fetch(apiUrl(isEdit ? `/api/cotizaciones/${targetId}/` : "/api/cotizaciones/"), {
+        method: isEdit ? "PUT" : "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        const msg = data?.detail || JSON.stringify(data) || 'No se pudo guardar la cotización.';
-        setAlert({ show: true, variant: 'error', title: 'Error', message: msg });
+        if (!silent) {
+          const msg = data?.detail || JSON.stringify(data) || "No se pudo guardar la cotización.";
+          setAlert({ show: true, variant: "error", title: "Error", message: msg });
+        }
         return null;
       }
 
-      const savedId = String(data?.id || editingCotizacionId || '').trim();
-      setAlert({
-        show: true,
-        variant: 'success',
-        title: isEdit ? 'Cotización actualizada' : 'Cotización guardada',
-        message: `Folio #${data?.idx || data?.id || ''} guardado correctamente.`,
-      });
+      const savedId = String(data?.id || targetId || "").trim();
+      if (savedId && savedId !== activeCotizacionId) setActiveCotizacionId(savedId);
+      if (data?.idx != null && Number.isFinite(Number(data.idx))) {
+        setEditingCotizacionIdx(Number(data.idx));
+      }
+      if (autosave) {
+        setLastAutoSavedAt(Date.now());
+      } else if (!silent) {
+        setAlert({
+          show: true,
+          variant: "success",
+          title: isEdit ? "Cotización actualizada" : "Cotización guardada",
+          message: `Folio #${data?.idx || data?.id || ""} guardado correctamente.`,
+        });
+      }
       if (navigateAfterSave) {
-        window.setTimeout(() => navigate('/cotizacion'), 350);
+        window.setTimeout(() => navigate("/cotizacion"), 350);
       }
       return savedId || null;
     } catch {
-      setAlert({ show: true, variant: 'error', title: 'Error', message: 'No se pudo guardar la cotización.' });
+      if (!silent) {
+        setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo guardar la cotización." });
+      }
       return null;
+    } finally {
+      if (autosave) setIsAutoSaving(false);
     }
-  };
+  }, [
+    editingCotizacionId,
+    activeCotizacionId,
+    buildCotizacionPayload,
+    conceptos.length,
+    navigate,
+  ]);
+
+  const handleSaveCotizacion = async (navigateAfterSave = true): Promise<string | null> =>
+    upsertCotizacion({ navigateAfterSave, validateRequired: true, silent: false, autosave: false });
+
+  useEffect(() => {
+    const targetId = (editingCotizacionId || activeCotizacionId || "").trim();
+    if (!targetId || hydratingFromStorage) return;
+
+    const timer = window.setTimeout(() => {
+      void upsertCotizacion({
+        navigateAfterSave: false,
+        validateRequired: false,
+        silent: true,
+        autosave: true,
+      });
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    editingCotizacionId,
+    activeCotizacionId,
+    hydratingFromStorage,
+    clienteId,
+    clienteSearch,
+    contactoNombre,
+    medioContacto,
+    status,
+    descuentoClientePct,
+    ivaPct,
+    conceptos,
+    textoArribaPrecios,
+    terminos,
+    upsertCotizacion,
+  ]);
+
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      const targetId = (editingCotizacionId || activeCotizacionId || "").trim();
+      const token = getToken();
+      if (!targetId || !token) return;
+      try {
+        void fetch(apiUrl(`/api/cotizaciones/${targetId}/`), {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(buildCotizacionPayload()),
+          keepalive: true,
+        });
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [editingCotizacionId, activeCotizacionId, buildCotizacionPayload]);
 
   const canAddConcepto = useMemo(() => {
     const v = validateClienteContacto();
@@ -1577,7 +1774,7 @@ export default function NuevaCotizacionPage() {
               /
             </span>
             <span className="font-medium text-gray-700 dark:text-gray-300">
-              {editingCotizacionId ? "Editar" : "Nueva"}
+              {isEditingRoute ? "Editar" : "Nueva"}
             </span>
           </nav>
 
@@ -1597,20 +1794,25 @@ export default function NuevaCotizacionPage() {
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
                   <h1 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">
-                    {editingCotizacionId ? "Editar cotización" : "Nueva cotización"}
+                    {isEditingRoute ? "Editar cotización" : "Nueva cotización"}
                   </h1>
-                  {!!editingCotizacionId && (
+                  {!!(isEditingRoute || activeCotizacionId) && (
                     <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/[0.12] dark:text-amber-200">
-                      Edición · #
-                      {editingCotizacionIdx != null ? editingCotizacionIdx : editingCotizacionId}
+                      {isEditingRoute ? "Edición" : "Borrador"} · #
+                      {editingCotizacionIdx != null ? editingCotizacionIdx : (activeCotizacionId || editingCotizacionId)}
                     </span>
                   )}
                 </div>
                 <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
-                  {editingCotizacionId
+                  {isEditingRoute
                     ? "Ajusta cliente, conceptos y totales; guarda los cambios o revisa el PDF antes de enviar."
-                    : "Define el cliente, agrega productos o servicios y revisa el resumen antes de guardar o generar la vista previa."}
+                    : "Define el cliente, agrega productos o servicios y revisa el resumen antes de guardar o generar la vista previa. Se guarda automáticamente como borrador."}
                 </p>
+                {!!lastAutoSavedAt && (
+                  <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                    {isAutoSaving ? "Guardando cambios..." : `Autosave: ${new Date(lastAutoSavedAt).toLocaleTimeString("es-MX")}`}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
@@ -2083,7 +2285,7 @@ export default function NuevaCotizacionPage() {
                         title={!clienteId ? "Selecciona un cliente" : undefined}
                         className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-3 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                       >
-                        {editingCotizacionId ? "Actualizar cotización" : "Guardar cotización"}
+                        {isEditingRoute ? "Actualizar cotización" : "Guardar cotización"}
                       </button>
                       <button
                         type="button"
