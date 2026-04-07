@@ -2040,7 +2040,7 @@ export default function NuevaCotizacionPage() {
 
                       <div className="mt-3 grid grid-cols-1 gap-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Subtotal líneas</span>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Subtotal</span>
                           <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.subtotalLineas)}</span>
                         </div>
                         {!!toNumber(computed.descClientePct, 0) && (
