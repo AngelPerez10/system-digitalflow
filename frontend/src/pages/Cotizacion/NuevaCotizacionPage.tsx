@@ -1908,10 +1908,6 @@ export default function NuevaCotizacionPage() {
                       </TableHeader>
                       <TableBody className="divide-y divide-gray-100 text-[11px] text-gray-700 dark:divide-white/[0.06] dark:text-gray-200 sm:text-[12px]">
                         {computed.lines.map((c) => {
-                          const ivaFactor = 1 + (clampPct(toNumber(computed.ivaPct, 0)) / 100);
-                          const precioListaConIva = toNumber(c.precio_lista, 0) * ivaFactor;
-                          const puConIva = toNumber(c.pu, 0) * ivaFactor;
-                          const importeConIva = toNumber(c.importe, 0) * ivaFactor;
                           return (
                           <TableRow key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
                             <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.cantidad}</TableCell>
@@ -1925,10 +1921,10 @@ export default function NuevaCotizacionPage() {
                               </div>
                             </TableCell>
                             <TableCell className="px-2 py-1.5">{c.producto_descripcion || "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(precioListaConIva)}</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.precio_lista, 0))}</TableCell>
                             <TableCell className="px-2 py-1.5 whitespace-nowrap">{clampPct(toNumber(c.descuento_pct, 0)).toFixed(2)}%</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(puConIva)}</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(importeConIva)}</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.pu, 0))}</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.importe, 0))}</TableCell>
                             <TableCell className="px-2 py-1.5 text-center">
                               <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
                                 <button
