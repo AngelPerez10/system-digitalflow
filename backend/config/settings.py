@@ -14,6 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 import os
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -197,9 +198,26 @@ WSGI_APPLICATION = 'config.wsgi.application'
 #}
 
 
-DATABASES = {
-    "default": dj_database_url.parse(os.environ.get("DATABASE_URL"))
-}
+raw_database_url = os.environ.get("DATABASE_URL", "")
+database_url = str(raw_database_url or "").strip()
+if database_url.startswith("b'") and database_url.endswith("'"):
+    database_url = database_url[2:-1]
+elif database_url.startswith('b"') and database_url.endswith('"'):
+    database_url = database_url[2:-1]
+
+if database_url:
+    DATABASES = {
+        "default": dj_database_url.parse(database_url)
+    }
+elif DEBUG:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+else:
+    raise ImproperlyConfigured("DATABASE_URL no configurada en entorno de produccion.")
 
 
 # =====================
