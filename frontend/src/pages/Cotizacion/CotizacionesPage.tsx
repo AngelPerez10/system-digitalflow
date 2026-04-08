@@ -69,6 +69,24 @@ export default function CotizacionesPage() {
     return localStorage.getItem('token') || sessionStorage.getItem('token');
   };
 
+  const clearSessionAndGoToLogin = () => {
+    const keys = [
+      'auth_token',
+      'token',
+      'refresh_token',
+      'username',
+      'permissions',
+      'role',
+      'user',
+      'is_superuser',
+    ];
+    for (const k of keys) {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    }
+    navigate('/signin', { replace: true, state: { from: { pathname: '/cotizacion' } } });
+  };
+
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
@@ -112,6 +130,10 @@ export default function CotizacionesPage() {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store' as RequestCache,
         });
+        if (res.status === 401) {
+          clearSessionAndGoToLogin();
+          return;
+        }
         const data = await res.json().catch(() => null);
         if (!res.ok) return;
         const p = data?.permissions || {};
@@ -150,6 +172,10 @@ export default function CotizacionesPage() {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store' as RequestCache,
       });
+      if (res.status === 401) {
+        clearSessionAndGoToLogin();
+        return;
+      }
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setRows([]);
