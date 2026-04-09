@@ -35,6 +35,10 @@ export interface OrdenServicioModalProps {
   forceTipoOrden?: "levantamiento";
   onSaved: (savedOrden: any) => void;
   getToken: () => string | null;
+  /** Nueva orden: fecha de inicio sugerida (YYYY-MM-DD). Si no se envía, se usa hoy. */
+  defaultFechaInicioForNewOrden?: string;
+  /** Texto del mes seleccionado en el listado (solo informativo en el formulario de levantamiento). */
+  levantamientoListadoMonthLabel?: string;
 }
 
 const initialFormData = {
@@ -69,6 +73,8 @@ export default function OrdenServicioModal({
   forceTipoOrden,
   onSaved,
   getToken,
+  defaultFechaInicioForNewOrden,
+  levantamientoListadoMonthLabel,
 }: OrdenServicioModalProps) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -312,14 +318,17 @@ export default function OrdenServicioModal({
         if (u) setQuienEntregoSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
       } else setQuienEntregoSearch("");
     } else {
-      setFormData({ ...initialFormData, fecha_inicio: new Date().toISOString().split("T")[0] });
+      const fechaIni =
+        (defaultFechaInicioForNewOrden && String(defaultFechaInicioForNewOrden).trim()) ||
+        new Date().toISOString().split("T")[0];
+      setFormData({ ...initialFormData, fecha_inicio: fechaIni });
       setClienteSearch("");
       setTecnicoSearch("");
       setQuienInstaloSearch("");
       setQuienEntregoSearch("");
       setServicioSearch("");
     }
-  }, [open, orden?.id]);
+  }, [open, orden?.id, defaultFechaInicioForNewOrden]);
 
   // Sync tecnicoSearch when usuarios load and we're editing with tecnico_asignado
   useEffect(() => {
@@ -1665,6 +1674,7 @@ export default function OrdenServicioModal({
                 <div className="mt-4">
                   <LevantamientoForm
                     ordenId={orden?.id ?? null}
+                    listadoMesEtiqueta={!orden ? levantamientoListadoMonthLabel : undefined}
                     onSnapshot={(snapshot) => {
                       levantamientoSnapshotRef.current = snapshot;
                     }}

@@ -11,6 +11,7 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { apiUrl } from "@/config/api";
+import { formatMonthLabelEs } from "@/utils/statsMonthKey";
 import { PencilIcon, TrashBinIcon, TimeIcon } from "@/icons";
 import { MobileOrderList } from "./MobileOrderCard";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
@@ -1688,19 +1689,14 @@ export default function OrdenesTecnico() {
   };
 
 
-  const currentMonthKey = useMemo(() => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
-  }, []);
+  const statsMonthKey = selectedMonth || getCurrentYearMonth();
 
   const ordenStats = useMemo(() => {
     const list = Array.isArray(ordenes) ? ordenes : [];
 
     const monthList = list.filter((o) => {
       const base = (o.fecha_inicio || o.fecha_creacion || '').toString();
-      return base.startsWith(currentMonthKey);
+      return base.startsWith(statsMonthKey);
     });
 
     const completedMonth = monthList.filter((o) => (o.status || '').toString().toLowerCase() === 'resuelto');
@@ -1711,7 +1707,7 @@ export default function OrdenesTecnico() {
       monthCompleted: completedMonth.length,
       monthPending: pendingMonth.length,
     };
-  }, [ordenes, currentMonthKey]);
+  }, [ordenes, statsMonthKey]);
 
   return (
     <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
@@ -1786,9 +1782,9 @@ export default function OrdenesTecnico() {
           </div>
         </div>
 
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4 sm:col-span-2 lg:col-span-1`}>
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-200/80 bg-orange-50/90 text-orange-900 dark:border-orange-500/25 dark:bg-orange-500/10 dark:text-orange-200 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
               </svg>

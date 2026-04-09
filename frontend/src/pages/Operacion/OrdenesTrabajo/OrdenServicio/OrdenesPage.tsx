@@ -1728,22 +1728,18 @@ export default function Ordenes() {
     setServicioSearch('');
   };
 
-  const currentMonthKey = useMemo(() => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
-  }, []);
+  const statsMonthKey = selectedMonth || getCurrentYearMonth();
 
   const ordenStats = useMemo(() => {
     const list = Array.isArray(ordenes) ? ordenes : [];
 
     const monthList = list.filter((o) => {
       const base = (o.fecha_inicio || o.fecha_creacion || '').toString();
-      return base.startsWith(currentMonthKey);
+      return base.startsWith(statsMonthKey);
     });
 
     const completedMonth = monthList.filter((o) => (o.status || '').toString().toLowerCase() === 'resuelto');
+    const pendingMonth = monthList.filter((o) => (o.status || '').toString().toLowerCase() === 'pendiente');
 
     const byCliente: Record<string, { cliente: string; services: number }> = {};
     for (const o of monthList) {
@@ -1763,10 +1759,11 @@ export default function Ordenes() {
     return {
       monthTotal: monthList.length,
       monthCompleted: completedMonth.length,
+      monthPending: pendingMonth.length,
       estrella: best?.cliente || '—',
       estrellaServices: best?.services || 0,
     };
-  }, [ordenes, currentMonthKey]);
+  }, [ordenes, statsMonthKey]);
 
   return (
     <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
@@ -1812,7 +1809,7 @@ export default function Ordenes() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
         <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
@@ -1843,7 +1840,20 @@ export default function Ordenes() {
           </div>
         </div>
 
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4 sm:col-span-2 lg:col-span-1`}>
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-200/80 bg-orange-50/90 text-orange-900 dark:border-orange-500/25 dark:bg-orange-500/10 dark:text-orange-200 sm:h-10 sm:w-10">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Pendientes</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{ordenStats.monthPending}</p>
+            </div>
+          </div>
+        </div>
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1858,7 +1868,6 @@ export default function Ordenes() {
           </div>
         </div>
       </div>
-
       <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
         <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
           <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">

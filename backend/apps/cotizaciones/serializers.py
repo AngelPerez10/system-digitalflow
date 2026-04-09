@@ -159,8 +159,8 @@ class CotizacionSerializer(serializers.ModelSerializer):
 
     def _calculate_totals(self, items_data, data, instance=None):
         """
-        Recalcula subtotal/iva/total en backend para evitar inconsistencias
-        o doble IVA por cálculos de cliente.
+        Recalcula subtotal/total en backend.
+        Los precios de productos ya incluyen IVA, por lo que no se suma impuesto adicional.
         """
         items = list(items_data or [])
         subtotal_lineas = Decimal('0')
@@ -188,22 +188,14 @@ class CotizacionSerializer(serializers.ModelSerializer):
         if descuento_cliente_pct > 100:
             descuento_cliente_pct = Decimal('100')
 
-        src_iva = data.get('iva_pct')
-        if src_iva is None and instance is not None:
-            src_iva = instance.iva_pct
-        iva_pct = self._to_decimal(src_iva, '16')
-        if iva_pct < 0:
-            iva_pct = Decimal('0')
-        if iva_pct > 100:
-            iva_pct = Decimal('100')
-
         descuento_cliente = subtotal_lineas * (descuento_cliente_pct / Decimal('100'))
         subtotal = subtotal_lineas - descuento_cliente
         if subtotal < 0:
             subtotal = Decimal('0')
 
-        iva = subtotal * (iva_pct / Decimal('100'))
-        total = subtotal + iva
+        iva_pct = Decimal('0')
+        iva = Decimal('0')
+        total = subtotal
 
         q = Decimal('0.01')
         return {

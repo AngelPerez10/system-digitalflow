@@ -218,9 +218,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         rows_html = ''.join(rows) or "<tr><td colspan='7' class='muted center' style='padding: 14px;'>Sin conceptos</td></tr>"
 
         subtotal = float(cotizacion.subtotal or 0)
-        iva = float(cotizacion.iva or 0)
         total = float(cotizacion.total or 0)
-        iva_pct = float(cotizacion.iva_pct or 0)
 
         descuento_cliente_pct = 0.0
         try:
@@ -239,6 +237,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
 
         descuento_cliente_monto = subtotal_lineas * (descuento_cliente_pct / 100.0)
         subtotal_con_descuento_cliente = max(0.0, subtotal_lineas - descuento_cliente_monto)
+        total = subtotal_con_descuento_cliente
 
         html = f"""<!doctype html>
 <html lang='es'>
@@ -406,8 +405,6 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     <div class='totals'>
     <div class='row'><span>Subtotal</span><strong>$ {subtotal_lineas:,.2f}</strong></div>
     {f"<div class='row'><span>Descuento ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_cliente_monto:,.2f}</strong></div>" if descuento_cliente_pct else ""}
-    {f"<div class='row'><span>Descuento</span><strong>$ {subtotal_con_descuento_cliente:,.2f}</strong></div>" if descuento_cliente_pct else ""}
-    <div class='row'><span>IVA ({iva_pct:,.2f}%)</span><strong>$ {iva:,.2f}</strong></div>
     <div class='row'><span>Total</span><strong>$ {total:,.2f}</strong></div>
   </div>
 

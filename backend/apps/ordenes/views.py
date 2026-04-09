@@ -124,6 +124,7 @@ ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES = (
     "ordenes/fotos/",
     "ordenes/firmas/",
     "ordenes/levantamiento/dibujos/",
+    "productos/conceptos/",
 )
 
 _allowed_embed_hosts_env = os.environ.get("IMG_EMBED_ALLOW_HOSTS", "").strip()
@@ -1428,6 +1429,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
             'ordenes/fotos',
             'ordenes/firmas',
             'ordenes/levantamiento/dibujos',
+            'productos/conceptos',
         }
         if not isinstance(folder, str) or folder not in allowed_folders:
             return Response({"detail": "folder inválido"}, status=400)
@@ -1460,6 +1462,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
             'ordenes/fotos/',
             'ordenes/firmas/',
             'ordenes/levantamiento/dibujos/',
+            'productos/conceptos/',
         )
         if not any(public_id.startswith(p) for p in allowed_prefixes):
             return Response({"detail": "public_id fuera de alcance"}, status=400)

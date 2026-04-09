@@ -60,10 +60,11 @@ export type IntraxFuente = "syscom" | "manual";
 
 export const getAuthToken = () => localStorage.getItem("token") || sessionStorage.getItem("token") || "";
 
-export const fetchSyscom = (path: string, token: string) => {
+export const fetchSyscom = (path: string, token: string, init?: Pick<RequestInit, "signal">) => {
   const cleanPath = path.replace(/^\//, "");
   return fetch(apiUrl(`/api/productos/syscom/${cleanPath}`), {
     headers: { Authorization: `Bearer ${token}` },
+    signal: init?.signal,
   });
 };
 
@@ -142,9 +143,15 @@ export const mapIntraxProductoToSyscom = (p: IntraxProducto): SyscomProducto => 
   },
 });
 
+/** Syscom rechaza o falla con URLs muy largas; modelos/SKU suelen ser cortos. */
+export const SYSCOM_BUSQUEDA_MAX_CHARS = 120;
+
 export const buildProductosQuery = (params: SyscomSearchParams) => {
   const sp = new URLSearchParams();
-  if (params.busqueda) sp.set("busqueda", params.busqueda.trim().replace(/\s+/g, "+"));
+  if (params.busqueda) {
+    const b = params.busqueda.trim().slice(0, SYSCOM_BUSQUEDA_MAX_CHARS).replace(/\s+/g, "+");
+    if (b) sp.set("busqueda", b);
+  }
   if (params.categoria) sp.set("categoria", params.categoria);
   if (params.marca) sp.set("marca", params.marca);
   if (params.sucursal) sp.set("sucursal", params.sucursal);
@@ -211,7 +218,7 @@ const findNumberInObject = (obj: unknown): number | null => {
   return null;
 };
 
-/** Precio al público = precio_lista (SYSCOM: precio de venta al público; el especial/descuento suele ser para empresas). */
+/** Selección de precio en USD según tipo; en modo auto: especial → lista → descuento. */
 const pickUsdPrice = (p: SyscomProducto, kind: SyscomPriceKind): number | null => {
   const precios = p.precios || undefined;
   if (!precios) return null;
@@ -221,12 +228,18 @@ const pickUsdPrice = (p: SyscomProducto, kind: SyscomPriceKind): number | null =
   if (kind === "lista") return lista;
   if (kind === "especial") return especial;
   if (kind === "descuento") return descuento;
-  return especial ?? descuento ?? lista;
+  return especial ?? lista ?? descuento;
 };
 
-/** Siempre usa precio al público (precio_lista). */
-export const getPrecioPublicoUsd = (p: SyscomProducto): number | null =>
-  pickUsdPrice(p, "lista");
+/** Precio preferido para cotización: precio_especial si existe; si no, precio_lista; luego descuento. */
+export const getPrecioPublicoUsd = (p: SyscomProducto): number | null => {
+  const precios = p.precios || undefined;
+  if (!precios) return null;
+  const lista = asNumber(precios.precio_lista);
+  const especial = asNumber(precios.precio_especial);
+  const descuento = asNumber(precios.precio_descuento);
+  return especial ?? lista ?? descuento;
+};
 
 export async function fetchSyscomTipoCambio(token: string): Promise<number | null> {
   const res = await fetchSyscom("tipocambio/", token);
@@ -267,7 +280,7 @@ export const formatPrecioSyscomMxnByKind = (p: SyscomProducto, tipoCambio: numbe
 /** IVA 16% (México). Precio al público en MXN ya incluye IVA en la etiqueta. */
 const IVA_MX = 1.16;
 
-/** Precio al público en MXN con IVA incluido (precio_lista × tipo de cambio × 1.16). */
+/** Precio en MXN con IVA incluido (precio preferido en USD × tipo de cambio × 1.16). */
 export const formatPrecioPublicoMxnConIva = (p: SyscomProducto, tipoCambio: number | null): string => {
   const precioMxn = asNumber(p.precio_mxn);
   if (precioMxn !== null) {

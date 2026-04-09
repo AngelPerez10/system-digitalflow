@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import DrawingBoard from '@/components/ui/drawing/DrawingBoard';
 import Alert from '@/components/ui/alert/Alert';
 import { apiUrl } from '@/config/api';
+import { formatMonthLabelEs } from '@/utils/statsMonthKey';
+import { useCurrentMonthKey } from '@/hooks/useStatsMonthKey';
 import {
   buildProductosQuery,
   fetchSyscom,
@@ -249,9 +251,13 @@ type Props = {
   ordenId?: number | null;
   disabled?: boolean;
   onSnapshot?: (snapshot: LevantamientoSnapshot) => void;
+  /** Mes del resumen en el listado (solo lectura; órdenes nuevas desde esa vista). */
+  listadoMesEtiqueta?: string;
 };
 
-export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Props) {
+export default function LevantamientoForm({ ordenId, disabled, onSnapshot, listadoMesEtiqueta }: Props) {
+  const currentMonthKey = useCurrentMonthKey();
+  const periodLabel = listadoMesEtiqueta || formatMonthLabelEs(currentMonthKey);
   const megapixelesOptions = useMemo(() => [2, 4, 5, 8, 12], []);
 
   const cameraRowClass = 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4';
@@ -484,6 +490,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot }: Pro
         </svg>
         <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Orden de Levantamiento</h4>
       </div>
+      <p className="mb-2 text-[11px] text-gray-500 dark:text-gray-400">Periodo del listado: {periodLabel}</p>
 
       <div className="mb-3">
         <div className="text-[11px] text-gray-500 dark:text-gray-400">

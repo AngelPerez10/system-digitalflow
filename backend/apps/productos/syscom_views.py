@@ -2,6 +2,9 @@
 Proxy para API SYSCOM (proveedor mayorista).
 OAuth 2.0 client_credentials + búsqueda de productos.
 Las credenciales se leen de settings (SYSCOM_CLIENT_ID, SYSCOM_CLIENT_SECRET).
+
+Nota sobre precios: los montos en USD (precios.precio_lista, etc.) se convierten a MXN en cliente
+con tipo de cambio e IVA 16 %. Si el producto trae `precio_mxn`, suele usarse tal cual en UI.
 """
 import logging
 import time
@@ -17,6 +20,9 @@ from rest_framework.views import APIView
 from apps.users.permissions import ModulePermission
 
 logger = logging.getLogger(__name__)
+
+# Búsquedas muy largas (p. ej. pegar un párrafo) rompen la API de Syscom (500) y la URL.
+SYSCOM_BUSQUEDA_MAX_CHARS = 120
 
 _SYSCOM_TOKEN_CACHE = {
     'access_token': None,
@@ -102,8 +108,11 @@ class SyscomProductosSearchView(APIView):
             return Response({'detail': f'Error SYSCOM: {err}'}, status=status.HTTP_502_BAD_GATEWAY)
 
         params = {}
-        if request.GET.get('busqueda'):
-            params['busqueda'] = request.GET.get('busqueda').replace(' ', '+')
+        raw_busqueda = request.GET.get('busqueda')
+        if raw_busqueda:
+            b = str(raw_busqueda).strip()[:SYSCOM_BUSQUEDA_MAX_CHARS]
+            if b:
+                params['busqueda'] = b.replace(' ', '+')
         if request.GET.get('categoria'):
             params['categoria'] = request.GET.get('categoria')
         if request.GET.get('marca'):
@@ -132,9 +141,11 @@ class SyscomProductosSearchView(APIView):
                 body = e.response.json() if e.response else {}
             except Exception:
                 body = {}
+            # No propagar 500 de Syscom como 500 de nuestra API (confunde con error de Django).
+            upstream = getattr(e.response, 'status_code', None) if e.response else None
             return Response(
                 body if body else {'detail': _safe_error_text(e, 'No se pudo consultar productos en SYSCOM')},
-                status=getattr(e.response, 'status_code', status.HTTP_502_BAD_GATEWAY)
+                status=status.HTTP_502_BAD_GATEWAY if upstream is None or upstream >= 500 else upstream,
             )
 
 

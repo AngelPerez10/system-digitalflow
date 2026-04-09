@@ -4,8 +4,8 @@ from rest_framework import filters, viewsets
 
 from apps.users.permissions import ModulePermission, user_has_any_ordenes_access
 
-from .models import Servicio
-from .serializers import ServicioSerializer
+from .models import Concepto, Servicio
+from .serializers import ConceptoSerializer, ServicioSerializer
 
 
 class ServiciosPermission(ModulePermission):
@@ -46,4 +46,36 @@ class ServicioViewSet(viewsets.ModelViewSet):
     search_fields = ['nombre', 'categoria', 'descripcion']
     ordering_fields = ['idx', 'nombre', 'fecha_creacion', 'activo', 'categoria']
     ordering = ['idx']
+
+
+class ConceptoViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing Concepto instances."""
+
+    queryset = Concepto.objects.all()
+    serializer_class = ConceptoSerializer
+    permission_classes = [ServiciosPermission]
+    pagination_class = ServiciosPagination
+
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['folio', 'concepto']
+    ordering_fields = ['folio', 'concepto', 'precio1', 'fecha_creacion']
+    ordering = ['folio']
+
+    def perform_update(self, serializer):
+        from apps.ordenes.views import _delete_cloudinary_resource
+
+        instance = serializer.instance
+        old_url = (instance.imagen_url or '').strip()
+        serializer.save()
+        new_url = (serializer.instance.imagen_url or '').strip()
+        if old_url and old_url != new_url:
+            _delete_cloudinary_resource(old_url)
+
+    def perform_destroy(self, instance):
+        from apps.ordenes.views import _delete_cloudinary_resource
+
+        url = (instance.imagen_url or '').strip()
+        if url:
+            _delete_cloudinary_resource(url)
+        instance.delete()
 

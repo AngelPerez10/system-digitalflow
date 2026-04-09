@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/modal";
 import Alert from "@/components/ui/alert/Alert";
 import DatePicker from "@/components/form/date-picker";
 import { apiUrl } from "@/config/api";
+import { formatMonthLabelEs, getCurrentMonthKey } from "@/utils/statsMonthKey";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { MobileOrderList } from "../OrdenServicio/MobileOrderCard";
 import OrdenServicioModal from "@/pages/Operacion/OrdenesTrabajo/OrdenLevantamiento/OrdenLevantamientoModal";
@@ -22,6 +23,8 @@ type Orden = {
   idx?: number;
   folio?: string | null;
   cliente?: string;
+  nombre_cliente?: string | null;
+  cliente_id?: number | null;
   direccion?: string | null;
   telefono_cliente?: string | null;
   problematica?: string;
@@ -54,15 +57,31 @@ function isGoogleMapsUrl(value: string | null | undefined): boolean {
   }
 }
 
+const getCurrentYearMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const parseYearMonth = (ym: string) => {
+  const m = /^(\d{4})-(\d{2})$/.exec(ym || "");
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (!year || month < 1 || month > 12) return null;
+  return { year, month };
+};
+
 export default function LevantamientoPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [search, setSearch] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<"" | "pendiente" | "resuelto">("");
   const [filterTipoLevantamiento, setFilterTipoLevantamiento] = useState<"" | "camara" | "cerco" | "alarmas">("");
   const [filterDate, setFilterDate] = useState("");
+  const statsMonthKey = selectedMonth || getCurrentMonthKey();
   const filterRef = useRef<HTMLDivElement>(null);
   const [problematicaModal, setProblematicaModal] = useState<{ open: boolean; content: string }>({ open: false, content: "" });
   const [serviciosModal, setServiciosModal] = useState<{ open: boolean; content: string[] }>({ open: false, content: [] });
@@ -152,6 +171,9 @@ export default function LevantamientoPage() {
   const filteredLevantamientos = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = levantamientos.filter((o) => {
+      const base = (o?.fecha_inicio ?? o?.fecha_creacion ?? "").toString().slice(0, 10);
+      if (selectedMonth && !base.startsWith(selectedMonth)) return false;
+
       const matchText =
         !q ||
         (o?.cliente?.toLowerCase().includes(q) ||
@@ -166,7 +188,6 @@ export default function LevantamientoPage() {
         if (tipo !== filterTipoLevantamiento) return false;
       }
       if (filterDate) {
-        const base = (o?.fecha_inicio ?? o?.fecha_creacion ?? "").toString().slice(0, 10);
         if (!base.startsWith(filterDate)) return false;
       }
       return true;
@@ -185,14 +206,41 @@ export default function LevantamientoPage() {
       if (bc !== ac) return bc - ac;
       return Number((b as any).id || 0) - Number((a as any).id || 0);
     });
-  }, [levantamientos, search, filterStatus, filterTipoLevantamiento, filterDate]);
+  }, [levantamientos, search, selectedMonth, filterStatus, filterTipoLevantamiento, filterDate]);
 
   const stats = useMemo(() => {
-    const total = levantamientos.length;
-    const resueltas = levantamientos.filter((o) => String(o?.status || "").toLowerCase() === "resuelto").length;
-    const pendientes = total - resueltas;
-    return { total, resueltas, pendientes };
-  }, [levantamientos]);
+    const monthList = levantamientos.filter((o) => {
+      const base = (o.fecha_inicio || o.fecha_creacion || "").toString();
+      return base.startsWith(statsMonthKey);
+    });
+
+    const total = monthList.length;
+    const resueltas = monthList.filter((o) => String(o?.status || "").toLowerCase() === "resuelto").length;
+    const pendientes = monthList.filter((o) => String(o?.status || "").toLowerCase() === "pendiente").length;
+
+    const byCliente: Record<string, { cliente: string; services: number }> = {};
+    for (const o of monthList) {
+      const name = (o.cliente || o.nombre_cliente || "—").toString().trim() || "—";
+      const key = (o.cliente_id != null ? String(o.cliente_id) : name) || name;
+      const services = Array.isArray(o.servicios_realizados) ? o.servicios_realizados.length : 0;
+      if (!byCliente[key]) byCliente[key] = { cliente: name, services: 0 };
+      byCliente[key].services += services;
+    }
+
+    let best: { cliente: string; services: number } | null = null;
+    for (const k of Object.keys(byCliente)) {
+      const cur = byCliente[k];
+      if (!best || cur.services > best.services) best = cur;
+    }
+
+    return {
+      total,
+      resueltas,
+      pendientes,
+      estrella: best?.cliente || "—",
+      estrellaServices: best?.services || 0,
+    };
+  }, [levantamientos, statsMonthKey]);
 
   const handleEdit = (orden: Orden) => {
     setEditingOrdenForModal(orden);
@@ -306,7 +354,7 @@ export default function LevantamientoPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
         <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
@@ -317,8 +365,21 @@ export default function LevantamientoPage() {
               </svg>
             </span>
             <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Total</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Levantamientos del mes</p>
               <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.total}</p>
+            </div>
+          </div>
+        </div>
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Resueltas</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.resueltas}</p>
             </div>
           </div>
         </div>
@@ -335,16 +396,17 @@ export default function LevantamientoPage() {
             </div>
           </div>
         </div>
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4 sm:col-span-2 lg:col-span-1`}>
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </span>
             <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Resueltas</p>
-              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.resueltas}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Cliente estrella</p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white">{stats.estrella}</p>
+              <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">Servicios: {stats.estrellaServices}</p>
             </div>
           </div>
         </div>
@@ -660,6 +722,61 @@ export default function LevantamientoPage() {
             </Table>
           </div>
         </div>
+
+        {!loading && (
+          <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between sm:gap-4 flex-wrap">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                Mostrando <span className="font-medium text-gray-900 dark:text-white">{filteredLevantamientos.length > 0 ? 1 : 0}</span> a{" "}
+                <span className="font-medium text-gray-900 dark:text-white">{filteredLevantamientos.length > 0 ? filteredLevantamientos.length : 0}</span> de{" "}
+                <span className="font-medium text-gray-900 dark:text-white">{filteredLevantamientos.length}</span> levantamientos
+              </p>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ym = parseYearMonth(selectedMonth);
+                    if (!ym) return;
+                    const d = new Date(ym.year, ym.month - 2, 1);
+                    const mm = String(d.getMonth() + 1).padStart(2, "0");
+                    setSelectedMonth(`${d.getFullYear()}-${mm}`);
+                  }}
+                  className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  title="Mes anterior"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </button>
+                <span className="min-w-[130px] sm:min-w-[160px] text-center text-[11px] sm:text-[12px] text-gray-700 dark:text-gray-300">
+                  {(() => {
+                    const ym = parseYearMonth(selectedMonth);
+                    if (!ym) return selectedMonth ? selectedMonth : "Todos los meses";
+                    return new Date(ym.year, ym.month - 1, 1).toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+                  })()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ym = parseYearMonth(selectedMonth);
+                    if (!ym) return;
+                    const dt = new Date(ym.year, ym.month - 1, 1);
+                    dt.setMonth(dt.getMonth() + 1);
+                    const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+                    setSelectedMonth(next);
+                  }}
+                  className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  title="Mes siguiente"
+                >
+                  <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 18l6-6 6 6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </ComponentCard>
 
       <Modal isOpen={problematicaModal.open} onClose={() => setProblematicaModal({ open: false, content: "" })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
@@ -756,6 +873,8 @@ export default function LevantamientoPage() {
         onClose={() => { setShowOrderModal(false); setEditingOrdenForModal(null); }}
         orden={editingOrdenForModal}
         forceTipoOrden="levantamiento"
+        defaultFechaInicioForNewOrden={selectedMonth === getCurrentMonthKey() ? undefined : `${selectedMonth}-01`}
+        levantamientoListadoMonthLabel={formatMonthLabelEs(selectedMonth)}
         onSaved={() => { fetchOrdenes(); setShowOrderModal(false); setEditingOrdenForModal(null); setAlert({ show: true, variant: "success", title: "Orden guardada", message: "La orden se guardó correctamente." }); setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500); }}
         getToken={getToken}
       />

@@ -68,6 +68,14 @@ type ApiCotizacionItem = {
 
 type SyscomPopPos = { left: number; width: number; top?: number; bottom?: number; maxHeight: number };
 
+type CatalogoConcepto = {
+  id: number;
+  folio: string;
+  concepto: string;
+  precio1: number;
+  imagen_url?: string;
+};
+
 type ApiCotizacion = {
   id: number;
   idx: number;
@@ -147,6 +155,9 @@ const toFinite = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+/** Precio en MXN con IVA 16%: USD × tipo de cambio × 1.16. Si viene `precio_mxn`, se usa tal cual (ya en MXN). */
+const IVA_MX = 1.16;
+
 const getSyscomPrecioListaMxnConIva = (p: SyscomProducto, tipoCambio: number | null) => {
   const directMxn = toFinite(p.precio_mxn);
   if (directMxn !== null && directMxn > 0) return Math.max(0, directMxn);
@@ -154,15 +165,15 @@ const getSyscomPrecioListaMxnConIva = (p: SyscomProducto, tipoCambio: number | n
   const lista = toFinite(p.precios?.precio_lista);
   const especial = toFinite(p.precios?.precio_especial);
   const descuento = toFinite(p.precios?.precio_descuento);
-  const usdBase = lista ?? especial ?? descuento;
+  const usdBase = especial ?? lista ?? descuento;
 
   if (usdBase == null) return 0;
   if (!tipoCambio) {
-    // Fallback: mostrar algo útil aunque no haya tipo de cambio.
+    // Fallback sin TC: mostrar USD como número (sin conversión ni IVA aplicable).
     return Math.max(0, usdBase);
   }
 
-  return Math.max(0, usdBase * tipoCambio * 1.16);
+  return Math.max(0, usdBase * tipoCambio * IVA_MX);
 };
 
 export default function NuevaCotizacionPage() {
@@ -301,13 +312,18 @@ export default function NuevaCotizacionPage() {
   const [syscomProductos, setSyscomProductos] = useState<SyscomProducto[]>([]);
   const [syscomError, setSyscomError] = useState("");
   const [selectedSyscomProducto, setSelectedSyscomProducto] = useState<SyscomProducto | null>(null);
+  const [selectedCatalogoConcepto, setSelectedCatalogoConcepto] = useState<CatalogoConcepto | null>(null);
+  const [catalogoConceptos, setCatalogoConceptos] = useState<CatalogoConcepto[]>([]);
+  const [loadingCatalogoConceptos, setLoadingCatalogoConceptos] = useState(false);
+  const [catalogoConceptosError, setCatalogoConceptosError] = useState("");
 
   const syscomInputWrapRef = useRef<HTMLDivElement>(null);
   const syscomPopRef = useRef<HTMLDivElement>(null);
+  /** Evita aplicar resultados de una petición SYSCOM anterior si el usuario sigue escribiendo. */
+  const syscomSearchGenRef = useRef(0);
   const [syscomPopPos, setSyscomPopPos] = useState<SyscomPopPos | null>(null);
   const [descuentoClientePct, setDescuentoClientePct] = useState<number>(0);
   const [descuentoClienteTouched, setDescuentoClienteTouched] = useState<boolean>(false);
-  const [ivaPct, setIvaPct] = useState<number>(16);
 
   const [editingConceptoId, setEditingConceptoId] = useState<string | null>(null);
 
@@ -480,7 +496,6 @@ export default function NuevaCotizacionPage() {
       setStatus(String((data as any)?.status || "PENDIENTE"));
       setDescuentoClientePct(clampPct(toNumber((data as any)?.descuento_cliente_pct, 0)));
       setDescuentoClienteTouched(true);
-      setIvaPct(clampPct(toNumber(data.iva_pct, 16)));
       setTextoArribaPrecios(String(data.texto_arriba_precios || ""));
       {
         const incoming = String((data as any).terminos || "").trim();
@@ -561,7 +576,7 @@ export default function NuevaCotizacionPage() {
             fecha: todayIso,
             subtotal: 0,
             descuento_cliente_pct: 0,
-            iva_pct: clampPct(toNumber(ivaPct, 16)),
+            iva_pct: 0,
             iva: 0,
             total: 0,
             texto_arriba_precios: String(textoArribaPrecios || ""),
@@ -594,7 +609,6 @@ export default function NuevaCotizacionPage() {
     medioContacto,
     status,
     todayIso,
-    ivaPct,
     textoArribaPrecios,
     terminos,
   ]);
@@ -795,45 +809,127 @@ export default function NuevaCotizacionPage() {
 
   useEffect(() => {
     const q = conceptoNombre.trim();
+    if (selectedSyscomProducto || selectedCatalogoConcepto) {
+      setSyscomOpen(false);
+      setSyscomError("");
+      return;
+    }
     if (q.length < 2) {
       setSyscomProductos([]);
       setSyscomError("");
+      setLoadingSyscom(false);
       if (!q) setSyscomOpen(false);
       return;
     }
-    const token = getToken();
-    if (!token) return;
+    // Abrir panel por búsqueda local (catálogo) aunque falle/no exista token de SYSCOM.
     setSyscomOpen(true);
+    const token = getToken();
+    if (!token) {
+      setSyscomProductos([]);
+      setSyscomError("");
+      return;
+    }
+    const runGen = ++syscomSearchGenRef.current;
+    const ac = new AbortController();
     const timer = window.setTimeout(async () => {
       setLoadingSyscom(true);
       setSyscomError("");
       try {
+        // Misma forma que ProductosPage al buscar por texto: busqueda + pagina + orden (sin stock).
+        // Forzar stock en la API cambia el universo de resultados y deja fuera productos que sí ves en catálogo.
         const query = buildProductosQuery({
           busqueda: q,
           pagina: 1,
           orden: "relevancia",
-          stock: "1",
         });
-        const res = await fetchSyscom(`productos/?${query}`, token);
+        const res = await fetchSyscom(`productos/?${query}`, token, { signal: ac.signal });
         const data: SyscomProductosResponse = await res.json().catch(() => ({}));
+        if (runGen !== syscomSearchGenRef.current) return;
         if (!res.ok) {
           setSyscomProductos([]);
           setSyscomError("No se pudo consultar SYSCOM en este momento.");
           return;
         }
-        setSyscomProductos((data.productos || []).slice(0, 8));
-      } catch {
+        const raw = (data.productos || []) as SyscomProducto[];
+        const seen = new Set<string>();
+        const deduped: SyscomProducto[] = [];
+        for (const p of raw) {
+          const id = String(p?.producto_id ?? "");
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          deduped.push(p);
+        }
+        setSyscomProductos(deduped.slice(0, 24));
+      } catch (e) {
+        if (runGen !== syscomSearchGenRef.current) return;
+        if (e instanceof DOMException && e.name === "AbortError") return;
         setSyscomProductos([]);
         setSyscomError("Error de conexión con SYSCOM.");
       } finally {
-        setLoadingSyscom(false);
+        if (runGen === syscomSearchGenRef.current) {
+          setLoadingSyscom(false);
+        }
       }
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [conceptoNombre]);
+    }, 120);
+    return () => {
+      window.clearTimeout(timer);
+      ac.abort();
+    };
+  }, [conceptoNombre, selectedSyscomProducto, selectedCatalogoConcepto]);
+
+  useEffect(() => {
+    if (!canCotizacionesView) {
+      setCatalogoConceptos([]);
+      setCatalogoConceptosError("");
+      return;
+    }
+    const token = getToken();
+    if (!token) {
+      setCatalogoConceptos([]);
+      setCatalogoConceptosError("");
+      return;
+    }
+    const loadCatalogoConceptos = async () => {
+      setLoadingCatalogoConceptos(true);
+      setCatalogoConceptosError("");
+      try {
+        const res = await fetch(apiUrl("/api/conceptos/?ordering=folio"), {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store" as RequestCache,
+        });
+        const data = await res.json().catch(() => ({ results: [] }));
+        if (!res.ok) {
+          setCatalogoConceptos([]);
+          setCatalogoConceptosError("No se pudieron cargar conceptos del catálogo.");
+          return;
+        }
+        const list = Array.isArray((data as any)?.results)
+          ? (data as any).results
+          : Array.isArray(data)
+            ? data
+            : [];
+        const mapped: CatalogoConcepto[] = list.map((c: any, idx: number) => ({
+          id: Number(c?.id ?? idx + 1),
+          folio: String(c?.folio ?? c?.idx ?? c?.id ?? idx + 1),
+          concepto: String(c?.concepto ?? c?.nombre ?? "").trim(),
+          precio1: Number(c?.precio1 ?? c?.precio ?? 0),
+          imagen_url: String(c?.imagen_url ?? "").trim(),
+        }));
+        setCatalogoConceptos(mapped);
+      } catch {
+        setCatalogoConceptos([]);
+        setCatalogoConceptosError("Error al consultar catálogo de conceptos.");
+      } finally {
+        setLoadingCatalogoConceptos(false);
+      }
+    };
+    loadCatalogoConceptos();
+  }, [canCotizacionesView]);
 
   const selectSyscomProducto = (p: SyscomProducto) => {
     setSelectedSyscomProducto(p);
+    setSelectedCatalogoConcepto(null);
     setConceptoNombre(String(p.titulo || p.modelo || ""));
     setConceptoDescripcion(String([p.marca, p.modelo].filter(Boolean).join(" · ") || p.titulo || ""));
     setUnidad((u) => (u.trim() ? u : "PZA"));
@@ -841,11 +937,77 @@ export default function NuevaCotizacionPage() {
     setSyscomOpen(false);
   };
 
+  const filteredCatalogoConceptos = useMemo(() => {
+    const q = conceptoNombre.trim().toLowerCase();
+    const qCompact = q.replace(/\s+/g, "");
+    if (!q) return [];
+    return catalogoConceptos
+      .filter((c) => {
+        const folio = c.folio.toLowerCase();
+        const folioCompact = folio.replace(/\s+/g, "");
+        return (
+          folio.startsWith(q) ||
+          folioCompact.startsWith(qCompact) ||
+          folio.includes(q) ||
+          c.concepto.toLowerCase().includes(q) ||
+          String(c.precio1).toLowerCase().includes(q)
+        );
+      })
+      .slice(0, 8);
+  }, [catalogoConceptos, conceptoNombre]);
+
+  const selectCatalogoConcepto = (c: CatalogoConcepto) => {
+    setSelectedSyscomProducto(null);
+    setSelectedCatalogoConcepto(c);
+    setConceptoNombre(String(c.concepto || ""));
+    setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : `Folio: ${c.folio}`));
+    setUnidad((u) => (u.trim() ? u : "SERV"));
+    setPrecioLista(Math.max(0, toNumber(c.precio1, 0)));
+    setSyscomOpen(false);
+  };
+
   const showSyscomPanel = useMemo(
     () =>
       syscomOpen &&
-      (loadingSyscom || syscomProductos.length > 0 || !!syscomError || conceptoNombre.trim().length >= 2),
-    [syscomOpen, loadingSyscom, syscomProductos.length, syscomError, conceptoNombre]
+      (loadingSyscom ||
+        loadingCatalogoConceptos ||
+        syscomProductos.length > 0 ||
+        filteredCatalogoConceptos.length > 0 ||
+        !!syscomError ||
+        !!catalogoConceptosError ||
+        conceptoNombre.trim().length >= 2),
+    [
+      syscomOpen,
+      loadingSyscom,
+      loadingCatalogoConceptos,
+      syscomProductos.length,
+      filteredCatalogoConceptos.length,
+      syscomError,
+      catalogoConceptosError,
+      conceptoNombre,
+    ]
+  );
+
+  const combinedConceptoOptions = useMemo(
+    () => [
+      ...filteredCatalogoConceptos.map((c) => ({
+        key: `catalogo-${c.id}`,
+        source: "catalogo" as const,
+        title: c.concepto || "-",
+        subtitle: `Folio: ${c.folio}`,
+        price: toNumber(c.precio1, 0),
+        onSelect: () => selectCatalogoConcepto(c),
+      })),
+      ...syscomProductos.map((p) => ({
+        key: `syscom-${p.fuente || "syscom"}-${p.producto_id}`,
+        source: "syscom" as const,
+        title: String(p.titulo || p.modelo || "-"),
+        subtitle: [p.marca, p.modelo].filter(Boolean).join(" · "),
+        price: round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio)),
+        onSelect: () => selectSyscomProducto(p),
+      })),
+    ],
+    [filteredCatalogoConceptos, syscomProductos, syscomTipoCambio]
   );
 
   useLayoutEffect(() => {
@@ -946,9 +1108,7 @@ export default function NuevaCotizacionPage() {
     const descClientePct = clampPct(toNumber(descuentoClientePct, 0));
     const descuentoCliente = subtotalLineas * (descClientePct / 100);
     const subtotal = Math.max(0, subtotalLineas - descuentoCliente);
-    const ivaP = clampPct(toNumber(ivaPct, 16));
-    const iva = subtotal * (ivaP / 100);
-    const total = subtotal + iva;
+    const total = subtotal;
     return {
       cliente_id: clienteId ? Number(clienteId) : null,
       cliente: clienteNombre || "",
@@ -959,8 +1119,8 @@ export default function NuevaCotizacionPage() {
       fecha: nowIso,
       subtotal: round2(subtotal),
       descuento_cliente_pct: descClientePct,
-      iva_pct: ivaP,
-      iva: round2(iva),
+      iva_pct: 0,
+      iva: 0,
       total: round2(total),
       texto_arriba_precios: String(textoArribaPrecios || ""),
       terminos: String(terminos || ""),
@@ -986,7 +1146,6 @@ export default function NuevaCotizacionPage() {
     status,
     conceptos,
     descuentoClientePct,
-    ivaPct,
     textoArribaPrecios,
     terminos,
   ]);
@@ -1157,7 +1316,6 @@ export default function NuevaCotizacionPage() {
     medioContacto,
     status,
     descuentoClientePct,
-    ivaPct,
     conceptos,
     textoArribaPrecios,
     terminos,
@@ -1205,6 +1363,7 @@ export default function NuevaCotizacionPage() {
     setPrecioLista(0);
     setDescuentoPct(0);
     setSelectedSyscomProducto(null);
+    setSelectedCatalogoConcepto(null);
     setSyscomProductos([]);
     setSyscomError("");
     setSyscomOpen(false);
@@ -1228,9 +1387,10 @@ export default function NuevaCotizacionPage() {
     const nombre = String(conceptoNombre || "").trim();
     const descripcion = String(conceptoDescripcion || "").trim();
     const productoExternoId = selectedSyscomProducto?.producto_id || "";
+    const catalogThumb = selectedCatalogoConcepto?.imagen_url?.trim();
     const thumbnail = selectedSyscomProducto?.img_portada
       ? getProductoImageUrl(selectedSyscomProducto.img_portada) || undefined
-      : undefined;
+      : catalogThumb || undefined;
 
     if (qty <= 0 || !nombre) return;
 
@@ -1277,6 +1437,7 @@ export default function NuevaCotizacionPage() {
     setPrecioLista(0);
     setDescuentoPct(0);
     setSelectedSyscomProducto(null);
+    setSelectedCatalogoConcepto(null);
     setSyscomProductos([]);
     setSyscomError("");
     setSyscomOpen(false);
@@ -1314,12 +1475,10 @@ export default function NuevaCotizacionPage() {
     const descClientePct = clampPct(toNumber(descuentoClientePct, 0));
     const descuentoCliente = subtotalLineas * (descClientePct / 100);
     const subtotal = Math.max(0, subtotalLineas - descuentoCliente);
-    const ivaP = clampPct(toNumber(ivaPct, 16));
-    const iva = subtotal * (ivaP / 100);
-    const total = subtotal + iva;
+    const total = subtotal;
 
-    return { lines, subtotalLineas, descClientePct, descuentoCliente, subtotal, iva, total, ivaPct: ivaP };
-  }, [conceptos, ivaPct, descuentoClientePct]);
+    return { lines, subtotalLineas, descClientePct, descuentoCliente, subtotal, iva: 0, total, ivaPct: 0 };
+  }, [conceptos, descuentoClientePct]);
 
   /** Cliente, contacto y al menos un concepto (misma regla que validateClienteContacto + líneas) */
   const canGuardarCotizacion = useMemo(() => {
@@ -1351,7 +1510,6 @@ export default function NuevaCotizacionPage() {
     setSyscomOpen(false);
     setDescuentoClientePct(0);
     setDescuentoClienteTouched(false);
-    setIvaPct(16);
 
     setEditingConceptoId(null);
 
@@ -1419,8 +1577,8 @@ export default function NuevaCotizacionPage() {
       fecha: nowIso,
       subtotal: round2(toNumber(computed.subtotal, 0)),
       descuento_cliente_pct: clampPct(toNumber(descuentoClientePct, 0)),
-      iva_pct: clampPct(toNumber(ivaPct, 16)),
-      iva: round2(toNumber(computed.iva, 0)),
+      iva_pct: 0,
+      iva: 0,
       total: round2(toNumber(computed.total, 0)),
       texto_arriba_precios: String(textoArribaPrecios || ""),
       terminos: String(terminos || ""),
@@ -1674,7 +1832,7 @@ export default function NuevaCotizacionPage() {
           <div
             ref={syscomPopRef}
             role="listbox"
-            aria-label="Resultados Syscom"
+            aria-label="Resultados de conceptos"
             style={{
               position: "fixed",
               zIndex: 2147483646,
@@ -1686,10 +1844,21 @@ export default function NuevaCotizacionPage() {
             className="flex flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white/98 shadow-2xl shadow-gray-900/20 ring-1 ring-black/[0.06] backdrop-blur-md dark:border-white/[0.12] dark:bg-gray-900/98 dark:shadow-black/50 dark:ring-white/[0.08]"
           >
             <div className="shrink-0 border-b border-gray-100/90 bg-gradient-to-r from-brand-50/95 to-transparent px-3 py-2 dark:border-white/[0.06] dark:from-brand-950/50 dark:to-transparent">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-800 dark:text-brand-200">Catálogo Syscom</p>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">Selecciona un producto o sigue escribiendo</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-800 dark:text-brand-200">Resultados combinados</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">Conceptos internos y productos Syscom</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5 custom-scrollbar">
+              {loadingCatalogoConceptos && (
+                <div className="mb-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" aria-hidden />
+                  Cargando conceptos...
+                </div>
+              )}
+              {!loadingCatalogoConceptos && !!catalogoConceptosError && (
+                <div className="mb-1 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                  {catalogoConceptosError}
+                </div>
+              )}
               {loadingSyscom && (
                 <div className="flex items-center gap-2 rounded-lg px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
                   <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" aria-hidden />
@@ -1700,42 +1869,37 @@ export default function NuevaCotizacionPage() {
                 <div className="rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">{syscomError}</div>
               )}
               {!loadingSyscom &&
-                syscomProductos.map((p) => {
-                  const price = round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio));
-                  const imgUrl = getProductoImageUrl(p.img_portada || "");
-                  return (
-                    <button
-                      key={`${p.fuente || "syscom"}-${p.producto_id}`}
-                      type="button"
-                      role="option"
-                      onClick={() => selectSyscomProducto(p)}
-                      className="group mb-1 flex w-full rounded-xl px-2 py-2 text-left transition-colors last:mb-0 hover:bg-brand-50/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:hover:bg-white/[0.06]"
-                    >
-                      <div className="flex w-full items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200/80 bg-gray-50 dark:border-white/[0.08] dark:bg-gray-800/80">
-                          {imgUrl ? (
-                            <img src={imgUrl} alt="" className="h-full w-full object-contain p-0.5" />
-                          ) : (
-                            <span className="text-[10px] font-medium text-gray-400">—</span>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium leading-snug text-gray-900 group-hover:text-brand-900 dark:text-gray-100 dark:group-hover:text-brand-100">
-                            {p.titulo}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                            {[p.marca, p.modelo].filter(Boolean).join(" · ")}
-                          </p>
-                        </div>
-                        <span className="shrink-0 rounded-md bg-brand-500/10 px-2 py-1 text-xs font-semibold tabular-nums text-brand-700 dark:bg-brand-400/15 dark:text-brand-300">
-                          {formatMoney(price)}
-                        </span>
+                !loadingCatalogoConceptos &&
+                !syscomError &&
+                !catalogoConceptosError &&
+                combinedConceptoOptions.map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    role="option"
+                    onClick={opt.onSelect}
+                    className="group mb-1 flex w-full rounded-xl px-2 py-2 text-left transition-colors last:mb-0 hover:bg-brand-50/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:hover:bg-white/[0.06]"
+                  >
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium leading-snug text-gray-900 group-hover:text-brand-900 dark:text-gray-100 dark:group-hover:text-brand-100">
+                          {opt.title}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                          <span className="mr-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-white/[0.08]">
+                            {opt.source === "catalogo" ? "Concepto" : "Syscom"}
+                          </span>
+                          {opt.subtitle || "Sin detalle"}
+                        </p>
                       </div>
-                    </button>
-                  );
-                })}
-              {!loadingSyscom && !syscomError && syscomProductos.length === 0 && conceptoNombre.trim().length >= 2 && (
-                <div className="rounded-lg px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400">Sin resultados en Syscom</div>
+                      <span className="shrink-0 rounded-md bg-brand-500/10 px-2 py-1 text-xs font-semibold tabular-nums text-brand-700 dark:bg-brand-400/15 dark:text-brand-300">
+                        {formatMoney(opt.price)}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              {!loadingSyscom && !loadingCatalogoConceptos && !syscomError && !catalogoConceptosError && combinedConceptoOptions.length === 0 && conceptoNombre.trim().length >= 2 && (
+                <div className="rounded-lg px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400">Sin resultados en catálogos</div>
               )}
             </div>
           </div>,
@@ -2013,13 +2177,14 @@ export default function NuevaCotizacionPage() {
                           className={inputLikeClassName}
                           value={conceptoNombre}
                           onFocus={() => {
-                            if (syscomProductos.length > 0) setSyscomOpen(true);
+                            if (conceptoNombre.trim().length >= 2) setSyscomOpen(true);
                           }}
                           onChange={(e) => {
                             setConceptoNombre(e.target.value);
                             setSelectedSyscomProducto(null);
+                            setSelectedCatalogoConcepto(null);
                           }}
-                          placeholder="Buscar producto Syscom o escribir manualmente"
+                          placeholder="Buscar concepto por folio/nombre, producto Syscom o escribir manualmente"
                           autoComplete="off"
                         />
                       </div>
@@ -2084,7 +2249,7 @@ export default function NuevaCotizacionPage() {
 
               <ComponentCard
                 title="Detalle de conceptos"
-                desc="Revisa cantidades, precios con IVA y acciones por línea."
+                desc="Revisa cantidades, precios finales y acciones por línea."
                 className={cardShellClass}
                 compact
               >
@@ -2097,14 +2262,14 @@ export default function NuevaCotizacionPage() {
                     <Table className="min-w-[720px]">
                       <TableHeader className="sticky top-0 z-10 border-b border-gray-200/80 bg-gray-100/90 text-[10px] font-semibold text-gray-700 backdrop-blur-sm dark:border-white/[0.06] dark:bg-gray-900/90 dark:text-gray-200 sm:text-[11px]">
                         <TableRow>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Cant.</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Cantidad</TableCell>
                           <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Unidad</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Nombre</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Descripción</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">P.L.</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Desct.</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">P.U.</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Importe</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Concepto</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Detalle</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Precio lista</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Descuento</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Precio unitario</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Importe total</TableCell>
                           <TableCell isHeader className="px-2 py-2 text-center w-1/12 text-gray-700 dark:text-gray-300"> </TableCell>
                         </TableRow>
                       </TableHeader>
@@ -2252,15 +2417,11 @@ export default function NuevaCotizacionPage() {
                               <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">-{formatMoney(computed.descuentoCliente)}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Base</span>
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Total</span>
                               <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.subtotal)}</span>
                             </div>
                           </>
                         )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">IVA ({clampPct(toNumber(ivaPct, 16)).toFixed(2)}%)</span>
-                          <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.iva)}</span>
-                        </div>
                       </div>
                     </div>
 
