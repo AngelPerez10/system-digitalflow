@@ -17,6 +17,20 @@ from .throttling import LoginRateThrottle
 from .models import UserPermissions, UserSignature
 from .serializers import UserAccountSerializer, UserPermissionsSerializer, UserSignatureSerializer
 
+# Solo estos usuarios pueden asignar permisos CRUD a otros (incl. otros administradores).
+PERMISSION_DELEGATION_USERNAMES = frozenset({'angelperez10', 'ivancruz01'})
+
+
+def _request_user_can_delegate_permissions(user) -> bool:
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    try:
+        un = (user.get_username() or '').strip().lower()
+    except Exception:
+        un = (getattr(user, 'username', None) or '').strip().lower()
+    return un in PERMISSION_DELEGATION_USERNAMES
+
+
 try:
     import cloudinary
     import cloudinary.uploader
@@ -295,6 +309,14 @@ def user_permissions(request, user_id: int):
         return Response(serializer.data)
 
     # PUT
+    if not _request_user_can_delegate_permissions(request.user):
+        return Response(
+            {
+                'detail': 'Solo AngelPerez10 e IvanCruz01 pueden modificar permisos de otros usuarios.',
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     serializer = UserPermissionsSerializer(obj, data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
     # only allow updating permissions payload

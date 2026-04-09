@@ -109,6 +109,29 @@ const getAuthHeaders = (): Record<string, string> => {
   return h;
 };
 
+/** Usuarios que pueden asignar permisos (ver/crear/editar/eliminar) a otros, incluidos administradores. */
+const PERMISSION_DELEGATION_USERNAMES = new Set(['angelperez10', 'ivancruz01']);
+
+const getSessionUsernameNorm = (): string => {
+  try {
+    const direct = (localStorage.getItem('username') || sessionStorage.getItem('username') || '').trim();
+    if (direct) return direct.toLowerCase();
+    const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (raw) {
+      const u = JSON.parse(raw) as { username?: string };
+      if (u?.username) return String(u.username).trim().toLowerCase();
+    }
+  } catch {
+    /* ignore */
+  }
+  return '';
+};
+
+const canDelegateUserPermissions = (): boolean => PERMISSION_DELEGATION_USERNAMES.has(getSessionUsernameNorm());
+
+const isProtectedPrincipalUsername = (username: string): boolean =>
+  PERMISSION_DELEGATION_USERNAMES.has((username || '').trim().toLowerCase());
+
 const SYSTEM_ACTIVITY_LOG_KEY = 'system_activity_log';
 
 const appendSystemHistoryEvent = (event: {
@@ -260,6 +283,7 @@ export default function UserProfiles() {
   const [permsOpenSections, setPermsOpenSections] = useState<Record<string, boolean>>({});
 
   const didInitRef = useRef(false);
+  const canDelegatePerms = canDelegateUserPermissions();
 
   const normalizePerms = (p: any): Required<PermissionsPayload> => {
     const base: Required<PermissionsPayload> = {
@@ -327,6 +351,7 @@ export default function UserProfiles() {
   };
 
   const setPerm = (area: keyof Required<PermissionsPayload>, key: keyof CrudPerms, value: boolean) => {
+    if (!canDelegateUserPermissions()) return;
     setPermsForm((prev) => {
       const cur = normalizePerms(prev);
       return {
@@ -341,6 +366,10 @@ export default function UserProfiles() {
 
   const savePerms = async () => {
     if (!permsUser) return;
+    if (!canDelegateUserPermissions()) {
+      setPermsError('Solo Angel Pérez e Ivan Cruz pueden modificar permisos de usuarios.');
+      return;
+    }
     setPermsError(null);
     setSuccess(null);
     setPermsSaving(true);
@@ -621,7 +650,7 @@ export default function UserProfiles() {
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || 'Error al crear usuario');
 
-      if (form.role === 'admin' && typeof (data as any)?.id === 'number') {
+      if (form.role === 'admin' && typeof (data as any)?.id === 'number' && canDelegateUserPermissions()) {
         await seedAdminPerms((data as any).id);
       }
 
@@ -688,7 +717,7 @@ export default function UserProfiles() {
 
       const wasAdmin = !!editUser.is_superuser || !!editUser.is_staff;
       const willBeAdmin = editForm.role === 'admin';
-      if (!wasAdmin && willBeAdmin) {
+      if (!wasAdmin && willBeAdmin && canDelegateUserPermissions()) {
         await seedAdminPerms(editUser.id);
       }
 
@@ -705,7 +734,7 @@ export default function UserProfiles() {
 
   const toggleUserActive = async (u: UserAccount) => {
     const currentlyActive = u.is_active !== false;
-    if (u.username === 'AngelPerez10' && currentlyActive) {
+    if (isProtectedPrincipalUsername(u.username) && currentlyActive) {
       setError('Este usuario no puede desactivarse desde aquí.');
       window.setTimeout(() => setError(null), 3500);
       return;
@@ -980,7 +1009,7 @@ export default function UserProfiles() {
                 .map((p) => p[0]?.toUpperCase())
                 .join('');
               const switchDisabled =
-                togglingActiveId === u.id || (u.username === 'AngelPerez10' && isActive);
+                togglingActiveId === u.id || (isProtectedPrincipalUsername(u.username) && isActive);
 
               return (
                 <div
@@ -1045,7 +1074,7 @@ export default function UserProfiles() {
                             </span>
                             Permisos
                           </button>
-                          {u.username !== 'AngelPerez10' && (
+                          {!isProtectedPrincipalUsername(u.username) && (
                             <button
                               type="button"
                               onClick={() => {
@@ -1249,6 +1278,16 @@ export default function UserProfiles() {
           </div>
 
           <div className="p-5 max-h-[76vh] overflow-y-auto custom-scrollbar">
+            {!canDelegatePerms && !permsLoading && (
+              <div className="mb-4">
+                <Alert
+                  variant="info"
+                  title="Solo lectura"
+                  message="Solo los usuarios Angel Pérez e Ivan Cruz pueden activar o quitar permisos (ver, crear, editar, eliminar) de otros usuarios, incluidos administradores."
+                  showLink={false}
+                />
+              </div>
+            )}
             {permsError && (
               <div className="mb-4">
                 <Alert variant="error" title="Error" message={permsError} />
@@ -1447,8 +1486,13 @@ export default function UserProfiles() {
                                               type="button"
                                               role="switch"
                                               aria-checked={checked}
-                                              onClick={() => setPerm(m.key, k, !checked)}
-                                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-brand-500/40 active:scale-[0.98] ${checked ? 'bg-brand-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                              disabled={!canDelegatePerms}
+                                              title={!canDelegatePerms ? 'Sin permiso para cambiar' : undefined}
+                                              onClick={() => {
+                                                if (!canDelegatePerms) return;
+                                                setPerm(m.key, k, !checked);
+                                              }}
+                                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-brand-500/40 active:scale-[0.98] ${checked ? 'bg-brand-600' : 'bg-gray-300 dark:bg-gray-700'} ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
                                             >
                                               <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${checked ? 'translate-x-4' : 'translate-x-1'}`} />
                                             </button>
@@ -1507,7 +1551,8 @@ export default function UserProfiles() {
                   </button>
                   <button
                     type="button"
-                    disabled={permsSaving || permsLoading || !permsUser}
+                    disabled={permsSaving || permsLoading || !permsUser || !canDelegatePerms}
+                    title={!canDelegatePerms ? 'Solo Angel Pérez e Ivan Cruz pueden guardar cambios' : undefined}
                     onClick={savePerms}
                     className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-brand-700 disabled:opacity-60"
                   >
