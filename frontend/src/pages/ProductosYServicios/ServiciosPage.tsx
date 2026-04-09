@@ -1276,9 +1276,9 @@ export default function Servicios() {
         isOpen={showConceptoModal}
         onClose={handleCloseConceptoModal}
         closeOnBackdropClick={false}
-        className="mx-4 w-full max-w-2xl max-h-[92vh] p-0 overflow-hidden rounded-2xl border border-gray-200/75 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:mx-auto"
+        className="mx-4 flex max-h-[min(92vh,920px)] w-full max-w-2xl flex-col p-0 overflow-hidden rounded-2xl border border-gray-200/75 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:mx-auto"
       >
-        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
           <header className="relative shrink-0 border-b border-gray-200/60 bg-gray-50/80 px-6 py-5 pr-14 dark:border-white/[0.06] dark:bg-gray-950/40 sm:pr-16">
             <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-brand-500/80 dark:bg-brand-400/70" aria-hidden />
             <div className="flex items-start gap-4">
@@ -1299,8 +1299,11 @@ export default function Servicios() {
             </div>
           </header>
 
-          <form onSubmit={handleSubmitConcepto} className="flex min-h-0 w-full flex-1 flex-col bg-gray-50/40 dark:bg-gray-950/20">
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5 pb-6 custom-scrollbar sm:px-6">
+          <form
+            onSubmit={handleSubmitConcepto}
+            className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-gray-50/40 dark:bg-gray-950/20"
+          >
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-5 py-5 pb-6 custom-scrollbar sm:px-6">
               {conceptoModalError && <Alert variant="error" title="Error" message={conceptoModalError} showLink={false} />}
 
               <section className={modalPanelClass}>
@@ -1381,11 +1384,11 @@ export default function Servicios() {
                       </div>
                     </div>
                     {conceptoFormData.imagen_url ? (
-                      <div className="relative group mt-3 max-w-xs">
+                      <div className="relative group mt-3 max-h-48 w-full max-w-sm">
                         <img
                           src={conceptoFormData.imagen_url}
                           alt="Vista previa concepto"
-                          className="w-full h-32 object-cover rounded-lg border-2 border-gray-300 dark:border-gray-700"
+                          className="max-h-48 w-full rounded-lg border-2 border-gray-300 object-contain dark:border-gray-700"
                         />
                         <button
                           type="button"
