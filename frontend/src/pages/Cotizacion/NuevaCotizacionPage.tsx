@@ -1476,8 +1476,24 @@ export default function NuevaCotizacionPage() {
     const descuentoCliente = subtotalLineas * (descClientePct / 100);
     const subtotal = Math.max(0, subtotalLineas - descuentoCliente);
     const total = subtotal;
+    /** Solo visual: precios ya incluyen IVA; se muestra desglose 16 % sin cambiar montos guardados. */
+    const totalConIva = total;
+    const subtotalSinIva = round2(totalConIva / IVA_MX);
+    const ivaDesglose = round2(totalConIva - subtotalSinIva);
 
-    return { lines, subtotalLineas, descClientePct, descuentoCliente, subtotal, iva: 0, total, ivaPct: 0 };
+    return {
+      lines,
+      subtotalLineas,
+      descClientePct,
+      descuentoCliente,
+      subtotal,
+      iva: 0,
+      total,
+      ivaPct: 0,
+      totalConIva,
+      subtotalSinIva,
+      ivaDesglose,
+    };
   }, [conceptos, descuentoClientePct]);
 
   /** Cliente, contacto y al menos un concepto (misma regla que validateClienteContacto + líneas) */
@@ -2406,22 +2422,31 @@ export default function NuevaCotizacionPage() {
                       </div>
 
                       <div className="mt-3 grid grid-cols-1 gap-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Subtotal</span>
-                          <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.subtotalLineas)}</span>
-                        </div>
                         {!!toNumber(computed.descClientePct, 0) && (
                           <>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Importe conceptos</span>
+                              <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.subtotalLineas)}</span>
+                            </div>
                             <div className="flex items-center justify-between">
                               <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Descuento cliente ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</span>
                               <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">-{formatMoney(computed.descuentoCliente)}</span>
                             </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Total</span>
-                              <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.subtotal)}</span>
-                            </div>
+                            <div className="border-t border-gray-100 pt-2 dark:border-white/[0.06]" aria-hidden />
                           </>
                         )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Subtotal</span>
+                          <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.subtotalSinIva)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">IVA (16%)</span>
+                          <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.ivaDesglose)}</span>
+                        </div>
+                        <div className="flex items-center justify-between border-t border-gray-100 pt-2 dark:border-white/[0.06]">
+                          <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 sm:text-xs">Total</span>
+                          <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{formatMoney(computed.totalConIva)}</span>
+                        </div>
                       </div>
                     </div>
 

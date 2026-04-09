@@ -18,6 +18,16 @@ from apps.users.permissions import ModulePermission
 from .models import Cotizacion
 from .serializers import CotizacionSerializer
 
+IVA_MX_DISPLAY = 1.16
+
+
+def _subtotal_iva_display_split(total_con_iva: float) -> tuple[float, float]:
+    """Solo presentación en PDF: precios ya incluyen IVA; se muestra base + IVA 16 %."""
+    t = max(0.0, float(total_con_iva or 0))
+    base = round(t / IVA_MX_DISPLAY, 2)
+    iva = round(t - base, 2)
+    return base, iva
+
 
 class CotizacionesPermission(ModulePermission):
     """Permission class for cotizaciones module."""
@@ -238,6 +248,13 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         descuento_cliente_monto = subtotal_lineas * (descuento_cliente_pct / 100.0)
         subtotal_con_descuento_cliente = max(0.0, subtotal_lineas - descuento_cliente_monto)
         total = subtotal_con_descuento_cliente
+        base_sin_iva, iva_display = _subtotal_iva_display_split(total)
+        discount_rows = ""
+        if descuento_cliente_pct:
+            discount_rows = f"""
+    <div class='row'><span>Importe conceptos</span><strong>$ {subtotal_lineas:,.2f}</strong></div>
+    <div class='row'><span>Descuento ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_cliente_monto:,.2f}</strong></div>
+"""
 
         html = f"""<!doctype html>
 <html lang='es'>
@@ -403,8 +420,9 @@ class CotizacionViewSet(viewsets.ModelViewSet):
   </div>
 
     <div class='totals'>
-    <div class='row'><span>Subtotal</span><strong>$ {subtotal_lineas:,.2f}</strong></div>
-    {f"<div class='row'><span>Descuento ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_cliente_monto:,.2f}</strong></div>" if descuento_cliente_pct else ""}
+    {discount_rows}
+    <div class='row'><span>Subtotal</span><strong>$ {base_sin_iva:,.2f}</strong></div>
+    <div class='row'><span>IVA (16%)</span><strong>$ {iva_display:,.2f}</strong></div>
     <div class='row'><span>Total</span><strong>$ {total:,.2f}</strong></div>
   </div>
 
