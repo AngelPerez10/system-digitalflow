@@ -38,8 +38,6 @@ type AlertState = {
 
 const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token") || "";
 
-const IVA_MX = 1.16;
-
 const roundConceptoPrecio = (n: number) => Math.round(Math.max(0, n) * 100) / 100;
 
 const CONCEPTO_IMAGEN_FOLDER = "productos/conceptos";
@@ -519,8 +517,7 @@ export default function Servicios() {
     }
     setEditingConcepto(c);
     setConceptoModalError("");
-    const precioConIva = Number(c.precio1 ?? 0);
-    const precioBase = roundConceptoPrecio(precioConIva / IVA_MX);
+    const precioBase = roundConceptoPrecio(Number(c.precio1 ?? 0));
     conceptoInitialImagenRef.current = (c.imagen_url || "").trim();
     setConceptoFormData({
       folio: c.folio || "",
@@ -724,7 +721,7 @@ export default function Servicios() {
       return;
     }
     const basePrecio = Number(conceptoFormData.precio1 || 0);
-    const precio1 = roundConceptoPrecio(basePrecio * IVA_MX);
+    const precio1 = roundConceptoPrecio(basePrecio);
     const payload = {
       folio: String(conceptoFormData.folio).trim(),
       concepto: String(conceptoFormData.concepto).trim(),
@@ -1325,10 +1322,7 @@ export default function Servicios() {
                       onChange={(e) => setConceptoFormData({ ...conceptoFormData, precio1: e.target.value })}
                     />
                     <p className="mt-1 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
-                      Al guardar (crear o actualizar), se guarda con IVA 16%:{" "}
-                      <span className="font-medium tabular-nums text-gray-700 dark:text-gray-300">
-                        {roundConceptoPrecio(Number(conceptoFormData.precio1 || 0) * IVA_MX).toFixed(2)} MXN
-                      </span>
+                      Se guarda sin IVA. En cotización se agrega IVA 16% para el cálculo visual.
                     </p>
                   </div>
                   <div className="md:col-span-2">

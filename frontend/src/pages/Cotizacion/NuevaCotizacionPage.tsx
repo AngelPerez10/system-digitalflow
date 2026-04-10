@@ -176,6 +176,10 @@ const getSyscomPrecioListaMxnConIva = (p: SyscomProducto, tipoCambio: number | n
   return Math.max(0, usdBase * tipoCambio * IVA_MX);
 };
 
+/** Conceptos del catálogo se capturan sin IVA; en cotización se usa precio con IVA 16%. */
+const getCatalogoConceptoPrecioConIva = (precioBase: unknown) =>
+  round2(Math.max(0, toNumber(precioBase, 0)) * IVA_MX);
+
 export default function NuevaCotizacionPage() {
   const asBool = (v: any, defaultValue: boolean) => {
     if (typeof v === 'boolean') return v;
@@ -962,7 +966,7 @@ export default function NuevaCotizacionPage() {
     setConceptoNombre(String(c.concepto || ""));
     setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : `Folio: ${c.folio}`));
     setUnidad((u) => (u.trim() ? u : "SERV"));
-    setPrecioLista(Math.max(0, toNumber(c.precio1, 0)));
+    setPrecioLista(getCatalogoConceptoPrecioConIva(c.precio1));
     setSyscomOpen(false);
   };
 
@@ -995,7 +999,7 @@ export default function NuevaCotizacionPage() {
         source: "catalogo" as const,
         title: c.concepto || "-",
         subtitle: `Folio: ${c.folio}`,
-        price: toNumber(c.precio1, 0),
+        price: getCatalogoConceptoPrecioConIva(c.precio1),
         onSelect: () => selectCatalogoConcepto(c),
       })),
       ...syscomProductos.map((p) => ({
