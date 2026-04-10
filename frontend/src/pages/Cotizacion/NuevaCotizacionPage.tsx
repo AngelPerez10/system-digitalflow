@@ -176,10 +176,6 @@ const getSyscomPrecioListaMxnConIva = (p: SyscomProducto, tipoCambio: number | n
   return Math.max(0, usdBase * tipoCambio * IVA_MX);
 };
 
-/** Conceptos del catálogo se capturan sin IVA; en cotización se usa precio con IVA 16%. */
-const getCatalogoConceptoPrecioConIva = (precioBase: unknown) =>
-  round2(Math.max(0, toNumber(precioBase, 0)) * IVA_MX);
-
 export default function NuevaCotizacionPage() {
   const asBool = (v: any, defaultValue: boolean) => {
     if (typeof v === 'boolean') return v;
@@ -412,8 +408,9 @@ export default function NuevaCotizacionPage() {
     const qty = Math.max(0, toNumber(cantidad, 0));
     const pl = Math.max(0, toNumber(precioLista, 0));
     const desc = clampPct(toNumber(descuentoPct, 0));
-    const pu = pl * (1 - desc / 100);
-    const importe = qty * pu;
+    const precioConIva = pl * (1 - desc / 100);
+    const pu = precioConIva / IVA_MX;
+    const importe = qty * precioConIva;
     return { qty, pl, desc, pu, importe };
   }, [cantidad, precioLista, descuentoPct]);
 
@@ -966,7 +963,7 @@ export default function NuevaCotizacionPage() {
     setConceptoNombre(String(c.concepto || ""));
     setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : `Folio: ${c.folio}`));
     setUnidad((u) => (u.trim() ? u : "SERV"));
-    setPrecioLista(getCatalogoConceptoPrecioConIva(c.precio1));
+    setPrecioLista(Math.max(0, toNumber(c.precio1, 0)));
     setSyscomOpen(false);
   };
 
@@ -999,7 +996,7 @@ export default function NuevaCotizacionPage() {
         source: "catalogo" as const,
         title: c.concepto || "-",
         subtitle: `Folio: ${c.folio}`,
-        price: getCatalogoConceptoPrecioConIva(c.precio1),
+        price: toNumber(c.precio1, 0),
         onSelect: () => selectCatalogoConcepto(c),
       })),
       ...syscomProductos.map((p) => ({
@@ -1470,9 +1467,10 @@ export default function NuevaCotizacionPage() {
   const computed = useMemo(() => {
     const lines = conceptos.map((c) => {
       const descuento = clampPct(toNumber(c.descuento_pct, 0));
-      const pu = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
-      const importe = toNumber(c.cantidad, 0) * pu;
-      return { ...c, pu, importe };
+      const precioConIva = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
+      const puSinIva = precioConIva / IVA_MX;
+      const importeConIva = toNumber(c.cantidad, 0) * precioConIva;
+      return { ...c, pu: puSinIva, importe: importeConIva };
     });
 
     const subtotalLineas = lines.reduce((acc, l) => acc + (Number.isFinite(l.importe) ? l.importe : 0), 0);
@@ -2284,11 +2282,10 @@ export default function NuevaCotizacionPage() {
                         <TableRow>
                           <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Cantidad</TableCell>
                           <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Unidad</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Concepto</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Descripcion</TableCell>
                           <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Detalle</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Precio lista</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Descuento</TableCell>
                           <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Precio unitario</TableCell>
+                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Descuento</TableCell>
                           <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Importe total</TableCell>
                           <TableCell isHeader className="px-2 py-2 text-center w-1/12 text-gray-700 dark:text-gray-300"> </TableCell>
                         </TableRow>
@@ -2308,9 +2305,8 @@ export default function NuevaCotizacionPage() {
                               </div>
                             </TableCell>
                             <TableCell className="px-2 py-1.5">{c.producto_descripcion || "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.precio_lista, 0))}</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{clampPct(toNumber(c.descuento_pct, 0)).toFixed(2)}%</TableCell>
                             <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.pu, 0))}</TableCell>
+                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{clampPct(toNumber(c.descuento_pct, 0)).toFixed(2)}%</TableCell>
                             <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.importe, 0))}</TableCell>
                             <TableCell className="px-2 py-1.5 text-center">
                               <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
@@ -2338,8 +2334,7 @@ export default function NuevaCotizacionPage() {
 
                         {!computed.lines.length && (
                           <TableRow>
-                            <TableCell className="px-2 py-2"> </TableCell>
-                            <TableCell colSpan={6} className="px-4 py-10 text-center">
+                            <TableCell colSpan={8} className="px-4 py-10 text-center">
                               <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
                                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400">
                                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
@@ -2350,8 +2345,6 @@ export default function NuevaCotizacionPage() {
                                 <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 sm:text-xs">Usa el formulario de arriba para agregar productos o servicios.</p>
                               </div>
                             </TableCell>
-                            <TableCell className="px-2 py-2"> </TableCell>
-                            <TableCell className="px-2 py-2"> </TableCell>
                           </TableRow>
                         )}
                       </TableBody>

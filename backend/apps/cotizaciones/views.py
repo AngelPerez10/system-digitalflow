@@ -191,8 +191,11 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 cantidad = float(it.cantidad or 0)
                 precio_lista = float(it.precio_lista or 0)
                 descuento = float(it.descuento_pct or 0)
-                pu = precio_lista * (1 - (descuento / 100.0))
-                importe = cantidad * pu
+                # precio_lista (Syscom) ya incluye IVA; descuento de línea se aplica sobre ese monto.
+                precio_con_iva = precio_lista * (1 - (descuento / 100.0))
+                # P. UNIT. en PDF: sin IVA; importe de línea = cantidad × precio con IVA.
+                pu = precio_con_iva / IVA_MX_DISPLAY
+                importe = cantidad * precio_con_iva
                 gross_subtotal += cantidad * precio_lista
                 net_subtotal_calc += importe
             except Exception:
