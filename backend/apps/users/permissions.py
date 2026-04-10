@@ -46,6 +46,19 @@ def user_has_any_ordenes_access(permissions):
     return False
 
 
+def user_has_any_cotizaciones_access(permissions):
+    """
+    True if the user can use cotizaciones in any capacity.
+    Used so that búsqueda SYSCOM (proxy en /api/productos/syscom/*) funcione en
+    Nueva cotización sin exigir el módulo productos solo para catálogo mayorista.
+    """
+    c = _module_perms_for_key(permissions or {}, 'cotizaciones')
+    for key in ('view', 'create', 'edit', 'delete'):
+        if _as_bool_value(c.get(key), False):
+            return True
+    return False
+
+
 class OrdenesAnyAccessPermission(BasePermission):
     """Permite la acción si el usuario tiene cualquier permiso en el módulo órdenes."""
 

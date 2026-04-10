@@ -17,7 +17,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.users.permissions import ModulePermission
+from apps.users.permissions import ModulePermission, user_has_any_cotizaciones_access
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,29 @@ def _get_syscom_token():
 
 
 class SyscomProductosPermission(ModulePermission):
+    """
+    Proxy SYSCOM: lectura mayorista usada desde Productos y desde Cotizaciones.
+
+    Por defecto exige permiso de módulo `productos` (view en GET).
+    Si el usuario no tiene productos pero sí cotizaciones (view/create/edit/delete),
+    se permite GET para que técnicos con solo cotizaciones puedan armar líneas con Syscom.
+    """
+
     module_key = 'productos'
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        method = (request.method or '').upper()
+        if method in ('GET', 'HEAD', 'OPTIONS'):
+            perms_obj = getattr(user, 'permissions_profile', None)
+            permissions = getattr(perms_obj, 'permissions', None) or {}
+            if user_has_any_cotizaciones_access(permissions):
+                return True
+        return super().has_permission(request, view)
 
 
 class SyscomProductosSearchView(APIView):
