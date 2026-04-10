@@ -410,7 +410,7 @@ export default function NuevaCotizacionPage() {
     const desc = clampPct(toNumber(descuentoPct, 0));
     const precioConIva = pl * (1 - desc / 100);
     const pu = precioConIva / IVA_MX;
-    const importe = qty * precioConIva;
+    const importe = qty * pu;
     return { qty, pl, desc, pu, importe };
   }, [cantidad, precioLista, descuentoPct]);
 
@@ -1469,23 +1469,30 @@ export default function NuevaCotizacionPage() {
       const descuento = clampPct(toNumber(c.descuento_pct, 0));
       const precioConIva = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
       const puSinIva = precioConIva / IVA_MX;
-      const importeConIva = toNumber(c.cantidad, 0) * precioConIva;
-      return { ...c, pu: puSinIva, importe: importeConIva };
+      const importeSinIva = toNumber(c.cantidad, 0) * puSinIva;
+      return { ...c, pu: puSinIva, importe: importeSinIva };
     });
 
-    const subtotalLineas = lines.reduce((acc, l) => acc + (Number.isFinite(l.importe) ? l.importe : 0), 0);
+    const subtotalLineasSinIva = lines.reduce((acc, l) => acc + (Number.isFinite(l.importe) ? l.importe : 0), 0);
+    /** Suma con IVA (precio Syscom); el descuento cliente se aplica sobre este monto (igual que el serializer). */
+    const subtotalLineasConIva = conceptos.reduce((acc, c) => {
+      const descuento = clampPct(toNumber(c.descuento_pct, 0));
+      const precioConIva = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
+      return acc + toNumber(c.cantidad, 0) * precioConIva;
+    }, 0);
+
     const descClientePct = clampPct(toNumber(descuentoClientePct, 0));
-    const descuentoCliente = subtotalLineas * (descClientePct / 100);
-    const subtotal = Math.max(0, subtotalLineas - descuentoCliente);
-    const total = subtotal;
-    /** Solo visual: precios ya incluyen IVA; se muestra desglose 16 % sin cambiar montos guardados. */
-    const totalConIva = total;
+    const descuentoCliente = subtotalLineasConIva * (descClientePct / 100);
+    const totalConIva = Math.max(0, subtotalLineasConIva - descuentoCliente);
     const subtotalSinIva = round2(totalConIva / IVA_MX);
     const ivaDesglose = round2(totalConIva - subtotalSinIva);
+    /** Subtotal/total guardados: monto con IVA incluido (misma convención que el backend). */
+    const subtotal = totalConIva;
+    const total = totalConIva;
 
     return {
       lines,
-      subtotalLineas,
+      subtotalLineas: subtotalLineasSinIva,
       descClientePct,
       descuentoCliente,
       subtotal,

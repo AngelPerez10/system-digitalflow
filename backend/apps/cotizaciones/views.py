@@ -184,8 +184,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         moneda = 'MXN'
 
         rows = []
-        gross_subtotal = 0.0
-        net_subtotal_calc = 0.0
+        net_subtotal_sin_iva = 0.0
+        net_subtotal_con_iva = 0.0
         for it in iter_items(cotizacion):
             try:
                 cantidad = float(it.cantidad or 0)
@@ -193,11 +193,11 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 descuento = float(it.descuento_pct or 0)
                 # precio_lista (Syscom) ya incluye IVA; descuento de línea se aplica sobre ese monto.
                 precio_con_iva = precio_lista * (1 - (descuento / 100.0))
-                # P. UNIT. en PDF: sin IVA; importe de línea = cantidad × precio con IVA.
+                # P. UNIT. e importe de línea en PDF: sin IVA; el IVA va en el bloque de totales.
                 pu = precio_con_iva / IVA_MX_DISPLAY
-                importe = cantidad * precio_con_iva
-                gross_subtotal += cantidad * precio_lista
-                net_subtotal_calc += importe
+                importe = cantidad * pu
+                net_subtotal_sin_iva += importe
+                net_subtotal_con_iva += cantidad * precio_con_iva
             except Exception:
                 pu = 0
                 importe = 0
@@ -239,7 +239,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         except Exception:
             descuento_cliente_pct = 0.0
 
-        subtotal_lineas = net_subtotal_calc if net_subtotal_calc else subtotal
+        # Descuento cliente sobre suma con IVA (misma regla que serializers).
+        subtotal_lineas = net_subtotal_con_iva if net_subtotal_con_iva else subtotal
         if subtotal_lineas < 0:
             subtotal_lineas = 0.0
 
@@ -255,7 +256,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         discount_rows = ""
         if descuento_cliente_pct:
             discount_rows = f"""
-    <div class='row'><span>Importe conceptos</span><strong>$ {subtotal_lineas:,.2f}</strong></div>
+    <div class='row'><span>Importe conceptos</span><strong>$ {net_subtotal_sin_iva:,.2f}</strong></div>
     <div class='row'><span>Descuento ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_cliente_monto:,.2f}</strong></div>
 """
 
