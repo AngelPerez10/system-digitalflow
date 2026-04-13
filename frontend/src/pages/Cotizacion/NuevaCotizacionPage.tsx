@@ -143,6 +143,35 @@ const round2 = (v: number) => {
   return Math.round(n * 100) / 100;
 };
 
+/** Alineado con backend (Cotizacion.cliente / CotizacionItem.thumbnail_url). */
+const MAX_COTIZ_CLIENTE_LEN = 255;
+const MAX_COTIZ_THUMB_URL_LEN = 512;
+const MAX_COTIZ_PRODUCTO_NOMBRE_LEN = 255;
+
+const truncateStr = (v: unknown, max: number) => String(v ?? "").slice(0, max);
+
+const formatCotizacionApiError = (data: unknown): string => {
+  if (data == null || typeof data !== "object") return "No se pudo guardar la cotización.";
+  const d = data as Record<string, unknown>;
+  if (typeof d.detail === "string" && d.detail.trim()) return d.detail;
+  if (Array.isArray(d.detail) && d.detail.length) return d.detail.map(String).join(" ");
+  const parts: string[] = [];
+  for (const [key, val] of Object.entries(d)) {
+    if (key === "detail") continue;
+    if (Array.isArray(val)) {
+      parts.push(`${key}: ${val.join(", ")}`);
+    } else if (val && typeof val === "object") {
+      for (const [k2, v2] of Object.entries(val as Record<string, unknown>)) {
+        const msg = Array.isArray(v2) ? v2.join(", ") : String(v2);
+        parts.push(`${key}.${k2}: ${msg}`);
+      }
+    } else if (val != null) {
+      parts.push(`${key}: ${String(val)}`);
+    }
+  }
+  return parts.length ? parts.join(" | ") : JSON.stringify(data);
+};
+
 const formatMoney = (n: number) => {
   const v = Number.isFinite(n) ? n : 0;
   return v.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
@@ -1112,7 +1141,7 @@ export default function NuevaCotizacionPage() {
     const total = subtotal;
     return {
       cliente_id: clienteId ? Number(clienteId) : null,
-      cliente: clienteNombre || "",
+      cliente: truncateStr(clienteNombre, MAX_COTIZ_CLIENTE_LEN),
       prospecto: !!selectedCliente?.is_prospecto,
       contacto: contacto || "",
       medio_contacto: String(medioContacto || ""),
@@ -1126,11 +1155,11 @@ export default function NuevaCotizacionPage() {
       texto_arriba_precios: String(textoArribaPrecios || ""),
       terminos: String(terminos || ""),
       items: lines.map((c, i) => ({
-        producto_externo_id: c.producto_externo_id ?? "",
-        producto_nombre: c.producto_nombre,
-        producto_descripcion: c.producto_descripcion,
-        unidad: c.unidad,
-        thumbnail_url: c.thumbnail_url || "",
+        producto_externo_id: truncateStr(c.producto_externo_id ?? "", 100),
+        producto_nombre: truncateStr(c.producto_nombre, MAX_COTIZ_PRODUCTO_NOMBRE_LEN),
+        producto_descripcion: String(c.producto_descripcion ?? ""),
+        unidad: truncateStr(c.unidad, 50),
+        thumbnail_url: truncateStr(c.thumbnail_url || "", MAX_COTIZ_THUMB_URL_LEN),
         cantidad: toNumber(c.cantidad, 0),
         precio_lista: toNumber(c.precio_lista, 0),
         descuento_pct: clampPct(toNumber(c.descuento_pct, 0)),
@@ -1249,7 +1278,7 @@ export default function NuevaCotizacionPage() {
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         if (!silent) {
-          const msg = data?.detail || JSON.stringify(data) || "No se pudo guardar la cotización.";
+          const msg = formatCotizacionApiError(data);
           setAlert({ show: true, variant: "error", title: "Error", message: msg });
         }
         return null;

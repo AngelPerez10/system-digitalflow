@@ -471,24 +471,21 @@ export default function IaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/50 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/60 transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/50 transition-colors duration-300">
       <PageMeta title="IA | Sistema" description="Asistente de IA del sistema" />
 
-      {/* ===== Sticky Header with Glassmorphism ===== */}
-      <header className="sticky top-0 z-40 border-b border-slate-200/60 bg-white/70 backdrop-blur-2xl dark:border-slate-700/40 dark:bg-slate-900/70">
+      {/* ===== Sticky Header ===== */}
+      <header className="sticky top-0 z-40 border-b border-slate-200/50 bg-white/80 backdrop-blur-xl dark:border-slate-700/30 dark:bg-slate-900/80">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 blur opacity-40" />
-              <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" strokeLinecap="round" />
-                </svg>
-              </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <circle cx="12" cy="12" r="3" />
+                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" strokeLinecap="round" />
+              </svg>
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-900 dark:text-white sm:text-xl">{pageName}</h1>
+              <h1 className="text-lg font-semibold text-slate-900 dark:text-white sm:text-xl">{pageName}</h1>
               <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">Asistente inteligente con memoria local</p>
             </div>
           </div>
@@ -496,7 +493,7 @@ export default function IaPage() {
             <ol className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
               <li><Link to="/" className="rounded-lg px-2 py-1 transition hover:bg-slate-100 dark:hover:bg-slate-800">Inicio</Link></li>
               <li className="text-slate-300 dark:text-slate-600">/</li>
-              <li className="font-semibold text-slate-700 dark:text-slate-300">{pageName}</li>
+              <li className="font-medium text-slate-700 dark:text-slate-300">{pageName}</li>
             </ol>
           </nav>
         </div>
@@ -508,34 +505,34 @@ export default function IaPage() {
 
           {/* ===== Chat Area (Left) ===== */}
           <div className="min-w-0 flex-1">
-            <div className="relative flex h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-3xl border border-slate-200/60 bg-white/60 shadow-xl shadow-slate-200/40 backdrop-blur-xl dark:border-slate-700/40 dark:bg-slate-900/60 dark:shadow-slate-900/60">
+            <div className="relative flex h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/50 bg-white/70 shadow-sm backdrop-blur-xl dark:border-slate-700/30 dark:bg-slate-900/70 dark:shadow-sm">
 
               {/* Messages */}
               <div className="custom-scrollbar relative flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:px-5 sm:py-5">
 
                 {/* Error Banner */}
                 {error && (
-                  <div className="mx-auto max-w-3xl rounded-2xl border border-red-200/80 bg-red-50/90 p-4 shadow-md backdrop-blur-sm dark:border-red-500/30 dark:bg-red-950/50">
+                  <div className="mx-auto max-w-3xl rounded-xl border border-red-200/60 bg-red-50/80 p-4 backdrop-blur-sm dark:border-red-500/20 dark:bg-red-950/40">
                     <div className="flex items-start gap-3">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/60">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
                         <svg className="h-4 w-4 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19H19a2 2 0 001.75-2.95l-6.93-12a2 2 0 00-3.5 0l-6.93 12A2 2 0 005.07 19z" />
                         </svg>
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold uppercase tracking-wide text-red-800 dark:text-red-300">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">
                           {lastErrorKind === 'upstream_502' ? 'Servicio no disponible' : lastErrorKind === 'cors' ? 'Conexión bloqueada' : 'Error'}
                         </p>
-                        <p className="mt-1 text-sm leading-relaxed text-red-700 dark:text-red-200">{error}</p>
+                        <p className="mt-1 text-sm leading-relaxed text-red-600 dark:text-red-200">{error}</p>
                         {typeof lastErrorStatus === 'number' && (
-                          <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">HTTP {lastErrorStatus}</p>
+                          <p className="mt-1.5 text-xs font-medium text-red-500 dark:text-red-400">HTTP {lastErrorStatus}</p>
                         )}
                       </div>
                       {lastErrorKind === 'upstream_502' && (
                         <button
                           type="button"
                           onClick={() => { setError(null); setLastErrorKind(null); setLastErrorStatus(null); }}
-                          className="shrink-0 rounded-xl border border-red-300 bg-white px-4 py-2 text-xs font-bold text-red-700 transition hover:bg-red-50 dark:border-red-500/30 dark:bg-slate-900 dark:text-red-200 dark:hover:bg-white/5"
+                          className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/20 dark:bg-slate-900 dark:text-red-300 dark:hover:bg-white/5"
                         >
                           Cerrar
                         </button>
@@ -546,18 +543,15 @@ export default function IaPage() {
 
                 {/* Empty State */}
                 {messages.length === 0 && !error && (
-                  <div className="flex flex-col items-center justify-center gap-6 py-20 text-center sm:py-24">
-                    <div className="relative">
-                      <div className="absolute inset-0 animate-pulse rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 blur-2xl opacity-25" />
-                      <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-2xl shadow-blue-500/30">
-                        <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-                        </svg>
-                      </div>
+                  <div className="flex flex-col items-center justify-center gap-5 py-20 text-center sm:py-24">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm">
+                      <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                      </svg>
                     </div>
-                    <div className="max-w-sm space-y-2">
-                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">¿En qué puedo ayudarte?</h2>
-                      <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">Escribe abajo para comenzar una conversación.</p>
+                    <div className="max-w-sm space-y-1.5">
+                      <h2 className="text-xl font-semibold text-slate-900 dark:text-white">¿En qué puedo ayudarte?</h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">Escribe abajo para comenzar una conversación.</p>
                     </div>
                     <div className="flex flex-wrap justify-center gap-2">
                       {['Explicar un concepto', 'Resolver un problema', 'Generar ideas'].map((s) => (
@@ -565,7 +559,7 @@ export default function IaPage() {
                           key={s}
                           type="button"
                           onClick={() => setPrompt(s)}
-                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-blue-500/40 dark:hover:bg-blue-950/30 dark:hover:text-blue-300"
+                          className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:bg-slate-750 dark:hover:text-slate-300"
                         >
                           {s}
                         </button>
@@ -582,7 +576,7 @@ export default function IaPage() {
                   if (m.role === 'user') {
                     return (
                       <div key={m.id} className="flex justify-end">
-                        <div className="max-w-[min(100%,640px)] rounded-3xl rounded-br-md bg-gradient-to-br from-blue-600 to-indigo-600 px-4 py-3 text-sm leading-relaxed text-white shadow-lg shadow-blue-500/20 dark:from-blue-500 dark:to-indigo-500">
+                        <div className="max-w-[min(100%,640px)] rounded-2xl rounded-br-md bg-gradient-to-br from-blue-500 to-indigo-600 px-4 py-3 text-sm leading-relaxed text-white shadow-sm">
                           {m.content.split('\n\n').map((p, idx) => (
                             <p key={idx} className={idx === 0 ? '' : 'mt-4'}>{p}</p>
                           ))}
@@ -642,8 +636,8 @@ export default function IaPage() {
               </div>
 
               {/* Input Area */}
-              <div className="shrink-0 border-t border-slate-200/60 bg-white/80 p-3 backdrop-blur-xl dark:border-slate-700/40 dark:bg-slate-900/80 sm:p-4">
-                <div className="flex items-end gap-2 rounded-2xl border border-slate-200/70 bg-slate-50/60 p-2 shadow-inner dark:border-slate-700/40 dark:bg-slate-800/50 sm:p-3">
+              <div className="shrink-0 border-t border-slate-200/50 bg-white/80 p-3 backdrop-blur-xl dark:border-slate-700/30 dark:bg-slate-900/80 sm:p-4">
+                <div className="flex items-end gap-2 rounded-xl border border-slate-200/60 bg-slate-50/50 p-2 dark:border-slate-700/30 dark:bg-slate-800/40 sm:p-3">
                   <textarea
                     placeholder="Escribe tu mensaje…"
                     value={prompt}
@@ -656,7 +650,7 @@ export default function IaPage() {
                     type="button"
                     onClick={handleSend}
                     disabled={sending || !prompt.trim()}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 transition-all hover:shadow-lg hover:shadow-blue-500/30 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none sm:h-11 sm:w-11"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none sm:h-11 sm:w-11"
                     aria-label="Enviar mensaje"
                   >
                     {sending ? (
@@ -691,12 +685,12 @@ export default function IaPage() {
           {/* ===== Sidebar (Right) ===== */}
           <aside
             className={`
-              fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-slate-200/60 bg-white/90 shadow-2xl backdrop-blur-2xl transition-transform duration-300 ease-in-out dark:border-slate-700/40 dark:bg-slate-900/90 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:translate-x-0 lg:rounded-3xl lg:border lg:shadow-xl lg:shadow-slate-200/30 lg:dark:shadow-slate-900/50
+              fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-slate-200/50 bg-white/90 shadow-sm backdrop-blur-xl transition-transform duration-300 ease-in-out dark:border-slate-700/30 dark:bg-slate-900/90 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:translate-x-0 lg:rounded-2xl lg:border lg:shadow-sm lg:dark:shadow-sm
               ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
             `}
           >
             {/* Sidebar Header */}
-            <div className="flex items-center justify-between border-b border-slate-200/60 p-4 dark:border-slate-700/40">
+            <div className="flex items-center justify-between border-b border-slate-200/50 p-4 dark:border-slate-700/30">
               <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Historial</h2>
               <button
                 type="button"
@@ -715,7 +709,7 @@ export default function IaPage() {
               <button
                 type="button"
                 onClick={handleNewChat}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all hover:shadow-lg hover:shadow-blue-500/30"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-700"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" d="M12 5v14M5 12h14" />
@@ -827,10 +821,10 @@ export default function IaPage() {
           <button
             type="button"
             onClick={() => setIsSidebarOpen(true)}
-            className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/30 transition-all hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/40 lg:hidden"
+            className="fixed bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg transition-all hover:from-blue-600 hover:to-indigo-700 lg:hidden"
             aria-label="Abrir historial"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </button>
@@ -844,13 +838,13 @@ export default function IaPage() {
           onClick={() => { setRenameConversationId(null); setRenameTitle(''); }}
         >
           <div
-            className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-2xl dark:border-slate-700/40 dark:bg-slate-900"
+            className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200/50 bg-white shadow-xl dark:border-slate-700/30 dark:bg-slate-900"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-label="Renombrar chat"
           >
-            <div className="border-b border-slate-200/60 px-6 py-4 dark:border-slate-700/40">
+            <div className="border-b border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">Renombrar chat</h3>
             </div>
             <div className="px-6 py-4">
@@ -858,22 +852,22 @@ export default function IaPage() {
                 value={renameTitle}
                 onChange={(e) => setRenameTitle(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveRename(); } }}
-                className="w-full rounded-xl border border-slate-200/70 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700/40 dark:bg-slate-800 dark:text-white dark:focus:border-blue-500"
+                className="w-full rounded-lg border border-slate-200/60 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700/30 dark:bg-slate-800 dark:text-white dark:focus:border-blue-500"
                 autoFocus
               />
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200/60 px-6 py-4 dark:border-slate-700/40">
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
               <button
                 type="button"
                 onClick={() => { setRenameConversationId(null); setRenameTitle(''); }}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 disabled={!renameTitle.trim()}
-                className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
                 onClick={saveRename}
               >
                 Guardar
@@ -890,29 +884,29 @@ export default function IaPage() {
           onClick={() => setDeleteConversationId(null)}
         >
           <div
-            className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-2xl dark:border-slate-700/40 dark:bg-slate-900"
+            className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200/50 bg-white shadow-xl dark:border-slate-700/30 dark:bg-slate-900"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-label="Eliminar chat"
           >
-            <div className="border-b border-slate-200/60 px-6 py-4 dark:border-slate-700/40">
+            <div className="border-b border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">Eliminar chat</h3>
             </div>
             <div className="px-6 py-4">
               <p className="text-sm text-slate-600 dark:text-slate-400">¿Estás seguro de que quieres eliminar esta conversación? Esta acción no se puede deshacer.</p>
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200/60 px-6 py-4 dark:border-slate-700/40">
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
               <button
                 type="button"
                 onClick={() => setDeleteConversationId(null)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 Cancelar
               </button>
               <button
                 type="button"
-                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-red-500/25 transition hover:bg-red-700"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-red-700"
                 onClick={deleteConversation}
               >
                 Eliminar

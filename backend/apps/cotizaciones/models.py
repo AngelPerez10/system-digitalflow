@@ -16,7 +16,7 @@ class Cotizacion(models.Model):
         blank=True,
         related_name='cotizaciones',
     )
-    cliente = models.CharField(max_length=100, blank=True, default='')
+    cliente = models.CharField(max_length=255, blank=True, default='')
     prospecto = models.BooleanField(default=False)
     contacto = models.CharField(max_length=200, blank=True, default='')
 
@@ -113,7 +113,8 @@ class CotizacionItem(models.Model):
     producto_nombre = models.CharField(max_length=255, blank=True, default='')
     producto_descripcion = models.TextField(blank=True, default='')
     unidad = models.CharField(max_length=50, blank=True, default='')
-    thumbnail_url = models.URLField(blank=True, default='')
+    # URLs de CDN/Syscom pueden superar 200 caracteres; CharField evita el límite estricto de URLField.
+    thumbnail_url = models.CharField(max_length=512, blank=True, default='')
 
     cantidad = models.DecimalField(max_digits=12, decimal_places=2, default=1)
     precio_lista = models.DecimalField(max_digits=12, decimal_places=2, default=0)

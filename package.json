@@ -1,0 +1,15 @@
+{
+  "name": "system-digitalflow-root",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "qwen": "qwen",
+    "qwen:version": "qwen --version",
+    "frontend:dev": "pnpm --dir frontend dev",
+    "frontend:build": "pnpm --dir frontend build"
+  },
+  "devDependencies": {
+    "@qwen-code/qwen-code": "^0.14.4"
+  }
+}

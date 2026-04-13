@@ -109,6 +109,8 @@ class CotizacionSerializer(serializers.ModelSerializer):
         cot = Cotizacion.objects.create(creado_por=user, **validated_data)
         for i, item in enumerate(items_data or []):
             item_data = dict(item or {})
+            item_data.pop('id', None)
+            item_data.pop('cotizacion', None)
             orden = item_data.pop('orden', None)
             CotizacionItem.objects.create(
                 cotizacion=cot,
@@ -141,6 +143,8 @@ class CotizacionSerializer(serializers.ModelSerializer):
             instance.items.all().delete()
             for i, item in enumerate(items_data or []):
                 item_data = dict(item or {})
+                item_data.pop('id', None)
+                item_data.pop('cotizacion', None)
                 orden = item_data.pop('orden', None)
                 CotizacionItem.objects.create(
                     cotizacion=instance,
