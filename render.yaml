@@ -1,0 +1,22 @@
+# Render Blueprint — frontend estático (Vite + pnpm workspace).
+# El repositorio usa pnpm-lock.yaml en la raíz; no usar npm install automático.
+#
+# Si ya tienes un Static Site creado a mano, en el Dashboard:
+#   Environment → SKIP_INSTALL_DEPS = true
+#   Build Command → (copia el buildCommand de abajo)
+#   Publish Directory → frontend/dist
+#
+# https://render.com/docs/static-sites#dependency-installation
+
+services:
+  - type: web
+    name: system-digitalflow-frontend
+    runtime: static
+    rootDir: .
+    buildCommand: corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm install --frozen-lockfile && pnpm run frontend:build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: SKIP_INSTALL_DEPS
+        value: "true"
+      - key: NODE_VERSION
+        value: "22.16.0"

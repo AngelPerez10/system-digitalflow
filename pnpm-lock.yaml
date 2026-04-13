@@ -4,6 +4,10 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  react-simple-maps>react: ^19.2.3
+  react-simple-maps>react-dom: ^19.2.3
+
 importers:
 
   .:
@@ -1891,8 +1895,8 @@ packages:
     resolution: {integrity: sha512-vKNFrvpPG8Vyfdjnz5Ne1N56rZlDfHXv5THNXOVZMqbX1rWZA48zQuYT03mx6PAKanqarJu/PDLgshIZAfHHqw==}
     peerDependencies:
       prop-types: ^15.7.2
-      react: ^16.8.0 || 17.x || 18.x
-      react-dom: ^16.8.0 || 17.x || 18.x
+      react: ^19.2.3
+      react-dom: ^19.2.3
 
   react@19.2.5:
     resolution: {integrity: sha512-llUJLzz1zTUBrskt2pwZgLq59AemifIftw4aB7JxOqf1HY2FDaGDxgwpAPVzHU1kdWabH7FauP4i1oEeer2WCA==}

@@ -67,6 +67,10 @@
   "overrides": {
     "react-helmet-async": {
       "react": "^16.8.0 || ^17 || ^18 || ^19"
+    },
+    "react-simple-maps": {
+      "react": "$react",
+      "react-dom": "$react-dom"
     }
   }
 }
