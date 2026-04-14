@@ -1011,7 +1011,7 @@ export default function NuevaCotizacionPage() {
             stock: Number(p?.stock ?? 0),
             imagen_url: String(p?.imagen_url ?? "").trim(),
           }))
-          .filter((p) => p.id > 0 && p.producto);
+          .filter((p: ProductoManualCatalogo) => p.id > 0 && p.producto);
         setCatalogoManualProductos(mapped);
       } catch {
         setCatalogoManualProductos([]);
