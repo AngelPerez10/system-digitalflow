@@ -76,6 +76,16 @@ type CatalogoConcepto = {
   imagen_url?: string;
 };
 
+type ProductoManualCatalogo = {
+  id: number;
+  producto: string;
+  marca: string;
+  modelo: string;
+  precio: number;
+  stock: number;
+  imagen_url?: string;
+};
+
 type ApiCotizacion = {
   id: number;
   idx: number;
@@ -342,9 +352,12 @@ export default function NuevaCotizacionPage() {
   const [syscomError, setSyscomError] = useState("");
   const [selectedSyscomProducto, setSelectedSyscomProducto] = useState<SyscomProducto | null>(null);
   const [selectedCatalogoConcepto, setSelectedCatalogoConcepto] = useState<CatalogoConcepto | null>(null);
+  const [selectedManualProducto, setSelectedManualProducto] = useState<ProductoManualCatalogo | null>(null);
   const [catalogoConceptos, setCatalogoConceptos] = useState<CatalogoConcepto[]>([]);
+  const [catalogoManualProductos, setCatalogoManualProductos] = useState<ProductoManualCatalogo[]>([]);
   const [loadingCatalogoConceptos, setLoadingCatalogoConceptos] = useState(false);
   const [catalogoConceptosError, setCatalogoConceptosError] = useState("");
+  const [catalogoManualError, setCatalogoManualError] = useState("");
 
   const syscomInputWrapRef = useRef<HTMLDivElement>(null);
   const syscomPopRef = useRef<HTMLDivElement>(null);
@@ -839,7 +852,7 @@ export default function NuevaCotizacionPage() {
 
   useEffect(() => {
     const q = conceptoNombre.trim();
-    if (selectedSyscomProducto || selectedCatalogoConcepto) {
+    if (selectedSyscomProducto || selectedCatalogoConcepto || selectedManualProducto) {
       setSyscomOpen(false);
       setSyscomError("");
       return;
@@ -905,7 +918,7 @@ export default function NuevaCotizacionPage() {
       window.clearTimeout(timer);
       ac.abort();
     };
-  }, [conceptoNombre, selectedSyscomProducto, selectedCatalogoConcepto]);
+  }, [conceptoNombre, selectedSyscomProducto, selectedCatalogoConcepto, selectedManualProducto]);
 
   useEffect(() => {
     if (!canCotizacionesView) {
@@ -957,9 +970,61 @@ export default function NuevaCotizacionPage() {
     loadCatalogoConceptos();
   }, [canCotizacionesView]);
 
+  useEffect(() => {
+    if (!canCotizacionesView) {
+      setCatalogoManualProductos([]);
+      setCatalogoManualError("");
+      return;
+    }
+    const token = getToken();
+    if (!token) {
+      setCatalogoManualProductos([]);
+      setCatalogoManualError("");
+      return;
+    }
+    const loadManualProductos = async () => {
+      setCatalogoManualError("");
+      try {
+        const res = await fetch(apiUrl("/api/productos-manuales/?ordering=-fecha_creacion&page_size=500"), {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store" as RequestCache,
+        });
+        const data = await res.json().catch(() => ({ results: [] }));
+        if (!res.ok) {
+          setCatalogoManualProductos([]);
+          setCatalogoManualError("No se pudieron cargar productos manuales.");
+          return;
+        }
+        const list = Array.isArray((data as any)?.results)
+          ? (data as any).results
+          : Array.isArray(data)
+            ? data
+            : [];
+        const mapped: ProductoManualCatalogo[] = list
+          .map((p: any) => ({
+            id: Number(p?.id ?? 0),
+            producto: String(p?.producto ?? "").trim(),
+            marca: String(p?.marca ?? "").trim(),
+            modelo: String(p?.modelo ?? "").trim(),
+            precio: Number(p?.precio ?? 0),
+            stock: Number(p?.stock ?? 0),
+            imagen_url: String(p?.imagen_url ?? "").trim(),
+          }))
+          .filter((p) => p.id > 0 && p.producto);
+        setCatalogoManualProductos(mapped);
+      } catch {
+        setCatalogoManualProductos([]);
+        setCatalogoManualError("Error al consultar productos manuales.");
+      }
+    };
+    loadManualProductos();
+  }, [canCotizacionesView]);
+
   const selectSyscomProducto = (p: SyscomProducto) => {
     setSelectedSyscomProducto(p);
     setSelectedCatalogoConcepto(null);
+    setSelectedManualProducto(null);
     setConceptoNombre(String(p.titulo || p.modelo || ""));
     setConceptoDescripcion(String([p.marca, p.modelo].filter(Boolean).join(" · ") || p.titulo || ""));
     setUnidad((u) => (u.trim() ? u : "PZA"));
@@ -989,10 +1054,35 @@ export default function NuevaCotizacionPage() {
   const selectCatalogoConcepto = (c: CatalogoConcepto) => {
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(c);
+    setSelectedManualProducto(null);
     setConceptoNombre(String(c.concepto || ""));
     setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : `Folio: ${c.folio}`));
     setUnidad((u) => (u.trim() ? u : "SERV"));
     setPrecioLista(Math.max(0, toNumber(c.precio1, 0)));
+    setSyscomOpen(false);
+  };
+
+  const filteredManualProductos = useMemo(() => {
+    const q = conceptoNombre.trim().toLowerCase();
+    if (!q) return [];
+    return catalogoManualProductos
+      .filter((p) =>
+        p.producto.toLowerCase().includes(q) ||
+        p.marca.toLowerCase().includes(q) ||
+        p.modelo.toLowerCase().includes(q) ||
+        String(p.id).includes(q)
+      )
+      .slice(0, 8);
+  }, [catalogoManualProductos, conceptoNombre]);
+
+  const selectManualProducto = (p: ProductoManualCatalogo) => {
+    setSelectedSyscomProducto(null);
+    setSelectedCatalogoConcepto(null);
+    setSelectedManualProducto(p);
+    setConceptoNombre(String(p.producto || ""));
+    setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : [p.marca, p.modelo].filter(Boolean).join(" · ")));
+    setUnidad((u) => (u.trim() ? u : "PZA"));
+    setPrecioLista(Math.max(0, toNumber(p.precio, 0)));
     setSyscomOpen(false);
   };
 
@@ -1003,8 +1093,10 @@ export default function NuevaCotizacionPage() {
         loadingCatalogoConceptos ||
         syscomProductos.length > 0 ||
         filteredCatalogoConceptos.length > 0 ||
+        filteredManualProductos.length > 0 ||
         !!syscomError ||
         !!catalogoConceptosError ||
+        !!catalogoManualError ||
         conceptoNombre.trim().length >= 2),
     [
       syscomOpen,
@@ -1012,8 +1104,10 @@ export default function NuevaCotizacionPage() {
       loadingCatalogoConceptos,
       syscomProductos.length,
       filteredCatalogoConceptos.length,
+      filteredManualProductos.length,
       syscomError,
       catalogoConceptosError,
+      catalogoManualError,
       conceptoNombre,
     ]
   );
@@ -1028,6 +1122,14 @@ export default function NuevaCotizacionPage() {
         price: toNumber(c.precio1, 0),
         onSelect: () => selectCatalogoConcepto(c),
       })),
+      ...filteredManualProductos.map((p) => ({
+        key: `manual-${p.id}`,
+        source: "manual" as const,
+        title: p.producto || "-",
+        subtitle: [p.marca, p.modelo].filter(Boolean).join(" · ") || `Manual #${p.id}`,
+        price: toNumber(p.precio, 0),
+        onSelect: () => selectManualProducto(p),
+      })),
       ...syscomProductos.map((p) => ({
         key: `syscom-${p.fuente || "syscom"}-${p.producto_id}`,
         source: "syscom" as const,
@@ -1037,7 +1139,7 @@ export default function NuevaCotizacionPage() {
         onSelect: () => selectSyscomProducto(p),
       })),
     ],
-    [filteredCatalogoConceptos, syscomProductos, syscomTipoCambio]
+    [filteredCatalogoConceptos, filteredManualProductos, syscomProductos, syscomTipoCambio]
   );
 
   useLayoutEffect(() => {
@@ -1394,6 +1496,7 @@ export default function NuevaCotizacionPage() {
     setDescuentoPct(0);
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(null);
+    setSelectedManualProducto(null);
     setSyscomProductos([]);
     setSyscomError("");
     setSyscomOpen(false);
@@ -1416,11 +1519,12 @@ export default function NuevaCotizacionPage() {
     const desc = clampPct(toNumber(descuentoPct, 0));
     const nombre = String(conceptoNombre || "").trim();
     const descripcion = String(conceptoDescripcion || "").trim();
-    const productoExternoId = selectedSyscomProducto?.producto_id || "";
+    const productoExternoId = selectedSyscomProducto?.producto_id || (selectedManualProducto ? `manual:${selectedManualProducto.id}` : "");
     const catalogThumb = selectedCatalogoConcepto?.imagen_url?.trim();
+    const manualThumb = selectedManualProducto?.imagen_url?.trim();
     const thumbnail = selectedSyscomProducto?.img_portada
       ? getProductoImageUrl(selectedSyscomProducto.img_portada) || undefined
-      : catalogThumb || undefined;
+      : manualThumb || catalogThumb || undefined;
 
     if (qty <= 0 || !nombre) return;
 
@@ -1468,6 +1572,7 @@ export default function NuevaCotizacionPage() {
     setDescuentoPct(0);
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(null);
+    setSelectedManualProducto(null);
     setSyscomProductos([]);
     setSyscomError("");
     setSyscomOpen(false);
@@ -1489,6 +1594,8 @@ export default function NuevaCotizacionPage() {
     setPrecioLista(toNumber(c.precio_lista, 0));
     setDescuentoPct(clampPct(toNumber(c.descuento_pct, 0)));
     setSelectedSyscomProducto(null);
+    setSelectedCatalogoConcepto(null);
+    setSelectedManualProducto(null);
     setSyscomError("");
     setSyscomOpen(false);
   };
@@ -1559,6 +1666,8 @@ export default function NuevaCotizacionPage() {
     setPrecioLista(0);
     setDescuentoPct(0);
     setSelectedSyscomProducto(null);
+    setSelectedCatalogoConcepto(null);
+    setSelectedManualProducto(null);
     setSyscomProductos([]);
     setSyscomError("");
     setSyscomOpen(false);
@@ -1899,7 +2008,7 @@ export default function NuevaCotizacionPage() {
           >
             <div className="shrink-0 border-b border-gray-100/90 bg-gradient-to-r from-brand-50/95 to-transparent px-3 py-2 dark:border-white/[0.06] dark:from-brand-950/50 dark:to-transparent">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-800 dark:text-brand-200">Resultados combinados</p>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">Conceptos internos y productos Syscom</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">Conceptos internos, productos manuales y Syscom</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5 custom-scrollbar">
               {loadingCatalogoConceptos && (
@@ -1911,6 +2020,11 @@ export default function NuevaCotizacionPage() {
               {!loadingCatalogoConceptos && !!catalogoConceptosError && (
                 <div className="mb-1 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
                   {catalogoConceptosError}
+                </div>
+              )}
+              {!!catalogoManualError && (
+                <div className="mb-1 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                  {catalogoManualError}
                 </div>
               )}
               {loadingSyscom && (
@@ -1941,7 +2055,7 @@ export default function NuevaCotizacionPage() {
                         </p>
                         <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
                           <span className="mr-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-white/[0.08]">
-                            {opt.source === "catalogo" ? "Concepto" : "Syscom"}
+                            {opt.source === "catalogo" ? "Concepto" : opt.source === "manual" ? "Manual" : "Syscom"}
                           </span>
                           {opt.subtitle || "Sin detalle"}
                         </p>
@@ -1952,7 +2066,7 @@ export default function NuevaCotizacionPage() {
                     </div>
                   </button>
                 ))}
-              {!loadingSyscom && !loadingCatalogoConceptos && !syscomError && !catalogoConceptosError && combinedConceptoOptions.length === 0 && conceptoNombre.trim().length >= 2 && (
+              {!loadingSyscom && !loadingCatalogoConceptos && !syscomError && !catalogoConceptosError && !catalogoManualError && combinedConceptoOptions.length === 0 && conceptoNombre.trim().length >= 2 && (
                 <div className="rounded-lg px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400">Sin resultados en catálogos</div>
               )}
             </div>
@@ -2237,8 +2351,9 @@ export default function NuevaCotizacionPage() {
                             setConceptoNombre(e.target.value);
                             setSelectedSyscomProducto(null);
                             setSelectedCatalogoConcepto(null);
+                            setSelectedManualProducto(null);
                           }}
-                          placeholder="Buscar concepto por folio/nombre, producto Syscom o escribir manualmente"
+                          placeholder="Buscar concepto por folio/nombre, producto manual, Syscom o escribir manualmente"
                           autoComplete="off"
                         />
                       </div>

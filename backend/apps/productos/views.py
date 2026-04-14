@@ -4,8 +4,8 @@ from rest_framework import filters, viewsets
 
 from apps.users.permissions import ModulePermission, user_has_any_ordenes_access
 
-from .models import Concepto, Servicio
-from .serializers import ConceptoSerializer, ServicioSerializer
+from .models import Concepto, ProductoManual, Servicio
+from .serializers import ConceptoSerializer, ProductoManualSerializer, ServicioSerializer
 
 
 class ServiciosPermission(ModulePermission):
@@ -26,6 +26,10 @@ class ServiciosPermission(ModulePermission):
             if user_has_any_ordenes_access(permissions):
                 return True
         return super().has_permission(request, view)
+
+
+class ProductosPermission(ModulePermission):
+    module_key = 'productos'
 
 
 class ServiciosPagination(PageNumberPagination):
@@ -60,6 +64,36 @@ class ConceptoViewSet(viewsets.ModelViewSet):
     search_fields = ['folio', 'concepto']
     ordering_fields = ['folio', 'concepto', 'precio1', 'fecha_creacion']
     ordering = ['folio']
+
+    def perform_update(self, serializer):
+        from apps.ordenes.views import _delete_cloudinary_resource
+
+        instance = serializer.instance
+        old_url = (instance.imagen_url or '').strip()
+        serializer.save()
+        new_url = (serializer.instance.imagen_url or '').strip()
+        if old_url and old_url != new_url:
+            _delete_cloudinary_resource(old_url)
+
+    def perform_destroy(self, instance):
+        from apps.ordenes.views import _delete_cloudinary_resource
+
+        url = (instance.imagen_url or '').strip()
+        if url:
+            _delete_cloudinary_resource(url)
+        instance.delete()
+
+
+class ProductoManualViewSet(viewsets.ModelViewSet):
+    queryset = ProductoManual.objects.all()
+    serializer_class = ProductoManualSerializer
+    permission_classes = [ProductosPermission]
+    pagination_class = ServiciosPagination
+
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['producto', 'marca', 'modelo']
+    ordering_fields = ['producto', 'marca', 'modelo', 'precio', 'stock', 'fecha_creacion']
+    ordering = ['-fecha_creacion']
 
     def perform_update(self, serializer):
         from apps.ordenes.views import _delete_cloudinary_resource

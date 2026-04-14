@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import ConceptoViewSet, ServicioViewSet
+from .views import ConceptoViewSet, ProductoManualViewSet, ServicioViewSet
 from .syscom_views import (
     SyscomCategoriasView,
     SyscomMarcasView,
@@ -13,6 +13,7 @@ from .syscom_views import (
 router = DefaultRouter()
 router.register(r'servicios', ServicioViewSet, basename='servicio')
 router.register(r'conceptos', ConceptoViewSet, basename='concepto')
+router.register(r'productos-manuales', ProductoManualViewSet, basename='producto-manual')
 
 urlpatterns = [
     path('', include(router.urls)),

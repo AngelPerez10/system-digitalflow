@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Concepto, Servicio
+from .models import Concepto, ProductoManual, Servicio
 
 
 class ServicioSerializer(serializers.ModelSerializer):
@@ -32,3 +32,32 @@ class ConceptoSerializer(serializers.ModelSerializer):
             'fecha_actualizacion',
         ]
         read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
+
+
+class ProductoManualSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductoManual
+        fields = [
+            'id',
+            'producto',
+            'marca',
+            'modelo',
+            'imagen_url',
+            'fuente',
+            'precio',
+            'stock',
+            'activo',
+            'fecha_creacion',
+            'fecha_actualizacion',
+        ]
+        read_only_fields = ['id', 'fuente', 'fecha_creacion', 'fecha_actualizacion']
+
+    def validate_stock(self, value):
+        if value < 0:
+            raise serializers.ValidationError('El stock no puede ser negativo.')
+        return value
+
+    def validate_precio(self, value):
+        if value < 0:
+            raise serializers.ValidationError('El precio no puede ser negativo.')
+        return value

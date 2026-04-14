@@ -57,3 +57,31 @@ class Concepto(models.Model):
             models.Index(fields=['precio1']),
         ]
 
+
+class ProductoManual(models.Model):
+    producto = models.CharField(max_length=255, blank=False, default='')
+    marca = models.CharField(max_length=120, blank=False, default='')
+    modelo = models.CharField(max_length=120, blank=False, default='')
+    imagen_url = models.CharField(max_length=500, blank=True, default='')
+    fuente = models.CharField(max_length=20, blank=False, default='manual')
+    precio = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    stock = models.IntegerField(default=0)
+    activo = models.BooleanField(default=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.producto} ({self.marca} {self.modelo})"
+
+    class Meta:
+        ordering = ['-fecha_creacion']
+        verbose_name = 'Producto manual'
+        verbose_name_plural = 'Productos manuales'
+        indexes = [
+            models.Index(fields=['producto']),
+            models.Index(fields=['marca']),
+            models.Index(fields=['modelo']),
+            models.Index(fields=['fuente']),
+            models.Index(fields=['activo']),
+        ]
+

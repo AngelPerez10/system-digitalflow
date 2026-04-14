@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useDropzone } from "react-dropzone";
 
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
@@ -25,6 +26,7 @@ import {
   fetchSyscom,
 } from "./syscomCatalog";
 import { Modal } from "@/components/ui/modal";
+import { apiUrl } from "@/config/api";
 
 const cardShellClass =
   "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
@@ -46,6 +48,125 @@ const inputLikeClassName =
 const selectLikeClassName =
   "w-full h-10 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none transition-colors focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60 dark:focus:border-brand-400 dark:focus:ring-brand-900/35";
 
+type ManualProduct = {
+  id: string;
+  imagen_url: string;
+  producto: string;
+  marca: string;
+  modelo: string;
+  fuente: "manual";
+  precio: number;
+  stock: number;
+};
+
+const MANUAL_PRODUCTS_IMAGE_FOLDER = "productos/manuales";
+
+const getPublicIdFromUrl = (url: string): string | null => {
+  try {
+    const u = new URL(url);
+    const parts = u.pathname.split("/");
+    const uploadIdx = parts.findIndex((p) => p === "upload");
+    if (uploadIdx === -1) return null;
+    const after = parts.slice(uploadIdx + 1);
+    const startIdx = after.length && /^v\d+$/i.test(after[0]) ? 1 : 0;
+    const pathParts = after.slice(startIdx);
+    if (!pathParts.length) return null;
+    const last = pathParts[pathParts.length - 1];
+    const dot = last.lastIndexOf(".");
+    pathParts[pathParts.length - 1] = dot > 0 ? last.substring(0, dot) : last;
+    return pathParts.join("/");
+  } catch {
+    return null;
+  }
+};
+
+const compressImage = async (
+  file: File,
+  maxSizeKB: number,
+  maxWidth: number = 1400,
+  maxHeight: number = 1400
+): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.floor(width * ratio);
+          height = Math.floor(height * ratio);
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, width, height);
+        }
+        ctx?.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("No se pudo procesar la imagen"));
+              return;
+            }
+            if (blob.size / 1024 <= maxSizeKB) {
+              const r = new FileReader();
+              r.readAsDataURL(blob);
+              r.onloadend = () => resolve(r.result as string);
+              return;
+            }
+            // fallback simple: reduce quality once if still too big
+            canvas.toBlob(
+              (blob2) => {
+                if (!blob2) {
+                  reject(new Error("No se pudo comprimir la imagen"));
+                  return;
+                }
+                const r2 = new FileReader();
+                r2.readAsDataURL(blob2);
+                r2.onloadend = () => resolve(r2.result as string);
+              },
+              "image/jpeg",
+              0.7
+            );
+          },
+          "image/jpeg",
+          0.86
+        );
+      };
+      img.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    };
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+  });
+};
+
+const manualToSyscomProducto = (m: ManualProduct): SyscomProducto => ({
+  producto_id: m.id,
+  modelo: m.modelo,
+  sku: m.modelo,
+  total_existencia: Number.isFinite(m.stock) ? m.stock : 0,
+  titulo: m.producto,
+  marca: m.marca,
+  fuente: "manual",
+  estado: "activo",
+  estado_inventario: m.stock > 0 ? "con_existencia" : "sin_existencia",
+  precio_mxn: Number.isFinite(m.precio) ? m.precio : 0,
+  img_portada: m.imagen_url || "",
+  link: "",
+  precios: {
+    precio_lista: Number.isFinite(m.precio) ? m.precio : 0,
+  },
+});
+
+const toMoney2 = (v: number) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+};
 
 export default function ProductosPage() {
   const [productos, setProductos] = useState<SyscomProducto[]>([]);
@@ -70,7 +191,8 @@ export default function ProductosPage() {
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const hasFiltro = Boolean(busqueda.trim() || categoriaId || marcaId || fuente);
   const [autoCatalog, setAutoCatalog] = useState(true);
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement | null>(null);
 
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -78,6 +200,111 @@ export default function ProductosPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const productosRef = useRef<SyscomProducto[]>([]);
+
+  const [manualProducts, setManualProducts] = useState<ManualProduct[]>([]);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [editingManualId, setEditingManualId] = useState<string | null>(null);
+  const [manualDeleteId, setManualDeleteId] = useState<string | null>(null);
+  const [manualFormError, setManualFormError] = useState("");
+  const [manualImageUploading, setManualImageUploading] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    imagen_url: "",
+    producto: "",
+    marca: "",
+    modelo: "",
+    precio: "",
+    stock: "",
+  });
+
+  const fetchManualProducts = useCallback(async () => {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      const res = await fetch(apiUrl("/api/productos-manuales/?page_size=500&ordering=-fecha_creacion"), {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({ results: [] }));
+      if (!res.ok) return;
+      const list = Array.isArray((data as any)?.results) ? (data as any).results : Array.isArray(data) ? data : [];
+      const mapped: ManualProduct[] = list
+        .filter((x: any) => x && typeof x === "object")
+        .map((x: any): ManualProduct => ({
+          id: String(x.id),
+          imagen_url: String(x.imagen_url || ""),
+          producto: String(x.producto || ""),
+          marca: String(x.marca || ""),
+          modelo: String(x.modelo || ""),
+          fuente: "manual",
+          precio: toMoney2(Number(x.precio || 0)),
+          stock: Number.isFinite(Number(x.stock)) ? Number(x.stock) : 0,
+        }))
+        .filter((x: ManualProduct) => x.producto.trim());
+      setManualProducts(mapped);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchManualProducts();
+  }, [fetchManualProducts]);
+
+  const deleteCloudinaryByUrl = useCallback(async (url: string) => {
+    const publicId = getPublicIdFromUrl(url);
+    if (!publicId) return;
+    const token = getAuthToken();
+    await fetch(apiUrl("/api/ordenes/delete-image/"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ public_id: publicId }),
+    });
+  }, []);
+
+  const onDropManualImage = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles.find((f) => f.type.startsWith("image/"));
+    if (!file) return;
+    setManualFormError("");
+    setManualImageUploading(true);
+    try {
+      const compressed = await compressImage(file, 80, 1400, 1400);
+      const token = getAuthToken();
+      const resp = await fetch(apiUrl("/api/ordenes/upload-image/"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ data_url: compressed, folder: MANUAL_PRODUCTS_IMAGE_FOLDER }),
+      });
+      if (!resp.ok) {
+        setManualFormError("No se pudo subir la imagen.");
+        return;
+      }
+      const data = await resp.json().catch(() => null);
+      const newUrl = data?.url ? String(data.url) : "";
+      if (!newUrl) {
+        setManualFormError("No se pudo subir la imagen.");
+        return;
+      }
+      setManualForm((prev) => ({ ...prev, imagen_url: newUrl }));
+    } catch (err) {
+      setManualFormError(String(err));
+    } finally {
+      setManualImageUploading(false);
+    }
+  }, []);
+
+  const { getRootProps: getManualImageRootProps, getInputProps: getManualImageInputProps, isDragActive: isManualImageDragActive } = useDropzone({
+    onDrop: onDropManualImage,
+    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".svg"] },
+    maxFiles: 1,
+    disabled: manualImageUploading,
+    multiple: false,
+  });
 
   const loadCatalogos = useCallback(async () => {
     const token = getAuthToken();
@@ -110,6 +337,28 @@ export default function ProductosPage() {
     setLoading(true);
     setError(null);
     try {
+      if (fuente === "manual") {
+        const q = busqueda.trim().toLowerCase();
+        const filtered = manualProducts.filter((m) => {
+          if (!q) return true;
+          return (
+            m.producto.toLowerCase().includes(q) ||
+            m.marca.toLowerCase().includes(q) ||
+            m.modelo.toLowerCase().includes(q)
+          );
+        });
+        const pageSize = 50;
+        const totalRows = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+        const safePage = Math.min(Math.max(1, pagina), totalPages);
+        const start = (safePage - 1) * pageSize;
+        const rows = filtered.slice(start, start + pageSize).map(manualToSyscomProducto);
+        setProductos(rows);
+        setPaginas(totalPages);
+        setTotal(totalRows);
+        if (safePage !== pagina) setPagina(safePage);
+        return;
+      }
       if (fuente) {
         const isAuto = autoCatalog && !busqueda.trim();
         const data = await fetchIntraxProductos({
@@ -162,7 +411,7 @@ export default function ProductosPage() {
     } finally {
       setLoading(false);
     }
-  }, [busqueda, categoriaId, marcaId, orden, pagina, hasFiltro, autoCatalog, fuente]);
+  }, [busqueda, categoriaId, marcaId, orden, pagina, hasFiltro, autoCatalog, fuente, manualProducts]);
 
   useEffect(() => {
     loadCatalogos();
@@ -175,6 +424,17 @@ export default function ProductosPage() {
   useEffect(() => {
     productosRef.current = productos;
   }, [productos]);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (filterRef.current?.contains(t)) return;
+      setFilterOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [filterOpen]);
 
   useEffect(() => {
     if (!detailModalOpen || !selectedProductId) {
@@ -231,6 +491,116 @@ export default function ProductosPage() {
     setPagina(1);
   };
 
+  const openCreateManual = () => {
+    setEditingManualId(null);
+    setManualFormError("");
+    setManualForm({
+      imagen_url: "",
+      producto: "",
+      marca: "",
+      modelo: "",
+      precio: "",
+      stock: "",
+    });
+    setManualModalOpen(true);
+  };
+
+  const openEditManual = (id: string) => {
+    const p = manualProducts.find((x) => x.id === id);
+    if (!p) return;
+    setEditingManualId(id);
+    setManualFormError("");
+    setManualForm({
+      imagen_url: p.imagen_url || "",
+      producto: p.producto || "",
+      marca: p.marca || "",
+      modelo: p.modelo || "",
+      precio: String(p.precio ?? 0),
+      stock: String(p.stock ?? 0),
+    });
+    setManualModalOpen(true);
+  };
+
+  const saveManualProduct = async () => {
+    const producto = manualForm.producto.trim();
+    const marca = manualForm.marca.trim();
+    const modelo = manualForm.modelo.trim();
+    const precio = Number(manualForm.precio);
+    const stock = Number(manualForm.stock);
+    if (!producto || !marca || !modelo) {
+      setManualFormError("Producto, marca y modelo son requeridos.");
+      return;
+    }
+    if (!Number.isFinite(precio) || precio < 0) {
+      setManualFormError("Precio inválido.");
+      return;
+    }
+    if (!Number.isFinite(stock) || stock < 0) {
+      setManualFormError("Stock inválido.");
+      return;
+    }
+    const token = getAuthToken();
+    if (!token) {
+      setManualFormError("Debes iniciar sesión para guardar productos.");
+      return;
+    }
+    const body = {
+      imagen_url: manualForm.imagen_url.trim(),
+      producto,
+      marca,
+      modelo,
+      precio: toMoney2(precio),
+      stock: Math.round(stock),
+      activo: true,
+    };
+    try {
+      const isEdit = Boolean(editingManualId);
+      const endpoint = isEdit
+        ? apiUrl(`/api/productos-manuales/${editingManualId}/`)
+        : apiUrl("/api/productos-manuales/");
+      const res = await fetch(endpoint, {
+        method: isEdit ? "PATCH" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = (data as any)?.detail;
+        setManualFormError(typeof detail === "string" && detail.trim() ? detail : "No se pudo guardar el producto.");
+        return;
+      }
+      await fetchManualProducts();
+      setManualModalOpen(false);
+      if (!fuente) {
+        // keep current UX unchanged: don't force source change
+        return;
+      }
+    } catch {
+      setManualFormError("Error de conexión al guardar producto manual.");
+    }
+  };
+
+  const confirmDeleteManual = async () => {
+    if (!manualDeleteId) return;
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      const res = await fetch(apiUrl(`/api/productos-manuales/${manualDeleteId}/`), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      await fetchManualProducts();
+      setManualProducts((prev) => prev.filter((x) => x.id !== manualDeleteId));
+      setManualDeleteId(null);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <>
       <PageMeta title="Productos | Catálogo" description="Catálogo de productos" />
@@ -269,143 +639,45 @@ export default function ProductosPage() {
           </div>
         </header>
 
-        <form onSubmit={handleSearch} className={`space-y-4 ${cardShellClass} p-4 md:p-5`}>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-            <div className="flex-1 min-w-[260px]">
-              <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Buscar producto</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={busquedaInput}
-                  onChange={(e) => setBusquedaInput(e.target.value)}
-                  placeholder="Ej. Hikvision, DS-2CE, No break..."
-                  className={`${inputLikeClassName} pr-10`}
-                />
-                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-3.5-3.5" />
-                </svg>
-              </div>
-            </div>
-
-            <div className="w-full lg:w-52">
-              <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Orden</label>
-              <select
-                value={orden}
+        <form onSubmit={handleSearch}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]">
+            <div className="relative">
+              <input
+                id="search-input"
+                type="text"
+                value={busquedaInput}
                 onChange={(e) => {
-                  setOrden(e.target.value as NonNullable<SyscomSearchParams["orden"]>);
-                  setAutoCatalog(false);
-                  resetPage();
+                  const q = e.target.value;
+                  setBusquedaInput(q);
+                  const v = q.trim();
+                  setBusqueda(v);
+                  setAutoCatalog(!v && !categoriaId && !marcaId && !fuente);
+                  setPagina(1);
                 }}
-                className={selectLikeClassName}
-              >
-                {ORDEN_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+                placeholder="Buscar producto..."
+                className={`${inputLikeClassName} h-11 pr-11 text-sm`}
+              />
+              <svg className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
             </div>
 
-            <div className="flex items-center gap-2 lg:pb-0.5">
-              <button
-                type="submit"
-                className="h-10 rounded-lg bg-brand-600 px-4 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-              >
-                Buscar
-              </button>
+            <div className="flex items-end gap-2 md:self-end">
               <button
                 type="button"
-                onClick={clearFiltros}
-                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300/90 hover:bg-white dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-300 dark:hover:bg-gray-900/60"
+                onClick={() => {
+                  openCreateManual();
+                }}
+                className="inline-flex h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 text-xs font-semibold text-white shadow-sm transition-all hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 active:scale-[0.98]"
               >
-                <svg className="w-4 h-4" viewBox="0 0 1024 1024" fill="currentColor" aria-hidden>
-                  <path d="M899.1 869.6l-53-305.6H864c14.4 0 26-11.6 26-26V346c0-14.4-11.6-26-26-26H618V138c0-14.4-11.6-26-26-26H432c-14.4 0-26 11.6-26 26v182H160c-14.4 0-26 11.6-26 26v192c0 14.4 11.6 26 26 26h17.9l-53 305.6c-0.3 1.5-0.4 3-0.4 4.4 0 14.4 11.6 26 26 26h723c1.5 0 3-0.1 4.4-0.4 14.2-2.4 23.7-15.9 21.2-30zM204 390h272V182h72v208h272v104H204V390z m468 440V674c0-4.4-3.6-8-8-8h-48c-4.4 0-8 3.6-8 8v156H416V674c0-4.4-3.6-8-8-8h-48c-4.4 0-8 3.6-8 8v156H202.8l45.1-260H776l45.1 260H672z" />
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                 </svg>
-                Limpiar
+                Nuevo producto
               </button>
             </div>
           </div>
-
-          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Fuente</p>
-              <div className="inline-flex rounded-lg border border-gray-200/90 bg-gray-50/90 p-1 dark:border-white/[0.08] dark:bg-gray-950/40">
-                {[
-                  { value: "", label: "Todas" },
-                  { value: "syscom", label: "Syscom" },
-                  { value: "manual", label: "Manual" },
-                ].map((option) => {
-                  const active = fuente === option.value;
-                  return (
-                    <button
-                      key={option.label}
-                      type="button"
-                      onClick={() => {
-                        setFuente(option.value as "" | IntraxFuente);
-                        setAutoCatalog(false);
-                        resetPage();
-                      }}
-                      className={`h-8 px-4 rounded-lg text-xs font-semibold transition ${
-                        active
-                          ? "bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm"
-                          : "text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowAdvancedFilters((v) => !v)}
-              className="h-9 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300/90 hover:bg-white dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-300 dark:hover:bg-gray-900/60"
-            >
-              {showAdvancedFilters ? "Ocultar filtros avanzados" : "Mostrar filtros avanzados"}
-            </button>
-          </div>
-
-          {showAdvancedFilters && (
-              <div className="grid grid-cols-1 gap-3 border-t border-gray-100 pt-3 dark:border-white/[0.06] sm:grid-cols-2">
-              <div>
-                <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Categoría</label>
-                <select
-                  value={categoriaId}
-                  onChange={(e) => {
-                    setCategoriaId(e.target.value);
-                    setAutoCatalog(false);
-                    resetPage();
-                  }}
-                  className={selectLikeClassName}
-                >
-                  <option value="">Todas</option>
-                  {categorias.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nombre}</option>
-                  ))}
-                  {loadingCatalogos && !categorias.length && <option disabled>Cargando...</option>}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Marca</label>
-                <select
-                  value={marcaId}
-                  onChange={(e) => {
-                    setMarcaId(e.target.value);
-                    setAutoCatalog(false);
-                    resetPage();
-                  }}
-                  className={selectLikeClassName}
-                >
-                  <option value="">Todas</option>
-                  {marcas.slice(0, MARCAS_SELECT_LIMIT).map((m) => (
-                    <option key={m.id} value={m.id}>{m.nombre}</option>
-                  ))}
-                  {loadingCatalogos && !marcas.length && <option disabled>Cargando...</option>}
-                </select>
-              </div>
-            </div>
-          )}
         </form>
 
         {error && (
@@ -426,15 +698,15 @@ export default function ProductosPage() {
                 ? `${total.toLocaleString("es-MX")} artículo${total === 1 ? "" : "s"} encontrados${paginas > 1 ? ` · página ${pagina} de ${paginas}` : ""}.`
                 : "Los resultados aparecen aquí según tu búsqueda y filtros."
             }
-            className={`overflow-hidden ${cardShellClass}`}
+            className={`${cardShellClass} !overflow-visible`}
             actions={
-              (hasFiltro || autoCatalog) && productos.length > 0 && !loading ? (
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                   <div className="flex items-center gap-0.5 rounded-lg border border-gray-200/90 bg-gray-50/90 p-0.5 dark:border-white/[0.08] dark:bg-gray-950/40">
                     <button
                       type="button"
                       onClick={() => setViewMode("table")}
                       title="Vista tabla"
+                      disabled={loading}
                       className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition ${viewMode === "table" ? "bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}
                     >
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -447,6 +719,7 @@ export default function ProductosPage() {
                       type="button"
                       onClick={() => setViewMode("cards")}
                       title="Vista tarjetas"
+                      disabled={loading}
                       className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition ${viewMode === "cards" ? "bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}
                     >
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -457,8 +730,141 @@ export default function ProductosPage() {
                       </svg>
                     </button>
                   </div>
+                  <div className="relative" ref={filterRef}>
+                    <button
+                      type="button"
+                      onClick={() => setFilterOpen((v) => !v)}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 text-xs font-semibold text-gray-700 transition-all hover:border-gray-300 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-300 dark:hover:bg-gray-900/60"
+                    >
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 7h13" />
+                        <path d="M3 12h10" />
+                        <path d="M3 17h7" />
+                        <path d="M18 7v10" />
+                        <path d="M21 10l-3-3-3 3" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      Filtrado
+                    </button>
+                    {filterOpen && (
+                      <div className="absolute right-0 z-[120] mt-2 w-80 max-h-[min(80vh,24rem)] overflow-auto rounded-xl border border-gray-200/70 bg-white p-4 shadow-xl ring-1 ring-black/5 dark:border-white/[0.08] dark:bg-gray-900/95 dark:ring-white/10">
+                        <div className="mb-4">
+                          <label htmlFor="orden-select" className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                            Ordenar por
+                          </label>
+                          <select
+                            id="orden-select"
+                            value={orden}
+                            onChange={(e) => {
+                              setOrden(e.target.value as NonNullable<SyscomSearchParams["orden"]>);
+                              setAutoCatalog(false);
+                              resetPage();
+                            }}
+                            className={`${selectLikeClassName} h-10`}
+                          >
+                            {ORDEN_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="mb-4">
+                          <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Fuente de datos</label>
+                          <div className="inline-flex w-full rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-white/[0.08] dark:bg-gray-950/40">
+                            {[
+                              { value: "", label: "Todas" },
+                              { value: "syscom", label: "Syscom" },
+                              { value: "manual", label: "Manual" },
+                            ].map((option) => {
+                              const active = fuente === option.value;
+                              return (
+                                <button
+                                  key={option.label}
+                                  type="button"
+                                  onClick={() => {
+                                    setFuente(option.value as "" | IntraxFuente);
+                                    setAutoCatalog(false);
+                                    resetPage();
+                                  }}
+                                  className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold transition-all ${
+                                    active
+                                      ? "bg-white text-brand-600 shadow-sm dark:bg-gray-700 dark:text-brand-400"
+                                      : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <label htmlFor="categoria-select" className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                            Categoría
+                          </label>
+                          <select
+                            id="categoria-select"
+                            value={categoriaId}
+                            onChange={(e) => {
+                              setCategoriaId(e.target.value);
+                              setAutoCatalog(false);
+                              resetPage();
+                            }}
+                            className={`${selectLikeClassName} h-10`}
+                          >
+                            <option value="">Todas las categorías</option>
+                            {categorias.map((c) => (
+                              <option key={c.id} value={c.id}>{c.nombre}</option>
+                            ))}
+                            {loadingCatalogos && !categorias.length && <option disabled>Cargando categorías...</option>}
+                          </select>
+                        </div>
+
+                        <div className="mb-4">
+                          <label htmlFor="marca-select" className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                            Marca
+                          </label>
+                          <select
+                            id="marca-select"
+                            value={marcaId}
+                            onChange={(e) => {
+                              setMarcaId(e.target.value);
+                              setAutoCatalog(false);
+                              resetPage();
+                            }}
+                            className={`${selectLikeClassName} h-10`}
+                          >
+                            <option value="">Todas las marcas</option>
+                            {marcas.slice(0, MARCAS_SELECT_LIMIT).map((m) => (
+                              <option key={m.id} value={m.id}>{m.nombre}</option>
+                            ))}
+                            {loadingCatalogos && !marcas.length && <option disabled>Cargando marcas...</option>}
+                          </select>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              clearFiltros();
+                              setFilterOpen(false);
+                            }}
+                            className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-xs font-semibold text-gray-700 transition-colors hover:border-gray-300 hover:bg-white dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-300 dark:hover:bg-gray-900/60"
+                          >
+                            Limpiar filtros
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFilterOpen(false)}
+                            className="inline-flex h-10 flex-1 items-center justify-center rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-700"
+                          >
+                            Aplicar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : null
             }
           >
             <div className="p-2 pt-0">
@@ -569,14 +975,42 @@ export default function ProductosPage() {
                               </TableCell>
                               <TableCell className="px-3 py-2 w-[80px] whitespace-nowrap">{p.total_existencia ?? "—"}</TableCell>
                               <TableCell className="px-3 py-2 text-center w-[100px]">
-                                <a
-                                  href={link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
-                                >
-                                  Ver más
-                                </a>
+                                {p.fuente === "manual" ? (
+                                  <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => openEditManual(p.producto_id)}
+                                      className="group inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500"
+                                      title="Editar"
+                                    >
+                                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M12 20h9" />
+                                        <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setManualDeleteId(p.producto_id)}
+                                      className="group inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white transition hover:border-red-400 hover:text-red-600 dark:border-white/10 dark:bg-gray-800 dark:hover:border-red-500"
+                                      title="Eliminar"
+                                    >
+                                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M3 6h18" />
+                                        <path d="M8 6V4h8v2" />
+                                        <path d="m6 6 1 14h10l1-14" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <a
+                                    href={link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                                  >
+                                    Ver más
+                                  </a>
+                                )}
                               </TableCell>
                             </TableRow>
                           );
@@ -835,6 +1269,202 @@ export default function ProductosPage() {
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">No se pudo cargar el detalle del producto.</p>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={manualModalOpen}
+        onClose={() => setManualModalOpen(false)}
+        closeOnBackdropClick={false}
+        className="flex max-h-[min(92vh,760px)] w-[min(96vw,42rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/75 p-0 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:max-w-2xl"
+      >
+        <header className="relative shrink-0 border-b border-gray-200/60 bg-gray-50/80 px-6 py-5 pr-14 dark:border-white/[0.06] dark:bg-gray-950/40 sm:pr-16">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-brand-500/12 bg-white text-brand-700 shadow-sm dark:border-brand-400/15 dark:bg-gray-900/60 dark:text-brand-300">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" strokeLinejoin="round" />
+                <path d="M12 10v6M9 13h6" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">
+                {editingManualId ? "Editar producto manual" : "Nuevo producto manual"}
+              </h3>
+              <p className="mt-1.5 max-w-md text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+                Captura la información principal y sube una imagen para guardar el producto en el catálogo manual.
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 pb-6 sm:px-6 custom-scrollbar">
+          {manualFormError && (
+            <div className="rounded-xl border border-red-200/80 bg-red-50/90 px-3.5 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+              {manualFormError}
+            </div>
+          )}
+
+          <section className="rounded-xl border border-gray-200/80 bg-white p-4 shadow-theme-xs dark:border-white/[0.08] dark:bg-gray-900/40 sm:p-5">
+            <div className="mb-3 border-b border-gray-100/90 pb-3 dark:border-white/[0.06]">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Datos del producto</h4>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Producto *</label>
+                <input
+                  value={manualForm.producto}
+                  onChange={(e) => setManualForm((p) => ({ ...p, producto: e.target.value }))}
+                  placeholder="Nombre del producto"
+                  className={inputLikeClassName}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Marca *</label>
+                  <input
+                    value={manualForm.marca}
+                    onChange={(e) => setManualForm((p) => ({ ...p, marca: e.target.value }))}
+                    placeholder="Marca"
+                    className={inputLikeClassName}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Modelo *</label>
+                  <input
+                    value={manualForm.modelo}
+                    onChange={(e) => setManualForm((p) => ({ ...p, modelo: e.target.value }))}
+                    placeholder="Modelo"
+                    className={inputLikeClassName}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Precio *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={manualForm.precio}
+                    onChange={(e) => setManualForm((p) => ({ ...p, precio: e.target.value }))}
+                    placeholder="0.00"
+                    className={inputLikeClassName}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Stock *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={manualForm.stock}
+                    onChange={(e) => setManualForm((p) => ({ ...p, stock: e.target.value }))}
+                    placeholder="0"
+                    className={inputLikeClassName}
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-gray-200/80 bg-white p-4 shadow-theme-xs dark:border-white/[0.08] dark:bg-gray-900/40 sm:p-5">
+            <div className="mb-3 border-b border-gray-100/90 pb-3 dark:border-white/[0.06]">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Imagen</h4>
+            </div>
+            {manualForm.imagen_url ? (
+              <div className="space-y-2">
+                <div className="relative w-full max-w-[280px] overflow-hidden rounded-lg border border-gray-200/80 bg-gray-50 dark:border-white/[0.08] dark:bg-gray-800/40">
+                  <img src={manualForm.imagen_url} alt="Producto" className="h-40 w-full object-contain p-2" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const oldUrl = manualForm.imagen_url;
+                    setManualForm((prev) => ({ ...prev, imagen_url: "" }));
+                    if (oldUrl) void deleteCloudinaryByUrl(oldUrl).catch(() => null);
+                  }}
+                  className="inline-flex h-9 items-center rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-white/[0.08] dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+                >
+                  Quitar imagen
+                </button>
+              </div>
+            ) : (
+              <div
+                {...getManualImageRootProps()}
+                id="producto-imagen-upload"
+                className={`dropzone cursor-pointer rounded-lg border border-dashed border-gray-300 p-4 sm:p-5 transition-all ${
+                  isManualImageDragActive
+                    ? "border-brand-500 bg-gray-100 dark:bg-gray-800"
+                    : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+                }`}
+              >
+                <input {...getManualImageInputProps()} />
+                <div className="text-center">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {isManualImageDragActive ? "Suelta aquí para subir" : "Haz clic o arrastra imagen (máx. 1)"}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Formatos: PNG, JPG, WebP o SVG
+                  </p>
+                </div>
+              </div>
+            )}
+            {manualImageUploading && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                </svg>
+                Subiendo...
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="shrink-0 border-t border-gray-200/70 bg-white px-5 py-4 dark:border-white/[0.08] dark:bg-gray-900 sm:px-6">
+          <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setManualModalOpen(false)}
+            className="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.05]"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={saveManualProduct}
+            className="inline-flex h-10 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+          >
+            {editingManualId ? "Guardar" : "Agregar"}
+          </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={!!manualDeleteId} onClose={() => setManualDeleteId(null)} className="mx-4 w-full max-w-md sm:mx-auto">
+        <div className="border-b border-gray-100 p-5 dark:border-white/[0.06] sm:p-6">
+          <h3 className="mb-2 text-center text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">Eliminar producto manual</h3>
+          <p className="mb-6 text-center text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
+            Esta acción no se puede deshacer.
+          </p>
+          <div className="flex gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setManualDeleteId(null)}
+              className="flex-1 rounded-lg border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:bg-white/[0.04] sm:text-sm"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={confirmDeleteManual}
+              className="flex-1 rounded-lg bg-error-600 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/40 sm:text-sm"
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
       </Modal>
     </>
   );
