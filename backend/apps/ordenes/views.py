@@ -1430,6 +1430,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
             'ordenes/firmas',
             'ordenes/levantamiento/dibujos',
             'productos/conceptos',
+            'productos/manuales',
         }
         if not isinstance(folder, str) or folder not in allowed_folders:
             return Response({"detail": "folder inválido"}, status=400)
@@ -1463,6 +1464,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
             'ordenes/firmas/',
             'ordenes/levantamiento/dibujos/',
             'productos/conceptos/',
+            'productos/manuales/',
         )
         if not any(public_id.startswith(p) for p in allowed_prefixes):
             return Response({"detail": "public_id fuera de alcance"}, status=400)
