@@ -108,36 +108,55 @@ const compressImage = async (
           ctx.fillRect(0, 0, width, height);
         }
         ctx?.drawImage(img, 0, 0, width, height);
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error("No se pudo procesar la imagen"));
-              return;
-            }
-            if (blob.size / 1024 <= maxSizeKB) {
-              const r = new FileReader();
-              r.readAsDataURL(blob);
-              r.onloadend = () => resolve(r.result as string);
-              return;
-            }
-            // fallback simple: reduce quality once if still too big
+        let minQuality = 0.1;
+        let maxQuality = 0.95;
+        let attempts = 0;
+        const maxAttempts = 8;
+
+        const binarySearchCompress = (low: number, high: number) => {
+          if (attempts >= maxAttempts || high - low < 0.01) {
+            const finalQuality = (low + high) / 2;
             canvas.toBlob(
-              (blob2) => {
-                if (!blob2) {
+              (blob) => {
+                if (!blob) {
                   reject(new Error("No se pudo comprimir la imagen"));
                   return;
                 }
-                const r2 = new FileReader();
-                r2.readAsDataURL(blob2);
-                r2.onloadend = () => resolve(r2.result as string);
+                const r = new FileReader();
+                r.readAsDataURL(blob);
+                r.onloadend = () => resolve(r.result as string);
               },
               "image/jpeg",
-              0.7
+              finalQuality
             );
-          },
-          "image/jpeg",
-          0.86
-        );
+            return;
+          }
+
+          attempts++;
+          const midQuality = (low + high) / 2;
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error("No se pudo comprimir la imagen"));
+                return;
+              }
+              const sizeKB = blob.size / 1024;
+              if (Math.abs(sizeKB - maxSizeKB) < 5) {
+                const r = new FileReader();
+                r.readAsDataURL(blob);
+                r.onloadend = () => resolve(r.result as string);
+              } else if (sizeKB > maxSizeKB) {
+                binarySearchCompress(low, midQuality);
+              } else {
+                binarySearchCompress(midQuality, high);
+              }
+            },
+            "image/jpeg",
+            midQuality
+          );
+        };
+
+        binarySearchCompress(minQuality, maxQuality);
       };
       img.onerror = () => reject(new Error("No se pudo leer la imagen"));
     };
@@ -270,7 +289,7 @@ export default function ProductosPage() {
     setManualFormError("");
     setManualImageUploading(true);
     try {
-      const compressed = await compressImage(file, 80, 1400, 1400);
+      const compressed = await compressImage(file, 50, 1400, 1400);
       const token = getAuthToken();
       const resp = await fetch(apiUrl("/api/ordenes/upload-image/"), {
         method: "POST",
@@ -281,7 +300,11 @@ export default function ProductosPage() {
         body: JSON.stringify({ data_url: compressed, folder: MANUAL_PRODUCTS_IMAGE_FOLDER }),
       });
       if (!resp.ok) {
-        setManualFormError("No se pudo subir la imagen.");
+        const errData = await resp.json().catch(() => null);
+        const errMsg = typeof errData?.detail === "string" && errData.detail.trim()
+          ? errData.detail
+          : "No se pudo subir la imagen.";
+        setManualFormError(errMsg);
         return;
       }
       const data = await resp.json().catch(() => null);
