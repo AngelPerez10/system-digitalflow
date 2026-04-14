@@ -16,6 +16,7 @@
     "frontend:build": "pnpm --dir frontend build"
   },
   "devDependencies": {
-    "@qwen-code/qwen-code": "^0.14.4"
+    "@qwen-code/qwen-code": "^0.14.4",
+    "husky": "^9.1.7"
   }
 }
