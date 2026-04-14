@@ -16,7 +16,6 @@
     "frontend:build": "pnpm --dir frontend build"
   },
   "devDependencies": {
-    "@qwen-code/qwen-code": "^0.14.4",
-    "globals": "15.14.0"
+    "@qwen-code/qwen-code": "^0.14.4"
   }
 }
