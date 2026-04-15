@@ -30,7 +30,7 @@ const downloadIcon = (
 
 /** Altura del visor: una sola vista útil (viewport menos cabecera del layout + migas + header de página). */
 const viewerFrameClass =
-  "min-h-[min(100dvh,520px)] w-full flex-1 border-0 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)] lg:max-h-[calc(100vh-13.5rem)]";
+  "h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
 
 export default function CotizacionPdfPage() {
   const params = useParams();
@@ -329,7 +329,7 @@ export default function CotizacionPdfPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-500">Preparando vista previa…</p>
                   </div>
                 ) : pdfObjectUrl ? (
-                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-[inset_0_1px_0_0_rgba(0,0,0,0.04)] dark:border-white/[0.08] dark:bg-gray-900/30 dark:shadow-none">
+                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-gray-200/80 bg-white shadow-[inset_0_1px_0_0_rgba(0,0,0,0.04)] dark:border-white/[0.08] dark:bg-gray-900/30 dark:shadow-none">
                     <iframe title="Vista previa del PDF" src={pdfObjectUrl} className={viewerFrameClass} />
                   </div>
                 ) : (
