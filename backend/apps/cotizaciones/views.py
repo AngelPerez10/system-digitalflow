@@ -216,7 +216,6 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
         "Unidad",
         "Descripción",
         "Detalle",
-        "ID producto",
         "Precio unitario",
         "Descuento (%)",
         "Importe total",
@@ -268,14 +267,13 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
         ws.cell(row=r, column=3, value=str(getattr(it, "unidad", "") or ""))
         ws.cell(row=r, column=4, value=str(getattr(it, "producto_nombre", "") or "")).alignment = wrap
         ws.cell(row=r, column=5, value=str(getattr(it, "producto_descripcion", "") or "")).alignment = wrap
-        ws.cell(row=r, column=6, value=str(getattr(it, "producto_externo_id", "") or ""))
-        ws.cell(row=r, column=7, value=round(pu, 2))
-        ws.cell(row=r, column=8, value=round(descuento, 2))
-        ws.cell(row=r, column=9, value=round(importe, 2))
+        ws.cell(row=r, column=6, value=round(pu, 2))
+        ws.cell(row=r, column=7, value=round(descuento, 2))
+        ws.cell(row=r, column=8, value=round(importe, 2))
         if (r - first_data_row) % 2 == 1:
-            for cidx in range(1, 10):
+            for cidx in range(1, 9):
                 ws.cell(row=r, column=cidx).fill = zebra_fill
-        for cidx in range(1, 10):
+        for cidx in range(1, 9):
             ws.cell(row=r, column=cidx).border = table_border
 
         thumb = str(getattr(it, "thumbnail_url", "") or "").strip()
@@ -314,53 +312,52 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     base_sin_iva, iva_display = _subtotal_iva_display_split(total_con_iva)
 
     r += 1
-    ws.cell(row=r, column=8, value="Importe conceptos (sin IVA)").font = Font(bold=True, color="111827")
-    ws.cell(row=r, column=9, value=round(net_subtotal_sin_iva, 2))
-    ws.cell(row=r, column=9).number_format = '$#,##0.00'
+    ws.cell(row=r, column=7, value="Importe conceptos (sin IVA)").font = Font(bold=True, color="111827")
+    ws.cell(row=r, column=8, value=round(net_subtotal_sin_iva, 2))
+    ws.cell(row=r, column=8).number_format = '$#,##0.00'
     r += 1
     if descuento_cliente_pct:
-        ws.cell(row=r, column=8, value=f"Descuento cliente ({descuento_cliente_pct:.2f}%)").font = Font(bold=True, color="111827")
-        ws.cell(row=r, column=9, value=round(descuento_cliente_monto, 2))
-        ws.cell(row=r, column=9).number_format = '$#,##0.00'
+        ws.cell(row=r, column=7, value=f"Descuento cliente ({descuento_cliente_pct:.2f}%)").font = Font(bold=True, color="111827")
+        ws.cell(row=r, column=8, value=round(descuento_cliente_monto, 2))
+        ws.cell(row=r, column=8).number_format = '$#,##0.00'
         r += 1
 
-    ws.cell(row=r, column=8, value="Subtotal").font = Font(bold=True, color="111827")
-    ws.cell(row=r, column=9, value=round(base_sin_iva, 2))
-    ws.cell(row=r, column=9).number_format = '$#,##0.00'
+    ws.cell(row=r, column=7, value="Subtotal").font = Font(bold=True, color="111827")
+    ws.cell(row=r, column=8, value=round(base_sin_iva, 2))
+    ws.cell(row=r, column=8).number_format = '$#,##0.00'
     r += 1
-    ws.cell(row=r, column=8, value="IVA (16%)").font = Font(bold=True, color="111827")
-    ws.cell(row=r, column=9, value=round(iva_display, 2))
-    ws.cell(row=r, column=9).number_format = '$#,##0.00'
+    ws.cell(row=r, column=7, value="IVA (16%)").font = Font(bold=True, color="111827")
+    ws.cell(row=r, column=8, value=round(iva_display, 2))
+    ws.cell(row=r, column=8).number_format = '$#,##0.00'
     r += 1
-    ws.cell(row=r, column=8, value="Total").font = Font(bold=True, color="FFFFFF")
+    ws.cell(row=r, column=7, value="Total").font = Font(bold=True, color="FFFFFF")
+    ws.cell(row=r, column=7).fill = PatternFill("solid", fgColor="374151")
+    ws.cell(row=r, column=8, value=round(total_con_iva, 2))
+    ws.cell(row=r, column=8).number_format = '$#,##0.00'
+    ws.cell(row=r, column=8).font = Font(bold=True, color="FFFFFF")
     ws.cell(row=r, column=8).fill = PatternFill("solid", fgColor="374151")
-    ws.cell(row=r, column=9, value=round(total_con_iva, 2))
-    ws.cell(row=r, column=9).number_format = '$#,##0.00'
-    ws.cell(row=r, column=9).font = Font(bold=True, color="FFFFFF")
-    ws.cell(row=r, column=9).fill = PatternFill("solid", fgColor="374151")
     for rr in range(r - (3 if descuento_cliente_pct else 2), r + 1):
+        ws.cell(row=rr, column=7).border = table_border
         ws.cell(row=rr, column=8).border = table_border
-        ws.cell(row=rr, column=9).border = table_border
 
     ws.column_dimensions["A"].width = 12
     ws.column_dimensions["B"].width = 18
     ws.column_dimensions["C"].width = 12
     ws.column_dimensions["D"].width = 30
     ws.column_dimensions["E"].width = 34
-    ws.column_dimensions["F"].width = 16
-    ws.column_dimensions["G"].width = 18
-    ws.column_dimensions["H"].width = 14
-    ws.column_dimensions["I"].width = 16
+    ws.column_dimensions["F"].width = 18
+    ws.column_dimensions["G"].width = 14
+    ws.column_dimensions["H"].width = 16
     ws.column_dimensions["J"].width = 12
 
     for rr in range(first_data_row, last_data_row + 1):
-        for cc in range(2, 10):
+        for cc in range(2, 9):
             ws.cell(row=rr, column=cc).alignment = wrap
         ws.cell(row=rr, column=2).alignment = center_wrap
         ws.cell(row=rr, column=3).alignment = center_wrap
-        ws.cell(row=rr, column=7).number_format = '$#,##0.00'
-        ws.cell(row=rr, column=8).number_format = '0.00'
-        ws.cell(row=rr, column=9).number_format = '$#,##0.00'
+        ws.cell(row=rr, column=6).number_format = '$#,##0.00'
+        ws.cell(row=rr, column=7).number_format = '0.00'
+        ws.cell(row=rr, column=8).number_format = '$#,##0.00'
 
     ws.freeze_panes = f"A{first_data_row}"
 
