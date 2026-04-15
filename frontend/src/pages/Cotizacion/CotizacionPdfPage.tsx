@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import Button from "@/components/ui/button/Button";
@@ -35,7 +35,9 @@ const viewerFrameClass =
 export default function CotizacionPdfPage() {
   const params = useParams();
   const cotizacionId = params.id;
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const isPreviewMode = String(cotizacionId || "").toUpperCase() === "PREVIEW" || searchParams.get("preview") === "1";
 
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
   const [filename, setFilename] = useState<string>("cotizacion.pdf");
@@ -49,13 +51,17 @@ export default function CotizacionPdfPage() {
   }>({ show: false, variant: "error", title: "", message: "" });
 
   /** Folio visible (idx), no el id interno de la URL */
-  const [cotizacionIdx, setCotizacionIdx] = useState<number | null>(null);
+  const [cotizacionIdx, setCotizacionIdx] = useState<number | string | null>(null);
 
   const getToken = () => {
     return localStorage.getItem("token") || sessionStorage.getItem("token");
   };
 
   useEffect(() => {
+    if (isPreviewMode) {
+      setCotizacionIdx("PREVIEW");
+      return;
+    }
     let cancelled = false;
     const id = cotizacionId;
     const token = getToken();
@@ -85,7 +91,7 @@ export default function CotizacionPdfPage() {
     return () => {
       cancelled = true;
     };
-  }, [cotizacionId]);
+  }, [cotizacionId, isPreviewMode]);
 
   useEffect(() => {
     let isMounted = true;
@@ -116,11 +122,29 @@ export default function CotizacionPdfPage() {
       try {
         if (isMounted) setLoading(true);
 
-        const resp = await fetch(apiUrl(`/api/cotizaciones/${cotizacionId}/pdf/`), {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        let resp: Response;
+        if (isPreviewMode) {
+          const rawPayload = sessionStorage.getItem("cotizacion:pdf-preview-payload");
+          if (!rawPayload) {
+            setAlert({ show: true, variant: "warning", title: "Sin datos", message: "No se encontró el contenido de la vista previa." });
+            setPdfObjectUrl(null);
+            return;
+          }
+          resp = await fetch(apiUrl("/api/cotizaciones/pdf-preview/"), {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: rawPayload,
+          });
+        } else {
+          resp = await fetch(apiUrl(`/api/cotizaciones/${cotizacionId}/pdf/`), {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        }
 
         if (!isMounted) return;
 
@@ -149,11 +173,8 @@ export default function CotizacionPdfPage() {
         const m = dispo.match(/filename="?([^";]+)"?/i);
 
         const isPdf = ct.includes("application/pdf");
-        const nextFilename = m?.[1]
-          ? String(m[1])
-          : isPdf
-            ? `Cotizacion_${cotizacionId}.pdf`
-            : `Cotizacion_${cotizacionId}.html`;
+        const baseName = isPreviewMode ? "Cotizacion_PREVIEW" : `Cotizacion_${cotizacionId}`;
+        const nextFilename = m?.[1] ? String(m[1]) : isPdf ? `${baseName}.pdf` : `${baseName}.html`;
         setFilename(nextFilename);
 
         const blob = await resp.blob();
@@ -173,7 +194,7 @@ export default function CotizacionPdfPage() {
     return () => {
       isMounted = false;
     };
-  }, [cotizacionId]);
+  }, [cotizacionId, isPreviewMode]);
 
   useEffect(() => {
     if (!loading) {
