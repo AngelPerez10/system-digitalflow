@@ -1767,8 +1767,93 @@ export default function NuevaCotizacionPage() {
     if (previewTab) {
       try {
         previewTab.document.title = "Generando vista previa...";
-        previewTab.document.body.innerHTML =
-          "<div style='font-family:Arial,Helvetica,sans-serif;padding:24px;color:#111827'>Generando vista previa de PDF, espera unos segundos...</div>";
+        previewTab.document.body.innerHTML = `
+          <style>
+            :root {
+              color-scheme: light;
+            }
+            * {
+              box-sizing: border-box;
+            }
+            body {
+              margin: 0;
+              min-height: 100vh;
+              font-family: Inter, Arial, Helvetica, sans-serif;
+              background: radial-gradient(circle at top, #f3f4f6 0%, #e5e7eb 45%, #d1d5db 100%);
+              display: grid;
+              place-items: center;
+              padding: 24px;
+              color: #111827;
+            }
+            .overlay {
+              width: 100%;
+              max-width: 520px;
+              border-radius: 20px;
+              border: 1px solid #d1d5db;
+              background: rgba(255, 255, 255, 0.92);
+              box-shadow: 0 24px 64px -18px rgba(17, 24, 39, 0.35);
+              backdrop-filter: blur(8px);
+              padding: 28px 24px;
+            }
+            .title {
+              margin: 0 0 8px 0;
+              font-size: 22px;
+              line-height: 1.2;
+              letter-spacing: -0.02em;
+              font-weight: 700;
+              color: #111827;
+            }
+            .subtitle {
+              margin: 0;
+              font-size: 14px;
+              line-height: 1.5;
+              color: #4b5563;
+            }
+            .row {
+              margin-top: 18px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .spinner {
+              width: 18px;
+              height: 18px;
+              border-radius: 999px;
+              border: 2px solid #d1d5db;
+              border-top-color: #2563eb;
+              animation: spin 0.8s linear infinite;
+            }
+            .chip {
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+              padding: 7px 10px;
+              border-radius: 999px;
+              border: 1px solid #dbeafe;
+              background: #eff6ff;
+              color: #1d4ed8;
+              font-size: 12px;
+              font-weight: 600;
+            }
+            @keyframes spin {
+              to {
+                transform: rotate(360deg);
+              }
+            }
+          </style>
+          <main class="overlay" role="dialog" aria-live="polite" aria-busy="true">
+            <p class="chip"><span class="spinner" aria-hidden="true"></span> Procesando cotización</p>
+            <h1 class="title">Generando vista previa PDF</h1>
+            <p class="subtitle">
+              Espera unos segundos mientras se genera el documento.
+              Esta pestaña se actualizará automáticamente cuando esté listo.
+            </p>
+            <div class="row">
+              <span class="spinner" aria-hidden="true"></span>
+              <p class="subtitle" style="margin:0;">Preparando archivo...</p>
+            </div>
+          </main>
+        `;
       } catch {
         // ignore
       }
