@@ -1761,6 +1761,19 @@ export default function NuevaCotizacionPage() {
       })),
     };
 
+    // Abrir la pestaña inmediatamente por gesto del usuario evita bloqueos en móvil
+    // y cuando la generación tarda mientras cambias de pestaña.
+    const previewTab = window.open("", "_blank");
+    if (previewTab) {
+      try {
+        previewTab.document.title = "Generando vista previa...";
+        previewTab.document.body.innerHTML =
+          "<div style='font-family:Arial,Helvetica,sans-serif;padding:24px;color:#111827'>Generando vista previa de PDF, espera unos segundos...</div>";
+      } catch {
+        // ignore
+      }
+    }
+
     try {
       setPreviewLoading(true);
       const res = await fetch(apiUrl("/api/cotizaciones/pdf-preview/"), {
@@ -1774,15 +1787,29 @@ export default function NuevaCotizacionPage() {
 
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
+        if (previewTab && !previewTab.closed) previewTab.close();
         setAlert({ show: true, variant: "error", title: "Error", message: txt || "No se pudo generar la vista previa." });
         return;
       }
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener,noreferrer");
+      if (previewTab && !previewTab.closed) {
+        previewTab.location.href = url;
+        previewTab.focus();
+      } else {
+        // Fallback si el navegador bloqueó la pestaña emergente.
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
+      if (previewTab && !previewTab.closed) previewTab.close();
       setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo abrir la vista previa." });
     } finally {
       setPreviewLoading(false);
