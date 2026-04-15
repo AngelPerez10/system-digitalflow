@@ -253,6 +253,7 @@ export default function NuevaCotizacionPage() {
   }>({ show: false, variant: "info", title: "", message: "" });
 
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [excelLoading, setExcelLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(8);
 
   const [cloneModalOpen, setCloneModalOpen] = useState(false);
@@ -264,8 +265,10 @@ export default function NuevaCotizacionPage() {
   const [cloneListLoading, setCloneListLoading] = useState(false);
   const [clonePickingId, setClonePickingId] = useState<number | null>(null);
 
+  const exportBusy = previewLoading || excelLoading;
+
   useEffect(() => {
-    if (!previewLoading) {
+    if (!exportBusy) {
       setLoadingProgress(100);
       return;
     }
@@ -279,7 +282,7 @@ export default function NuevaCotizacionPage() {
     }, 650);
 
     return () => window.clearInterval(interval);
-  }, [previewLoading]);
+  }, [exportBusy]);
 
   useEffect(() => {
     const token = getToken();
@@ -1697,7 +1700,7 @@ export default function NuevaCotizacionPage() {
   };
 
   const handlePreviewPdf = async () => {
-    if (previewLoading) return;
+    if (previewLoading || excelLoading) return;
 
     const token = getToken();
     if (!token) {
@@ -1786,12 +1789,75 @@ export default function NuevaCotizacionPage() {
     }
   };
 
+  const handleDownloadExcel = async () => {
+    if (previewLoading || excelLoading) return;
+
+    const token = getToken();
+    if (!token) {
+      setAlert({ show: true, variant: "error", title: "Sin sesión", message: "Inicia sesión para descargar el Excel." });
+      return;
+    }
+
+    const cotizacionPk = String(editingCotizacionId || activeCotizacionId || "").trim();
+    if (!cotizacionPk) {
+      setAlert({
+        show: true,
+        variant: "warning",
+        title: "Guarda la cotización",
+        message: "Para descargar el Excel, primero guarda la cotización para generar su folio.",
+      });
+      return;
+    }
+
+    try {
+      setExcelLoading(true);
+      const resp = await fetch(apiUrl(`/api/cotizaciones/${cotizacionPk}/excel/`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!resp.ok) {
+        let msg = `No se pudo generar el Excel (HTTP ${resp.status}).`;
+        try {
+          const ct = resp.headers.get("content-type") || "";
+          if (ct.includes("application/json")) {
+            const data = await resp.json();
+            msg = (data as { detail?: string })?.detail || msg;
+          } else {
+            msg = (await resp.text()) || msg;
+          }
+        } catch {
+          /* ignore */
+        }
+        setAlert({ show: true, variant: "error", title: "Error", message: msg });
+        return;
+      }
+
+      const dispo = resp.headers.get("content-disposition") || "";
+      const m = dispo.match(/filename="?([^";]+)"?/i);
+      const filename = m?.[1] ? String(m[1]) : `Cotizacion_${cotizacionPk}.xlsx`;
+
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch {
+      setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo descargar el Excel." });
+    } finally {
+      setExcelLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
       <div className="mx-auto max-w-7xl space-y-5 px-3 pb-8 pt-5 text-sm sm:space-y-8 sm:px-5 sm:pb-12 sm:pt-8 sm:text-base md:px-6 lg:px-8">
       <PageMeta title="Nueva Cotización | Sistema Grupo Intrax GPS" description="Crear nueva cotización" />
 
-      <Modal isOpen={previewLoading} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
+      <Modal isOpen={exportBusy} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
         <div className="p-7 sm:p-8">
           <div className="flex flex-col items-center justify-center text-center">
             <div className="relative mb-6">
@@ -1799,6 +1865,20 @@ export default function NuevaCotizacionPage() {
                 <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-white/5">
                   <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-brand-600 dark:border-t-brand-400 animate-spin" />
                   <div className="relative flex items-center justify-center">
+                    {excelLoading ? (
+                      <svg className="h-8 w-8 text-emerald-700 dark:text-emerald-300" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <path
+                          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinejoin="round"
+                        />
+                        <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                        <path d="M8.5 13h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        <path d="M8.5 16.5H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        <path d="M8.5 10H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      </svg>
+                    ) : (
                     <svg
                       className="w-8 h-8 text-brand-700 dark:text-brand-300"
                       viewBox="0 0 512 512"
@@ -1810,12 +1890,15 @@ export default function NuevaCotizacionPage() {
                       <path d="M250.191,252.785h-21.868c-5.432,0-8.686,3.533-8.686,8.825v74.843c0,5.3,3.253,8.693,8.686,8.693h21.868c19.69,0,31.923-6.249,36.81-21.324c1.76-5.3,2.723-11.681,2.723-24.857c0-13.175-0.964-19.557-2.723-24.856C282.113,259.034,269.881,252.785,250.191,252.785z M267.856,316.896c-2.318,7.331-8.965,10.459-18.21,10.459h-9.23c-0.545,0-0.824-0.272-0.824-0.816v-55.146c0-0.545,0.279-0.817,0.824-0.817h9.23c9.245,0,15.892,3.128,18.21,10.46c0.95,3.128,1.62,8.56,1.62,17.93C269.476,308.336,268.805,313.768,267.856,316.896z" />
                       <path d="M361.167,252.785h-44.812c-5.432,0-8.7,3.533-8.7,8.825v73.754c0,6.388,4.218,10.599,10.055,10.599c5.697,0,9.914-4.21,9.914-10.599v-26.351c0-0.538,0.265-0.81,0.81-0.81h26.086c5.837,0,9.23-3.532,9.23-8.56c0-5.028-3.393-8.553-9.23-8.553h-26.086c-0.545,0-0.81-0.272-0.81-0.817v-19.425c0-0.545,0.265-0.816,0.81-0.816h32.733c5.572,0,9.245-3.666,9.245-8.553C370.411,256.45,366.738,252.785,361.167,252.785z" />
                     </svg>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
 
-            <h3 className="text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">Generando vista previa</h3>
+            <h3 className="text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">
+              {excelLoading ? "Generando Excel" : "Generando vista previa"}
+            </h3>
             <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
               Esto puede tardar unos segundos. No cierres esta ventana.
             </p>
@@ -1832,7 +1915,7 @@ export default function NuevaCotizacionPage() {
                 />
               </div>
               <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">
-                Generando archivo de cotización…
+                {excelLoading ? "Preparando archivo XLSX…" : "Generando archivo de cotización…"}
               </div>
             </div>
           </div>
@@ -2623,7 +2706,7 @@ export default function NuevaCotizacionPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={!canGuardarCotizacion || previewLoading}
+                        disabled={!canGuardarCotizacion || exportBusy}
                         onClick={handlePreviewPdf}
                         className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-brand-200/90 bg-white px-4 py-3 text-xs font-semibold text-brand-800 transition-colors hover:bg-brand-50/80 focus:outline-none focus:ring-2 focus:ring-brand-500/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-500/30 dark:bg-transparent dark:text-brand-200 dark:hover:bg-brand-500/[0.08] sm:min-h-0"
                       >
@@ -2636,6 +2719,28 @@ export default function NuevaCotizacionPage() {
                           </>
                         ) : (
                           "Vista previa PDF"
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={exportBusy || !String(editingCotizacionId || activeCotizacionId || "").trim()}
+                        onClick={() => void handleDownloadExcel()}
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-emerald-200/90 bg-white px-4 py-3 text-xs font-semibold text-emerald-900 transition-colors hover:bg-emerald-50/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/30 dark:bg-transparent dark:text-emerald-100 dark:hover:bg-emerald-500/[0.08] sm:min-h-0"
+                        title={
+                          !String(editingCotizacionId || activeCotizacionId || "").trim()
+                            ? "Guarda la cotización para descargar el Excel"
+                            : undefined
+                        }
+                      >
+                        {excelLoading ? (
+                          <>
+                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                            </svg>
+                            Generando...
+                          </>
+                        ) : (
+                          "Descargar Excel"
                         )}
                       </button>
                       <button

@@ -96,6 +96,26 @@ export default function CotizacionesPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [cotizacionToDelete, setCotizacionToDelete] = useState<CotizacionRow | null>(null);
 
+  const [excelLoading, setExcelLoading] = useState(false);
+  const [excelLoadingProgress, setExcelLoadingProgress] = useState(8);
+
+  useEffect(() => {
+    if (!excelLoading) {
+      setExcelLoadingProgress(100);
+      return;
+    }
+
+    setExcelLoadingProgress(8);
+    const interval = window.setInterval(() => {
+      setExcelLoadingProgress((p) => {
+        const next = p + (p < 55 ? 10 : p < 80 ? 6 : 3);
+        return Math.min(95, next);
+      });
+    }, 650);
+
+    return () => window.clearInterval(interval);
+  }, [excelLoading]);
+
   const formatMoney = (n: number) => {
     const v = Number.isFinite(n) ? n : 0;
     return v.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
@@ -337,10 +357,117 @@ export default function CotizacionesPage() {
     return { total, autorizadas, pendientes, canceladas };
   }, [rows]);
 
+  const handleDownloadExcel = async (r: CotizacionRow) => {
+    if (excelLoading) return;
+    if (!canCotizacionesView) {
+      setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para ver cotizaciones." });
+      window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
+      return;
+    }
+
+    const token = getToken();
+    if (!token) {
+      setAlert({ show: true, variant: "error", title: "Sin sesión", message: "Inicia sesión para descargar el Excel." });
+      window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
+      return;
+    }
+
+    const sid = String(r.id || "").trim();
+    if (!sid) return;
+
+    try {
+      setExcelLoading(true);
+      const resp = await fetch(apiUrl(`/api/cotizaciones/${sid}/excel/`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!resp.ok) {
+        let msg = `No se pudo generar el Excel (HTTP ${resp.status}).`;
+        try {
+          const ct = resp.headers.get("content-type") || "";
+          if (ct.includes("application/json")) {
+            const data = await resp.json();
+            msg = (data as { detail?: string })?.detail || msg;
+          } else {
+            msg = (await resp.text()) || msg;
+          }
+        } catch {
+          /* ignore */
+        }
+        setAlert({ show: true, variant: "error", title: "Error", message: msg });
+        window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 3500);
+        return;
+      }
+
+      const dispo = resp.headers.get("content-disposition") || "";
+      const m = dispo.match(/filename="?([^";]+)"?/i);
+      const fallbackIdx = r.idx ? String(r.idx) : sid;
+      const filename = m?.[1] ? String(m[1]) : `Cotizacion_${fallbackIdx}.xlsx`;
+
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch {
+      setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo descargar el Excel." });
+      window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 3500);
+    } finally {
+      setExcelLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
       <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
       <PageMeta title="Cotizaciones | Sistema Grupo Intrax GPS" description="Gestión de cotizaciones" />
+
+      <Modal isOpen={excelLoading} onClose={() => {}} showCloseButton={false} className="mx-4 max-w-md sm:mx-auto">
+        <div className="p-7 sm:p-8">
+          <div className="flex flex-col items-center justify-center text-center">
+            <div className="relative mb-6">
+              <div className="relative flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-gray-200/80 bg-gray-50 dark:border-white/10 dark:bg-gray-900/80">
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-gray-100 bg-white dark:border-white/5 dark:bg-gray-800">
+                  <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-brand-600 dark:border-t-brand-400" />
+                  <svg className="relative h-7 w-7 text-emerald-700 dark:text-emerald-300" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path
+                      d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinejoin="round"
+                    />
+                    <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                    <path d="M8.5 13h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="M8.5 16.5H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="M8.5 10H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <h3 className="text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">Generando Excel</h3>
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">Esto puede tardar unos segundos. No cierres esta ventana.</p>
+
+            <div className="mt-6 w-full">
+              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                <span>Progreso</span>
+                <span className="font-medium tabular-nums">{Math.min(99, Math.max(0, Math.round(excelLoadingProgress)))}%</span>
+              </div>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full border border-gray-200/60 bg-gray-100 dark:border-white/[0.06] dark:bg-gray-800/80">
+                <div
+                  className="h-full bg-brand-600 transition-[width] duration-500 ease-out dark:bg-brand-500"
+                  style={{ width: `${Math.min(100, Math.max(0, excelLoadingProgress))}%` }}
+                />
+              </div>
+              <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">Preparando archivo XLSX…</div>
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
@@ -597,8 +724,9 @@ export default function CotizacionesPage() {
                                 <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
                                   <button
                                     type="button"
+                                    disabled={excelLoading}
                                     onClick={() => navigate(`/cotizacion/${r.id}/pdf`)}
-                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
+                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
                                     title="PDF"
                                   >
                                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -611,6 +739,27 @@ export default function CotizacionesPage() {
                                   </button>
                                   <button
                                     type="button"
+                                    disabled={excelLoading}
+                                    onClick={() => void handleDownloadExcel(r)}
+                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-emerald-400 hover:text-emerald-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-gray-800 dark:hover:border-emerald-500 dark:hover:text-emerald-300 sm:h-7 sm:w-7 sm:rounded"
+                                    title="Excel"
+                                  >
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden>
+                                      <path
+                                        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
+                                        stroke="currentColor"
+                                        strokeWidth="1.8"
+                                        strokeLinejoin="round"
+                                      />
+                                      <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                                      <path d="M8.5 13h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                      <path d="M8.5 16.5H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                      <path d="M8.5 10H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={excelLoading}
                                     onClick={() => {
                                       if (!canCotizacionesEdit) {
                                         setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar cotizaciones.' });
@@ -619,15 +768,16 @@ export default function CotizacionesPage() {
                                       }
                                       navigate(`/cotizacion/${r.id}/editar`);
                                     }}
-                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
+                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
                                     title="Editar"
                                   >
                                     <PencilIcon className="w-4 h-4" />
                                   </button>
                                   <button
                                     type="button"
+                                    disabled={excelLoading}
                                     onClick={() => handleAskDelete(r)}
-                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
+                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-gray-800 dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
                                     title="Eliminar"
                                   >
                                     <TrashBinIcon className="w-4 h-4" />

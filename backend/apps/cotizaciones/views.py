@@ -1,14 +1,21 @@
 """ViewSets for cotizaciones app."""
 import base64
+import io
 import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+from django.db import models as django_models
 from django.db.models import Prefetch
 from django.http import HttpResponse
+from openpyxl import Workbook
+from openpyxl.drawing.image import Image as XLImage
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from PIL import Image as PILImage
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -19,6 +26,349 @@ from .models import Cotizacion
 from .serializers import CotizacionSerializer
 
 IVA_MX_DISPLAY = 1.16
+
+
+def _safe_http_image_bytes(url: str, max_bytes: int = 2_500_000) -> bytes | None:
+    """Fetch remote image bytes for Excel embedding (basic SSRF guard)."""
+    if not isinstance(url, str):
+        return None
+    u = url.strip()
+    if not u:
+        return None
+    try:
+        parsed = urlparse(u)
+    except Exception:
+        return None
+    if parsed.scheme not in ("http", "https"):
+        return None
+    host = (parsed.hostname or "").lower()
+    if not host or host in ("localhost", "127.0.0.1", "::1"):
+        return None
+
+    req = Request(
+        url=u,
+        headers={
+            "User-Agent": "Mozilla/5.0 (compatible; system-digitalflow/1.0)",
+            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        },
+        method="GET",
+    )
+    try:
+        with urlopen(req, timeout=20) as resp:
+            data = resp.read(max_bytes + 1)
+    except Exception:
+        return None
+    if not data or len(data) > max_bytes:
+        return None
+    return data
+
+
+def _user_display(user) -> str:
+    if not user:
+        return "—"
+    try:
+        first = getattr(user, "first_name", "") or ""
+        last = getattr(user, "last_name", "") or ""
+        full = f"{first} {last}".strip()
+        if full:
+            return full
+        return getattr(user, "username", None) or getattr(user, "email", None) or str(getattr(user, "pk", ""))
+    except Exception:
+        return "—"
+
+
+def _medio_label(raw: str) -> str:
+    s = str(raw or "").strip().upper().replace(" ", "_")
+    m = {
+        "BNI": "BNI",
+        "REFERIDO": "Referido",
+        "WEB": "Web",
+        "TIENDA_ONLINE": "Tienda Online",
+        "FACEBOOK": "Facebook",
+        "INSTAGRAM": "Instagram",
+        "TIKTOK": "Tiktok",
+        "GOOGLE_MAPS": "Google Maps",
+        "YOUTUBE": "Youtube",
+        "TIENDA_FISICA": "Tienda Fisica",
+        "OTRO": "Otro",
+    }
+    return m.get(s, str(raw or "").strip() or "—")
+
+
+def _status_label(raw: str) -> str:
+    s = str(raw or "").strip().upper()
+    if s == "AUTORIZADA":
+        return "Autorizada"
+    if s == "CANCELADA":
+        return "Cancelada"
+    if s == "PENDIENTE" or not s:
+        return "Pendiente"
+    return str(raw or "").strip() or "—"
+
+
+def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
+    """Genera un .xlsx con encabezado, líneas (con miniatura) y totales."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Cotización"
+
+    title_font = Font(bold=True, color="FFFFFF", size=13)
+    title_fill = PatternFill("solid", fgColor="374151")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    header_fill = PatternFill("solid", fgColor="4B5563")
+    label_font = Font(bold=True, color="111827", size=10)
+    wrap = Alignment(wrap_text=True, vertical="top")
+    center_wrap = Alignment(wrap_text=True, horizontal="center", vertical="center")
+    thin = Side(style="thin", color="D1D5DB")
+    table_border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    zebra_fill = PatternFill("solid", fgColor="F9FAFB")
+    label_fill = PatternFill("solid", fgColor="F3F4F6")
+    value_fill = PatternFill("solid", fgColor="FFFFFF")
+
+    cliente_obj = getattr(cotizacion, "cliente_id", None)
+    if cliente_obj is not None and not isinstance(cliente_obj, django_models.Model):
+        try:
+            from apps.clientes.models import Cliente
+
+            cliente_obj = Cliente.objects.filter(id=cliente_obj).first() or None
+        except Exception:
+            cliente_obj = None
+
+    cliente_nombre = (getattr(cliente_obj, "nombre", None) or cotizacion.cliente or "").strip() or "—"
+    folio = getattr(cotizacion, "idx", None) or cotizacion.id
+    fecha = cotizacion.fecha.strftime("%d/%m/%Y") if cotizacion.fecha else "—"
+
+    r = 1
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+    title_cell = ws.cell(row=r, column=1, value="COTIZACIÓN")
+    title_cell.font = title_font
+    title_cell.fill = title_fill
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    title_cell.border = table_border
+    ws.row_dimensions[r].height = 28
+    r += 2
+
+    meta_pairs = [
+        ("Folio", folio),
+        ("Fecha", fecha),
+        ("Medio de contacto", _medio_label(getattr(cotizacion, "medio_contacto", "") or "")),
+        ("Status", _status_label(getattr(cotizacion, "status", "") or "")),
+        ("Creada por", _user_display(getattr(cotizacion, "creado_por", None))),
+        ("Editada por", _user_display(getattr(cotizacion, "actualizado_por", None))),
+        ("Cliente", cliente_nombre),
+        ("Contacto", str(cotizacion.contacto or "").strip() or "—"),
+    ]
+    try:
+        dcp = float(cotizacion.descuento_cliente_pct or 0)
+    except Exception:
+        dcp = 0.0
+    meta_pairs.extend(
+        [
+            ("Descuento de Cliente (%)", f"{dcp:.2f}"),
+            ("Moneda", "MXN"),
+        ]
+    )
+    try:
+        fc = cotizacion.fecha_creacion.strftime("%d/%m/%Y %H:%M") if getattr(cotizacion, "fecha_creacion", None) else "—"
+    except Exception:
+        fc = "—"
+    try:
+        fa = cotizacion.fecha_actualizacion.strftime("%d/%m/%Y %H:%M") if getattr(cotizacion, "fecha_actualizacion", None) else "—"
+    except Exception:
+        fa = "—"
+    meta_pairs.extend(
+        [
+            ("Fecha creación", fc),
+            ("Fecha última actualización", fa),
+        ]
+    )
+
+    # Bloque horizontal: etiqueta/valor de izquierda a derecha (4 pares por fila)
+    pair_cols = [(1, 2), (3, 4), (5, 6), (7, 8)]
+    block_row = r
+    for i, (label, value) in enumerate(meta_pairs):
+        pair_idx = i % len(pair_cols)
+        if pair_idx == 0 and i > 0:
+            block_row += 1
+        c_label, c_value = pair_cols[pair_idx]
+
+        cl = ws.cell(row=block_row, column=c_label, value=label)
+        cv = ws.cell(row=block_row, column=c_value, value=value)
+        cl.font = label_font
+        cl.fill = label_fill
+        cl.alignment = Alignment(vertical="center")
+        cl.border = table_border
+        cv.fill = value_fill
+        cv.alignment = wrap
+        cv.border = table_border
+    # Bordes suaves en columnas no usadas (9-10)
+    for rr in range(r, block_row + 1):
+        for cc in (9, 10):
+            ws.cell(row=rr, column=cc).border = table_border
+            ws.cell(row=rr, column=cc).fill = value_fill
+
+    r = block_row + 2
+
+    # Tabla de conceptos
+    headers = [
+        "Imagen",
+        "Cantidad",
+        "Unidad",
+        "Descripción",
+        "Detalle",
+        "ID producto",
+        "URL miniatura",
+        "Precio unitario",
+        "Descuento (%)",
+        "Importe total",
+    ]
+    for col, h in enumerate(headers, start=1):
+        cell = ws.cell(row=r, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_wrap
+        cell.border = table_border
+    ws.row_dimensions[r].height = 24
+    r += 1
+    first_data_row = r
+
+    items_rel = getattr(cotizacion, "items", None)
+    if items_rel is None:
+        items = []
+    elif hasattr(items_rel, "all"):
+        try:
+            items = list(items_rel.all())
+        except Exception:
+            items = []
+    elif isinstance(items_rel, (list, tuple)):
+        items = list(items_rel)
+    else:
+        items = []
+
+    net_subtotal_sin_iva = 0.0
+    net_subtotal_con_iva = 0.0
+    for it in items:
+        try:
+            cantidad = float(it.cantidad or 0)
+            precio_lista = float(it.precio_lista or 0)
+            descuento = float(it.descuento_pct or 0)
+            precio_con_iva = precio_lista * (1 - (descuento / 100.0))
+            pu = precio_con_iva / IVA_MX_DISPLAY
+            importe = cantidad * pu
+            net_subtotal_sin_iva += importe
+            net_subtotal_con_iva += cantidad * precio_con_iva
+        except Exception:
+            cantidad = 0.0
+            precio_lista = 0.0
+            descuento = 0.0
+            pu = 0.0
+            importe = 0.0
+
+        ws.row_dimensions[r].height = 64
+        ws.cell(row=r, column=2, value=cantidad)
+        ws.cell(row=r, column=3, value=str(getattr(it, "unidad", "") or ""))
+        ws.cell(row=r, column=4, value=str(getattr(it, "producto_nombre", "") or "")).alignment = wrap
+        ws.cell(row=r, column=5, value=str(getattr(it, "producto_descripcion", "") or "")).alignment = wrap
+        ws.cell(row=r, column=6, value=str(getattr(it, "producto_externo_id", "") or ""))
+        ws.cell(row=r, column=7, value=str(getattr(it, "thumbnail_url", "") or "")).alignment = wrap
+        ws.cell(row=r, column=8, value=round(pu, 2))
+        ws.cell(row=r, column=9, value=round(descuento, 2))
+        ws.cell(row=r, column=10, value=round(importe, 2))
+        if (r - first_data_row) % 2 == 1:
+            for cidx in range(1, 11):
+                ws.cell(row=r, column=cidx).fill = zebra_fill
+        for cidx in range(1, 11):
+            ws.cell(row=r, column=cidx).border = table_border
+
+        thumb = str(getattr(it, "thumbnail_url", "") or "").strip()
+        if thumb:
+            raw = _safe_http_image_bytes(thumb)
+            if raw:
+                try:
+                    with PILImage.open(io.BytesIO(raw)) as pil_im:
+                        out = io.BytesIO()
+                        pil_im.save(out, format="PNG")
+                        out.seek(0)
+                    img = XLImage(out)
+                    img.width = 54
+                    img.height = 54
+                    ws.add_image(img, f"A{r}")
+                except Exception:
+                    pass
+
+        r += 1
+
+    last_data_row = max(first_data_row, r - 1)
+
+    # Totales (misma lógica de presentación que PDF)
+    subtotal_lineas = net_subtotal_con_iva if net_subtotal_con_iva else float(cotizacion.subtotal or 0)
+    if subtotal_lineas < 0:
+        subtotal_lineas = 0.0
+
+    descuento_cliente_pct = dcp
+    if descuento_cliente_pct < 0:
+        descuento_cliente_pct = 0.0
+    if descuento_cliente_pct > 100:
+        descuento_cliente_pct = 100.0
+
+    descuento_cliente_monto = subtotal_lineas * (descuento_cliente_pct / 100.0)
+    total_con_iva = max(0.0, subtotal_lineas - descuento_cliente_monto)
+    base_sin_iva, iva_display = _subtotal_iva_display_split(total_con_iva)
+
+    r += 1
+    ws.cell(row=r, column=9, value="Importe conceptos (sin IVA)").font = Font(bold=True, color="111827")
+    ws.cell(row=r, column=10, value=round(net_subtotal_sin_iva, 2))
+    ws.cell(row=r, column=10).number_format = '$#,##0.00'
+    r += 1
+    if descuento_cliente_pct:
+        ws.cell(row=r, column=9, value=f"Descuento cliente ({descuento_cliente_pct:.2f}%)").font = Font(bold=True, color="111827")
+        ws.cell(row=r, column=10, value=round(descuento_cliente_monto, 2))
+        ws.cell(row=r, column=10).number_format = '$#,##0.00'
+        r += 1
+
+    ws.cell(row=r, column=9, value="Subtotal").font = Font(bold=True, color="111827")
+    ws.cell(row=r, column=10, value=round(base_sin_iva, 2))
+    ws.cell(row=r, column=10).number_format = '$#,##0.00'
+    r += 1
+    ws.cell(row=r, column=9, value="IVA (16%)").font = Font(bold=True, color="111827")
+    ws.cell(row=r, column=10, value=round(iva_display, 2))
+    ws.cell(row=r, column=10).number_format = '$#,##0.00'
+    r += 1
+    ws.cell(row=r, column=9, value="Total").font = Font(bold=True, color="FFFFFF")
+    ws.cell(row=r, column=9).fill = PatternFill("solid", fgColor="374151")
+    ws.cell(row=r, column=10, value=round(total_con_iva, 2))
+    ws.cell(row=r, column=10).number_format = '$#,##0.00'
+    ws.cell(row=r, column=10).font = Font(bold=True, color="FFFFFF")
+    ws.cell(row=r, column=10).fill = PatternFill("solid", fgColor="374151")
+    for rr in range(r - (3 if descuento_cliente_pct else 2), r + 1):
+        ws.cell(row=rr, column=9).border = table_border
+        ws.cell(row=rr, column=10).border = table_border
+
+    ws.column_dimensions["A"].width = 12
+    ws.column_dimensions["B"].width = 18
+    ws.column_dimensions["C"].width = 12
+    ws.column_dimensions["D"].width = 30
+    ws.column_dimensions["E"].width = 34
+    ws.column_dimensions["F"].width = 16
+    ws.column_dimensions["G"].width = 34
+    ws.column_dimensions["H"].width = 18
+    ws.column_dimensions["I"].width = 14
+    ws.column_dimensions["J"].width = 16
+
+    for rr in range(first_data_row, last_data_row + 1):
+        for cc in range(2, 11):
+            ws.cell(row=rr, column=cc).alignment = wrap
+        ws.cell(row=rr, column=2).alignment = center_wrap
+        ws.cell(row=rr, column=3).alignment = center_wrap
+        ws.cell(row=rr, column=8).number_format = '$#,##0.00'
+        ws.cell(row=rr, column=9).number_format = '0.00'
+        ws.cell(row=rr, column=10).number_format = '$#,##0.00'
+
+    ws.freeze_panes = f"A{first_data_row}"
+
+    bio = io.BytesIO()
+    wb.save(bio)
+    return bio.getvalue()
 
 
 def _subtotal_iva_display_split(total_con_iva: float) -> tuple[float, float]:
@@ -72,7 +422,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 queryset=Cotizacion.items.rel.related_model.objects.order_by('orden')
             )
         )
-        queryset = queryset.select_related('cliente_id', 'creado_por')
+        queryset = queryset.select_related('cliente_id', 'creado_por', 'actualizado_por')
         return queryset.order_by('-idx')
 
     def _generate_pdf_html(self, cotizacion: Cotizacion) -> str:
@@ -553,6 +903,23 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         filename = f"Cotizacion_{idx}.pdf"
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
+        return response
+
+    @action(detail=True, methods=['get'], url_path='excel')
+    def excel(self, request, pk=None):
+        cotizacion = self.get_object()
+        try:
+            xlsx_bytes = _build_cotizacion_excel_bytes(cotizacion)
+        except Exception as e:
+            return Response({"detail": "No se pudo generar el Excel.", "error": str(e)}, status=500)
+
+        idx = getattr(cotizacion, "idx", None) or cotizacion.id
+        filename = f"Cotizacion_{idx}.xlsx"
+        response = HttpResponse(
+            xlsx_bytes,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
 
     @action(detail=False, methods=['post'], url_path='pdf-preview')
