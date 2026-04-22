@@ -536,15 +536,17 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 cantidad = float(it.cantidad or 0)
                 precio_lista = float(it.precio_lista or 0)
                 descuento = float(it.descuento_pct or 0)
-                # precio_lista (Syscom) ya incluye IVA; descuento de línea se aplica sobre ese monto.
+                # precio_lista (Syscom) ya incluye IVA.
+                # En tabla PDF: P. UNIT. debe mostrarse sin descuento para que el % sea visible;
+                # IMPORTE refleja el descuento aplicado por línea.
+                pu_base = precio_lista / IVA_MX_DISPLAY
+                pu_desc = pu_base * (1 - (descuento / 100.0))
                 precio_con_iva = precio_lista * (1 - (descuento / 100.0))
-                # P. UNIT. e importe de línea en PDF: sin IVA; el IVA va en el bloque de totales.
-                pu = precio_con_iva / IVA_MX_DISPLAY
-                importe = cantidad * pu
+                importe = cantidad * pu_desc
                 net_subtotal_sin_iva += importe
                 net_subtotal_con_iva += cantidad * precio_con_iva
             except Exception:
-                pu = 0
+                pu_base = 0
                 importe = 0
                 descuento = 0
                 cantidad = 0
@@ -566,7 +568,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                     <div class='name'>{esc(getattr(it, 'producto_nombre', '') or '-') }</div>
                     <div class='desc'>{esc(getattr(it, 'producto_descripcion', '') or '')}</div>
                   </td>
-                  <td class='right'>$ {pu:,.2f}</td>
+                  <td class='right'>$ {pu_base:,.2f}</td>
                   <td class='right'>{descuento:,.2f}%</td>
                   <td class='right'>$ {importe:,.2f}</td>
                 </tr>
