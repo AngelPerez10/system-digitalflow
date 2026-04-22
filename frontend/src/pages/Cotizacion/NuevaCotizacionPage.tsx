@@ -453,10 +453,10 @@ export default function NuevaCotizacionPage() {
     const qty = Math.max(0, toNumber(cantidad, 0));
     const pl = Math.max(0, toNumber(precioLista, 0));
     const desc = clampPct(toNumber(descuentoPct, 0));
-    const precioConIva = pl * (1 - desc / 100);
-    const pu = precioConIva / IVA_MX;
-    const importe = qty * pu;
-    return { qty, pl, desc, pu, importe };
+    const puBase = pl / IVA_MX;
+    const puConDescuento = puBase * (1 - desc / 100);
+    const importe = qty * puConDescuento;
+    return { qty, pl, desc, puBase, importe };
   }, [cantidad, precioLista, descuentoPct]);
 
   const fetchClientes = async (search = "") => {
@@ -2457,7 +2457,7 @@ export default function NuevaCotizacionPage() {
                         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
                           <div>
                             <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Precio unitario</div>
-                            <div className="mt-1 text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{formatMoney(preview.pu)}</div>
+                            <div className="mt-1 text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{formatMoney(preview.puBase)}</div>
                           </div>
                           <div className="text-left sm:text-right">
                             <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Importe de línea</div>

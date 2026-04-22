@@ -530,6 +530,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
 
         rows = []
         net_subtotal_sin_iva = 0.0
+        gross_subtotal_sin_iva = 0.0
         net_subtotal_con_iva = 0.0
         for it in iter_items(cotizacion):
             try:
@@ -543,6 +544,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 pu_desc = pu_base * (1 - (descuento / 100.0))
                 precio_con_iva = precio_lista * (1 - (descuento / 100.0))
                 importe = cantidad * pu_desc
+                gross_subtotal_sin_iva += cantidad * pu_base
                 net_subtotal_sin_iva += importe
                 net_subtotal_con_iva += cantidad * precio_con_iva
             except Exception:
@@ -609,13 +611,20 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             descuento_cliente_pct = (descuento_monto_visible / subtotal_lineas) * 100.0
 
         base_sin_iva, iva_display = _subtotal_iva_display_split(total)
+        descuento_lineas_visible = max(0.0, round(gross_subtotal_sin_iva - net_subtotal_sin_iva, 2))
         descuento_base_visible = max(0.0, round(net_subtotal_sin_iva - base_sin_iva, 2))
-        show_descuento = descuento_monto_visible >= 0.01 and descuento_cliente_pct > 0 and descuento_base_visible >= 0.01
-        subtotal_display = net_subtotal_sin_iva if show_descuento else base_sin_iva
+        show_descuento_lineas = descuento_lineas_visible >= 0.01
+        show_descuento_cliente = descuento_monto_visible >= 0.01 and descuento_cliente_pct > 0 and descuento_base_visible >= 0.01
+        subtotal_display = gross_subtotal_sin_iva if show_descuento_lineas else (net_subtotal_sin_iva if show_descuento_cliente else base_sin_iva)
         discount_rows = ""
-        if show_descuento:
+        if show_descuento_lineas:
+            discount_rows += f"""
+    <div class='row'><span>Descuento conceptos</span><strong>-$ {descuento_lineas_visible:,.2f}</strong></div>
+"""
+        if show_descuento_cliente:
             discount_rows = f"""
-    <div class='row'><span>Descuento ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_base_visible:,.2f}</strong></div>
+    {discount_rows}
+    <div class='row'><span>Descuento cliente ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_base_visible:,.2f}</strong></div>
 """
 
         html = f"""<!doctype html>
