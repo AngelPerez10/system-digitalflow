@@ -615,15 +615,14 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         descuento_base_visible = max(0.0, round(net_subtotal_sin_iva - base_sin_iva, 2))
         show_descuento_lineas = descuento_lineas_visible >= 0.01
         show_descuento_cliente = descuento_monto_visible >= 0.01 and descuento_cliente_pct > 0 and descuento_base_visible >= 0.01
-        subtotal_display = gross_subtotal_sin_iva if show_descuento_lineas else (net_subtotal_sin_iva if show_descuento_cliente else base_sin_iva)
+        subtotal_display = gross_subtotal_sin_iva if show_descuento_lineas else net_subtotal_sin_iva
         discount_rows = ""
         if show_descuento_lineas:
             discount_rows += f"""
     <div class='row'><span>Descuento conceptos</span><strong>-$ {descuento_lineas_visible:,.2f}</strong></div>
 """
         if show_descuento_cliente:
-            discount_rows = f"""
-    {discount_rows}
+            discount_rows += f"""
     <div class='row'><span>Descuento cliente ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_base_visible:,.2f}</strong></div>
 """
 
