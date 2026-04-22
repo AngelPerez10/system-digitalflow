@@ -576,7 +576,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         rows_html = ''.join(rows) or "<tr><td colspan='7' class='muted center' style='padding: 14px;'>Sin conceptos</td></tr>"
 
         subtotal = float(cotizacion.subtotal or 0)
-        total = float(cotizacion.total or 0)
+        total_guardado = float(cotizacion.total or 0)
 
         descuento_cliente_pct = 0.0
         try:
@@ -594,15 +594,26 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         if descuento_cliente_pct > 100:
             descuento_cliente_pct = 100.0
 
+        # Si por alguna razón el porcentaje no viene poblado, inferimos descuento desde total guardado.
         descuento_cliente_monto = subtotal_lineas * (descuento_cliente_pct / 100.0)
-        subtotal_con_descuento_cliente = max(0.0, subtotal_lineas - descuento_cliente_monto)
-        total = subtotal_con_descuento_cliente
+        total_estimado = max(0.0, subtotal_lineas - descuento_cliente_monto)
+        total = total_guardado if total_guardado > 0 else total_estimado
+        if total > subtotal_lineas:
+            total = subtotal_lineas
+        descuento_monto_visible = max(0.0, subtotal_lineas - total)
+        # Evita mostrar descuentos fantasma por ruido de coma flotante/redondeo.
+        descuento_monto_visible = round(descuento_monto_visible, 2)
+        if descuento_monto_visible > 0 and descuento_cliente_pct <= 0 and subtotal_lineas > 0:
+            descuento_cliente_pct = (descuento_monto_visible / subtotal_lineas) * 100.0
+
         base_sin_iva, iva_display = _subtotal_iva_display_split(total)
+        descuento_base_visible = max(0.0, round(net_subtotal_sin_iva - base_sin_iva, 2))
+        show_descuento = descuento_monto_visible >= 0.01 and descuento_cliente_pct > 0 and descuento_base_visible >= 0.01
+        subtotal_display = net_subtotal_sin_iva if show_descuento else base_sin_iva
         discount_rows = ""
-        if descuento_cliente_pct:
+        if show_descuento:
             discount_rows = f"""
-    <div class='row'><span>Importe conceptos</span><strong>$ {net_subtotal_sin_iva:,.2f}</strong></div>
-    <div class='row'><span>Descuento ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_cliente_monto:,.2f}</strong></div>
+    <div class='row'><span>Descuento ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_base_visible:,.2f}</strong></div>
 """
 
         html = f"""<!doctype html>
@@ -769,8 +780,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
   </div>
 
     <div class='totals'>
+    <div class='row'><span>Subtotal</span><strong>$ {subtotal_display:,.2f}</strong></div>
     {discount_rows}
-    <div class='row'><span>Subtotal</span><strong>$ {base_sin_iva:,.2f}</strong></div>
     <div class='row'><span>IVA (16%)</span><strong>$ {iva_display:,.2f}</strong></div>
     <div class='row'><span>Total</span><strong>$ {total:,.2f}</strong></div>
   </div>
