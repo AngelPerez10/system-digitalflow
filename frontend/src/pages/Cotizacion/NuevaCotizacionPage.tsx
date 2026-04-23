@@ -443,6 +443,14 @@ export default function NuevaCotizacionPage() {
     return clientes.find((c) => c.id === clienteId) || null;
   }, [clientes, clienteId]);
 
+  const isProductoConPrecioSyscom = useCallback(
+    (productoExternoId?: string) => {
+      const id = String(productoExternoId || "").trim().toLowerCase();
+      return id !== "" && !id.startsWith("manual:");
+    },
+    []
+  );
+
   const contactosOptions = useMemo(() => {
     if (!selectedCliente?.contactos) return [];
     return selectedCliente.contactos
@@ -454,11 +462,12 @@ export default function NuevaCotizacionPage() {
     const qty = Math.max(0, toNumber(cantidad, 0));
     const pl = Math.max(0, toNumber(precioLista, 0));
     const desc = clampPct(toNumber(descuentoPct, 0));
-    const puBase = pl / IVA_MX;
+    const usarPrecioSyscom = !!selectedSyscomProducto;
+    const puBase = usarPrecioSyscom ? pl / IVA_MX : pl;
     const puConDescuento = puBase * (1 - desc / 100);
     const importe = qty * puConDescuento;
     return { qty, pl, desc, puBase, importe };
-  }, [cantidad, precioLista, descuentoPct]);
+  }, [cantidad, precioLista, descuentoPct, selectedSyscomProducto]);
 
   const fetchClientes = async (search = "") => {
     if (!canCotizacionesView) return;
@@ -1595,10 +1604,12 @@ export default function NuevaCotizacionPage() {
   const editConcepto = (id: string) => {
     const c = conceptos.find((x) => x.id === id);
     if (!c) return;
+    const productoExternoId = String(c.producto_externo_id || "").trim();
+    const esLineaDeProducto = productoExternoId !== "";
     setEditingConceptoId(id);
     setCantidad(toNumber(c.cantidad, 1));
     setConceptoNombre(String(c.producto_nombre || ""));
-    setProductoSearch(String(c.producto_nombre || ""));
+    setProductoSearch(esLineaDeProducto ? String(c.producto_nombre || "") : "");
     setConceptoDescripcion(String(c.producto_descripcion || ""));
     setUnidad(String(c.unidad || ""));
     setPrecioLista(toNumber(c.precio_lista, 0));
@@ -1613,10 +1624,10 @@ export default function NuevaCotizacionPage() {
   const computed = useMemo(() => {
     const lines = conceptos.map((c) => {
       const descuento = clampPct(toNumber(c.descuento_pct, 0));
-      const precioConIva = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
-      const puSinIva = precioConIva / IVA_MX;
-      const importeSinIva = toNumber(c.cantidad, 0) * puSinIva;
-      return { ...c, pu: puSinIva, importe: importeSinIva };
+      const precioBase = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
+      const pu = isProductoConPrecioSyscom(c.producto_externo_id) ? precioBase / IVA_MX : precioBase;
+      const importe = toNumber(c.cantidad, 0) * pu;
+      return { ...c, pu, importe };
     });
 
     const subtotalLineasSinIva = lines.reduce((acc, l) => acc + (Number.isFinite(l.importe) ? l.importe : 0), 0);
@@ -1649,7 +1660,7 @@ export default function NuevaCotizacionPage() {
       subtotalSinIva,
       ivaDesglose,
     };
-  }, [conceptos, descuentoClientePct]);
+  }, [conceptos, descuentoClientePct, isProductoConPrecioSyscom]);
 
   /** Cliente, contacto y al menos un concepto (misma regla que validateClienteContacto + líneas) */
   const canGuardarCotizacion = useMemo(() => {
@@ -2409,11 +2420,11 @@ export default function NuevaCotizacionPage() {
                       />
                     </div>
 
-                    <div className="sm:col-span-4 lg:col-span-3">
+                    <div className="sm:col-span-6 lg:col-span-5">
                       <Label className={labelPageClass}>Concepto</Label>
                       <div className="relative">
                         <input
-                          className={inputLikeClassName}
+                          className={`${inputLikeClassName} min-h-[46px] text-sm sm:text-base`}
                           value={conceptoNombre}
                           onChange={(e) => {
                             setConceptoNombre(e.target.value);
@@ -2427,11 +2438,11 @@ export default function NuevaCotizacionPage() {
                       </div>
                     </div>
 
-                    <div className="sm:col-span-4 lg:col-span-2">
+                    <div className="sm:col-span-6 lg:col-span-5">
                       <Label className={labelPageClass}>Buscar producto</Label>
                       <div ref={syscomInputWrapRef} className="relative">
                         <input
-                          className={inputLikeClassName}
+                          className={`${inputLikeClassName} min-h-[46px] text-sm sm:text-base`}
                           value={productoSearch}
                           onFocus={() => {
                             if (productoSearch.trim().length >= 2) setSyscomOpen(true);
@@ -2448,7 +2459,7 @@ export default function NuevaCotizacionPage() {
                       </div>
                     </div>
 
-                    <div className="sm:col-span-3 lg:col-span-3">
+                    <div className="sm:col-span-3 lg:col-span-4">
                       <Label className={labelPageClass}>Precio del producto</Label>
                       <Input
                         className={inputFieldInsetClass}
