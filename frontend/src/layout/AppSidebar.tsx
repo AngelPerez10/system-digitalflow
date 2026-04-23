@@ -153,7 +153,7 @@ const AppSidebar: React.FC = () => {
           { name: "Personas", path: "/personas", pro: false },
           { name: "Proveedores", path: "/proveedores", pro: false },
         ];
-        if (permissions?.usuarios?.view !== false) {
+        if (permissions?.usuarios?.view === true) {
           contactosSub.push({ name: "Gestión de Usuarios", path: "/usuarios", pro: false });
         } 
         items.push({
@@ -225,19 +225,19 @@ const AppSidebar: React.FC = () => {
       });
     } else {
       const subItems = [];
-      if (permissions?.ordenes?.view !== false) {
+      if (permissions?.ordenes?.view === true) {
         subItems.push({ name: "Agenda", path: "/calendar", pro: false });
       }
       
-      if (permissions?.ordenes?.view !== false) {
+      if (permissions?.ordenes?.view === true) {
         subItems.push({ name: "Órdenes de Servicios", path: "/ordenes-tecnico", pro: false });
       }
 
-      if (permissions?.reportes?.view !== false) {
+      if (permissions?.reportes?.view === true) {
         subItems.push({ name: "Reportes", path: "/reportes", pro: false });
       }
 
-      if (permissions?.tareas?.view !== false) {
+      if (permissions?.tareas?.view === true) {
         subItems.push({ name: "Tareas", path: "/tareas-tecnico", pro: false });
       }
 
@@ -249,7 +249,7 @@ const AppSidebar: React.FC = () => {
         });
       }
 
-      if (permissions?.clientes?.view !== false) {
+      if (permissions?.clientes?.view === true) {
         items.push({
           icon: <UserCircleIcon />,
           name: "Contactos de Negocio",
@@ -262,7 +262,7 @@ const AppSidebar: React.FC = () => {
         });
       }
 
-      if (permissions?.cotizaciones?.view !== false) {
+      if (permissions?.cotizaciones?.view === true) {
         items.push({
           icon: <PieChartIcon />,
           name: "Ventas",
