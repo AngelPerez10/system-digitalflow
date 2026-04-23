@@ -35,7 +35,7 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
 
-  const role = localStorage.getItem('role');
+  const [role, setRole] = useState<string | null>(() => localStorage.getItem('role') || sessionStorage.getItem('role'));
   const isAdmin = role === 'admin';
 
   const [permissions, setPermissions] = useState<any>(() => {
@@ -108,13 +108,19 @@ const AppSidebar: React.FC = () => {
         setPermissions(rawP ? JSON.parse(rawP) : {});
         const rawU = localStorage.getItem('username') || sessionStorage.getItem('username');
         setUsername(rawU);
+        const rawR = localStorage.getItem('role') || sessionStorage.getItem('role');
+        setRole(rawR);
       } catch { }
     };
     window.addEventListener('storage', sync);
     window.addEventListener('permissions:updated', sync);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', sync);
     return () => {
       window.removeEventListener('storage', sync);
       window.removeEventListener('permissions:updated', sync);
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', sync);
     };
   }, []);
 
