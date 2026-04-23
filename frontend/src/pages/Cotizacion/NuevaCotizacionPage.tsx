@@ -344,6 +344,7 @@ export default function NuevaCotizacionPage() {
 
   const [cantidad, setCantidad] = useState<number>(1);
   const [conceptoNombre, setConceptoNombre] = useState("");
+  const [productoSearch, setProductoSearch] = useState("");
   const [conceptoDescripcion, setConceptoDescripcion] = useState("");
   const [unidad, setUnidad] = useState("");
   const [precioLista, setPrecioLista] = useState<number>(0);
@@ -379,19 +380,19 @@ export default function NuevaCotizacionPage() {
   );
   const [terminos, setTerminos] = useState(
     "TÉRMINOS Y CONDICIONES\n\n" +
-      "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
-      "- No se programan trabajos sin anticipo confirmado.\n" +
-      "- Precios expresados en pesos mexicanos.\n" +
-      "- Vigencia de la cotización: 15 días naturales.\n" +
-      "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
-      "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
-      "- La garantía no aplica por mal uso, golpes, humedad, variaciones de voltaje o manipulación por terceros.\n" +
-      "- La cotización incluye únicamente los conceptos especificados; trabajos adicionales se cotizan aparte.\n" +
-      "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
-      "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
-      "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
-      "- El anticipo no es reembolsable en caso de cancelación.\n" +
-      "- La aceptación de la cotización implica conformidad con estos términos."
+    "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
+    "- No se programan trabajos sin anticipo confirmado.\n" +
+    "- Precios expresados en pesos mexicanos.\n" +
+    "- Vigencia de la cotización: 15 días naturales.\n" +
+    "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
+    "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
+    "- La garantía no aplica por mal uso, golpes, humedad, variaciones de voltaje o manipulación por terceros.\n" +
+    "- La cotización incluye únicamente los conceptos especificados; trabajos adicionales se cotizan aparte.\n" +
+    "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
+    "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
+    "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
+    "- El anticipo no es reembolsable en caso de cancelación.\n" +
+    "- La aceptación de la cotización implica conformidad con estos términos."
   );
 
   const todayIso = useMemo(() => {
@@ -550,16 +551,16 @@ export default function NuevaCotizacionPage() {
 
       const conceptosList: Concepto[] = Array.isArray(data.items)
         ? data.items.map((it) => ({
-            id: uid(),
-            producto_externo_id: String((it as any).producto_externo_id ?? ""),
-            producto_nombre: String(it.producto_nombre || ""),
-            producto_descripcion: String(it.producto_descripcion || ""),
-            unidad: String(it.unidad || ""),
-            thumbnail_url: it.thumbnail_url || undefined,
-            cantidad: toNumber(it.cantidad, 0),
-            precio_lista: toNumber(it.precio_lista, 0),
-            descuento_pct: clampPct(toNumber(it.descuento_pct, 0)),
-          }))
+          id: uid(),
+          producto_externo_id: String((it as any).producto_externo_id ?? ""),
+          producto_nombre: String(it.producto_nombre || ""),
+          producto_descripcion: String(it.producto_descripcion || ""),
+          unidad: String(it.unidad || ""),
+          thumbnail_url: it.thumbnail_url || undefined,
+          cantidad: toNumber(it.cantidad, 0),
+          precio_lista: toNumber(it.precio_lista, 0),
+          descuento_pct: clampPct(toNumber(it.descuento_pct, 0)),
+        }))
         : [];
       setConceptos(conceptosList);
       setEditingConceptoId(null);
@@ -835,13 +836,13 @@ export default function NuevaCotizacionPage() {
   }, [selectedCliente, hydratingFromStorage, editingCotizacionId, descuentoClienteTouched]);
 
   useEffect(() => {
-    if (!conceptoNombre.trim()) {
+    if (!productoSearch.trim()) {
       setUnidad("");
       setPrecioLista(0);
       setSyscomProductos([]);
       setSyscomOpen(false);
     }
-  }, [conceptoNombre]);
+  }, [productoSearch]);
 
   useEffect(() => {
     const token = getToken();
@@ -854,7 +855,7 @@ export default function NuevaCotizacionPage() {
   }, []);
 
   useEffect(() => {
-    const q = conceptoNombre.trim();
+    const q = productoSearch.trim();
     if (selectedSyscomProducto || selectedCatalogoConcepto || selectedManualProducto) {
       setSyscomOpen(false);
       setSyscomError("");
@@ -921,7 +922,7 @@ export default function NuevaCotizacionPage() {
       window.clearTimeout(timer);
       ac.abort();
     };
-  }, [conceptoNombre, selectedSyscomProducto, selectedCatalogoConcepto, selectedManualProducto]);
+  }, [productoSearch, selectedSyscomProducto, selectedCatalogoConcepto, selectedManualProducto]);
 
   useEffect(() => {
     if (!canCotizacionesView) {
@@ -1029,6 +1030,7 @@ export default function NuevaCotizacionPage() {
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(null);
     setConceptoNombre(String(p.titulo || p.modelo || ""));
+    setProductoSearch(String(p.titulo || p.modelo || ""));
     setConceptoDescripcion(String([p.marca, p.modelo].filter(Boolean).join(" · ") || p.titulo || ""));
     setUnidad((u) => (u.trim() ? u : "PZA"));
     setPrecioLista(round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio)));
@@ -1036,7 +1038,7 @@ export default function NuevaCotizacionPage() {
   };
 
   const filteredCatalogoConceptos = useMemo(() => {
-    const q = conceptoNombre.trim().toLowerCase();
+    const q = productoSearch.trim().toLowerCase();
     const qCompact = q.replace(/\s+/g, "");
     if (!q) return [];
     return catalogoConceptos
@@ -1052,13 +1054,14 @@ export default function NuevaCotizacionPage() {
         );
       })
       .slice(0, 8);
-  }, [catalogoConceptos, conceptoNombre]);
+  }, [catalogoConceptos, productoSearch]);
 
   const selectCatalogoConcepto = (c: CatalogoConcepto) => {
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(c);
     setSelectedManualProducto(null);
     setConceptoNombre(String(c.concepto || ""));
+    setProductoSearch(String(c.concepto || ""));
     setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : `Folio: ${c.folio}`));
     setUnidad((u) => (u.trim() ? u : "SERV"));
     setPrecioLista(Math.max(0, toNumber(c.precio1, 0)));
@@ -1066,7 +1069,7 @@ export default function NuevaCotizacionPage() {
   };
 
   const filteredManualProductos = useMemo(() => {
-    const q = conceptoNombre.trim().toLowerCase();
+    const q = productoSearch.trim().toLowerCase();
     if (!q) return [];
     return catalogoManualProductos
       .filter((p) =>
@@ -1076,13 +1079,14 @@ export default function NuevaCotizacionPage() {
         String(p.id).includes(q)
       )
       .slice(0, 8);
-  }, [catalogoManualProductos, conceptoNombre]);
+  }, [catalogoManualProductos, productoSearch]);
 
   const selectManualProducto = (p: ProductoManualCatalogo) => {
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(p);
     setConceptoNombre(String(p.producto || ""));
+    setProductoSearch(String(p.producto || ""));
     setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : [p.marca, p.modelo].filter(Boolean).join(" · ")));
     setUnidad((u) => (u.trim() ? u : "PZA"));
     setPrecioLista(Math.max(0, toNumber(p.precio, 0)));
@@ -1100,7 +1104,7 @@ export default function NuevaCotizacionPage() {
         !!syscomError ||
         !!catalogoConceptosError ||
         !!catalogoManualError ||
-        conceptoNombre.trim().length >= 2),
+        productoSearch.trim().length >= 2),
     [
       syscomOpen,
       loadingSyscom,
@@ -1111,7 +1115,7 @@ export default function NuevaCotizacionPage() {
       syscomError,
       catalogoConceptosError,
       catalogoManualError,
-      conceptoNombre,
+      productoSearch,
     ]
   );
 
@@ -1493,6 +1497,7 @@ export default function NuevaCotizacionPage() {
     setEditingConceptoId(null);
     setCantidad(1);
     setConceptoNombre("");
+    setProductoSearch("");
     setConceptoDescripcion("");
     setUnidad("");
     setPrecioLista(0);
@@ -1569,6 +1574,7 @@ export default function NuevaCotizacionPage() {
 
     setCantidad(1);
     setConceptoNombre("");
+    setProductoSearch("");
     setConceptoDescripcion("");
     setUnidad("");
     setPrecioLista(0);
@@ -1592,6 +1598,7 @@ export default function NuevaCotizacionPage() {
     setEditingConceptoId(id);
     setCantidad(toNumber(c.cantidad, 1));
     setConceptoNombre(String(c.producto_nombre || ""));
+    setProductoSearch(String(c.producto_nombre || ""));
     setConceptoDescripcion(String(c.producto_descripcion || ""));
     setUnidad(String(c.unidad || ""));
     setPrecioLista(toNumber(c.precio_lista, 0));
@@ -1664,6 +1671,7 @@ export default function NuevaCotizacionPage() {
 
     setCantidad(1);
     setConceptoNombre("");
+    setProductoSearch("");
     setConceptoDescripcion("");
     setUnidad("");
     setPrecioLista(0);
@@ -1683,19 +1691,19 @@ export default function NuevaCotizacionPage() {
     setTextoArribaPrecios("A continuación cotización solicitada:");
     setTerminos(
       "TÉRMINOS Y CONDICIONES\n\n" +
-        "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
-        "- No se programan trabajos sin anticipo confirmado.\n" +
-        "- Precios expresados en pesos mexicanos.\n" +
-        "- Vigencia de la cotización: 15 días naturales.\n" +
-        "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
-        "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
-        "- La garantía no aplica por mal uso, golpes, humedad, variaciones de voltaje o manipulación por terceros.\n" +
-        "- La cotización incluye únicamente los conceptos especificados; trabajos adicionales se cotizan aparte.\n" +
-        "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
-        "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
-        "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
-        "- El anticipo no es reembolsable en caso de cancelación.\n" +
-        "- La aceptación de la cotización implica conformidad con estos términos."
+      "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
+      "- No se programan trabajos sin anticipo confirmado.\n" +
+      "- Precios expresados en pesos mexicanos.\n" +
+      "- Vigencia de la cotización: 15 días naturales.\n" +
+      "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
+      "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
+      "- La garantía no aplica por mal uso, golpes, humedad, variaciones de voltaje o manipulación por terceros.\n" +
+      "- La cotización incluye únicamente los conceptos especificados; trabajos adicionales se cotizan aparte.\n" +
+      "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
+      "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
+      "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
+      "- El anticipo no es reembolsable en caso de cancelación.\n" +
+      "- La aceptación de la cotización implica conformidad con estos términos."
     );
   };
 
@@ -1838,407 +1846,407 @@ export default function NuevaCotizacionPage() {
   return (
     <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
       <div className="mx-auto max-w-7xl space-y-5 px-3 pb-8 pt-5 text-sm sm:space-y-8 sm:px-5 sm:pb-12 sm:pt-8 sm:text-base md:px-6 lg:px-8">
-      <PageMeta title="Nueva Cotización | Sistema Grupo Intrax GPS" description="Crear nueva cotización" />
+        <PageMeta title="Nueva Cotización | Sistema Grupo Intrax GPS" description="Crear nueva cotización" />
 
-      <Modal isOpen={exportBusy} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
-        <div className="p-7 sm:p-8">
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="relative mb-6">
-              <div className="relative flex items-center justify-center w-[76px] h-[76px] rounded-2xl border border-gray-200/80 dark:border-white/10 bg-gray-50 dark:bg-gray-900/80">
-                <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-white/5">
-                  <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-brand-600 dark:border-t-brand-400 animate-spin" />
-                  <div className="relative flex items-center justify-center">
-                    {excelLoading ? (
-                      <svg className="h-8 w-8 text-emerald-700 dark:text-emerald-300" viewBox="0 0 24 24" fill="none" aria-hidden>
-                        <path
-                          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinejoin="round"
-                        />
-                        <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                        <path d="M8.5 13h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                        <path d="M8.5 16.5H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                        <path d="M8.5 10H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                      </svg>
-                    ) : (
-                    <svg
-                      className="w-8 h-8 text-brand-700 dark:text-brand-300"
-                      viewBox="0 0 512 512"
-                      fill="currentColor"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path d="M378.413,0H208.297h-13.182L185.8,9.314L57.02,138.102l-9.314,9.314v13.176v265.514c0,47.36,38.528,85.895,85.896,85.895h244.811c47.353,0,85.881-38.535,85.881-85.895V85.896C464.294,38.528,425.766,0,378.413,0z M432.497,426.105c0,29.877-24.214,54.091-54.084,54.091H133.602c-29.884,0-54.098-24.214-54.098-54.091V160.591h83.716c24.885,0,45.077-20.178,45.077-45.07V31.804h170.116c29.87,0,54.084,24.214,54.084,54.092V426.105z" />
-                      <path d="M171.947,252.785h-28.529c-5.432,0-8.686,3.533-8.686,8.825v73.754c0,6.388,4.204,10.599,10.041,10.599c5.711,0,9.914-4.21,9.914-10.599v-22.406c0-0.545,0.279-0.817,0.824-0.817h16.436c20.095,0,32.188-12.226,32.188-29.612C204.136,264.871,192.182,252.785,171.947,252.785z M170.719,294.888h-15.208c-0.545,0-0.824-0.272-0.824-0.81v-23.23c0-0.545,0.279-0.816,0.824-0.816h15.208c8.42,0,13.447,5.027,13.447,12.498C184.167,290,179.139,294.888,170.719,294.888z" />
-                      <path d="M250.191,252.785h-21.868c-5.432,0-8.686,3.533-8.686,8.825v74.843c0,5.3,3.253,8.693,8.686,8.693h21.868c19.69,0,31.923-6.249,36.81-21.324c1.76-5.3,2.723-11.681,2.723-24.857c0-13.175-0.964-19.557-2.723-24.856C282.113,259.034,269.881,252.785,250.191,252.785z M267.856,316.896c-2.318,7.331-8.965,10.459-18.21,10.459h-9.23c-0.545,0-0.824-0.272-0.824-0.816v-55.146c0-0.545,0.279-0.817,0.824-0.817h9.23c9.245,0,15.892,3.128,18.21,10.46c0.95,3.128,1.62,8.56,1.62,17.93C269.476,308.336,268.805,313.768,267.856,316.896z" />
-                      <path d="M361.167,252.785h-44.812c-5.432,0-8.7,3.533-8.7,8.825v73.754c0,6.388,4.218,10.599,10.055,10.599c5.697,0,9.914-4.21,9.914-10.599v-26.351c0-0.538,0.265-0.81,0.81-0.81h26.086c5.837,0,9.23-3.532,9.23-8.56c0-5.028-3.393-8.553-9.23-8.553h-26.086c-0.545,0-0.81-0.272-0.81-0.817v-19.425c0-0.545,0.265-0.816,0.81-0.816h32.733c5.572,0,9.245-3.666,9.245-8.553C370.411,256.45,366.738,252.785,361.167,252.785z" />
-                    </svg>
-                    )}
+        <Modal isOpen={exportBusy} onClose={() => { }} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
+          <div className="p-7 sm:p-8">
+            <div className="flex flex-col items-center justify-center text-center">
+              <div className="relative mb-6">
+                <div className="relative flex items-center justify-center w-[76px] h-[76px] rounded-2xl border border-gray-200/80 dark:border-white/10 bg-gray-50 dark:bg-gray-900/80">
+                  <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-white/5">
+                    <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-brand-600 dark:border-t-brand-400 animate-spin" />
+                    <div className="relative flex items-center justify-center">
+                      {excelLoading ? (
+                        <svg className="h-8 w-8 text-emerald-700 dark:text-emerald-300" viewBox="0 0 24 24" fill="none" aria-hidden>
+                          <path
+                            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinejoin="round"
+                          />
+                          <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                          <path d="M8.5 13h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                          <path d="M8.5 16.5H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                          <path d="M8.5 10H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                      ) : (
+                        <svg
+                          className="w-8 h-8 text-brand-700 dark:text-brand-300"
+                          viewBox="0 0 512 512"
+                          fill="currentColor"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path d="M378.413,0H208.297h-13.182L185.8,9.314L57.02,138.102l-9.314,9.314v13.176v265.514c0,47.36,38.528,85.895,85.896,85.895h244.811c47.353,0,85.881-38.535,85.881-85.895V85.896C464.294,38.528,425.766,0,378.413,0z M432.497,426.105c0,29.877-24.214,54.091-54.084,54.091H133.602c-29.884,0-54.098-24.214-54.098-54.091V160.591h83.716c24.885,0,45.077-20.178,45.077-45.07V31.804h170.116c29.87,0,54.084,24.214,54.084,54.092V426.105z" />
+                          <path d="M171.947,252.785h-28.529c-5.432,0-8.686,3.533-8.686,8.825v73.754c0,6.388,4.204,10.599,10.041,10.599c5.711,0,9.914-4.21,9.914-10.599v-22.406c0-0.545,0.279-0.817,0.824-0.817h16.436c20.095,0,32.188-12.226,32.188-29.612C204.136,264.871,192.182,252.785,171.947,252.785z M170.719,294.888h-15.208c-0.545,0-0.824-0.272-0.824-0.81v-23.23c0-0.545,0.279-0.816,0.824-0.816h15.208c8.42,0,13.447,5.027,13.447,12.498C184.167,290,179.139,294.888,170.719,294.888z" />
+                          <path d="M250.191,252.785h-21.868c-5.432,0-8.686,3.533-8.686,8.825v74.843c0,5.3,3.253,8.693,8.686,8.693h21.868c19.69,0,31.923-6.249,36.81-21.324c1.76-5.3,2.723-11.681,2.723-24.857c0-13.175-0.964-19.557-2.723-24.856C282.113,259.034,269.881,252.785,250.191,252.785z M267.856,316.896c-2.318,7.331-8.965,10.459-18.21,10.459h-9.23c-0.545,0-0.824-0.272-0.824-0.816v-55.146c0-0.545,0.279-0.817,0.824-0.817h9.23c9.245,0,15.892,3.128,18.21,10.46c0.95,3.128,1.62,8.56,1.62,17.93C269.476,308.336,268.805,313.768,267.856,316.896z" />
+                          <path d="M361.167,252.785h-44.812c-5.432,0-8.7,3.533-8.7,8.825v73.754c0,6.388,4.218,10.599,10.055,10.599c5.697,0,9.914-4.21,9.914-10.599v-26.351c0-0.538,0.265-0.81,0.81-0.81h26.086c5.837,0,9.23-3.532,9.23-8.56c0-5.028-3.393-8.553-9.23-8.553h-26.086c-0.545,0-0.81-0.272-0.81-0.817v-19.425c0-0.545,0.265-0.816,0.81-0.816h32.733c5.572,0,9.245-3.666,9.245-8.553C370.411,256.45,366.738,252.785,361.167,252.785z" />
+                        </svg>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <h3 className="text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">
-              {excelLoading ? "Generando Excel" : "Generando vista previa"}
-            </h3>
-            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
-              Esto puede tardar unos segundos. No cierres esta ventana.
-            </p>
+              <h3 className="text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">
+                {excelLoading ? "Generando Excel" : "Generando vista previa"}
+              </h3>
+              <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
+                Esto puede tardar unos segundos. No cierres esta ventana.
+              </p>
 
-            <div className="mt-6 w-full">
-              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                <span>Progreso</span>
-                <span className="tabular-nums font-medium">{Math.min(99, Math.max(0, Math.round(loadingProgress)))}%</span>
-              </div>
-              <div className="mt-2 w-full rounded-full h-2 overflow-hidden bg-gray-100 dark:bg-gray-800/80 border border-gray-200/60 dark:border-white/[0.06]">
-                <div
-                  className="h-full bg-brand-600 dark:bg-brand-500 transition-[width] duration-500 ease-out"
-                  style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
-                />
-              </div>
-              <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">
-                {excelLoading ? "Preparando archivo XLSX…" : "Generando archivo de cotización…"}
-              </div>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={cloneModalOpen}
-        onClose={() => {
-          if (clonePickingId != null) return;
-          setCloneModalOpen(false);
-        }}
-        closeOnBackdropClick={clonePickingId == null}
-        closeOnEscape={clonePickingId == null}
-        className="mx-4 flex max-h-[min(90vh,640px)] w-[min(96vw,28rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/75 p-0 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.14)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:mx-auto sm:max-w-lg"
-      >
-        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-          <header className="relative shrink-0 border-b border-gray-200/60 bg-gray-50/80 px-5 py-5 pr-12 dark:border-white/[0.06] dark:bg-gray-950/40 sm:px-6 sm:pr-14">
-            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-brand-500/80 dark:bg-brand-400/70" aria-hidden />
-            <div className="flex items-start gap-3 sm:gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-500/12 bg-white text-brand-700 shadow-sm dark:border-brand-400/15 dark:bg-gray-900/60 dark:text-brand-300 sm:h-11 sm:w-11">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
-                  <path d="M16 3h2a2 2 0 0 1 2 2v2M8 3H6a2 2 0 0 0-2 2v2" strokeLinecap="round" />
-                  <path d="M8 21h8M12 17v4M9 17h6" strokeLinecap="round" strokeLinejoin="round" />
-                  <rect x="3" y="7" width="18" height="10" rx="2" strokeLinejoin="round" />
-                  <path d="M7 11h2M11 11h2M15 11h.01" strokeLinecap="round" />
-                </svg>
-              </div>
-              <div className="min-w-0 flex-1 pt-0.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]">Cotización</p>
-                <h3 className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Clonar desde existente</h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
-                  Busque por <span className="font-medium text-gray-800 dark:text-gray-200">cliente</span> o{" "}
-                  <span className="font-medium text-gray-800 dark:text-gray-200">folio</span>. Al elegir una fila se copian cliente, contacto,
-                  descuentos, conceptos y textos al borrador actual.
-                </p>
-              </div>
-            </div>
-          </header>
-
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden bg-gray-50/40 px-5 py-5 dark:bg-gray-950/25 sm:px-6">
-            <section className={cloneModalPanelClass}>
-              <label htmlFor="clone-cotizacion-search" className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm">
-                Buscar cotización
-              </label>
-              <div className="relative">
-                <svg
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden
-                >
-                  <circle cx="8.5" cy="8.5" r="5.5" />
-                  <path d="M14 14 18 18" strokeLinecap="round" />
-                </svg>
-                <input
-                  id="clone-cotizacion-search"
-                  type="search"
-                  value={cloneSearch}
-                  onChange={(e) => setCloneSearch(e.target.value)}
-                  placeholder="Folio (ej. 42) o nombre de cliente…"
-                  autoFocus
-                  className={cloneModalSearchInputClass}
-                />
-              </div>
-            </section>
-
-            <div className="flex min-h-0 flex-1 flex-col gap-2">
-              <div className="flex items-center justify-between gap-2 px-0.5">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]">Resultados</span>
-                {!cloneListLoading && cloneSearchDebounced.length >= 1 && cloneRows.length > 0 && (
-                  <span className="tabular-nums text-[11px] font-medium text-gray-400 dark:text-gray-500">{cloneRows.length}</span>
-                )}
-              </div>
-              <div className="relative min-h-[12rem] flex-1 overflow-hidden rounded-xl border border-gray-200/80 bg-white/60 dark:border-white/[0.08] dark:bg-gray-900/40">
-                <div className="custom-scrollbar max-h-[min(48vh,320px)] overflow-y-auto overscroll-contain sm:max-h-[min(50vh,340px)]">
-                  {cloneListLoading && (
-                    <div className="flex flex-col items-center justify-center gap-3 px-4 py-14">
-                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600 dark:border-gray-700 dark:border-t-brand-400" />
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Buscando cotizaciones…</p>
-                    </div>
-                  )}
-                  {!cloneListLoading && cloneSearchDebounced.length < 1 && (
-                    <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
-                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-50 text-gray-400 dark:border-white/[0.08] dark:bg-gray-950/50 dark:text-gray-500">
-                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                          <path d="M12 19V5M5 12h14" strokeLinecap="round" />
-                        </svg>
-                      </span>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Empiece a escribir</p>
-                      <p className="max-w-[240px] text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                        Escriba al menos un carácter para buscar en el directorio de cotizaciones.
-                      </p>
-                    </div>
-                  )}
-                  {!cloneListLoading && cloneSearchDebounced.length >= 1 && cloneRows.length === 0 && (
-                    <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
-                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-50 text-gray-400 dark:border-white/[0.08] dark:bg-gray-950/50 dark:text-gray-500">
-                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                          <circle cx="11" cy="11" r="7" />
-                          <path d="m20 20-3-3M8 11h6" strokeLinecap="round" />
-                        </svg>
-                      </span>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Sin coincidencias</p>
-                      <p className="max-w-[260px] text-xs text-gray-500 dark:text-gray-400">Pruebe otro folio o parte del nombre del cliente.</p>
-                    </div>
-                  )}
-                  {!cloneListLoading && cloneRows.length > 0 && (
-                    <ul className="space-y-2 p-3 sm:p-3.5">
-                      {cloneRows.map((row) => (
-                        <li key={row.id}>
-                          <button
-                            type="button"
-                            disabled={clonePickingId != null}
-                            onClick={() => void handleClonePick(row.id)}
-                            className="flex w-full flex-col gap-2 rounded-xl border border-gray-200/80 bg-white p-3.5 text-left shadow-sm transition-all hover:border-brand-300/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/35 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-gray-900/55 dark:hover:border-brand-500/30 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-                          >
-                            <div className="flex min-w-0 flex-1 items-start gap-3">
-                              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500/[0.1] text-sm font-bold tabular-nums text-brand-800 dark:bg-brand-500/15 dark:text-brand-200">
-                                #{row.idx}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{row.cliente}</p>
-                                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                                  {row.contacto && row.contacto !== "—" && <span>Contacto: {row.contacto}</span>}
-                                  {row.fecha && (
-                                    <span className="tabular-nums text-gray-400 dark:text-gray-500">{formatDMY(row.fecha)}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <span className="shrink-0 rounded-lg border border-gray-200/80 bg-gray-50/90 px-2.5 py-1 text-xs font-semibold tabular-nums text-gray-800 dark:border-white/[0.08] dark:bg-white/[0.06] dark:text-gray-100">
-                              {formatMoney(row.total)}
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+              <div className="mt-6 w-full">
+                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <span>Progreso</span>
+                  <span className="tabular-nums font-medium">{Math.min(99, Math.max(0, Math.round(loadingProgress)))}%</span>
                 </div>
-                {clonePickingId != null && (
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/55 backdrop-blur-[2px] dark:bg-gray-950/50">
-                    <div className="flex items-center gap-2 rounded-xl border border-gray-200/80 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-md dark:border-white/[0.1] dark:bg-gray-900 dark:text-gray-200">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-brand-600 dark:border-gray-600 dark:border-t-brand-400" />
-                      Cargando cotización…
-                    </div>
-                  </div>
-                )}
+                <div className="mt-2 w-full rounded-full h-2 overflow-hidden bg-gray-100 dark:bg-gray-800/80 border border-gray-200/60 dark:border-white/[0.06]">
+                  <div
+                    className="h-full bg-brand-600 dark:bg-brand-500 transition-[width] duration-500 ease-out"
+                    style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
+                  />
+                </div>
+                <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">
+                  {excelLoading ? "Preparando archivo XLSX…" : "Generando archivo de cotización…"}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
 
-      {showSyscomPanel &&
-        syscomPopPos &&
-        createPortal(
-          <div
-            ref={syscomPopRef}
-            role="listbox"
-            aria-label="Resultados de conceptos"
-            style={{
-              position: "fixed",
-              zIndex: 2147483646,
-              left: syscomPopPos.left,
-              width: syscomPopPos.width,
-              maxHeight: syscomPopPos.maxHeight,
-              ...(syscomPopPos.top != null ? { top: syscomPopPos.top } : { bottom: syscomPopPos.bottom }),
-            }}
-            className="flex flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white/98 shadow-2xl shadow-gray-900/20 ring-1 ring-black/[0.06] backdrop-blur-md dark:border-white/[0.12] dark:bg-gray-900/98 dark:shadow-black/50 dark:ring-white/[0.08]"
-          >
-            <div className="shrink-0 border-b border-gray-100/90 bg-gradient-to-r from-brand-50/95 to-transparent px-3 py-2 dark:border-white/[0.06] dark:from-brand-950/50 dark:to-transparent">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-800 dark:text-brand-200">Resultados combinados</p>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">Conceptos internos, productos manuales y Syscom</p>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-1.5 custom-scrollbar">
-              {loadingCatalogoConceptos && (
-                <div className="mb-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs text-gray-500 dark:text-gray-400">
-                  <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" aria-hidden />
-                  Cargando conceptos...
+        <Modal
+          isOpen={cloneModalOpen}
+          onClose={() => {
+            if (clonePickingId != null) return;
+            setCloneModalOpen(false);
+          }}
+          closeOnBackdropClick={clonePickingId == null}
+          closeOnEscape={clonePickingId == null}
+          className="mx-4 flex max-h-[min(90vh,640px)] w-[min(96vw,28rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/75 p-0 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.14)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:mx-auto sm:max-w-lg"
+        >
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+            <header className="relative shrink-0 border-b border-gray-200/60 bg-gray-50/80 px-5 py-5 pr-12 dark:border-white/[0.06] dark:bg-gray-950/40 sm:px-6 sm:pr-14">
+              <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-brand-500/80 dark:bg-brand-400/70" aria-hidden />
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-500/12 bg-white text-brand-700 shadow-sm dark:border-brand-400/15 dark:bg-gray-900/60 dark:text-brand-300 sm:h-11 sm:w-11">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
+                    <path d="M16 3h2a2 2 0 0 1 2 2v2M8 3H6a2 2 0 0 0-2 2v2" strokeLinecap="round" />
+                    <path d="M8 21h8M12 17v4M9 17h6" strokeLinecap="round" strokeLinejoin="round" />
+                    <rect x="3" y="7" width="18" height="10" rx="2" strokeLinejoin="round" />
+                    <path d="M7 11h2M11 11h2M15 11h.01" strokeLinecap="round" />
+                  </svg>
                 </div>
-              )}
-              {!loadingCatalogoConceptos && !!catalogoConceptosError && (
-                <div className="mb-1 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-                  {catalogoConceptosError}
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]">Cotización</p>
+                  <h3 className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Clonar desde existente</h3>
+                  <p className="mt-1.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
+                    Busque por <span className="font-medium text-gray-800 dark:text-gray-200">cliente</span> o{" "}
+                    <span className="font-medium text-gray-800 dark:text-gray-200">folio</span>. Al elegir una fila se copian cliente, contacto,
+                    descuentos, conceptos y textos al borrador actual.
+                  </p>
                 </div>
-              )}
-              {!!catalogoManualError && (
-                <div className="mb-1 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-                  {catalogoManualError}
-                </div>
-              )}
-              {loadingSyscom && (
-                <div className="flex items-center gap-2 rounded-lg px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
-                  <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" aria-hidden />
-                  Buscando en Syscom…
-                </div>
-              )}
-              {!loadingSyscom && !!syscomError && (
-                <div className="rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">{syscomError}</div>
-              )}
-              {!loadingSyscom &&
-                !loadingCatalogoConceptos &&
-                !syscomError &&
-                !catalogoConceptosError &&
-                combinedConceptoOptions.map((opt) => (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    role="option"
-                    onClick={opt.onSelect}
-                    className="group mb-1 flex w-full rounded-xl px-2 py-2 text-left transition-colors last:mb-0 hover:bg-brand-50/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:hover:bg-white/[0.06]"
+              </div>
+            </header>
+
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden bg-gray-50/40 px-5 py-5 dark:bg-gray-950/25 sm:px-6">
+              <section className={cloneModalPanelClass}>
+                <label htmlFor="clone-cotizacion-search" className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm">
+                  Buscar cotización
+                </label>
+                <div className="relative">
+                  <svg
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden
                   >
-                    <div className="flex w-full items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium leading-snug text-gray-900 group-hover:text-brand-900 dark:text-gray-100 dark:group-hover:text-brand-100">
-                          {opt.title}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                          <span className="mr-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-white/[0.08]">
-                            {opt.source === "catalogo" ? "Concepto" : opt.source === "manual" ? "Manual" : "Syscom"}
-                          </span>
-                          {opt.subtitle || "Sin detalle"}
+                    <circle cx="8.5" cy="8.5" r="5.5" />
+                    <path d="M14 14 18 18" strokeLinecap="round" />
+                  </svg>
+                  <input
+                    id="clone-cotizacion-search"
+                    type="search"
+                    value={cloneSearch}
+                    onChange={(e) => setCloneSearch(e.target.value)}
+                    placeholder="Folio (ej. 42) o nombre de cliente…"
+                    autoFocus
+                    className={cloneModalSearchInputClass}
+                  />
+                </div>
+              </section>
+
+              <div className="flex min-h-0 flex-1 flex-col gap-2">
+                <div className="flex items-center justify-between gap-2 px-0.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]">Resultados</span>
+                  {!cloneListLoading && cloneSearchDebounced.length >= 1 && cloneRows.length > 0 && (
+                    <span className="tabular-nums text-[11px] font-medium text-gray-400 dark:text-gray-500">{cloneRows.length}</span>
+                  )}
+                </div>
+                <div className="relative min-h-[12rem] flex-1 overflow-hidden rounded-xl border border-gray-200/80 bg-white/60 dark:border-white/[0.08] dark:bg-gray-900/40">
+                  <div className="custom-scrollbar max-h-[min(48vh,320px)] overflow-y-auto overscroll-contain sm:max-h-[min(50vh,340px)]">
+                    {cloneListLoading && (
+                      <div className="flex flex-col items-center justify-center gap-3 px-4 py-14">
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600 dark:border-gray-700 dark:border-t-brand-400" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Buscando cotizaciones…</p>
+                      </div>
+                    )}
+                    {!cloneListLoading && cloneSearchDebounced.length < 1 && (
+                      <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
+                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-50 text-gray-400 dark:border-white/[0.08] dark:bg-gray-950/50 dark:text-gray-500">
+                          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                            <path d="M12 19V5M5 12h14" strokeLinecap="round" />
+                          </svg>
+                        </span>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Empiece a escribir</p>
+                        <p className="max-w-[240px] text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                          Escriba al menos un carácter para buscar en el directorio de cotizaciones.
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-md bg-brand-500/10 px-2 py-1 text-xs font-semibold tabular-nums text-brand-700 dark:bg-brand-400/15 dark:text-brand-300">
-                        {formatMoney(opt.price)}
-                      </span>
+                    )}
+                    {!cloneListLoading && cloneSearchDebounced.length >= 1 && cloneRows.length === 0 && (
+                      <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
+                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-50 text-gray-400 dark:border-white/[0.08] dark:bg-gray-950/50 dark:text-gray-500">
+                          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                            <circle cx="11" cy="11" r="7" />
+                            <path d="m20 20-3-3M8 11h6" strokeLinecap="round" />
+                          </svg>
+                        </span>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Sin coincidencias</p>
+                        <p className="max-w-[260px] text-xs text-gray-500 dark:text-gray-400">Pruebe otro folio o parte del nombre del cliente.</p>
+                      </div>
+                    )}
+                    {!cloneListLoading && cloneRows.length > 0 && (
+                      <ul className="space-y-2 p-3 sm:p-3.5">
+                        {cloneRows.map((row) => (
+                          <li key={row.id}>
+                            <button
+                              type="button"
+                              disabled={clonePickingId != null}
+                              onClick={() => void handleClonePick(row.id)}
+                              className="flex w-full flex-col gap-2 rounded-xl border border-gray-200/80 bg-white p-3.5 text-left shadow-sm transition-all hover:border-brand-300/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/35 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-gray-900/55 dark:hover:border-brand-500/30 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                            >
+                              <div className="flex min-w-0 flex-1 items-start gap-3">
+                                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500/[0.1] text-sm font-bold tabular-nums text-brand-800 dark:bg-brand-500/15 dark:text-brand-200">
+                                  #{row.idx}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{row.cliente}</p>
+                                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                    {row.contacto && row.contacto !== "—" && <span>Contacto: {row.contacto}</span>}
+                                    {row.fecha && (
+                                      <span className="tabular-nums text-gray-400 dark:text-gray-500">{formatDMY(row.fecha)}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="shrink-0 rounded-lg border border-gray-200/80 bg-gray-50/90 px-2.5 py-1 text-xs font-semibold tabular-nums text-gray-800 dark:border-white/[0.08] dark:bg-white/[0.06] dark:text-gray-100">
+                                {formatMoney(row.total)}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  {clonePickingId != null && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/55 backdrop-blur-[2px] dark:bg-gray-950/50">
+                      <div className="flex items-center gap-2 rounded-xl border border-gray-200/80 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-md dark:border-white/[0.1] dark:bg-gray-900 dark:text-gray-200">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-brand-600 dark:border-gray-600 dark:border-t-brand-400" />
+                        Cargando cotización…
+                      </div>
                     </div>
-                  </button>
-                ))}
-              {!loadingSyscom && !loadingCatalogoConceptos && !syscomError && !catalogoConceptosError && !catalogoManualError && combinedConceptoOptions.length === 0 && conceptoNombre.trim().length >= 2 && (
-                <div className="rounded-lg px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400">Sin resultados en catálogos</div>
-              )}
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {alert.show && (
-        <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
-      )}
-
-      {!canCotizacionesView ? (
-        <div className="py-10 text-center text-xs text-gray-500 dark:text-gray-400 sm:text-sm">No tienes permiso para ver Cotizaciones.</div>
-      ) : (
-        <>
-
-          <nav
-            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
-            aria-label="Migas de pan"
-          >
-            <Link
-              to="/"
-              className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
-            >
-              Inicio
-            </Link>
-            <span className="text-gray-300 dark:text-gray-600" aria-hidden>
-              /
-            </span>
-            <Link
-              to="/cotizacion"
-              className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
-            >
-              Cotizaciones
-            </Link>
-            <span className="text-gray-300 dark:text-gray-600" aria-hidden>
-              /
-            </span>
-            <span className="font-medium text-gray-700 dark:text-gray-300">
-              {isEditingRoute ? "Editar" : "Nueva"}
-            </span>
-          </nav>
-
-          <header className={`flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
-            <div className="flex min-w-0 gap-3 sm:gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
-                <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
-                    Cotización
-                  </p>
-                </div>
-                <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
-                  <h1 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">
-                    {isEditingRoute ? "Editar cotización" : "Nueva cotización"}
-                  </h1>
-                  {!!(isEditingRoute || activeCotizacionId) && (
-                    <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/[0.12] dark:text-amber-200">
-                      {isEditingRoute ? "Edición" : "Borrador"} · #
-                      {editingCotizacionIdx != null ? editingCotizacionIdx : (activeCotizacionId || editingCotizacionId)}
-                    </span>
                   )}
                 </div>
-                <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
-                  {isEditingRoute
-                    ? "Ajusta cliente, conceptos y totales; guarda los cambios o revisa el PDF antes de enviar."
-                    : "Define el cliente, agrega productos o servicios y revisa el resumen antes de guardar o generar la vista previa. Se guarda automáticamente como borrador."}
-                </p>
-                {!!lastAutoSavedAt && (
-                  <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                    {isAutoSaving ? "Guardando cambios..." : `Autosave: ${new Date(lastAutoSavedAt).toLocaleTimeString("es-MX")}`}
-                  </p>
-                )}
               </div>
             </div>
-            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
-              <button
-                type="button"
-                onClick={() => navigate("/cotizacion")}
-                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-800 transition-colors hover:border-gray-300 hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:hover:bg-white/[0.04] sm:w-auto sm:min-h-0"
-                aria-label="Regresar a cotizaciones"
-              >
-                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10 19 3 12l7-7" />
-                  <path d="M3 12h18" />
-                </svg>
-                <span className="hidden sm:inline">Volver al listado</span>
-                <span className="sm:hidden">Volver</span>
-              </button>
-            </div>
-          </header>
+          </div>
+        </Modal>
 
-          <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
-            <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-8">
-              <ComponentCard
-                title="Datos del cliente"
-                desc="Busca por nombre o teléfono y completa contacto, descuento y estado."
-                className={cardShellClass.replace(/^overflow-hidden\b/, "overflow-visible")}
-                compact
+        {showSyscomPanel &&
+          syscomPopPos &&
+          createPortal(
+            <div
+              ref={syscomPopRef}
+              role="listbox"
+              aria-label="Resultados de conceptos"
+              style={{
+                position: "fixed",
+                zIndex: 2147483646,
+                left: syscomPopPos.left,
+                width: syscomPopPos.width,
+                maxHeight: syscomPopPos.maxHeight,
+                ...(syscomPopPos.top != null ? { top: syscomPopPos.top } : { bottom: syscomPopPos.bottom }),
+              }}
+              className="flex flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white/98 shadow-2xl shadow-gray-900/20 ring-1 ring-black/[0.06] backdrop-blur-md dark:border-white/[0.12] dark:bg-gray-900/98 dark:shadow-black/50 dark:ring-white/[0.08]"
+            >
+              <div className="shrink-0 border-b border-gray-100/90 bg-gradient-to-r from-brand-50/95 to-transparent px-3 py-2 dark:border-white/[0.06] dark:from-brand-950/50 dark:to-transparent">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-800 dark:text-brand-200">Resultados combinados</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Conceptos internos, productos manuales y Syscom</p>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-1.5 custom-scrollbar">
+                {loadingCatalogoConceptos && (
+                  <div className="mb-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs text-gray-500 dark:text-gray-400">
+                    <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" aria-hidden />
+                    Cargando conceptos...
+                  </div>
+                )}
+                {!loadingCatalogoConceptos && !!catalogoConceptosError && (
+                  <div className="mb-1 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                    {catalogoConceptosError}
+                  </div>
+                )}
+                {!!catalogoManualError && (
+                  <div className="mb-1 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                    {catalogoManualError}
+                  </div>
+                )}
+                {loadingSyscom && (
+                  <div className="flex items-center gap-2 rounded-lg px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
+                    <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" aria-hidden />
+                    Buscando en Syscom…
+                  </div>
+                )}
+                {!loadingSyscom && !!syscomError && (
+                  <div className="rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">{syscomError}</div>
+                )}
+                {!loadingSyscom &&
+                  !loadingCatalogoConceptos &&
+                  !syscomError &&
+                  !catalogoConceptosError &&
+                  combinedConceptoOptions.map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      role="option"
+                      onClick={opt.onSelect}
+                      className="group mb-1 flex w-full rounded-xl px-2 py-2 text-left transition-colors last:mb-0 hover:bg-brand-50/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:hover:bg-white/[0.06]"
+                    >
+                      <div className="flex w-full items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-snug text-gray-900 group-hover:text-brand-900 dark:text-gray-100 dark:group-hover:text-brand-100">
+                            {opt.title}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                            <span className="mr-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-white/[0.08]">
+                              {opt.source === "catalogo" ? "Concepto" : opt.source === "manual" ? "Manual" : "Syscom"}
+                            </span>
+                            {opt.subtitle || "Sin detalle"}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-md bg-brand-500/10 px-2 py-1 text-xs font-semibold tabular-nums text-brand-700 dark:bg-brand-400/15 dark:text-brand-300">
+                          {formatMoney(opt.price)}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                {!loadingSyscom && !loadingCatalogoConceptos && !syscomError && !catalogoConceptosError && !catalogoManualError && combinedConceptoOptions.length === 0 && productoSearch.trim().length >= 2 && (
+                  <div className="rounded-lg px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400">Sin resultados en catálogos</div>
+                )}
+              </div>
+            </div>,
+            document.body
+          )}
+
+        {alert.show && (
+          <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
+        )}
+
+        {!canCotizacionesView ? (
+          <div className="py-10 text-center text-xs text-gray-500 dark:text-gray-400 sm:text-sm">No tienes permiso para ver Cotizaciones.</div>
+        ) : (
+          <>
+
+            <nav
+              className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+              aria-label="Migas de pan"
+            >
+              <Link
+                to="/"
+                className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
               >
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                Inicio
+              </Link>
+              <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+                /
+              </span>
+              <Link
+                to="/cotizacion"
+                className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
+              >
+                Cotizaciones
+              </Link>
+              <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+                /
+              </span>
+              <span className="font-medium text-gray-700 dark:text-gray-300">
+                {isEditingRoute ? "Editar" : "Nueva"}
+              </span>
+            </nav>
+
+            <header className={`flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
+              <div className="flex min-w-0 gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+                  <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+                      Cotización
+                    </p>
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
+                    <h1 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">
+                      {isEditingRoute ? "Editar cotización" : "Nueva cotización"}
+                    </h1>
+                    {!!(isEditingRoute || activeCotizacionId) && (
+                      <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/[0.12] dark:text-amber-200">
+                        {isEditingRoute ? "Edición" : "Borrador"} · #
+                        {editingCotizacionIdx != null ? editingCotizacionIdx : (activeCotizacionId || editingCotizacionId)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+                    {isEditingRoute
+                      ? "Ajusta cliente, conceptos y totales; guarda los cambios o revisa el PDF antes de enviar."
+                      : "Define el cliente, agrega productos o servicios y revisa el resumen antes de guardar o generar la vista previa. Se guarda automáticamente como borrador."}
+                  </p>
+                  {!!lastAutoSavedAt && (
+                    <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                      {isAutoSaving ? "Guardando cambios..." : `Autosave: ${new Date(lastAutoSavedAt).toLocaleTimeString("es-MX")}`}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
+                <button
+                  type="button"
+                  onClick={() => navigate("/cotizacion")}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-800 transition-colors hover:border-gray-300 hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:hover:bg-white/[0.04] sm:w-auto sm:min-h-0"
+                  aria-label="Regresar a cotizaciones"
+                >
+                  <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 19 3 12l7-7" />
+                    <path d="M3 12h18" />
+                  </svg>
+                  <span className="hidden sm:inline">Volver al listado</span>
+                  <span className="sm:hidden">Volver</span>
+                </button>
+              </div>
+            </header>
+
+            <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
+              <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-8">
+                <ComponentCard
+                  title="Datos del cliente"
+                  desc="Busca por nombre o teléfono y completa contacto, descuento y estado."
+                  className={cardShellClass.replace(/^overflow-hidden\b/, "overflow-visible")}
+                  compact
+                >
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-[11px] font-medium text-gray-600 dark:text-gray-400 sm:text-xs">Cliente</label>
                       <div className={`relative ${clienteOpen ? "z-[100]" : "z-0"}`}>
@@ -2255,7 +2263,6 @@ export default function NuevaCotizacionPage() {
                             }}
                             onFocus={() => setClienteOpen(true)}
                             placeholder={loadingClientes ? "Cargando clientes..." : "Buscar cliente por nombre o teléfono..."}
-                            disabled={loadingClientes}
                             className="block min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-8 pr-20 text-sm text-gray-800 outline-none transition-colors focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5"
                           />
                           <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
@@ -2365,32 +2372,32 @@ export default function NuevaCotizacionPage() {
                       </select>
                     </div>
                   </div>
-              </ComponentCard>
+                </ComponentCard>
 
-              <ComponentCard
-                title="Agregar productos o servicios"
-                desc="Integra con catálogo Syscom o captura manualmente cantidad, precio y descuento."
-                className={cardShellClass}
-                compact
-                actions={
-                  <button
-                    type="button"
-                    onClick={clearConceptoForm}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200/90 bg-white text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/25 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:bg-white/[0.04]"
-                    aria-label="Limpiar sección de producto"
-                    title="Limpiar"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 6h18" />
-                      <path d="M8 6V4h8v2" />
-                      <path d="M6 6l1 16h10l1-16" />
-                      <path d="M10 11v6" />
-                      <path d="M14 11v6" />
-                    </svg>
-                  </button>
-                }
-              >
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-6 lg:grid-cols-12 lg:gap-x-6">
+                <ComponentCard
+                  title="Agregar productos o servicios"
+                  desc="Integra con catálogo Syscom o captura manualmente cantidad, precio y descuento."
+                  className={cardShellClass}
+                  compact
+                  actions={
+                    <button
+                      type="button"
+                      onClick={clearConceptoForm}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200/90 bg-white text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/25 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:bg-white/[0.04]"
+                      aria-label="Limpiar sección de producto"
+                      title="Limpiar"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4h8v2" />
+                        <path d="M6 6l1 16h10l1-16" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                      </svg>
+                    </button>
+                  }
+                >
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-6 lg:grid-cols-12 lg:gap-x-6">
                     <div className="sm:col-span-2 lg:col-span-2">
                       <Label className={labelPageClass}>Cant</Label>
                       <Input
@@ -2404,22 +2411,40 @@ export default function NuevaCotizacionPage() {
                       />
                     </div>
 
-                    <div className="sm:col-span-4 lg:col-span-5">
-                      <Label className={labelPageClass}>Concepto / nombre</Label>
-                      <div ref={syscomInputWrapRef} className="relative">
+                    <div className="sm:col-span-4 lg:col-span-3">
+                      <Label className={labelPageClass}>Concepto</Label>
+                      <div className="relative">
                         <input
                           className={inputLikeClassName}
                           value={conceptoNombre}
-                          onFocus={() => {
-                            if (conceptoNombre.trim().length >= 2) setSyscomOpen(true);
-                          }}
                           onChange={(e) => {
                             setConceptoNombre(e.target.value);
                             setSelectedSyscomProducto(null);
                             setSelectedCatalogoConcepto(null);
                             setSelectedManualProducto(null);
                           }}
-                          placeholder="Buscar concepto por folio/nombre, producto manual, Syscom o escribir manualmente"
+                          placeholder="Escribe el concepto que irá en la cotización"
+                          autoComplete="off"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-4 lg:col-span-2">
+                      <Label className={labelPageClass}>Buscar producto</Label>
+                      <div ref={syscomInputWrapRef} className="relative">
+                        <input
+                          className={inputLikeClassName}
+                          value={productoSearch}
+                          onFocus={() => {
+                            if (productoSearch.trim().length >= 2) setSyscomOpen(true);
+                          }}
+                          onChange={(e) => {
+                            setProductoSearch(e.target.value);
+                            setSelectedSyscomProducto(null);
+                            setSelectedCatalogoConcepto(null);
+                            setSelectedManualProducto(null);
+                          }}
+                          placeholder="Buscar en concepto folio/manual/SYSCOM"
                           autoComplete="off"
                         />
                       </div>
@@ -2480,143 +2505,143 @@ export default function NuevaCotizacionPage() {
                       </div>
                     </div>
                   </div>
-              </ComponentCard>
+                </ComponentCard>
 
-              <ComponentCard
-                title="Detalle de conceptos"
-                desc="Revisa cantidades, precios finales y acciones por línea."
-                className={cardShellClass}
-                compact
-              >
-                <p className="mb-2 flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400 sm:hidden">
-                  <span className="inline-block h-px w-4 bg-brand-400/60" aria-hidden />
-                  Desliza horizontalmente para ver todas las columnas
-                </p>
-                <div className="-mx-3 overflow-hidden rounded-xl border border-gray-200/70 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/25 sm:mx-0">
-                  <div className="touch-pan-x overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] px-1 pb-1 sm:px-0 sm:pb-0">
-                    <Table className="min-w-[720px]">
-                      <TableHeader className="sticky top-0 z-10 border-b border-gray-200/80 bg-gray-100/90 text-[10px] font-semibold text-gray-700 backdrop-blur-sm dark:border-white/[0.06] dark:bg-gray-900/90 dark:text-gray-200 sm:text-[11px]">
-                        <TableRow>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Cantidad</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Unidad</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Descripcion</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Detalle</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Precio unitario</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Descuento</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Importe total</TableCell>
-                          <TableCell isHeader className="px-2 py-2 text-center w-1/12 text-gray-700 dark:text-gray-300"> </TableCell>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody className="divide-y divide-gray-100 text-[11px] text-gray-700 dark:divide-white/[0.06] dark:text-gray-200 sm:text-[12px]">
-                        {computed.lines.map((c) => {
-                          return (
-                          <TableRow key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.cantidad}</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.unidad || "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5">
-                              <div className="flex items-center gap-2">
-                                {c.thumbnail_url ? (
-                                  <img src={c.thumbnail_url} alt={c.producto_nombre} className="w-8 h-8 rounded object-cover border border-gray-200 dark:border-white/10" />
-                                ) : null}
-                                <span className="text-gray-900 dark:text-white">{c.producto_nombre}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-2 py-1.5">{c.producto_descripcion || "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.pu, 0))}</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{clampPct(toNumber(c.descuento_pct, 0)).toFixed(2)}%</TableCell>
-                            <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.importe, 0))}</TableCell>
-                            <TableCell className="px-2 py-1.5 text-center">
-                              <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
-                                <button
-                                  type="button"
-                                  onClick={() => editConcepto(c.id)}
-                                  className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
-                                  title="Editar"
-                                >
-                                  <PencilIcon className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeConcepto(c.id)}
-                                  className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
-                                  title="Eliminar"
-                                >
-                                  <TrashBinIcon className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                          );
-                        })}
-
-                        {!computed.lines.length && (
+                <ComponentCard
+                  title="Detalle de conceptos"
+                  desc="Revisa cantidades, precios finales y acciones por línea."
+                  className={cardShellClass}
+                  compact
+                >
+                  <p className="mb-2 flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400 sm:hidden">
+                    <span className="inline-block h-px w-4 bg-brand-400/60" aria-hidden />
+                    Desliza horizontalmente para ver todas las columnas
+                  </p>
+                  <div className="-mx-3 overflow-hidden rounded-xl border border-gray-200/70 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/25 sm:mx-0">
+                    <div className="touch-pan-x overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] px-1 pb-1 sm:px-0 sm:pb-0">
+                      <Table className="min-w-[720px]">
+                        <TableHeader className="sticky top-0 z-10 border-b border-gray-200/80 bg-gray-100/90 text-[10px] font-semibold text-gray-700 backdrop-blur-sm dark:border-white/[0.06] dark:bg-gray-900/90 dark:text-gray-200 sm:text-[11px]">
                           <TableRow>
-                            <TableCell colSpan={8} className="px-4 py-10 text-center">
-                              <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
-                                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400">
-                                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                                  </svg>
-                                </span>
-                                <p className="text-xs font-medium text-gray-700 dark:text-gray-200 sm:text-sm">Aún no hay conceptos</p>
-                                <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 sm:text-xs">Usa el formulario de arriba para agregar productos o servicios.</p>
-                              </div>
-                            </TableCell>
+                            <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Cantidad</TableCell>
+                            <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Unidad</TableCell>
+                            <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Descripcion</TableCell>
+                            <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Detalle</TableCell>
+                            <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Precio unitario</TableCell>
+                            <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Descuento</TableCell>
+                            <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Importe total</TableCell>
+                            <TableCell isHeader className="px-2 py-2 text-center w-1/12 text-gray-700 dark:text-gray-300"> </TableCell>
                           </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              </ComponentCard>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-gray-100 text-[11px] text-gray-700 dark:divide-white/[0.06] dark:text-gray-200 sm:text-[12px]">
+                          {computed.lines.map((c) => {
+                            return (
+                              <TableRow key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                                <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.cantidad}</TableCell>
+                                <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.unidad || "—"}</TableCell>
+                                <TableCell className="px-2 py-1.5">
+                                  <div className="flex items-center gap-2">
+                                    {c.thumbnail_url ? (
+                                      <img src={c.thumbnail_url} alt={c.producto_nombre} className="w-8 h-8 rounded object-cover border border-gray-200 dark:border-white/10" />
+                                    ) : null}
+                                    <span className="text-gray-900 dark:text-white">{c.producto_nombre}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="px-2 py-1.5">{c.producto_descripcion || "—"}</TableCell>
+                                <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.pu, 0))}</TableCell>
+                                <TableCell className="px-2 py-1.5 whitespace-nowrap">{clampPct(toNumber(c.descuento_pct, 0)).toFixed(2)}%</TableCell>
+                                <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.importe, 0))}</TableCell>
+                                <TableCell className="px-2 py-1.5 text-center">
+                                  <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => editConcepto(c.id)}
+                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
+                                      title="Editar"
+                                    >
+                                      <PencilIcon className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeConcepto(c.id)}
+                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
+                                      title="Eliminar"
+                                    >
+                                      <TrashBinIcon className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
 
-              <ComponentCard
-                title="Notas y condiciones"
-                desc="Texto opcional que aparecerá en el documento de cotización."
-                className={cardShellClass}
-                compact
-              >
-                <div className="grid grid-cols-1 gap-5">
-                  <div>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <Label className={labelPageClass}>Texto arriba de los precios</Label>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Máx. 5000</span>
+                          {!computed.lines.length && (
+                            <TableRow>
+                              <TableCell colSpan={8} className="px-4 py-10 text-center">
+                                <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
+                                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400">
+                                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                                      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                                    </svg>
+                                  </span>
+                                  <p className="text-xs font-medium text-gray-700 dark:text-gray-200 sm:text-sm">Aún no hay conceptos</p>
+                                  <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 sm:text-xs">Usa el formulario de arriba para agregar productos o servicios.</p>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
                     </div>
-                    <textarea
-                      value={textoArribaPrecios}
-                      onChange={(e) => setTextoArribaPrecios(e.target.value.slice(0, 5000))}
-                      className={`${textareaLikeClassName} mt-2 rounded-lg`}
-                      rows={6}
-                    />
                   </div>
-                </div>
+                </ComponentCard>
 
-                <div className="grid grid-cols-1 gap-5">
-                  <div>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <Label className={labelPageClass}>Términos y condiciones</Label>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Máx. 8000</span>
+                <ComponentCard
+                  title="Notas y condiciones"
+                  desc="Texto opcional que aparecerá en el documento de cotización."
+                  className={cardShellClass}
+                  compact
+                >
+                  <div className="grid grid-cols-1 gap-5">
+                    <div>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <Label className={labelPageClass}>Texto arriba de los precios</Label>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Máx. 5000</span>
+                      </div>
+                      <textarea
+                        value={textoArribaPrecios}
+                        onChange={(e) => setTextoArribaPrecios(e.target.value.slice(0, 5000))}
+                        className={`${textareaLikeClassName} mt-2 rounded-lg`}
+                        rows={6}
+                      />
                     </div>
-                    <textarea
-                      value={terminos}
-                      onChange={(e) => setTerminos(e.target.value.slice(0, 8000))}
-                      className={`${textareaLikeClassName} mt-2 rounded-lg`}
-                      rows={15}
-                    />
                   </div>
-                </div>
-              </ComponentCard>
-            </div>
 
-            <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-4 lg:sticky lg:top-6 lg:self-start xl:top-8">
-              <ComponentCard
-                title="Resumen"
-                desc="Totales y acciones principales."
-                className={cardShellClass}
-                compact
-              >
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200/80 bg-gray-50/60 px-3 py-2.5 dark:border-white/[0.06] dark:bg-gray-950/35">
+                  <div className="grid grid-cols-1 gap-5">
+                    <div>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <Label className={labelPageClass}>Términos y condiciones</Label>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Máx. 8000</span>
+                      </div>
+                      <textarea
+                        value={terminos}
+                        onChange={(e) => setTerminos(e.target.value.slice(0, 8000))}
+                        className={`${textareaLikeClassName} mt-2 rounded-lg`}
+                        rows={15}
+                      />
+                    </div>
+                  </div>
+                </ComponentCard>
+              </div>
+
+              <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-4 lg:sticky lg:top-6 lg:self-start xl:top-8">
+                <ComponentCard
+                  title="Resumen"
+                  desc="Totales y acciones principales."
+                  className={cardShellClass}
+                  compact
+                >
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200/80 bg-gray-50/60 px-3 py-2.5 dark:border-white/[0.06] dark:bg-gray-950/35">
                       <div className="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-200 sm:text-sm">
                         <svg className="h-3.5 w-3.5 shrink-0 text-gray-500 dark:text-gray-400 sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                           <path d="M8 2v3M16 2v3M4 7h16M6 10h12v10H6z" strokeLinecap="round" strokeLinejoin="round" />
@@ -2752,13 +2777,13 @@ export default function NuevaCotizacionPage() {
                         </button>
                       )}
                     </div>
-                </div>
-              </ComponentCard>
+                  </div>
+                </ComponentCard>
+              </div>
             </div>
-          </div>
 
-        </>
-      )}
+          </>
+        )}
       </div>
     </div>
   );
