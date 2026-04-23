@@ -2253,12 +2253,10 @@ export default function NuevaCotizacionPage() {
                         <div className="relative">
                           <svg className='absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'><circle cx='11' cy='11' r='7' /><path d='m20 20-2-2' /></svg>
                           <input
-                            value={
-                              clienteSearch ||
-                              (clienteId ? clientes.find((c) => c.id === clienteId)?.nombre || "" : "")
-                            }
+                            value={clienteSearch}
                             onChange={(e) => {
                               setClienteSearch(e.target.value);
+                              if (clienteId) setClienteId("");
                               setClienteOpen(true);
                             }}
                             onFocus={() => setClienteOpen(true)}
