@@ -539,17 +539,28 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         net_subtotal_sin_iva = 0.0
         gross_subtotal_sin_iva = 0.0
         net_subtotal_con_iva = 0.0
+        has_manual_concept_lines = False
+        has_product_lines = False
         for it in iter_items(cotizacion):
             try:
                 cantidad = float(it.cantidad or 0)
                 precio_lista = float(it.precio_lista or 0)
                 descuento = float(it.descuento_pct or 0)
-                # precio_lista (Syscom) ya incluye IVA.
-                # En tabla PDF: P. UNIT. debe mostrarse sin descuento para que el % sea visible;
-                # IMPORTE refleja el descuento aplicado por línea.
-                pu_base = precio_lista / IVA_MX_DISPLAY
+                producto_externo_id = str(getattr(it, "producto_externo_id", "") or "").strip()
+                solo_concepto_manual = producto_externo_id == ""
+                if solo_concepto_manual:
+                    has_manual_concept_lines = True
+                else:
+                    has_product_lines = True
+                # Si es solo concepto manual (sin producto), el precio se captura sin IVA y aquí se suma.
+                # Si viene de producto, se conserva el comportamiento actual (precio_lista ya con IVA).
+                pu_base = precio_lista if solo_concepto_manual else (precio_lista / IVA_MX_DISPLAY)
                 pu_desc = pu_base * (1 - (descuento / 100.0))
-                precio_con_iva = precio_lista * (1 - (descuento / 100.0))
+                precio_con_iva = (
+                    (precio_lista * IVA_MX_DISPLAY) * (1 - (descuento / 100.0))
+                    if solo_concepto_manual
+                    else (precio_lista * (1 - (descuento / 100.0)))
+                )
                 importe = cantidad * pu_desc
                 gross_subtotal_sin_iva += cantidad * pu_base
                 net_subtotal_sin_iva += importe
@@ -604,11 +615,16 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             descuento_cliente_pct = 0.0
         if descuento_cliente_pct > 100:
             descuento_cliente_pct = 100.0
+        # Si la cotización solo tiene conceptos manuales, no aplicar descuento automático de cliente en PDF.
+        if has_manual_concept_lines and not has_product_lines:
+            descuento_cliente_pct = 0.0
 
-        # Si por alguna razón el porcentaje no viene poblado, inferimos descuento desde total guardado.
+        # Recalcular total del PDF desde líneas para reflejar IVA en conceptos manuales.
         descuento_cliente_monto = subtotal_lineas * (descuento_cliente_pct / 100.0)
         total_estimado = max(0.0, subtotal_lineas - descuento_cliente_monto)
-        total = total_guardado if total_guardado > 0 else total_estimado
+        total = total_estimado
+        if not (has_manual_concept_lines and not has_product_lines):
+            total = total_guardado if total_guardado > 0 else total_estimado
         if total > subtotal_lineas:
             total = subtotal_lineas
         descuento_monto_visible = max(0.0, subtotal_lineas - total)

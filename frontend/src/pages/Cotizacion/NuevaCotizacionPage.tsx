@@ -443,6 +443,13 @@ export default function NuevaCotizacionPage() {
     return clientes.find((c) => c.id === clienteId) || null;
   }, [clientes, clienteId]);
 
+  const effectiveDescuentoClientePct = useMemo(() => {
+    const hasManualConceptLines = conceptos.some((c) => String(c.producto_externo_id || "").trim() === "");
+    const hasProductLines = conceptos.some((c) => String(c.producto_externo_id || "").trim() !== "");
+    const base = clampPct(toNumber(descuentoClientePct, 0));
+    return hasManualConceptLines && !hasProductLines ? 0 : base;
+  }, [conceptos, descuentoClientePct]);
+
   const isProductoConPrecioSyscom = useCallback(
     (productoExternoId?: string) => {
       const id = String(productoExternoId || "").trim().toLowerCase();
@@ -1253,7 +1260,7 @@ export default function NuevaCotizacionPage() {
       return { ...c, pu, importe };
     });
     const subtotalLineas = lines.reduce((acc, l) => acc + (Number.isFinite(l.importe) ? l.importe : 0), 0);
-    const descClientePct = clampPct(toNumber(descuentoClientePct, 0));
+    const descClientePct = clampPct(toNumber(effectiveDescuentoClientePct, 0));
     const descuentoCliente = subtotalLineas * (descClientePct / 100);
     const subtotal = Math.max(0, subtotalLineas - descuentoCliente);
     const total = subtotal;
@@ -1293,7 +1300,7 @@ export default function NuevaCotizacionPage() {
     medioContacto,
     status,
     conceptos,
-    descuentoClientePct,
+    effectiveDescuentoClientePct,
     textoArribaPrecios,
     terminos,
   ]);
@@ -1634,11 +1641,13 @@ export default function NuevaCotizacionPage() {
     /** Suma con IVA (precio Syscom); el descuento cliente se aplica sobre este monto (igual que el serializer). */
     const subtotalLineasConIva = conceptos.reduce((acc, c) => {
       const descuento = clampPct(toNumber(c.descuento_pct, 0));
-      const precioConIva = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
+      const precioBase = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
+      const esSoloConceptoManual = String(c.producto_externo_id || "").trim() === "";
+      const precioConIva = esSoloConceptoManual ? (precioBase * IVA_MX) : precioBase;
       return acc + toNumber(c.cantidad, 0) * precioConIva;
     }, 0);
 
-    const descClientePct = clampPct(toNumber(descuentoClientePct, 0));
+    const descClientePct = clampPct(toNumber(effectiveDescuentoClientePct, 0));
     const descuentoCliente = subtotalLineasConIva * (descClientePct / 100);
     const totalConIva = Math.max(0, subtotalLineasConIva - descuentoCliente);
     const subtotalSinIva = round2(totalConIva / IVA_MX);
@@ -1660,7 +1669,7 @@ export default function NuevaCotizacionPage() {
       subtotalSinIva,
       ivaDesglose,
     };
-  }, [conceptos, descuentoClientePct, isProductoConPrecioSyscom]);
+  }, [conceptos, effectiveDescuentoClientePct, isProductoConPrecioSyscom]);
 
   /** Cliente, contacto y al menos un concepto (misma regla que validateClienteContacto + líneas) */
   const canGuardarCotizacion = useMemo(() => {
@@ -1761,7 +1770,7 @@ export default function NuevaCotizacionPage() {
       status: String(status || 'PENDIENTE'),
       fecha: nowIso,
       subtotal: round2(toNumber(computed.subtotal, 0)),
-      descuento_cliente_pct: clampPct(toNumber(descuentoClientePct, 0)),
+      descuento_cliente_pct: clampPct(toNumber(effectiveDescuentoClientePct, 0)),
       iva_pct: 0,
       iva: 0,
       total: round2(toNumber(computed.total, 0)),
