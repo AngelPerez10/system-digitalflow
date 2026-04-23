@@ -17,6 +17,7 @@ type CrudPerms = {
   create: boolean;
   edit: boolean;
   delete: boolean;
+  own_only?: boolean;
 };
 
 type UserSignaturePayload = {
@@ -165,11 +166,11 @@ const appendSystemHistoryEvent = (event: {
 
 const seedAdminPerms = async (userId: number) => {
   const full: Required<PermissionsPayload> = {
-    ordenes: { view: true, create: true, edit: true, delete: true },
+    ordenes: { view: true, create: true, edit: true, delete: true, own_only: false },
     clientes: { view: true, create: true, edit: true, delete: true },
     productos: { view: true, create: true, edit: true, delete: true },
     servicios: { view: true, create: true, edit: true, delete: true },
-    cotizaciones: { view: true, create: true, edit: true, delete: true },
+    cotizaciones: { view: true, create: true, edit: true, delete: true, own_only: false },
     tareas: { view: true, create: true, edit: true, delete: true },
     usuarios: { view: true, create: true, edit: true, delete: true },
     reportes: { view: true, create: true, edit: true, delete: true },
@@ -287,11 +288,11 @@ export default function UserProfiles() {
 
   const normalizePerms = (p: any): Required<PermissionsPayload> => {
     const base: Required<PermissionsPayload> = {
-      ordenes: { view: true, create: false, edit: false, delete: false },
+      ordenes: { view: true, create: false, edit: false, delete: false, own_only: false },
       clientes: { view: true, create: false, edit: false, delete: false },
       productos: { view: true, create: false, edit: false, delete: false },
       servicios: { view: true, create: false, edit: false, delete: false },
-      cotizaciones: { view: true, create: false, edit: false, delete: false },
+      cotizaciones: { view: true, create: false, edit: false, delete: false, own_only: false },
       tareas: { view: true, create: false, edit: false, delete: false },
       usuarios: { view: true, create: false, edit: false, delete: false },
       reportes: { view: true, create: true, edit: false, delete: false },
@@ -304,6 +305,7 @@ export default function UserProfiles() {
         create: safe(src.create) ?? dst.create,
         edit: safe(src.edit) ?? dst.edit,
         delete: safe(src.delete) ?? dst.delete,
+        own_only: safe(src.own_only) ?? dst.own_only,
       };
     };
     return {
@@ -1479,6 +1481,7 @@ export default function UserProfiles() {
                                     <div className="space-y-2">
                                       {sec.modules.map((m) => {
                                         const cur = normalizePerms(permsForm)[m.key] as CrudPerms;
+                                        const supportsOwnScope = m.key === 'cotizaciones' || m.key === 'ordenes';
                                         const Switch = ({ k }: { k: keyof CrudPerms }) => {
                                           const checked = !!cur[k];
                                           return (
@@ -1512,6 +1515,42 @@ export default function UserProfiles() {
                                                   </span>
                                                   <div className="min-w-0">
                                                     <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{m.label}</div>
+                                                    {supportsOwnScope && (
+                                                      <button
+                                                        type="button"
+                                                        role="switch"
+                                                        aria-checked={!!cur.own_only}
+                                                        disabled={!canDelegatePerms}
+                                                        title={!canDelegatePerms ? 'Sin permiso para cambiar' : undefined}
+                                                        onClick={() => {
+                                                          if (!canDelegatePerms) return;
+                                                          setPerm(m.key, 'own_only', !cur.own_only);
+                                                        }}
+                                                        className={`mt-1 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition-all ${
+                                                          cur.own_only
+                                                            ? 'border-brand-300/80 bg-brand-50/90 text-brand-800 dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-200'
+                                                            : 'border-gray-200/90 bg-white text-gray-600 hover:border-gray-300/90 hover:bg-gray-50 dark:border-white/10 dark:bg-gray-950/40 dark:text-gray-300 dark:hover:bg-white/[0.04]'
+                                                        } ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
+                                                      >
+                                                        <span
+                                                          className={`relative inline-flex h-4 w-7 items-center rounded-full border transition-colors ${
+                                                            cur.own_only
+                                                              ? 'border-brand-400/80 bg-brand-500/90 dark:border-brand-400/70 dark:bg-brand-500'
+                                                              : 'border-gray-300 bg-gray-200 dark:border-gray-600 dark:bg-gray-700'
+                                                          }`}
+                                                          aria-hidden
+                                                        >
+                                                          <span
+                                                            className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${
+                                                              cur.own_only ? 'translate-x-[14px]' : 'translate-x-[2px]'
+                                                            }`}
+                                                          />
+                                                        </span>
+                                                        <span className="tracking-wide">
+                                                          {cur.own_only ? 'Solo propios: Activo' : 'Solo propios: Inactivo'}
+                                                        </span>
+                                                      </button>
+                                                    )}
                                                   </div>
                                                 </div>
                                               </div>

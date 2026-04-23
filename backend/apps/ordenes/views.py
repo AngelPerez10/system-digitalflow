@@ -21,7 +21,7 @@ from django.db import transaction
 from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 
-from apps.users.permissions import ModulePermission, OrdenesAnyAccessPermission
+from apps.users.permissions import ModulePermission, OrdenesAnyAccessPermission, user_module_own_only
 
 from PIL import Image
 
@@ -480,7 +480,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
             )
         )
         user = getattr(self.request, 'user', None)
-        if user and (user.is_authenticated and (user.is_staff or user.is_superuser)):
+        own_only = user_module_own_only(user, 'ordenes') if user and getattr(user, 'is_authenticated', False) else False
+        if user and (user.is_authenticated and (user.is_staff or user.is_superuser)) and not own_only:
             return qs
         if not user or not getattr(user, 'is_authenticated', False):
             return qs.none()
@@ -508,7 +509,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
             raise NotFound()
 
         user = getattr(self.request, 'user', None)
-        if user and getattr(user, 'is_authenticated', False) and (user.is_staff or user.is_superuser):
+        own_only = user_module_own_only(user, 'ordenes') if user and getattr(user, 'is_authenticated', False) else False
+        if user and getattr(user, 'is_authenticated', False) and (user.is_staff or user.is_superuser) and not own_only:
             return obj
 
         if user and getattr(user, 'is_authenticated', False):

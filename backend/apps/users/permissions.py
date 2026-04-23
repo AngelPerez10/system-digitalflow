@@ -33,6 +33,19 @@ def _module_perms_for_key(permissions, module_key):
     return module_perms
 
 
+def user_module_own_only(user, module_key: str) -> bool:
+    """
+    Returns True when user permissions request "solo sus registros" for a module.
+    This scope flag is independent from CRUD flags.
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    perms_obj = getattr(user, 'permissions_profile', None)
+    permissions = getattr(perms_obj, 'permissions', None) or {}
+    module_perms = _module_perms_for_key(permissions, module_key)
+    return _as_bool_value(module_perms.get('own_only'), False)
+
+
 def user_has_any_ordenes_access(permissions):
     """
     True if the user can use the órdenes de trabajo module in any capacity.

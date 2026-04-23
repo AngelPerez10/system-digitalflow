@@ -20,7 +20,9 @@ from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.users.permissions import ModulePermission
+from django.db.models import Q
+
+from apps.users.permissions import ModulePermission, user_module_own_only
 
 from .models import Cotizacion
 from .serializers import CotizacionSerializer
@@ -418,6 +420,11 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             )
         )
         queryset = queryset.select_related('cliente_id', 'creado_por', 'actualizado_por')
+        user = getattr(self.request, 'user', None)
+        if user and getattr(user, 'is_authenticated', False):
+            own_only = user_module_own_only(user, 'cotizaciones')
+            if own_only:
+                queryset = queryset.filter(Q(creado_por=user) | Q(actualizado_por=user))
         return queryset.order_by('-idx')
 
     def _generate_pdf_html(self, cotizacion: Cotizacion) -> str:
