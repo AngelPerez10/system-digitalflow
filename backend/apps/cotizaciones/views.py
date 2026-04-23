@@ -630,9 +630,6 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         descuento_monto_visible = max(0.0, subtotal_lineas - total)
         # Evita mostrar descuentos fantasma por ruido de coma flotante/redondeo.
         descuento_monto_visible = round(descuento_monto_visible, 2)
-        if descuento_monto_visible > 0 and descuento_cliente_pct <= 0 and subtotal_lineas > 0:
-            descuento_cliente_pct = (descuento_monto_visible / subtotal_lineas) * 100.0
-
         base_sin_iva, iva_display = _subtotal_iva_display_split(total)
         descuento_lineas_visible = max(0.0, round(gross_subtotal_sin_iva - net_subtotal_sin_iva, 2))
         descuento_base_visible = max(0.0, round(net_subtotal_sin_iva - base_sin_iva, 2))
