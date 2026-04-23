@@ -671,7 +671,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     td {{ font-size: 11px; }}
     .center {{ text-align: center; }}
     .right {{ text-align: right; }}
-    .img {{ width: 54px; height: 54px; border-radius: 6px; border: 1px solid #e5e7eb; object-fit: cover; }}
+    .img {{ width: 70px; height: 70px; border-radius: 6px; border: 1px solid #e5e7eb; object-fit: cover; }}
     .img.ph {{ background: #f9fafb; border-style: dashed; }}
     .name {{ font-weight: 600; color: #111827; }}
     .desc {{ color: #4b5563; }}
@@ -781,7 +781,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     <table>
       <thead>
         <tr>
-          <th style='width:84px; text-align:left;'>IMG</th>
+          <th style='width:104px; text-align:left;'>IMG</th>
           <th style='width:56px; text-align:center;'>CANT</th>
           <th style='width:70px; text-align:left;'>UNIDAD</th>
           <th style='text-align:left;'>DESCRIPCIÓN</th>
