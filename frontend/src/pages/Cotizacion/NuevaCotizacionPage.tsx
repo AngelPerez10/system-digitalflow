@@ -1044,9 +1044,11 @@ export default function NuevaCotizacionPage() {
     setSelectedSyscomProducto(p);
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(null);
+    setConceptoNombre("");
     // No sobreescribir el concepto: el usuario lo captura manualmente.
     setProductoSearch(String(p.titulo || p.modelo || ""));
     setConceptoDescripcion(String([p.marca, p.modelo].filter(Boolean).join(" · ") || p.titulo || ""));
+    setCantidad((q) => (toNumber(q, 0) > 0 ? q : 1));
     setUnidad((u) => (u.trim() ? u : "PZA"));
     setPrecioLista(round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio)));
     setSyscomOpen(false);
@@ -1078,6 +1080,7 @@ export default function NuevaCotizacionPage() {
     setConceptoNombre(String(c.concepto || ""));
     setProductoSearch(String(c.concepto || ""));
     setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : `Folio: ${c.folio}`));
+    setCantidad((q) => (toNumber(q, 0) > 0 ? q : 1));
     setUnidad((u) => (u.trim() ? u : "SERV"));
     setPrecioLista(Math.max(0, toNumber(c.precio1, 0)));
     setSyscomOpen(false);
@@ -1100,9 +1103,10 @@ export default function NuevaCotizacionPage() {
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(p);
-    setConceptoNombre(String(p.producto || ""));
+    setConceptoNombre("");
     setProductoSearch(String(p.producto || ""));
     setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : [p.marca, p.modelo].filter(Boolean).join(" · ")));
+    setCantidad((q) => (toNumber(q, 0) > 0 ? q : 1));
     setUnidad((u) => (u.trim() ? u : "PZA"));
     setPrecioLista(Math.max(0, toNumber(p.precio, 0)));
     setSyscomOpen(false);
@@ -2480,6 +2484,9 @@ export default function NuevaCotizacionPage() {
                           disabled={bloquearConceptoInput}
                           onChange={(e) => {
                             setConceptoNombre(e.target.value);
+                            if (toNumber(cantidad, 0) <= 0) {
+                              setCantidad(1);
+                            }
                             if (e.target.value.trim().length > 0) {
                               setProductoSearch("");
                               setSyscomOpen(false);
