@@ -298,7 +298,7 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
 
     last_data_row = max(first_data_row, r - 1)
 
-    # Totales (misma lógica de presentación que PDF)
+    # Totales
     subtotal_lineas = net_subtotal_con_iva if net_subtotal_con_iva else float(cotizacion.subtotal or 0)
     if subtotal_lineas < 0:
         subtotal_lineas = 0.0

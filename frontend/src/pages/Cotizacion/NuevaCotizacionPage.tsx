@@ -109,26 +109,26 @@ type ApiCotizacion = {
 
 /** Controles: superficie inset; `text-sm` en móvil para densidad (evitar sensación de texto “grande”) */
 const inputLikeClassName =
-  "w-full min-h-[40px] rounded-lg border border-gray-200/90 dark:border-white/[0.08] bg-gray-50/90 dark:bg-gray-950/40 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 transition-colors focus:border-brand-500/80 focus:bg-white dark:focus:bg-gray-900/60 focus:ring-2 focus:ring-brand-500/20 dark:focus:border-brand-400 dark:focus:ring-brand-900/35 outline-none sm:min-h-[2.75rem] sm:py-2.5";
+  "w-full min-h-[42px] rounded-xl border border-gray-200/95 dark:border-white/[0.1] bg-white dark:bg-gray-950/45 px-3.5 py-2 text-sm font-medium text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all focus:border-brand-500/70 focus:bg-white dark:focus:bg-gray-900/70 focus:ring-4 focus:ring-brand-500/15 dark:focus:border-brand-400 dark:focus:ring-brand-900/35 outline-none sm:min-h-[2.8rem] sm:py-2.5";
 
 const textareaLikeClassName =
-  "w-full min-h-[7rem] rounded-lg border border-gray-200/90 dark:border-white/[0.08] bg-gray-50/90 dark:bg-gray-950/40 px-3 py-2.5 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 transition-colors focus:border-brand-500/80 focus:bg-white dark:focus:bg-gray-900/60 focus:ring-2 focus:ring-brand-500/20 dark:focus:border-brand-400 dark:focus:ring-brand-900/35 outline-none sm:min-h-[8rem] sm:py-3";
+  "w-full min-h-[7rem] rounded-xl border border-gray-200/95 dark:border-white/[0.1] bg-white dark:bg-gray-950/45 px-3.5 py-2.5 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all focus:border-brand-500/70 focus:bg-white dark:focus:bg-gray-900/70 focus:ring-4 focus:ring-brand-500/15 dark:focus:border-brand-400 dark:focus:ring-brand-900/35 outline-none sm:min-h-[8rem] sm:py-3";
 
 const cardShellClass =
-  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+  "overflow-hidden rounded-3xl border border-gray-200/85 bg-gradient-to-b from-white to-gray-50/35 shadow-[0_14px_30px_-20px_rgba(15,23,42,0.35)] dark:border-white/[0.08] dark:from-gray-900/85 dark:to-gray-950/45";
 
 const cardShellMutedClass =
-  "overflow-hidden rounded-2xl border border-gray-200/70 bg-gray-50/50 dark:border-white/[0.06] dark:bg-gray-950/30";
+  "overflow-hidden rounded-2xl border border-gray-200/80 bg-gradient-to-br from-gray-50 to-white dark:border-white/[0.08] dark:from-gray-900/60 dark:to-gray-950/55";
 
 const cloneModalPanelClass =
-  "rounded-xl border border-gray-200/70 bg-white/90 p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] dark:border-white/[0.07] dark:bg-gray-900/45 dark:shadow-none sm:p-5";
+  "rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-white/[0.08] dark:bg-gray-900/55 dark:shadow-none sm:p-5";
 
 const cloneModalSearchInputClass =
-  "min-h-[44px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2.5 pl-10 pr-3 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60";
+  "min-h-[46px] w-full rounded-xl border border-gray-200/90 bg-gray-50/95 py-2.5 pl-11 pr-10 text-sm font-medium text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-brand-500/70 focus:bg-white focus:ring-4 focus:ring-brand-500/15 dark:border-white/[0.08] dark:bg-gray-950/45 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/70";
 
 /** Misma escala que inputs nativos de la página */
 const inputFieldInsetClass =
-  "!text-sm !bg-gray-50/90 !border-gray-200/90 dark:!bg-gray-950/40 dark:!border-white/[0.08] focus:!ring-brand-500/25";
+  "!text-sm !rounded-xl !bg-white !border-gray-200/95 dark:!bg-gray-950/45 dark:!border-white/[0.1] focus:!ring-brand-500/20";
 
 /** Etiquetas de formulario ligeramente más pequeñas en móvil */
 const labelPageClass = "!mb-1 !text-xs !font-medium sm:!mb-1.5 sm:!text-sm";
@@ -203,8 +203,7 @@ const getSyscomPrecioListaMxnConIva = (p: SyscomProducto, tipoCambio: number | n
 
   const lista = toFinite(p.precios?.precio_lista);
   const especial = toFinite(p.precios?.precio_especial);
-  const descuento = toFinite(p.precios?.precio_descuento);
-  const usdBase = especial ?? lista ?? descuento;
+  const usdBase = especial ?? lista;
 
   if (usdBase == null) return 0;
   if (!tipoCambio) {
@@ -1045,7 +1044,7 @@ export default function NuevaCotizacionPage() {
     setSelectedSyscomProducto(p);
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(null);
-    setConceptoNombre(String(p.titulo || p.modelo || ""));
+    // No sobreescribir el concepto: el usuario lo captura manualmente.
     setProductoSearch(String(p.titulo || p.modelo || ""));
     setConceptoDescripcion(String([p.marca, p.modelo].filter(Boolean).join(" · ") || p.titulo || ""));
     setUnidad((u) => (u.trim() ? u : "PZA"));
@@ -1503,11 +1502,28 @@ export default function NuevaCotizacionPage() {
   const canAddConcepto = useMemo(() => {
     const v = validateClienteContacto();
     const qtyOk = toNumber(cantidad, 0) > 0;
-    const nameOk = String(conceptoNombre || "").trim() !== "";
+    const nombreResuelto = String(
+      conceptoNombre ||
+        selectedCatalogoConcepto?.concepto ||
+        selectedManualProducto?.producto ||
+        selectedSyscomProducto?.titulo ||
+        selectedSyscomProducto?.modelo ||
+        ""
+    ).trim();
+    const nameOk = nombreResuelto !== "";
     const priceOk = toNumber(precioLista, 0) >= 0;
     return v.ok && qtyOk && nameOk && priceOk;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clienteId, contactoNombre, cantidad, conceptoNombre, precioLista]);
+  }, [
+    clienteId,
+    contactoNombre,
+    cantidad,
+    conceptoNombre,
+    precioLista,
+    selectedCatalogoConcepto,
+    selectedManualProducto,
+    selectedSyscomProducto,
+  ]);
 
   const clearConceptoForm = () => {
     setEditingConceptoId(null);
@@ -1541,7 +1557,14 @@ export default function NuevaCotizacionPage() {
     const qty = Math.max(0, toNumber(cantidad, 0));
     const pl = Math.max(0, toNumber(precioLista, 0));
     const desc = clampPct(toNumber(descuentoPct, 0));
-    const nombre = String(conceptoNombre || "").trim();
+    const nombre = String(
+      conceptoNombre ||
+        selectedCatalogoConcepto?.concepto ||
+        selectedManualProducto?.producto ||
+        selectedSyscomProducto?.titulo ||
+        selectedSyscomProducto?.modelo ||
+        ""
+    ).trim();
     const descripcion = String(conceptoDescripcion || "").trim();
     const productoExternoId = selectedSyscomProducto?.producto_id || (selectedManualProducto ? `manual:${selectedManualProducto.id}` : "");
     const catalogThumb = selectedCatalogoConcepto?.imagen_url?.trim();
@@ -1864,8 +1887,8 @@ export default function NuevaCotizacionPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
-      <div className="mx-auto max-w-7xl space-y-5 px-3 pb-8 pt-5 text-sm sm:space-y-8 sm:px-5 sm:pb-12 sm:pt-8 sm:text-base md:px-6 lg:px-8">
+    <div className="min-h-[calc(100vh-5rem)] bg-gradient-to-b from-gray-100/70 via-gray-50 to-white dark:from-gray-950 dark:via-gray-950 dark:to-black">
+      <div className="mx-auto max-w-[92rem] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-8 sm:px-5 sm:pb-12 sm:pt-8 sm:text-base md:px-6 lg:px-10">
         <PageMeta title="Nueva Cotización | Sistema Grupo Intrax GPS" description="Crear nueva cotización" />
 
         <Modal isOpen={exportBusy} onClose={() => { }} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
@@ -1941,13 +1964,13 @@ export default function NuevaCotizacionPage() {
           }}
           closeOnBackdropClick={clonePickingId == null}
           closeOnEscape={clonePickingId == null}
-          className="mx-4 flex max-h-[min(90vh,640px)] w-[min(96vw,28rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/75 p-0 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.14)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:mx-auto sm:max-w-lg"
+          className="mx-4 flex max-h-[min(90vh,640px)] w-[min(96vw,30rem)] flex-col overflow-hidden rounded-3xl border border-gray-200/80 p-0 shadow-[0_24px_54px_-20px_rgba(15,23,42,0.35)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_54px_-18px_rgba(0,0,0,0.55)] sm:mx-auto sm:max-w-xl"
         >
           <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-            <header className="relative shrink-0 border-b border-gray-200/60 bg-gray-50/80 px-5 py-5 pr-12 dark:border-white/[0.06] dark:bg-gray-950/40 sm:px-6 sm:pr-14">
-              <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-brand-500/80 dark:bg-brand-400/70" aria-hidden />
+            <header className="relative shrink-0 border-b border-gray-200/70 bg-gradient-to-br from-white via-gray-50/85 to-brand-50/50 px-5 py-5 pr-12 dark:border-white/[0.06] dark:from-gray-900 dark:via-gray-900 dark:to-brand-900/10 sm:px-6 sm:pr-14">
+              <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-brand-500/85 dark:bg-brand-400/70" aria-hidden />
               <div className="flex items-start gap-3 sm:gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-500/12 bg-white text-brand-700 shadow-sm dark:border-brand-400/15 dark:bg-gray-900/60 dark:text-brand-300 sm:h-11 sm:w-11">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-brand-500/15 bg-white text-brand-700 shadow-sm dark:border-brand-400/20 dark:bg-gray-900/70 dark:text-brand-300">
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
                     <path d="M16 3h2a2 2 0 0 1 2 2v2M8 3H6a2 2 0 0 0-2 2v2" strokeLinecap="round" />
                     <path d="M8 21h8M12 17v4M9 17h6" strokeLinecap="round" strokeLinejoin="round" />
@@ -1956,7 +1979,7 @@ export default function NuevaCotizacionPage() {
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]">Cotización</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-600/80 dark:text-brand-300/80 sm:text-[11px]">Cotización</p>
                   <h3 className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Clonar desde existente</h3>
                   <p className="mt-1.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
                     Busque por <span className="font-medium text-gray-800 dark:text-gray-200">cliente</span> o{" "}
@@ -1967,7 +1990,7 @@ export default function NuevaCotizacionPage() {
               </div>
             </header>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden bg-gray-50/40 px-5 py-5 dark:bg-gray-950/25 sm:px-6">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden bg-gray-50/45 px-5 py-5 dark:bg-gray-950/25 sm:px-6">
               <section className={cloneModalPanelClass}>
                 <label htmlFor="clone-cotizacion-search" className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm">
                   Buscar cotización
@@ -1993,6 +2016,22 @@ export default function NuevaCotizacionPage() {
                     autoFocus
                     className={cloneModalSearchInputClass}
                   />
+                  {cloneSearch.trim().length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setCloneSearch("")}
+                      className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
+                      aria-label="Limpiar búsqueda"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                        <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 1 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  <span className="rounded-full border border-gray-200/90 bg-gray-50 px-2.5 py-1 text-[10px] font-medium text-gray-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-400">Tip: usa #folio exacto</span>
+                  <span className="rounded-full border border-gray-200/90 bg-gray-50 px-2.5 py-1 text-[10px] font-medium text-gray-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-400">Tip: busca por cliente parcial</span>
                 </div>
               </section>
 
@@ -2003,7 +2042,7 @@ export default function NuevaCotizacionPage() {
                     <span className="tabular-nums text-[11px] font-medium text-gray-400 dark:text-gray-500">{cloneRows.length}</span>
                   )}
                 </div>
-                <div className="relative min-h-[12rem] flex-1 overflow-hidden rounded-xl border border-gray-200/80 bg-white/60 dark:border-white/[0.08] dark:bg-gray-900/40">
+                <div className="relative min-h-[12rem] flex-1 overflow-hidden rounded-2xl border border-gray-200/80 bg-white/75 dark:border-white/[0.08] dark:bg-gray-900/45">
                   <div className="custom-scrollbar max-h-[min(48vh,320px)] overflow-y-auto overscroll-contain sm:max-h-[min(50vh,340px)]">
                     {cloneListLoading && (
                       <div className="flex flex-col items-center justify-center gap-3 px-4 py-14">
@@ -2037,17 +2076,17 @@ export default function NuevaCotizacionPage() {
                       </div>
                     )}
                     {!cloneListLoading && cloneRows.length > 0 && (
-                      <ul className="space-y-2 p-3 sm:p-3.5">
+                      <ul className="space-y-2.5 p-3 sm:p-3.5">
                         {cloneRows.map((row) => (
                           <li key={row.id}>
                             <button
                               type="button"
                               disabled={clonePickingId != null}
                               onClick={() => void handleClonePick(row.id)}
-                              className="flex w-full flex-col gap-2 rounded-xl border border-gray-200/80 bg-white p-3.5 text-left shadow-sm transition-all hover:border-brand-300/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/35 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-gray-900/55 dark:hover:border-brand-500/30 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                              className="flex w-full flex-col gap-2 rounded-2xl border border-gray-200/80 bg-gradient-to-br from-white to-gray-50/60 p-3.5 text-left shadow-sm transition-all hover:-translate-y-[1px] hover:border-brand-300/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/35 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:from-gray-900/70 dark:to-gray-900/40 dark:hover:border-brand-500/30 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                             >
                               <div className="flex min-w-0 flex-1 items-start gap-3">
-                                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500/[0.1] text-sm font-bold tabular-nums text-brand-800 dark:bg-brand-500/15 dark:text-brand-200">
+                                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-500/20 bg-brand-500/[0.08] text-sm font-bold tabular-nums text-brand-800 dark:border-brand-500/25 dark:bg-brand-500/15 dark:text-brand-200">
                                   #{row.idx}
                                 </span>
                                 <div className="min-w-0 flex-1">
@@ -2204,9 +2243,10 @@ export default function NuevaCotizacionPage() {
               </span>
             </nav>
 
-            <header className={`flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
+            <header className={`relative flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-500 via-brand-400 to-cyan-400" aria-hidden />
               <div className="flex min-w-0 gap-3 sm:gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-brand-500/20 bg-white text-brand-700 shadow-sm dark:border-brand-400/20 dark:bg-gray-900/70 dark:text-brand-300 sm:h-12 sm:w-12">
                   <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
@@ -2214,7 +2254,7 @@ export default function NuevaCotizacionPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-700/70 dark:text-brand-300/80 sm:text-[11px]">
                       Cotización
                     </p>
                   </div>
@@ -2229,7 +2269,7 @@ export default function NuevaCotizacionPage() {
                       </span>
                     )}
                   </div>
-                  <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+                  <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-300 sm:mt-2 sm:text-sm">
                     {isEditingRoute
                       ? "Ajusta cliente, conceptos y totales; guarda los cambios o revisa el PDF antes de enviar."
                       : "Define el cliente, agrega productos o servicios y revisa el resumen antes de guardar o generar la vista previa. Se guarda automáticamente como borrador."}
@@ -2245,7 +2285,7 @@ export default function NuevaCotizacionPage() {
                 <button
                   type="button"
                   onClick={() => navigate("/cotizacion")}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-800 transition-colors hover:border-gray-300 hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:hover:bg-white/[0.04] sm:w-auto sm:min-h-0"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-800 transition-all hover:-translate-y-[1px] hover:border-brand-300 hover:bg-brand-50/60 active:scale-[0.99] dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:hover:bg-brand-500/[0.09] sm:w-auto sm:min-h-0"
                   aria-label="Regresar a cotizaciones"
                 >
                   <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2259,14 +2299,14 @@ export default function NuevaCotizacionPage() {
             </header>
 
             <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
-              <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-8">
+              <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-9">
                 <ComponentCard
                   title="Datos del cliente"
                   desc="Busca por nombre o teléfono y completa contacto, descuento y estado."
                   className={cardShellClass.replace(/^overflow-hidden\b/, "overflow-visible")}
                   compact
                 >
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     <div>
                       <label className="mb-1 block text-[11px] font-medium text-gray-600 dark:text-gray-400 sm:text-xs">Cliente</label>
                       <div className={`relative ${clienteOpen ? "z-[100]" : "z-0"}`}>
@@ -2281,7 +2321,7 @@ export default function NuevaCotizacionPage() {
                             }}
                             onFocus={() => setClienteOpen(true)}
                             placeholder={loadingClientes ? "Cargando clientes..." : "Buscar cliente por nombre o teléfono..."}
-                            className="block min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-8 pr-20 text-sm text-gray-800 outline-none transition-colors focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5"
+                            className="block min-h-[42px] w-full rounded-xl border border-gray-200/95 bg-white py-2 pl-8 pr-20 text-sm font-medium text-gray-800 outline-none transition-all focus:border-brand-500/70 focus:bg-white focus:ring-4 focus:ring-brand-500/15 dark:border-white/[0.1] dark:bg-gray-950/45 dark:text-gray-100 dark:focus:bg-gray-900/70 sm:min-h-[44px] sm:py-2.5"
                           />
                           <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
                             {(!!clienteId || clienteSearch.trim().length > 0) && (
@@ -2302,7 +2342,7 @@ export default function NuevaCotizacionPage() {
                           </div>
                         </div>
                         {clienteOpen && (
-                          <div className="absolute left-0 right-0 top-full z-[110] mt-1 w-full max-h-64 overflow-auto divide-y divide-gray-100 rounded-lg border border-gray-200/80 bg-white shadow-xl ring-1 ring-black/5 backdrop-blur-sm dark:divide-white/[0.06] dark:border-white/[0.08] dark:bg-gray-900/95 dark:ring-white/10 custom-scrollbar">
+                          <div className="absolute left-0 right-0 top-full z-[110] mt-1 w-full max-h-64 overflow-auto divide-y divide-gray-100 rounded-xl border border-gray-200/80 bg-white shadow-xl ring-1 ring-black/5 backdrop-blur-sm dark:divide-white/[0.06] dark:border-white/[0.08] dark:bg-gray-900/95 dark:ring-white/10 custom-scrollbar">
                             <button type='button' onClick={() => selectCliente(null)} className={`w-full text-left px-3 py-2 text-[11px] hover:bg-brand-50 dark:hover:bg-gray-800 dark:text-white ${!clienteId ? 'bg-brand-50/60 dark:bg-gray-800/50 font-medium text-brand-700 dark:text-white' : ''}`}>Selecciona cliente</button>
                             {filteredClientes.map(c => (
                               <button key={c.id} type='button' onClick={() => selectCliente(c)} className='w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition'>
@@ -2415,6 +2455,9 @@ export default function NuevaCotizacionPage() {
                     </button>
                   }
                 >
+                  <div className="mb-4 rounded-2xl border border-brand-200/40 bg-gradient-to-r from-brand-50/80 to-cyan-50/60 px-4 py-2.5 text-[11px] text-brand-900 dark:border-brand-500/25 dark:from-brand-900/20 dark:to-cyan-900/15 dark:text-brand-100">
+                    Sugerencia: selecciona primero el producto para usar precio especial/lista automaticamente, y despues ajusta el concepto si deseas editar el texto final.
+                  </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-6 lg:grid-cols-12 lg:gap-x-6">
                     <div className="sm:col-span-2 lg:col-span-2">
                       <Label className={labelPageClass}>Cant</Label>
@@ -2442,8 +2485,16 @@ export default function NuevaCotizacionPage() {
                             setSelectedManualProducto(null);
                           }}
                           placeholder="Escribe el concepto que irá en la cotización"
+                          list="conceptos-servicios-datalist"
                           autoComplete="off"
                         />
+                        <datalist id="conceptos-servicios-datalist">
+                          {catalogoConceptos.map((c) => (
+                            <option key={c.id} value={c.concepto || ""}>
+                              {`Folio ${c.folio} · ${formatMoney(toNumber(c.precio1, 0))}`}
+                            </option>
+                          ))}
+                        </datalist>
                       </div>
                     </div>
 
@@ -2516,7 +2567,7 @@ export default function NuevaCotizacionPage() {
                           type="button"
                           onClick={addConcepto}
                           disabled={!canAddConcepto}
-                          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:-translate-y-[1px] hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                         >
                           {editingConceptoId ? "Actualizar" : "Agregar"}
                         </button>
@@ -2651,7 +2702,7 @@ export default function NuevaCotizacionPage() {
                 </ComponentCard>
               </div>
 
-              <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-4 lg:sticky lg:top-6 lg:self-start xl:top-8">
+              <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-3 lg:sticky lg:top-6 lg:self-start xl:top-8">
                 <ComponentCard
                   title="Resumen"
                   desc="Totales y acciones principales."
@@ -2659,7 +2710,7 @@ export default function NuevaCotizacionPage() {
                   compact
                 >
                   <div className="grid grid-cols-1 gap-4">
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200/80 bg-gray-50/60 px-3 py-2.5 dark:border-white/[0.06] dark:bg-gray-950/35">
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200/85 bg-gradient-to-r from-gray-50 to-white px-3 py-2.5 dark:border-white/[0.06] dark:from-gray-950/40 dark:to-gray-900/30">
                       <div className="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-200 sm:text-sm">
                         <svg className="h-3.5 w-3.5 shrink-0 text-gray-500 dark:text-gray-400 sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                           <path d="M8 2v3M16 2v3M4 7h16M6 10h12v10H6z" strokeLinecap="round" strokeLinejoin="round" />
@@ -2669,7 +2720,7 @@ export default function NuevaCotizacionPage() {
                       <span className="text-xs font-semibold tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatDMY(todayIso)}</span>
                     </div>
 
-                    <div className="rounded-xl border border-gray-200/80 bg-white p-4 dark:border-white/[0.08] dark:bg-gray-950/40">
+                    <div className="rounded-2xl border border-gray-200/85 bg-gradient-to-b from-white to-gray-50/45 p-4 dark:border-white/[0.08] dark:from-gray-900/70 dark:to-gray-950/40">
                       <div className="flex items-end justify-between gap-3 border-b border-gray-100 pb-3 dark:border-white/[0.06]">
                         <div>
                           <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Total estimado</div>
@@ -2718,7 +2769,7 @@ export default function NuevaCotizacionPage() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 gap-2">
+                      <div className="grid grid-cols-1 gap-2">
                       <button
                         type="button"
                         disabled={!canGuardarCotizacion}
@@ -2726,7 +2777,7 @@ export default function NuevaCotizacionPage() {
                           void handleSaveCotizacion(true);
                         }}
                         title={!clienteId ? "Selecciona un cliente" : undefined}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-3 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-xs font-semibold text-white shadow-sm transition-all hover:-translate-y-[1px] hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                       >
                         {isEditingRoute ? "Actualizar cotización" : "Guardar cotización"}
                       </button>
@@ -2734,7 +2785,7 @@ export default function NuevaCotizacionPage() {
                         type="button"
                         disabled={!canGuardarCotizacion || exportBusy}
                         onClick={handlePreviewPdf}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-brand-200/90 bg-white px-4 py-3 text-xs font-semibold text-brand-800 transition-colors hover:bg-brand-50/80 focus:outline-none focus:ring-2 focus:ring-brand-500/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-500/30 dark:bg-transparent dark:text-brand-200 dark:hover:bg-brand-500/[0.08] sm:min-h-0"
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-brand-200/90 bg-white px-4 py-3 text-xs font-semibold text-brand-800 transition-all hover:-translate-y-[1px] hover:bg-brand-50/80 focus:outline-none focus:ring-2 focus:ring-brand-500/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-500/30 dark:bg-transparent dark:text-brand-200 dark:hover:bg-brand-500/[0.08] sm:min-h-0"
                       >
                         {previewLoading ? (
                           <>
@@ -2751,7 +2802,7 @@ export default function NuevaCotizacionPage() {
                         type="button"
                         disabled={exportBusy || !String(editingCotizacionId || activeCotizacionId || "").trim()}
                         onClick={() => void handleDownloadExcel()}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-emerald-200/90 bg-white px-4 py-3 text-xs font-semibold text-emerald-900 transition-colors hover:bg-emerald-50/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/30 dark:bg-transparent dark:text-emerald-100 dark:hover:bg-emerald-500/[0.08] sm:min-h-0"
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-emerald-200/90 bg-white px-4 py-3 text-xs font-semibold text-emerald-900 transition-all hover:-translate-y-[1px] hover:bg-emerald-50/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/30 dark:bg-transparent dark:text-emerald-100 dark:hover:bg-emerald-500/[0.08] sm:min-h-0"
                         title={
                           !String(editingCotizacionId || activeCotizacionId || "").trim()
                             ? "Guarda la cotización para descargar el Excel"
@@ -2772,7 +2823,7 @@ export default function NuevaCotizacionPage() {
                       <button
                         type="button"
                         onClick={resetAll}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-white px-4 py-3 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-transparent dark:text-gray-200 dark:hover:bg-white/[0.04] sm:min-h-0"
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-white px-4 py-3 text-xs font-semibold text-gray-700 transition-all hover:-translate-y-[1px] hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-transparent dark:text-gray-200 dark:hover:bg-white/[0.04] sm:min-h-0"
                       >
                         Limpiar formulario
                       </button>
