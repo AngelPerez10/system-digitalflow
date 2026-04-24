@@ -1566,6 +1566,8 @@ export default function NuevaCotizacionPage() {
 
     const qty = Math.max(0, toNumber(cantidad, 0));
     const pl = Math.max(0, toNumber(precioLista, 0));
+    const precioCatalogo = Math.max(0, toNumber(selectedCatalogoConcepto?.precio1, 0));
+    const precioLinea = pl > 0 ? pl : precioCatalogo;
     const desc = clampPct(toNumber(descuentoPct, 0));
     const nombre = nombreConceptoResuelto;
     const descripcion = String(conceptoDescripcion || "").trim();
@@ -1590,7 +1592,7 @@ export default function NuevaCotizacionPage() {
               unidad: String(unidad || ""),
               thumbnail_url: thumbnail || x.thumbnail_url,
               cantidad: qty,
-              precio_lista: pl,
+              precio_lista: precioLinea,
               descuento_pct: desc,
             }
             : x
@@ -1608,7 +1610,7 @@ export default function NuevaCotizacionPage() {
           unidad: String(unidad || ""),
           thumbnail_url: thumbnail,
           cantidad: qty,
-          precio_lista: pl,
+          precio_lista: precioLinea,
           descuento_pct: desc,
         },
       ]);
@@ -2483,17 +2485,29 @@ export default function NuevaCotizacionPage() {
                           value={conceptoNombre}
                           disabled={bloquearConceptoInput}
                           onChange={(e) => {
-                            setConceptoNombre(e.target.value);
+                            const nextConcepto = e.target.value;
+                            setConceptoNombre(nextConcepto);
                             if (toNumber(cantidad, 0) <= 0) {
                               setCantidad(1);
                             }
-                            if (e.target.value.trim().length > 0) {
+                            if (nextConcepto.trim().length > 0) {
                               setProductoSearch("");
                               setSyscomOpen(false);
                             }
                             setSelectedSyscomProducto(null);
-                            setSelectedCatalogoConcepto(null);
                             setSelectedManualProducto(null);
+                            const match = catalogoConceptos.find(
+                              (c) => String(c.concepto || "").trim().toLowerCase() === nextConcepto.trim().toLowerCase()
+                            );
+                            if (match) {
+                              setSelectedCatalogoConcepto(match);
+                              if (toNumber(precioLista, 0) <= 0) {
+                                setPrecioLista(Math.max(0, toNumber(match.precio1, 0)));
+                              }
+                              setUnidad((u) => (u.trim() ? u : "SERV"));
+                            } else {
+                              setSelectedCatalogoConcepto(null);
+                            }
                           }}
                           placeholder={bloquearConceptoInput ? "Concepto bloqueado por selección de producto" : "Escribe el concepto que irá en la cotización"}
                           list="conceptos-servicios-datalist"

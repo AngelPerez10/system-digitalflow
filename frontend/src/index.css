@@ -176,6 +176,9 @@ layer(base);
   color utility to any element that depends on these defaults.
 */
 @layer base {
+  html {
+    zoom: 90%;
+  }
   *,
   ::after,
   ::before,
