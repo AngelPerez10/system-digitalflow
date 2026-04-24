@@ -1499,18 +1499,27 @@ export default function NuevaCotizacionPage() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [editingCotizacionId, activeCotizacionId, buildCotizacionPayload]);
 
+  const editingConceptoActual = useMemo(
+    () => (editingConceptoId ? conceptos.find((x) => x.id === editingConceptoId) || null : null),
+    [conceptos, editingConceptoId]
+  );
+  const hasProductoSeleccionado = !!selectedSyscomProducto || !!selectedManualProducto || !!selectedCatalogoConcepto;
+  const bloquearConceptoInput = hasProductoSeleccionado || String(productoSearch || "").trim().length > 0;
+  const bloquearProductoInput = String(conceptoNombre || "").trim().length > 0;
+  const nombreConceptoResuelto = String(
+    conceptoNombre ||
+      selectedCatalogoConcepto?.concepto ||
+      selectedManualProducto?.producto ||
+      selectedSyscomProducto?.titulo ||
+      selectedSyscomProducto?.modelo ||
+      (editingConceptoActual?.producto_externo_id ? productoSearch : "") ||
+      ""
+  ).trim();
+
   const canAddConcepto = useMemo(() => {
     const v = validateClienteContacto();
     const qtyOk = toNumber(cantidad, 0) > 0;
-    const nombreResuelto = String(
-      conceptoNombre ||
-        selectedCatalogoConcepto?.concepto ||
-        selectedManualProducto?.producto ||
-        selectedSyscomProducto?.titulo ||
-        selectedSyscomProducto?.modelo ||
-        ""
-    ).trim();
-    const nameOk = nombreResuelto !== "";
+    const nameOk = nombreConceptoResuelto !== "";
     const priceOk = toNumber(precioLista, 0) >= 0;
     return v.ok && qtyOk && nameOk && priceOk;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1518,11 +1527,8 @@ export default function NuevaCotizacionPage() {
     clienteId,
     contactoNombre,
     cantidad,
-    conceptoNombre,
+    nombreConceptoResuelto,
     precioLista,
-    selectedCatalogoConcepto,
-    selectedManualProducto,
-    selectedSyscomProducto,
   ]);
 
   const clearConceptoForm = () => {
@@ -1557,14 +1563,7 @@ export default function NuevaCotizacionPage() {
     const qty = Math.max(0, toNumber(cantidad, 0));
     const pl = Math.max(0, toNumber(precioLista, 0));
     const desc = clampPct(toNumber(descuentoPct, 0));
-    const nombre = String(
-      conceptoNombre ||
-        selectedCatalogoConcepto?.concepto ||
-        selectedManualProducto?.producto ||
-        selectedSyscomProducto?.titulo ||
-        selectedSyscomProducto?.modelo ||
-        ""
-    ).trim();
+    const nombre = nombreConceptoResuelto;
     const descripcion = String(conceptoDescripcion || "").trim();
     const productoExternoId = selectedSyscomProducto?.producto_id || (selectedManualProducto ? `manual:${selectedManualProducto.id}` : "");
     const catalogThumb = selectedCatalogoConcepto?.imagen_url?.trim();
@@ -2478,13 +2477,18 @@ export default function NuevaCotizacionPage() {
                         <input
                           className={`${inputLikeClassName} min-h-[46px] text-sm sm:text-base`}
                           value={conceptoNombre}
+                          disabled={bloquearConceptoInput}
                           onChange={(e) => {
                             setConceptoNombre(e.target.value);
+                            if (e.target.value.trim().length > 0) {
+                              setProductoSearch("");
+                              setSyscomOpen(false);
+                            }
                             setSelectedSyscomProducto(null);
                             setSelectedCatalogoConcepto(null);
                             setSelectedManualProducto(null);
                           }}
-                          placeholder="Escribe el concepto que irá en la cotización"
+                          placeholder={bloquearConceptoInput ? "Concepto bloqueado por selección de producto" : "Escribe el concepto que irá en la cotización"}
                           list="conceptos-servicios-datalist"
                           autoComplete="off"
                         />
@@ -2504,8 +2508,9 @@ export default function NuevaCotizacionPage() {
                         <input
                           className={`${inputLikeClassName} min-h-[46px] text-sm sm:text-base`}
                           value={productoSearch}
+                          disabled={bloquearProductoInput}
                           onFocus={() => {
-                            if (productoSearch.trim().length >= 2) setSyscomOpen(true);
+                            if (!bloquearProductoInput && productoSearch.trim().length >= 2) setSyscomOpen(true);
                           }}
                           onChange={(e) => {
                             setProductoSearch(e.target.value);
@@ -2513,7 +2518,7 @@ export default function NuevaCotizacionPage() {
                             setSelectedCatalogoConcepto(null);
                             setSelectedManualProducto(null);
                           }}
-                          placeholder="Buscar en concepto folio/manual/SYSCOM"
+                          placeholder={bloquearProductoInput ? "Producto bloqueado por captura de concepto" : "Buscar en concepto folio/manual/SYSCOM"}
                           autoComplete="off"
                         />
                       </div>
