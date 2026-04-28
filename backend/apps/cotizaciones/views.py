@@ -969,6 +969,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         items = []
         for it in items_data or []:
             item = SimpleNamespace(
+                producto_externo_id=it.get('producto_externo_id'),
                 cantidad=it.get('cantidad'),
                 precio_lista=it.get('precio_lista'),
                 descuento_pct=it.get('descuento_pct'),

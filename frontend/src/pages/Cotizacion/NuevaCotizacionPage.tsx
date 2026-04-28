@@ -1256,17 +1256,19 @@ export default function NuevaCotizacionPage() {
     const nowIso = todayIso;
     const clienteNombre = resolveClienteNombre();
     const contacto = String(contactoNombre || "").trim();
-    const lines = conceptos.map((c) => {
+    const lines = conceptos.map((c) => ({ ...c }));
+    const subtotalLineasConIva = lines.reduce((acc, c) => {
       const descuento = clampPct(toNumber(c.descuento_pct, 0));
-      const pu = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
-      const importe = toNumber(c.cantidad, 0) * pu;
-      return { ...c, pu, importe };
-    });
-    const subtotalLineas = lines.reduce((acc, l) => acc + (Number.isFinite(l.importe) ? l.importe : 0), 0);
+      const precioBase = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
+      const esSoloConceptoManual = String(c.producto_externo_id || "").trim() === "";
+      const precioConIva = esSoloConceptoManual ? (precioBase * IVA_MX) : precioBase;
+      return acc + toNumber(c.cantidad, 0) * precioConIva;
+    }, 0);
     const descClientePct = clampPct(toNumber(effectiveDescuentoClientePct, 0));
-    const descuentoCliente = subtotalLineas * (descClientePct / 100);
-    const subtotal = Math.max(0, subtotalLineas - descuentoCliente);
-    const total = subtotal;
+    const descuentoCliente = subtotalLineasConIva * (descClientePct / 100);
+    const totalConIva = Math.max(0, subtotalLineasConIva - descuentoCliente);
+    const subtotal = round2(totalConIva);
+    const total = round2(totalConIva);
     return {
       cliente_id: clienteId ? Number(clienteId) : null,
       cliente: truncateStr(clienteNombre, MAX_COTIZ_CLIENTE_LEN),
@@ -1275,11 +1277,11 @@ export default function NuevaCotizacionPage() {
       medio_contacto: String(medioContacto || ""),
       status: String(status || "PENDIENTE"),
       fecha: nowIso,
-      subtotal: round2(subtotal),
+      subtotal,
       descuento_cliente_pct: descClientePct,
       iva_pct: 0,
       iva: 0,
-      total: round2(total),
+      total,
       texto_arriba_precios: String(textoArribaPrecios || ""),
       terminos: String(terminos || ""),
       items: lines.map((c, i) => ({

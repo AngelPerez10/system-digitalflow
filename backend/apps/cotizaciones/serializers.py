@@ -5,6 +5,8 @@ from rest_framework import serializers
 
 from .models import Cotizacion, CotizacionItem
 
+IVA_MX_DISPLAY = Decimal('1.16')
+
 
 class CotizacionItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -123,7 +125,7 @@ class CotizacionSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         items_data = validated_data.pop('items', None)
         current_items = items_data if items_data is not None else list(instance.items.all().values(
-            'cantidad', 'precio_lista', 'descuento_pct'
+            'cantidad', 'precio_lista', 'descuento_pct', 'producto_externo_id'
         ))
 
         totals = self._calculate_totals(current_items, validated_data, instance)
@@ -164,7 +166,9 @@ class CotizacionSerializer(serializers.ModelSerializer):
     def _calculate_totals(self, items_data, data, instance=None):
         """
         Recalcula subtotal/total en backend.
-        Los precios de productos ya incluyen IVA, por lo que no se suma impuesto adicional.
+        Regla unificada:
+        - Productos (con producto_externo_id): precio_lista ya incluye IVA.
+        - Conceptos manuales (sin producto_externo_id): precio_lista es base sin IVA y se suma 16%.
         """
         items = list(items_data or [])
         subtotal_lineas = Decimal('0')
@@ -172,13 +176,15 @@ class CotizacionSerializer(serializers.ModelSerializer):
             cantidad = self._to_decimal((item or {}).get('cantidad', 0))
             precio_lista = self._to_decimal((item or {}).get('precio_lista', 0))
             descuento_pct = self._to_decimal((item or {}).get('descuento_pct', 0))
+            producto_externo_id = str((item or {}).get('producto_externo_id', '') or '').strip()
 
             if descuento_pct < 0:
                 descuento_pct = Decimal('0')
             if descuento_pct > 100:
                 descuento_pct = Decimal('100')
 
-            pu = precio_lista * (Decimal('1') - (descuento_pct / Decimal('100')))
+            pu_base = precio_lista * (Decimal('1') - (descuento_pct / Decimal('100')))
+            pu = pu_base if producto_externo_id else (pu_base * IVA_MX_DISPLAY)
             importe = cantidad * pu
             if importe > 0:
                 subtotal_lineas += importe
