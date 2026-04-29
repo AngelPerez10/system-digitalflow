@@ -252,8 +252,14 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
             cantidad = float(it.cantidad or 0)
             precio_lista = float(it.precio_lista or 0)
             descuento = float(it.descuento_pct or 0)
-            precio_con_iva = precio_lista * (1 - (descuento / 100.0))
-            pu = precio_con_iva / IVA_MX_DISPLAY
+            producto_externo_id = str(getattr(it, "producto_externo_id", "") or "").strip()
+            es_solo_concepto_manual = producto_externo_id == ""
+            precio_base = precio_lista * (1 - (descuento / 100.0))
+            # Regla unificada:
+            # - producto_externo_id con valor => precio_lista ya incluye IVA.
+            # - sin producto_externo_id => concepto manual con precio base sin IVA (sumar 16%).
+            precio_con_iva = precio_base if not es_solo_concepto_manual else (precio_base * IVA_MX_DISPLAY)
+            pu = precio_base
             importe = cantidad * pu
             net_subtotal_sin_iva += importe
             net_subtotal_con_iva += cantidad * precio_con_iva
