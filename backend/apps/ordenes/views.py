@@ -128,7 +128,7 @@ ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES = (
 )
 
 DEFAULT_MAX_FOTOS = 5
-EXTRA_MAX_FOTOS = 7
+ALLOWED_FOTOS_EXTRA = frozenset({0, 2, 3, 4, 5})
 
 _allowed_embed_hosts_env = os.environ.get("IMG_EMBED_ALLOW_HOSTS", "").strip()
 IMG_EMBED_ALLOW_HOSTS = {
@@ -415,14 +415,22 @@ def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
         return optimized_url
 
 
-def _orden_max_fotos(*, permitir_fotos_extra: bool) -> int:
-    return EXTRA_MAX_FOTOS if bool(permitir_fotos_extra) else DEFAULT_MAX_FOTOS
+def _normalize_fotos_extra_max(raw) -> int:
+    try:
+        v = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    return v if v in ALLOWED_FOTOS_EXTRA else 0
 
 
-def _resolve_permitir_fotos_extra(data: dict, instance=None) -> bool:
-    if isinstance(data, dict) and 'permitir_fotos_extra' in data:
-        return bool(data.get('permitir_fotos_extra'))
-    return bool(getattr(instance, 'permitir_fotos_extra', False))
+def _orden_max_fotos(*, fotos_extra_max: int) -> int:
+    return DEFAULT_MAX_FOTOS + _normalize_fotos_extra_max(fotos_extra_max)
+
+
+def _resolve_fotos_extra_max(data: dict, instance=None) -> int:
+    if isinstance(data, dict) and 'fotos_extra_max' in data:
+        return _normalize_fotos_extra_max(data.get('fotos_extra_max'))
+    return _normalize_fotos_extra_max(getattr(instance, 'fotos_extra_max', 0))
 
 
 def _img_url_to_data_uri(url: str) -> str:
@@ -1107,7 +1115,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
         servicios = orden.servicios_realizados if isinstance(orden.servicios_realizados, list) else []
         fotos = orden.fotos_urls if isinstance(orden.fotos_urls, list) else []
-        fotos = fotos[:_orden_max_fotos(permitir_fotos_extra=orden.permitir_fotos_extra)]
+        fotos = fotos[:_orden_max_fotos(fotos_extra_max=orden.fotos_extra_max)]
         fotos_limpias = [url for url in fotos if url]
         fotos_embedded = [_img_url_to_data_uri(url) for url in fotos_limpias]
         fotos_embedded = [src for src in fotos_embedded if src]
@@ -1354,7 +1362,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         fotos = data.get('fotos_urls')
         if isinstance(fotos, list):
             max_fotos = _orden_max_fotos(
-                permitir_fotos_extra=_resolve_permitir_fotos_extra(data)
+                fotos_extra_max=_resolve_fotos_extra_max(data)
             )
             if len(fotos) > max_fotos:
                 raise ValidationError(f"Máximo {max_fotos} fotos")
@@ -1407,7 +1415,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         fotos = data.get('fotos_urls')
         if isinstance(fotos, list):
             max_fotos = _orden_max_fotos(
-                permitir_fotos_extra=_resolve_permitir_fotos_extra(data, instance=instance)
+                fotos_extra_max=_resolve_fotos_extra_max(data, instance=instance)
             )
             if len(fotos) > max_fotos:
                 raise ValidationError(f"Máximo {max_fotos} fotos")
@@ -1511,7 +1519,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         if not isinstance(fotos_urls, list):
             return Response({"detail": "fotos_urls debe ser una lista"}, status=400)
 
-        max_fotos = _orden_max_fotos(permitir_fotos_extra=orden.permitir_fotos_extra)
+        max_fotos = _orden_max_fotos(fotos_extra_max=orden.fotos_extra_max)
         if len(fotos_urls) > max_fotos:
             raise ValidationError(f"Máximo {max_fotos} fotos")
 

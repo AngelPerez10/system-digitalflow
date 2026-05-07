@@ -68,7 +68,8 @@ class Orden(models.Model):
     nombre_cliente = models.CharField(max_length=100, blank=True, null=True)
 
     fotos_urls = models.JSONField(default=list, blank=True)
-    permitir_fotos_extra = models.BooleanField(default=False)
+    # Fotos adicionales permitidas además del límite base (5): 0, o entre 2 y 5.
+    fotos_extra_max = models.PositiveSmallIntegerField(default=0)
     pdf_generado = models.FileField(upload_to='pdfs/', null=True, blank=True)
     pdf_url = models.URLField(max_length=500, blank=True, null=True)
     firma_encargado_url = models.TextField(blank=True, null=True)

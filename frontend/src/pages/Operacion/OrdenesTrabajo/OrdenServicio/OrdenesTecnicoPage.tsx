@@ -24,6 +24,21 @@ const cardShellClass =
 const searchInputClass =
   "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
 
+const ORDEN_BASE_MAX_FOTOS = 5;
+const FOTOS_EXTRA_OPTIONS = [0, 2, 3, 4, 5] as const;
+type FotosExtraMax = (typeof FOTOS_EXTRA_OPTIONS)[number];
+
+function normalizeFotosExtraFromOrden(orden: {
+  fotos_extra_max?: unknown;
+  permitir_fotos_extra?: boolean;
+} | null | undefined): FotosExtraMax {
+  if (!orden) return 0;
+  const v = Number(orden.fotos_extra_max);
+  if (FOTOS_EXTRA_OPTIONS.includes(v as FotosExtraMax)) return v as FotosExtraMax;
+  if (orden.permitir_fotos_extra === true) return 2;
+  return 0;
+}
+
 interface Orden {
   id: number;
   idx: number;
@@ -50,7 +65,7 @@ interface Orden {
   firma_encargado_url: string;
   firma_cliente_url: string;
   fotos_urls: string[];
-  permitir_fotos_extra?: boolean;
+  fotos_extra_max?: number;
   pdf_url?: string;
   fecha_creacion: string;
   tipo_orden?: 'servicio_tecnico' | 'levantamiento' | string;
@@ -519,9 +534,9 @@ export default function OrdenesTecnico() {
     firma_encargado_url: mySignatureUrl || "",
     firma_cliente_url: "",
     fotos_urls: [] as string[],
-    permitir_fotos_extra: false
+    fotos_extra_max: 0 as FotosExtraMax
   });
-  const maxPhotosAllowed = formData.permitir_fotos_extra ? 7 : 5;
+  const maxPhotosAllowed = ORDEN_BASE_MAX_FOTOS + formData.fotos_extra_max;
 
   const onDropPhotos = async (acceptedFiles: File[]) => {
     const nonce = formNonceRef.current;
@@ -1227,7 +1242,7 @@ export default function OrdenesTecnico() {
           firma_encargado_url: "",
           firma_cliente_url: "",
           fotos_urls: [],
-          permitir_fotos_extra: false
+          fotos_extra_max: 0 as FotosExtraMax
         });
         setEditingOrden(null);
 
@@ -1365,7 +1380,7 @@ export default function OrdenesTecnico() {
       firma_encargado_url: mySignatureUrl || orden.firma_encargado_url || "",
       firma_cliente_url: orden.firma_cliente_url || "",
       fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : [],
-      permitir_fotos_extra: Boolean((orden as any).permitir_fotos_extra)
+      fotos_extra_max: normalizeFotosExtraFromOrden(orden)
     });
     setShowModal(true);
   };
@@ -1398,7 +1413,7 @@ export default function OrdenesTecnico() {
       firma_encargado_url: "",
       firma_cliente_url: "",
       fotos_urls: [],
-      permitir_fotos_extra: false
+      fotos_extra_max: 0 as FotosExtraMax
     });
     setEditingOrden(null);
     // Limpiar estados de búsqueda de dropdowns
@@ -2929,21 +2944,28 @@ export default function OrdenesTecnico() {
 
                 {/* Subida de Fotos - Dropzone con dz-message */}
                 {!isReadOnly && (
-                  <div className="rounded-lg border border-gray-200 dark:border-white/10 p-3 sm:p-4 mb-3">
-                    <label htmlFor="permitir-fotos-extra-tecnico" className="flex items-center justify-between gap-3 cursor-pointer">
-                      <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                        Permitir 2 fotos extra (máximo 7)
-                      </span>
-                      <input
-                        id="permitir-fotos-extra-tecnico"
-                        type="checkbox"
-                        checked={formData.permitir_fotos_extra}
-                        onChange={(e) => setFormData({ ...formData, permitir_fotos_extra: e.target.checked })}
-                        className="h-5 w-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                      />
+                  <div className="rounded-lg border border-gray-200 dark:border-white/10 p-3 sm:p-4 mb-3 space-y-2">
+                    <label htmlFor="fotos-extra-max-tecnico" className="block text-sm font-medium text-gray-800 dark:text-gray-100">
+                      Fotos adicionales (además de las {ORDEN_BASE_MAX_FOTOS} base)
                     </label>
-                    <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                      Límite actual: {maxPhotosAllowed} fotos.
+                    <select
+                      id="fotos-extra-max-tecnico"
+                      value={formData.fotos_extra_max}
+                      onChange={(e) => {
+                        const n = Number(e.target.value) as FotosExtraMax;
+                        setFormData({ ...formData, fotos_extra_max: n });
+                      }}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-brand-500/80 focus:ring-2 focus:ring-brand-500/20 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100"
+                      aria-describedby="fotos-extra-hint-tecnico"
+                    >
+                      <option value={0}>Ninguna — máximo {ORDEN_BASE_MAX_FOTOS} en total</option>
+                      <option value={2}>+2 — máximo {ORDEN_BASE_MAX_FOTOS + 2} en total</option>
+                      <option value={3}>+3 — máximo {ORDEN_BASE_MAX_FOTOS + 3} en total</option>
+                      <option value={4}>+4 — máximo {ORDEN_BASE_MAX_FOTOS + 4} en total</option>
+                      <option value={5}>+5 — máximo {ORDEN_BASE_MAX_FOTOS + 5} en total</option>
+                    </select>
+                    <p id="fotos-extra-hint-tecnico" className="text-xs text-gray-600 dark:text-gray-400">
+                      Límite actual: {maxPhotosAllowed} fotos en total.
                     </p>
                   </div>
                 )}

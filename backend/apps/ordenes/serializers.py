@@ -20,6 +20,16 @@ class OrdenSerializer(serializers.ModelSerializer):
             return None
         return value
 
+    def validate_fotos_extra_max(self, value):
+        allowed = {0, 2, 3, 4, 5}
+        try:
+            v = int(value)
+        except (TypeError, ValueError):
+            raise serializers.ValidationError("Valor inválido.")
+        if v not in allowed:
+            raise serializers.ValidationError("Solo se permiten 0 o valores entre 2 y 5 fotos adicionales.")
+        return v
+
     def get_tecnico_asignado_full_name(self, obj):
         if obj.tecnico_asignado:
             first = obj.tecnico_asignado.first_name
@@ -107,7 +117,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'quien_entrego_full_name',
             'nombre_cliente',
             'fotos_urls',
-            'permitir_fotos_extra',
+            'fotos_extra_max',
             'pdf_generado',
             'pdf_url',
             'firma_encargado_url',
