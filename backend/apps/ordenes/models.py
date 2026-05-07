@@ -68,6 +68,7 @@ class Orden(models.Model):
     nombre_cliente = models.CharField(max_length=100, blank=True, null=True)
 
     fotos_urls = models.JSONField(default=list, blank=True)
+    permitir_fotos_extra = models.BooleanField(default=False)
     pdf_generado = models.FileField(upload_to='pdfs/', null=True, blank=True)
     pdf_url = models.URLField(max_length=500, blank=True, null=True)
     firma_encargado_url = models.TextField(blank=True, null=True)

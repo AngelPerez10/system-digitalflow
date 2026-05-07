@@ -56,6 +56,7 @@ interface Orden {
   firma_encargado_url: string;
   firma_cliente_url: string;
   fotos_urls: string[];
+  permitir_fotos_extra?: boolean;
   pdf_url?: string;
   fecha_creacion: string;
   tipo_orden?: 'servicio_tecnico' | 'levantamiento' | string;
@@ -461,10 +462,53 @@ export default function Ordenes() {
     });
   };
 
+  const [alert, setAlert] = useState<{
+    show: boolean;
+    variant: "success" | "error" | "warning" | "info";
+    title: string;
+    message: string;
+  }>({ show: false, variant: "success", title: "", message: "" });
+
+  // Alert state for Modal
+  const [modalAlert, setModalAlert] = useState<{
+    show: boolean;
+    variant: "success" | "error" | "warning" | "info";
+    title: string;
+    message: string;
+  }>({ show: false, variant: "success", title: "", message: "" });
+
+  // Form state
+  const [formData, setFormData] = useState({
+    folio: "",
+    cliente_id: null as number | null,
+    contacto_id: null as number | null,
+    cliente: "",
+    direccion: "",
+    telefono_cliente: "",
+    nombre_cliente: "",
+    problematica: "",
+    servicios_realizados: [] as string[],
+    status: "pendiente" as 'pendiente' | 'resuelto',
+    comentario_tecnico: "",
+    fecha_inicio: new Date().toISOString().split('T')[0],
+    hora_inicio: "",
+    fecha_finalizacion: "",
+    hora_termino: "",
+    nombre_encargado: "",
+    tecnico_asignado: null as number | null,
+    quien_instalo: null as number | null,
+    quien_entrego: null as number | null,
+    firma_encargado_url: "",
+    firma_cliente_url: "",
+    fotos_urls: [] as string[],
+    permitir_fotos_extra: false
+  });
+  const maxPhotosAllowed = formData.permitir_fotos_extra ? 7 : 5;
+
   const onDropPhotos = async (acceptedFiles: File[]) => {
     const nonce = formNonceRef.current;
     const current = Array.isArray(formData.fotos_urls) ? formData.fotos_urls : [];
-    const remainingSlots = 5 - current.length;
+    const remainingSlots = maxPhotosAllowed - current.length;
 
     if (remainingSlots <= 0) return;
     const files = acceptedFiles.slice(0, remainingSlots).filter(f => f.type.startsWith('image/'));
@@ -513,54 +557,13 @@ export default function Ordenes() {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onDropPhotos,
     multiple: true,
-    maxFiles: 5,
+    maxFiles: maxPhotosAllowed,
     accept: {
       'image/png': [],
       'image/jpeg': [],
       'image/webp': [],
       'image/svg+xml': [],
     },
-  });
-
-  const [alert, setAlert] = useState<{
-    show: boolean;
-    variant: "success" | "error" | "warning" | "info";
-    title: string;
-    message: string;
-  }>({ show: false, variant: "success", title: "", message: "" });
-
-  // Alert state for Modal
-  const [modalAlert, setModalAlert] = useState<{
-    show: boolean;
-    variant: "success" | "error" | "warning" | "info";
-    title: string;
-    message: string;
-  }>({ show: false, variant: "success", title: "", message: "" });
-
-  // Form state
-  const [formData, setFormData] = useState({
-    folio: "",
-    cliente_id: null as number | null,
-    contacto_id: null as number | null,
-    cliente: "",
-    direccion: "",
-    telefono_cliente: "",
-    nombre_cliente: "",
-    problematica: "",
-    servicios_realizados: [] as string[],
-    status: "pendiente" as 'pendiente' | 'resuelto',
-    comentario_tecnico: "",
-    fecha_inicio: new Date().toISOString().split('T')[0],
-    hora_inicio: "",
-    fecha_finalizacion: "",
-    hora_termino: "",
-    nombre_encargado: "",
-    tecnico_asignado: null as number | null,
-    quien_instalo: null as number | null,
-    quien_entrego: null as number | null,
-    firma_encargado_url: "",
-    firma_cliente_url: "",
-    fotos_urls: [] as string[]
   });
 
   // Estado para modal de mapa
@@ -1208,7 +1211,8 @@ export default function Ordenes() {
           quien_entrego: null,
           firma_encargado_url: "",
           firma_cliente_url: "",
-          fotos_urls: []
+          fotos_urls: [],
+          permitir_fotos_extra: false
         });
         setEditingOrden(null);
 
@@ -1345,7 +1349,8 @@ export default function Ordenes() {
       quien_entrego: (orden as any).quien_entrego ? Number((orden as any).quien_entrego) : null,
       firma_encargado_url: mySignatureUrl || orden.firma_encargado_url || "",
       firma_cliente_url: orden.firma_cliente_url || "",
-      fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : []
+      fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : [],
+      permitir_fotos_extra: Boolean((orden as any).permitir_fotos_extra)
     });
     setShowModal(true);
   };
@@ -1429,7 +1434,8 @@ export default function Ordenes() {
       quien_entrego: null,
       firma_encargado_url: mySignatureUrl || "",
       firma_cliente_url: "",
-      fotos_urls: []
+      fotos_urls: [],
+      permitir_fotos_extra: false
     });
     setEditingOrden(null);
     // Limpiar estados de búsqueda de dropdowns
@@ -2983,6 +2989,24 @@ export default function Ordenes() {
                     </div>
 
                     {/* Subida de Fotos - Dropzone con dz-message */}
+                    <div className="rounded-lg border border-gray-200 dark:border-white/10 p-3 sm:p-4">
+                      <label htmlFor="permitir-fotos-extra" className="flex items-center justify-between gap-3 cursor-pointer">
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                          Permitir 2 fotos extra (máximo 7)
+                        </span>
+                        <input
+                          id="permitir-fotos-extra"
+                          type="checkbox"
+                          checked={formData.permitir_fotos_extra}
+                          onChange={(e) => setFormData({ ...formData, permitir_fotos_extra: e.target.checked })}
+                          className="h-5 w-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        />
+                      </label>
+                      <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                        Límite actual: {maxPhotosAllowed} fotos.
+                      </p>
+                    </div>
+
                     <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-brand-500 dark:border-gray-700 rounded-lg hover:border-brand-500">
                       <div
                         {...getRootProps()}
@@ -3017,7 +3041,7 @@ export default function Ordenes() {
 
                           {/* Contenido de texto */}
                           <h4 className="mb-1 font-semibold text-gray-800 text-sm sm:text-base dark:text-white/90">
-                            {isDragActive ? "Suelta aquí para subir" : "Haz clic o arrastra imágenes (máx. 5)"}
+                            {isDragActive ? "Suelta aquí para subir" : `Haz clic o arrastra imágenes (máx. ${maxPhotosAllowed})`}
                           </h4>
 
                           <span className="text-center mb-2 block w-full max-w-[320px] text-[12px] text-gray-700 dark:text-gray-400">

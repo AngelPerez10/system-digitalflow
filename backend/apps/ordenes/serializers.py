@@ -107,6 +107,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'quien_entrego_full_name',
             'nombre_cliente',
             'fotos_urls',
+            'permitir_fotos_extra',
             'pdf_generado',
             'pdf_url',
             'firma_encargado_url',

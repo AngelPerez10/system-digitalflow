@@ -127,6 +127,9 @@ ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES = (
     "productos/conceptos/",
 )
 
+DEFAULT_MAX_FOTOS = 5
+EXTRA_MAX_FOTOS = 7
+
 _allowed_embed_hosts_env = os.environ.get("IMG_EMBED_ALLOW_HOSTS", "").strip()
 IMG_EMBED_ALLOW_HOSTS = {
     h.strip().lower() for h in (_allowed_embed_hosts_env.split(",") if _allowed_embed_hosts_env else []) if h.strip()
@@ -410,6 +413,16 @@ def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
     except Exception:
         logger.exception("Cloudinary upload failed")
         return optimized_url
+
+
+def _orden_max_fotos(*, permitir_fotos_extra: bool) -> int:
+    return EXTRA_MAX_FOTOS if bool(permitir_fotos_extra) else DEFAULT_MAX_FOTOS
+
+
+def _resolve_permitir_fotos_extra(data: dict, instance=None) -> bool:
+    if isinstance(data, dict) and 'permitir_fotos_extra' in data:
+        return bool(data.get('permitir_fotos_extra'))
+    return bool(getattr(instance, 'permitir_fotos_extra', False))
 
 
 def _img_url_to_data_uri(url: str) -> str:
@@ -1094,7 +1107,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
         servicios = orden.servicios_realizados if isinstance(orden.servicios_realizados, list) else []
         fotos = orden.fotos_urls if isinstance(orden.fotos_urls, list) else []
-        fotos = fotos[:5]
+        fotos = fotos[:_orden_max_fotos(permitir_fotos_extra=orden.permitir_fotos_extra)]
         fotos_limpias = [url for url in fotos if url]
         fotos_embedded = [_img_url_to_data_uri(url) for url in fotos_limpias]
         fotos_embedded = [src for src in fotos_embedded if src]
@@ -1340,8 +1353,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
         # Upload photos if base64 list
         fotos = data.get('fotos_urls')
         if isinstance(fotos, list):
-            if len(fotos) > 5:
-                raise ValidationError("Máximo 5 fotos")
+            max_fotos = _orden_max_fotos(
+                permitir_fotos_extra=_resolve_permitir_fotos_extra(data)
+            )
+            if len(fotos) > max_fotos:
+                raise ValidationError(f"Máximo {max_fotos} fotos")
             new_fotos = []
             for f in fotos:
                 if isinstance(f, str) and _is_data_url(f):
@@ -1390,8 +1406,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
         # Handle photo updates - delete removed photos
         fotos = data.get('fotos_urls')
         if isinstance(fotos, list):
-            if len(fotos) > 5:
-                raise ValidationError("Máximo 5 fotos")
+            max_fotos = _orden_max_fotos(
+                permitir_fotos_extra=_resolve_permitir_fotos_extra(data, instance=instance)
+            )
+            if len(fotos) > max_fotos:
+                raise ValidationError(f"Máximo {max_fotos} fotos")
             new_fotos = []
             # Find photos that were removed
             for old_foto in old_fotos:
@@ -1492,8 +1511,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
         if not isinstance(fotos_urls, list):
             return Response({"detail": "fotos_urls debe ser una lista"}, status=400)
 
-        if len(fotos_urls) > 5:
-            raise ValidationError("Máximo 5 fotos")
+        max_fotos = _orden_max_fotos(permitir_fotos_extra=orden.permitir_fotos_extra)
+        if len(fotos_urls) > max_fotos:
+            raise ValidationError(f"Máximo {max_fotos} fotos")
 
         new_fotos = []
         for f in fotos_urls:
