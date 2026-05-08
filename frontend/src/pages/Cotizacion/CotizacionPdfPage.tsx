@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
@@ -28,9 +28,75 @@ const downloadIcon = (
   </svg>
 );
 
+const retryIcon = (
+  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <path d="M3 12a9 9 0 0 1 15.5-6.3L21 8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M21 3v5h-5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M21 12a9 9 0 0 1-15.5 6.3L3 16" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M3 21v-5h5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const htmlIcon = (
+  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M14 2v6h6" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M9 13h6M9 17h4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 /** Altura del visor: una sola vista útil (viewport menos cabecera del layout + migas + header de página). */
 const viewerFrameClass =
   "h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
+
+type AlertState = {
+  show: boolean;
+  variant: "success" | "error" | "warning" | "info";
+  title: string;
+  message: string;
+};
+
+const friendlyPdfErrorMessage = (raw: unknown): { title: string; message: string } => {
+  const text = typeof raw === "string" ? raw : raw == null ? "" : String(raw);
+  const lower = text.toLowerCase();
+
+  if (!text) {
+    return {
+      title: "No se pudo cargar el PDF",
+      message: "El servicio de generación de PDF no respondió. Inténtalo de nuevo en unos segundos.",
+    };
+  }
+  if (lower.includes("ningún proveedor") || lower.includes("ningun proveedor")) {
+    return {
+      title: "Servicios de PDF no disponibles",
+      message:
+        "Los proveedores configurados no respondieron. Puedes reintentar o descargar la cotización en HTML como respaldo.",
+    };
+  }
+  if (lower.includes("html enviado") || lower.includes("error en html")) {
+    return {
+      title: "Error en el contenido del PDF",
+      message:
+        "El proveedor rechazó el HTML de la cotización. Avisa al equipo técnico; revisa imágenes o caracteres inválidos.",
+    };
+  }
+  if (lower.includes("no hay proveedor")) {
+    return {
+      title: "Generación de PDF no configurada",
+      message: "Falta configurar HTMLDOCS_API_KEY o PDFSHIFT_API_KEY en el servidor.",
+    };
+  }
+  if (lower.includes("sin sesión") || lower.includes("sin sesion")) {
+    return {
+      title: "Sin sesión",
+      message: "Inicia sesión para ver el PDF de la cotización.",
+    };
+  }
+  return {
+    title: "No se pudo cargar el PDF",
+    message: text.length > 220 ? text.slice(0, 220) + "…" : text,
+  };
+};
 
 export default function CotizacionPdfPage() {
   const params = useParams();
@@ -43,15 +109,15 @@ export default function CotizacionPdfPage() {
   const [filename, setFilename] = useState<string>("cotizacion.pdf");
   const [loading, setLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(8);
-  const [alert, setAlert] = useState<{
-    show: boolean;
-    variant: "success" | "error" | "warning" | "info";
-    title: string;
-    message: string;
-  }>({ show: false, variant: "error", title: "", message: "" });
+  const [hasError, setHasError] = useState(false);
+  const [alert, setAlert] = useState<AlertState>({ show: false, variant: "error", title: "", message: "" });
+  const [reloadKey, setReloadKey] = useState(0);
 
   /** Folio visible (idx), no el id interno de la URL */
   const [cotizacionIdx, setCotizacionIdx] = useState<number | string | null>(null);
+
+  /** Mantenemos el último objectURL para revocarlo cuando se reemplace. */
+  const lastObjectUrlRef = useRef<string | null>(null);
 
   const getToken = () => {
     return localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -100,6 +166,7 @@ export default function CotizacionPdfPage() {
       const token = getToken();
       if (!token) {
         if (isMounted) {
+          setHasError(true);
           setAlert({
             show: true,
             variant: "warning",
@@ -113,6 +180,7 @@ export default function CotizacionPdfPage() {
 
       if (!cotizacionId) {
         if (isMounted) {
+          setHasError(true);
           setAlert({ show: true, variant: "error", title: "Error", message: "No se encontró el ID de la cotización." });
           setLoading(false);
         }
@@ -120,14 +188,27 @@ export default function CotizacionPdfPage() {
       }
 
       try {
-        if (isMounted) setLoading(true);
+        if (isMounted) {
+          setLoading(true);
+          setHasError(false);
+          setAlert((p) => ({ ...p, show: false }));
+        }
 
         let resp: Response;
         if (isPreviewMode) {
           const rawPayload = sessionStorage.getItem("cotizacion:pdf-preview-payload");
           if (!rawPayload) {
-            setAlert({ show: true, variant: "warning", title: "Sin datos", message: "No se encontró el contenido de la vista previa." });
-            setPdfObjectUrl(null);
+            if (isMounted) {
+              setHasError(true);
+              setAlert({
+                show: true,
+                variant: "warning",
+                title: "Sin datos",
+                message: "No se encontró el contenido de la vista previa.",
+              });
+              setPdfObjectUrl(null);
+              setLoading(false);
+            }
             return;
           }
           resp = await fetch(apiUrl("/api/cotizaciones/pdf-preview/"), {
@@ -149,20 +230,27 @@ export default function CotizacionPdfPage() {
         if (!isMounted) return;
 
         if (!resp.ok) {
-          let msg = `No se pudo generar el PDF (HTTP ${resp.status}).`;
+          let detail = "";
           try {
             const ct = resp.headers.get("content-type") || "";
             if (ct.includes("application/json")) {
-              const data = await resp.json();
-              msg = (data as { detail?: string })?.detail || msg;
+              const data = (await resp.json()) as { detail?: string };
+              detail = data?.detail || "";
             } else {
-              msg = (await resp.text()) || msg;
+              detail = (await resp.text()) || "";
             }
           } catch {
             /* ignore */
           }
 
-          setAlert({ show: true, variant: "error", title: "Error", message: msg });
+          const friendly = friendlyPdfErrorMessage(detail || `HTTP ${resp.status}`);
+          setHasError(true);
+          setAlert({
+            show: true,
+            variant: resp.status >= 500 ? "error" : "warning",
+            title: friendly.title,
+            message: friendly.message,
+          });
           setPdfObjectUrl(null);
           return;
         }
@@ -179,10 +267,18 @@ export default function CotizacionPdfPage() {
 
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
+        if (lastObjectUrlRef.current) URL.revokeObjectURL(lastObjectUrlRef.current);
+        lastObjectUrlRef.current = url;
         setPdfObjectUrl(url);
       } catch {
         if (isMounted) {
-          setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo cargar la información." });
+          setHasError(true);
+          setAlert({
+            show: true,
+            variant: "error",
+            title: "Error de red",
+            message: "No se pudo contactar al servidor. Revisa tu conexión y reintenta.",
+          });
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -194,7 +290,7 @@ export default function CotizacionPdfPage() {
     return () => {
       isMounted = false;
     };
-  }, [cotizacionId, isPreviewMode]);
+  }, [cotizacionId, isPreviewMode, reloadKey]);
 
   useEffect(() => {
     if (!loading) {
@@ -216,9 +312,55 @@ export default function CotizacionPdfPage() {
 
   useEffect(() => {
     return () => {
-      if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
+      if (lastObjectUrlRef.current) URL.revokeObjectURL(lastObjectUrlRef.current);
+      lastObjectUrlRef.current = null;
     };
-  }, [pdfObjectUrl]);
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setReloadKey((k) => k + 1);
+  }, []);
+
+  const handleDownloadHtmlFallback = useCallback(async () => {
+    if (isPreviewMode) {
+      setAlert({
+        show: true,
+        variant: "info",
+        title: "Vista previa",
+        message: "La descarga HTML de respaldo solo está disponible para cotizaciones guardadas.",
+      });
+      return;
+    }
+    const token = getToken();
+    if (!token || !cotizacionId) return;
+
+    try {
+      const resp = await fetch(apiUrl(`/api/cotizaciones/${cotizacionId}/pdf/?format=html`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) {
+        const friendly = friendlyPdfErrorMessage(`HTTP ${resp.status}`);
+        setAlert({ show: true, variant: "error", title: friendly.title, message: friendly.message });
+        return;
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Cotizacion_${cotizacionIdx ?? cotizacionId}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch {
+      setAlert({
+        show: true,
+        variant: "error",
+        title: "Error de red",
+        message: "No se pudo descargar el HTML. Revisa tu conexión y reintenta.",
+      });
+    }
+  }, [cotizacionId, cotizacionIdx, isPreviewMode]);
 
   const pct = Math.min(99, Math.max(0, Math.round(loadingProgress)));
 
@@ -228,7 +370,7 @@ export default function CotizacionPdfPage() {
         <PageMeta title="PDF Cotización | Digitalflow" description="Vista previa y descarga del PDF de cotización" />
 
         <Modal isOpen={loading} onClose={() => {}} showCloseButton={false} className="mx-4 max-w-md sm:mx-auto">
-          <div className="p-6 sm:p-8">
+          <div className="p-6 sm:p-8" aria-busy="true" aria-live="polite">
             <div className="flex flex-col items-center text-center">
               <div
                 className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-gray-200/80 bg-gray-50/90 dark:border-white/[0.08] dark:bg-gray-900/60"
@@ -247,7 +389,14 @@ export default function CotizacionPdfPage() {
                   <span>Progreso</span>
                   <span className="tabular-nums">{pct}%</span>
                 </div>
-                <div className="mt-2 h-2 w-full overflow-hidden rounded-full border border-gray-200/70 bg-gray-100 dark:border-white/[0.08] dark:bg-gray-800">
+                <div
+                  className="mt-2 h-2 w-full overflow-hidden rounded-full border border-gray-200/70 bg-gray-100 dark:border-white/[0.08] dark:bg-gray-800"
+                  role="progressbar"
+                  aria-valuenow={pct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Progreso de generación del PDF"
+                >
                   <div
                     className="h-full bg-brand-600 transition-[width] duration-500 ease-out dark:bg-brand-500"
                     style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
@@ -284,7 +433,11 @@ export default function CotizacionPdfPage() {
           <span className="font-medium text-gray-700 dark:text-gray-300">Vista PDF</span>
         </nav>
 
-        {alert.show && <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />}
+        {alert.show && (
+          <div role="alert" aria-live="assertive">
+            <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
+          </div>
+        )}
 
         <header className={`flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
           <div className="flex min-w-0 gap-3 sm:gap-4">
@@ -316,7 +469,7 @@ export default function CotizacionPdfPage() {
               className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-800 transition-colors hover:border-gray-300 hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:hover:bg-white/[0.04] sm:w-auto sm:min-h-0"
               aria-label="Regresar a cotizaciones"
             >
-              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M10 19 3 12l7-7" />
                 <path d="M3 12h18" />
               </svg>
@@ -345,13 +498,20 @@ export default function CotizacionPdfPage() {
                   <div
                     className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-gray-200/90 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/25 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
                     aria-busy="true"
+                    aria-live="polite"
                     aria-label="Cargando documento"
                   >
                     <p className="text-sm text-gray-500 dark:text-gray-500">Preparando vista previa…</p>
                   </div>
                 ) : pdfObjectUrl ? (
                   <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-gray-200/80 bg-white shadow-[inset_0_1px_0_0_rgba(0,0,0,0.04)] dark:border-white/[0.08] dark:bg-gray-900/30 dark:shadow-none">
-                    <iframe title="Vista previa del PDF" src={pdfObjectUrl} className={viewerFrameClass} />
+                    <iframe
+                      title="Vista previa del PDF"
+                      aria-label={`Vista previa del PDF de la cotización${cotizacionIdx != null ? ` ${cotizacionIdx}` : ""}`}
+                      src={pdfObjectUrl}
+                      loading="lazy"
+                      className={viewerFrameClass}
+                    />
                   </div>
                 ) : (
                   <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-gray-200/90 bg-gray-50/30 px-6 py-12 text-center dark:border-white/[0.08] dark:bg-gray-950/20 lg:min-h-[calc(100vh-13.5rem)]">
@@ -367,6 +527,24 @@ export default function CotizacionPdfPage() {
                     <p className="mt-1.5 max-w-sm text-sm text-gray-500 dark:text-gray-400">
                       No se pudo generar la vista previa. Compruebe la cotización o vuelva al listado.
                     </p>
+                    {hasError && (
+                      <div className="mt-6 flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
+                        <Button type="button" size="sm" variant="primary" startIcon={retryIcon} onClick={handleRetry}>
+                          Reintentar
+                        </Button>
+                        {!isPreviewMode && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            startIcon={htmlIcon}
+                            onClick={() => void handleDownloadHtmlFallback()}
+                          >
+                            Descargar HTML
+                          </Button>
+                        )}
+                      </div>
+                    )}
                     <Link
                       to="/cotizacion"
                       className="mt-6 text-sm font-medium text-brand-600 underline-offset-4 hover:underline dark:text-brand-400"
@@ -400,6 +578,7 @@ export default function CotizacionPdfPage() {
                     href={pdfObjectUrl || undefined}
                     target="_blank"
                     rel="noreferrer"
+                    tabIndex={pdfObjectUrl ? undefined : -1}
                     className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-brand-200/90 bg-white px-4 py-3 text-xs font-semibold text-brand-800 transition-colors hover:bg-brand-50/80 focus:outline-none focus:ring-2 focus:ring-brand-500/25 active:scale-[0.99] dark:border-brand-500/30 dark:bg-transparent dark:text-brand-200 dark:hover:bg-brand-500/[0.08] sm:min-h-0 ${!pdfObjectUrl ? "pointer-events-none opacity-50" : ""}`}
                     aria-disabled={!pdfObjectUrl}
                     onClick={(e) => {
@@ -430,6 +609,33 @@ export default function CotizacionPdfPage() {
                   >
                     Descargar PDF
                   </Button>
+
+                  {hasError && (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        startIcon={retryIcon}
+                        className="!min-h-[48px] sm:!min-h-0"
+                        onClick={handleRetry}
+                      >
+                        Reintentar
+                      </Button>
+                      {!isPreviewMode && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          startIcon={htmlIcon}
+                          className="!min-h-[48px] sm:!min-h-0"
+                          onClick={() => void handleDownloadHtmlFallback()}
+                        >
+                          Descargar HTML (respaldo)
+                        </Button>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">

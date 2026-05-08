@@ -1,11 +1,9 @@
 """ViewSets for cotizaciones app."""
 import base64
 import io
-import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
-from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
@@ -25,6 +23,7 @@ from django.db.models import Q
 from apps.users.permissions import ModulePermission, user_module_own_only
 
 from .models import Cotizacion
+from .pdf_render import PdfRenderError, any_provider_configured, render_html_to_pdf
 from .serializers import CotizacionSerializer
 
 IVA_MX_DISPLAY = 1.16
@@ -905,44 +904,23 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         if not html:
             return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
 
-        api_key = os.environ.get('HTMLEDOCS_API_KEY')
-        if not api_key:
-            return HttpResponse(html, content_type="text/html; charset=utf-8")
-
-        payload = {
-            "html": html,
-            "format": "pdf",
-            "size": "A4",
-            "orientation": "portrait",
-        }
-
-        req = Request(
-            url="https://htmldocs.com/api/generate",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-
-        try:
-            with urlopen(req, timeout=60) as resp:
-                pdf_bytes = resp.read()
-        except HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode("utf-8", errors="ignore")
-            except Exception:
-                pass
-            return Response({"detail": "Error generando PDF en htmldocs", "status": e.code, "body": body}, status=502)
-        except URLError as e:
-            return Response({"detail": "No se pudo conectar a htmldocs", "error": str(e)}, status=502)
-        except Exception as e:
-            return Response({"detail": "Error inesperado generando PDF", "error": str(e)}, status=500)
-
         idx = getattr(cotizacion, "idx", None) or cotizacion.id
         filename = f"Cotizacion_{idx}.pdf"
+
+        # Allow clients to explicitly ask for HTML as a printable fallback
+        # when the PDF providers are down (e.g. ?format=html).
+        wants_html = (request.query_params.get("format") or "").lower() == "html"
+        if wants_html or not any_provider_configured():
+            response = HttpResponse(html, content_type="text/html; charset=utf-8")
+            if wants_html:
+                response["Content-Disposition"] = f'inline; filename="Cotizacion_{idx}.html"'
+            return response
+
+        try:
+            pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=45)
+        except PdfRenderError as e:
+            return Response({"detail": str(e), "error": e.detail}, status=502)
+
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
@@ -1008,41 +986,13 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         if not html:
             return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
 
-        api_key = os.environ.get('HTMLEDOCS_API_KEY')
-        if not api_key:
+        if not any_provider_configured():
             return HttpResponse(html, content_type="text/html; charset=utf-8")
 
-        payload = {
-            "html": html,
-            "format": "pdf",
-            "size": "A4",
-            "orientation": "portrait",
-        }
-
-        req = Request(
-            url="https://htmldocs.com/api/generate",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-
         try:
-            with urlopen(req, timeout=60) as resp:
-                pdf_bytes = resp.read()
-        except HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode("utf-8", errors="ignore")
-            except Exception:
-                pass
-            return Response({"detail": "Error generando PDF en htmldocs", "status": e.code, "body": body}, status=502)
-        except URLError as e:
-            return Response({"detail": "No se pudo conectar a htmldocs", "error": str(e)}, status=502)
-        except Exception as e:
-            return Response({"detail": "Error inesperado generando PDF", "error": str(e)}, status=500)
+            pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=45)
+        except PdfRenderError as e:
+            return Response({"detail": str(e), "error": e.detail}, status=502)
 
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = 'inline; filename="Cotizacion_Preview.pdf"'

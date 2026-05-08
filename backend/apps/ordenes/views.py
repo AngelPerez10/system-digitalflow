@@ -6,7 +6,6 @@ import base64
 import io
 from pathlib import Path
 from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 
 from rest_framework import viewsets
@@ -22,6 +21,11 @@ from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 
 from apps.users.permissions import ModulePermission, OrdenesAnyAccessPermission, user_module_own_only
+from apps.cotizaciones.pdf_render import (
+    PdfRenderError,
+    any_provider_configured,
+    render_html_to_pdf,
+)
 
 from PIL import Image
 
@@ -44,47 +48,22 @@ class ReportesPermission(ModulePermission):
 
 
 def _pdf_response_from_html(html: str, filename: str):
-    """Convierte HTML a PDF vía htmldocs; sin API key devuelve HTML para vista previa."""
+    """Convierte HTML a PDF con proveedor primario + fallback.
+
+    Si no hay ningún proveedor configurado (modo dev local) regresa el HTML
+    para que el frontend pueda mostrar la vista previa con el motor del
+    navegador. Si los proveedores fallan, regresa 502 con un detalle plano.
+    """
     if not html:
         return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
 
-    api_key = os.environ.get('HTMLEDOCS_API_KEY')
-    if not api_key:
+    if not any_provider_configured():
         return HttpResponse(html, content_type="text/html; charset=utf-8")
 
-    payload = {
-        "html": html,
-        "format": "pdf",
-        "size": "A4",
-        "orientation": "portrait",
-    }
-
-    req = Request(
-        url="https://htmldocs.com/api/generate",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-
     try:
-        with urlopen(req, timeout=60) as resp:
-            pdf_bytes = resp.read()
-    except HTTPError as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8", errors="ignore")
-        except Exception:
-            pass
-        return Response({"detail": "Error generando PDF en htmldocs", "status": e.code, "body": body}, status=502)
-    except URLError:
-        logger.exception("No se pudo conectar a htmldocs")
-        return Response({"detail": "No se pudo conectar a htmldocs"}, status=502)
-    except Exception:
-        logger.exception("Error inesperado generando PDF")
-        return Response({"detail": "Error inesperado generando PDF"}, status=500)
+        pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=45)
+    except PdfRenderError as e:
+        return Response({"detail": str(e), "error": e.detail}, status=502)
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="{filename}"'
@@ -1089,11 +1068,13 @@ class OrdenViewSet(viewsets.ModelViewSet):
         return Response({"detail": "IDX reindexado correctamente", "total": qs.count()})
 
     def _generate_pdf_html(self, orden):
-        """Genera el HTML para el PDF de la orden (usado por el endpoint /pdf)"""
-        # El HTML se puede generar siempre. La conversión a PDF requiere HTMLEDOCS_API_KEY
-        # (en local, si no está configurada, regresamos el HTML para poder visualizar/imprimir).
-        api_key = os.environ.get('HTMLEDOCS_API_KEY')
-        
+        """Genera el HTML para el PDF de la orden (usado por el endpoint /pdf).
+
+        La conversión a PDF la hace `_pdf_response_from_html` con providers
+        en cascada (HTMLDOCS_API_KEY primario, PDFSHIFT_API_KEY fallback).
+        Si ningún provider está configurado, esa función regresa el HTML
+        crudo para que el navegador lo renderice.
+        """
         tecnico = orden.tecnico_asignado
         tecnico_nombre = None
         if tecnico:

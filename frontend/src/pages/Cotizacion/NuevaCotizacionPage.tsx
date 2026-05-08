@@ -2215,7 +2215,9 @@ export default function NuevaCotizacionPage() {
           )}
 
         {alert.show && (
-          <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
+          <div role="alert" aria-live={alert.variant === "error" ? "assertive" : "polite"}>
+            <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
+          </div>
         )}
 
         {!canCotizacionesView ? (
