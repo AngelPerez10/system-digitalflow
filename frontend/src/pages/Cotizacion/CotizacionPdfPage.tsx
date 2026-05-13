@@ -70,6 +70,20 @@ const looksLikePlaywrightOrChromiumFailure = (text: string) => {
   );
 };
 
+/** Respuestas del backend cuando no hay motor instalado/configurado (no un fallo al renderizar). */
+const looksLikeNoPdfEngineConfigured = (text: string) => {
+  const lower = text.toLowerCase();
+  return (
+    lower.includes("ningún proveedor") ||
+    lower.includes("ningun proveedor") ||
+    lower.includes("no hay motor") ||
+    lower.includes("no hay proveedor") ||
+    lower.includes("instale playwright") ||
+    lower.includes("install playwright") ||
+    (lower.includes("no module named") && lower.includes("playwright"))
+  );
+};
+
 const friendlyPdfErrorMessage = (raw: unknown, status?: number): { title: string; message: string } => {
   const text = typeof raw === "string" ? raw : raw == null ? "" : String(raw);
   const lower = text.toLowerCase();
@@ -96,22 +110,24 @@ const friendlyPdfErrorMessage = (raw: unknown, status?: number): { title: string
   }
 
   if (!text) {
+    if (status === 502 || status === 504) {
+      return {
+        title: "El servidor no terminó el PDF",
+        message:
+          "Error 502/504: el proceso de generación falló o excedió el tiempo. Revisa logs del backend (Playwright, htmldocs, timeout de Gunicorn).",
+      };
+    }
     return {
       title: "No se pudo cargar el PDF",
       message: "El servicio de generación de PDF no respondió. Inténtalo de nuevo en unos segundos.",
     };
   }
-  if (
-    lower.includes("ningún proveedor") ||
-    lower.includes("ningun proveedor") ||
-    lower.includes("no hay motor") ||
-    lower.includes("no hay proveedor") ||
-    lower.includes("playwright")
-  ) {
+
+  if (looksLikeNoPdfEngineConfigured(text)) {
     return {
       title: "Motor de PDF no disponible",
       message:
-        "El servidor no pudo generar el PDF. Reintenta o descarga el HTML. Si administras el sistema: instala Playwright y ejecuta «playwright install chromium» en el build del backend, o configura HTMLDOCS_API_KEY.",
+        "El servidor no tiene un motor de PDF usable (Playwright/Chromium o API htmldocs). Reintenta o descarga el HTML. Si administras el sistema: en el build del backend ejecuta «playwright install chromium» (y dependencias de sistema si aplica), o define HTMLDOCS_API_KEY.",
     };
   }
   if (lower.includes("html enviado") || lower.includes("error en html")) {
@@ -125,7 +141,18 @@ const friendlyPdfErrorMessage = (raw: unknown, status?: number): { title: string
     return {
       title: "Error al generar el PDF",
       message:
-        "El motor local (Playwright/Chromium) falló al renderizar. Reintenta; si sigue fallando, revisa logs del servidor o usa «Descargar HTML».",
+        "Playwright/Chromium falló al renderizar (memoria, librerías del sistema o tiempo de espera). Reintenta; si persiste, revisa logs del servidor en Render, aumenta el timeout de Gunicorn y comprueba que Chromium tenga dependencias en el host. Puedes usar «Descargar HTML» como respaldo.",
+    };
+  }
+  if (status === 502 || status === 504) {
+    return {
+      title: "El servidor no terminó el PDF",
+      message:
+        text.length > 30
+          ? text.length > 280
+            ? text.slice(0, 280) + "…"
+            : text
+          : "Error 502/504: el proceso de generación falló o excedió el tiempo. Revisa logs del backend (Playwright, htmldocs, timeout de Gunicorn).",
     };
   }
   if (lower.includes("sin sesión") || lower.includes("sin sesion")) {
