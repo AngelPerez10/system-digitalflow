@@ -4,7 +4,7 @@ import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
-import { apiUrl } from "@/config/api";
+import { apiUrl, apiUrlWithCrossOriginAccessToken } from "@/config/api";
 
 const cardShellClass =
   "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
@@ -56,9 +56,44 @@ type AlertState = {
   message: string;
 };
 
-const friendlyPdfErrorMessage = (raw: unknown): { title: string; message: string } => {
+const looksLikePlaywrightOrChromiumFailure = (text: string) => {
+  const lower = text.toLowerCase();
+  return (
+    lower.includes("playwright") ||
+    lower.includes("chromium") ||
+    lower.includes("sync_playwright") ||
+    lower.includes("browser") ||
+    lower.includes("executable doesn't exist") ||
+    lower.includes("browserType") ||
+    lower.includes("target closed") ||
+    (lower.includes("timeout") && (lower.includes("page") || lower.includes("navigation")))
+  );
+};
+
+const friendlyPdfErrorMessage = (raw: unknown, status?: number): { title: string; message: string } => {
   const text = typeof raw === "string" ? raw : raw == null ? "" : String(raw);
   const lower = text.toLowerCase();
+
+  if (status === 401 || status === 403) {
+    return {
+      title: status === 403 ? "Acceso denegado" : "Sesión no válida",
+      message:
+        "El servidor no recibió un token válido (401/403). Cierra sesión y vuelve a entrar, o revisa que el front use la misma URL de API configurada (VITE_API_BASE) que el backend.",
+    };
+  }
+  if (
+    lower.includes("credenciales") ||
+    lower.includes("no se proveyeron") ||
+    lower.includes("not authenticated") ||
+    lower.includes("token is invalid") ||
+    lower.includes("token has expired")
+  ) {
+    return {
+      title: "Sesión o token",
+      message:
+        "La petición no está autenticada o el token expiró. Vuelve a iniciar sesión. Si abriste la URL del API a mano, usa la pantalla «Vista PDF» dentro de la aplicación.",
+    };
+  }
 
   if (!text) {
     return {
@@ -86,11 +121,11 @@ const friendlyPdfErrorMessage = (raw: unknown): { title: string; message: string
         "El HTML de la cotización no pudo convertirse bien a PDF. Revisa imágenes o contenido inválido y contacta al equipo técnico si persiste.",
     };
   }
-  if (lower.includes("servidor") && lower.includes("pdf")) {
+  if (looksLikePlaywrightOrChromiumFailure(text)) {
     return {
       title: "Error al generar el PDF",
       message:
-        "El motor local (Playwright) falló al renderizar. Reintenta; si sigue fallando, revisa logs del servidor o usa «Descargar HTML».",
+        "El motor local (Playwright/Chromium) falló al renderizar. Reintenta; si sigue fallando, revisa logs del servidor o usa «Descargar HTML».",
     };
   }
   if (lower.includes("sin sesión") || lower.includes("sin sesion")) {
@@ -143,7 +178,7 @@ export default function CotizacionPdfPage() {
       return;
     }
 
-    fetch(apiUrl(`/api/cotizaciones/${id}/`), {
+    fetch(apiUrlWithCrossOriginAccessToken(`/api/cotizaciones/${id}/`, token), {
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       cache: "no-store" as RequestCache,
     })
@@ -227,7 +262,7 @@ export default function CotizacionPdfPage() {
             body: rawPayload,
           });
         } else {
-          resp = await fetch(apiUrl(`/api/cotizaciones/${cotizacionId}/pdf/`), {
+          resp = await fetch(apiUrlWithCrossOriginAccessToken(`/api/cotizaciones/${cotizacionId}/pdf/`, token), {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -238,11 +273,13 @@ export default function CotizacionPdfPage() {
 
         if (!resp.ok) {
           let detail = "";
+          let backendError = "";
           try {
             const ct = resp.headers.get("content-type") || "";
             if (ct.includes("application/json")) {
-              const data = (await resp.json()) as { detail?: string };
+              const data = (await resp.json()) as { detail?: string; error?: string };
               detail = data?.detail || "";
+              backendError = typeof data?.error === "string" ? data.error : "";
             } else {
               detail = (await resp.text()) || "";
             }
@@ -250,7 +287,8 @@ export default function CotizacionPdfPage() {
             /* ignore */
           }
 
-          const friendly = friendlyPdfErrorMessage(detail || `HTTP ${resp.status}`);
+          const combined = [detail, backendError].filter(Boolean).join(" — ");
+          const friendly = friendlyPdfErrorMessage(combined || `HTTP ${resp.status}`, resp.status);
           setHasError(true);
           setAlert({
             show: true,
@@ -342,11 +380,11 @@ export default function CotizacionPdfPage() {
     if (!token || !cotizacionId) return;
 
     try {
-      const resp = await fetch(apiUrl(`/api/cotizaciones/${cotizacionId}/pdf/?format=html`), {
+      const resp = await fetch(apiUrlWithCrossOriginAccessToken(`/api/cotizaciones/${cotizacionId}/pdf/?format=html`, token), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!resp.ok) {
-        const friendly = friendlyPdfErrorMessage(`HTTP ${resp.status}`);
+        const friendly = friendlyPdfErrorMessage(`HTTP ${resp.status}`, resp.status);
         setAlert({ show: true, variant: "error", title: friendly.title, message: friendly.message });
         return;
       }

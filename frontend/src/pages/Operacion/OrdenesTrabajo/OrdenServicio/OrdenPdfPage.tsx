@@ -4,7 +4,7 @@ import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
-import { apiUrl } from "@/config/api";
+import { apiUrl, apiUrlWithCrossOriginAccessToken } from "@/config/api";
 
 const cardShellClass =
   "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
@@ -63,7 +63,7 @@ export default function OrdenPdfPage() {
       return;
     }
 
-    fetch(apiUrl(`/api/ordenes/${id}/`), {
+    fetch(apiUrlWithCrossOriginAccessToken(`/api/ordenes/${id}/`, token), {
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       cache: "no-store" as RequestCache,
     })
@@ -115,7 +115,7 @@ export default function OrdenPdfPage() {
       try {
         if (isMounted) setLoading(true);
 
-        const resp = await fetch(apiUrl(`/api/ordenes/${ordenId}/pdf/`), {
+        const resp = await fetch(apiUrlWithCrossOriginAccessToken(`/api/ordenes/${ordenId}/pdf/`, token), {
           headers: {
             Authorization: `Bearer ${token}`,
           },

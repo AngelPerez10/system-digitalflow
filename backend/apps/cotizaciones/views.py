@@ -20,6 +20,7 @@ from rest_framework.response import Response
 
 from django.db.models import Q
 
+from apps.users.authentication import JWTAuthenticationAllowQueryGETToken
 from apps.users.permissions import ModulePermission, user_module_own_only
 
 from .models import Cotizacion
@@ -896,7 +897,12 @@ class CotizacionViewSet(viewsets.ModelViewSet):
 
         return html
 
-    @action(detail=True, methods=['get'], url_path='pdf')
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='pdf',
+        authentication_classes=[JWTAuthenticationAllowQueryGETToken],
+    )
     def pdf(self, request, pk=None):
         cotizacion = self.get_object()
 

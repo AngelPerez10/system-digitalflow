@@ -20,6 +20,7 @@ from django.db import transaction
 from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 
+from apps.users.authentication import JWTAuthenticationAllowQueryGETToken
 from apps.users.permissions import ModulePermission, OrdenesAnyAccessPermission, user_module_own_only
 from apps.cotizaciones.pdf_render import (
     PdfRenderError,
@@ -924,7 +925,12 @@ class OrdenViewSet(viewsets.ModelViewSet):
 </html>"""
         return html
 
-    @action(detail=False, methods=['get'], url_path=r'reportes-semanales/(?P<reporte_id>[^/.]+)/pdf')
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path=r'reportes-semanales/(?P<reporte_id>[^/.]+)/pdf',
+        authentication_classes=[JWTAuthenticationAllowQueryGETToken],
+    )
     def reporte_semanal_pdf(self, request, reporte_id=None):
         reporte = self._get_reporte_semanal_for_user(request, reporte_id)
         html = self._generate_reporte_semanal_pdf_html(reporte)
@@ -1518,7 +1524,12 @@ class OrdenViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(orden)
         return Response(serializer.data, status=200)
 
-    @action(detail=True, methods=['get'], url_path='pdf')
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='pdf',
+        authentication_classes=[JWTAuthenticationAllowQueryGETToken],
+    )
     def pdf(self, request, pk=None):
         orden = self.get_object()
         html = self._generate_pdf_html(orden)

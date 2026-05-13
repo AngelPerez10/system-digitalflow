@@ -5,7 +5,7 @@ import ComponentCard from "@/components/common/ComponentCard";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
-import { apiUrl } from "@/config/api";
+import { apiUrl, apiUrlWithCrossOriginAccessToken } from "@/config/api";
 import { TrashBinIcon } from "@/icons";
 import DatePicker from "@/components/form/date-picker";
 
@@ -333,7 +333,7 @@ export default function ReportesPage() {
     if (!token) return;
     setError(null);
     try {
-      const res = await fetch(apiUrl(`/api/ordenes/reportes-semanales/${reporteId}/pdf/`), {
+      const res = await fetch(apiUrlWithCrossOriginAccessToken(`/api/ordenes/reportes-semanales/${reporteId}/pdf/`, token), {
         headers: { Authorization: `Bearer ${token}` },
       });
       const contentType = res.headers.get("content-type") || "";

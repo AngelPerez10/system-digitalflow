@@ -25,6 +25,26 @@ export const apiUrl = (path: string) => {
   return `${API_BASE.replace(/\/$/, "")}${path}`;
 };
 
+/**
+ * URL para GET de PDF u otro recurso autenticado con JWT cuando el API vive en
+ * otro origen que el SPA. Tras un redirect cross-origin el navegador puede quitar
+ * el header Authorization; añadir ``access_token`` en la query evita 401.
+ * No usar en enlaces compartibles (el token queda en historial y logs).
+ */
+export const apiUrlWithCrossOriginAccessToken = (path: string, accessToken: string) => {
+  const full = apiUrl(path);
+  try {
+    const u = new URL(full);
+    if (isBrowser && window.location.origin !== u.origin) {
+      u.searchParams.set("access_token", accessToken);
+      return u.toString();
+    }
+  } catch {
+    /* ignore */
+  }
+  return full;
+};
+
 /** URLs absolutas (p. ej. Cloudinary) se devuelven tal cual; rutas /media/... se resuelven contra el API. */
 export function resolveMediaUrl(url: string | null | undefined): string {
   const u = (url || "").trim();
