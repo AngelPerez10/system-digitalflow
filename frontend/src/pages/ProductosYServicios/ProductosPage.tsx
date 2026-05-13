@@ -7,6 +7,7 @@ import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import {
   buildProductosQuery,
+  SYSCOM_BUSQUEDA_AMPLIA,
   fetchSyscomTipoCambio,
   formatPrecioPublicoMxnConIva,
   fetchSyscomProductoDetalle,
@@ -412,6 +413,7 @@ export default function ProductosPage() {
               marca: marcaId || undefined,
               pagina,
               orden,
+              ...SYSCOM_BUSQUEDA_AMPLIA,
             }
       );
       const res = await fetchSyscom(`productos/?${query}`, token);

@@ -143,13 +143,88 @@ export const mapIntraxProductoToSyscom = (p: IntraxProducto): SyscomProducto => 
   },
 });
 
-/** Syscom rechaza o falla con URLs muy largas; modelos/SKU suelen ser cortos. */
-export const SYSCOM_BUSQUEDA_MAX_CHARS = 120;
+/** Límite de `busqueda` hacia SYSCOM (textos mayores suelen error 500 o poca relevancia). */
+export const SYSCOM_BUSQUEDA_MAX_CHARS = 280;
+
+/** Recorta en límite de palabra para no cortar a medias. */
+export function clipBusquedaSyscom(s: string): string {
+  const t = s.trim().replace(/\s+/g, " ");
+  if (t.length <= SYSCOM_BUSQUEDA_MAX_CHARS) return t;
+  const cut = t.slice(0, SYSCOM_BUSQUEDA_MAX_CHARS);
+  const sp = cut.lastIndexOf(" ");
+  return (sp > SYSCOM_BUSQUEDA_MAX_CHARS / 2 ? cut.slice(0, sp) : cut).trim();
+}
+
+/**
+ * Semillas de búsqueda para descripciones largas (ficha comercial): cada frase por coma/punto y coma,
+ * luego el texto completo recortado — SYSCOM suele matchear mejor con la primera línea o con términos sueltos.
+ */
+function seedsFromDescripcionSyscom(raw: string): string[] {
+  const t = raw.trim().replace(/\s+/g, " ");
+  const parts = t.split(/[,;]/).map((x) => x.trim()).filter((x) => x.length >= 4);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (s: string) => {
+    const c = clipBusquedaSyscom(s);
+    if (c.length < 2 || seen.has(c)) return;
+    seen.add(c);
+    out.push(c);
+  };
+  for (const p of parts) {
+    add(p);
+    if (out.length >= 8) break;
+  }
+  add(t);
+  return out;
+}
+
+/**
+ * Incluye productos aunque no tengan existencias en almacén (SYSCOM `stock=0`).
+ * Sin esto, algunas marcas (p. ej. Icom) pueden quedar fuera del listado según política del catálogo API.
+ */
+export const SYSCOM_BUSQUEDA_AMPLIA: Pick<SyscomSearchParams, "stock" | "agrupar"> = {
+  stock: "0",
+  agrupar: "0",
+};
+
+/** Variantes de `busqueda` para el GET /productos de SYSCOM (slash en modelo, marca Icom vs ICOM). */
+function collectSyscomBusquedaVariants(busqueda: string): string[] {
+  const raw = busqueda.trim();
+  if (raw.length < 2) return [];
+  const candidates: string[] = [];
+
+  const pushBase = (base: string) => {
+    candidates.push(base);
+    if (base.includes("/")) {
+      candidates.push(base.replace(/\//g, " ").replace(/\s+/g, " ").trim());
+      candidates.push(base.replace(/\//g, "-").trim());
+    }
+  };
+
+  pushBase(raw);
+  // Prefijo antes de `/` (p. ej. IC-M424G): la búsqueda con sufijo a veces no devuelve el SKU en página 1.
+  if (raw.includes("/")) {
+    const pre = raw.split("/")[0]?.trim() ?? "";
+    if (pre.length >= 4) pushBase(pre);
+  }
+  const icomNorm = raw.replace(/\bicom\b/gi, "Icom");
+  if (icomNorm !== raw) pushBase(icomNorm);
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const c of candidates) {
+    const t = c.trim();
+    if (t.length < 2 || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
 
 export const buildProductosQuery = (params: SyscomSearchParams) => {
   const sp = new URLSearchParams();
   if (params.busqueda) {
-    const b = params.busqueda.trim().slice(0, SYSCOM_BUSQUEDA_MAX_CHARS).replace(/\s+/g, "+");
+    const b = clipBusquedaSyscom(params.busqueda).replace(/\s+/g, "+");
     if (b) sp.set("busqueda", b);
   }
   if (params.categoria) sp.set("categoria", params.categoria);
@@ -300,12 +375,81 @@ export type SyscomProductoDetalle = SyscomProducto & {
   imagenes?: (string | { url?: string; imagen?: string; src?: string })[];
 };
 
+/**
+ * Detalle SYSCOM por `GET /productos/{id}/`.
+ * El id debe ser **numérico** (producto_id del listado); slugs/modelo devuelven 422/404 y no se consultan.
+ */
 export async function fetchSyscomProductoDetalle(
   token: string,
-  productId: string
+  productId: string,
+  init?: Pick<RequestInit, "signal">
 ): Promise<SyscomProductoDetalle | null> {
-  const res = await fetchSyscom(`productos/${productId}/`, token);
+  const tid = String(productId).trim();
+  if (!/^\d+$/.test(tid)) return null;
+  const res = await fetchSyscom(`productos/${tid}/`, token, init);
   if (!res.ok) return null;
   const data = await res.json().catch(() => null);
   return data as SyscomProductoDetalle;
+}
+
+/**
+ * Búsqueda SYSCOM para sugerencias (p. ej. cotización): descripciones largas (por frases con coma),
+ * variantes de modelo (`/`, Icom), segunda página para `IC-…`, y `stock=0` / `agrupar=0`.
+ */
+export async function fetchSyscomProductosSugerencia(
+  token: string,
+  busqueda: string,
+  init?: Pick<RequestInit, "signal">
+): Promise<{ ok: boolean; productos: SyscomProducto[] }> {
+  const raw = busqueda.trim();
+  if (raw.length < 2) return { ok: true, productos: [] };
+  const seeds = seedsFromDescripcionSyscom(raw);
+  const variants: string[] = [];
+  const seenVariant = new Set<string>();
+  for (const seed of seeds) {
+    for (const v of collectSyscomBusquedaVariants(seed)) {
+      if (seenVariant.has(v)) continue;
+      seenVariant.add(v);
+      variants.push(v);
+      if (variants.length >= 18) break;
+    }
+    if (variants.length >= 18) break;
+  }
+  const merged: SyscomProducto[] = [];
+  const seen = new Set<string>();
+  let anyOk = false;
+
+  const ingestList = (list: SyscomProducto[]) => {
+    for (const p of list) {
+      const id = String(p?.producto_id ?? "");
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      merged.push(p);
+      if (merged.length >= 24) return true;
+    }
+    return false;
+  };
+
+  let page2UsedForIc = false;
+  for (let vi = 0; vi < variants.length; vi++) {
+    const v = variants[vi];
+    const useSecondPage = /^IC-/i.test(v) && !page2UsedForIc;
+    if (useSecondPage) page2UsedForIc = true;
+    const maxPage = useSecondPage ? 2 : 1;
+    for (let page = 1; page <= maxPage; page++) {
+      const query = buildProductosQuery({
+        busqueda: v,
+        pagina: page,
+        orden: "relevancia",
+        ...SYSCOM_BUSQUEDA_AMPLIA,
+      });
+      const res = await fetchSyscom(`productos/?${query}`, token, init);
+      const data: SyscomProductosResponse = await res.json().catch(() => ({}));
+      if (res.ok) anyOk = true;
+      else continue;
+      if (ingestList((data.productos || []) as SyscomProducto[])) return { ok: anyOk, productos: merged };
+    }
+  }
+
+  return { ok: anyOk, productos: merged.slice(0, 24) };
 }

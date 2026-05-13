@@ -10,6 +10,7 @@ import {
   fetchSyscomTipoCambio,
   getAuthToken,
   getProductoImageUrl,
+  SYSCOM_BUSQUEDA_AMPLIA,
   type SyscomProducto,
 } from '@/pages/ProductosYServicios/syscomCatalog';
 
@@ -444,7 +445,10 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
     let cancelled = false;
     setLoadingMateriales(true);
     const fetchOne = (modelo: string): Promise<{ modelo: string; producto: SyscomProducto | null }> =>
-      fetchSyscom(`productos/?${buildProductosQuery({ busqueda: modelo, pagina: 1 })}`, token)
+      fetchSyscom(
+        `productos/?${buildProductosQuery({ busqueda: modelo, pagina: 1, ...SYSCOM_BUSQUEDA_AMPLIA })}`,
+        token
+      )
         .then((res) => res.json().catch(() => ({})))
         .then((data: { productos?: SyscomProducto[] }) => {
           const list = data.productos ?? [];

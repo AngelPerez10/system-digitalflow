@@ -12,12 +12,10 @@ import { Modal } from "@/components/ui/modal";
 import { apiUrl } from "@/config/api";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import {
-  buildProductosQuery,
-  fetchSyscom,
+  fetchSyscomProductosSugerencia,
   fetchSyscomTipoCambio,
   getProductoImageUrl,
   type SyscomProducto,
-  type SyscomProductosResponse,
 } from "@/pages/ProductosYServicios/syscomCatalog";
 
 type ClienteContacto = {
@@ -897,31 +895,15 @@ export default function NuevaCotizacionPage() {
       setLoadingSyscom(true);
       setSyscomError("");
       try {
-        // Misma forma que ProductosPage al buscar por texto: busqueda + pagina + orden (sin stock).
-        // Forzar stock en la API cambia el universo de resultados y deja fuera productos que sí ves en catálogo.
-        const query = buildProductosQuery({
-          busqueda: q,
-          pagina: 1,
-          orden: "relevancia",
-        });
-        const res = await fetchSyscom(`productos/?${query}`, token, { signal: ac.signal });
-        const data: SyscomProductosResponse = await res.json().catch(() => ({}));
+        // Incluye variantes de búsqueda si el modelo trae `/` (p. ej. ICOM IC-M424G/41).
+        const { ok, productos } = await fetchSyscomProductosSugerencia(token, q, { signal: ac.signal });
         if (runGen !== syscomSearchGenRef.current) return;
-        if (!res.ok) {
+        if (!ok && productos.length === 0) {
           setSyscomProductos([]);
           setSyscomError("No se pudo consultar SYSCOM en este momento.");
           return;
         }
-        const raw = (data.productos || []) as SyscomProducto[];
-        const seen = new Set<string>();
-        const deduped: SyscomProducto[] = [];
-        for (const p of raw) {
-          const id = String(p?.producto_id ?? "");
-          if (!id || seen.has(id)) continue;
-          seen.add(id);
-          deduped.push(p);
-        }
-        setSyscomProductos(deduped.slice(0, 24));
+        setSyscomProductos(productos);
       } catch (e) {
         if (runGen !== syscomSearchGenRef.current) return;
         if (e instanceof DOMException && e.name === "AbortError") return;

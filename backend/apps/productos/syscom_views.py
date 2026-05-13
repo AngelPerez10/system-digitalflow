@@ -21,8 +21,20 @@ from apps.users.permissions import ModulePermission, user_has_any_cotizaciones_a
 
 logger = logging.getLogger(__name__)
 
-# Búsquedas muy largas (p. ej. pegar un párrafo) rompen la API de Syscom (500) y la URL.
-SYSCOM_BUSQUEDA_MAX_CHARS = 120
+# Límite de caracteres para busqueda= hacia SYSCOM (textos mayores suelen 500 o degradar resultados).
+SYSCOM_BUSQUEDA_MAX_CHARS = 280
+
+
+def _clip_syscom_busqueda(s: str) -> str:
+    """Recorta en límite de palabra para no cortar a medias y respetar SYSCOM_BUSQUEDA_MAX_CHARS."""
+    t = ' '.join((s or '').strip().split())
+    if len(t) <= SYSCOM_BUSQUEDA_MAX_CHARS:
+        return t
+    cut = t[:SYSCOM_BUSQUEDA_MAX_CHARS]
+    sp = cut.rfind(' ')
+    if sp > SYSCOM_BUSQUEDA_MAX_CHARS // 2:
+        return cut[:sp].strip()
+    return cut.strip()
 
 _SYSCOM_TOKEN_CACHE = {
     'access_token': None,
@@ -132,7 +144,7 @@ class SyscomProductosSearchView(APIView):
         params = {}
         raw_busqueda = request.GET.get('busqueda')
         if raw_busqueda:
-            b = str(raw_busqueda).strip()[:SYSCOM_BUSQUEDA_MAX_CHARS]
+            b = _clip_syscom_busqueda(str(raw_busqueda))
             if b:
                 params['busqueda'] = b.replace(' ', '+')
         if request.GET.get('categoria'):
@@ -214,7 +226,7 @@ class SyscomMarcasView(APIView):
 
 
 class SyscomProductoDetalleView(APIView):
-    """GET /api/productos/syscom/productos/<id>/ -> detalle de un producto SYSCOM."""
+    """GET .../productos/<id>/ -> detalle. `id` es el producto_id numérico de SYSCOM; modelos/slug devuelven 422."""
     permission_classes = [IsAuthenticated, SyscomProductosPermission]
 
     def get(self, request, product_id):
@@ -222,7 +234,9 @@ class SyscomProductoDetalleView(APIView):
         token, err = _get_syscom_token()
         if err:
             return Response({'detail': f'Error SYSCOM: {err}'}, status=status.HTTP_502_BAD_GATEWAY)
-        url = f'{base}/productos/{product_id}'
+        # Un solo segmento de ruta hacia SYSCOM (modelos con `/`, p. ej. IC-M424G/41).
+        pid = urllib.parse.quote(str(product_id).strip(), safe='')
+        url = f'{base}/productos/{pid}'
         try:
             r = _syscom_get(url, token, timeout_seconds=15, retries=1)
             return Response(r.json())
