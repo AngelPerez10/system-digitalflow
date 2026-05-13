@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -99,9 +100,24 @@ def _playwright_budget_s(total_budget_s: int, htmldocs_cap_s: int) -> int:
     return max(15, min(90, total_budget_s - htmldocs_cap_s - 5))
 
 
+def _playwright_browsers_path_if_bundled() -> str | None:
+    """Ruta donde build.sh instaló los navegadores (``backend/.playwright-browsers``)."""
+    backend_root = Path(__file__).resolve().parents[2]
+    bundled = backend_root / ".playwright-browsers"
+    if bundled.is_dir():
+        return str(bundled)
+    return None
+
+
 def _try_playwright(html: str, size: str, landscape: bool, timeout: int) -> bytes:
     """Genera PDF con print media (comportamiento por defecto de ``page.pdf``)."""
     from playwright.sync_api import sync_playwright
+
+    # Misma caché que en build.sh (Render u otros hosts donde ~/.cache no coincide).
+    if not os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
+        bundled = _playwright_browsers_path_if_bundled()
+        if bundled:
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = bundled
 
     fmt = (size or "A4").upper()
     allowed = (

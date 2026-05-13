@@ -17,7 +17,12 @@ if command -v apt-get >/dev/null 2>&1; then
     python -m playwright install-deps chromium || true
   fi
 fi
-python -m playwright install chromium
+# Playwright 1.49+ usa chromium_headless_shell para launch(headless=True); hay que
+# instalarlo explícitamente. Caché dentro del proyecto para que coincida con runtime
+# (ver pdf_render._try_playwright).
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$(pwd)/.playwright-browsers}"
+mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"
+python -m playwright install chromium chromium-headless-shell
 
 # Collect static files
 python manage.py collectstatic --noinput

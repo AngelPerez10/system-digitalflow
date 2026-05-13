@@ -13,6 +13,9 @@ __pycache__/
 backup_*.sql
 *.dump
 
+# Playwright (instalado en build; no versionar binarios)
+backend/.playwright-browsers/
+
 # Django media uploads (mantén solo si necesitas subirlas)
 media/
 # Static build artifacts (recolectados por collectstatic)
