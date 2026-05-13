@@ -917,7 +917,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             return response
 
         try:
-            pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=45)
+            pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)
         except PdfRenderError as e:
             return Response({"detail": str(e), "error": e.detail}, status=502)
 
@@ -990,7 +990,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             return HttpResponse(html, content_type="text/html; charset=utf-8")
 
         try:
-            pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=45)
+            pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)
         except PdfRenderError as e:
             return Response({"detail": str(e), "error": e.detail}, status=502)
 

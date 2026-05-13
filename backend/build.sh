@@ -9,7 +9,11 @@ cd "$(dirname "$0")"
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
-# Chromium for PDF local (Playwright); requerido en deploy (p. ej. Render).
+# Chromium + dependencias del sistema (Render/Linux usa apt; en Windows no aplica).
+if command -v apt-get >/dev/null 2>&1; then
+  apt-get update -qq
+  python -m playwright install-deps chromium || true
+fi
 python -m playwright install chromium
 
 # Collect static files

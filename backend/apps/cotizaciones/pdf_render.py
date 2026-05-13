@@ -58,6 +58,17 @@ def any_provider_configured() -> bool:
     return htmldocs_configured() or local_pdf_engine_available()
 
 
+def _htmldocs_request_timeout_s(total_budget_s: int) -> int:
+    """Evita bloquear 45s en htmldocs si vamos a usar Playwright después (p. ej. Gunicorn 30s)."""
+    env = os.environ.get("HTMLDOCS_TIMEOUT", "").strip()
+    if env.isdigit():
+        return max(5, min(int(env), 60))
+    # Por defecto: corto si hay motor local; si no, usar todo el presupuesto.
+    if local_pdf_engine_available() and not _local_pdf_disabled():
+        return max(5, min(12, total_budget_s // 3))
+    return max(10, min(total_budget_s, 120))
+
+
 def _try_htmldocs(html: str, size: str, landscape: bool, timeout: int) -> bytes | None:
     api_key = _htmldocs_api_key()
     if not api_key:
@@ -79,6 +90,13 @@ def _try_htmldocs(html: str, size: str, landscape: bool, timeout: int) -> bytes 
     )
     with urlopen(req, timeout=timeout) as resp:
         return resp.read()
+
+
+def _playwright_budget_s(total_budget_s: int, htmldocs_cap_s: int) -> int:
+    """Tiempo para Chromium; si hubo intento a htmldocs, restar ese techo + margen."""
+    if htmldocs_cap_s <= 0:
+        return max(20, min(90, total_budget_s))
+    return max(15, min(90, total_budget_s - htmldocs_cap_s - 5))
 
 
 def _try_playwright(html: str, size: str, landscape: bool, timeout: int) -> bytes:
@@ -139,10 +157,13 @@ def render_html_to_pdf(
         raise PdfRenderError("HTML vacío", detail="empty html")
 
     last_detail: str | None = None
+    hdoc_cap = 0
 
     if htmldocs_configured():
+        hdoc_t = _htmldocs_request_timeout_s(timeout)
+        hdoc_cap = hdoc_t
         try:
-            data = _try_htmldocs(html, size, landscape, timeout)
+            data = _try_htmldocs(html, size, landscape, hdoc_t)
             if data:
                 return data
         except HTTPError as e:
@@ -162,7 +183,8 @@ def render_html_to_pdf(
 
     if local_pdf_engine_available():
         try:
-            out = _try_playwright(html, size, landscape, min(timeout, 90))
+            pw_t = _playwright_budget_s(timeout, hdoc_cap)
+            out = _try_playwright(html, size, landscape, pw_t)
             if out:
                 logger.info("PDF generado localmente (Playwright)")
                 return out
