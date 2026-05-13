@@ -908,7 +908,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         filename = f"Cotizacion_{idx}.pdf"
 
         # Allow clients to explicitly ask for HTML as a printable fallback
-        # when the PDF providers are down (e.g. ?format=html).
+        # when the PDF engines are unavailable (e.g. ?format=html).
         wants_html = (request.query_params.get("format") or "").lower() == "html"
         if wants_html or not any_provider_configured():
             response = HttpResponse(html, content_type="text/html; charset=utf-8")

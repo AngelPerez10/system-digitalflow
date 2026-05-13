@@ -1,16 +1,12 @@
-"""HTML to PDF rendering with primary + fallback cloud providers.
+"""HTML → PDF: htmldocs (opcional) + motor local Playwright.
 
-Why this exists: the legacy code called htmldocs.com directly, with no
-fallback. When htmldocs is restricted (e.g. their backend storage quota
-is exceeded) every PDF endpoint returned 502. This module:
+1) Si existe ``HTMLDOCS_API_KEY`` (o el nombre legacy ``HTMLEDOCS_API_KEY``),
+   se intenta primero la API de htmldocs.com.
+2) Si no hay clave, htmldocs falla o devuelve error, se genera el PDF en el
+   propio servidor con Chromium vía Playwright (``page.set_content`` +
+   ``page.pdf``), según la API documentada en Playwright for Python.
 
-1) Tries htmldocs first when HTMLDOCS_API_KEY is set.
-2) Falls back to PDFShift (free tier with 50 conversions/month) when
-   PDFSHIFT_API_KEY is set and htmldocs returns 5xx / network error.
-3) Raises PdfRenderError if no provider could produce a PDF.
-
-A 4xx from htmldocs is treated as a payload-side error and short-circuits
-the fallback to avoid burning credits on a request that will fail again.
+Desactivar solo el motor local: ``DISABLE_LOCAL_PDF=1``.
 """
 
 from __future__ import annotations
@@ -18,22 +14,16 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Callable, Iterable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
 
 HTMLDOCS_URL = "https://htmldocs.com/api/generate"
-PDFSHIFT_URL = "https://api.pdfshift.io/v3/convert/pdf"
 
 
 class PdfRenderError(Exception):
-    """Raised when no provider could generate the PDF.
-
-    `detail` is short, safe-to-display extra context (provider + status code,
-    or the first ~500 chars of an upstream error body). Never a stack trace.
-    """
+    """No se pudo obtener bytes de PDF."""
 
     def __init__(self, message: str, *, detail: str | None = None) -> None:
         super().__init__(message)
@@ -41,7 +31,6 @@ class PdfRenderError(Exception):
 
 
 def _htmldocs_api_key() -> str | None:
-    # Accept the legacy typo'd var name during the rename window.
     return os.environ.get("HTMLDOCS_API_KEY") or os.environ.get("HTMLEDOCS_API_KEY")
 
 
@@ -49,12 +38,24 @@ def htmldocs_configured() -> bool:
     return bool(_htmldocs_api_key())
 
 
-def pdfshift_configured() -> bool:
-    return bool(os.environ.get("PDFSHIFT_API_KEY"))
+def _local_pdf_disabled() -> bool:
+    return os.environ.get("DISABLE_LOCAL_PDF", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def local_pdf_engine_available() -> bool:
+    if _local_pdf_disabled():
+        return False
+    try:
+        import playwright  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
 
 
 def any_provider_configured() -> bool:
-    return htmldocs_configured() or pdfshift_configured()
+    """htmldocs y/o Playwright (paquete instalado)."""
+    return htmldocs_configured() or local_pdf_engine_available()
 
 
 def _try_htmldocs(html: str, size: str, landscape: bool, timeout: int) -> bytes | None:
@@ -80,33 +81,51 @@ def _try_htmldocs(html: str, size: str, landscape: bool, timeout: int) -> bytes 
         return resp.read()
 
 
-def _try_pdfshift(html: str, size: str, landscape: bool, timeout: int) -> bytes | None:
-    api_key = os.environ.get("PDFSHIFT_API_KEY")
-    if not api_key:
-        return None
-    payload = {
-        "source": html,
-        "format": size,
-        "landscape": landscape,
-    }
-    req = Request(
-        url=PDFSHIFT_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "X-API-Key": api_key,
-            "Content-Type": "application/json",
-        },
-        method="POST",
+def _try_playwright(html: str, size: str, landscape: bool, timeout: int) -> bytes:
+    """Genera PDF con print media (comportamiento por defecto de ``page.pdf``)."""
+    from playwright.sync_api import sync_playwright
+
+    fmt = (size or "A4").upper()
+    allowed = (
+        "A0",
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "LETTER",
+        "LEGAL",
+        "TABLOID",
+        "LEDGER",
     )
-    with urlopen(req, timeout=timeout) as resp:
-        return resp.read()
+    if fmt not in allowed:
+        fmt = "A4"
 
+    timeout_ms = max(5_000, min(int(timeout * 1000), 120_000))
 
-Provider = tuple[str, Callable[[str, str, bool, int], "bytes | None"]]
-
-
-def _providers() -> Iterable[Provider]:
-    return (("htmldocs", _try_htmldocs), ("pdfshift", _try_pdfshift))
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-setuid-sandbox",
+                "--disable-gpu",
+            ],
+        )
+        try:
+            page = browser.new_page()
+            page.set_content(html, wait_until="load", timeout=timeout_ms)
+            # ``page.pdf`` usa media print; colores de fondo con print_background.
+            return page.pdf(
+                format=fmt,
+                landscape=landscape,
+                print_background=True,
+                margin={"top": "10mm", "right": "10mm", "bottom": "10mm", "left": "10mm"},
+            )
+        finally:
+            browser.close()
 
 
 def render_html_to_pdf(
@@ -116,59 +135,52 @@ def render_html_to_pdf(
     landscape: bool = False,
     timeout: int = 30,
 ) -> bytes:
-    """Convert HTML to PDF using configured providers in order.
-
-    Raises PdfRenderError if every configured provider fails or none is
-    configured. The caller decides how to surface the error (HTML fallback,
-    HTTP 502, etc.).
-    """
     if not html:
         raise PdfRenderError("HTML vacío", detail="empty html")
 
     last_detail: str | None = None
-    tried_any = False
 
-    for name, fn in _providers():
+    if htmldocs_configured():
         try:
-            data = fn(html, size, landscape, timeout)
+            data = _try_htmldocs(html, size, landscape, timeout)
+            if data:
+                return data
         except HTTPError as e:
-            tried_any = True
             body = ""
             try:
                 body = (e.read() or b"").decode("utf-8", errors="ignore") if e.fp else ""
             except Exception:
                 body = ""
-            logger.warning("PDF provider %s HTTPError %s: %s", name, e.code, body[:300])
-            last_detail = f"{name} {e.code}"
-            # 4xx on htmldocs = our payload is bad; don't waste fallback credits.
-            if name == "htmldocs" and 400 <= e.code < 500:
-                raise PdfRenderError(
-                    "Error en HTML enviado a htmldocs",
-                    detail=(body[:500] or last_detail),
-                )
-            continue
+            logger.warning("htmldocs HTTPError %s: %s", e.code, body[:300])
+            last_detail = f"htmldocs HTTP {e.code}"
         except URLError as e:
-            tried_any = True
-            logger.warning("PDF provider %s URLError: %s", name, e)
-            last_detail = f"{name} {e.reason if hasattr(e, 'reason') else e}"
-            continue
+            logger.warning("htmldocs URLError: %s", e)
+            last_detail = f"htmldocs URLError: {e.reason if getattr(e, 'reason', None) else e}"
         except Exception as e:
-            tried_any = True
-            logger.exception("PDF provider %s unexpected error", name)
-            last_detail = f"{name} {type(e).__name__}"
-            continue
+            logger.exception("htmldocs error")
+            last_detail = f"htmldocs: {type(e).__name__}"
 
-        if data:
-            if name != "htmldocs":
-                logger.info("PDF generado vía proveedor de respaldo: %s", name)
-            return data
+    if local_pdf_engine_available():
+        try:
+            out = _try_playwright(html, size, landscape, min(timeout, 90))
+            if out:
+                logger.info("PDF generado localmente (Playwright)")
+                return out
+        except Exception as e:
+            logger.exception("Playwright PDF failed")
+            raise PdfRenderError(
+                "No se pudo generar el PDF en el servidor",
+                detail=f"{type(e).__name__}: {str(e)[:400]}",
+            ) from e
 
-    if not tried_any:
+    if not htmldocs_configured() and not local_pdf_engine_available():
         raise PdfRenderError(
-            "No hay proveedor de PDF configurado",
-            detail="set HTMLDOCS_API_KEY and/or PDFSHIFT_API_KEY",
+            "No hay motor de PDF disponible",
+            detail="Instale playwright y ejecute: playwright install chromium. "
+            "Opcional: HTMLDOCS_API_KEY.",
         )
+
     raise PdfRenderError(
-        "No se pudo generar el PDF en ningún proveedor",
-        detail=last_detail,
+        "No se pudo generar el PDF",
+        detail=last_detail or "htmldocs no disponible y motor local desactivado o falló",
     )

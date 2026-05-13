@@ -9,6 +9,9 @@ cd "$(dirname "$0")"
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
+# Chromium for PDF local (Playwright); requerido en deploy (p. ej. Render).
+python -m playwright install chromium
+
 # Collect static files
 python manage.py collectstatic --noinput
 

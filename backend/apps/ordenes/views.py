@@ -48,11 +48,10 @@ class ReportesPermission(ModulePermission):
 
 
 def _pdf_response_from_html(html: str, filename: str):
-    """Convierte HTML a PDF con proveedor primario + fallback.
+    """Convierte HTML a PDF (htmldocs opcional, luego Playwright en servidor).
 
-    Si no hay ningún proveedor configurado (modo dev local) regresa el HTML
-    para que el frontend pueda mostrar la vista previa con el motor del
-    navegador. Si los proveedores fallan, regresa 502 con un detalle plano.
+    Si no hay htmldocs ni paquete Playwright instalado, regresa HTML para
+    vista previa en el navegador. Si el motor falla, 502 con detalle.
     """
     if not html:
         return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
@@ -1070,10 +1069,10 @@ class OrdenViewSet(viewsets.ModelViewSet):
     def _generate_pdf_html(self, orden):
         """Genera el HTML para el PDF de la orden (usado por el endpoint /pdf).
 
-        La conversión a PDF la hace `_pdf_response_from_html` con providers
-        en cascada (HTMLDOCS_API_KEY primario, PDFSHIFT_API_KEY fallback).
-        Si ningún provider está configurado, esa función regresa el HTML
-        crudo para que el navegador lo renderice.
+        La conversión a PDF la hace `_pdf_response_from_html`: primero
+        htmldocs si hay clave; si no, fallo o ausencia de clave, Playwright
+        en el servidor. Si no hay motor disponible, se devuelve HTML para
+        vista previa en el navegador.
         """
         tecnico = orden.tecnico_asignado
         tecnico_nombre = None

@@ -66,24 +66,31 @@ const friendlyPdfErrorMessage = (raw: unknown): { title: string; message: string
       message: "El servicio de generación de PDF no respondió. Inténtalo de nuevo en unos segundos.",
     };
   }
-  if (lower.includes("ningún proveedor") || lower.includes("ningun proveedor")) {
+  if (
+    lower.includes("ningún proveedor") ||
+    lower.includes("ningun proveedor") ||
+    lower.includes("no hay motor") ||
+    lower.includes("no hay proveedor") ||
+    lower.includes("playwright")
+  ) {
     return {
-      title: "Servicios de PDF no disponibles",
+      title: "Motor de PDF no disponible",
       message:
-        "Los proveedores configurados no respondieron. Puedes reintentar o descargar la cotización en HTML como respaldo.",
+        "El servidor no pudo generar el PDF. Reintenta o descarga el HTML. Si administras el sistema: instala Playwright y ejecuta «playwright install chromium» en el build del backend, o configura HTMLDOCS_API_KEY.",
     };
   }
   if (lower.includes("html enviado") || lower.includes("error en html")) {
     return {
       title: "Error en el contenido del PDF",
       message:
-        "El proveedor rechazó el HTML de la cotización. Avisa al equipo técnico; revisa imágenes o caracteres inválidos.",
+        "El HTML de la cotización no pudo convertirse bien a PDF. Revisa imágenes o contenido inválido y contacta al equipo técnico si persiste.",
     };
   }
-  if (lower.includes("no hay proveedor")) {
+  if (lower.includes("servidor") && lower.includes("pdf")) {
     return {
-      title: "Generación de PDF no configurada",
-      message: "Falta configurar HTMLDOCS_API_KEY o PDFSHIFT_API_KEY en el servidor.",
+      title: "Error al generar el PDF",
+      message:
+        "El motor local (Playwright) falló al renderizar. Reintenta; si sigue fallando, revisa logs del servidor o usa «Descargar HTML».",
     };
   }
   if (lower.includes("sin sesión") || lower.includes("sin sesion")) {
