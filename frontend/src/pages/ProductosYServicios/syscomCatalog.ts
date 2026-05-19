@@ -63,12 +63,21 @@ export const getAuthToken = () => {
   return hasCsrf ? 'cookie' : '';
 };
 
-export const fetchSyscom = (path: string, init?: Pick<RequestInit, "signal">) => {
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Reintenta una vez ante 502 (OAuth SYSCOM lento o timeout intermitente). */
+export const fetchSyscom = async (path: string, init?: Pick<RequestInit, "signal">) => {
   const cleanPath = path.replace(/^\//, "");
-  return fetchApi(`/api/productos/syscom/${cleanPath}`, {
-    method: 'GET',
-    signal: init?.signal,
-  });
+  const url = `/api/productos/syscom/${cleanPath}`;
+  const opts: RequestInit = { method: "GET", signal: init?.signal };
+  let last: Response | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetchApi(url, opts);
+    if (res.ok || res.status !== 502 || attempt === 1) return res;
+    last = res;
+    await sleep(500 * (attempt + 1));
+  }
+  return last!;
 };
 
 const INTRAX_PRODUCTOS_URL = "https://intrax.mx/wp-json/custom/v1/productos";

@@ -7,6 +7,7 @@ Nota sobre precios: los montos en USD (precios.precio_lista, etc.) se convierten
 con tipo de cambio e IVA 16 %. Si el producto trae `precio_mxn`, suele usarse tal cual en UI.
 """
 import logging
+import threading
 import time
 import urllib.parse
 
@@ -40,6 +41,9 @@ _SYSCOM_TOKEN_CACHE = {
     'access_token': None,
     'expires_at': 0.0,
 }
+_SYSCOM_OAUTH_LOCK = threading.Lock()
+_SYSCOM_OAUTH_TIMEOUT = (10, 35)  # (connect, read) — handshake lento es común con developers.syscom.mx
+_SYSCOM_OAUTH_RETRIES = 3
 
 
 def _safe_error_text(exc: requests.RequestException, default_msg: str) -> str:
@@ -50,7 +54,7 @@ def _safe_error_text(exc: requests.RequestException, default_msg: str) -> str:
     return default_msg
 
 
-def _syscom_get(url: str, token: str, timeout_seconds: int = 20, retries: int = 1):
+def _syscom_get(url: str, token: str, timeout_seconds: int = 25, retries: int = 2):
     last_exc = None
     for _ in range(max(1, retries) + 1):
         try:
@@ -64,6 +68,36 @@ def _syscom_get(url: str, token: str, timeout_seconds: int = 20, retries: int = 
             raise
     if last_exc:
         raise last_exc
+
+
+def _fetch_syscom_oauth_token(oauth_url: str, data: dict) -> tuple[str | None, str | None]:
+    """POST OAuth con reintentos ante timeout/SSL lento."""
+    last_exc: requests.RequestException | None = None
+    for attempt in range(_SYSCOM_OAUTH_RETRIES):
+        try:
+            r = requests.post(oauth_url, data=data, timeout=_SYSCOM_OAUTH_TIMEOUT)
+            r.raise_for_status()
+            body = r.json()
+            token = body.get('access_token')
+            if not token:
+                return None, body.get('error_description', 'No se recibió access_token')
+            expires_in = int(body.get('expires_in') or 3600)
+            _SYSCOM_TOKEN_CACHE['access_token'] = token
+            _SYSCOM_TOKEN_CACHE['expires_at'] = time.time() + max(60, expires_in - 30)
+            return token, None
+        except requests.RequestException as e:
+            last_exc = e
+            if attempt < _SYSCOM_OAUTH_RETRIES - 1:
+                time.sleep(0.6 * (attempt + 1))
+                continue
+            logger.exception('SYSCOM OAuth error')
+            return None, _safe_error_text(e, 'No se pudo autenticar con SYSCOM')
+        except Exception as e:
+            logger.exception('SYSCOM OAuth parse error')
+            return None, f'No se pudo procesar autenticación SYSCOM: {e}'
+    if last_exc:
+        return None, _safe_error_text(last_exc, 'No se pudo autenticar con SYSCOM')
+    return None, 'No se pudo autenticar con SYSCOM'
 
 
 def _get_syscom_token():
@@ -86,23 +120,13 @@ def _get_syscom_token():
         'client_secret': client_secret,
         'grant_type': 'client_credentials',
     }
-    try:
-        r = requests.post(oauth_url, data=data, timeout=15)
-        r.raise_for_status()
-        body = r.json()
-        token = body.get('access_token')
-        if not token:
-            return None, body.get('error_description', 'No se recibió access_token')
-        expires_in = int(body.get('expires_in') or 3600)
-        _SYSCOM_TOKEN_CACHE['access_token'] = token
-        _SYSCOM_TOKEN_CACHE['expires_at'] = time.time() + max(60, expires_in - 30)
-        return token, None
-    except requests.RequestException as e:
-        logger.exception('SYSCOM OAuth error')
-        return None, _safe_error_text(e, 'No se pudo autenticar con SYSCOM')
-    except Exception as e:
-        logger.exception('SYSCOM OAuth parse error')
-        return None, f'No se pudo procesar autenticación SYSCOM: {e}'
+    with _SYSCOM_OAUTH_LOCK:
+        now = time.time()
+        cached_token = _SYSCOM_TOKEN_CACHE.get('access_token')
+        cached_expires_at = float(_SYSCOM_TOKEN_CACHE.get('expires_at') or 0)
+        if cached_token and cached_expires_at > now + 30:
+            return cached_token, None
+        return _fetch_syscom_oauth_token(oauth_url, data)
 
 
 class SyscomProductosPermission(ModulePermission):
