@@ -10,7 +10,7 @@ import { useDropzone } from "react-dropzone";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
-import { apiUrl, fetchApi } from "@/config/api";
+import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";

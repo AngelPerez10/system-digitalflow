@@ -30,8 +30,7 @@ export function buildClienteSearchActions(
   const q = searchQuery.trim().toLowerCase();
   const includeNew = options?.includeNew !== false;
 
-  const base = (clientes || [])
-    .flatMap((c) => {
+  const base: ClienteSearchAction[] = (clientes || []).flatMap((c): ClienteSearchAction[] => {
       const contactos = Array.isArray(c.contactos) ? c.contactos : [];
 
       if (!contactos.length) {
@@ -77,11 +76,10 @@ export function buildClienteSearchActions(
           __contacto: ct as Record<string, unknown>,
         };
       });
-    })
-    .filter((a) => {
+    }).filter((a: ClienteSearchAction) => {
       if (!q) return true;
-      const label = String(a?.label || "").toLowerCase();
-      const desc = String(a?.description || "").toLowerCase();
+      const label = String(a.label || "").toLowerCase();
+      const desc = String(a.description || "").toLowerCase();
       return label.includes(q) || desc.includes(q);
     });
 

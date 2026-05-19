@@ -3,16 +3,15 @@ import { ApexOptions } from "apexcharts";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { MoreDotIcon } from "../../icons";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiUrl } from "@/config/api";
-import { useAuth } from "@/context/AuthContext";
+import type { useDashboardStats } from "./useDashboardStats";
 
-export default function MonthlySalesChart() {
+type Props = Pick<ReturnType<typeof useDashboardStats>, "loading" | "ordenesCompletadasMeses">;
+
+export default function MonthlySalesChart({ loading, ordenesCompletadasMeses }: Props) {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
-  const [seriesData, setSeriesData] = useState<number[]>(Array(12).fill(0));
-  const [loading, setLoading] = useState(false);
+  const seriesData = ordenesCompletadasMeses;
   const currentYear = useMemo(() => new Date().getFullYear(), []);
 
   const options: ApexOptions = {
@@ -101,38 +100,6 @@ export default function MonthlySalesChart() {
     },
   ];
   const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(apiUrl("/api/ordenes/"), {
-          method: "GET",
-          cache: "no-store" as RequestCache,
-        });
-        const data = await res.json().catch(() => null);
-        const list = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
-        const buckets = Array(12).fill(0);
-        for (const item of list) {
-          const raw = item?.fecha_creacion || item?.fecha_inicio || item?.created_at;
-          if (!raw) continue;
-          const d = new Date(String(raw));
-          if (Number.isNaN(d.getTime())) continue;
-          if (d.getFullYear() !== currentYear) continue;
-          buckets[d.getMonth()] += 1;
-        }
-        setSeriesData(buckets);
-      } catch {
-        setSeriesData(Array(12).fill(0));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, [currentYear]);
 
   function toggleDropdown() {
     setIsOpen(!isOpen);

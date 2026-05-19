@@ -1,18 +1,16 @@
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
-import { apiUrl } from "@/config/api";
-import { useAuth } from "@/context/AuthContext";
+import type { useDashboardStats } from "./useDashboardStats";
 
-export default function StatisticsChart() {
+type Props = Pick<ReturnType<typeof useDashboardStats>, "loading" | "cotizacionesYears">;
+
+export default function StatisticsChart({ loading, cotizacionesYears }: Props) {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
-  const currentYear = useMemo(() => new Date().getFullYear(), []);
-  const previousYear = currentYear - 1;
-  const [currentYearData, setCurrentYearData] = useState<number[]>(Array(12).fill(0));
-  const [previousYearData, setPreviousYearData] = useState<number[]>(Array(12).fill(0));
-  const [loading, setLoading] = useState(false);
+  const currentYear = cotizacionesYears.year;
+  const previousYear = cotizacionesYears.previousYear;
+  const currentYearData = cotizacionesYears.current;
+  const previousYearData = cotizacionesYears.previous;
   const options: ApexOptions = {
     legend: {
       show: false, // Hide legend
@@ -121,41 +119,6 @@ export default function StatisticsChart() {
       data: previousYearData,
     },
   ];
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(apiUrl("/api/cotizaciones/"), {
-          method: "GET",
-          cache: "no-store" as RequestCache,
-        });
-        const data = await res.json().catch(() => null);
-        const list = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
-        const curr = Array(12).fill(0);
-        const prev = Array(12).fill(0);
-        for (const item of list) {
-          const raw = item?.fecha || item?.created_at || item?.fecha_creacion;
-          if (!raw) continue;
-          const d = new Date(String(raw));
-          if (Number.isNaN(d.getTime())) continue;
-          if (d.getFullYear() === currentYear) curr[d.getMonth()] += 1;
-          if (d.getFullYear() === previousYear) prev[d.getMonth()] += 1;
-        }
-        setCurrentYearData(curr);
-        setPreviousYearData(prev);
-      } catch {
-        setCurrentYearData(Array(12).fill(0));
-        setPreviousYearData(Array(12).fill(0));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, [currentYear, previousYear]);
 
   return (
     <div
