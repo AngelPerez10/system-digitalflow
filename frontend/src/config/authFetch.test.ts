@@ -80,28 +80,32 @@ describe('getAuthHeaders', () => {
     expect(getAuthHeaders('HEAD')).toEqual({});
   });
 
+  const TEST_CSRF = 'a'.repeat(32);
+
   it('returns X-CSRFToken header for POST when cookie exists', () => {
-    document.cookie = 'csrftoken=abc123';
+    document.cookie = `csrftoken=${TEST_CSRF}`;
     const headers = getAuthHeaders('POST');
-    expect(headers['X-CSRFToken']).toBe('abc123');
+    expect(headers['X-CSRFToken']).toBe(TEST_CSRF);
   });
 
   it('returns X-CSRFToken header for PUT when cookie exists', () => {
-    document.cookie = 'csrftoken=puttoken';
+    document.cookie = `csrftoken=${'b'.repeat(32)}`;
     const headers = getAuthHeaders('PUT');
-    expect(headers['X-CSRFToken']).toBe('puttoken');
+    expect(headers['X-CSRFToken']).toBe('b'.repeat(32));
   });
 
   it('returns X-CSRFToken header for PATCH when cookie exists', () => {
-    document.cookie = 'csrftoken=patchtoken';
+    const t = 'c'.repeat(32);
+    document.cookie = `csrftoken=${t}`;
     const headers = getAuthHeaders('PATCH');
-    expect(headers['X-CSRFToken']).toBe('patchtoken');
+    expect(headers['X-CSRFToken']).toBe(t);
   });
 
   it('returns X-CSRFToken header for DELETE when cookie exists', () => {
-    document.cookie = 'csrftoken=deltoken';
+    const t = 'd'.repeat(32);
+    document.cookie = `csrftoken=${t}`;
     const headers = getAuthHeaders('DELETE');
-    expect(headers['X-CSRFToken']).toBe('deltoken');
+    expect(headers['X-CSRFToken']).toBe(t);
   });
 
   it('returns empty object for POST when no cookie', () => {
@@ -162,12 +166,15 @@ describe('fetchApi', () => {
   });
 
   it('adds X-CSRFToken for POST when cookie exists', async () => {
+    const t = 'e'.repeat(32);
     sessionStorage.setItem(AUTH_SESSION_FLAG, '1');
-    document.cookie = 'csrftoken=testtoken';
+    document.cookie = `csrftoken=${t}`;
     await fetchApi('/api/data/', { method: 'POST' });
 
-    const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(options.headers['X-CSRFToken']).toBe('testtoken');
+    const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c) => String(c[0]).includes('/api/data/') && c[1]?.method === 'POST'
+    );
+    expect(postCall?.[1]?.headers?.['X-CSRFToken']).toBe(t);
   });
 
   it('adds X-CSRFToken from /api/auth/csrf/ JSON when document has no cookie', async () => {
@@ -175,7 +182,7 @@ describe('fetchApi', () => {
     const cookieSpy = vi.spyOn(document, 'cookie', 'get').mockReturnValue('');
     (global.fetch as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ detail: 'ok', csrfToken: 'from-api-body' }), { status: 200 })
+        new Response(JSON.stringify({ detail: 'ok', csrfToken: 'f'.repeat(32) }), { status: 200 })
       )
       .mockResolvedValueOnce(new Response('{}', { status: 200 }));
 
@@ -184,7 +191,7 @@ describe('fetchApi', () => {
     const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
       (c) => String(c[0]).includes('/api/data/') && c[1]?.method === 'POST'
     );
-    expect(postCall?.[1]?.headers?.['X-CSRFToken']).toBe('from-api-body');
+    expect(postCall?.[1]?.headers?.['X-CSRFToken']).toBe('f'.repeat(32));
     cookieSpy.mockRestore();
   });
 
@@ -207,30 +214,39 @@ describe('fetchApi', () => {
   });
 
   it('adds X-CSRFToken for PUT', async () => {
+    const t = 'g'.repeat(32);
     sessionStorage.setItem(AUTH_SESSION_FLAG, '1');
-    document.cookie = 'csrftoken=puttoken';
+    document.cookie = `csrftoken=${t}`;
     await fetchApi('/api/data/', { method: 'PUT' });
 
-    const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(options.headers['X-CSRFToken']).toBe('puttoken');
+    const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c) => String(c[0]).includes('/api/data/') && c[1]?.method === 'PUT'
+    );
+    expect(postCall?.[1]?.headers?.['X-CSRFToken']).toBe(t);
   });
 
   it('adds X-CSRFToken for PATCH', async () => {
+    const t = 'h'.repeat(32);
     sessionStorage.setItem(AUTH_SESSION_FLAG, '1');
-    document.cookie = 'csrftoken=patchtoken';
+    document.cookie = `csrftoken=${t}`;
     await fetchApi('/api/data/', { method: 'PATCH' });
 
-    const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(options.headers['X-CSRFToken']).toBe('patchtoken');
+    const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c) => String(c[0]).includes('/api/data/') && c[1]?.method === 'PATCH'
+    );
+    expect(postCall?.[1]?.headers?.['X-CSRFToken']).toBe(t);
   });
 
   it('adds X-CSRFToken for DELETE', async () => {
+    const t = 'i'.repeat(32);
     sessionStorage.setItem(AUTH_SESSION_FLAG, '1');
-    document.cookie = 'csrftoken=deltoken';
+    document.cookie = `csrftoken=${t}`;
     await fetchApi('/api/data/', { method: 'DELETE' });
 
-    const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(options.headers['X-CSRFToken']).toBe('deltoken');
+    const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c) => String(c[0]).includes('/api/data/') && c[1]?.method === 'DELETE'
+    );
+    expect(postCall?.[1]?.headers?.['X-CSRFToken']).toBe(t);
   });
 
   it('returns the response from fetch', async () => {

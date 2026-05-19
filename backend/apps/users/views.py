@@ -212,6 +212,8 @@ def login_view(request):
     perms_obj, _ = UserPermissions.objects.get_or_create(user=user)
     perms = perms_obj.permissions or {}
 
+    from django.middleware.csrf import get_token
+
     resp = Response(
         {
             'access': str(access),
@@ -224,6 +226,7 @@ def login_view(request):
             'last_name': getattr(user, 'last_name', ''),
             'id': user.id,
             'permissions': perms,
+            'csrfToken': get_token(request),
         }
     )
     _set_jwt_cookies(resp, str(access), str(refresh))

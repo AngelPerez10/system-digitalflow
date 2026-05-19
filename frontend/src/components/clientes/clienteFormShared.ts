@@ -226,6 +226,12 @@ export const formatApiErrors = (txt: string) => {
   try {
     const data = JSON.parse(txt);
     if (data && typeof data === "object") {
+      const detail = typeof (data as { detail?: unknown }).detail === "string"
+        ? String((data as { detail: string }).detail)
+        : "";
+      if (/csrf/i.test(detail)) {
+        return "La sesión no pudo validarse (CSRF). Cierra sesión, vuelve a entrar e intenta de nuevo.";
+      }
       return Object.entries(data)
         .map(([k, v]) => {
           if (Array.isArray(v)) return `${k}: ${v.join(", ")}`;

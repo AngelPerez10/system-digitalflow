@@ -5,7 +5,7 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import Checkbox from "@/components/form/input/Checkbox";
 import Button from "@/components/ui/button/Button";
-import { ensureCsrfCookie, fetchApi, markAuthSession, resetRefreshState } from "@/config/api";
+import { ensureCsrfCookie, fetchApi, markAuthSession, resetRefreshState, storeCsrfTokenFromPayload } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 
 async function login(loginValue: string, password: string) {
@@ -53,6 +53,7 @@ export default function SignInForm() {
     setMessage(null);
     try {
       const data = await login(loginValue, password);
+      storeCsrfTokenFromPayload(data);
       markAuthSession();
       resetRefreshState();
       await refreshAuth();

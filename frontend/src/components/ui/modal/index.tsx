@@ -5,13 +5,16 @@ interface ModalProps {
   onClose: () => void;
   className?: string;
   children: React.ReactNode;
-  showCloseButton?: boolean; // New prop to control close button visibility
-  isFullscreen?: boolean; // Default to false for backwards compatibility
-  closeOnBackdropClick?: boolean; // Control if clicking backdrop closes modal
+  showCloseButton?: boolean;
+  isFullscreen?: boolean;
+  closeOnBackdropClick?: boolean;
   /** When false, Escape does not call onClose (useful when stacking modals). Default true. */
   closeOnEscape?: boolean;
-  /** Reservado para layout móvil tipo bottom sheet (compatibilidad con páginas ERP). */
   mobileBottomSheet?: boolean;
+  /** id del elemento que titula el diálogo (aria-labelledby). */
+  ariaLabelledBy?: string;
+  /** id del elemento que describe el diálogo (aria-describedby). */
+  ariaDescribedBy?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -23,6 +26,8 @@ export const Modal: React.FC<ModalProps> = ({
   isFullscreen = false,
   closeOnBackdropClick = true, // Default to true for backwards compatibility
   closeOnEscape = true,
+  ariaLabelledBy,
+  ariaDescribedBy,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +76,10 @@ export const Modal: React.FC<ModalProps> = ({
       )}
       <div
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={ariaLabelledBy}
+        aria-describedby={ariaDescribedBy}
         className={`${contentClasses}  ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -78,7 +87,8 @@ export const Modal: React.FC<ModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-3 top-3 z-999 flex h-9.5 w-9.5 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6 sm:h-11 sm:w-11"
+            aria-label="Cerrar ventana"
+            className="absolute right-3 top-3 z-999 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6"
           >
             <svg
               width="24"

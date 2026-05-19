@@ -1,41 +1,33 @@
-// API base can be overridden via VITE_API_BASE. Otherwise, derive from current host.
-// In Vite dev (5173/4173), assume Django backend runs on :8000 (also when using a LAN IP).
-// In production, default to same origin WITHOUT port.
-const isBrowser = typeof window !== 'undefined';
-const hostname = isBrowser ? window.location.hostname : 'localhost';
-const protocol = isBrowser ? window.location.protocol : 'http:';
-const port = isBrowser ? window.location.port : '';
-const isLocal = isBrowser && (hostname === 'localhost' || hostname === '127.0.0.1');
-const isViteDev = isBrowser && (port === '5173' || port === '4173');
+import {
+  clearCsrfTokenCache,
+  ensureCsrfCookie,
+  getCsrfRequestHeaders,
+  getCsrfToken,
+  storeCsrfTokenFromPayload,
+} from "./csrf";
+import { apiUrl, API_BASE, PUBLIC_ORIGIN, publicUrl } from "./apiBase";
 
-const DEFAULT_API_BASE = isBrowser
-  ? (isLocal
-    ? 'http://localhost:8000'
-    : (isViteDev
-      ? `${protocol}//${hostname}:8000`
-      : `${protocol}//${hostname}`))
-  : 'http://localhost:8000';
-
-export const API_BASE =
-  (import.meta.env.VITE_API_BASE as string | undefined) ||
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
-  DEFAULT_API_BASE;
-
-export const apiUrl = (path: string) => {
-  if (!path.startsWith("/")) path = "/" + path;
-  // Dev: proxy Vite /api → Django. Producción o VITE_API_BASE: URL absoluta.
-  if (isViteDev) return path;
-  return `${API_BASE.replace(/\/$/, "")}${path}`;
+export { API_BASE, apiUrl, PUBLIC_ORIGIN, publicUrl };
+export {
+  clearCsrfTokenCache,
+  ensureCsrfCookie,
+  getCsrfToken,
+  storeCsrfTokenFromPayload,
 };
 
+/** Cabeceras CSRF para métodos no seguros (alias histórico). */
+export function getAuthHeaders(method: string = "GET"): Record<string, string> {
+  return getCsrfRequestHeaders(method);
+}
+
 /** Indica que hubo login exitoso (cookies HttpOnly no son legibles desde JS). */
-export const AUTH_SESSION_FLAG = 'auth_has_session';
-export const AUTH_CACHE_KEY = 'auth_state';
+export const AUTH_SESSION_FLAG = "auth_has_session";
+export const AUTH_CACHE_KEY = "auth_state";
 
 export function hasAuthSessionFlag(): boolean {
-  if (!isBrowser) return false;
+  if (typeof window === "undefined") return false;
   try {
-    return sessionStorage.getItem(AUTH_SESSION_FLAG) === '1';
+    return sessionStorage.getItem(AUTH_SESSION_FLAG) === "1";
   } catch {
     return false;
   }
@@ -45,126 +37,72 @@ let authRequestsBlocked = false;
 let inFlightAbort = new AbortController();
 
 function isAuthExemptPath(path: string): boolean {
-  const p = path.startsWith('/') ? path : `/${path}`;
+  const p = path.startsWith("/") ? path : `/${path}`;
   return (
-    p.startsWith('/api/login') ||
-    p.startsWith('/api/auth/csrf') ||
-    p.startsWith('/api/logout') ||
-    p.startsWith('/api/token/refresh')
+    p.startsWith("/api/login") ||
+    p.startsWith("/api/auth/csrf") ||
+    p.startsWith("/api/logout") ||
+    p.startsWith("/api/token/refresh")
   );
 }
 
 function unauthenticatedResponse(): Response {
-  return new Response(JSON.stringify({ detail: 'Not authenticated' }), {
+  return new Response(JSON.stringify({ detail: "Not authenticated" }), {
     status: 401,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { "Content-Type": "application/json" },
   });
 }
 
+function csrfUnavailableResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      detail:
+        "No se pudo obtener el token de seguridad (CSRF). Recarga la página o vuelve a iniciar sesión.",
+    }),
+    { status: 403, headers: { "Content-Type": "application/json" } }
+  );
+}
+
 export function markAuthSession() {
-  if (!isBrowser) return;
+  if (typeof window === "undefined") return;
   authRequestsBlocked = false;
   try {
-    sessionStorage.setItem(AUTH_SESSION_FLAG, '1');
+    sessionStorage.setItem(AUTH_SESSION_FLAG, "1");
   } catch {
     /* ignore */
   }
 }
 
-/** Cancela peticiones en vuelo y bloquea nuevas (p. ej. al cerrar sesión). */
 export function revokeAuthSession() {
   authRequestsBlocked = true;
   inFlightAbort.abort();
   inFlightAbort = new AbortController();
 }
 
-/** Limpia caché local de sesión tras logout o tokens inválidos. */
 export function clearAuthSession() {
-  if (!isBrowser) return;
+  if (typeof window === "undefined") return;
   revokeAuthSession();
   clearCsrfTokenCache();
   try {
     sessionStorage.removeItem(AUTH_SESSION_FLAG);
     sessionStorage.removeItem(AUTH_CACHE_KEY);
-    sessionStorage.removeItem('auth_user');
-    sessionStorage.removeItem('user');
-    sessionStorage.removeItem('permissions');
+    sessionStorage.removeItem("auth_user");
+    sessionStorage.removeItem("user");
+    sessionStorage.removeItem("permissions");
   } catch {
     /* ignore */
   }
   resetRefreshState();
 }
 
-/** Token obtenido de GET /api/auth/csrf/ (SPA en otro origen que el API). */
-let cachedCsrfToken: string | null = null;
-
-function readCsrfFromDocumentCookie(): string {
-  const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : '';
-}
-
-function getCsrfToken(): string {
-  if (cachedCsrfToken) return cachedCsrfToken;
-  return readCsrfFromDocumentCookie();
-}
-
-function storeCsrfTokenFromPayload(data: unknown): void {
-  if (!data || typeof data !== 'object') return;
-  const rec = data as Record<string, unknown>;
-  const raw = rec.csrfToken ?? rec.csrf_token;
-  if (typeof raw === 'string' && raw.trim()) {
-    cachedCsrfToken = raw.trim();
-  }
-}
-
-export function getAuthHeaders(method: string = 'GET'): Record<string, string> {
-  const unsafe = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase());
-  if (!unsafe) return {};
-  const csrf = getCsrfToken();
-  return csrf ? { 'X-CSRFToken': csrf } : {};
-}
-
 interface FetchApiOptions extends RequestInit {}
 
 let refreshPromise: Promise<boolean> | null = null;
 let refreshFailed = false;
-let csrfBootstrapPromise: Promise<void> | null = null;
 
 export function resetRefreshState() {
   refreshFailed = false;
   refreshPromise = null;
-}
-
-export function clearCsrfTokenCache() {
-  cachedCsrfToken = null;
-}
-
-/** Obtiene la cookie csrftoken antes de login/refresh (requerido en POST cross-origin). */
-export async function ensureCsrfCookie(): Promise<void> {
-  if (!isBrowser) return;
-  if (getCsrfToken()) return;
-  if (csrfBootstrapPromise) return csrfBootstrapPromise;
-
-  csrfBootstrapPromise = (async () => {
-    try {
-      const res = await fetch(apiUrl('/api/auth/csrf/'), {
-        method: 'GET',
-        credentials: 'include',
-      });
-      const data = await res.json().catch(() => null);
-      storeCsrfTokenFromPayload(data);
-      if (!getCsrfToken()) {
-        const fromCookie = readCsrfFromDocumentCookie();
-        if (fromCookie) cachedCsrfToken = fromCookie;
-      }
-    } catch {
-      /* ignore */
-    } finally {
-      csrfBootstrapPromise = null;
-    }
-  })();
-
-  return csrfBootstrapPromise;
 }
 
 async function attemptRefresh(): Promise<boolean> {
@@ -172,11 +110,12 @@ async function attemptRefresh(): Promise<boolean> {
 
   refreshPromise = (async () => {
     try {
-      await ensureCsrfCookie();
-      const res = await fetch(apiUrl('/api/token/refresh/'), {
-        method: 'POST',
-        credentials: 'include',
-        headers: { ...getAuthHeaders('POST') },
+      const hasCsrf = await ensureCsrfCookie();
+      if (!hasCsrf) return false;
+      const res = await fetch(apiUrl("/api/token/refresh/"), {
+        method: "POST",
+        credentials: "include",
+        headers: getCsrfRequestHeaders("POST"),
       });
       const ok = res.ok;
       if (!ok) {
@@ -194,9 +133,34 @@ async function attemptRefresh(): Promise<boolean> {
   return refreshPromise;
 }
 
+async function responseDetailLooksLikeCsrf(res: Response): Promise<boolean> {
+  try {
+    const data = await res.clone().json();
+    const detail = String((data as { detail?: unknown })?.detail ?? "");
+    return /csrf/i.test(detail);
+  } catch {
+    return false;
+  }
+}
+
+function buildRequestHeaders(
+  options: FetchApiOptions,
+  method: string
+): Record<string, string> | null {
+  const unsafe = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+  const headers: Record<string, string> = {
+    ...((options.headers as Record<string, string>) || {}),
+  };
+  if (!unsafe) return headers;
+
+  const csrfHeaders = getCsrfRequestHeaders(method);
+  if (!csrfHeaders["X-CSRFToken"]) return null;
+  return { ...headers, ...csrfHeaders };
+}
+
 export async function fetchApi(path: string, options: FetchApiOptions = {}): Promise<Response> {
   const exempt = isAuthExemptPath(path);
-  if (path.includes('/api/login/')) {
+  if (path.includes("/api/login/")) {
     authRequestsBlocked = false;
   }
   if (authRequestsBlocked && !exempt) {
@@ -207,68 +171,74 @@ export async function fetchApi(path: string, options: FetchApiOptions = {}): Pro
   }
 
   const url = apiUrl(path);
-  const method = (options.method || 'GET').toUpperCase();
-  const unsafe = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  const method = (options.method || "GET").toUpperCase();
+  const unsafe = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 
   if (unsafe) {
-    await ensureCsrfCookie();
-  }
-
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string> || {}),
-  };
-
-  if (unsafe) {
-    const csrf = getCsrfToken();
-    if (csrf) {
-      headers['X-CSRFToken'] = csrf;
-    }
+    const ok = await ensureCsrfCookie();
+    if (!ok) return csrfUnavailableResponse();
   }
 
   const signal = options.signal ?? inFlightAbort.signal;
 
-  let res: Response;
-  try {
-    res = await fetch(url, {
+  const doFetch = (hdrs: Record<string, string>) =>
+    fetch(url, {
       ...options,
-      credentials: 'include',
-      headers,
+      credentials: "include",
+      headers: hdrs,
       signal,
     });
+
+  let headers = buildRequestHeaders(options, method);
+  if (unsafe && !headers) return csrfUnavailableResponse();
+
+  let res: Response;
+  try {
+    res = await doFetch(headers!);
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (err instanceof DOMException && err.name === "AbortError") {
       return unauthenticatedResponse();
     }
     throw err;
   }
 
+  if (res.status === 403 && unsafe && (await responseDetailLooksLikeCsrf(res))) {
+    clearCsrfTokenCache();
+    const refreshed = await ensureCsrfCookie(true);
+    if (!refreshed) return res;
+    headers = buildRequestHeaders(options, method);
+    if (!headers) return csrfUnavailableResponse();
+    try {
+      res = await doFetch(headers);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return unauthenticatedResponse();
+      }
+      throw err;
+    }
+  }
+
   if (
     res.status === 401 &&
     !refreshFailed &&
-    !path.includes('/api/token/refresh') &&
+    !path.includes("/api/token/refresh") &&
     hasAuthSessionFlag() &&
     !authRequestsBlocked
   ) {
     const refreshed = await attemptRefresh();
     if (refreshed) {
-      return fetch(url, {
-        ...options,
-        credentials: 'include',
-        headers,
-        signal: inFlightAbort.signal,
-      });
+      const retryHeaders = buildRequestHeaders(options, method);
+      if (unsafe && !retryHeaders) return csrfUnavailableResponse();
+      return doFetch(retryHeaders ?? headers!);
     }
   }
 
   return res;
 }
 
-/** URLs absolutas (p. ej. Cloudinary) se devuelven tal cual; rutas /media/... se resuelven contra el API. */
 export function resolveMediaUrl(url: string | null | undefined): string {
   const u = (url || "").trim();
   if (!u) return "";
   if (u.startsWith("http://") || u.startsWith("https://")) return u;
   return apiUrl(u.startsWith("/") ? u : `/${u}`);
 }
-export const PUBLIC_ORIGIN = (import.meta.env.VITE_PUBLIC_ORIGIN || (isBrowser ? window.location.origin : '')).replace(/\/$/, '');
-export const publicUrl = (path: string) => `${PUBLIC_ORIGIN}${path}`;

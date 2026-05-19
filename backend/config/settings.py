@@ -147,6 +147,7 @@ else:
         CORS_ALLOWED_ORIGINS = [
             'https://sistema-grupo-atr.onrender.com',
             'https://system-digitalflow.onrender.com',
+            'https://system-digitalflow-frontend.onrender.com',
         ]
     _csrf_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
     if _csrf_env:
