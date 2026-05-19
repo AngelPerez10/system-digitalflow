@@ -169,8 +169,14 @@ def _clear_jwt_cookies(response):
 @permission_classes([AllowAny])
 @ensure_csrf_cookie
 def csrf_cookie_view(request):
-    """Devuelve la cookie csrftoken para peticiones POST cross-origin (login, refresh)."""
-    return Response({'detail': 'ok'})
+    """
+    Devuelve la cookie csrftoken y el token en JSON.
+    En front estático + API en otro origen, document.cookie no ve la cookie del API;
+    el cliente debe enviar X-CSRFToken con el valor de csrfToken.
+    """
+    from django.middleware.csrf import get_token
+
+    return Response({'detail': 'ok', 'csrfToken': get_token(request)})
 
 
 @api_view(['POST'])

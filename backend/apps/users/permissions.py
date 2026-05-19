@@ -187,8 +187,41 @@ class ModulePermission(BasePermission):
         if method == 'POST':
             return self._as_bool(module_perms.get('create'), False)
         if method in ('PUT', 'PATCH'):
-            return self._as_bool(module_perms.get('edit'), False)
+            if self._as_bool(module_perms.get('edit'), False):
+                return True
+            # Crear incluye actualizar propios registros (has_object_permission valida autoría).
+            return self._as_bool(module_perms.get('create'), False)
         if method == 'DELETE':
             return self._as_bool(module_perms.get('delete'), False)
         
         return False
+
+    def has_object_permission(self, request, view, obj):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+
+        method = (request.method or '').upper()
+        if method not in ('PUT', 'PATCH', 'DELETE'):
+            return True
+
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, self.module_key)
+
+        if method == 'DELETE':
+            return self._as_bool(module_perms.get('delete'), False)
+
+        if self._as_bool(module_perms.get('edit'), False):
+            return True
+
+        if not self._as_bool(module_perms.get('create'), False):
+            return False
+
+        owner_id = getattr(obj, 'creado_por_id', None)
+        if owner_id is None:
+            owner = getattr(obj, 'creado_por', None)
+            owner_id = getattr(owner, 'id', None) if owner else None
+        return owner_id is not None and owner_id == user.id

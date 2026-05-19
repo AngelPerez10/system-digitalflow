@@ -82,6 +82,7 @@ export function revokeAuthSession() {
 export function clearAuthSession() {
   if (!isBrowser) return;
   revokeAuthSession();
+  clearCsrfTokenCache();
   try {
     sessionStorage.removeItem(AUTH_SESSION_FLAG);
     sessionStorage.removeItem(AUTH_CACHE_KEY);
@@ -94,9 +95,26 @@ export function clearAuthSession() {
   resetRefreshState();
 }
 
-function getCsrfToken(): string {
+/** Token obtenido de GET /api/auth/csrf/ (SPA en otro origen que el API). */
+let cachedCsrfToken: string | null = null;
+
+function readCsrfFromDocumentCookie(): string {
   const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
   return match ? decodeURIComponent(match[1]) : '';
+}
+
+function getCsrfToken(): string {
+  if (cachedCsrfToken) return cachedCsrfToken;
+  return readCsrfFromDocumentCookie();
+}
+
+function storeCsrfTokenFromPayload(data: unknown): void {
+  if (!data || typeof data !== 'object') return;
+  const rec = data as Record<string, unknown>;
+  const raw = rec.csrfToken ?? rec.csrf_token;
+  if (typeof raw === 'string' && raw.trim()) {
+    cachedCsrfToken = raw.trim();
+  }
 }
 
 export function getAuthHeaders(method: string = 'GET'): Record<string, string> {
@@ -117,6 +135,10 @@ export function resetRefreshState() {
   refreshPromise = null;
 }
 
+export function clearCsrfTokenCache() {
+  cachedCsrfToken = null;
+}
+
 /** Obtiene la cookie csrftoken antes de login/refresh (requerido en POST cross-origin). */
 export async function ensureCsrfCookie(): Promise<void> {
   if (!isBrowser) return;
@@ -125,10 +147,16 @@ export async function ensureCsrfCookie(): Promise<void> {
 
   csrfBootstrapPromise = (async () => {
     try {
-      await fetch(apiUrl('/api/auth/csrf/'), {
+      const res = await fetch(apiUrl('/api/auth/csrf/'), {
         method: 'GET',
         credentials: 'include',
       });
+      const data = await res.json().catch(() => null);
+      storeCsrfTokenFromPayload(data);
+      if (!getCsrfToken()) {
+        const fromCookie = readCsrfFromDocumentCookie();
+        if (fromCookie) cachedCsrfToken = fromCookie;
+      }
     } catch {
       /* ignore */
     } finally {

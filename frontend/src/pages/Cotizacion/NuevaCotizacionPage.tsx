@@ -179,7 +179,13 @@ const truncateStr = (v: unknown, max: number) => String(v ?? "").slice(0, max);
 const formatCotizacionApiError = (data: unknown): string => {
   if (data == null || typeof data !== "object") return "No se pudo guardar la cotización.";
   const d = data as Record<string, unknown>;
-  if (typeof d.detail === "string" && d.detail.trim()) return d.detail;
+  if (typeof d.detail === "string" && d.detail.trim()) {
+    const detail = d.detail.trim();
+    if (/csrf/i.test(detail)) {
+      return "La sesión no pudo validarse (CSRF). Cierra sesión, vuelve a entrar e intenta guardar de nuevo.";
+    }
+    return detail;
+  }
   if (Array.isArray(d.detail) && d.detail.length) return d.detail.map(String).join(" ");
   const parts: string[] = [];
   for (const [key, val] of Object.entries(d)) {

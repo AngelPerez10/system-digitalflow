@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   fetchApi,
   clearAuthSession,
+  clearCsrfTokenCache,
   markAuthSession,
   resetRefreshState,
   hasAuthSessionFlag,
@@ -15,6 +16,7 @@ const originalFetch = global.fetch;
 beforeEach(() => {
   sessionStorage.clear();
   document.cookie = '';
+  clearCsrfTokenCache();
   global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
   vi.restoreAllMocks();
 });
@@ -166,6 +168,24 @@ describe('fetchApi', () => {
 
     const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(options.headers['X-CSRFToken']).toBe('testtoken');
+  });
+
+  it('adds X-CSRFToken from /api/auth/csrf/ JSON when document has no cookie', async () => {
+    sessionStorage.setItem(AUTH_SESSION_FLAG, '1');
+    const cookieSpy = vi.spyOn(document, 'cookie', 'get').mockReturnValue('');
+    (global.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ detail: 'ok', csrfToken: 'from-api-body' }), { status: 200 })
+      )
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+
+    await fetchApi('/api/data/', { method: 'POST' });
+
+    const postCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c) => String(c[0]).includes('/api/data/') && c[1]?.method === 'POST'
+    );
+    expect(postCall?.[1]?.headers?.['X-CSRFToken']).toBe('from-api-body');
+    cookieSpy.mockRestore();
   });
 
   it('does NOT add X-CSRFToken for GET', async () => {
