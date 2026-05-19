@@ -6,6 +6,8 @@ _DEV_VITE_ORIGIN = re.compile(
     r'^https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}):(5173|4173)$'
 )
 
+_AUTH_EXEMPT_PATHS = frozenset({'/api/login/', '/api/logout/', '/api/auth/csrf/', '/api/token/refresh/'})
+
 
 class DisableCSRFFromAuthorizationMiddleware:
     def __init__(self, get_response):
@@ -17,6 +19,12 @@ class DisableCSRFFromAuthorizationMiddleware:
     def process_view(self, request, view_func, view_args, view_kwargs):
         if not request.path.startswith('/api/'):
             return None
+        # Exempt auth endpoints — login/logout/refresh need CSRF cookie
+        # to exist before the request, which is impossible on first visit.
+        if request.path in _AUTH_EXEMPT_PATHS:
+            setattr(request, '_dont_enforce_csrf_checks', True)
+            return None
+        # Exempt Bearer token requests (backward compat / API clients)
         auth = request.headers.get('Authorization', '')
         if auth.startswith('Bearer '):
             setattr(request, '_dont_enforce_csrf_checks', True)
