@@ -6,7 +6,6 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
 from .csrf_utils import (
     csrf_header_format_valid,
-    csrf_tokens_match,
     get_csrf_header_token,
     is_trusted_origin,
     request_origin_header,
@@ -38,11 +37,6 @@ class CookieJWTAuthentication(JWTAuthentication):
         cookie_name = settings.CSRF_COOKIE_NAME
         cookie_token = request.COOKIES.get(cookie_name, '')
 
-        if header_token and cookie_token:
-            if csrf_tokens_match(header_token, cookie_token):
-                return
-            raise exceptions.PermissionDenied('CSRF Failed: token mismatch')
-
         origin = request_origin_header(request)
         allow_cross_origin_header_only = (
             not cookie_token
@@ -52,14 +46,13 @@ class CookieJWTAuthentication(JWTAuthentication):
         )
 
         if allow_cross_origin_header_only:
-            # SPA en dominio distinto: cookie csrftoken puede estar bloqueada;
-            # el token del body de GET /api/auth/csrf/ se valida vía middleware.
             request.COOKIES = request.COOKIES.copy()
             request.COOKIES[cookie_name] = header_token
             request.META['CSRF_COOKIE'] = header_token
-        elif header_token or cookie_token:
-            # Token parcial o Origin no confiable → no bypass.
-            raise exceptions.PermissionDenied('CSRF Failed: missing or invalid CSRF token')
+        elif not header_token:
+            raise exceptions.PermissionDenied('CSRF Failed: CSRF token missing.')
+        elif cookie_token:
+            request.META['CSRF_COOKIE'] = cookie_token
 
         check = CsrfViewMiddleware(get_response=lambda req: None)
         check.process_request(request)
