@@ -25,10 +25,10 @@ const sectionLabelClass =
 const trimOrEmpty = (value: unknown) => String(value ?? "").trim();
 
 export interface ClienteFormModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: (cliente: Cliente) => void;
-  editingCliente?: Cliente | null;
+    isOpen: boolean;
+    onClose: () => void;
+    onSuccess: (cliente: Cliente) => void;
+    editingCliente?: Cliente | null;
   permissions?: {
     clientes?: {
       create?: boolean;
@@ -43,23 +43,23 @@ export interface ClienteFormModalProps {
 const MAP_CONTAINER_ID = "cliente-form-modal-leaflet-map";
 
 export function ClienteFormModal({
-  isOpen,
-  onClose,
-  onSuccess,
+    isOpen,
+    onClose,
+    onSuccess,
   editingCliente = null,
-  permissions,
+    permissions,
   fixedTipo,
   sectionTitle = "Clientes",
 }: ClienteFormModalProps) {
   const [formData, setFormData] = useState<Record<string, unknown>>(emptyFormData(fixedTipo));
   const [activeTab, setActiveTab] = useState<"general" | "more">("general");
-  const [modalError, setModalError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [showMapModal, setShowMapModal] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [modalError, setModalError] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [showMapModal, setShowMapModal] = useState(false);
+    const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [mapError, setMapError] = useState("");
 
-  const canClientesCreate = !!permissions?.clientes?.create;
+    const canClientesCreate = !!permissions?.clientes?.create;
   const canClientesEdit = permissions?.clientes?.edit !== false;
 
   const viewSingular =
@@ -71,9 +71,9 @@ export function ClienteFormModal({
           ? "Proveedor"
           : "Cliente";
 
-  useEffect(() => {
+    useEffect(() => {
     if (!isOpen) return;
-    setModalError("");
+            setModalError("");
     setActiveTab("general");
     setMapError("");
     if (editingCliente) {
@@ -83,7 +83,7 @@ export function ClienteFormModal({
     }
   }, [isOpen, editingCliente, fixedTipo]);
 
-  useEffect(() => {
+    useEffect(() => {
     if (!fixedTipo) return;
     setFormData((prev) => ({ ...prev, tipo: fixedTipo }));
   }, [fixedTipo]);
@@ -97,8 +97,8 @@ export function ClienteFormModal({
   };
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setModalError("");
+        e.preventDefault();
+        setModalError("");
 
     if (!editingCliente && !canClientesCreate) {
       setModalError("No tienes permiso para crear clientes.");
@@ -110,48 +110,48 @@ export function ClienteFormModal({
       return;
     }
 
-    const missingFields: string[] = [];
+        const missingFields: string[] = [];
     if (!trimOrEmpty(formData.nombre)) missingFields.push("Nombre");
     if (!trimOrEmpty(formData.telefono) || !onlyDigits10(String(formData.telefono || ""))) {
       missingFields.push("Teléfono (10 dígitos)");
     }
 
-    if (missingFields.length > 0) {
+        if (missingFields.length > 0) {
       setModalError(`Campos requeridos faltantes: ${missingFields.join(", ")}`);
-      return;
-    }
+            return;
+        }
 
     const url = editingCliente ? `/api/clientes/${editingCliente.id}/` : "/api/clientes/";
     const method = editingCliente ? "PUT" : "POST";
 
-    setSaving(true);
-    try {
+        setSaving(true);
+        try {
       const response = await fetchApi(url, {
-        method,
+                method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildClientePayload(formData, fixedTipo)),
-      });
+            });
 
-      if (!response.ok) {
+            if (!response.ok) {
         const txt = await response.text().catch(() => "");
         setModalError(formatApiErrors(txt) || "No se pudo guardar el cliente.");
-        return;
-      }
+                return;
+            }
 
       const saved = (await response.json().catch(() => null)) as Cliente | null;
       if (!saved?.id) {
         setModalError("No se pudo obtener el ID del cliente guardado.");
-        return;
-      }
+                return;
+            }
 
       handleClose();
-      onSuccess(saved);
-    } catch (error) {
-      setModalError(String(error));
-    } finally {
-      setSaving(false);
-    }
-  };
+            onSuccess(saved);
+        } catch (error) {
+            setModalError(String(error));
+        } finally {
+            setSaving(false);
+        }
+    };
 
   const handleConfirmMap = () => {
     if (!selectedLocation) {
@@ -166,7 +166,7 @@ export function ClienteFormModal({
     setShowMapModal(false);
   };
 
-  return (
+    return (
     <>
       <Modal
         mobileBottomSheet
@@ -193,27 +193,27 @@ export function ClienteFormModal({
                     d="M4.25 18.5714C4.25 15.6325 6.63249 13.25 9.57143 13.25H14.4286C17.3675 13.25 19.75 15.6325 19.75 18.5714C19.75 20.8792 17.8792 22.75 15.5714 22.75H8.42857C6.12081 22.75 4.25 20.8792 4.25 18.5714Z"
                     fill="currentColor"
                   />
-                </svg>
-              </span>
+                            </svg>
+                        </span>
               <div className="min-w-0">
                 <p className={sectionLabelClass}>Contactos · {sectionTitle}</p>
                 <h3 className={`mt-1 ${claudeSectionHeadingClass}`}>
                   {editingCliente ? `Editar ${viewSingular}` : `Nuevo ${viewSingular}`}
                 </h3>
                 <p className={claudeCaptionClass}>Captura y revisa los datos antes de guardar</p>
-              </div>
-            </div>
+                        </div>
+                    </div>
           </header>
 
           <form onSubmit={handleSubmit} className="custom-scrollbar max-h-[78vh] space-y-4 overflow-y-auto p-4 sm:p-5">
-            {modalError && (
-              <Alert
+                    {modalError && (
+                        <Alert
                 variant={modalError.startsWith("Campos requeridos faltantes:") ? "warning" : "error"}
                 title={modalError.startsWith("Campos requeridos faltantes:") ? "Faltan campos" : "Error"}
-                message={modalError}
-                showLink={false}
-              />
-            )}
+                            message={modalError}
+                            showLink={false}
+                        />
+                    )}
 
             {mapError && (
               <Alert variant="error" title="Error de mapa" message={mapError} showLink={false} />
@@ -231,32 +231,32 @@ export function ClienteFormModal({
 
             <div className="sticky bottom-[-1rem] z-20 -mx-4 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 shadow-[0_-10px_24px_-20px_rgba(28,25,23,0.55)] before:absolute before:-bottom-3 before:left-0 before:h-3 before:w-full before:bg-[#fcfaf6] before:content-[''] dark:border-[#334155] dark:bg-[#0f172a] dark:before:bg-[#0f172a] sm:-mx-5 sm:bottom-[-1.25rem] sm:px-5">
               <div className="flex flex-col justify-end gap-2 sm:flex-row">
-                <button
-                  type="button"
+                        <button
+                            type="button"
                   onClick={handleClose}
                   disabled={saving}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-[12px] text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 disabled:opacity-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06] sm:w-auto"
-                >
+                        >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
-                  </svg>
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
+                                <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
+                            </svg>
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={saving}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-[12px] text-black hover:bg-[#ff6a00] focus:ring-2 focus:ring-[#ff801f]/30 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                     <path d="M5 12l4 4L19 6" strokeLinecap="round" />
-                  </svg>
+                                    </svg>
                   {saving ? "Guardando…" : editingCliente ? "Actualizar" : "Guardar"}
-                </button>
-              </div>
-            </div>
+                                    </button>
+                                </div>
+                            </div>
           </form>
-        </div>
-      </Modal>
+                    </div>
+                </Modal>
 
       <ClienteMapPickerModal
         isOpen={showMapModal}

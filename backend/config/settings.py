@@ -157,13 +157,14 @@ else:
 # Cabeceras visibles en fetch() desde el frontend (p. ej. nombre de archivo en PDF).
 CORS_EXPOSE_HEADERS = ['Content-Disposition']
 
-# CSRF/Session cookie settings: Secure solo en producción (HTTPS)
+# CSRF/Session cookie settings
+# In production (Render), frontend and backend may be on different domains.
+# SameSite=None allows cookies to be sent cross-origin (required for cookie-based auth).
+# Secure=True ensures cookies are only sent over HTTPS (Render provides HTTPS).
 CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG
-# SameSite=Lax is safe for SPA cookie auth on the same site. In production with
-# different domains, adjust to 'None' and ensure HTTPS.
-CSRF_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
+SESSION_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
 CSRF_COOKIE_HTTPONLY = False
 CSRF_USE_SESSIONS = False
 
@@ -200,17 +201,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
-#}
-
-
-DATABASES = {
-    "default": dj_database_url.parse(os.environ.get("DATABASE_URL"))
-}
+_db_url = os.environ.get("DATABASE_URL", "")
+if _db_url:
+    DATABASES = {"default": dj_database_url.parse(_db_url)}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # =====================
@@ -300,7 +300,7 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_SECURE': not DEBUG,
     'AUTH_COOKIE_HTTP_ONLY': True,
     'AUTH_COOKIE_PATH': '/',
-    'AUTH_COOKIE_SAMESITE': 'Lax',
+    'AUTH_COOKIE_SAMESITE': 'None' if not DEBUG else 'Lax',
 }
 
 CSRF_COOKIE_MAX_AGE = 604800
