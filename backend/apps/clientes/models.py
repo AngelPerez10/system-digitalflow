@@ -6,6 +6,9 @@ class Cliente(models.Model):
     nombre = models.CharField(max_length=255) # Relaxed unique constraint
     direccion = models.TextField(blank=True, default='')
     telefono = models.CharField(max_length=100, blank=True, default='')
+    celular = models.CharField(max_length=100, blank=True, default='')
+    clave = models.CharField(max_length=100, blank=True, default='')
+    representante = models.CharField(max_length=255, blank=True, default='')
 
     # Datos generales
     rfc = models.CharField(max_length=50, blank=True, default='')
@@ -58,6 +61,10 @@ class Cliente(models.Model):
     nombre_facturacion = models.CharField(max_length=255, blank=True, default='')
     numero_facturacion = models.CharField(max_length=100, blank=True, default='')
     domicilio_facturacion = models.TextField(blank=True, default='')
+    idcif = models.CharField(max_length=100, blank=True, default='')
+    curp_fiscal = models.CharField(max_length=100, blank=True, default='')
+    regimen_fiscal = models.CharField(max_length=255, blank=True, default='')
+    uso_cfdi = models.CharField(max_length=100, blank=True, default='')
 
     # Envío
     calle_envio = models.CharField(max_length=255, blank=True, default='')

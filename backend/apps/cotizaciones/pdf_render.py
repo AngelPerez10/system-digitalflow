@@ -187,6 +187,7 @@ def render_html_to_pdf(
             try:
                 body = (e.read() or b"").decode("utf-8", errors="ignore") if e.fp else ""
             except Exception:
+                logger.debug('Could not read htmldocs error response body')
                 body = ""
             logger.warning("htmldocs HTTPError %s: %s", e.code, body[:300])
             last_detail = f"htmldocs HTTP {e.code}"

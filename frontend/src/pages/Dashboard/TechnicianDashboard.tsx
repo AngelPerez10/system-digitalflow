@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
+import { useAuth } from "@/context/AuthContext";
 import PageMeta from "../../components/common/PageMeta";
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
 import {
     ArrowUpIcon,
     BoltIcon
@@ -27,29 +28,15 @@ interface Orden {
 }
 
 export default function TechnicianDashboard() {
+    const { user } = useAuth();
     const [ordenes, setOrdenes] = useState<Orden[]>([]);
     const [loading, setLoading] = useState(true);
-    const [userId, setUserId] = useState<number | null>(null);
     const [selectedRange, setSelectedRange] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
 
     useEffect(() => {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                setUserId(user.id);
-            } catch (e) {
-                console.error("Error parsing user from localStorage", e);
-            }
-        }
-
         const fetchOrdenes = async () => {
             try {
-                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-                if (!token) return;
-                const response = await fetch(apiUrl("/api/ordenes/"), {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const response = await fetchApi("/api/ordenes/");
                 if (response.ok) {
                     const data = await response.json();
                     setOrdenes(data);
@@ -65,9 +52,9 @@ export default function TechnicianDashboard() {
     }, []);
 
     const myOrdenes = useMemo(() => {
-        if (!userId) return [];
-        return ordenes.filter(o => o.tecnico_asignado === userId);
-    }, [ordenes, userId]);
+        if (!user?.id) return [];
+        return ordenes.filter(o => o.tecnico_asignado === user.id);
+    }, [ordenes, user?.id]);
 
     const filteredOrdenes = useMemo(() => {
         const now = new Date();
@@ -136,7 +123,7 @@ export default function TechnicianDashboard() {
     const chartOptions: ApexOptions = {
         colors: ["#465fff"],
         chart: {
-            fontFamily: "Outfit, sans-serif",
+            fontFamily: '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif',
             type: "bar",
             height: 180,
             toolbar: { show: false },
@@ -198,7 +185,7 @@ export default function TechnicianDashboard() {
     const targetOptions: ApexOptions = {
         colors: ["#465FFF"],
         chart: {
-            fontFamily: "Outfit, sans-serif",
+            fontFamily: '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif',
             type: "radialBar",
             height: 330,
             sparkline: { enabled: true },
@@ -265,13 +252,12 @@ export default function TechnicianDashboard() {
                 description="Panel de control para técnicos"
             />
             <div className="grid grid-cols-12 gap-4 md:gap-6">
-                {/* Metrics Section */}
                 <div className="col-span-12 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3">
                     <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                         <div>
-                            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-                                Vista General
-                            </h3>
+                            <h1 className="text-lg font-semibold text-gray-800 dark:text-white">
+                                Panel del Técnico
+                            </h1>
                         </div>
                         <div className="flex gap-x-3.5">
                             <div className="inline-flex w-full items-center gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-900">

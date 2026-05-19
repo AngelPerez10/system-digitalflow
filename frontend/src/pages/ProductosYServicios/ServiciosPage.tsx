@@ -1,16 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 
+import { useAuth } from "@/context/AuthContext";
 import PageMeta from "@/components/common/PageMeta";
 import { Link } from "react-router-dom";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
 import Alert from "@/components/ui/alert/Alert";
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
+import {
+  erpCardShellClass as cardShellClass,
+  erpHeroHeadingClass,
+  erpPageCanvasClass,
+  erpPageInnerClass,
+  erpPrimaryBtnClass,
+  erpSearchInputClass as searchInputClass,
+  erpSecondaryBtnClass,
+  erpSubheadingClass,
+  erpTableHeaderClass,
+  erpTableWrapClass,
+} from "@/layout/erpPageStyles";
+
+const sectionLabelOrangeClass =
+  "text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]";
+
+const claudeBodyClass = "text-sm leading-relaxed text-[#57534e] dark:text-[#b7c1d1]";
 
 interface Servicio {
   id: number;
@@ -35,8 +53,6 @@ type AlertState = {
   title: string;
   message: string;
 };
-
-const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token") || "";
 
 const roundConceptoPrecio = (n: number) => Math.round(Math.max(0, n) * 100) / 100;
 
@@ -90,8 +106,8 @@ const compressImage = async (
         }
         ctx?.drawImage(img, 0, 0, width, height);
 
-        let minQuality = 0.1;
-        let maxQuality = 0.95;
+        const minQuality = 0.1;
+        const maxQuality = 0.95;
         let attempts = 0;
         const maxAttempts = 8;
 
@@ -161,18 +177,18 @@ const formatApiErrors = (txt: string): string => {
   return txt;
 };
 
-const cardShellClass =
-  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
-
-const searchInputClass =
-  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
-
 const modalPanelClass =
-  "rounded-xl border border-gray-200/70 bg-white/90 p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] dark:border-white/[0.07] dark:bg-gray-900/45 dark:shadow-none sm:p-5";
+  "rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/90 p-4 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-5";
 
-const modalLabelClass = "mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm";
+const modalLabelClass = "mb-1.5 block text-xs font-medium text-[#57534e] dark:text-[#cbd5e1] sm:text-sm";
+
+const viewTabClass = (active: boolean) =>
+  active
+    ? "rounded-lg bg-[#ff801f] px-3 py-1.5 text-xs font-semibold text-black shadow-sm"
+    : "rounded-lg px-3 py-1.5 text-xs font-semibold text-[#57534e] transition-colors hover:bg-[#fffdf8] dark:text-[#aeb8c8] dark:hover:bg-white/[0.06]";
 
 export default function Servicios() {
+  const { permissions } = useAuth();
   const asBool = (v: any, defaultValue: boolean) => {
     if (typeof v === "boolean") return v;
     if (typeof v === "string") {
@@ -182,17 +198,6 @@ export default function Servicios() {
     }
     return defaultValue;
   };
-
-  const getPermissionsFromStorage = () => {
-    try {
-      const raw = localStorage.getItem("permissions") || sessionStorage.getItem("permissions");
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  };
-
-  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
 
   // Soporte para mayúsculas/minúsculas en la llave del módulo
   const modulePerms = permissions?.servicios || permissions?.Servicios || {};
@@ -249,13 +254,9 @@ export default function Servicios() {
   const deleteConceptoCloudinary = async (url: string) => {
     const publicId = getPublicIdFromUrl(url);
     if (!publicId) return;
-    const token = getToken();
-    await fetch(apiUrl("/api/ordenes/delete-image/"), {
+    await fetchApi("/api/ordenes/delete-image/", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ public_id: publicId }),
     });
   };
@@ -269,29 +270,10 @@ export default function Servicios() {
     setCurrentPage(1);
   }, [debouncedSearch]);
 
-  useEffect(() => {
-    const sync = () => setPermissions(getPermissionsFromStorage());
-    window.addEventListener("storage", sync);
-    window.addEventListener("focus", sync);
-    document.addEventListener("visibilitychange", sync);
-    window.addEventListener("permissions:updated" as any, sync);
-    return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("focus", sync);
-      document.removeEventListener("visibilitychange", sync);
-      window.removeEventListener("permissions:updated" as any, sync);
-    };
-  }, []);
-
   const fetchServicios = async (page = 1, search = ""): Promise<Servicio[]> => {
     if (!canServiciosView) {
       setServicios([]);
       setTotalCount(0);
-      setLoading(false);
-      return [];
-    }
-    const token = getToken();
-    if (!token) {
       setLoading(false);
       return [];
     }
@@ -321,9 +303,8 @@ export default function Servicios() {
 
     setLoading(true);
     try {
-      const res = await fetch(apiUrl(`/api/servicios/?${query.toString()}`), {
+      const res = await fetchApi(`/api/servicios/?${query.toString()}`, {
         method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
         cache: "no-store" as RequestCache,
         signal: controller.signal,
       });
@@ -364,16 +345,10 @@ export default function Servicios() {
       setConceptos([]);
       return;
     }
-    const token = getToken();
-    if (!token) {
-      setConceptos([]);
-      return;
-    }
     setLoadingConceptos(true);
     try {
-      const res = await fetch(apiUrl("/api/conceptos/?ordering=folio"), {
+      const res = await fetchApi("/api/conceptos/?ordering=folio", {
         method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
         cache: "no-store" as RequestCache,
       });
       const data = await res.json().catch(() => ({ results: [] }));
@@ -430,13 +405,9 @@ export default function Servicios() {
     setConceptoImageUploading(true);
     try {
       const compressed = await compressImage(file, 80, 1400, 1400);
-      const token = getToken();
-      const resp = await fetch(apiUrl("/api/ordenes/upload-image/"), {
+      const resp = await fetchApi("/api/ordenes/upload-image/", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ data_url: compressed, folder: CONCEPTO_IMAGEN_FOLDER }),
       });
       if (!resp.ok) {
@@ -566,8 +537,6 @@ export default function Servicios() {
 
   const handleConfirmDelete = async () => {
     if (!servicioToDelete) return;
-    const token = getToken();
-    if (!token) return;
 
     if (!canServiciosDelete) {
       setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para eliminar servicios." });
@@ -576,9 +545,8 @@ export default function Servicios() {
     }
 
     try {
-      const res = await fetch(apiUrl(`/api/servicios/${servicioToDelete.id}/`), {
+      const res = await fetchApi(`/api/servicios/${servicioToDelete.id}/`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
@@ -619,24 +587,15 @@ export default function Servicios() {
       return;
     }
 
-    const token = getToken();
-    if (!token) {
-      setModalError("No hay token de sesión.");
-      return;
-    }
-
-    const url = editingServicio ? apiUrl(`/api/servicios/${editingServicio.id}/`) : apiUrl("/api/servicios/");
+    const url = editingServicio ? `/api/servicios/${editingServicio.id}/` : "/api/servicios/";
     const method = editingServicio ? "PUT" : "POST";
     const nombreServicio = formData.nombre;
     const isEditing = !!editingServicio;
 
     try {
-      const response = await fetch(url, {
+      const response = await fetchApi(url, {
         method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nombre: String(formData.nombre || "").trim(),
           descripcion: String(formData.descripcion || ""),
@@ -715,11 +674,6 @@ export default function Servicios() {
       setConceptoModalError("Faltan campos requeridos: Folio y Concepto.");
       return;
     }
-    const token = getToken();
-    if (!token) {
-      setConceptoModalError("No hay token de sesión.");
-      return;
-    }
     const basePrecio = Number(conceptoFormData.precio1 || 0);
     const precio1 = roundConceptoPrecio(basePrecio);
     const payload = {
@@ -728,12 +682,12 @@ export default function Servicios() {
       precio1,
       imagen_url: String(conceptoFormData.imagen_url || "").trim(),
     };
-    const url = editingConcepto ? apiUrl(`/api/conceptos/${editingConcepto.id}/`) : apiUrl("/api/conceptos/");
+    const url = editingConcepto ? `/api/conceptos/${editingConcepto.id}/` : "/api/conceptos/";
     const method = editingConcepto ? "PUT" : "POST";
     try {
-      const response = await fetch(url, {
+      const response = await fetchApi(url, {
         method,
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
@@ -760,17 +714,14 @@ export default function Servicios() {
 
   const handleConfirmDeleteConcepto = async () => {
     if (!conceptoToDelete) return;
-    const token = getToken();
-    if (!token) return;
     if (!canServiciosDelete) {
       setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para eliminar conceptos." });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
       return;
     }
     try {
-      const res = await fetch(apiUrl(`/api/conceptos/${conceptoToDelete.id}/`), {
+      const res = await fetchApi(`/api/conceptos/${conceptoToDelete.id}/`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
@@ -790,53 +741,59 @@ export default function Servicios() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
-      <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
+    <div className={erpPageCanvasClass}>
+      <div className={erpPageInnerClass}>
         <PageMeta title="Servicios | Sistema" description="Gestión de servicios" />
 
-        <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]" aria-label="Migas de pan">
-          <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
+        <nav
+          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
+          aria-label="Migas de pan"
+        >
+          <Link
+            to="/"
+            className="rounded-md px-1 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+          >
             Inicio
           </Link>
-          <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
             /
           </span>
-          <span className="font-medium text-gray-700 dark:text-gray-300">Servicios</span>
+          <span className="text-[#44403c] dark:text-[#cbd5e1]">Servicios</span>
         </nav>
 
         {alert.show && <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />}
 
         {!canServiciosView ? (
-          <div className="rounded-2xl border border-gray-200/80 bg-white px-4 py-10 text-center text-xs text-gray-500 shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:text-gray-400 sm:text-sm">
+          <div className={`${cardShellClass} px-4 py-10 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]`}>
             No tienes permiso para ver Servicios.
           </div>
         ) : (
           <>
-            <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
-              <div className="flex min-w-0 gap-3 sm:gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+            <header className={`relative flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
+              <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
+              <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
                   <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                    <path d="M4 7h16" />
-                    <path d="M4 12h16" />
-                    <path d="M4 17h16" />
+                    <path d="M4 7h16" strokeLinecap="round" />
+                    <path d="M4 12h16" strokeLinecap="round" />
+                    <path d="M4 17h16" strokeLinecap="round" />
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
-                    Catálogo
+                  <p className={sectionLabelOrangeClass}>Productos y servicios</p>
+                  <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Servicios y conceptos</h1>
+                  <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
+                    Administra servicios del catálogo y conceptos con precio e imagen para cotizaciones.
                   </p>
-                  <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Servicios y Conceptos</h1>
-                  <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
-                    Administra, edita y elimina servicios y conceptos del catálogo.
-                  </p>
+                  <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
                 </div>
               </div>
             </header>
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-              <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
                 <div className="flex items-center gap-2.5 sm:gap-3">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#fb923c] sm:h-10 sm:w-10">
                     <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                       <path d="M6 6h12" />
                       <path d="M6 12h12" />
@@ -844,35 +801,35 @@ export default function Servicios() {
                     </svg>
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Total servicios</p>
-                    <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.total}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">Total servicios</p>
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">{stats.total}</p>
                   </div>
                 </div>
               </div>
-              <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
                 <div className="flex items-center gap-2.5 sm:gap-3">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
                     <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                       <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Activos</p>
-                    <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.activos}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">Activos</p>
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">{stats.activos}</p>
                   </div>
                 </div>
               </div>
-              <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
                 <div className="flex items-center gap-2.5 sm:gap-3">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
                     <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                       <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
                       <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                     </svg>
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Inactivos</p>
-                    <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.inactivos}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">Inactivos</p>
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">{stats.inactivos}</p>
                   </div>
                 </div>
               </div>
@@ -880,7 +837,7 @@ export default function Servicios() {
 
             <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
               <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
-                <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b] sm:left-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <input
@@ -906,7 +863,7 @@ export default function Servicios() {
               <button
                 type="button"
                 onClick={openCreate}
-                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 sm:w-auto sm:min-h-0 lg:shrink-0"
+                className={`${erpPrimaryBtnClass} lg:shrink-0`}
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -918,7 +875,7 @@ export default function Servicios() {
               <button
                 type="button"
                 onClick={openCreateConcepto}
-                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 sm:w-auto sm:min-h-0 lg:shrink-0"
+                className={`${erpPrimaryBtnClass} lg:shrink-0`}
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -933,36 +890,22 @@ export default function Servicios() {
                 compact
                 title="Listado"
                 desc={activeView === "servicios" ? "Servicios según búsqueda y paginación del servidor." : "Conceptos del catálogo."}
-                className={`overflow-hidden ${cardShellClass}`}
+                className={`overflow-hidden border-[#e7ded0] bg-[#fffdfa]/95 dark:border-[#273244] dark:bg-[#111827]/80 ${cardShellClass}`}
                 actions={
-                  <div className="flex items-center gap-2">
-                    <div className="inline-flex rounded-lg border border-gray-200/90 bg-white p-1 dark:border-white/[0.08] dark:bg-gray-900/40">
-                      <button
-                        type="button"
-                        onClick={() => setActiveView("servicios")}
-                        className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${activeView === "servicios"
-                          ? "bg-brand-600 text-white"
-                          : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]"}`}
-                      >
-                        Servicios
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveView("conceptos")}
-                        className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${activeView === "conceptos"
-                          ? "bg-brand-600 text-white"
-                          : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]"}`}
-                      >
-                        Conceptos
-                      </button>
-                    </div>
+                  <div className="inline-flex rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
+                    <button type="button" onClick={() => setActiveView("servicios")} className={viewTabClass(activeView === "servicios")}>
+                      Servicios
+                    </button>
+                    <button type="button" onClick={() => setActiveView("conceptos")} className={viewTabClass(activeView === "conceptos")}>
+                      Conceptos
+                    </button>
                   </div>
                 }
               >
                 <div className="p-2 pt-0">
-                  <div className="overflow-x-auto rounded-xl border border-gray-200/80 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/30">
+                  <div className={erpTableWrapClass}>
                     <Table className="w-full min-w-[1000px] border-collapse">
-                      <TableHeader className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 text-[11px] font-semibold text-gray-900 dark:border-white/[0.06] dark:bg-gray-900/80 dark:text-white">
+                      <TableHeader className={erpTableHeaderClass}>
                         {activeView === "servicios" ? (
                           <TableRow>
                             <TableCell isHeader className="w-[72px] min-w-[72px] whitespace-nowrap px-3 py-2 text-left text-gray-700 dark:text-gray-300">ID</TableCell>
@@ -982,7 +925,7 @@ export default function Servicios() {
                           </TableRow>
                         )}
                       </TableHeader>
-                      <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
+                      <TableBody className="divide-y divide-[#e7ded0] text-[12px] text-[#57534e] dark:divide-[#273244] dark:text-[#cbd5e1]">
                         {activeView === "servicios" && loading && (
                           <TableRow>
                             <TableCell className="px-3 py-3" colSpan={6}>Cargando...</TableCell>
@@ -990,7 +933,7 @@ export default function Servicios() {
                         )}
 
                         {activeView === "servicios" && !loading && servicios.map((s, idx) => (
-                          <TableRow key={s.id} className="align-top hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                          <TableRow key={s.id} className="align-top hover:bg-[#fcfaf6]/80 dark:hover:bg-[#1e293b]/50">
                             <TableCell className="w-[72px] min-w-[72px] whitespace-nowrap px-3 py-2 align-middle">{startIndex + idx + 1}</TableCell>
                             <TableCell className="min-w-0 max-w-[220px] px-3 py-2 align-middle">
                               <span className="block truncate text-gray-900 dark:text-white" title={s.nombre}>{s.nombre}</span>
@@ -1014,7 +957,7 @@ export default function Servicios() {
                               <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
                                 <button
                                   onClick={() => handleEdit(s)}
-                                  className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                                  className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-[#ff801f]/50 hover:text-[#ea580c] dark:hover:border-[#fb923c]/50 dark:hover:text-[#fb923c] transition"
                                   title="Editar"
                                 >
                                   <PencilIcon className="w-4 h-4" />
@@ -1034,7 +977,13 @@ export default function Servicios() {
                         {activeView === "servicios" && !servicios.length && !loading && (
                           <TableRow>
                             <TableCell className="px-3 py-2" colSpan={6}>
-                              <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Sin servicios</div>
+                              <div className="flex flex-col items-center gap-3 py-12 text-center">
+                                <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#ff801f]/10 text-[#ea580c] dark:text-[#fb923c]">
+                                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" /></svg>
+                                </span>
+                                <p className="text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">Sin servicios</p>
+                                <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Crea un servicio o ajusta la búsqueda.</p>
+                              </div>
                             </TableCell>
                           </TableRow>
                         )}
@@ -1046,7 +995,7 @@ export default function Servicios() {
                         )}
 
                         {activeView === "conceptos" && !loadingConceptos && filteredConceptos.map((c) => (
-                          <TableRow key={c.id} className="align-top hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                          <TableRow key={c.id} className="align-top hover:bg-[#fcfaf6]/80 dark:hover:bg-[#1e293b]/50">
                             <TableCell className="px-3 py-2 align-middle">
                               {c.imagen_url ? (
                                 <img
@@ -1065,7 +1014,7 @@ export default function Servicios() {
                               <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
                                 <button
                                   onClick={() => handleEditConcepto(c)}
-                                  className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                                  className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-[#ff801f]/50 hover:text-[#ea580c] dark:hover:border-[#fb923c]/50 dark:hover:text-[#fb923c] transition"
                                   title="Editar"
                                 >
                                   <PencilIcon className="w-4 h-4" />
@@ -1085,7 +1034,13 @@ export default function Servicios() {
                         {activeView === "conceptos" && !loadingConceptos && !filteredConceptos.length && (
                           <TableRow>
                           <TableCell className="px-3 py-2" colSpan={5}>
-                              <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Sin conceptos</div>
+                              <div className="flex flex-col items-center gap-3 py-12 text-center">
+                                <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#ff801f]/10 text-[#ea580c] dark:text-[#fb923c]">
+                                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" /><path d="M14 2v6h6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                </span>
+                                <p className="text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">Sin conceptos</p>
+                                <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Crea un concepto o ajusta la búsqueda.</p>
+                              </div>
                             </TableCell>
                           </TableRow>
                         )}
@@ -1136,8 +1091,8 @@ export default function Servicios() {
                                   key={page}
                                   onClick={() => setCurrentPage(page)}
                                   className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border text-sm font-medium transition-colors ${currentPage === page
-                                    ? "border-brand-500 bg-brand-500 text-white"
-                                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"}`}
+                                    ? "border-[#ff801f] bg-[#ff801f] text-black"
+                                    : "border-[#e7ded0] bg-white text-[#57534e] hover:bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]"}`}
                                 >
                                   {page}
                                 </button>
@@ -1182,10 +1137,10 @@ export default function Servicios() {
           className="mx-4 w-full max-w-3xl max-h-[92vh] p-0 overflow-hidden rounded-2xl border border-gray-200/75 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:mx-auto"
         >
           <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-            <header className="relative shrink-0 border-b border-gray-200/60 bg-gray-50/80 px-6 py-5 pr-14 dark:border-white/[0.06] dark:bg-gray-950/40 sm:pr-16">
-              <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-brand-500/80 dark:bg-brand-400/70" aria-hidden />
-              <div className="flex items-start gap-4">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-brand-500/15 bg-white text-brand-700 shadow-sm dark:border-brand-400/20 dark:bg-gray-900/60 dark:text-brand-300">
+            <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-6 py-5 pr-14 dark:border-[#273244] dark:bg-[#111827] sm:pr-16">
+              <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
+              <div className="flex items-center gap-4">
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black">
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                     <path d="M4 7h16" />
                     <path d="M4 12h16" />
@@ -1193,8 +1148,8 @@ export default function Servicios() {
                   </svg>
                 </span>
                 <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]">Productos y servicios</p>
-                  <h5 className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100 sm:text-xl">
+                  <p className={sectionLabelOrangeClass}>Productos y servicios</p>
+                  <h5 className={`mt-1 ${erpSubheadingClass}`}>
                     {editingServicio ? "Editar servicio" : "Nuevo servicio"}
                   </h5>
                   <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">Captura y revisa los datos antes de guardar.</p>
@@ -1243,7 +1198,7 @@ export default function Servicios() {
                     rows={4}
                     value={formData.descripcion}
                     onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none resize-none"
                   />
                 </section>
               </div>
@@ -1253,13 +1208,13 @@ export default function Servicios() {
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 ring-1 ring-inset ring-gray-200/90 transition-colors hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-100 dark:ring-white/[0.1] dark:hover:bg-white/[0.05] sm:min-h-0 sm:w-auto"
+                    className={`${erpSecondaryBtnClass} min-h-[46px] sm:min-h-0 sm:w-auto`}
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900 sm:min-h-0 sm:w-auto"
+                    className={`${erpPrimaryBtnClass} min-h-[46px] sm:min-h-0 sm:w-auto`}
                   >
                     {editingServicio ? "Actualizar" : "Guardar"}
                   </button>
@@ -1276,10 +1231,10 @@ export default function Servicios() {
         className="mx-4 flex max-h-[min(92vh,920px)] w-full max-w-2xl flex-col p-0 overflow-hidden rounded-2xl border border-gray-200/75 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:mx-auto"
       >
         <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="relative shrink-0 border-b border-gray-200/60 bg-gray-50/80 px-6 py-5 pr-14 dark:border-white/[0.06] dark:bg-gray-950/40 sm:pr-16">
-            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-brand-500/80 dark:bg-brand-400/70" aria-hidden />
-            <div className="flex items-start gap-4">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-brand-500/15 bg-white text-brand-700 shadow-sm dark:border-brand-400/20 dark:bg-gray-900/60 dark:text-brand-300">
+          <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-6 py-5 pr-14 dark:border-[#273244] dark:bg-[#111827] sm:pr-16">
+            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
+            <div className="flex items-center gap-4">
+              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path d="M4 7h16" />
                   <path d="M4 12h16" />
@@ -1287,7 +1242,7 @@ export default function Servicios() {
                 </svg>
               </span>
               <div className="min-w-0 flex-1 pt-0.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]">Servicios</p>
+                  <p className={sectionLabelOrangeClass}>Servicios</p>
                 <h5 className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100 sm:text-xl">
                   {editingConcepto ? "Editar concepto" : "Nuevo concepto"}
                 </h5>
@@ -1334,15 +1289,15 @@ export default function Servicios() {
                       rows={4}
                       value={conceptoFormData.concepto}
                       onChange={(e) => setConceptoFormData({ ...conceptoFormData, concepto: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none resize-none"
                     />
                   </div>
                   <div className="md:col-span-2">
                     <Label className={modalLabelClass}>Imagen </Label>
-                    <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-brand-500 dark:border-gray-700 rounded-lg hover:border-brand-500">
+                    <div className="cursor-pointer rounded-lg border border-dashed border-[#e7ded0] transition-colors hover:border-[#ff801f]/60 dark:border-[#334155] dark:hover:border-[#fb923c]/50">
                       <div
                         {...getRootProps()}
-                        className={`dropzone rounded-lg border-dashed border-gray-300 p-4 sm:p-5 ${isDragActive ? "border-brand-500 bg-gray-100 dark:bg-gray-800" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+                        className={`dropzone rounded-lg border-dashed p-4 sm:p-5 ${isDragActive ? "border-[#ff801f] bg-[#ff801f]/5 dark:bg-[#ff801f]/10" : "border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]"
                           }`}
                         id="concepto-imagen-upload"
                         role="button"
@@ -1373,7 +1328,7 @@ export default function Servicios() {
                           <span className="text-center mb-2 block w-full max-w-[320px] text-[12px] text-gray-700 dark:text-gray-400">
                             Formatos: PNG, JPG, WebP o SVG (una imagen)
                           </span>
-                          <span className="font-medium underline text-[12px] text-brand-500">Buscar archivos</span>
+                          <span className="font-medium underline text-[12px] text-[#ea580c] dark:text-[#fb923c]">Buscar archivos</span>
                         </div>
                       </div>
                     </div>
@@ -1416,7 +1371,7 @@ export default function Servicios() {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900 sm:min-h-0 sm:w-auto"
+                  className={`${erpPrimaryBtnClass} min-h-[46px] sm:min-h-0 sm:w-auto`}
                 >
                   {editingConcepto ? "Actualizar" : "Guardar"}
                 </button>

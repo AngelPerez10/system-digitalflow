@@ -3,7 +3,7 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
 import Alert from "@/components/ui/alert/Alert";
-import { apiUrl, resolveMediaUrl } from "@/config/api";
+import { resolveMediaUrl, fetchApi } from "@/config/api";
 import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -14,16 +14,6 @@ type MePayload = {
   first_name: string;
   last_name: string;
   avatar_url?: string;
-};
-
-const getToken = () =>
-  localStorage.getItem("token") || sessionStorage.getItem("token") || "";
-
-const authHeaders = (): HeadersInit => {
-  const t = getToken();
-  const h: Record<string, string> = { "Content-Type": "application/json" };
-  if (t) h.Authorization = `Bearer ${t}`;
-  return h;
 };
 
 function initials(first: string, last: string, username: string) {
@@ -61,9 +51,9 @@ export default function ProfilePage() {
   const loadMe = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(apiUrl("/api/me/"), {
+      const res = await fetchApi("/api/me/", {
         method: "GET",
-        headers: authHeaders(),
+        headers: { "Content-Type": "application/json" },
         cache: "no-store" as RequestCache,
       });
       const data = (await res.json().catch(() => null)) as MePayload | null;
@@ -166,9 +156,9 @@ export default function ProfilePage() {
         body.avatar = "";
       }
 
-      const res = await fetch(apiUrl("/api/me/"), {
+      const res = await fetchApi("/api/me/", {
         method: "PATCH",
-        headers: authHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = (await res.json().catch(() => null)) as MePayload & { detail?: string };

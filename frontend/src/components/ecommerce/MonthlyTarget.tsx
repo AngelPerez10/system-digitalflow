@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 import {
   ArrowRightIcon,
   BoxCubeIcon,
@@ -173,34 +174,24 @@ const actionMeta = (text: string) => {
 
 export default function MonthlyTarget() {
   const navigate = useNavigate();
+  const { isAuthenticated, isAdmin } = useAuth();
   const [allItems, setAllItems] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const token =
-      localStorage.getItem("auth_token") ||
-      sessionStorage.getItem("auth_token") ||
-      localStorage.getItem("token") ||
-      sessionStorage.getItem("token") ||
-      "";
-
-    if (!token) {
+    if (!isAuthenticated) {
+      setAllItems([]);
       setLoading(false);
-      setError("No hay sesion activa.");
+      setError("");
       return;
     }
 
-    const role = (localStorage.getItem("role") || sessionStorage.getItem("role") || "").toLowerCase();
-    const isSuperuser =
-      (localStorage.getItem("is_superuser") || sessionStorage.getItem("is_superuser") || "").toLowerCase() === "true";
-    const isAdmin = role === "admin" || isSuperuser;
-    const headers = { Authorization: `Bearer ${token}` };
+    let cancelled = false;
 
     const getJson = async (path: string) => {
-      const res = await fetch(apiUrl(path), { headers, cache: "no-store" as RequestCache });
-      if (!res.ok) return null;
-      return res.json().catch(() => null);
+      const res = await fetchApi(path);
+      return res.ok ? await res.json().catch(() => []) : [];
     };
 
     const load = async () => {
@@ -478,8 +469,7 @@ export default function MonthlyTarget() {
         if (isAdmin && Array.isArray(usersData)) {
           const permsRows = await Promise.all(
             usersData.map(async (u: any) => {
-              const r = await fetch(apiUrl(`/api/users/accounts/${u.id}/permissions/`), {
-                headers,
+              const r = await fetchApi(`/api/users/accounts/${u.id}/permissions/`, {
                 cache: "no-store" as RequestCache,
               });
               if (!r.ok) return null;
@@ -530,16 +520,19 @@ export default function MonthlyTarget() {
           .sort((a, b) => (a.when < b.when ? 1 : -1))
           .slice(0, MAX_ITEMS);
 
-        setAllItems(merged);
+        if (!cancelled) setAllItems(merged);
       } catch {
-        setError("No se pudo cargar el historial global.");
+        if (!cancelled) setError("No se pudo cargar el historial global.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     void load();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, isAdmin]);
 
   const filteredItems = useMemo(() => allItems, [allItems]);
 

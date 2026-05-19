@@ -1,35 +1,48 @@
 import { useState, useEffect, useRef } from "react";
 
+import { useAuth } from "@/context/AuthContext";
 import PageMeta from "@/components/common/PageMeta";
 import { Link } from "react-router-dom";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
 import Alert from "@/components/ui/alert/Alert";
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
 import { PencilIcon, TrashBinIcon } from "@/icons";
-import Label from "@/components/form/Label";
-import Input from "@/components/form/input/InputField";
-import FileInput from "@/components/form/input/FileInput";
-
+import { onlyDigits10 } from "./clientesCatalogos";
+import { ClienteSimplifiedFormFields } from "@/components/clientes/ClienteSimplifiedFormFields";
+import { ClienteMapPickerModal } from "@/components/clientes/ClienteMapPickerModal";
 import {
-  estadosPorPais,
-  formatPhoneE164,
-  onlyDigits10,
-  paisOptions,
-  parsePhoneToForm,
-  phoneCountryOptions,
-} from "./clientesCatalogos";
+  type ClienteTipo,
+  TIPO_OPTIONS,
+  buildClientePayload,
+  emptyFormData,
+  formatApiErrors,
+  formDataFromCliente,
+  isGoogleMapsLink,
+} from "@/components/clientes/clienteFormShared";
 
 const cardShellClass =
-  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+  "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
 
 const searchInputClass =
-  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
+  "min-h-[44px] w-full rounded-2xl border border-[#e2d9ca] bg-[#fffdf8] py-2 pl-10 pr-10 text-sm text-[#1c1917] outline-none transition-all placeholder:text-[#7c7a74] focus:border-[#ff801f]/60 focus:ring-4 focus:ring-[#ff801f]/12 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c]/70 dark:focus:ring-[#fb923c]/20 sm:min-h-[46px] sm:pl-11";
 
-let clientesPagePermissionsInFlight: Promise<any> | null = null;
-let clientesPagePermissionsLastFetchAt = 0;
- const CLIENTES_PAGE_PERMS_TTL_MS = 2 * 60 * 1000;
+const claudeHeroHeadingClass =
+  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.85rem,2.8vw,2.6rem)] font-medium leading-[1.2] tracking-[-0.01em] text-[#1c1917] dark:text-[#f8fafc]";
+
+const claudeSectionHeadingClass =
+  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.4rem,2vw,2rem)] font-medium leading-[1.2] text-gray-900 dark:text-white";
+
+const claudeBodyClass =
+  "text-base font-normal leading-[1.6] text-[#57534e] dark:text-[#b7c1d1]";
+
+const claudeCaptionClass = "text-sm font-normal leading-relaxed text-[#57534e] dark:text-[#8ea0b8]";
+
+const sectionLabelClass =
+  "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
+
+const claudeSansStyle = { fontFamily: "Outfit, sans-serif" } as const;
 
 interface Cliente {
   id: number;
@@ -74,6 +87,13 @@ interface Cliente {
   ciudad_envio?: string;
   tipo?: 'EMPRESA' | 'PERSONA_FISICA' | 'PROVEEDOR';
   is_prospecto?: boolean;
+  clave?: string;
+  representante?: string;
+  celular?: string;
+  idcif?: string;
+  curp_fiscal?: string;
+  regimen_fiscal?: string;
+  uso_cfdi?: string;
 
   contactos?: ClienteContacto[];
   documento?: ClienteDocumento | null;
@@ -99,55 +119,19 @@ type ClienteDocumento = {
   size_bytes: number | null;
 };
 
-const inputLikeClassName =
-  "w-full h-10 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 dark:focus:border-brand-400 dark:focus:ring-brand-900/35";
+const trimOrEmpty = (value: unknown) => String(value ?? "").trim();
 
-const selectLikeClassName =
-  "w-full h-10 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none transition-colors focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60 dark:focus:border-brand-400 dark:focus:ring-brand-900/35";
+const getTipoLabel = (tipo?: ClienteTipo) =>
+  TIPO_OPTIONS.find((o) => o.value === tipo)?.label || tipo || "—";
 
-const formatApiErrors = (txt: string) => {
-  if (!txt) return "";
-  try {
-    const data = JSON.parse(txt);
-    if (data && typeof data === 'object') {
-      return Object.entries(data)
-        .map(([k, v]) => {
-          if (Array.isArray(v)) return `${k}: ${v.join(', ')}`;
-          if (typeof v === 'string') return `${k}: ${v}`;
-          return `${k}: ${JSON.stringify(v)}`;
-        })
-        .join("\n");
-    }
-  } catch {
-    // ignore
-  }
-  return txt;
-};
-
-const isGoogleMapsLink = (value: string | null | undefined) => {
-  if (!value) return false;
-  const s = String(value).trim();
-  if (!s) return false;
-  if (!(s.startsWith('http://') || s.startsWith('https://'))) return false;
-  try {
-    const u = new URL(s);
-    const host = (u.hostname || '').toLowerCase();
-    const href = u.href.toLowerCase();
-    if (host === 'maps.app.goo.gl') return true;
-    if (host.endsWith('google.com') && href.includes('/maps')) return true;
-    return false;
-  } catch {
-    return false;
-  }
-};
-
-type ClienteTipo = 'EMPRESA' | 'PERSONA_FISICA' | 'PROVEEDOR';
+const CLIENTES_MAP_CONTAINER_ID = "clientes-leaflet-map";
 
 type ClientesPageProps = {
   fixedTipo?: ClienteTipo;
 };
 
 const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
+  const { permissions } = useAuth();
   const viewPlural = fixedTipo === 'EMPRESA'
     ? 'Empresas'
     : fixedTipo === 'PROVEEDOR'
@@ -171,17 +155,6 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
       : fixedTipo === 'PERSONA_FISICA'
         ? 'Persona'
         : 'Empresa';
-
-  const getPermissionsFromStorage = () => {
-    try {
-      const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  };
-
-  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
 
   const canClientesView = permissions?.clientes?.view !== false;
   const canClientesCreate = !!permissions?.clientes?.create;
@@ -225,290 +198,34 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   // Form state
   const [activeTab, setActiveTab] = useState<"general" | "more">("general");
   const [modalError, setModalError] = useState<string>("");
-  const [documentFile, setDocumentFile] = useState<File | null>(null);
-  const [deletedContactIds, setDeletedContactIds] = useState<number[]>([]);
-  const [contactos, setContactos] = useState<ClienteContacto[]>([
-    { nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" },
-  ]);
 
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-  const zoomRef = useRef<number>(15);
-  const mapContainerId = "clientes-leaflet-map";
 
-  const [formData, setFormData] = useState<any>({
-    nombre: "",
-    telefono_pais: "MX",
-    telefono: "",
-    direccion: "",
-
-    correo: "",
-    calle: "",
-    numero_exterior: "",
-    interior: "",
-    colonia: "",
-    codigo_postal: "",
-    ciudad: "",
-    pais: "México",
-    estado: "",
-    localidad: "",
-    municipio: "",
-    rfc: "",
-    curp: "",
-    aplica_retenciones: false,
-    desglosar_ieps: false,
-    numero_precio: "1",
-    limite_credito: "",
-    dias_credito: "",
-    notas: "",
-    descuento_pct: null,
-
-    portal_web: "",
-    nombre_facturacion: "",
-    numero_facturacion: "",
-    domicilio_facturacion: "",
-
-    calle_envio: "",
-    numero_envio: "",
-    colonia_envio: "",
-    codigo_postal_envio: "",
-    pais_envio: "México",
-    estado_envio: "",
-    ciudad_envio: "",
-    tipo: fixedTipo || "EMPRESA",
-    is_prospecto: false,
-  });
+  const [formData, setFormData] = useState<Record<string, unknown>>(emptyFormData(fixedTipo));
 
   useEffect(() => {
     if (!fixedTipo) return;
     setFormData((prev: any) => ({ ...prev, tipo: fixedTipo }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [fixedTipo]);
 
-  const estadosOptions = estadosPorPais[formData.pais || "México"] || estadosPorPais["México"] || [];
-  const estadosEnvioOptions = estadosPorPais[formData.pais_envio || "México"] || estadosPorPais["México"] || [];
-
-  const getToken = () => {
-    return localStorage.getItem("token") || sessionStorage.getItem("token");
-  };
-
-  const isGoogleMapsUrl = (value: string | null | undefined) => {
-    if (!value) return false;
-    const s = String(value).trim();
-    if (!s) return false;
-    if (!(s.startsWith('http://') || s.startsWith('https://'))) return false;
-    try {
-      const u = new URL(s);
-      const host = (u.hostname || '').toLowerCase();
-      const href = u.href.toLowerCase();
-      if (host === 'maps.app.goo.gl') return true;
-      if (host.endsWith('google.com') && href.includes('/maps')) return true;
-      return false;
-    } catch {
-      return false;
-    }
-  };
-
-  useEffect(() => {
-    if (!showMapModal) {
-      if (mapRef.current) {
-        try { mapRef.current.remove(); } catch { }
-        mapRef.current = null;
-        markerRef.current = null;
-      }
-      return;
-    }
-
-    const initFromDireccion = () => {
-      const d = (formData.direccion || '').trim();
-      const m = d.match(/q=([\-\d\.]+),([\-\d\.]+)/);
-      if (m) {
-        const lat = parseFloat(m[1]);
-        const lng = parseFloat(m[2]);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          setSelectedLocation({ lat, lng });
-          return true;
-        }
-      }
-      const m2 = d.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
-      if (m2) {
-        const lat = parseFloat(m2[1]);
-        const lng = parseFloat(m2[2]);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          setSelectedLocation({ lat, lng });
-          return true;
-        }
-      }
-      return false;
-    };
-
-    const ensureLeaflet = async () => {
-      const w: any = window as any;
-      if (w.L) return w.L;
-      if (!document.getElementById('leaflet-css')) {
-        const link = document.createElement('link');
-        link.id = 'leaflet-css';
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
-        link.crossOrigin = '';
-        document.head.appendChild(link);
-      }
-      await new Promise<void>((resolve, reject) => {
-        if (document.getElementById('leaflet-js')) return resolve();
-        const script = document.createElement('script');
-        script.id = 'leaflet-js';
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
-        script.crossOrigin = '';
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Leaflet load error'));
-        document.body.appendChild(script);
-      });
-      return (window as any).L;
-    };
-
-    (async () => {
-      try {
-        const L = await ensureLeaflet();
-
-        const had = initFromDireccion();
-        if (!had && !selectedLocation) {
-          setSelectedLocation({ lat: 19.0653, lng: -104.2831 });
-        }
-
-        const container = document.getElementById(mapContainerId);
-        if (!container) return;
-
-        const center = selectedLocation || { lat: 19.0653, lng: -104.2831 };
-        const map = L.map(container).setView([center.lat, center.lng], zoomRef.current || 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
-        map.on('zoomend', () => {
-          try { zoomRef.current = map.getZoom(); } catch { }
-        });
-        map.on('click', (e: any) => {
-          const { lat, lng } = e.latlng;
-          setSelectedLocation({ lat, lng });
-        });
-        mapRef.current = map;
-
-        if (selectedLocation) {
-          markerRef.current = L.marker([selectedLocation.lat, selectedLocation.lng]).addTo(map);
-        }
-      } catch {
-        setAlert({ show: true, variant: 'error', title: 'Error de mapa', message: 'No se pudo cargar el mapa interactivo.' });
-        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
-      }
-    })();
-  }, [showMapModal]);
-
-  useEffect(() => {
-    const L: any = (window as any).L;
-    if (!mapRef.current || !selectedLocation || !L) return;
-    const map = mapRef.current;
-    const currentZoom = typeof zoomRef.current === 'number' ? zoomRef.current : map.getZoom?.() || 15;
-    map.setView([selectedLocation.lat, selectedLocation.lng], currentZoom);
-    if (markerRef.current) {
-      markerRef.current.setLatLng([selectedLocation.lat, selectedLocation.lng]);
-    } else {
-      markerRef.current = L.marker([selectedLocation.lat, selectedLocation.lng]).addTo(map);
-    }
-  }, [selectedLocation]);
-
-  useEffect(() => {
-    const sync = () => setPermissions(getPermissionsFromStorage());
-    window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
-  }, []);
-
-  useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    const now = Date.now();
-    if (now - clientesPagePermissionsLastFetchAt < CLIENTES_PAGE_PERMS_TTL_MS) return;
-
-    try {
-      const storedAtRaw = localStorage.getItem('permissions_fetched_at') || sessionStorage.getItem('permissions_fetched_at');
-      const storedAt = storedAtRaw ? Number(storedAtRaw) : 0;
-      if (storedAt && now - storedAt < CLIENTES_PAGE_PERMS_TTL_MS) {
-        return;
-      }
-    } catch { }
-
-    const load = async () => {
-      try {
-        if (clientesPagePermissionsInFlight) {
-          await clientesPagePermissionsInFlight;
-          return;
-        }
-
-        clientesPagePermissionsLastFetchAt = Date.now();
-        clientesPagePermissionsInFlight = (async () => {
-          const res = await fetch(apiUrl('/api/me/permissions/'), {
-            method: 'GET',
-            headers: { Authorization: `Bearer ${token}` },
-            cache: 'no-store' as RequestCache,
-          });
-          const data = await res.json().catch(() => null);
-          if (!res.ok) return data;
-
-          const p = JSON.stringify(data?.permissions || {});
-          localStorage.setItem('permissions', p);
-          sessionStorage.setItem('permissions', p);
-          const at = String(Date.now());
-          localStorage.setItem('permissions_fetched_at', at);
-          sessionStorage.setItem('permissions_fetched_at', at);
-          setPermissions(data?.permissions || {});
-          window.dispatchEvent(new Event('permissions:updated'));
-          return data;
-        })();
-
-        await clientesPagePermissionsInFlight;
-      } catch {
-        // ignore
-      } finally {
-        clientesPagePermissionsInFlight = null;
-      }
-    };
-    load();
-  }, []);
-
   const fetchClientes = async (page = 1, search = "") => {
-    const token = getToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    if (!canClientesView) return;
     setLoading(true);
     try {
-      const query = new URLSearchParams({
+      const params = new URLSearchParams({
         page: String(page),
+        page_size: "20",
         search: search.trim(),
-        ordering: 'idx',
       });
-      if (fixedTipo) query.set('tipo', fixedTipo);
-      const res = await fetch(apiUrl(`/api/clientes/?${query.toString()}`), {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store' as RequestCache,
-      });
+      if (fixedTipo) params.set("tipo", fixedTipo);
+      const res = await fetchApi(`/api/clientes/?${params.toString()}`);
       const data = await res.json().catch(() => ({ results: [], count: 0 }));
-      if (!res.ok) {
-        setClientes([]);
-        setTotalCount(0);
-        return;
-      }
-      if (data && data.results) {
-        setClientes(data.results);
-        setTotalCount(data.count || 0);
-      } else {
-        setClientes([]);
-        setTotalCount(0);
-      }
+      if (!res.ok) { setClientes([]); setTotalCount(0); return; }
+      const rows = Array.isArray(data) ? data : (data.results || []);
+      setClientes(rows);
+      setTotalCount(data.count ?? rows.length);
     } catch {
       setClientes([]);
       setTotalCount(0);
@@ -547,42 +264,27 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
       return;
     }
 
-    // Validación de campos requeridos
     const missingFields: string[] = [];
-    if (!formData.nombre?.trim()) missingFields.push('Empresa');
-    if (!formData.telefono?.trim() || !onlyDigits10(formData.telefono)) missingFields.push('Teléfono (10 dígitos)');
-
-    const primerContacto = contactos[0];
-    if (!primerContacto?.nombre_apellido?.trim()) missingFields.push('Nombre y apellido del contacto');
-    if (!primerContacto?.celular?.trim() || !onlyDigits10(primerContacto.celular)) missingFields.push('Celular del contacto (10 dígitos)');
+    if (!trimOrEmpty(formData.nombre)) missingFields.push("Nombre");
+    if (!trimOrEmpty(formData.telefono) || !onlyDigits10(String(formData.telefono || ""))) {
+      missingFields.push("Teléfono (10 dígitos)");
+    }
 
     if (missingFields.length > 0) {
-      setModalError(`Campos requeridos faltantes: ${missingFields.join(', ')}`);
+      setModalError(`Campos requeridos faltantes: ${missingFields.join(", ")}`);
       return;
     }
 
-    const token = getToken();
-    const url = editingCliente ? apiUrl(`/api/clientes/${editingCliente.id}/`) : apiUrl('/api/clientes/');
-    const method = editingCliente ? 'PUT' : 'POST';
-    const clienteNombre = formData.nombre;
+    const url = editingCliente ? `/api/clientes/${editingCliente.id}/` : "/api/clientes/";
+    const method = editingCliente ? "PUT" : "POST";
+    const clienteNombre = String(formData.nombre || "");
     const isEditing = !!editingCliente;
 
     try {
-      const response = await fetch(url, {
+      const response = await fetchApi(url, {
         method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          tipo: fixedTipo || formData.tipo,
-          telefono: formatPhoneE164(formData.telefono_pais, formData.telefono),
-          descuento_pct: formData.descuento_pct === '' ? null : formData.descuento_pct,
-          // Convertir vacíos a 0 para campos numéricos
-          limite_credito: formData.limite_credito === "" ? 0 : formData.limite_credito,
-          dias_credito: formData.dias_credito === "" ? 0 : formData.dias_credito,
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildClientePayload(formData, fixedTipo)),
       });
 
       if (!response.ok) {
@@ -598,113 +300,10 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
         return;
       }
 
-      const idsToDelete = [...new Set(deletedContactIds)];
-      for (const id of idsToDelete) {
-        const res = await fetch(apiUrl(`/api/cliente-contactos/${id}/`), {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => null);
-        if (res && !res.ok && res.status !== 404) {
-          console.warn(`DELETE contacto ${id} falló:`, res.status);
-        }
-      }
-
-      for (const c of contactos) {
-        const payload = {
-          cliente: clienteId,
-          nombre_apellido: (c.nombre_apellido || '').trim(),
-          titulo: c.titulo || '',
-          area_puesto: c.area_puesto || '',
-          celular: c.celular ? onlyDigits10(c.celular) : '',
-          correo: c.correo || '',
-          is_principal: contactos.indexOf(c) === 0,
-        };
-        if (c.id) {
-          await fetch(apiUrl(`/api/cliente-contactos/${c.id}/`), {
-            method: 'PUT',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ ...payload, cliente: clienteId }),
-          }).catch(() => null);
-        } else {
-          await fetch(apiUrl('/api/cliente-contactos/'), {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ ...payload, cliente: clienteId }),
-          }).catch(() => null);
-        }
-      }
-
-      if (documentFile) {
-        const allowed = ['pdf', 'xls', 'xlsx', 'doc', 'docs', 'odt', 'ods'];
-        const ext = (documentFile.name.split('.').pop() || '').toLowerCase();
-        if (!allowed.includes(ext)) {
-          setModalError('Formato no permitido para Documento.');
-          return;
-        }
-        if (documentFile.size > 15 * 1024 * 1024) {
-          setModalError('El documento excede 15MB.');
-          return;
-        }
-
-        const fd = new FormData();
-        fd.append('cliente', String(clienteId));
-        fd.append('archivo', documentFile);
-
-        const up = await fetch(apiUrl('/api/cliente-documentos/'), {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
-        });
-        if (!up.ok) {
-          const txt = await up.text().catch(() => '');
-          setModalError(formatApiErrors(txt) || 'No se pudo subir el documento.');
-          return;
-        }
-      }
-
       await fetchClientes();
       setShowModal(false);
-      setFormData({
-        nombre: "",
-        telefono_pais: "MX",
-        telefono: "",
-        direccion: "",
-        correo: "",
-        calle: "",
-        numero_exterior: "",
-        interior: "",
-        colonia: "",
-        codigo_postal: "",
-        ciudad: "",
-        pais: "México",
-        estado: "",
-        notas: "",
-        descuento_pct: null,
-        portal_web: "",
-        nombre_facturacion: "",
-        numero_facturacion: "",
-        domicilio_facturacion: "",
-        calle_envio: "",
-        numero_envio: "",
-        colonia_envio: "",
-        codigo_postal_envio: "",
-        pais_envio: "México",
-        estado_envio: "",
-        ciudad_envio: "",
-        tipo: fixedTipo || "EMPRESA",
-        is_prospecto: false,
-        numero_precio: "1",
-      });
-      setContactos([{ nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }]);
-      setDeletedContactIds([]);
-      setDocumentFile(null);
-      setActiveTab('general');
+      setFormData(emptyFormData(fixedTipo));
+      setActiveTab("general");
       setEditingCliente(null);
 
       setAlert({
@@ -734,11 +333,9 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
 
   const handleConfirmDelete = async () => {
     if (!clienteToDelete) return;
-    const token = getToken();
     try {
-      const response = await fetch(apiUrl(`/api/clientes/${clienteToDelete.id}/`), {
+      const response = await fetchApi(`/api/clientes/${clienteToDelete.id}/`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
       });
       if (response.ok) {
         await fetchClientes();
@@ -771,53 +368,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
     setEditingCliente(cliente);
     setModalError("");
     setActiveTab("general");
-    setDeletedContactIds([]);
-    setDocumentFile(null);
-
-    const phoneParsed = parsePhoneToForm(cliente.telefono);
-    setFormData({
-      ...formData,
-      nombre: cliente.nombre || "",
-      telefono_pais: phoneParsed.phoneCountry,
-      telefono: phoneParsed.phoneNational,
-      direccion: cliente.direccion || "",
-      correo: cliente.correo || "",
-      calle: cliente.calle || "",
-      numero_exterior: cliente.numero_exterior || "",
-      interior: cliente.interior || "",
-      colonia: cliente.colonia || "",
-      codigo_postal: cliente.codigo_postal || "",
-      ciudad: cliente.ciudad || "",
-      pais: cliente.pais || "México",
-      estado: cliente.estado || "",
-      notas: cliente.notas || "",
-      descuento_pct: cliente.descuento_pct ?? null,
-      portal_web: cliente.portal_web || "",
-      nombre_facturacion: cliente.nombre_facturacion || "",
-      numero_facturacion: cliente.numero_facturacion || "",
-      domicilio_facturacion: cliente.domicilio_facturacion || "",
-      calle_envio: cliente.calle_envio || "",
-      numero_envio: cliente.numero_envio || "",
-      colonia_envio: cliente.colonia_envio || "",
-      codigo_postal_envio: cliente.codigo_postal_envio || "",
-      pais_envio: cliente.pais_envio || "México",
-      estado_envio: cliente.estado_envio || "",
-      ciudad_envio: cliente.ciudad_envio || "",
-      tipo: fixedTipo || cliente.tipo || "EMPRESA",
-      is_prospecto: cliente.is_prospecto || false,
-      numero_precio: cliente.numero_precio || "1",
-    });
-
-    const cs = (cliente.contactos || []).map((c: any) => ({
-      id: c.id,
-      nombre_apellido: c.nombre_apellido || "",
-      titulo: c.titulo || "",
-      area_puesto: c.area_puesto || "",
-      celular: c.celular || "",
-      correo: c.correo || "",
-      is_principal: c.is_principal,
-    }));
-    setContactos(cs.length ? cs : [{ nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }]);
+    setFormData(formDataFromCliente(cliente as Parameters<typeof formDataFromCliente>[0], fixedTipo));
     setShowModal(true);
   };
 
@@ -826,80 +377,14 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
     setEditingCliente(null);
     setModalError("");
     setActiveTab("general");
-    setDeletedContactIds([]);
-    setDocumentFile(null);
-    setContactos([{ nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }]);
-    setFormData({
-      nombre: "",
-      telefono_pais: "MX",
-      telefono: "",
-      direccion: "",
-      correo: "",
-      calle: "",
-      numero_exterior: "",
-      interior: "",
-      colonia: "",
-      codigo_postal: "",
-      ciudad: "",
-      pais: "México",
-      estado: "",
-      notas: "",
-      descuento_pct: null,
-      portal_web: "",
-      nombre_facturacion: "",
-      numero_facturacion: "",
-      domicilio_facturacion: "",
-      calle_envio: "",
-      numero_envio: "",
-      colonia_envio: "",
-      codigo_postal_envio: "",
-      pais_envio: "México",
-      estado_envio: "",
-      ciudad_envio: "",
-      tipo: fixedTipo || "EMPRESA",
-      is_prospecto: false,
-      numero_precio: "1",
-    });
+    setFormData(emptyFormData(fixedTipo));
   };
 
   const openCreate = () => {
     setEditingCliente(null);
     setModalError("");
     setActiveTab("general");
-    setDeletedContactIds([]);
-    setDocumentFile(null);
-    setContactos([{ nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }]);
-    setFormData({
-      nombre: "",
-      telefono_pais: "MX",
-      telefono: "",
-      direccion: "",
-      correo: "",
-      calle: "",
-      numero_exterior: "",
-      interior: "",
-      colonia: "",
-      codigo_postal: "",
-      ciudad: "",
-      pais: "México",
-      estado: "",
-      notas: "",
-      descuento_pct: null,
-      portal_web: "",
-      nombre_facturacion: "",
-      numero_facturacion: "",
-      domicilio_facturacion: "",
-      calle_envio: "",
-      numero_envio: "",
-      colonia_envio: "",
-      codigo_postal_envio: "",
-      pais_envio: "México",
-      estado_envio: "",
-      ciudad_envio: "",
-      tipo: fixedTipo || "EMPRESA",
-      is_prospecto: false,
-      numero_precio: "1",
-    });
+    setFormData(emptyFormData(fixedTipo));
     setShowModal(true);
   };
 
@@ -921,8 +406,8 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
-      <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
+    <div className="min-h-[calc(100dvh-5rem)] overflow-x-hidden">
+      <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]" style={claudeSansStyle}>
       <PageMeta
         title={`${viewPlural} | Sistema Grupo Intrax GPS`}
         description={`Gestión de ${viewPlural.toLowerCase()} para el sistema de administración Grupo Intrax GPS`}
@@ -938,130 +423,138 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
       )}
 
       {!canClientesView ? (
-        <div className="rounded-2xl border border-gray-200/80 bg-white px-4 py-10 text-center text-xs text-gray-500 shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:text-gray-400 sm:text-sm">
+        <div className="rounded-3xl border border-[#e7ded0] bg-[#fffdfa] px-4 py-10 text-center text-sm text-[#57534e] shadow-[0_20px_50px_-36px_rgba(28,25,23,0.2)] dark:border-[#273244] dark:bg-[#111827]/80 dark:text-[#b7c1d1] sm:px-6">
           No tienes permiso para ver {viewPlural}.
         </div>
       ) : (
         <>
-          <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]" aria-label="Migas de pan">
-            <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
+          <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]" aria-label="Migas de pan">
+            <Link to="/" className="rounded-md px-1.5 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white">
               Inicio
             </Link>
-            <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+            <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
               /
             </span>
-            <span className="font-medium text-gray-700 dark:text-gray-300">{viewPlural}</span>
+            <span className="text-[#44403c] dark:text-[#cbd5e1]">{viewPlural}</span>
           </nav>
 
-          <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
-            <div className="flex min-w-0 gap-3 sm:gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
-                <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
-                  <path d="M20 22a8 8 0 1 0-16 0" />
+          <header className={`relative flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
+            <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
+            <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
+                <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path fillRule="evenodd" clipRule="evenodd" d="M6.75 6.5C6.75 3.6005 9.1005 1.25 12 1.25C14.8995 1.25 17.25 3.6005 17.25 6.5C17.25 9.3995 14.8995 11.75 12 11.75C9.1005 11.75 6.75 9.3995 6.75 6.5Z" fill="currentColor" />
+                  <path fillRule="evenodd" clipRule="evenodd" d="M4.25 18.5714C4.25 15.6325 6.63249 13.25 9.57143 13.25H14.4286C17.3675 13.25 19.75 15.6325 19.75 18.5714C19.75 20.8792 17.8792 22.75 15.5714 22.75H8.42857C6.12081 22.75 4.25 20.8792 4.25 18.5714Z" fill="currentColor" />
                 </svg>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
-                  Contactos
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]">
+                  Contactos de negocio
                 </p>
-                <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">{viewPlural}</h1>
-                <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
-                  Consulta, crea y edita registros con contactos, dirección y datos fiscales.
+                <h1 className={`mt-0.5 ${claudeHeroHeadingClass}`}>{viewPlural}</h1>
+                <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
+                  Consulta, crea y edita registros con{" "}
+                  <span className="font-medium text-[#ea580c] dark:text-[#fb923c]">contactos</span>, dirección y datos fiscales.
                 </p>
+                <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
               </div>
             </div>
           </header>
 
           <div className="grid w-full grid-cols-1 gap-2 sm:gap-3 lg:max-w-md">
-            <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
-              <div className="flex items-center gap-2.5 sm:gap-3">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
-                    <path d="M20 22a8 8 0 1 0-16 0" />
-                  </svg>
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Total {viewPlural}</p>
-                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{totalCount}</p>
+              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#fb923c] sm:h-10 sm:w-10">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+                      <path d="M20 22a8 8 0 1 0-16 0" />
+                    </svg>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">
+                      Total {viewPlural}
+                    </p>
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">{totalCount}</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
-            <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
-              <svg
-                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path
-                  d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5"
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
+              <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b] sm:left-3.5"
+                  viewBox="0 0 20 20"
+                  fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={`Buscar ${viewPlural.toLowerCase()}…`}
-                className={searchInputClass}
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm("")}
-                  aria-label="Limpiar búsqueda"
-                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+                  strokeWidth="2"
                 >
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                  </svg>
-                </button>
-              )}
+                  <path
+                    d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={`Buscar ${viewPlural.toLowerCase()}...`}
+                  className={searchInputClass}
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    aria-label="Limpiar búsqueda"
+                    className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                      <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!canClientesCreate) {
+                    setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para crear clientes." });
+                    setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
+                    return;
+                  }
+                  openCreate();
+                }}
+                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-sm font-semibold text-black shadow-none transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:brightness-95 sm:w-auto sm:min-h-0 lg:shrink-0"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                </svg>
+                Nuevo {viewSingular}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (!canClientesCreate) {
-                  setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para crear clientes." });
-                  setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
-                  return;
-                }
-                openCreate();
-              }}
-              className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-              </svg>
-              Nuevo {viewSingular}
-            </button>
-          </div>
 
-          <div className="mt-1">
-            <ComponentCard
-              compact
-              title={`Listado de ${viewPlural.toLowerCase()}`}
-              desc="En pantallas pequeñas desplázate horizontalmente para ver todas las columnas."
-              className={`overflow-hidden ${cardShellClass}`}
-            >
-              <p className="mb-2 flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 sm:hidden">
-                <span className="inline-block h-px w-4 bg-brand-400/60" aria-hidden />
-                Desliza horizontalmente para ver el listado completo
-              </p>
-              <div className="-mx-1 overflow-hidden rounded-xl border border-gray-200/80 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/30 sm:mx-0 sm:bg-transparent">
-                <div className="touch-pan-x overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] px-1 pb-1 sm:px-0 sm:pb-0">
-                  <Table className="w-full min-w-[920px] table-fixed sm:min-w-0 xl:min-w-full">
-                    <TableHeader className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 text-[11px] font-semibold text-gray-900 dark:border-white/[0.06] dark:bg-gray-900/80 dark:text-white">
+            <div className="mt-1">
+              <ComponentCard
+                compact
+                title={`Listado de ${viewPlural.toLowerCase()}`}
+                desc="En pantallas pequeñas desplázate horizontalmente para ver todas las columnas."
+                className="overflow-hidden border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)]"
+              >
+                <p className="mb-2 flex items-center gap-1.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8] sm:hidden">
+                  <span className="inline-block h-px w-4 bg-[#ea580c]/70 dark:bg-[#fb923c]/70" aria-hidden />
+                  Desliza horizontalmente para ver el listado completo
+                </p>
+                <div className="-mx-1 overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fcfaf6]/90 dark:border-[#273244] dark:bg-[#0f172a]/50 sm:mx-0 sm:bg-transparent sm:dark:bg-transparent">
+                  <div className="touch-pan-x overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] px-1 pb-1 sm:px-0 sm:pb-0">
+                    <Table className="w-full min-w-[920px] table-fixed sm:min-w-0 xl:min-w-full">
+                      <TableHeader className="sticky top-0 z-10 border-b border-[#e7ded0] bg-[#fcfaf6]/95 text-[11px] font-semibold text-[#1c1917] dark:border-[#334155] dark:bg-[#111a2b]/95 dark:text-[#f8fafc]">
                       <TableRow>
                         <TableCell isHeader className="px-1.5 py-1 text-left w-[64px] text-gray-700 dark:text-gray-300">ID</TableCell>
+                        {!fixedTipo && (
+                          <TableCell isHeader className="px-1.5 py-1 text-left w-[110px] text-gray-700 dark:text-gray-300">Tipo</TableCell>
+                        )}
                         <TableCell isHeader className="px-1.5 py-1 text-left w-[170px] text-gray-700 dark:text-gray-300">{nombreColHeader}</TableCell>
                         <TableCell isHeader className="px-1.5 py-1 text-left w-[120px] text-gray-700 dark:text-gray-300">Ciudad</TableCell>
                         <TableCell isHeader className="px-1.5 py-1 text-left w-[120px] text-gray-700 dark:text-gray-300">Teléfono</TableCell>
@@ -1070,21 +563,26 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                         <TableCell isHeader className="px-1.5 py-1 text-center w-[96px] text-gray-700 dark:text-gray-300">Acciones</TableCell>
                       </TableRow>
                     </TableHeader>
-                    <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[12px] text-gray-700 dark:text-gray-200">
+                    <TableBody className="divide-y divide-[#f5f0e8] text-[12px] text-[#44403c] dark:divide-[#334155]/80 dark:text-[#e5e7eb]">
                       {loading ? (
                         <TableRow>
-                          <TableCell className="px-1.5 py-3" colSpan={7}>Cargando...</TableCell>
+                          <TableCell className="px-1.5 py-3" colSpan={fixedTipo ? 7 : 8}>Cargando...</TableCell>
                         </TableRow>
                       ) : currentClientes.length === 0 ? (
                         <TableRow>
-                          <TableCell className="px-1.5 py-2" colSpan={7}>
+                          <TableCell className="px-1.5 py-2" colSpan={fixedTipo ? 7 : 8}>
                             <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No hay {viewPlural.toLowerCase()}.</div>
                           </TableCell>
                         </TableRow>
                       ) : (
-                        currentClientes.map((cliente, idx) => (
-                          <TableRow key={cliente.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                            <TableCell className="px-1.5 py-1 whitespace-nowrap tabular-nums font-semibold text-gray-900 dark:text-white">{startIndex + idx + 1000}</TableCell>
+                        currentClientes.map((cliente) => (
+                            <TableRow key={cliente.id} className="transition-colors hover:bg-[#fffdf8] dark:hover:bg-[#1e293b]/50">
+                            <TableCell className="px-1.5 py-1 whitespace-nowrap tabular-nums font-semibold text-gray-900 dark:text-white">{cliente.idx}</TableCell>
+                            {!fixedTipo && (
+                              <TableCell className="px-1.5 py-1 whitespace-nowrap text-[11px] text-[#57534e] dark:text-[#cbd5e1]">
+                                {getTipoLabel(cliente.tipo)}
+                              </TableCell>
+                            )}
                             <TableCell className="px-1.5 py-1 text-gray-900 dark:text-white truncate">
                               <span className="block truncate" title={cliente.nombre}>{cliente.nombre}</span>
                             </TableCell>
@@ -1102,15 +600,19 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                               })()}
                             </TableCell>
                             <TableCell className="px-1.5 py-1 whitespace-nowrap">
-                              <a href={`tel:${cliente.telefono}`} className="text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 hover:underline">
+                              <a href={`tel:${cliente.telefono}`} className="text-[#ff801f] hover:text-[#ff6a00] dark:text-[#ffa057] dark:hover:text-[#ffb174] hover:underline">
                                 {cliente.telefono}
                               </a>
                             </TableCell>
                             <TableCell className="px-1.5 py-1">
                               {(() => {
-                                const principal = (cliente.contactos || []).find((c: any) => !!(c as any)?.is_principal) || (cliente.contactos || [])[0];
-                                const nombre = (principal as any)?.nombre_apellido || '';
-                                const correo = (principal as any)?.correo || '';
+                                const principal = (cliente.contactos || []).find((c) => c.is_principal) || (cliente.contactos || [])[0];
+                                const nombre =
+                                  String(cliente.representante || "").trim() ||
+                                  String(principal?.nombre_apellido || "").trim();
+                                const correo =
+                                  String(cliente.correo || "").trim() ||
+                                  String(principal?.correo || "").trim();
                                 if (!nombre && !correo) return <span className="text-gray-500">-</span>;
                                 return (
                                   <div className="leading-tight">
@@ -1130,7 +632,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                                   href={cliente.direccion}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 text-brand-600 hover:underline"
+                                    className="inline-flex items-center gap-1.5 text-[#ff801f] dark:text-[#ffa057] hover:underline"
                                 >
                                   <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
                                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -1143,11 +645,11 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                               )}
                             </TableCell>
                             <TableCell className="px-1.5 py-1 text-center">
-                              <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
+                                <div className="inline-flex items-center gap-1 rounded-lg border border-[#e7ded0]/80 bg-[#fcfaf6] px-1.5 py-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
                                 {canClientesEdit && (
                                   <button
                                     onClick={() => handleEdit(cliente)}
-                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
+                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-[#ff801f]/50 hover:text-[#ff801f] active:scale-[0.97] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#ff801f]/50 sm:h-7 sm:w-7 sm:rounded"
                                     title="Editar"
                                   >
                                     <PencilIcon className="w-4 h-4" />
@@ -1156,7 +658,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                                 {canClientesDelete && (
                                   <button
                                     onClick={() => handleDeleteClick(cliente)}
-                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
+                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
                                     title="Eliminar"
                                   >
                                     <TrashBinIcon className="w-4 h-4" />
@@ -1174,7 +676,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
 
                 {/* Paginación */}
                 {!loading && totalCount > 0 && currentClientes.length > 0 && (
-                  <div className="border-t border-gray-100 px-4 py-3 dark:border-white/[0.06] sm:px-5 sm:py-4">
+                  <div className="border-t border-[#e7ded0] px-4 py-3 dark:border-[#334155]/80 sm:px-5 sm:py-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Mostrando <span className="font-medium text-gray-900 dark:text-white">{startIndex + 1}</span> a{" "}
@@ -1186,7 +688,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                         <button
                           onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
                         >
                           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M15 18l-6-6 6-6" />
@@ -1199,7 +701,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                             <>
                               <button
                                 onClick={() => setCurrentPage(1)}
-                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-800 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white dark:border-[#334155] dark:bg-[#111a2b] text-sm font-medium text-gray-700 dark:text-[#f0f0f0] hover:bg-gray-50 dark:hover:bg-white/[0.06]"
                               >
                                 1
                               </button>
@@ -1218,8 +720,8 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                                 key={page}
                                 onClick={() => setCurrentPage(page)}
                                 className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border text-sm font-medium transition-colors ${currentPage === page
-                                  ? 'border-brand-500 bg-brand-500 text-white'
-                                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                                  ? 'border-[#ff801f]/30 bg-[#ff801f] text-black'
+                                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]'
                                   }`}
                               >
                                 {page}
@@ -1232,7 +734,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                               {currentPage < totalPages - 3 && <span className="px-1 text-gray-400">...</span>}
                               <button
                                 onClick={() => setCurrentPage(totalPages)}
-                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
                               >
                                 {totalPages}
                               </button>
@@ -1243,7 +745,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                         <button
                           onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                           disabled={currentPage === totalPages}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
                         >
                           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M9 18l6-6-6-6" />
@@ -1260,29 +762,37 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
       )}
 
       {/* Modal Crear/Editar */}
-      <Modal isOpen={showModal} onClose={handleCloseModal} closeOnBackdropClick={false} className="w-full max-w-4xl p-0 overflow-hidden">
-        <div>
-          <div className="border-b border-gray-100 px-5 pb-4 pt-5 dark:border-white/[0.06]">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
-                  <path d="M20 22a8 8 0 1 0-16 0" />
+      <Modal
+        mobileBottomSheet
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        closeOnBackdropClick={false}
+        className="w-full max-w-5xl overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_30px_90px_-45px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111a2b]"
+      >
+        <div className="bg-[#fffdfa] dark:bg-[#111a2b]">
+          <header className="relative shrink-0 border-b border-[#e7ded0] bg-gradient-to-r from-[#fcfaf6] via-[#fffaf3] to-[#fffdfa] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-none dark:from-[#111827] dark:via-[#111827] dark:to-[#111827] sm:pr-16">
+            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path fillRule="evenodd" clipRule="evenodd" d="M6.75 6.5C6.75 3.6005 9.1005 1.25 12 1.25C14.8995 1.25 17.25 3.6005 17.25 6.5C17.25 9.3995 14.8995 11.75 12 11.75C9.1005 11.75 6.75 9.3995 6.75 6.5Z" fill="currentColor" />
+                  <path fillRule="evenodd" clipRule="evenodd" d="M4.25 18.5714C4.25 15.6325 6.63249 13.25 9.57143 13.25H14.4286C17.3675 13.25 19.75 15.6325 19.75 18.5714C19.75 20.8792 17.8792 22.75 15.5714 22.75H8.42857C6.12081 22.75 4.25 20.8792 4.25 18.5714Z" fill="currentColor" />
                 </svg>
               </span>
-              <div className="flex-1">
-                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">
+              <div className="min-w-0">
+                <p className={sectionLabelClass}>Contactos · {viewPlural}</p>
+                <h3 className={`mt-1 ${claudeSectionHeadingClass}`}>
                   {editingCliente ? `Editar ${viewSingular}` : `Nuevo ${viewSingular}`}
-                </h5>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                </h3>
+                <p className={claudeCaptionClass}>
                   Captura y revisa los datos antes de guardar
                 </p>
               </div>
             </div>
-          </div>
+          </header>
 
           {/* Body */}
-          <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 max-h-[78vh] overflow-y-auto custom-scrollbar">
+          <form onSubmit={handleSubmit} className="custom-scrollbar max-h-[78vh] space-y-4 overflow-y-auto p-4 sm:p-5">
             {modalError && (
               <Alert
                 variant={String(modalError).startsWith('Campos requeridos faltantes:') ? 'warning' : 'error'}
@@ -1292,747 +802,123 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
               />
             )}
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab('general')}
-                className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === 'general'
-                  ? 'border-brand-500 bg-brand-500 text-white'
-                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
-                  }`}
-              >
-                Datos generales
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('more')}
-                className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === 'more'
-                  ? 'border-brand-500 bg-brand-500 text-white'
-                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
-                  }`}
-              >
-                Más información
-              </button>
-            </div>
-
-            {activeTab === 'general' && (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="md:col-span-2">
-                      <Label>Prospecto</Label>
-                      <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                        <input
-                          type="checkbox"
-                          checked={!!formData.is_prospecto}
-                          onChange={(e) => setFormData({ ...formData, is_prospecto: e.target.checked })}
-                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-700"
-                        />
-                        Es prospecto
-                      </label>
-                    </div>
-                    {!fixedTipo && (
-                      <div className="md:col-span-2">
-                        <Label>Tipo de Identificador</Label>
-                        <select
-                          value={formData.tipo || "EMPRESA"}
-                          onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
-                          className={selectLikeClassName}
-                        >
-                          <option value="EMPRESA">Empresa</option>
-                          <option value="PERSONA_FISICA">Persona Física</option>
-                          <option value="PROVEEDOR">Proveedor</option>
-                        </select>
-                      </div>
-                    )}
-                    <div>
-                      <Label>
-                        {formData.tipo === 'PERSONA_FISICA'
-                          ? 'Persona Física *'
-                          : formData.tipo === 'PROVEEDOR'
-                            ? 'Proveedor *'
-                            : 'Empresa *'}
-                      </Label>
-                      <Input value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Correo</Label>
-                      <Input type="email" value={formData.correo} onChange={(e) => setFormData({ ...formData, correo: e.target.value })} />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Teléfono</Label>
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={formData.telefono_pais || "MX"}
-                        onChange={(e) => setFormData({ ...formData, telefono_pais: e.target.value })}
-                        className={selectLikeClassName}
-                      >
-                        {phoneCountryOptions.map((opt) => (
-                          <option key={opt.code} value={opt.code}>{opt.label}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="tel"
-                        value={formData.telefono}
-                        onChange={(e) => {
-                          const value = (e.target.value || '').replace(/\D/g, '');
-                          setFormData({ ...formData, telefono: value });
-                        }}
-                        onKeyPress={(e) => {
-                          if (!/[0-9]/.test(e.key)) {
-                            e.preventDefault();
-                          }
-                        }}
-                        className={inputLikeClassName}
-                        placeholder="Teléfono del cliente"
-                        maxLength={10}
-                      />
-                      <a
-                        href={onlyDigits10(formData.telefono || '') ? `tel:${onlyDigits10(formData.telefono || '')}` : undefined}
-                        onClick={(e) => {
-                          if (!onlyDigits10(formData.telefono || '')) e.preventDefault();
-                        }}
-                        className={`shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 ${!onlyDigits10(formData.telefono || '') ? 'opacity-50 pointer-events-none' : ''}`}
-                        title="Llamar"
-                        aria-label="Llamar"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.86.31 1.7.57 2.5a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.58-1.09a2 2 0 0 1 2.11-.45c.8.26 1.64.45 2.5.57A2 2 0 0 1 22 16.92Z" />
-                        </svg>
-                      </a>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label>RFC</Label>
-                      <Input value={formData.rfc} onChange={(e) => setFormData({ ...formData, rfc: e.target.value })} placeholder="RFC del cliente" />
-                    </div>
-                    <div>
-                      <Label>CURP</Label>
-                      <Input value={formData.curp} onChange={(e) => setFormData({ ...formData, curp: e.target.value })} placeholder="CURP del cliente" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <Label>Calle *</Label>
-                      <Input value={formData.calle} onChange={(e) => setFormData({ ...formData, calle: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Número exterior *</Label>
-                      <Input value={formData.numero_exterior} onChange={(e) => setFormData({ ...formData, numero_exterior: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Interior</Label>
-                      <Input value={formData.interior} onChange={(e) => setFormData({ ...formData, interior: e.target.value })} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <Label>Colonia</Label>
-                      <Input value={formData.colonia} onChange={(e) => setFormData({ ...formData, colonia: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Código postal</Label>
-                      <Input value={formData.codigo_postal} onChange={(e) => setFormData({ ...formData, codigo_postal: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Ciudad</Label>
-                      <Input value={formData.ciudad} onChange={(e) => setFormData({ ...formData, ciudad: e.target.value })} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label>Municipio *</Label>
-                      <Input value={formData.municipio} onChange={(e) => setFormData({ ...formData, municipio: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Localidad</Label>
-                      <Input value={formData.localidad} onChange={(e) => setFormData({ ...formData, localidad: e.target.value })} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label>País *</Label>
-                      <select
-                        value={formData.pais || "México"}
-                        onChange={(e) => {
-                          const pais = e.target.value;
-                          const nextEstados = estadosPorPais[pais] || estadosPorPais["México"] || [];
-                          const nextEstado = nextEstados.includes(formData.estado) ? formData.estado : "";
-                          setFormData({ ...formData, pais, estado: nextEstado });
-                        }}
-                        className={selectLikeClassName}
-                      >
-                        {paisOptions.map((p) => (
-                          <option key={p} value={p}>{p}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <Label>Estado *</Label>
-                      <select
-                        value={formData.estado || ""}
-                        onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
-                        className={selectLikeClassName}
-                      >
-                        <option value="">Seleccione</option>
-                        {estadosOptions.map((est) => (
-                          <option key={est} value={est}>{est}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between gap-3 mb-1">
-                      <Label>Dirección</Label>
-                      <button
-                        type="button"
-                        onClick={() => setShowMapModal(true)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        Seleccionar en mapa
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <textarea
-                        rows={3}
-                        value={formData.direccion}
-                        onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 pr-12 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
-                        placeholder="Dirección, coordenadas o URL de Google Maps"
-                      />
-                      {!!formData.direccion?.trim() && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const direccion = String(formData.direccion || '').trim();
-                            if (isGoogleMapsUrl(direccion) || direccion.includes('google.com/maps') || direccion.includes('maps.app.goo.gl')) {
-                              window.open(direccion, '_blank');
-                              return;
-                            }
-                            const coordMatch = direccion.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
-                            if (coordMatch) {
-                              const lat = coordMatch[1];
-                              const lng = coordMatch[2];
-                              window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
-                              return;
-                            }
-                            const query = encodeURIComponent(direccion);
-                            window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
-                          }}
-                          className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                          title="Abrir en Google Maps"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Comentarios</Label>
-                    <textarea
-                      rows={4}
-                      value={formData.notas}
-                      onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label>Descuento %</Label>
-                      <Input
-                        type="number"
-                        value={formData.descuento_pct ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setFormData({ ...formData, descuento_pct: v === "" ? null : Number(v) });
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Configuración Fiscal y Crédito</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <Label>Lista de clientes</Label>
-                      <select
-                        value={formData.numero_precio || "1"}
-                        onChange={(e) => setFormData({ ...formData, numero_precio: e.target.value })}
-                        className={selectLikeClassName}
-                      >
-                        <option value="1">Precio 1</option>
-                        <option value="2">Precio 2</option>
-                        <option value="3">Precio 3</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label>Límite de Crédito</Label>
-                      <Input
-                        type="number"
-                        value={formData.limite_credito}
-                        onChange={(e) => setFormData({ ...formData, limite_credito: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Días de Crédito</Label>
-                      <Input
-                        type="number"
-                        value={formData.dias_credito}
-                        onChange={(e) => setFormData({ ...formData, dias_credito: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-gray-100 dark:border-white/5">
-                    <div>
-                      <Label>APLICA RETENCIONES (S/N)</Label>
-                      <Input
-                        value={formData.aplica_retenciones ? "S" : "N"}
-                        onChange={(e) => setFormData({ ...formData, aplica_retenciones: e.target.value.toUpperCase() === "S" })}
-                      />
-                    </div>
-                    <div>
-                      <Label>DESGLOSAR IEPS (S/N)</Label>
-                      <Input
-                        value={formData.desglosar_ieps ? "S" : "N"}
-                        onChange={(e) => setFormData({ ...formData, desglosar_ieps: e.target.value.toUpperCase() === "S" })}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">CONTACTOS</p>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400">Mínimo 1 contacto. El primero es principal.</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setContactos(prev => ([...prev, { nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }]))}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-[12px] font-medium text-white hover:bg-blue-700"
-                    >
-                      Agregar
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {contactos.map((c, i) => (
-                      <div key={c.id ?? i} className="rounded-lg border border-gray-200 dark:border-white/10 p-3">
-                        <div className="flex items-center justify-between gap-3 mb-2">
-                          <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">Contacto {i + 1}{i === 0 ? " (Principal)" : ""}</p>
-                          <button
-                            type="button"
-                            disabled={contactos.length <= 1}
-                            onClick={() => {
-                              setContactos(prev => {
-                                const item = prev[i];
-                                if (item?.id) setDeletedContactIds(ids => [...ids, item.id as number]);
-                                const next = prev.filter((_, idx) => idx !== i);
-                                return next.length ? next : [{ nombre_apellido: "", titulo: "", area_puesto: "", celular: "", correo: "" }];
-                              });
-                            }}
-                            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                            title="Eliminar"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div>
-                            <Label>Nombre y apellido *</Label>
-                            <Input
-                              value={c.nombre_apellido}
-                              onChange={(e) => setContactos(prev => prev.map((x, idx) => idx === i ? { ...x, nombre_apellido: e.target.value } : x))}
-                            />
-                          </div>
-                          <div>
-                            <Label>Título</Label>
-                            <Input
-                              value={c.titulo}
-                              onChange={(e) => setContactos(prev => prev.map((x, idx) => idx === i ? { ...x, titulo: e.target.value } : x))}
-                            />
-                          </div>
-                          <div>
-                            <Label>Área / Puesto</Label>
-                            <Input
-                              value={c.area_puesto}
-                              onChange={(e) => setContactos(prev => prev.map((x, idx) => idx === i ? { ...x, area_puesto: e.target.value } : x))}
-                            />
-                          </div>
-                          <div>
-                            <Label>Celular *</Label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="tel"
-                                value={c.celular}
-                                onChange={(e) => {
-                                  const value = (e.target.value || '').replace(/\D/g, '');
-                                  setContactos(prev => prev.map((x, idx) => idx === i ? { ...x, celular: value } : x));
-                                }}
-                                onKeyPress={(e) => {
-                                  if (!/[0-9]/.test(e.key)) {
-                                    e.preventDefault();
-                                  }
-                                }}
-                                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
-                                placeholder="Celular"
-                                maxLength={10}
-                              />
-                              <a
-                                href={onlyDigits10(c.celular || '') ? `tel:${onlyDigits10(c.celular || '')}` : undefined}
-                                onClick={(e) => {
-                                  if (!onlyDigits10(c.celular || '')) e.preventDefault();
-                                }}
-                                className={`shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 ${!onlyDigits10(c.celular || '') ? 'opacity-50 pointer-events-none' : ''}`}
-                                title="Llamar"
-                                aria-label="Llamar"
-                              >
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.86.31 1.7.57 2.5a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.58-1.09a2 2 0 0 1 2.11-.45c.8.26 1.64.45 2.5.57A2 2 0 0 1 22 16.92Z" />
-                                </svg>
-                              </a>
-                            </div>
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label>Correo</Label>
-                            <Input
-                              type="email"
-                              value={c.correo}
-                              onChange={(e) => setContactos(prev => prev.map((x, idx) => idx === i ? { ...x, correo: e.target.value } : x))}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-white/10">
-                    <table className="min-w-full text-[12px]">
-                      <thead className="bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-200">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium">Nombre</th>
-                          <th className="px-3 py-2 text-left font-medium">Título</th>
-                          <th className="px-3 py-2 text-left font-medium">Area</th>
-                          <th className="px-3 py-2 text-left font-medium">Celular</th>
-                          <th className="px-3 py-2 text-left font-medium">Correo</th>
-                          <th className="px-3 py-2 text-center font-medium">Principal</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-white/10">
-                        {contactos.map((c, i) => (
-                          <tr key={`row-${c.id ?? i}`} className="text-gray-700 dark:text-gray-200">
-                            <td className="px-3 py-2">{c.nombre_apellido || '-'}</td>
-                            <td className="px-3 py-2">{c.titulo || '-'}</td>
-                            <td className="px-3 py-2">{c.area_puesto || '-'}</td>
-                            <td className="px-3 py-2">
-                              {onlyDigits10(c.celular || '').length ? (
-                                <a href={`tel:${onlyDigits10(c.celular || '')}`} className="text-brand-600 hover:underline">
-                                  {onlyDigits10(c.celular || '')}
-                                </a>
-                              ) : (
-                                '-'
-                              )}
-                            </td>
-                            <td className="px-3 py-2">{c.correo || '-'}</td>
-                            <td className="px-3 py-2 text-center">{i === 0 || c.is_principal ? 'Si' : 'No'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )
-            }
-
-            {
-              activeTab === 'more' && (
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                    <div>
-                      <Label>Página/portal web</Label>
-                      <Input value={formData.portal_web} onChange={(e) => setFormData({ ...formData, portal_web: e.target.value })} />
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Facturación</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <Label>Nombre facturación</Label>
-                        <Input value={formData.nombre_facturacion} onChange={(e) => setFormData({ ...formData, nombre_facturacion: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Número de Facturación (RFC para México)</Label>
-                        <Input value={formData.numero_facturacion} onChange={(e) => setFormData({ ...formData, numero_facturacion: e.target.value })} />
-                      </div>
-                      <div className="md:col-span-2">
-                        <Label>Domicilio facturación</Label>
-                        <Input value={formData.domicilio_facturacion} onChange={(e) => setFormData({ ...formData, domicilio_facturacion: e.target.value })} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Dirección de envío</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <Label>Calle de envío</Label>
-                        <Input value={formData.calle_envio} onChange={(e) => setFormData({ ...formData, calle_envio: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Número de envío</Label>
-                        <Input value={formData.numero_envio} onChange={(e) => setFormData({ ...formData, numero_envio: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Colonia de envío</Label>
-                        <Input value={formData.colonia_envio} onChange={(e) => setFormData({ ...formData, colonia_envio: e.target.value })} />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <Label>Código Postal de envío</Label>
-                        <Input value={formData.codigo_postal_envio} onChange={(e) => setFormData({ ...formData, codigo_postal_envio: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Ciudad de envío</Label>
-                        <Input value={formData.ciudad_envio} onChange={(e) => setFormData({ ...formData, ciudad_envio: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Estado de envío</Label>
-                        <select
-                          value={formData.estado_envio || ""}
-                          onChange={(e) => setFormData({ ...formData, estado_envio: e.target.value })}
-                          className={selectLikeClassName}
-                        >
-                          <option value="">Seleccione</option>
-                          {estadosEnvioOptions.map((est) => (
-                            <option key={est} value={est}>{est}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <Label>País de envío</Label>
-                        <select
-                          value={formData.pais_envio || "México"}
-                          onChange={(e) => {
-                            const pais_envio = e.target.value;
-                            const nextEstados = estadosPorPais[pais_envio] || estadosPorPais["México"] || [];
-                            const nextEstadoEnvio = nextEstados.includes(formData.estado_envio) ? formData.estado_envio : "";
-                            setFormData({ ...formData, pais_envio, estado_envio: nextEstadoEnvio });
-                          }}
-                          className={selectLikeClassName}
-                        >
-                          {paisOptions.map((p) => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Documento</p>
-                    {editingCliente?.documento?.url && (
-                      <a
-                        href={editingCliente.documento.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[12px] text-brand-600 hover:underline"
-                      >
-                        {editingCliente.documento.nombre_original || "Ver documento"}
-                      </a>
-                    )}
-                    <FileInput
-                      onChange={(e) => {
-                        const f = (e.target as HTMLInputElement).files?.[0] || null;
-                        if (!f) {
-                          setDocumentFile(null);
-                          return;
-                        }
-                        const allowed = ['pdf', 'xls', 'xlsx', 'doc', 'docs', 'odt', 'ods'];
-                        const ext = (f.name.split('.').pop() || '').toLowerCase();
-                        if (!allowed.includes(ext)) {
-                          setModalError('Documento inválido. Tipos permitidos: PDF, XLS, XLSX, DOC, DOCS, ODT, ODS.');
-                          (e.target as HTMLInputElement).value = '';
-                          setDocumentFile(null);
-                          return;
-                        }
-                        const max = 15 * 1024 * 1024;
-                        if (f.size > max) {
-                          setModalError('Documento excede 15MB.');
-                          (e.target as HTMLInputElement).value = '';
-                          setDocumentFile(null);
-                          return;
-                        }
-                        setModalError('');
-                        setDocumentFile(f);
-                      }}
-                    />
-                  </div>
-                </div>
-              )
-            }
+            <ClienteSimplifiedFormFields
+              formData={formData}
+              setFormData={setFormData}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              fixedTipo={fixedTipo}
+              editingCliente={editingCliente}
+              onOpenMap={() => setShowMapModal(true)}
+            />
 
             {/* Footer Buttons */}
-            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
-                </svg>
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M5 12l4 4L19 6" strokeLinecap="round" />
-                </svg>
-                {editingCliente ? "Actualizar" : "Guardar"}
-              </button>
+            <div className="sticky bottom-[-1rem] z-20 -mx-4 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 shadow-[0_-10px_24px_-20px_rgba(28,25,23,0.55)] before:absolute before:-bottom-3 before:left-0 before:h-3 before:w-full before:bg-[#fcfaf6] before:content-[''] dark:border-[#334155] dark:bg-[#0f172a] dark:before:bg-[#0f172a] sm:-mx-5 sm:bottom-[-1.25rem] sm:px-5">
+              <div className="flex flex-col sm:flex-row justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
+                  </svg>
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-[12px] bg-[#ff801f] text-black hover:bg-[#ff6a00] focus:ring-2 focus:ring-[#ff801f]/30"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M5 12l4 4L19 6" strokeLinecap="round" />
+                  </svg>
+                  {editingCliente ? "Actualizar" : "Guardar"}
+                </button>
+              </div>
             </div>
           </form>
         </div>
       </Modal>
 
-      {/* Modal Mapa */}
-      <Modal
+      <ClienteMapPickerModal
         isOpen={showMapModal}
         onClose={() => setShowMapModal(false)}
-        className="w-[94vw] max-w-3xl p-0 overflow-hidden"
-      >
-        <div>
-          <div className="px-5 pt-5 pb-4 border-b border-gray-100 dark:border-white/10">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30">
-                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div>
-                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">Seleccionar Ubicación</h5>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Haz clic en el mapa para seleccionar la Ubicación</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4">
-            <div className="rounded-lg border border-gray-200 dark:border-white/10 overflow-hidden">
-              <div id={mapContainerId} className="w-full" style={{ height: 420 }} />
-            </div>
-
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <div className="text-xs text-gray-600 dark:text-gray-300">
-                {selectedLocation ? (
-                  <span>Lat: {selectedLocation.lat.toFixed(6)} | Lng: {selectedLocation.lng.toFixed(6)}</span>
-                ) : (
-                  <span>Selecciona un punto en el mapa</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowMapModal(false)}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  disabled={!selectedLocation}
-                  onClick={handleConfirmMap}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Usar Ubicación
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Modal>
+        mapContainerId={CLIENTES_MAP_CONTAINER_ID}
+        direccion={String(formData.direccion || "")}
+        selectedLocation={selectedLocation}
+        setSelectedLocation={setSelectedLocation}
+        onConfirm={handleConfirmMap}
+        onMapError={(message) => {
+          setAlert({ show: true, variant: "error", title: "Error de mapa", message });
+          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
+        }}
+      />
 
       {/* Modal de Confirmación de Eliminación */}
-      {
-        clienteToDelete && (
-          <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-[94vw] max-w-md p-0 overflow-hidden">
-            <div>
-              {/* Header */}
-              <div className="px-6 pt-6 pb-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/10">
-                    <svg className="w-6 h-6 text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+        {
+          clienteToDelete && (
+            <Modal
+              mobileBottomSheet
+              isOpen={showDeleteModal}
+              onClose={handleCancelDelete}
+              className="w-[94vw] max-w-md overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"
+            >
+              <div>
+                {/* Header */}
+                <div className="px-6 pt-6 pb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/10">
+                      <svg className="w-6 h-6 text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Eliminar {viewSingular}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Esta acción no se puede deshacer
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Eliminar {viewSingular}
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      Esta acción no se puede deshacer
+                </div>
+
+                {/* Body */}
+                <div className="px-6 py-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    ¿Estás seguro de que deseas eliminar al cliente{" "}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                      {clienteToDelete.nombre}
+                    </span>
+                    ?
+                  </p>
+                  <div className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-500/5 border border-red-100 dark:border-red-500/20">
+                    <p className="text-xs text-red-800 dark:text-red-300">
+                      <strong>Advertencia:</strong> Todos los datos asociados a este cliente serán eliminados permanentemente.
                     </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Body */}
-              <div className="px-6 py-4">
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  ¿Estás seguro de que deseas eliminar al cliente{" "}
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {clienteToDelete.nombre}
-                  </span>
-                  ?
-                </p>
-                <div className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-500/5 border border-red-100 dark:border-red-500/20">
-                  <p className="text-xs text-red-800 dark:text-red-300">
-                    <strong>Advertencia:</strong> Todos los datos asociados a este cliente serán eliminados permanentemente.
-                  </p>
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-3 border-t border-[#e7ded0] bg-[#fcfaf6] px-6 py-4 dark:border-[#273244] dark:bg-[#0f172a]/70">
+                  <button
+                    onClick={handleCancelDelete}
+                    className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:border-[#334155] dark:hover:bg-white/[0.06] transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleConfirmDelete}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors"
+                  >
+                    <TrashBinIcon className="w-4 h-4" />
+                    Eliminar
+                  </button>
                 </div>
               </div>
-
-              {/* Footer */}
-              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-end gap-3">
-                <button
-                  onClick={handleCancelDelete}
-                  className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleConfirmDelete}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors"
-                >
-                  <TrashBinIcon className="w-4 h-4" />
-                  Eliminar
-                </button>
-              </div>
-            </div>
-          </Modal>
-        )
-      }
+            </Modal>
+          )
+        }
       </div>
     </div>
   );

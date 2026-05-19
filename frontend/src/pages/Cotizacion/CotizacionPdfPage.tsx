@@ -2,15 +2,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
-import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
-import { apiUrl, apiUrlWithCrossOriginAccessToken } from "@/config/api";
+import { fetchApi, hasAuthSessionFlag } from "@/config/api";
+import {
+  erpCardShellClass as cardShellClass,
+  erpCardShellMutedClass,
+  erpHeroHeadingClass,
+  erpPageCanvasClass,
+  erpPageInnerClass,
+  erpPrimaryBtnClass,
+  erpSecondaryBtnClass,
+  erpSubheadingClass,
+} from "@/layout/erpPageStyles";
 
-const cardShellClass =
-  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+const claudeBodyClass = "text-sm leading-relaxed text-[#57534e] dark:text-[#b7c1d1]";
 
-const sectionLabelClass =
-  "text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]";
+const sectionLabelOrangeClass =
+  "text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]";
+
+const outlineCoralBtnClass =
+  "inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border border-[#fed7aa] bg-white px-4 py-3 text-xs font-semibold text-[#9a3412] transition-colors hover:bg-[#fff3e8] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#fb923c]/40 dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#fb923c]/10 sm:min-h-0";
 
 const externalLinkIcon = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -188,10 +199,6 @@ export default function CotizacionPdfPage() {
   /** Mantenemos el último objectURL para revocarlo cuando se reemplace. */
   const lastObjectUrlRef = useRef<string | null>(null);
 
-  const getToken = () => {
-    return localStorage.getItem("token") || sessionStorage.getItem("token");
-  };
-
   useEffect(() => {
     if (isPreviewMode) {
       setCotizacionIdx("PREVIEW");
@@ -199,14 +206,13 @@ export default function CotizacionPdfPage() {
     }
     let cancelled = false;
     const id = cotizacionId;
-    const token = getToken();
-    if (!id || !token) {
+    if (!id || !hasAuthSessionFlag()) {
       setCotizacionIdx(null);
       return;
     }
 
-    fetch(apiUrlWithCrossOriginAccessToken(`/api/cotizaciones/${id}/`, token), {
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    fetchApi(`/api/cotizaciones/${id}/`, {
+      headers: { "Content-Type": "application/json" },
       cache: "no-store" as RequestCache,
     })
       .then(async (res) => {
@@ -232,8 +238,7 @@ export default function CotizacionPdfPage() {
     let isMounted = true;
 
     const run = async () => {
-      const token = getToken();
-      if (!token) {
+      if (!hasAuthSessionFlag()) {
         if (isMounted) {
           setHasError(true);
           setAlert({
@@ -280,20 +285,15 @@ export default function CotizacionPdfPage() {
             }
             return;
           }
-          resp = await fetch(apiUrl("/api/cotizaciones/pdf-preview/"), {
+          resp = await fetchApi("/api/cotizaciones/pdf-preview/", {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
             body: rawPayload,
           });
         } else {
-          resp = await fetch(apiUrlWithCrossOriginAccessToken(`/api/cotizaciones/${cotizacionId}/pdf/`, token), {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
+          resp = await fetchApi(`/api/cotizaciones/${cotizacionId}/pdf/`);
         }
 
         if (!isMounted) return;
@@ -403,13 +403,10 @@ export default function CotizacionPdfPage() {
       });
       return;
     }
-    const token = getToken();
-    if (!token || !cotizacionId) return;
+    if (!hasAuthSessionFlag() || !cotizacionId) return;
 
     try {
-      const resp = await fetch(apiUrlWithCrossOriginAccessToken(`/api/cotizaciones/${cotizacionId}/pdf/?format=html`, token), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const resp = await fetchApi(`/api/cotizaciones/${cotizacionId}/pdf/?format=html`);
       if (!resp.ok) {
         const friendly = friendlyPdfErrorMessage(`HTTP ${resp.status}`, resp.status);
         setAlert({ show: true, variant: "error", title: friendly.title, message: friendly.message });
@@ -437,32 +434,43 @@ export default function CotizacionPdfPage() {
   const pct = Math.min(99, Math.max(0, Math.round(loadingProgress)));
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
-      <div className="mx-auto max-w-7xl space-y-5 px-3 pb-8 pt-5 text-sm sm:space-y-8 sm:px-5 sm:pb-12 sm:pt-8 sm:text-base md:px-6 lg:px-8">
+    <div className={erpPageCanvasClass}>
+      <div className={erpPageInnerClass}>
         <PageMeta title="PDF Cotización | Digitalflow" description="Vista previa y descarga del PDF de cotización" />
 
         <Modal isOpen={loading} onClose={() => {}} showCloseButton={false} className="mx-4 max-w-md sm:mx-auto">
-          <div className="p-6 sm:p-8" aria-busy="true" aria-live="polite">
-            <div className="flex flex-col items-center text-center">
-              <div
-                className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-gray-200/80 bg-gray-50/90 dark:border-white/[0.08] dark:bg-gray-900/60"
-                aria-hidden
-              >
-                <span className="h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600 dark:border-gray-700 dark:border-t-brand-400" />
+          <div className="p-7 sm:p-8" aria-busy="true" aria-live="polite">
+            <div className="flex flex-col items-center justify-center text-center">
+              <div className="relative mb-6">
+                <div className="relative flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111a2b]/90">
+                  <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#e2d9ca] bg-[#fffdfa] dark:border-[#334155] dark:bg-[#0f172a]">
+                    <div
+                      className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#ff801f] dark:border-t-[#ffa057]"
+                      aria-hidden
+                    />
+                    <svg className="relative h-7 w-7 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                      <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                      <path d="M10 13h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      <path d="M10 17h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                </div>
               </div>
-              <p className={sectionLabelClass}>Documento</p>
-              <h2 className="mt-1 text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">Generando PDF</h2>
-              <p className="mt-1.5 max-w-xs text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+
+              <p className={sectionLabelOrangeClass}>Documento</p>
+              <h2 className="mt-1 text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">Generando PDF</h2>
+              <p className="mt-1.5 max-w-xs text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">
                 Puede tardar unos segundos. No cierre esta ventana.
               </p>
 
-              <div className="mt-6 w-full max-w-[280px]">
-                <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+              <div className="mt-6 w-full">
+                <div className="flex items-center justify-between text-xs text-[#78716c] dark:text-[#8ea0b8]">
                   <span>Progreso</span>
-                  <span className="tabular-nums">{pct}%</span>
+                  <span className="font-medium tabular-nums">{pct}%</span>
                 </div>
                 <div
-                  className="mt-2 h-2 w-full overflow-hidden rounded-full border border-gray-200/70 bg-gray-100 dark:border-white/[0.08] dark:bg-gray-800"
+                  className="mt-2 h-2 w-full overflow-hidden rounded-full border border-[#e2d9ca] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]"
                   role="progressbar"
                   aria-valuenow={pct}
                   aria-valuemin={0}
@@ -470,39 +478,39 @@ export default function CotizacionPdfPage() {
                   aria-label="Progreso de generación del PDF"
                 >
                   <div
-                    className="h-full bg-brand-600 transition-[width] duration-500 ease-out dark:bg-brand-500"
+                    className="h-full bg-[#ff801f] transition-[width] duration-500 ease-out dark:bg-[#ff801f]"
                     style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
                   />
                 </div>
-                <p className="mt-3 text-[11px] text-gray-500 dark:text-gray-500">Preparando archivo…</p>
+                <p className="mt-3 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Preparando archivo…</p>
               </div>
             </div>
           </div>
         </Modal>
 
         <nav
-          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
           aria-label="Migas de pan"
         >
           <Link
             to="/"
-            className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
+            className="rounded-md px-1 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Inicio
           </Link>
-          <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
             /
           </span>
           <Link
             to="/cotizacion"
-            className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
+            className="rounded-md px-1 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Cotizaciones
           </Link>
-          <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
             /
           </span>
-          <span className="font-medium text-gray-700 dark:text-gray-300">Vista PDF</span>
+          <span className="text-[#44403c] dark:text-[#cbd5e1]">Vista PDF</span>
         </nav>
 
         {alert.show && (
@@ -511,34 +519,36 @@ export default function CotizacionPdfPage() {
           </div>
         )}
 
-        <header className={`flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
-          <div className="flex min-w-0 gap-3 sm:gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+        <header className={`relative flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
+          <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
+          <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
               <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">Cotización</p>
+              <p className={sectionLabelOrangeClass}>{isPreviewMode ? "Vista previa" : "Cotización"}</p>
               <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
-                <h1 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Vista PDF</h1>
+                <h1 className={erpHeroHeadingClass}>Vista PDF</h1>
                 {cotizacionIdx != null && (
-                  <span className="inline-flex items-center rounded-md border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-gray-700 dark:border-white/[0.08] dark:bg-gray-950/50 dark:text-gray-300">
+                  <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/[0.12] dark:text-amber-200">
                     #{cotizacionIdx}
                   </span>
                 )}
               </div>
-              <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+              <p className={`mt-1.5 max-w-2xl sm:mt-2 ${claudeBodyClass}`}>
                 Revise el documento en el panel principal y use el lateral para abrir en otra pestaña o descargar.
               </p>
+              <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
             </div>
           </div>
           <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
             <button
               type="button"
               onClick={() => navigate("/cotizacion")}
-              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-800 transition-colors hover:border-gray-300 hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:hover:bg-white/[0.04] sm:w-auto sm:min-h-0"
+              className={erpSecondaryBtnClass}
               aria-label="Regresar a cotizaciones"
             >
               <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -552,31 +562,33 @@ export default function CotizacionPdfPage() {
         </header>
 
         <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
-          {/* Visor: prioridad máxima de altura, estilo alineado a Nueva cotización (columna principal) */}
           <div className="min-w-0 lg:col-span-8">
             <div className={`flex min-h-0 flex-col ${cardShellClass} lg:min-h-[calc(100vh-13.5rem)]`}>
-              <div className="border-b border-gray-100 px-4 py-3 dark:border-white/[0.06] sm:px-5 sm:py-3.5">
+              <div className="border-b border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 dark:border-[#273244] dark:bg-[#111a2b] sm:px-5 sm:py-3.5">
                 <div className="flex flex-wrap items-end justify-between gap-2">
                   <div>
-                    <p className={sectionLabelClass}>Vista previa</p>
-                    <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-white">Documento generado</p>
+                    <p className={sectionLabelOrangeClass}>Vista previa</p>
+                    <p className="mt-0.5 text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">Documento generado</p>
                   </div>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-500">El visor usa el motor PDF del navegador.</p>
+                  <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">El visor usa el motor PDF del navegador.</p>
                 </div>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col bg-gray-100/50 p-2 sm:p-3 dark:bg-gray-950/40">
+              <div className="flex min-h-0 flex-1 flex-col bg-[#fcfaf6] p-2 dark:bg-[#0f172a] sm:p-3">
                 {loading ? (
                   <div
-                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-gray-200/90 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/25 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
+                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
                     aria-busy="true"
                     aria-live="polite"
                     aria-label="Cargando documento"
                   >
-                    <p className="text-sm text-gray-500 dark:text-gray-500">Preparando vista previa…</p>
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#ff801f]/10">
+                      <span className="h-7 w-7 animate-spin rounded-full border-2 border-[#e7ded0] border-t-[#ff801f] dark:border-[#334155] dark:border-t-[#ffa057]" aria-hidden />
+                    </div>
+                    <p className="mt-4 text-sm text-[#78716c] dark:text-[#8ea0b8]">Preparando vista previa…</p>
                   </div>
                 ) : pdfObjectUrl ? (
-                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-gray-200/80 bg-white shadow-[inset_0_1px_0_0_rgba(0,0,0,0.04)] dark:border-white/[0.08] dark:bg-gray-900/30 dark:shadow-none">
+                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#273244] dark:bg-[#0f172a]">
                     <iframe
                       title="Vista previa del PDF"
                       aria-label={`Vista previa del PDF de la cotización${cotizacionIdx != null ? ` ${cotizacionIdx}` : ""}`}
@@ -586,8 +598,8 @@ export default function CotizacionPdfPage() {
                     />
                   </div>
                 ) : (
-                  <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-gray-200/90 bg-gray-50/30 px-6 py-12 text-center dark:border-white/[0.08] dark:bg-gray-950/20 lg:min-h-[calc(100vh-13.5rem)]">
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300">
+                  <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 px-6 py-12 text-center dark:border-[#273244] dark:bg-[#0f172a]/40 lg:min-h-[calc(100vh-13.5rem)]">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#ff801f]/10 text-[#ea580c] dark:text-[#fb923c]">
                       <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <path d="M14 2v6h6" />
@@ -595,31 +607,27 @@ export default function CotizacionPdfPage() {
                         <path d="M10 17h7" />
                       </svg>
                     </div>
-                    <p className="text-base font-semibold text-gray-900 dark:text-white">No hay documento disponible</p>
-                    <p className="mt-1.5 max-w-sm text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]">No hay documento disponible</p>
+                    <p className="mt-1.5 max-w-sm text-sm text-[#78716c] dark:text-[#8ea0b8]">
                       No se pudo generar la vista previa. Compruebe la cotización o vuelva al listado.
                     </p>
                     {hasError && (
                       <div className="mt-6 flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
-                        <Button type="button" size="sm" variant="primary" startIcon={retryIcon} onClick={handleRetry}>
+                        <button type="button" className={erpPrimaryBtnClass} onClick={handleRetry}>
+                          {retryIcon}
                           Reintentar
-                        </Button>
+                        </button>
                         {!isPreviewMode && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            startIcon={htmlIcon}
-                            onClick={() => void handleDownloadHtmlFallback()}
-                          >
+                          <button type="button" className={erpSecondaryBtnClass} onClick={() => void handleDownloadHtmlFallback()}>
+                            {htmlIcon}
                             Descargar HTML
-                          </Button>
+                          </button>
                         )}
                       </div>
                     )}
                     <Link
                       to="/cotizacion"
-                      className="mt-6 text-sm font-medium text-brand-600 underline-offset-4 hover:underline dark:text-brand-400"
+                      className="mt-6 text-sm font-medium text-[#ea580c] underline-offset-4 hover:underline dark:text-[#fb923c]"
                     >
                       Ir a cotizaciones
                     </Link>
@@ -629,18 +637,17 @@ export default function CotizacionPdfPage() {
             </div>
           </div>
 
-          {/* Panel lateral: acciones (misma lógica que “Resumen” en NuevaCotizacionPage) */}
           <div className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:top-6 lg:self-start xl:top-8">
             <div className={cardShellClass}>
-              <div className="border-b border-gray-100 px-4 py-4 dark:border-white/[0.06] sm:px-5">
-                <p className={sectionLabelClass}>Documento</p>
-                <h2 className="mt-1 text-base font-semibold tracking-tight text-gray-900 dark:text-white">Archivo y acciones</h2>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">Nombre sugerido al descargar y accesos rápidos.</p>
+              <div className="border-b border-[#e7ded0] px-4 py-4 dark:border-[#273244] sm:px-5">
+                <p className={sectionLabelOrangeClass}>Documento</p>
+                <h2 className={`mt-1 ${erpSubheadingClass}`}>Archivo y acciones</h2>
+                <p className="mt-1 text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">Nombre sugerido al descargar y accesos rápidos.</p>
               </div>
               <div className="space-y-4 px-4 py-5 sm:px-5">
-                <div className="rounded-xl border border-gray-200/80 bg-gray-50/60 px-3 py-2.5 dark:border-white/[0.06] dark:bg-gray-950/35">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">Nombre de archivo</p>
-                  <code className="mt-1 block break-all rounded-md border border-gray-200/90 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-800 dark:border-white/[0.08] dark:bg-gray-900/60 dark:text-gray-200">
+                <div className={`${erpCardShellMutedClass} px-3 py-2.5`}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#78716c] dark:text-[#8ea0b8]">Nombre de archivo</p>
+                  <code className="mt-1 block break-all rounded-md border border-[#e7ded0] bg-[#fffdfa] px-2.5 py-1.5 text-xs font-medium text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
                     {filename}
                   </code>
                 </div>
@@ -651,7 +658,7 @@ export default function CotizacionPdfPage() {
                     target="_blank"
                     rel="noreferrer"
                     tabIndex={pdfObjectUrl ? undefined : -1}
-                    className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-brand-200/90 bg-white px-4 py-3 text-xs font-semibold text-brand-800 transition-colors hover:bg-brand-50/80 focus:outline-none focus:ring-2 focus:ring-brand-500/25 active:scale-[0.99] dark:border-brand-500/30 dark:bg-transparent dark:text-brand-200 dark:hover:bg-brand-500/[0.08] sm:min-h-0 ${!pdfObjectUrl ? "pointer-events-none opacity-50" : ""}`}
+                    className={`${outlineCoralBtnClass} ${!pdfObjectUrl ? "pointer-events-none opacity-50" : ""}`}
                     aria-disabled={!pdfObjectUrl}
                     onClick={(e) => {
                       if (!pdfObjectUrl) e.preventDefault();
@@ -662,13 +669,10 @@ export default function CotizacionPdfPage() {
                     <span className="sm:hidden">Abrir</span>
                   </a>
 
-                  <Button
+                  <button
                     type="button"
-                    size="sm"
-                    variant="primary"
                     disabled={!pdfObjectUrl}
-                    startIcon={downloadIcon}
-                    className="!min-h-[48px] sm:!min-h-0"
+                    className={`${erpPrimaryBtnClass} !min-h-[48px] sm:!min-h-0`}
                     onClick={() => {
                       if (!pdfObjectUrl) return;
                       const a = document.createElement("a");
@@ -679,38 +683,31 @@ export default function CotizacionPdfPage() {
                       a.remove();
                     }}
                   >
+                    {downloadIcon}
                     Descargar PDF
-                  </Button>
+                  </button>
 
                   {hasError && (
                     <>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        startIcon={retryIcon}
-                        className="!min-h-[48px] sm:!min-h-0"
-                        onClick={handleRetry}
-                      >
+                      <button type="button" className={`${erpSecondaryBtnClass} !min-h-[48px] sm:!min-h-0`} onClick={handleRetry}>
+                        {retryIcon}
                         Reintentar
-                      </Button>
+                      </button>
                       {!isPreviewMode && (
-                        <Button
+                        <button
                           type="button"
-                          size="sm"
-                          variant="outline"
-                          startIcon={htmlIcon}
-                          className="!min-h-[48px] sm:!min-h-0"
+                          className={`${erpSecondaryBtnClass} !min-h-[48px] sm:!min-h-0`}
                           onClick={() => void handleDownloadHtmlFallback()}
                         >
+                          {htmlIcon}
                           Descargar HTML (respaldo)
-                        </Button>
+                        </button>
                       )}
                     </>
                   )}
                 </div>
 
-                <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+                <p className="text-[11px] leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
                   Si la vista previa se ve cortada, abra el archivo en una pestaña nueva o descárguelo para verlo con su lector PDF.
                 </p>
               </div>

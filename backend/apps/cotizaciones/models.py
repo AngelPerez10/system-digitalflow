@@ -21,6 +21,7 @@ class Cotizacion(models.Model):
     contacto = models.CharField(max_length=200, blank=True, default='')
 
     MEDIO_CONTACTO_CHOICES = [
+        ('CLIENTE', 'Cliente'),
         ('BNI', 'BNI'),
         ('REFERIDO', 'Referido'),
         ('WEB', 'Web'),
@@ -31,7 +32,6 @@ class Cotizacion(models.Model):
         ('GOOGLE_MAPS', 'Google Maps'),
         ('YOUTUBE', 'Youtube'),
         ('TIENDA_FISICA', 'Tienda Fisica'),
-        ('OTRO', 'Otro'),
     ]
 
     STATUS_CHOICES = [
@@ -45,6 +45,11 @@ class Cotizacion(models.Model):
         choices=MEDIO_CONTACTO_CHOICES,
         blank=True,
         default='',
+    )
+    tipo_trabajo = models.ManyToManyField(
+        'productos.Servicio',
+        blank=True,
+        related_name='cotizaciones',
     )
     status = models.CharField(
         max_length=20,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
 
 type ChatRole = "user" | "assistant";
 
@@ -89,7 +89,7 @@ export default function IaPage() {
           .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
         if (last?.id) {
           setActiveConversationId(last.id);
-          setMessages(Array.isArray(last.messages) ? last.messages : []);
+          setMessages(Array.isArray(last.messages) ? last!.messages : []);
         }
       }
     } catch {
@@ -163,8 +163,6 @@ export default function IaPage() {
     }
     return groups;
   }, [filteredConversations]);
-
-  const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token");
 
   const getConversationTitle = (list: ChatMessage[]) => {
     const firstUser = list.find((m) => m.role === 'user' && String(m.content || '').trim());
@@ -349,12 +347,6 @@ export default function IaPage() {
     const text = prompt.trim();
     if (!text || sending) return;
 
-    const token = getToken();
-    if (!token) {
-      setError("No hay sesión activa (token).");
-      return;
-    }
-
     setError(null);
     setLastErrorStatus(null);
     setLastErrorKind(null);
@@ -395,15 +387,14 @@ export default function IaPage() {
     abortRef.current = controller;
 
     try {
-      const resp = await fetch(apiUrl("/api/ai/chat/"), {
+      const resp = await fetchApi("/api/ai/chat/", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ messages: toApiMessages(nextConversation) }),
         signal: controller.signal,
-      });
+      } as RequestInit);
 
       if (!resp.ok) {
         setLastErrorStatus(resp.status);

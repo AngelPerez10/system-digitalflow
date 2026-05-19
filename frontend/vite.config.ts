@@ -26,9 +26,16 @@ export default defineConfig(() => {
       },
     },
     server: {
-      host: '0.0.0.0', // Permite acceso desde la red local
+      host: '0.0.0.0',
       port: 5173,
       hmr: disableHmr ? false : (hmrHost ? { host: hmrHost } : undefined),
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:8000',
+          changeOrigin: true,
+          secure: false,
+        },
+      },
     },
   };
 });

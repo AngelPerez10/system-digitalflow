@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
-import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const navigate = useNavigate();
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 
@@ -24,6 +25,34 @@ const AppHeader: React.FC = () => {
   };
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchRoutes = useMemo(
+    () => [
+      { label: "Dashboard", path: "/dashboard" },
+      { label: "Agenda", path: "/calendar" },
+      { label: "Tareas", path: "/tareas" },
+      { label: "Clientes", path: "/clientes" },
+      { label: "Empresas", path: "/empresas" },
+      { label: "Personas", path: "/personas" },
+      { label: "Proveedores", path: "/proveedores" },
+      { label: "Gestión de usuarios", path: "/usuarios" },
+      { label: "Productos", path: "/productos" },
+      { label: "Servicios", path: "/servicios" },
+      { label: "Cotización", path: "/cotizacion" },
+      { label: "Orden de trabajo", path: "/ordenes" },
+    ],
+    []
+  );
+
+  const goFromSearch = () => {
+    const q = searchValue.trim().toLowerCase();
+    if (!q) return;
+    const exact = searchRoutes.find((x) => x.label.toLowerCase() === q);
+    const partial = searchRoutes.find((x) => x.label.toLowerCase().includes(q));
+    const target = exact || partial;
+    if (!target) return;
+    navigate(target.path);
+    setSearchValue("");
+  };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -41,11 +70,11 @@ const AppHeader: React.FC = () => {
   }, []);
 
   return (
-    <header className="sticky top-0 flex w-full bg-white border-gray-200 z-99999 dark:border-gray-800 dark:bg-gray-900 lg:border-b">
+    <header className="sticky top-0 z-99999 flex w-full border-b border-[#e7ded0] bg-[#f9f7f3]/90 backdrop-blur-md [font-family:'Arial','Helvetica_Neue',Helvetica,sans-serif] dark:border-[#273244] dark:bg-[#0f172a]/90">
       <div className="flex flex-col items-center justify-between grow lg:flex-row lg:px-6">
-        <div className="flex items-center justify-between w-full gap-2 px-3 py-3 border-b border-gray-200 dark:border-gray-800 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 lg:py-4">
+        <div className="flex w-full items-center justify-between gap-2 border-b border-[#e7ded0] px-3 py-3 sm:gap-4 dark:border-[#273244] lg:justify-normal lg:border-b-0 lg:px-0 lg:py-4">
           <button
-            className="items-center justify-center w-10 h-10 text-gray-500 border-gray-200 rounded-lg z-99999 dark:border-gray-800 lg:flex dark:text-gray-400 lg:h-11 lg:w-11 lg:border"
+            className="z-99999 h-10 w-10 items-center justify-center rounded-xl border border-[#e2d9ca] text-[#57534e] transition-colors hover:bg-[#f5efe4] hover:text-[#1c1917] dark:border-[#334155] dark:text-[#aeb8c8] dark:hover:bg-[#111a2b] dark:hover:text-[#f8fafc] lg:flex lg:h-11 lg:w-11"
             onClick={handleToggle}
             aria-label="Toggle Sidebar"
           >
@@ -83,22 +112,15 @@ const AppHeader: React.FC = () => {
             {/* Cross Icon */}
           </button>
 
-          <Link to="/" className="lg:hidden">
-            <img
-              className="dark:hidden"
-              src="./images/logo/logo.svg"
-              alt="Logo"
-            />
-            <img
-              className="hidden dark:block"
-              src="./images/logo/logo-dark.svg"
-              alt="Logo"
-            />
+          <Link to="/dashboard" className="inline-flex items-center lg:hidden">
+            <span className="text-sm font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc]">
+              Sistema Intrax
+            </span>
           </Link>
 
           <button
             onClick={toggleApplicationMenu}
-            className="flex items-center justify-center w-10 h-10 text-gray-700 rounded-lg z-99999 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
+            className="z-99999 flex h-10 w-10 items-center justify-center rounded-xl text-[#57534e] hover:bg-[#f5efe4] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-[#111a2b] dark:hover:text-[#f8fafc] lg:hidden"
           >
             <svg
               width="24"
@@ -117,11 +139,16 @@ const AppHeader: React.FC = () => {
           </button>
 
           <div className="hidden lg:block">
-            <form>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                goFromSearch();
+              }}
+            >
               <div className="relative">
                 <span className="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
                   <svg
-                    className="fill-gray-500 dark:fill-gray-400"
+                    className="fill-[#8b7b69] dark:fill-[#8ea0b8]"
                     width="20"
                     height="20"
                     viewBox="0 0 20 20"
@@ -139,11 +166,22 @@ const AppHeader: React.FC = () => {
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Search or type command..."
-                  className="h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-white/3 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
+                  placeholder="Buscar o escribir comando..."
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  list="app-header-routes"
+                  className="h-11 w-full rounded-full border border-[#e2d9ca] bg-[#fffdfa] py-2.5 pl-12 pr-14 text-sm font-normal leading-[1.6] text-[#1c1917] placeholder:text-[#a8a29e] shadow-none focus:border-[#ff801f] focus:outline-hidden focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/25 xl:w-[430px]"
                 />
+                <datalist id="app-header-routes">
+                  {searchRoutes.map((r) => (
+                    <option key={r.path} value={r.label} />
+                  ))}
+                </datalist>
 
-                <button className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/3 dark:text-gray-400">
+                <button
+                  type="submit"
+                  className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-full border border-[#e2d9ca] bg-[#fffdfa] px-[9px] py-[4.5px] [font-family:'SFMono-Regular',Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace] text-xs text-[#8b7b69] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#8ea0b8]"
+                >
                   <span> ⌘ </span>
                   <span> K </span>
                 </button>
@@ -154,13 +192,12 @@ const AppHeader: React.FC = () => {
         <div
           className={`${
             isApplicationMenuOpen ? "flex" : "hidden"
-          } items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
+          } w-full items-center justify-between gap-4 bg-[#f9f7f3] px-5 py-4 dark:bg-[#0f172a] lg:flex lg:justify-end lg:bg-transparent lg:px-0`}
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
-            <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
           </div>
           {/* <!-- User Area --> */}

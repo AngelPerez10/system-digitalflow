@@ -7,7 +7,7 @@ import Images from "@/pages/UiElements/Images";
 import LineChart from "@/pages/Charts/LineChart";
 import BarChart from "@/pages/Charts/BarChart";
 import Calendar from "@/pages/MiEscritorio/Calendar";
-import TareasPage from "@/pages/MiEscritorio/TareasPage";
+import TareasPage from "@/pages/MiEscritorio/Tareas/TareasPage";
 import AppLayout from "@/layout/AppLayout";
 import { ScrollToTop } from "@/components/common/ScrollToTop";
 import Home from "@/pages/Dashboard/Home";
@@ -27,7 +27,7 @@ import ProveedoresPage from "@/pages/ContactosNegocio/Clientes/ProveedoresPage";
 import Productos from "@/pages/ProductosYServicios/ProductosPage";
 import Servicios from "@/pages/ProductosYServicios/ServiciosPage";
 import CorreoPage from "@/pages/MiEscritorio/CorreoPage";
-import TareasTecnicoPage from "@/pages/MiEscritorio/TareasTecnicoPage";
+import TareasTecnicoPage from "@/pages/MiEscritorio/Tareas/TareasTecnicoPage";
 import CotizacionesPage from "@/pages/Cotizacion/CotizacionesPage";
 import NuevaCotizacionPage from "@/pages/Cotizacion/NuevaCotizacionPage";
 import CotizacionPdfPage from "@/pages/Cotizacion/CotizacionPdfPage";
@@ -45,7 +45,8 @@ export default function App() {
 
           {/* Dashboard Layout - Protegido */}
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
-            <Route index path="/" element={<Home />} />
+            <Route index element={<Home />} />
+            <Route path="dashboard" element={<Home />} />
             <Route path="/operador/dashboard" element={<Home />} />
 
             {/* Dashboard Pages */}

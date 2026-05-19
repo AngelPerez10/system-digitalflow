@@ -5,8 +5,9 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { EventInput } from "@fullcalendar/core";
 import esLocale from "@fullcalendar/core/locales/es";
+import { useAuth } from "@/context/AuthContext";
 import PageMeta from "@/components/common/PageMeta";
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
 
 let calendarOrdenesInFlight: Promise<void> | null = null;
 
@@ -27,16 +28,6 @@ type Orden = {
   fecha_finalizacion?: string | null;
   fecha_creacion?: string | null;
   status?: "pendiente" | "resuelto" | string;
-};
-
-const getToken = (): string => {
-  return (
-    localStorage.getItem("auth_token") ||
-    sessionStorage.getItem("auth_token") ||
-    localStorage.getItem("token") ||
-    sessionStorage.getItem("token") ||
-    ""
-  ).trim();
 };
 
 const addDays = (isoDate: string, days: number): string => {
@@ -79,30 +70,20 @@ const renderEventContent = (eventInfo: any) => {
 };
 
 const Calendar: React.FC = () => {
+  const { user, isAdmin } = useAuth();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const calendarRef = useRef<FullCalendar>(null);
 
   useEffect(() => {
     const loadOrdenes = async () => {
       try {
-        const token = getToken();
-        if (!token) {
-          setEvents([]);
-          return;
-        }
-
         if (calendarOrdenesInFlight) {
           await calendarOrdenesInFlight;
           return;
         }
 
         calendarOrdenesInFlight = (async () => {
-          const res = await fetch(apiUrl("/api/ordenes/"), {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
+          const res = await fetchApi("/api/ordenes/");
 
           const data = await res.json().catch(() => null);
           if (!res.ok) {
@@ -116,18 +97,11 @@ const Calendar: React.FC = () => {
               ? (data as any).results
               : [];
 
-          try {
-            const rawMe = localStorage.getItem("user") || sessionStorage.getItem("user");
-            const me = rawMe ? JSON.parse(rawMe) : null;
-            const isAdmin = !!(me?.is_superuser || me?.is_staff);
-            const meId = typeof me?.id === "number" ? me.id : me?.id ? Number(me.id) : null;
-            if (!isAdmin && meId != null) {
-              const filtered = rows.filter((o) => Number(o.tecnico_asignado) === Number(meId));
-              setEvents(filtered.map(orderToEvent).filter(Boolean) as CalendarEvent[]);
-              return;
-            }
-          } catch {
-            // ignore user parse errors and show all rows
+          if (!isAdmin && user?.id != null) {
+            const meId = user.id;
+            const filtered = rows.filter((o) => Number(o.tecnico_asignado) === Number(meId));
+            setEvents(filtered.map(orderToEvent).filter(Boolean) as CalendarEvent[]);
+            return;
           }
 
           setEvents(rows.map(orderToEvent).filter(Boolean) as CalendarEvent[]);

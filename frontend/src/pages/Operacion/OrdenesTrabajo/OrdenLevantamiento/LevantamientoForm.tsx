@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DrawingBoard from '@/components/ui/drawing/DrawingBoard';
 import Alert from '@/components/ui/alert/Alert';
-import { apiUrl } from '@/config/api';
+import { fetchApi } from '@/config/api';
 import { formatMonthLabelEs } from '@/utils/statsMonthKey';
+import {
+  erpFormInputClass,
+} from '../ordenTrabajoStyles';
 import { useCurrentMonthKey } from '@/hooks/useStatsMonthKey';
 import {
   buildProductosQuery,
   fetchSyscom,
   fetchSyscomTipoCambio,
-  getAuthToken,
   getProductoImageUrl,
   SYSCOM_BUSQUEDA_AMPLIA,
   type SyscomProducto,
@@ -234,7 +236,7 @@ const defaultValue: LevantamientoFormValue = {
 };
 
 const inputBaseClass =
-  'w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none';
+  erpFormInputClass;
 
 const round2 = (v: number) => {
   const n = Number(v);
@@ -286,12 +288,8 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
 
   const lastLoadedOrdenIdRef = useRef<number | null>(null);
 
-  const getToken = () => localStorage.getItem('token') || sessionStorage.getItem('token');
-
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    fetchSyscomTipoCambio(token)
+    fetchSyscomTipoCambio()
       .then((tc) => {
         if (tc && Number.isFinite(tc)) setTipoCambio(tc);
       })
@@ -305,21 +303,11 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
     if (!oid) return;
     if (lastLoadedOrdenIdRef.current === oid) return;
 
-    const token = getToken();
-    if (!token) return;
-
     lastLoadedOrdenIdRef.current = oid;
     const load = async () => {
       setLoadingRemote(true);
       try {
-        const res = await fetch(apiUrl(`/api/ordenes/${oid}/levantamiento/`), {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          cache: 'no-store' as RequestCache,
-        });
+        const res = await fetchApi(`/api/ordenes/${oid}/levantamiento/`, { cache: 'no-store' as RequestCache });
 
         const data = await res.json().catch(() => null);
         if (!res.ok) {
@@ -437,8 +425,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
       setMaterialesCerco([]);
       return;
     }
-    const token = getAuthToken();
-    if (!token || cercoModelosToFetch.length === 0) {
+    if (cercoModelosToFetch.length === 0) {
       setMaterialesCerco([]);
       return;
     }
@@ -446,8 +433,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
     setLoadingMateriales(true);
     const fetchOne = (modelo: string): Promise<{ modelo: string; producto: SyscomProducto | null }> =>
       fetchSyscom(
-        `productos/?${buildProductosQuery({ busqueda: modelo, pagina: 1, ...SYSCOM_BUSQUEDA_AMPLIA })}`,
-        token
+        `productos/?${buildProductosQuery({ busqueda: modelo, pagina: 1, ...SYSCOM_BUSQUEDA_AMPLIA })}`
       )
         .then((res) => res.json().catch(() => ({})))
         .then((data: { productos?: SyscomProducto[] }) => {
@@ -488,8 +474,8 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
         </div>
       )}
 
-      <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-        <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <div className="flex items-center gap-2 pb-2 border-b border-[#e7ded0] dark:border-[#334155]">
+        <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Orden de Levantamiento</h4>
@@ -501,9 +487,9 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
           {loadingRemote ? 'Cargando levantamiento...' : (!ordenId ? '' : '')}
         </div>
       </div>
-      <div className="mt-4 rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-        <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-          <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <div className="mt-4 rounded-xl border border-[#e7ded0] p-4 bg-[#fcfaf6] dark:border-[#273244] dark:bg-[#111a2b] space-y-4">
+        <div className="flex items-center gap-2 pb-2 border-b border-[#e7ded0] dark:border-[#334155]">
+          <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tipo de levantamiento</h4>
@@ -578,7 +564,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
           <>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2 mt-6">Tipo de cámara</label>
 
-            <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-gray-900/35 overflow-hidden">
+            <div className="rounded-xl border border-[#e7ded0] bg-[#fffdfa]/80 dark:border-[#273244] dark:bg-[#111a2b]/35 overflow-hidden">
               <div className="divide-y divide-gray-200 dark:divide-white/10">
                 <div className="px-3 py-2">
                   <button
@@ -607,7 +593,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                   </button>
 
                   {v.camara_bala_open && (
-                    <div className="mt-2 pt-3 border-t border-gray-200/80 dark:border-white/10 px-2">
+                    <div className="mt-2 pt-3 border-t border-[#e7ded0] dark:border-[#334155] px-2">
                       <div className="space-y-2">
                         <div className={cameraRowClass}>
                           <div>
@@ -626,7 +612,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir piezas bala"
                             >
                               -
@@ -646,7 +632,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar piezas bala"
                             >
                               +
@@ -670,7 +656,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_bala_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir megapíxeles bala"
                             >
                               -
@@ -689,7 +675,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_bala_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar megapíxeles bala"
                             >
                               +
@@ -702,7 +688,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             {Array.from({ length: v.camara_bala_cantidad }).map((_, idx) => {
                               const detalle = v.camara_bala_detalles[idx] || { ubicacion: '' };
                               return (
-                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
+                                <div key={idx} className="rounded-lg border border-[#e7ded0] p-3 bg-[#fffdfa]/70 dark:border-[#273244] dark:bg-[#0f172a]/30">
                                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
                                   <input
                                     type="text"
@@ -754,7 +740,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                   </button>
 
                   {v.camara_cubo_open && (
-                    <div className="mt-2 pt-3 border-t border-gray-200/80 dark:border-white/10 px-2">
+                    <div className="mt-2 pt-3 border-t border-[#e7ded0] dark:border-[#334155] px-2">
                       <div className="space-y-2">
                         <div className={cameraRowClass}>
                           <div>
@@ -773,7 +759,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir piezas cubo"
                             >
                               -
@@ -793,7 +779,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar piezas cubo"
                             >
                               +
@@ -817,7 +803,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_cubo_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir megapíxeles cubo"
                             >
                               -
@@ -836,7 +822,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_cubo_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar megapíxeles cubo"
                             >
                               +
@@ -849,7 +835,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             {Array.from({ length: v.camara_cubo_cantidad }).map((_, idx) => {
                               const detalle = v.camara_cubo_detalles[idx] || { ubicacion: '' };
                               return (
-                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
+                                <div key={idx} className="rounded-lg border border-[#e7ded0] p-3 bg-[#fffdfa]/70 dark:border-[#273244] dark:bg-[#0f172a]/30">
                                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
                                   <input
                                     type="text"
@@ -901,7 +887,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                   </button>
 
                   {v.camara_domo_open && (
-                    <div className="mt-2 pt-3 border-t border-gray-200/80 dark:border-white/10 px-2">
+                    <div className="mt-2 pt-3 border-t border-[#e7ded0] dark:border-[#334155] px-2">
                       <div className="space-y-2">
                         <div className={cameraRowClass}>
                           <div>
@@ -920,7 +906,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir piezas domo"
                             >
                               -
@@ -940,7 +926,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar piezas domo"
                             >
                               +
@@ -964,7 +950,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_domo_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir megapíxeles domo"
                             >
                               -
@@ -983,7 +969,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_domo_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar megapíxeles domo"
                             >
                               +
@@ -996,7 +982,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             {Array.from({ length: v.camara_domo_cantidad }).map((_, idx) => {
                               const detalle = v.camara_domo_detalles[idx] || { ubicacion: '' };
                               return (
-                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
+                                <div key={idx} className="rounded-lg border border-[#e7ded0] p-3 bg-[#fffdfa]/70 dark:border-[#273244] dark:bg-[#0f172a]/30">
                                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
                                   <input
                                     type="text"
@@ -1048,7 +1034,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                   </button>
 
                   {v.camara_pinhole_open && (
-                    <div className="mt-2 pt-3 border-t border-gray-200/80 dark:border-white/10 px-2">
+                    <div className="mt-2 pt-3 border-t border-[#e7ded0] dark:border-[#334155] px-2">
                       <div className="space-y-2">
                         <div className={cameraRowClass}>
                           <div>
@@ -1067,7 +1053,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir piezas pinhole"
                             >
                               -
@@ -1087,7 +1073,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar piezas pinhole"
                             >
                               +
@@ -1111,7 +1097,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_pinhole_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir megapíxeles pinhole"
                             >
                               -
@@ -1130,7 +1116,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_pinhole_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar megapíxeles pinhole"
                             >
                               +
@@ -1143,7 +1129,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             {Array.from({ length: v.camara_pinhole_cantidad }).map((_, idx) => {
                               const detalle = v.camara_pinhole_detalles[idx] || { ubicacion: '' };
                               return (
-                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
+                                <div key={idx} className="rounded-lg border border-[#e7ded0] p-3 bg-[#fffdfa]/70 dark:border-[#273244] dark:bg-[#0f172a]/30">
                                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
                                   <input
                                     type="text"
@@ -1195,7 +1181,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                   </button>
 
                   {v.camara_ptz_open && (
-                    <div className="mt-2 pt-3 border-t border-gray-200/80 dark:border-white/10 px-2">
+                    <div className="mt-2 pt-3 border-t border-[#e7ded0] dark:border-[#334155] px-2">
                       <div className="space-y-2">
                         <div className={cameraRowClass}>
                           <div>
@@ -1214,7 +1200,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir piezas ptz"
                             >
                               -
@@ -1234,7 +1220,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar piezas ptz"
                             >
                               +
@@ -1258,7 +1244,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_ptz_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir megapíxeles ptz"
                             >
                               -
@@ -1277,7 +1263,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_ptz_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar megapíxeles ptz"
                             >
                               +
@@ -1290,7 +1276,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             {Array.from({ length: v.camara_ptz_cantidad }).map((_, idx) => {
                               const detalle = v.camara_ptz_detalles[idx] || { ubicacion: '' };
                               return (
-                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
+                                <div key={idx} className="rounded-lg border border-[#e7ded0] p-3 bg-[#fffdfa]/70 dark:border-[#273244] dark:bg-[#0f172a]/30">
                                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
                                   <input
                                     type="text"
@@ -1342,7 +1328,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                   </button>
 
                   {v.camara_turret_open && (
-                    <div className="mt-2 pt-3 border-t border-gray-200/80 dark:border-white/10 px-2">
+                    <div className="mt-2 pt-3 border-t border-[#e7ded0] dark:border-[#334155] px-2">
                       <div className="space-y-2">
                         <div className={cameraRowClass}>
                           <div>
@@ -1361,7 +1347,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir piezas turret"
                             >
                               -
@@ -1381,7 +1367,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar piezas turret"
                             >
                               +
@@ -1405,7 +1391,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_turret_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Disminuir megapíxeles turret"
                             >
                               -
@@ -1424,7 +1410,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                   return { ...prev, camara_turret_megapixeles: next };
                                 });
                               }}
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                               aria-label="Aumentar megapíxeles turret"
                             >
                               +
@@ -1437,7 +1423,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             {Array.from({ length: v.camara_turret_cantidad }).map((_, idx) => {
                               const detalle = v.camara_turret_detalles[idx] || { ubicacion: '' };
                               return (
-                                <div key={idx} className="rounded-lg border border-gray-200/80 dark:border-white/10 p-3 bg-white/70 dark:bg-gray-900/30">
+                                <div key={idx} className="rounded-lg border border-[#e7ded0] p-3 bg-[#fffdfa]/70 dark:border-[#273244] dark:bg-[#0f172a]/30">
                                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Camara {idx + 1}</label>
                                   <input
                                     type="text"
@@ -1469,8 +1455,8 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
       {v.tipo === 'camara' && (
         <>
           <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3 mb-3">
-            <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-              <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="flex items-center gap-2 pb-2 border-b border-[#e7ded0] dark:border-[#334155]">
+              <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tipo de grabador</h4>
@@ -1602,7 +1588,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                       camara_grabado_puertos_hdd: Math.max(0, (prev.camara_grabado_puertos_hdd || 0) - 1),
                     }));
                   }}
-                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                   aria-label="Disminuir puertos de disco duro"
                 >
                   -
@@ -1618,7 +1604,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                       camara_grabado_puertos_hdd: Math.min(8, (prev.camara_grabado_puertos_hdd || 0) + 1),
                     }));
                   }}
-                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                   aria-label="Aumentar puertos de disco duro"
                 >
                   +
@@ -1658,7 +1644,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                       camara_grabado_capacidad_tb: Math.max(1, (prev.camara_grabado_capacidad_tb || 1) - 1),
                     }));
                   }}
-                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                   aria-label="Disminuir capacidad"
                 >
                   -
@@ -1674,7 +1660,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                       camara_grabado_capacidad_tb: Math.min(14, (prev.camara_grabado_capacidad_tb || 1) + 1),
                     }));
                   }}
-                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                   aria-label="Aumentar capacidad"
                 >
                   +
@@ -1744,8 +1730,8 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
           </div>
 
           <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-3 mb-3">
-            <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-              <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="flex items-center gap-2 pb-2 border-b border-[#e7ded0] dark:border-[#334155]">
+              <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tipo de cable</h4>
@@ -1780,7 +1766,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                         return { ...prev, cable_categoria: next };
                       });
                     }}
-                    className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                     aria-label="Disminuir categoría de cable"
                   >
                     -
@@ -1798,7 +1784,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                         return { ...prev, cable_categoria: next };
                       });
                     }}
-                    className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                     aria-label="Aumentar categoría de cable"
                   >
                     +
@@ -1808,7 +1794,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-gray-900/35 overflow-hidden">
+              <div className="rounded-xl border border-[#e7ded0] bg-[#fffdfa]/80 dark:border-[#273244] dark:bg-[#111a2b]/35 overflow-hidden">
                 <div className="divide-y divide-gray-200 dark:divide-white/10">
                   <div className="px-3 py-2">
                     <button
@@ -1831,7 +1817,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                     </button>
 
                     {v.bobina_cable_open && (
-                      <div className="mt-2 pt-3 border-t border-gray-200/80 dark:border-white/10 px-2">
+                      <div className="mt-2 pt-3 border-t border-[#e7ded0] dark:border-[#334155] px-2">
                         <div className="space-y-2">
                           <div className={cameraRowClass}>
                             <div>
@@ -1847,7 +1833,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                     bobina_cable_metrajes: (prev.bobina_cable_metrajes || []).slice(0, Math.max(0, (prev.bobina_cable_cantidad || 0) - 1)),
                                   }));
                                 }}
-                                className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                                 aria-label="Disminuir bobinas de cable"
                               >
                                 -
@@ -1867,7 +1853,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                                     ],
                                   }));
                                 }}
-                                className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                                 aria-label="Aumentar bobinas de cable"
                               >
                                 +
@@ -1951,9 +1937,9 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
 
       {v.tipo === 'cerco' && (
         <>
-          <div className="mt-6 rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4 mb-3">
-            <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-              <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div className="mt-6 rounded-xl border border-[#e7ded0] p-4 bg-[#fcfaf6] dark:border-[#273244] dark:bg-[#111a2b] space-y-4 mb-3">
+            <div className="flex items-center gap-2 pb-2 border-b border-[#e7ded0] dark:border-[#334155]">
+              <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Datos del cerco</h4>
@@ -2152,8 +2138,8 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
 
           {/* Sección Materiales (productos según metros de cerco) */}
           <div className="mt-6 rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs">
-            <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-              <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="flex items-center gap-2 pb-2 border-b border-[#e7ded0] dark:border-[#334155]">
+              <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Materiales</h4>
@@ -2191,7 +2177,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                         <div className="flex items-center gap-2">
                           <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{p.modelo}</div>
                           {item.cantidad > 1 && (
-                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300 border border-brand-200/70 dark:border-brand-400/20">
+                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#ff801f]/10 text-[#9a3412] dark:bg-[#ff801f]/10 dark:text-[#fdba74] border border-[#fed7aa]/70 dark:border-[#fb923c]/20">
                               x{item.cantidad}
                             </span>
                           )}
@@ -2209,15 +2195,15 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
 
       {/* Drawing Board */}
       <div className="space-y-3 mt-8">
-        <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-          <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <div className="flex items-center gap-2 pb-2 border-b border-[#e7ded0] dark:border-[#334155]">
+          <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 19l7-7 3 3-7 7-3-3z" />
             <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
             <path d="M2 2l7.586 7.586" />
           </svg>
           <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Diagrama</h4>
         </div>
-        <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
+        <div className="rounded-xl border border-[#e7ded0] p-4 bg-[#fcfaf6] dark:border-[#273244] dark:bg-[#111a2b] space-y-4">
           <DrawingBoard
             value={v.dibujo_url}
             onChange={(drawing) => setV((prev) => ({ ...prev, dibujo_url: drawing }))}

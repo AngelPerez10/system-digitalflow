@@ -30,6 +30,11 @@ export default function DatePicker({
 }: PropsType) {
   const instanceRef = useRef<flatpickr.Instance | null>(null);
   const calendarElRef = useRef<HTMLElement | null>(null);
+  const onChangeRef = useRef(onChange);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const repositionCalendar = () => {
     try {
@@ -111,7 +116,14 @@ export default function DatePicker({
       dateFormat: "Y-m-d",
       defaultDate,
       disableMobile: false,
-      onChange,
+      onChange: (...args) => {
+        const handler = onChangeRef.current;
+        if (Array.isArray(handler)) {
+          handler.forEach((fn) => fn?.(...args));
+        } else {
+          handler?.(...args);
+        }
+      },
       onOpen: () => {
         // Some modal layouts (transforms/overflows) cause wrong positioning;
         // force correct placement near the input.
@@ -144,16 +156,19 @@ export default function DatePicker({
         calendarElRef.current = null;
       }
     };
-  }, [mode, onChange, id, appendToBody]);
+  }, [mode, id, appendToBody]);
 
   // Sync external defaultDate into flatpickr without re-creating the instance
   useEffect(() => {
-    if (instanceRef.current && defaultDate) {
-      try {
-        // Do not trigger onChange when syncing external value; otherwise it can
-        // create render loops in controlled forms.
+    if (!instanceRef.current) return;
+    try {
+      if (defaultDate) {
         instanceRef.current.setDate(defaultDate as any, false);
-      } catch { }
+      } else {
+        instanceRef.current.clear(false);
+      }
+    } catch {
+      /* ignore */
     }
   }, [defaultDate]);
 

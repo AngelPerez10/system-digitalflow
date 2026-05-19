@@ -20,12 +20,14 @@ from rest_framework.response import Response
 
 from django.db.models import Q
 
-from apps.users.authentication import JWTAuthenticationAllowQueryGETToken
 from apps.users.permissions import ModulePermission, user_module_own_only
 
 from .models import Cotizacion
 from .pdf_render import PdfRenderError, any_provider_configured, render_html_to_pdf
 from .serializers import CotizacionSerializer
+import logging
+
+logger = logging.getLogger(__name__)
 
 IVA_MX_DISPLAY = 1.16
 
@@ -40,6 +42,7 @@ def _safe_http_image_bytes(url: str, max_bytes: int = 2_500_000) -> bytes | None
     try:
         parsed = urlparse(u)
     except Exception:
+        logger.exception("Failed to parse image URL for SSRF check")
         return None
     if parsed.scheme not in ("http", "https"):
         return None
@@ -59,6 +62,7 @@ def _safe_http_image_bytes(url: str, max_bytes: int = 2_500_000) -> bytes | None
         with urlopen(req, timeout=20) as resp:
             data = resp.read(max_bytes + 1)
     except Exception:
+        logger.exception("Failed to fetch remote image bytes for Excel embedding")
         return None
     if not data or len(data) > max_bytes:
         return None
@@ -76,7 +80,19 @@ def _user_display(user) -> str:
             return full
         return getattr(user, "username", None) or getattr(user, "email", None) or str(getattr(user, "pk", ""))
     except Exception:
+        logger.exception("Failed to resolve user display name")
         return "—"
+
+
+def _tipo_trabajo_labels(cotizacion: Cotizacion) -> str:
+    try:
+        servicios = cotizacion.tipo_trabajo.all()
+    except Exception:
+        logger.exception("Failed to load tipo_trabajo for export")
+        return "—"
+    nombres = [str(getattr(s, "nombre", "") or "").strip() for s in servicios]
+    nombres = [n for n in nombres if n]
+    return ", ".join(nombres) if nombres else "—"
 
 
 def _medio_label(raw: str) -> str:
@@ -134,6 +150,7 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
 
             cliente_obj = Cliente.objects.filter(id=cliente_obj).first() or None
         except Exception:
+            logger.exception("Failed to load Cliente for Excel export")
             cliente_obj = None
 
     cliente_nombre = (getattr(cliente_obj, "nombre", None) or cotizacion.cliente or "").strip() or "—"
@@ -159,10 +176,12 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
         ("Editada por", _user_display(getattr(cotizacion, "actualizado_por", None))),
         ("Cliente", cliente_nombre),
         ("Contacto", str(cotizacion.contacto or "").strip() or "—"),
+        ("Tipo de trabajo", _tipo_trabajo_labels(cotizacion)),
     ]
     try:
         dcp = float(cotizacion.descuento_cliente_pct or 0)
     except Exception:
+        logger.exception("Failed to parse descuento_cliente_pct for Excel")
         dcp = 0.0
     meta_pairs.extend(
         [
@@ -173,10 +192,12 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     try:
         fc = cotizacion.fecha_creacion.strftime("%d/%m/%Y %H:%M") if getattr(cotizacion, "fecha_creacion", None) else "—"
     except Exception:
+        logger.exception("Failed to format fecha_creacion")
         fc = "—"
     try:
         fa = cotizacion.fecha_actualizacion.strftime("%d/%m/%Y %H:%M") if getattr(cotizacion, "fecha_actualizacion", None) else "—"
     except Exception:
+        logger.exception("Failed to format fecha_actualizacion")
         fa = "—"
     meta_pairs.extend(
         [
@@ -239,6 +260,7 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
         try:
             items = list(items_rel.all())
         except Exception:
+            logger.exception("Failed to load cotizacion items for Excel export")
             items = []
     elif isinstance(items_rel, (list, tuple)):
         items = list(items_rel)
@@ -264,6 +286,7 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
             net_subtotal_sin_iva += importe
             net_subtotal_con_iva += cantidad * precio_con_iva
         except Exception:
+            logger.exception("Failed to parse cotizacion item values for Excel")
             cantidad = 0.0
             precio_lista = 0.0
             descuento = 0.0
@@ -298,7 +321,7 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
                     img.height = 54
                     ws.add_image(img, f"A{r}")
                 except Exception:
-                    pass
+                    logger.exception("Failed to embed thumbnail image in Excel")
 
         r += 1
 
@@ -423,7 +446,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             Prefetch(
                 'items',
                 queryset=Cotizacion.items.rel.related_model.objects.order_by('orden')
-            )
+            ),
+            'tipo_trabajo',
         )
         queryset = queryset.select_related('cliente_id', 'creado_por', 'actualizado_por')
         user = getattr(self.request, 'user', None)
@@ -444,6 +468,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 try:
                     return list(items.all())
                 except Exception:
+                    logger.exception("Failed to load cotizacion items for PDF generation")
                     return []
             if isinstance(items, (list, tuple)):
                 return list(items)
@@ -504,6 +529,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
                 logo_data_uri = f"data:image/png;base64,{b64}"
         except Exception:
+            logger.exception("Failed to load Intrax logo for cotizacion PDF")
             logo_data_uri = ""
 
         santander_data_uri = ""
@@ -514,6 +540,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 b64 = base64.b64encode(santander_path.read_bytes()).decode("ascii")
                 santander_data_uri = f"data:image/png;base64,{b64}"
         except Exception:
+            logger.exception("Failed to load Santander logo for cotizacion PDF")
             santander_data_uri = ""
 
         cliente_obj = getattr(cotizacion, 'cliente_id', None)
@@ -523,7 +550,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
 
                 cliente_obj = Cliente.objects.filter(id=cliente_obj).first() or None
             except Exception:
-                pass
+                logger.exception("Failed to load Cliente for cotizacion PDF")
         cliente_nombre = (getattr(cliente_obj, 'nombre', None) or cotizacion.cliente or '').strip() or '-'
         cliente_dir = (getattr(cliente_obj, 'direccion', None) or '').strip() or '-'
         cliente_tel = (getattr(cliente_obj, 'telefono', None) or '').strip() or '-'
@@ -572,6 +599,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 net_subtotal_sin_iva += importe
                 net_subtotal_con_iva += cantidad * precio_con_iva
             except Exception:
+                logger.exception("Failed to parse cotizacion item values for PDF")
                 pu_base = 0
                 importe = 0
                 descuento = 0
@@ -580,6 +608,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             try:
                 cantidad_str = str(int(cantidad)) if float(cantidad).is_integer() else str(cantidad)
             except Exception:
+                logger.exception("Failed to format cotizacion item cantidad")
                 cantidad_str = str(cantidad)
 
             rows.append(
@@ -610,6 +639,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         try:
             descuento_cliente_pct = float(getattr(cotizacion, 'descuento_cliente_pct', 0) or 0)
         except Exception:
+            logger.exception("Failed to parse descuento_cliente_pct for PDF")
             descuento_cliente_pct = 0.0
 
         # Descuento cliente sobre suma con IVA (misma regla que serializers).
@@ -901,7 +931,6 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         detail=True,
         methods=['get'],
         url_path='pdf',
-        authentication_classes=[JWTAuthenticationAllowQueryGETToken],
     )
     def pdf(self, request, pk=None):
         cotizacion = self.get_object()
@@ -925,7 +954,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         try:
             pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)
         except PdfRenderError as e:
-            return Response({"detail": str(e), "error": e.detail}, status=502)
+            return Response({"detail": "No se pudo generar el PDF.", "error": e.detail}, status=502)
 
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
@@ -936,8 +965,9 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         cotizacion = self.get_object()
         try:
             xlsx_bytes = _build_cotizacion_excel_bytes(cotizacion)
-        except Exception as e:
-            return Response({"detail": "No se pudo generar el Excel.", "error": str(e)}, status=500)
+        except Exception:
+            logger.exception("Excel generation failed for cotizacion %s", getattr(cotizacion, 'pk', '?'))
+            return Response({"detail": "No se pudo generar el Excel."}, status=500)
 
         idx = getattr(cotizacion, "idx", None) or cotizacion.id
         filename = f"Cotizacion_{idx}.xlsx"
@@ -998,7 +1028,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         try:
             pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)
         except PdfRenderError as e:
-            return Response({"detail": str(e), "error": e.detail}, status=502)
+            return Response({"detail": "No se pudo generar el PDF.", "error": e.detail}, status=502)
 
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = 'inline; filename="Cotizacion_Preview.pdf"'

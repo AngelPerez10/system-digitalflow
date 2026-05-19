@@ -1,93 +1,66 @@
 import PageMeta from "@/components/common/PageMeta";
 import { useEffect, useMemo, useState } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
-import { PencilIcon, TrashBinIcon } from "@/icons";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
+import {
+  CotizacionPageHeader,
+  CotizacionStatsCards,
+  CotizacionesMobileList,
+  CotizacionesTable,
+  type CotizacionRow,
+} from "@/components/cotizacion/CotizacionesViewParts";
+import { erpPageCanvasClass, erpPageInnerClass } from "@/layout/erpPageStyles";
 
 const cardShellClass =
-  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+  "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
 
 const searchInputClass =
-  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
+  "min-h-[44px] w-full rounded-2xl border border-[#e2d9ca] bg-[#fffdf8] py-2 pl-10 pr-10 text-sm text-[#1c1917] outline-none transition-all placeholder:text-[#7c7a74] focus:border-[#ff801f]/60 focus:ring-4 focus:ring-[#ff801f]/12 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c]/70 dark:focus:ring-[#fb923c]/20 sm:min-h-[46px] sm:pl-11";
 
-/** Medio en gris neutro; el estado usa color semántico */
 const medioChipClass =
-  "border border-gray-200/80 bg-gray-50/90 text-gray-800 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200";
+  "border border-[#e2d9ca] bg-[#fff8f1] text-[#57534e] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1]";
+
+const monthNavBtnClass =
+  "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-[#fffdfa] text-[#57534e] transition-colors hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]";
 
 let lastPermissionsFetchAt = 0;
 let lastCotizacionesFetchAt = 0;
 
-interface CotizacionRow {
-  id: number;
-  idx: number;
-  fecha: string; // YYYY-MM-DD
-  medioContacto: string;
-  status: string;
-  creadaPor: string;
-  editadaPor: string;
-  cliente: string;
-  contacto: string;
-  monto: string; // formatted currency
-}
+const getCurrentYearMonth = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const parseYearMonth = (value: string) => {
+  const m = /^(\d{4})-(\d{2})$/.exec((value || "").trim());
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (!Number.isFinite(year) || month < 1 || month > 12) return null;
+  return { year, month };
+};
 
 export default function CotizacionesPage() {
-  const asBool = (v: any, defaultValue: boolean) => {
-    if (typeof v === 'boolean') return v;
-    if (typeof v === 'string') {
-      const s = v.trim().toLowerCase();
-      if (s === 'true') return true;
-      if (s === 'false') return false;
-    }
-    return defaultValue;
-  };
+  const [permissions, setPermissions] = useState<any>({});
 
-  const getPermissionsFromStorage = () => {
-    try {
-      const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  };
-
-  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
-
-  const canCotizacionesView = asBool(permissions?.cotizaciones?.view, true);
-  const canCotizacionesCreate = asBool(permissions?.cotizaciones?.create, false);
-  const canCotizacionesEdit = asBool(permissions?.cotizaciones?.edit, false);
-  const canCotizacionesDelete = asBool(permissions?.cotizaciones?.delete, false);
+  const canCotizacionesView = permissions?.cotizaciones?.view !== false;
+  const canCotizacionesCreate = permissions?.cotizaciones?.create === true;
+  const canCotizacionesEdit = permissions?.cotizaciones?.edit === true;
+  const canCotizacionesDelete = permissions?.cotizaciones?.delete === true;
 
   const [alert, setAlert] = useState<{ show: boolean; variant: 'success' | 'error' | 'warning' | 'info'; title: string; message: string }>(
     { show: false, variant: 'info', title: '', message: '' }
   );
 
-  const getToken = () => {
-    return localStorage.getItem('token') || sessionStorage.getItem('token');
-  };
-
   const clearSessionAndGoToLogin = () => {
-    const keys = [
-      'auth_token',
-      'token',
-      'refresh_token',
-      'username',
-      'permissions',
-      'role',
-      'user',
-      'is_superuser',
-    ];
-    for (const k of keys) {
-      localStorage.removeItem(k);
-      sessionStorage.removeItem(k);
-    }
     navigate('/signin', { replace: true, state: { from: { pathname: '/cotizacion' } } });
   };
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
   const navigate = useNavigate();
 
   const [rows, setRows] = useState<CotizacionRow[]>([]);
@@ -122,34 +95,13 @@ export default function CotizacionesPage() {
   };
 
   useEffect(() => {
-    const sync = () => setPermissions(getPermissionsFromStorage());
-    window.addEventListener('storage', sync);
-    window.addEventListener('focus', sync);
-    document.addEventListener('visibilitychange', sync);
-    window.addEventListener('permissions:updated' as any, sync);
-    return () => {
-      window.removeEventListener('storage', sync);
-      window.removeEventListener('focus', sync);
-      document.removeEventListener('visibilitychange', sync);
-      window.removeEventListener('permissions:updated' as any, sync);
-    };
-  }, []);
-
-  useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-
     const now = Date.now();
     if (now - lastPermissionsFetchAt < 2000) return;
     lastPermissionsFetchAt = now;
 
     const load = async () => {
       try {
-        const res = await fetch(apiUrl('/api/me/permissions/'), {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store' as RequestCache,
-        });
+        const res = await fetchApi('/api/me/permissions/', { method: 'GET' });
         if (res.status === 401) {
           clearSessionAndGoToLogin();
           return;
@@ -157,11 +109,7 @@ export default function CotizacionesPage() {
         const data = await res.json().catch(() => null);
         if (!res.ok) return;
         const p = data?.permissions || {};
-        const pStr = JSON.stringify(p);
-        localStorage.setItem('permissions', pStr);
-        sessionStorage.setItem('permissions', pStr);
         setPermissions(p);
-        window.dispatchEvent(new Event('permissions:updated'));
       } catch {
         // ignore
       }
@@ -175,11 +123,6 @@ export default function CotizacionesPage() {
       setRows([]);
       return;
     }
-    const token = getToken();
-    if (!token) {
-      setRows([]);
-      return;
-    }
 
     const now = Date.now();
     if (now - lastCotizacionesFetchAt < 2000) return;
@@ -187,11 +130,7 @@ export default function CotizacionesPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(apiUrl('/api/cotizaciones/'), {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store' as RequestCache,
-      });
+      const res = await fetchApi('/api/cotizaciones/', { method: 'GET' });
       if (res.status === 401) {
         clearSessionAndGoToLogin();
         return;
@@ -215,7 +154,9 @@ export default function CotizacionesPage() {
           editadaPor: editado,
           cliente: String(x?.cliente || x?.cliente_nombre || '—'),
           contacto: String(x?.contacto || '—'),
+          tipoTrabajo: String(x?.tipo_trabajo_nombres || '').trim() || '—',
           monto: formatMoney(Number(x?.total ?? 0)),
+          totalAmount: Number(x?.total ?? 0) || 0,
         };
       }).filter((x: any) => !!x.id);
       setRows(mapped);
@@ -248,15 +189,14 @@ export default function CotizacionesPage() {
       window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
       return;
     }
-    const token = getToken();
-    if (!token) return;
     const sid = String(id || '').trim();
     if (!sid) return;
     try {
-      const res = await fetch(apiUrl(`/api/cotizaciones/${sid}/`), {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetchApi(`/api/cotizaciones/${sid}/`, { method: 'DELETE' });
+      if (res.status === 401) {
+        clearSessionAndGoToLogin();
+        return;
+      }
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
         setAlert({ show: true, variant: 'error', title: 'Error', message: txt || 'No se pudo eliminar la cotización.' });
@@ -337,25 +277,62 @@ export default function CotizacionesPage() {
 
   const shownList = useMemo(() => {
     const q = (searchTerm || "").trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
-      return (
-        String(r.idx || '').toLowerCase().includes(q) ||
-        r.cliente.toLowerCase().includes(q) ||
-        r.contacto.toLowerCase().includes(q) ||
-        r.creadaPor.toLowerCase().includes(q) ||
-        r.editadaPor.toLowerCase().includes(q)
-      );
-    });
-  }, [rows, searchTerm]);
+    let list = rows;
+    if (q) {
+      list = rows.filter((r) => {
+        return (
+          String(r.idx || '').toLowerCase().includes(q) ||
+          r.cliente.toLowerCase().includes(q) ||
+          r.contacto.toLowerCase().includes(q) ||
+          r.creadaPor.toLowerCase().includes(q) ||
+          r.editadaPor.toLowerCase().includes(q)
+        );
+      });
+    }
+    if (selectedMonth) {
+      list = list.filter((r) => {
+        const fecha = String(r.fecha || '').trim();
+        return fecha.startsWith(selectedMonth);
+      });
+    }
+    return list;
+  }, [rows, searchTerm, selectedMonth]);
+
+  const monthRows = useMemo(() => {
+    if (!selectedMonth) return rows;
+    return rows.filter((r) => String(r.fecha || "").trim().startsWith(selectedMonth));
+  }, [rows, selectedMonth]);
 
   const stats = useMemo(() => {
-    const total = rows.length;
-    const autorizadas = rows.filter((r) => String(r.status || '').toUpperCase() === 'AUTORIZADA').length;
-    const pendientes = rows.filter((r) => String(r.status || '').toUpperCase() === 'PENDIENTE' || !String(r.status || '').trim()).length;
-    const canceladas = rows.filter((r) => String(r.status || '').toUpperCase() === 'CANCELADA').length;
-    return { total, autorizadas, pendientes, canceladas };
-  }, [rows]);
+    const sumAmount = (list: CotizacionRow[]) =>
+      list.reduce((acc, r) => acc + (Number.isFinite(r.totalAmount) ? r.totalAmount : 0), 0);
+
+    const byStatus = (status: string) =>
+      monthRows.filter((r) => String(r.status || "").toUpperCase() === status);
+
+    const pendientesRows = monthRows.filter((r) => {
+      const s = String(r.status || "").toUpperCase();
+      return s === "PENDIENTE" || !String(r.status || "").trim();
+    });
+
+    return {
+      total: formatMoney(sumAmount(monthRows)),
+      autorizadas: formatMoney(sumAmount(byStatus("AUTORIZADA"))),
+      pendientes: formatMoney(sumAmount(pendientesRows)),
+      canceladas: formatMoney(sumAmount(byStatus("CANCELADA"))),
+    };
+  }, [monthRows]);
+
+  const handleOpenPdf = (id: number) => navigate(`/cotizacion/${id}/pdf`);
+
+  const handleEditRow = (r: CotizacionRow) => {
+    if (!canCotizacionesEdit) {
+      setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para editar cotizaciones." });
+      window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
+      return;
+    }
+    navigate(`/cotizacion/${r.id}/editar`);
+  };
 
   const handleDownloadExcel = async (r: CotizacionRow) => {
     if (excelLoading) return;
@@ -365,21 +342,17 @@ export default function CotizacionesPage() {
       return;
     }
 
-    const token = getToken();
-    if (!token) {
-      setAlert({ show: true, variant: "error", title: "Sin sesión", message: "Inicia sesión para descargar el Excel." });
-      window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
-      return;
-    }
-
     const sid = String(r.id || "").trim();
     if (!sid) return;
 
     try {
       setExcelLoading(true);
-      const resp = await fetch(apiUrl(`/api/cotizaciones/${sid}/excel/`), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const resp = await fetchApi(`/api/cotizaciones/${sid}/excel/`);
+
+      if (resp.status === 401) {
+        clearSessionAndGoToLogin();
+        return;
+      }
 
       if (!resp.ok) {
         let msg = `No se pudo generar el Excel (HTTP ${resp.status}).`;
@@ -421,18 +394,25 @@ export default function CotizacionesPage() {
     }
   };
 
+  const rowActions = {
+    onOpenPdf: handleOpenPdf,
+    onEdit: handleEditRow,
+    onDelete: handleAskDelete,
+    onDownloadExcel: handleDownloadExcel,
+  };
+
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
-      <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
+    <div className={erpPageCanvasClass}>
+      <div className={erpPageInnerClass}>
       <PageMeta title="Cotizaciones | Sistema Grupo Intrax GPS" description="Gestión de cotizaciones" />
 
       <Modal isOpen={excelLoading} onClose={() => {}} showCloseButton={false} className="mx-4 max-w-md sm:mx-auto">
         <div className="p-7 sm:p-8">
           <div className="flex flex-col items-center justify-center text-center">
             <div className="relative mb-6">
-              <div className="relative flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-gray-200/80 bg-gray-50 dark:border-white/10 dark:bg-gray-900/80">
-                <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-gray-100 bg-white dark:border-white/5 dark:bg-gray-800">
-                  <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-brand-600 dark:border-t-brand-400" />
+              <div className="relative flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111a2b]/90">
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#e2d9ca] bg-[#fffdfa] dark:border-[#334155] dark:bg-[#0f172a]">
+                  <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#ff801f] dark:border-t-[#ffa057]" />
                   <svg className="relative h-7 w-7 text-emerald-700 dark:text-emerald-300" viewBox="0 0 24 24" fill="none" aria-hidden>
                     <path
                       d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
@@ -449,21 +429,21 @@ export default function CotizacionesPage() {
               </div>
             </div>
 
-            <h3 className="text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">Generando Excel</h3>
-            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">Esto puede tardar unos segundos. No cierres esta ventana.</p>
+            <h3 className="text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">Generando Excel</h3>
+            <p className="mt-1.5 text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">Esto puede tardar unos segundos. No cierres esta ventana.</p>
 
             <div className="mt-6 w-full">
-              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex items-center justify-between text-xs text-[#78716c] dark:text-[#8ea0b8]">
                 <span>Progreso</span>
                 <span className="font-medium tabular-nums">{Math.min(99, Math.max(0, Math.round(excelLoadingProgress)))}%</span>
               </div>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full border border-gray-200/60 bg-gray-100 dark:border-white/[0.06] dark:bg-gray-800/80">
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full border border-[#e2d9ca] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]">
                 <div
-                  className="h-full bg-brand-600 transition-[width] duration-500 ease-out dark:bg-brand-500"
+                  className="h-full bg-[#ff801f] transition-[width] duration-500 ease-out dark:bg-[#ff801f]"
                   style={{ width: `${Math.min(100, Math.max(0, excelLoadingProgress))}%` }}
                 />
               </div>
-              <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">Preparando archivo XLSX…</div>
+              <div className="mt-3 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Preparando archivo XLSX…</div>
             </div>
           </div>
         </div>
@@ -476,112 +456,18 @@ export default function CotizacionesPage() {
       )}
 
       {!canCotizacionesView ? (
-        <div className={`rounded-2xl border border-gray-200/80 bg-white px-4 py-10 text-center text-xs text-gray-500 shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:text-gray-400 sm:text-sm`}>
+        <div className="rounded-3xl border border-[#e7ded0] bg-[#fffdfa] px-4 py-10 text-center text-sm text-[#57534e] shadow-[0_20px_50px_-36px_rgba(28,25,23,0.2)] dark:border-[#273244] dark:bg-[#111827]/80 dark:text-[#b7c1d1] sm:px-6">
           No tienes permiso para ver Cotizaciones.
         </div>
       ) : (
         <>
-          <nav
-            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
-            aria-label="Migas de pan"
-          >
-            <Link
-              to="/"
-              className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
-            >
-              Inicio
-            </Link>
-            <span className="text-gray-300 dark:text-gray-600" aria-hidden>
-              /
-            </span>
-            <span className="font-medium text-gray-700 dark:text-gray-300">Cotizaciones</span>
-          </nav>
-
-          <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
-            <div className="flex min-w-0 gap-3 sm:gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
-                <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
-                  Ventas
-                </p>
-                <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">
-                  Cotizaciones
-                </h1>
-                <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
-                  Consulta el historial, filtra por cliente o folio, abre el PDF y administra el estado de cada cotización.
-                </p>
-              </div>
-            </div>
-          </header>
-
-          <div className="grid w-full grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4 lg:gap-4 xl:gap-5">
-            <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
-              <div className="flex items-center gap-2.5 sm:gap-3">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M6 6h12M6 12h12M6 18h12" strokeLinecap="round" />
-                  </svg>
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Total</p>
-                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.total}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className={`${cardShellClass} p-3 sm:p-4`}>
-              <div className="flex items-center gap-2.5 sm:gap-3">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/80 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/[0.08] dark:text-emerald-300 sm:h-10 sm:w-10">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Autorizadas</p>
-                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.autorizadas}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className={`${cardShellClass} p-3 sm:p-4`}>
-              <div className="flex items-center gap-2.5 sm:gap-3">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/80 text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/[0.08] dark:text-amber-200 sm:h-10 sm:w-10">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Pendientes</p>
-                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.pendientes}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className={`${cardShellClass} p-3 sm:p-4`}>
-              <div className="flex items-center gap-2.5 sm:gap-3">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-rose-200/70 bg-rose-50/80 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/[0.08] dark:text-rose-300 sm:h-10 sm:w-10">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Canceladas</p>
-                  <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.canceladas}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <CotizacionPageHeader cardShellClass={cardShellClass} />
+          <CotizacionStatsCards cardShellClass={cardShellClass} stats={stats} />
 
           <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
             <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
               <svg
-                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b]"
                 viewBox="0 0 20 20"
                 fill="none"
                 stroke="currentColor"
@@ -606,7 +492,7 @@ export default function CotizacionesPage() {
                   type="button"
                   onClick={() => setSearchTerm("")}
                   aria-label="Limpiar búsqueda"
-                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-w-[44px] items-center justify-center rounded-lg text-[#78716c] hover:bg-black/[0.04] hover:text-[#1c1917] dark:text-[#8ea0b8] dark:hover:bg-white/[0.06] dark:hover:text-white"
                 >
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
                     <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -625,7 +511,7 @@ export default function CotizacionesPage() {
                 }
                 navigate("/cotizacion/nueva");
               }}
-              className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
+              className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-xs font-semibold text-black shadow-none transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -636,164 +522,78 @@ export default function CotizacionesPage() {
 
           <ComponentCard
             title="Listado de cotizaciones"
-            desc="Resultados según tu búsqueda. En pantallas pequeñas desplázate horizontalmente para ver todas las columnas."
-            className={cardShellClass}
+            className={`!overflow-visible border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)] ${cardShellClass}`}
             compact
           >
-            <p className="mb-2 flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400 sm:hidden">
-              <span className="inline-block h-px w-4 bg-brand-400/60" aria-hidden />
-              Desliza horizontalmente para ver el listado completo
-            </p>
-            <div className="touch-pan-x overflow-x-auto overscroll-x-contain rounded-xl border border-gray-200/70 bg-white/70 [-webkit-overflow-scrolling:touch] dark:border-white/[0.08] dark:bg-gray-900/40">
-                  <Table className="w-full min-w-[1080px] border-collapse">
-                    <TableHeader className="sticky top-0 z-10 border-b border-gray-200/80 bg-gray-100/90 text-[10px] font-semibold text-gray-700 backdrop-blur-sm dark:border-white/[0.06] dark:bg-gray-900/90 dark:text-gray-200 sm:text-[11px]">
-                      <TableRow>
-                        <TableCell isHeader className="w-[80px] min-w-[80px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Folio</TableCell>
-                        <TableCell isHeader className="w-[104px] min-w-[104px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Fecha</TableCell>
-                        <TableCell isHeader className="min-w-[120px] max-w-[160px] px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Medio</TableCell>
-                        <TableCell isHeader className="w-[108px] min-w-[108px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Status</TableCell>
-                        <TableCell isHeader className="min-w-[132px] max-w-[180px] px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Creada por</TableCell>
-                        <TableCell isHeader className="min-w-[132px] max-w-[180px] px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Editada por</TableCell>
-                        <TableCell isHeader className="min-w-[160px] px-2 py-2 text-left text-gray-700 dark:text-gray-300 sm:px-3">Cliente</TableCell>
-                        <TableCell isHeader className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-right text-gray-700 dark:text-gray-300 sm:px-3">Monto</TableCell>
-                        <TableCell isHeader className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300 sm:px-3">Acciones</TableCell>
-                      </TableRow>
-                    </TableHeader>
+            <CotizacionesMobileList
+              rows={shownList}
+              loading={loading}
+              formatDMY={formatDMY}
+              normalizeMedioLabel={normalizeMedioLabel}
+              statusChipClass={statusChipClass}
+              medioChipClass={medioChipClass}
+              actions={rowActions}
+              excelLoading={excelLoading}
+            />
+            <CotizacionesTable
+              rows={shownList}
+              loading={loading}
+              formatDMY={formatDMY}
+              normalizeMedioLabel={normalizeMedioLabel}
+              statusChipClass={statusChipClass}
+              medioChipClass={medioChipClass}
+              actions={rowActions}
+              excelLoading={excelLoading}
+            />
+          </ComponentCard>
 
-                    <TableBody className="divide-y divide-gray-100 text-[11px] text-gray-700 dark:divide-white/[0.06] dark:text-gray-200 sm:text-[12px]">
-                      {loading ? (
-                        <TableRow>
-                          <TableCell className="px-3 py-3 text-gray-500 dark:text-gray-400" colSpan={9}>
-                            Cargando…
-                          </TableCell>
-                        </TableRow>
-                      ) : shownList.length === 0 ? (
-                        <TableRow>
-                          <TableCell className="px-3 py-2" colSpan={9}>
-                            <div className="py-8 text-center text-xs text-gray-500 dark:text-gray-400 sm:text-sm">No hay cotizaciones.</div>
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        shownList.map((r) => {
-                          const statusUpper = String(r.status || 'PENDIENTE').toUpperCase();
-                          return (
-                            <TableRow key={r.id} className="align-top transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                              <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
-                                <span className="inline-flex items-center justify-center rounded-md border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-gray-900 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-white sm:text-[11px]">
-                                  {r.idx ? r.idx : "—"}
-                                </span>
-                              </TableCell>
-                              <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
-                                <div className="text-[11px] text-gray-900 dark:text-white sm:text-[12px]">{formatDMY(r.fecha)}</div>
-                              </TableCell>
-                              <TableCell className="min-w-0 max-w-[160px] px-2 py-2 align-middle sm:px-3">
-                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${medioChipClass}`}>
-                                  {normalizeMedioLabel(r.medioContacto)}
-                                </span>
-                              </TableCell>
-                              <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
-                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${statusChipClass(r.status)}`}>
-                                  {statusUpper === 'PENDIENTE'
-                                    ? 'Pendiente'
-                                    : String(r.status || '—').charAt(0).toUpperCase() + String(r.status || '—').slice(1).toLowerCase()}
-                                </span>
-                              </TableCell>
-                              <TableCell className="min-w-0 max-w-[180px] px-2 py-2 align-top sm:px-3">
-                                <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
-                                  <span className="truncate text-[11px] text-gray-900 dark:text-white sm:text-[12px]" title={r.creadaPor}>{r.creadaPor}</span>
-                                  <span className="shrink-0 text-[10px] leading-tight text-gray-500 dark:text-gray-400 sm:text-[11px]">Creada</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="min-w-0 max-w-[180px] px-2 py-2 align-top sm:px-3">
-                                <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
-                                  <span className="truncate text-[11px] text-gray-900 dark:text-white sm:text-[12px]" title={r.editadaPor}>{r.editadaPor}</span>
-                                  <span className="shrink-0 text-[10px] leading-tight text-gray-500 dark:text-gray-400 sm:text-[11px]">Última edición</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="min-w-[160px] max-w-[280px] px-2 py-2 align-top sm:px-3">
-                                <div className="min-w-0 overflow-hidden">
-                                  <span className="block truncate text-[11px] font-medium text-gray-900 dark:text-white sm:text-[12px]" title={r.cliente}>
-                                    {r.cliente}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-right align-middle sm:px-3">
-                                <span className="inline-flex max-w-full justify-end rounded-md border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-gray-900 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-white sm:text-[12px]">
-                                  {r.monto}
-                                </span>
-                              </TableCell>
-                              <TableCell className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-center align-middle sm:px-3">
-                                <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
-                                  <button
-                                    type="button"
-                                    disabled={excelLoading}
-                                    onClick={() => navigate(`/cotizacion/${r.id}/pdf`)}
-                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
-                                    title="PDF"
-                                  >
-                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                      <path d="M14 2v6h6" />
-                                      <path d="M8 13h2.5a1.5 1.5 0 0 1 0 3H8v-3Z" />
-                                      <path d="M13 16v-3h1.5a1.5 1.5 0 0 1 0 3H13Z" />
-                                      <path d="M18 16v-3h2" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={excelLoading}
-                                    onClick={() => void handleDownloadExcel(r)}
-                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-emerald-400 hover:text-emerald-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-gray-800 dark:hover:border-emerald-500 dark:hover:text-emerald-300 sm:h-7 sm:w-7 sm:rounded"
-                                    title="Excel"
-                                  >
-                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden>
-                                      <path
-                                        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
-                                        stroke="currentColor"
-                                        strokeWidth="1.8"
-                                        strokeLinejoin="round"
-                                      />
-                                      <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                                      <path d="M8.5 13h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                      <path d="M8.5 16.5H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                      <path d="M8.5 10H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={excelLoading}
-                                    onClick={() => {
-                                      if (!canCotizacionesEdit) {
-                                        setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar cotizaciones.' });
-                                        window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
-                                        return;
-                                      }
-                                      navigate(`/cotizacion/${r.id}/editar`);
-                                    }}
-                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
-                                    title="Editar"
-                                  >
-                                    <PencilIcon className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={excelLoading}
-                                    onClick={() => handleAskDelete(r)}
-                                    className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-gray-800 dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
-                                    title="Eliminar"
-                                  >
-                                    <TrashBinIcon className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+              Mostrando <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{shownList.length}</span> cotizaciones
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const ym = parseYearMonth(selectedMonth);
+                  if (!ym) return;
+                  const d = new Date(ym.year, ym.month - 2, 1);
+                  const mm = String(d.getMonth() + 1).padStart(2, '0');
+                  setSelectedMonth(`${d.getFullYear()}-${mm}`);
+                }}
+                className={monthNavBtnClass}
+                title="Mes anterior"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+              <span className="min-w-[130px] text-center text-[11px] text-[#57534e] sm:min-w-[160px] sm:text-[12px] dark:text-[#cbd5e1]">
+                {(() => {
+                  const ym = parseYearMonth(selectedMonth);
+                  if (!ym) return selectedMonth || 'Todos los meses';
+                  return new Date(ym.year, ym.month - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+                })()}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const ym = parseYearMonth(selectedMonth);
+                  if (!ym) return;
+                  const dt = new Date(ym.year, ym.month - 1, 1);
+                  dt.setMonth(dt.getMonth() + 1);
+                  const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+                  setSelectedMonth(next);
+                }}
+                className={monthNavBtnClass}
+                title="Mes siguiente"
+              >
+                <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 18l6-6 6 6" />
+                </svg>
+              </button>
             </div>
-            </ComponentCard>
+          </div>
 
           {cotizacionToDelete && (
             <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="mx-4 w-full max-w-md sm:mx-auto">

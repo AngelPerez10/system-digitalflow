@@ -1,6 +1,7 @@
+import { OrdenViewModal } from "../OrdenTrabajoModals";
 import { useState } from "react";
 import { PencilIcon, TrashBinIcon } from "../../../../icons";
-import { Modal } from "@/components/ui/modal";
+import { erpMobileCardClass } from "../ordenTrabajoStyles";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;
@@ -18,6 +19,9 @@ const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
     return false;
   }
 };
+
+const mobileActionBtnClass =
+  "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] transition hover:border-[#ff801f] hover:text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:border-[#ff801f]";
 
 interface MobileOrderCardProps {
   orden: any;
@@ -52,26 +56,25 @@ export function MobileOrderCard({
   const folioDisplay = (orden?.folio ?? '').toString().trim() || (orden?.idx ?? (startIndex + idx + 1));
 
   return (
-    <div className="bg-white dark:bg-gray-800/60 rounded-lg border border-gray-200 dark:border-white/10 p-3 space-y-2">
-      {/* Header: ID, Status, Actions */}
+    <div className={erpMobileCardClass}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-brand-600 dark:text-brand-400">
+          <span className="text-xs font-bold text-[#ea580c] dark:text-[#fb923c]">
             {folioDisplay}
           </span>
-          -
-          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${orden.status === 'resuelto' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>
+          <span className="text-[#d6d3d1] dark:text-[#334155]">-</span>
+          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${orden.status === 'resuelto' ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200'}`}>
             {orden.status === 'resuelto' ? 'Resuelto' : 'Pendiente'}
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={() => onPdf(orden.id)} className="p-1.5 text-gray-500 hover:text-red-600" title="PDF">
+          <button type="button" onClick={() => onPdf(orden.id)} className={mobileActionBtnClass} title="PDF">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
           </button>
           <button
             type="button"
             onClick={() => setShowProblematicaModal(true)}
-            className="p-1.5 text-gray-500 hover:text-blue-600"
+            className={mobileActionBtnClass}
             title="Ver problemática"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -80,89 +83,68 @@ export function MobileOrderCard({
             </svg>
           </button>
           {canEdit && onEdit && (
-            <button onClick={() => onEdit(orden)} className="p-1.5 text-gray-500 hover:text-brand-600" title="Editar">
+            <button type="button" onClick={() => onEdit(orden)} className={mobileActionBtnClass} title="Editar">
               <PencilIcon className="w-4 h-4" />
             </button>
           )}
           {canDelete && onDelete && (
-            <button onClick={() => onDelete(orden)} className="p-1.5 text-gray-500 hover:text-red-600" title="Eliminar">
+            <button type="button" onClick={() => onDelete(orden)} className={`${mobileActionBtnClass} hover:border-rose-400 hover:text-rose-600`} title="Eliminar">
               <TrashBinIcon className="w-4 h-4" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Cliente */}
-      <div className="flex items-center gap-2 text-sm">
-        <svg className="w-4 h-4 text-gray-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-        <span className="font-medium text-gray-900 dark:text-white truncate">{orden.cliente || 'Sin cliente'}</span>
+      <div className="flex items-center gap-2 text-sm mt-2">
+        <svg className="w-4 h-4 text-[#78716c] shrink-0 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+        <span className="font-medium text-[#1c1917] dark:text-white truncate">{orden.cliente || 'Sin cliente'}</span>
       </div>
 
-      {/* Dirección */}
       {orden.direccion && (
-        <div className="flex items-start gap-2 text-[11px] text-gray-600 dark:text-gray-400">
-          <svg className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+        <div className="flex items-start gap-2 text-[11px] text-[#57534e] dark:text-[#b7c1d1] mt-1">
+          <svg className="w-3.5 h-3.5 text-[#78716c] shrink-0 mt-0.5 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
           {isGoogleMapsUrl(orden.direccion) ? (
-            <a href={orden.direccion} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline truncate">{orden.direccion}</a>
+            <a href={orden.direccion} target="_blank" rel="noreferrer" className="text-[#ea580c] dark:text-[#fb923c] hover:underline truncate">{orden.direccion}</a>
           ) : (
             <span className="truncate">{orden.direccion}</span>
           )}
         </div>
       )}
 
-      {/* Teléfono */}
       {orden.telefono_cliente && (
-        <div className="flex items-center gap-2 text-[11px]">
-          <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
-          <a href={`tel:${orden.telefono_cliente}`} className="text-blue-600 dark:text-blue-400">{orden.telefono_cliente}</a>
+        <div className="flex items-center gap-2 text-[11px] mt-1">
+          <svg className="w-3.5 h-3.5 text-[#78716c] shrink-0 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+          <a href={`tel:${orden.telefono_cliente}`} className="text-[#ea580c] dark:text-[#fb923c]">{orden.telefono_cliente}</a>
         </div>
       )}
 
-      {/* Fechas y Técnico */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400 pt-1 border-t border-gray-100 dark:border-white/5">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#78716c] dark:text-[#8ea0b8] pt-2 mt-2 border-t border-[#e7ded0] dark:border-[#273244]">
         <div className="flex items-center gap-1">
-          <svg className="w-3.5 h-3.5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
           <span>Inicio: {fechaInicioFmt}</span>
         </div>
         <div className="flex items-center gap-1">
-          <svg className="w-3.5 h-3.5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
           <span>Fin: {fechaFinFmt}</span>
         </div>
         {tecnicoNombre && (
           <div className="flex items-center gap-1">
-            <svg className="w-3.5 h-3.5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>
             <span className="truncate">{tecnicoNombre}</span>
           </div>
         )}
       </div>
 
-      <Modal
-        isOpen={showProblematicaModal}
+      <OrdenViewModal
+        open={showProblematicaModal}
         onClose={() => setShowProblematicaModal(false)}
-        closeOnBackdropClick={false}
-        className="max-w-2xl w-[92vw]"
+        title="Problemática"
+        subtitle="Detalle reportado por el cliente"
       >
-        <div className="p-0 overflow-hidden rounded-2xl">
-          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Problemática</h3>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">Detalle completo reportado por el cliente</p>
-          </div>
-          <div className="p-4 text-sm text-gray-800 dark:text-gray-200 max-h-[60vh] overflow-y-auto custom-scrollbar">
-            <pre className="whitespace-pre-wrap break-words leading-relaxed rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-gray-900/40 p-3">
-              {orden.problematica || "-"}
-            </pre>
-          </div>
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 text-right">
-            <button
-              type="button"
-              onClick={() => setShowProblematicaModal(false)}
-              className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      </Modal>
+        <pre className="whitespace-pre-wrap break-words leading-relaxed rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 text-[13px] dark:border-[#334155] dark:bg-[#0f172a]/60">
+          {orden.problematica || "—"}
+        </pre>
+      </OrdenViewModal>
     </div>
   );
 }
@@ -206,7 +188,7 @@ export function MobileOrderList({
   };
 
   return (
-    <div className="md:hidden space-y-2">
+    <div className="md:hidden space-y-3">
       {ordenes.map((orden, idx) => (
         <MobileOrderCard
           key={orden.id ?? idx}
@@ -223,8 +205,8 @@ export function MobileOrderList({
         />
       ))}
       {!loading && ordenes.length === 0 && (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
-          Sin ordenes
+        <div className="text-center py-8 text-sm text-[#78716c] dark:text-[#8ea0b8]">
+          Sin órdenes
         </div>
       )}
     </div>

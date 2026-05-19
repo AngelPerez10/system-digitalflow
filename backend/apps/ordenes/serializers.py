@@ -1,6 +1,10 @@
+import logging
+
 from rest_framework import serializers
 
 from .models import Orden, OrdenLevantamiento, ReporteSemanal
+
+logger = logging.getLogger(__name__)
 
 
 class OrdenSerializer(serializers.ModelSerializer):
@@ -46,7 +50,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             if hasattr(obj, 'levantamiento') and obj.levantamiento is not None:
                 return 'levantamiento'
         except Exception:
-            pass
+            logger.debug('Could not access levantamiento on orden %s', getattr(obj, 'id', '?'))
         return 'servicio_tecnico'
 
     def get_levantamiento_tipo(self, obj):
@@ -63,6 +67,7 @@ class OrdenSerializer(serializers.ModelSerializer):
                 return t
             return None
         except Exception:
+            logger.debug('Could not read levantamiento tipo for orden %s', getattr(obj, 'id', '?'))
             return None
 
     def get_quien_instalo_full_name(self, obj):

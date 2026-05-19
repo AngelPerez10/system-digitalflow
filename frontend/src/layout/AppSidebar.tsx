@@ -10,15 +10,29 @@ import {
   PageIcon,
   PieChartIcon,
   PlugInIcon,
-  TableIcon,
   UserCircleIcon,
 } from "@/icons";
 import { useSidebar } from "@/context/SidebarContext";
-import { apiUrl } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
+import { fetchApi } from "@/config/api";
 
 let appSidebarPermissionsInFlight: Promise<any> | null = null;
 let appSidebarPermissionsLastFetchAt = 0;
 const APP_SIDEBAR_PERMS_TTL_MS = 2 * 60 * 1000;
+
+/** Entradas ocultas temporalmente; pon la clave en `true` para volver a mostrarlas. */
+const SIDEBAR_FUTURE = {
+  ia: false,
+  correo: false,
+  productosYServicios: false,
+  comprasYGastos: false,
+  ventasAdmin: false,
+  reportesOperator: false,
+  /** Submenú Operación: ítem "Agenda" (/agenda) */
+  operacionAgenda: false,
+  /** Submenú Operación: desde Levantamiento hasta Reparaciones */
+  operacionExtended: false,
+} as const;
 
 type NavItem = {
   name: string;
@@ -34,35 +48,28 @@ type SidebarSubItem =
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
+  const { isAdmin, permissions: authPermissions } = useAuth();
 
-  const [role, setRole] = useState<string | null>(() => localStorage.getItem('role') || sessionStorage.getItem('role'));
-  const isAdmin = role === 'admin';
+  const [permissions, setPermissions] = useState<any>(authPermissions || {});
 
-  const [permissions, setPermissions] = useState<any>(() => {
+  const companyName = useMemo(() => {
     try {
-      const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  });
-
-  const [username, setUsername] = useState<string | null>(() => localStorage.getItem('username') || sessionStorage.getItem('username'));
+      const fromStorage =
+        localStorage.getItem("company_name") ||
+        sessionStorage.getItem("company_name") ||
+        localStorage.getItem("empresa") ||
+        sessionStorage.getItem("empresa");
+      if (typeof fromStorage === "string" && fromStorage.trim()) return fromStorage.trim();
+    } catch { }
+    return "Workspace";
+  }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) return;
+    // Admins don't need to fetch permissions
+    if (isAdmin) return;
 
     const now = Date.now();
     if (now - appSidebarPermissionsLastFetchAt < APP_SIDEBAR_PERMS_TTL_MS) return;
-
-    try {
-      const storedAtRaw = localStorage.getItem('permissions_fetched_at') || sessionStorage.getItem('permissions_fetched_at');
-      const storedAt = storedAtRaw ? Number(storedAtRaw) : 0;
-      if (storedAt && now - storedAt < APP_SIDEBAR_PERMS_TTL_MS) {
-        return;
-      }
-    } catch { }
 
     const load = async () => {
       try {
@@ -73,19 +80,12 @@ const AppSidebar: React.FC = () => {
 
         appSidebarPermissionsLastFetchAt = Date.now();
         appSidebarPermissionsInFlight = (async () => {
-          const res = await fetch(apiUrl('/api/me/permissions/'), {
+          const res = await fetchApi('/api/me/permissions/', {
             method: 'GET',
-            headers: { Authorization: `Bearer ${token}` },
             cache: 'no-store' as RequestCache,
           });
           const data = await res.json().catch(() => null);
           if (res.ok && data?.permissions) {
-            const pStr = JSON.stringify(data.permissions);
-            localStorage.setItem('permissions', pStr);
-            sessionStorage.setItem('permissions', pStr);
-            const at = String(Date.now());
-            localStorage.setItem('permissions_fetched_at', at);
-            sessionStorage.setItem('permissions_fetched_at', at);
             setPermissions(data.permissions);
             window.dispatchEvent(new Event('permissions:updated'));
           }
@@ -99,42 +99,33 @@ const AppSidebar: React.FC = () => {
       }
     };
     load();
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     const sync = () => {
       try {
-        const rawP = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
-        setPermissions(rawP ? JSON.parse(rawP) : {});
-        const rawU = localStorage.getItem('username') || sessionStorage.getItem('username');
-        setUsername(rawU);
-        const rawR = localStorage.getItem('role') || sessionStorage.getItem('role');
-        setRole(rawR);
+        setPermissions(authPermissions || {});
       } catch { }
     };
-    window.addEventListener('storage', sync);
     window.addEventListener('permissions:updated', sync);
-    window.addEventListener('focus', sync);
-    document.addEventListener('visibilitychange', sync);
     return () => {
-      window.removeEventListener('storage', sync);
       window.removeEventListener('permissions:updated', sync);
-      window.removeEventListener('focus', sync);
-      document.removeEventListener('visibilitychange', sync);
     };
-  }, []);
+  }, [authPermissions]);
 
   const navItems: NavItem[] = useMemo(() => {
     const items: NavItem[] = [];
 
     if (isAdmin) {
-      items.push({ icon: <GridIcon />, name: "Dashboard", path: "/" });
+      items.push({ icon: <GridIcon />, name: "Dashboard", path: "/dashboard" });
 
-      items.push({
-        icon: <PlugInIcon />,
-        name: "IA",
-        path: "/ia",
-      });
+      if (SIDEBAR_FUTURE.ia) {
+        items.push({
+          icon: <PlugInIcon />,
+          name: "IA",
+          path: "/ia",
+        });
+      }
 
       items.push({
         icon: <PageIcon />,
@@ -142,7 +133,9 @@ const AppSidebar: React.FC = () => {
         subItems: [
           { name: "Agenda", path: "/calendar", pro: false },
           { name: "Tareas", path: "/tareas", pro: false },
-          { name: "Correo", path: "/correo", pro: false },
+          ...(SIDEBAR_FUTURE.correo
+            ? [{ name: "Correo", path: "/correo", pro: false } as const]
+            : []),
         ],
       });
 
@@ -153,7 +146,7 @@ const AppSidebar: React.FC = () => {
           { name: "Personas", path: "/personas", pro: false },
           { name: "Proveedores", path: "/proveedores", pro: false },
         ];
-        if (permissions?.usuarios?.view === true) {
+        if (permissions?.usuarios?.view !== false) {
           contactosSub.push({ name: "Gestión de Usuarios", path: "/usuarios", pro: false });
         } 
         items.push({
@@ -163,81 +156,62 @@ const AppSidebar: React.FC = () => {
         });
       }
 
-      items.push({
-        icon: <BoxCubeIcon />,
-        name: "Productos Y Servicios",
-        subItems: [
-          { name: "Productos", path: "/productos", pro: false },
-          { name: "Paquetes", path: "/categorias", pro: false },
-          { name: "Servicios", path: "/servicios", pro: false },
-        ],
-      });
+      if (true) {
+        items.push({
+          icon: <BoxCubeIcon />,
+          name: "Productos Y Servicios",
+          subItems: [
+            { name: "Productos", path: "/productos", pro: false },
+            { name: "Servicios", path: "/servicios", pro: false },
+          ],
+        });
+      }
 
-      items.push({
-        icon: <TableIcon />,
-        name: "Compras Y Gastos",
-        subItems: [
-          { name: "Proveedores", path: "/", pro: false },
-          { name: "Orden De compra", path: "/orden-compra", pro: false },
-          { name: "Gasto", path: "/gasto", pro: false },
-        ],
-      });
-
-      items.push({
-        icon: <PieChartIcon />,
-        name: "Ventas",
-        subItems: [
-          { name: "Facturas", path: "/facturas", pro: false },
-          { name: "Notas de crédito", path: "/notas-credito", pro: false },
-          {
-            name: "Suscripciones",
-            subItems: [
-              { name: "Rastreo", path: "/rastreo", pro: false },
-              { name: "Alarmas", path: "/alarmas", pro: false },
-              { name: "Internet", path: "/internet", pro: false },
-              { name: "Licencias", path: "/licencias", pro: false },
-            ],
-          },
-          { name: "Cotizaciones", path: "/cotizacion", pro: false },
-        ],
-      });
+      if (permissions?.cotizaciones?.view !== false) {
+        items.push({
+          icon: <PieChartIcon />,
+          name: "Ventas",
+          subItems: [
+            { name: "Cotizaciones", path: "/cotizacion", pro: false },
+          ],
+        });
+      }
 
       items.push({
         icon: <PlugInIcon />,
         name: "Operación",
         subItems: [
-          { name: "Agenda", path: "/agenda", pro: false },
+          ...(SIDEBAR_FUTURE.operacionAgenda
+            ? [{ name: "Agenda", path: "/agenda", pro: false } as const]
+            : []),
           { name: "Órdenes de Trabajo", path: "/ordenes", pro: false },
-          { name: "Levantamiento", path: "/levantamiento", pro: false },
-          { name: "Instalación", path: "/instalacion", pro: false },
-          { name: "Mantenimiento", path: "/mantenimiento", pro: false },
-          { name: "Órdenes del Tecnico", path: "/mantenimiento", pro: false },
-          { name: "Reportes", path: "/reportes", pro: false },
-          { name: "Tiket", path: "/tiket", pro: false },
-          { name: "Vehículo", path: "/vehiculo", pro: false },
-          { name: "Técnico", path: "/tecnico", pro: false },
-          { name: "Rastreo", path: "/rastreo", pro: false },
-          { name: "Servicios", path: "/servicios", pro: false },
-          { name: "Pólizas", path: "/polizas", pro: false },
-          { name: "Garantías", path: "/garantias", pro: false },
-          { name: "Reparaciones", path: "/reparaciones", pro: false },
+          ...(SIDEBAR_FUTURE.operacionExtended
+            ? ([
+                { name: "Levantamiento", path: "/levantamiento", pro: false },
+                { name: "Órdenes del Tecnico", path: "/ordenes-tecnico", pro: false },
+                { name: "Reportes", path: "/reportes", pro: false },
+              ] as const)
+            : []),
         ],
       });
     } else {
       const subItems = [];
-      if (permissions?.ordenes?.view === true) {
+      if (permissions?.ordenes?.view !== false) {
         subItems.push({ name: "Agenda", path: "/calendar", pro: false });
       }
       
-      if (permissions?.ordenes?.view === true) {
+      if (permissions?.ordenes?.view !== false) {
         subItems.push({ name: "Órdenes de Servicios", path: "/ordenes-tecnico", pro: false });
       }
 
-      if (permissions?.reportes?.view === true) {
+      if (
+        SIDEBAR_FUTURE.reportesOperator &&
+        permissions?.reportes?.view !== false
+      ) {
         subItems.push({ name: "Reportes", path: "/reportes", pro: false });
       }
 
-      if (permissions?.tareas?.view === true) {
+      if (permissions?.tareas?.view !== false) {
         subItems.push({ name: "Tareas", path: "/tareas-tecnico", pro: false });
       }
 
@@ -249,7 +223,7 @@ const AppSidebar: React.FC = () => {
         });
       }
 
-      if (permissions?.clientes?.view === true) {
+      if (permissions?.clientes?.view !== false) {
         items.push({
           icon: <UserCircleIcon />,
           name: "Contactos de Negocio",
@@ -262,7 +236,7 @@ const AppSidebar: React.FC = () => {
         });
       }
 
-      if (permissions?.cotizaciones?.view === true) {
+      if (permissions?.cotizaciones?.view !== false) {
         items.push({
           icon: <PieChartIcon />,
           name: "Ventas",
@@ -272,28 +246,9 @@ const AppSidebar: React.FC = () => {
     }
 
     return items;
-  }, [isAdmin, permissions, username]);
+  }, [isAdmin, permissions]);
 
-  const othersItems: NavItem[] = useMemo(() => {
-    if (!isAdmin) return [];
-    if (username !== 'AngelPerez10') return [];
-
-    return [
-      {
-        icon: <PieChartIcon />,
-        name: "Gráficos",
-        subItems: [
-          { name: "Gráfico de Línea", path: "/line-chart", pro: false },
-          { name: "Gráfico de Barras", path: "/bar-chart", pro: false },
-        ],
-      },
-      {
-        icon: <BoxCubeIcon />,
-        name: "Elementos UI",
-        subItems: [{ name: "Imágenes", path: "/images", pro: false }],
-      },
-    ];
-  }, [isAdmin, username]);
+  const othersItems: NavItem[] = useMemo(() => [], []);
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
@@ -308,7 +263,12 @@ const AppSidebar: React.FC = () => {
 
   // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
-    (path: string) => location.pathname === path,
+    (path: string) => {
+      if (path === "/dashboard") {
+        return location.pathname === "/" || location.pathname === "/dashboard";
+      }
+      return location.pathname === path;
+    },
     [location.pathname]
   );
 
@@ -391,6 +351,8 @@ const AppSidebar: React.FC = () => {
           {nav.subItems ? (
             <button
               onClick={() => handleSubmenuToggle(index, menuType)}
+              aria-expanded={openSubmenu?.type === menuType && openSubmenu?.index === index}
+              aria-label={`${nav.name} submenu`}
               className={`menu-item group ${openSubmenu?.type === menuType && openSubmenu?.index === index
                 ? "menu-item-active"
                 : "menu-item-inactive"
@@ -424,6 +386,7 @@ const AppSidebar: React.FC = () => {
             nav.path && (
               <Link
                 to={nav.path}
+                aria-current={isActive(nav.path) ? "page" : undefined}
                 className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                   }`}
               >
@@ -461,6 +424,7 @@ const AppSidebar: React.FC = () => {
                       <li key={subItem.name}>
                         <Link
                           to={subItem.path}
+                          aria-current={isActive(subItem.path) ? "page" : undefined}
                           className={`menu-dropdown-item ${isActive(subItem.path)
                             ? "menu-dropdown-item-active"
                             : "menu-dropdown-item-inactive"
@@ -502,12 +466,12 @@ const AppSidebar: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => toggleNestedSubmenu(nestedKey)}
-                        className="w-full px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center justify-between"
+                        className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium tracking-[0.12px] text-[#a1a4a5] hover:text-[#f0f0f0]"
                         aria-expanded={isOpen}
                       >
                         <span className="truncate">{subItem.name}</span>
                         <ChevronDownIcon
-                          className={`w-4 h-4 shrink-0 transition-transform ${isOpen ? "rotate-180 text-brand-500" : ""}`}
+                          className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-180 text-[#3b9eff]" : ""}`}
                         />
                       </button>
 
@@ -541,7 +505,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed flex flex-col top-16 lg:top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-[calc(100vh-4rem)] lg:h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed bottom-0 left-0 top-16 z-50 flex flex-col border-r border-[#e7ded0] bg-[#f9f7f3] px-5 text-[#1c1917] shadow-[0_18px_45px_-34px_rgba(28,25,23,0.35)] transition-all duration-300 ease-in-out dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#f8fafc] dark:shadow-[0_18px_45px_-34px_rgba(0,0,0,0.8)] lg:top-0 [font-family:'Arial','Helvetica_Neue',Helvetica,sans-serif]
         ${isExpanded || isMobileOpen
           ? "w-[290px]"
           : isHovered
@@ -557,40 +521,34 @@ const AppSidebar: React.FC = () => {
         className={`py-8 flex ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
           }`}
       >
-        <Link to="/">
+        <Link to="/dashboard" className="group inline-flex items-center gap-2.5">
           {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <img
-                className="dark:hidden"
-                src="/images/logo/logo.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-              />
-              <img
-                className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-              />
-            </>
+            <span className="inline-flex items-center gap-2.5">
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#465FFF] text-xs font-bold tracking-wide text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+                SN
+              </span>
+              <span className="flex flex-col leading-none">
+                <span className="text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc]">
+                  Sistema Intrax
+                </span>
+                <span className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-[#8b7b69] dark:text-[#8ea0b8]">
+                  {companyName}
+                </span>
+              </span>
+            </span>
           ) : (
-            <img
-              src="/images/logo/logo-icon.svg"
-              alt="Logo"
-              width={32}
-              height={32}
-            />
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#465FFF] text-[11px] font-bold tracking-[0.08em] text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+              SN
+            </span>
           )}
         </Link>
       </div>
-      <div className="flex flex-col overflow-y-auto overscroll-contain duration-300 ease-linear no-scrollbar">
-        <nav className="mb-6">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-6 duration-300 ease-linear no-scrollbar">
+        <nav aria-label="Main navigation" className="mb-6">
           <div className="flex flex-col gap-4">
             <div>
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
+                className={`mb-4 flex text-xs font-medium uppercase leading-[20px] tracking-[0.14em] text-[#8b7b69] dark:text-[#8ea0b8] ${!isExpanded && !isHovered
                   ? "lg:justify-center"
                   : "justify-start"
                   }`}
@@ -603,21 +561,23 @@ const AppSidebar: React.FC = () => {
               </h2>
               {renderMenuItems(navItems, "main")}
             </div>
-            <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "justify-start"
-                  }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  ""
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderMenuItems(othersItems, "others")}
-            </div>
+            {othersItems.length > 0 && (
+              <div className="">
+                <h2
+                  className={`mb-4 flex text-xs font-medium uppercase leading-[20px] tracking-[0.14em] text-[#8b7b69] dark:text-[#8ea0b8] ${!isExpanded && !isHovered
+                    ? "lg:justify-center"
+                    : "justify-start"
+                    }`}
+                >
+                  {isExpanded || isHovered || isMobileOpen ? (
+                    ""
+                  ) : (
+                    <HorizontaLDots />
+                  )}
+                </h2>
+                {renderMenuItems(othersItems, "others")}
+              </div>
+            )}
           </div>
         </nav>
       </div>

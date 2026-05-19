@@ -22,7 +22,7 @@ export default function AuthLayout({
                   width={231}
                   height={48}
                   src="/images/logo/intrax-logo.png"
-                  alt="Logo"
+                  alt="Sistema Intrax"
                 />
               </Link>
             </div>

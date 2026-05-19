@@ -1,4 +1,4 @@
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
 
 export const SYSCOM_SITE_URL = "https://www.syscom.mx";
 
@@ -58,12 +58,15 @@ export type SyscomSearchParams = {
 export type SyscomPriceKind = "lista" | "especial" | "descuento" | "auto";
 export type IntraxFuente = "syscom" | "manual";
 
-export const getAuthToken = () => localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+export const getAuthToken = () => {
+  const hasCsrf = document.cookie.includes('csrftoken');
+  return hasCsrf ? 'cookie' : '';
+};
 
-export const fetchSyscom = (path: string, token: string, init?: Pick<RequestInit, "signal">) => {
+export const fetchSyscom = (path: string, init?: Pick<RequestInit, "signal">) => {
   const cleanPath = path.replace(/^\//, "");
-  return fetch(apiUrl(`/api/productos/syscom/${cleanPath}`), {
-    headers: { Authorization: `Bearer ${token}` },
+  return fetchApi(`/api/productos/syscom/${cleanPath}`, {
+    method: 'GET',
     signal: init?.signal,
   });
 };
@@ -316,8 +319,8 @@ export const getPrecioPublicoUsd = (p: SyscomProducto): number | null => {
   return especial ?? lista ?? descuento;
 };
 
-export async function fetchSyscomTipoCambio(token: string): Promise<number | null> {
-  const res = await fetchSyscom("tipocambio/", token);
+export async function fetchSyscomTipoCambio(): Promise<number | null> {
+  const res = await fetchSyscom("tipocambio/");
   if (!res.ok) return null;
   const data: any = await res.json().catch(() => null);
   const direct = asNumber(data);
@@ -380,13 +383,12 @@ export type SyscomProductoDetalle = SyscomProducto & {
  * El id debe ser **numérico** (producto_id del listado); slugs/modelo devuelven 422/404 y no se consultan.
  */
 export async function fetchSyscomProductoDetalle(
-  token: string,
   productId: string,
   init?: Pick<RequestInit, "signal">
 ): Promise<SyscomProductoDetalle | null> {
   const tid = String(productId).trim();
   if (!/^\d+$/.test(tid)) return null;
-  const res = await fetchSyscom(`productos/${tid}/`, token, init);
+  const res = await fetchSyscom(`productos/${tid}/`, init);
   if (!res.ok) return null;
   const data = await res.json().catch(() => null);
   return data as SyscomProductoDetalle;
@@ -397,7 +399,6 @@ export async function fetchSyscomProductoDetalle(
  * variantes de modelo (`/`, Icom), segunda página para `IC-…`, y `stock=0` / `agrupar=0`.
  */
 export async function fetchSyscomProductosSugerencia(
-  token: string,
   busqueda: string,
   init?: Pick<RequestInit, "signal">
 ): Promise<{ ok: boolean; productos: SyscomProducto[] }> {
@@ -443,7 +444,7 @@ export async function fetchSyscomProductosSugerencia(
         orden: "relevancia",
         ...SYSCOM_BUSQUEDA_AMPLIA,
       });
-      const res = await fetchSyscom(`productos/?${query}`, token, init);
+      const res = await fetchSyscom(`productos/?${query}`, init);
       const data: SyscomProductosResponse = await res.json().catch(() => ({}));
       if (res.ok) anyOk = true;
       else continue;

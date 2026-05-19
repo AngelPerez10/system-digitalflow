@@ -6,16 +6,21 @@ from pathlib import Path
 from django.contrib.auth import authenticate, get_user_model
 from django.db.models import Q
 from django.conf import settings
+from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .throttling import LoginRateThrottle
+from .throttling import LoginRateThrottle, RefreshRateThrottle
 
 from .models import UserPermissions, UserSignature
 from .serializers import UserAccountSerializer, UserPermissionsSerializer, UserSignatureSerializer
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Solo estos usuarios pueden asignar permisos CRUD a otros (incl. otros administradores).
 PERMISSION_DELEGATION_USERNAMES = frozenset({'angelperez10', 'ivancruz01'})
@@ -27,6 +32,7 @@ def _request_user_can_delegate_permissions(user) -> bool:
     try:
         un = (user.get_username() or '').strip().lower()
     except Exception:
+        logger.exception("Failed to get username from user object")
         un = (getattr(user, 'username', None) or '').strip().lower()
     return un in PERMISSION_DELEGATION_USERNAMES
 
@@ -44,6 +50,7 @@ try:
         if cn and ak and sec:
             cloudinary.config(cloud_name=cn, api_key=ak, api_secret=sec)
 except Exception:
+    logger.exception("Failed to configure Cloudinary, signature/avatar uploads will fail")
     cloudinary = None  # type: ignore
 
 
@@ -74,7 +81,7 @@ def _delete_signature_public_id(public_id: str) -> None:
     try:
         cloudinary.uploader.destroy(public_id, resource_type='image')
     except Exception:
-        return
+        logger.exception("Failed to delete signature from Cloudinary: %s", public_id)
 
 
 def _upload_avatar_data_url_local(user_id: int, data_url: str) -> tuple[str, str]:
@@ -119,6 +126,7 @@ def _delete_avatar_public_id(public_id: str) -> None:
             if p.exists():
                 p.unlink()
         except Exception:
+            logger.exception("Failed to delete local avatar file: %s", rel)
             return
         return
     _delete_signature_public_id(public_id)
@@ -130,9 +138,45 @@ class UserAccountViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
 
 
+def _set_jwt_cookies(response, access_token: str, refresh_token: str):
+    secure = not settings.DEBUG
+    response.set_cookie(
+        key='access_token',
+        value=access_token,
+        max_age=settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds(),
+        httponly=True,
+        secure=secure,
+        samesite=settings.SIMPLE_JWT.get('AUTH_COOKIE_SAMESITE', 'Lax'),
+        path='/',
+    )
+    response.set_cookie(
+        key='refresh_token',
+        value=refresh_token,
+        max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds(),
+        httponly=True,
+        secure=secure,
+        samesite=settings.SIMPLE_JWT.get('AUTH_COOKIE_SAMESITE', 'Lax'),
+        path='/',
+    )
+
+
+def _clear_jwt_cookies(response):
+    response.delete_cookie('access_token', path='/')
+    response.delete_cookie('refresh_token', path='/')
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@ensure_csrf_cookie
+def csrf_cookie_view(request):
+    """Devuelve la cookie csrftoken para peticiones POST cross-origin (login, refresh)."""
+    return Response({'detail': 'ok'})
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @throttle_classes([LoginRateThrottle])
+@ensure_csrf_cookie
 def login_view(request):
     username = request.data.get('username')
     email = request.data.get('email')
@@ -159,15 +203,11 @@ def login_view(request):
     refresh = RefreshToken.for_user(user)
     access = refresh.access_token
 
-    # Ensure the permissions profile exists for every authenticated user.
     perms_obj, _ = UserPermissions.objects.get_or_create(user=user)
     perms = perms_obj.permissions or {}
 
     resp = Response(
         {
-            # compat con frontend (espera data.token)
-            'token': str(access),
-            # extra (por si lo quieres usar)
             'access': str(access),
             'refresh': str(refresh),
             'username': user.get_username(),
@@ -180,13 +220,23 @@ def login_view(request):
             'permissions': perms,
         }
     )
+    _set_jwt_cookies(resp, str(access), str(refresh))
     return resp
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
-    return Response({'detail': 'ok'})
+    refresh_raw = request.COOKIES.get('refresh_token') or request.data.get('refresh')
+    if refresh_raw:
+        try:
+            token = RefreshToken(refresh_raw)
+            token.blacklist()
+        except TokenError:
+            pass
+    resp = Response({'detail': 'ok'})
+    _clear_jwt_cookies(resp)
+    return resp
 
 
 @api_view(['GET', 'PATCH'])
@@ -230,9 +280,10 @@ def me(request):
                 perms_obj.avatar_url = url
                 perms_obj.avatar_public_id = public_id
                 perms_obj.save(update_fields=['avatar_url', 'avatar_public_id', 'updated_at'])
-            except ValueError as e:
-                return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            except ValueError:
+                return Response({'detail': 'Imagen inválida. Use formato JPEG, PNG o WebP.'}, status=status.HTTP_400_BAD_REQUEST)
             except Exception:
+                logger.exception("Avatar upload failed for user %s", getattr(user, 'pk', '?'))
                 return Response(
                     {'detail': 'Error al procesar la imagen. Intente con otra foto o más tarde.'},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -290,7 +341,7 @@ def my_signature(request):
         obj.save(update_fields=['url', 'public_id', 'updated_at'])
         return Response(UserSignatureSerializer(obj).data)
     except Exception:
-        # No exponer detalles internos al cliente
+        logger.exception("Signature upload failed for user %s", getattr(request.user, 'pk', '?'))
         return Response({'detail': 'Error al procesar la firma. Intente nuevamente.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -366,5 +417,26 @@ def user_signature(request, user_id: int):
         obj.save(update_fields=['url', 'public_id', 'updated_at'])
         return Response(UserSignatureSerializer(obj).data)
     except Exception:
-        # No exponer detalles internos al cliente
+        logger.exception("Signature upload failed for user %s", user_id)
         return Response({'detail': 'Error al procesar la firma. Intente nuevamente.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([RefreshRateThrottle])
+def token_refresh_view(request):
+    refresh_raw = request.COOKIES.get('refresh_token') or request.data.get('refresh')
+    if not refresh_raw:
+        return Response({'detail': 'Refresh token no proporcionado'}, status=status.HTTP_401_UNAUTHORIZED)
+    try:
+        refresh = RefreshToken(refresh_raw)
+        refresh.check_exp()
+        access = str(refresh.access_token)
+        new_refresh = str(refresh)
+        resp = Response({'access': access})
+        _set_jwt_cookies(resp, access, new_refresh)
+        return resp
+    except TokenError:
+        resp = Response({'detail': 'Token invalido o expirado.'}, status=status.HTTP_401_UNAUTHORIZED)
+        _clear_jwt_cookies(resp)
+        return resp

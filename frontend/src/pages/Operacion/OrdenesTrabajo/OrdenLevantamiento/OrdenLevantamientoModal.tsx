@@ -1,6 +1,19 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
+import {
+  OrdenFormModalHeader,
+  OrdenModalFooterActions,
+  OrdenModalPrimaryButton,
+  OrdenPhotoDeleteModal,
+} from "../OrdenTrabajoModals";
+import {
+  erpModalBodyClass,
+  erpModalFooterClass,
+  erpModalFormScrollClass,
+  erpModalShellClass,
+  erpModalTabClass,
+} from "../ordenTrabajoStyles";
 import Alert from "@/components/ui/alert/Alert";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
@@ -703,7 +716,7 @@ export default function OrdenServicioModal({
       .map((s) => ({
         id: s,
         label: s,
-        icon: <svg className="w-4 h-4 text-brand-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+        icon: <svg className="w-4 h-4 text-[#ff801f]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
         description: "Servicio disponible",
         short: "",
         end: "",
@@ -713,7 +726,7 @@ export default function OrdenServicioModal({
         {
           id: "__new__",
           label: `Crear "${servicioSearch.trim()}"`,
-          icon: <svg className="w-4 h-4 text-brand-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14M4 12h16" /></svg>,
+          icon: <svg className="w-4 h-4 text-[#ff801f]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14M4 12h16" /></svg>,
           description: "Nuevo servicio",
           short: "",
           end: "",
@@ -1010,33 +1023,16 @@ export default function OrdenServicioModal({
       onClose={handleCloseModal}
       closeOnBackdropClick={false}
       closeOnEscape={!confirmDelete.open}
-      className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden"
+      className={erpModalShellClass}
     >
-      <div>
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-white/10">
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10">
-              <svg className="w-6 h-6 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-                {title}
-              </h5>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                Captura y revisa los datos del levantamiento antes de guardar
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <form
-          ref={formScrollRef}
-          onSubmit={handleSubmit}
-          className="p-4 sm:p-5 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar"
-        >
+      <OrdenFormModalHeader
+        editing={!!orden?.id}
+        title={title}
+        subtitle="Captura y revisa los datos del levantamiento antes de guardar"
+        contextLabel="Operación · Levantamiento"
+      />
+      <form ref={formScrollRef} onSubmit={handleSubmit} className={erpModalBodyClass}>
+        <div className={erpModalFormScrollClass}>
           {modalAlert.show && (
             <div className="mb-4">
               <Alert variant={modalAlert.variant} title={modalAlert.title} message={modalAlert.message} showLink={false} />
@@ -1047,20 +1043,14 @@ export default function OrdenServicioModal({
             <button
               type="button"
               onClick={() => setActiveTab("cliente")}
-              className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === "cliente"
-                  ? "border-brand-500 bg-brand-500 text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                }`}
+              className={erpModalTabClass(activeTab === "cliente")}
             >
               Datos del cliente
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("orden")}
-              className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === "orden"
-                  ? "border-brand-500 bg-brand-500 text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                }`}
+              className={erpModalTabClass(activeTab === "orden")}
             >
               Datos de la orden
             </button>
@@ -1071,7 +1061,7 @@ export default function OrdenServicioModal({
               {/* SECCIÓN 1: Detalles Generales */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                  <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
@@ -1124,7 +1114,7 @@ export default function OrdenServicioModal({
                         type="text"
                         value={formData.nombre_cliente}
                         onChange={(e) => setFormData({ ...formData, nombre_cliente: e.target.value })}
-                        className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                        className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
                         placeholder="Nombre completo del cliente"
                       />
                     </div>
@@ -1253,7 +1243,7 @@ export default function OrdenServicioModal({
               {/* SECCIÓN: Detalles del Cliente (dirección y teléfono) */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                  <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -1284,7 +1274,7 @@ export default function OrdenServicioModal({
                         value={formData.direccion}
                         onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
                         rows={2}
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 pr-12 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 pr-12 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none resize-none"
                         placeholder="Dirección, coordenadas o URL de Google Maps"
                       />
                       {formData.direccion && (
@@ -1332,7 +1322,7 @@ export default function OrdenServicioModal({
               {/* SECCIÓN: Tiempos de la orden */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                  <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tiempos de la orden</h4>
@@ -1403,7 +1393,7 @@ export default function OrdenServicioModal({
               {/* SECCIÓN: Descripción de la Orden */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                  <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Descripción de la Orden</h4>
@@ -1445,7 +1435,7 @@ export default function OrdenServicioModal({
                       {formData.servicios_realizados.map((s, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-md text-xs"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-[#fff3e8] dark:bg-[#ff801f]/15 text-[#9a3412] dark:text-[#fdba74] rounded-md text-xs"
                         >
                           {s}
                           <button
@@ -1456,7 +1446,7 @@ export default function OrdenServicioModal({
                                 servicios_realizados: formData.servicios_realizados.filter((_, idx) => idx !== i),
                               })
                             }
-                            className="hover:text-brand-900"
+                            className="hover:text-[#7c2d12]"
                           >
                             ×
                           </button>
@@ -1493,7 +1483,7 @@ export default function OrdenServicioModal({
               {/* SECCIÓN 3: Firmas y Archivos */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                  <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path
                       d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
                       strokeLinecap="round"
@@ -1524,10 +1514,10 @@ export default function OrdenServicioModal({
                   </div>
 
                   {/* Subida de Fotos - Dropzone con dz-message */}
-                  <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-brand-500 dark:border-gray-700 rounded-lg hover:border-brand-500">
+                  <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-[#ff801f] dark:border-gray-700 rounded-lg hover:border-[#ff801f]">
                     <div
                       {...getRootProps()}
-                      className={`dropzone rounded-lg border-dashed border-gray-300 p-4 sm:p-5 ${isDragActive ? "border-brand-500 bg-gray-100 dark:bg-gray-800" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+                      className={`dropzone rounded-lg border-dashed border-gray-300 p-4 sm:p-5 ${isDragActive ? "border-[#ff801f] bg-gray-100 dark:bg-gray-800" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
                         }`}
                       id="fotos-upload-levantamiento"
                       role="button"
@@ -1559,7 +1549,7 @@ export default function OrdenServicioModal({
                           Formatos: PNG, JPG, WebP o SVG
                         </span>
 
-                        <span className="font-medium underline text-[12px] text-brand-500">
+                        <span className="font-medium underline text-[12px] text-[#ff801f]">
                           Buscar archivos
                         </span>
                       </div>
@@ -1595,74 +1585,16 @@ export default function OrdenServicioModal({
                     </div>
                   )}
 
-                  {/* Modal Confirmación eliminar foto (type="button" evita submit del formulario padre) */}
-                  <Modal
-                    isOpen={confirmDelete.open}
-                    onClose={() => {
-                      if (!deletingPhoto) setConfirmDelete({ open: false, index: null, url: null });
+                  <OrdenPhotoDeleteModal
+                    open={confirmDelete.open}
+                    deleting={deletingPhoto}
+                    onCancel={() => setConfirmDelete({ open: false, index: null, url: null })}
+                    onConfirm={() => {
+                      if (confirmDelete.index != null && confirmDelete.url) {
+                        void handleDeletePhoto(confirmDelete.index, confirmDelete.url);
+                      }
                     }}
-                    closeOnBackdropClick={false}
-                    showCloseButton={!deletingPhoto}
-                    className="max-w-sm p-6 z-[100000]"
-                  >
-                    <div className="flex flex-col gap-4">
-                      <div className="text-center">
-                        <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30">
-                          {deletingPhoto ? (
-                            <svg className="h-7 w-7 animate-spin text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" aria-hidden>
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                          ) : (
-                            <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                        <h5 className="mt-4 font-semibold text-gray-800 text-theme-lg dark:text-white/90">
-                          {deletingPhoto ? "Eliminando imagen…" : "Confirmar eliminación"}
-                        </h5>
-                        <p className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                          {deletingPhoto
-                            ? "Por favor espera; esto puede tardar unos segundos."
-                            : "Esta acción no se puede deshacer. ¿Eliminar la imagen seleccionada?"}
-                        </p>
-                      </div>
-                      <div className="flex justify-center gap-3 pt-2">
-                        <button
-                          type="button"
-                          disabled={deletingPhoto}
-                          onClick={() => setConfirmDelete({ open: false, index: null, url: null })}
-                          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={deletingPhoto}
-                          onClick={() => {
-                            if (confirmDelete.index != null && confirmDelete.url) {
-                              void handleDeletePhoto(confirmDelete.index, confirmDelete.url);
-                            }
-                          }}
-                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                          {deletingPhoto && (
-                            <svg className="h-4 w-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden>
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                          )}
-                          {deletingPhoto ? "Eliminando…" : "Eliminar"}
-                        </button>
-                      </div>
-                    </div>
-                  </Modal>
+                  />
                 </div>
               </div>
             </>
@@ -1684,61 +1616,32 @@ export default function OrdenServicioModal({
             </>
           )}
 
-          {/* Footer Buttons (igual que OrdenesPage) */}
-          <div className="flex flex-col sm:flex-row justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={handleCloseModal}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
-              </svg>
-              Cancelar
-            </button>
-            {activeTab === "cliente" ? (
-              <button
-                key="cliente-next"
-                type="button"
-                disabled={isSaving}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setActiveTab("orden");
-                  requestAnimationFrame(() => {
-                    formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-                  });
-                }}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Siguiente
-              </button>
-            ) : (
-              <button
-                key="orden-submit"
-                type="submit"
-                disabled={isSaving}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isSaving ? (
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                    <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-                {isSaving ? "Guardando..." : orden?.id ? "Actualizar" : "Guardar"}
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
+        </div>
+        <div className={erpModalFooterClass}>
+          <OrdenModalFooterActions
+            onCancel={handleCloseModal}
+            primary={
+              activeTab === "cliente" ? (
+                <OrdenModalPrimaryButton
+                  disabled={isSaving}
+                  onClick={() => {
+                    setActiveTab("orden");
+                    requestAnimationFrame(() => {
+                      formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+                    });
+                  }}
+                >
+                  Siguiente
+                </OrdenModalPrimaryButton>
+              ) : (
+                <OrdenModalPrimaryButton type="submit" disabled={isSaving}>
+                  {isSaving ? "Guardando…" : orden?.id ? "Actualizar" : "Guardar"}
+                </OrdenModalPrimaryButton>
+              )
+            }
+          />
+        </div>
+      </form>
     </Modal>
 
       {/* Modal Mapa Interactivo (igual que OrdenesPage; id de contenedor único) */}
@@ -1792,7 +1695,7 @@ export default function OrdenServicioModal({
                           });
                         }
                       }}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
                     />
                   </div>
                   <div>
@@ -1809,7 +1712,7 @@ export default function OrdenServicioModal({
                           });
                         }
                       }}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
                     />
                   </div>
                 </div>
@@ -1891,7 +1794,7 @@ export default function OrdenServicioModal({
                 setShowMapModal(false);
                 setSelectedLocation(null);
               }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-[#ff801f] text-white hover:bg-[#ff6a00] focus:ring-2 focus:ring-[#ff801f]/30"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />

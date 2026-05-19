@@ -3,11 +3,20 @@ import { ApexOptions } from "apexcharts";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { MoreDotIcon } from "../../icons";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { apiUrl } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 
 export default function MonthlySalesChart() {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const [seriesData, setSeriesData] = useState<number[]>(Array(12).fill(0));
+  const [loading, setLoading] = useState(false);
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+
   const options: ApexOptions = {
-    colors: ["#465fff"],
+    colors: ["#ea580c"],
     chart: {
       fontFamily: "Outfit, sans-serif",
       type: "bar",
@@ -87,11 +96,43 @@ export default function MonthlySalesChart() {
   };
   const series = [
     {
-      name: "Sales",
-      data: [168, 385, 201, 298, 187, 195, 291, 110, 215, 390, 280, 112],
+      name: "Ordenes",
+      data: seriesData,
     },
   ];
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(apiUrl("/api/ordenes/"), {
+          method: "GET",
+          cache: "no-store" as RequestCache,
+        });
+        const data = await res.json().catch(() => null);
+        const list = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+        const buckets = Array(12).fill(0);
+        for (const item of list) {
+          const raw = item?.fecha_creacion || item?.fecha_inicio || item?.created_at;
+          if (!raw) continue;
+          const d = new Date(String(raw));
+          if (Number.isNaN(d.getTime())) continue;
+          if (d.getFullYear() !== currentYear) continue;
+          buckets[d.getMonth()] += 1;
+        }
+        setSeriesData(buckets);
+      } catch {
+        setSeriesData(Array(12).fill(0));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [currentYear]);
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -101,14 +142,31 @@ export default function MonthlySalesChart() {
     setIsOpen(false);
   }
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate("/ordenes")}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          navigate("/ordenes");
+        }
+      }}
+      className="overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa]/95 px-5 pt-5 shadow-[0_20px_40px_-34px_rgba(28,25,23,0.28)] transition-colors hover:bg-[#fff7ed] dark:border-[#273244] dark:bg-[#0f172a]/70 dark:hover:bg-[#132033] sm:px-6 sm:pt-6"
+    >
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-          Monthly Sales
+        <h3 className="text-lg font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+          Ordenes de trabajo por mes
         </h3>
         <div className="relative inline-block">
-          <button className="dropdown-toggle" onClick={toggleDropdown}>
-            <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
+          <button
+            className="dropdown-toggle"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleDropdown();
+            }}
+          >
+            <MoreDotIcon className="size-6 text-[#9a8b7b] hover:text-[#1c1917] dark:text-[#8ea0b8] dark:hover:text-[#f8fafc]" />
           </button>
           <Dropdown
             isOpen={isOpen}
@@ -116,20 +174,28 @@ export default function MonthlySalesChart() {
             className="w-40 p-2"
           >
             <DropdownItem
-              onItemClick={closeDropdown}
+              onItemClick={() => {
+                closeDropdown();
+                navigate("/cotizacion");
+              }}
               className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
-              View More
+              Ver detalle
             </DropdownItem>
             <DropdownItem
-              onItemClick={closeDropdown}
+              onItemClick={() => {
+                closeDropdown();
+              }}
               className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
-              Delete
+              Cerrar
             </DropdownItem>
           </Dropdown>
         </div>
       </div>
+      <p className="mb-2 text-xs text-[#7a6b5b] dark:text-[#8ea0b8]">
+        {loading ? "Cargando ordenes..." : `Año ${currentYear}`}
+      </p>
 
       <div className="max-w-full overflow-x-auto custom-scrollbar">
         <div className="-ml-5 min-w-[650px] xl:min-w-full pl-2">

@@ -1,59 +1,35 @@
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  BoxIconLine,
-  GroupIcon,
-} from "../../icons";
-import Badge from "../ui/badge/Badge";
+import { BoxIconLine, FileIcon } from "../../icons";
+import type { useDashboardStats } from "./useDashboardStats";
 
-export default function EcommerceMetrics() {
+type Props = Pick<ReturnType<typeof useDashboardStats>, "loading" | "mesActual">;
+
+export default function EcommerceMetrics({ loading, mesActual }: Props) {
+  const cotizaciones = loading ? "-" : mesActual.cotizacionesMes.toLocaleString("es-MX");
+  const ordenes = loading ? "-" : mesActual.ordenesMes.toLocaleString("es-MX");
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
-      {/* <!-- Metric Item Start --> */}
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3 md:p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
-          <GroupIcon className="text-gray-800 size-6 dark:text-white/90" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-500/15">
+          <FileIcon className="size-6 text-brand-600 dark:text-brand-400" />
         </div>
-
-        <div className="flex items-end justify-between mt-5">
-          <div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Customers
-            </span>
-            <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              3,782
-            </h4>
-          </div>
-          <Badge color="success">
-            <ArrowUpIcon />
-            11.01%
-          </Badge>
+        <div className="mt-5">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Cotizaciones del mes</span>
+          <p className="mt-0.5 text-xs capitalize text-gray-400 dark:text-gray-500">{mesActual.monthLabel}</p>
+          <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">{cotizaciones}</h4>
         </div>
       </div>
-      {/* <!-- Metric Item End --> */}
 
-      {/* <!-- Metric Item Start --> */}
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3 md:p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
-          <BoxIconLine className="text-gray-800 size-6 dark:text-white/90" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
+          <BoxIconLine className="size-6 text-gray-800 dark:text-white/90" />
         </div>
-        <div className="flex items-end justify-between mt-5">
-          <div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Orders
-            </span>
-            <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              5,359
-            </h4>
-          </div>
-
-          <Badge color="error">
-            <ArrowDownIcon />
-            9.05%
-          </Badge>
+        <div className="mt-5">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Órdenes del mes</span>
+          <p className="mt-0.5 text-xs capitalize text-gray-400 dark:text-gray-500">{mesActual.monthLabel}</p>
+          <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">{ordenes}</h4>
         </div>
       </div>
-      {/* <!-- Metric Item End --> */}
     </div>
   );
 }

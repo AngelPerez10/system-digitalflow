@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
-import { apiUrl, apiUrlWithCrossOriginAccessToken } from "@/config/api";
+import { fetchApi } from "@/config/api";
 import { TrashBinIcon } from "@/icons";
 import DatePicker from "@/components/form/date-picker";
 
@@ -38,17 +39,6 @@ type ReporteSemanal = {
   ordenes: OrdenResumen[];
   total_ordenes: number;
   fecha_creacion: string;
-};
-
-const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token") || "";
-
-const getPermissionsFromStorage = () => {
-  try {
-    const raw = localStorage.getItem("permissions") || sessionStorage.getItem("permissions");
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
 };
 
 type CuentaTecnico = { id: number; nombre: string; username?: string };
@@ -167,10 +157,8 @@ function PdfDocGlyph({ className }: { className?: string }) {
 }
 
 export default function ReportesPage() {
-  const role = (localStorage.getItem("role") || sessionStorage.getItem("role") || "").toLowerCase();
-  const isAdmin = role === "admin";
+  const { permissions, isAdmin } = useAuth();
 
-  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
   const canReportesView = permissions?.reportes?.view !== false;
   const canReportesCreate = !!permissions?.reportes?.create;
   const canReportesDelete = !!permissions?.reportes?.delete;
@@ -204,25 +192,11 @@ export default function ReportesPage() {
   }, []);
 
   useEffect(() => {
-    const sync = () => setPermissions(getPermissionsFromStorage());
-    window.addEventListener("storage", sync);
-    window.addEventListener("permissions:updated", sync);
-    return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("permissions:updated", sync);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!isAdmin || !canReportesCreate) return;
-    const token = getToken();
-    if (!token) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(apiUrl("/api/ordenes/reportes-tecnico-opciones/"), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetchApi("/api/ordenes/reportes-tecnico-opciones/");
         const data = await res.json().catch(() => []);
         if (cancelled) return;
         if (!res.ok) {
@@ -242,16 +216,11 @@ export default function ReportesPage() {
   }, [isAdmin, canReportesCreate]);
 
   const fetchReportes = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
-    const p = getPermissionsFromStorage();
-    if (p?.reportes?.view === false) return;
+    if (permissions?.reportes?.view === false) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(apiUrl("/api/ordenes/reportes-semanales/"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetchApi("/api/ordenes/reportes-semanales/");
       const data = await res.json().catch(() => []);
       if (!res.ok) throw new Error((data as any)?.detail || "No se pudieron cargar los reportes.");
       setReportes(Array.isArray(data) ? (data as ReporteSemanal[]) : []);
@@ -260,7 +229,7 @@ export default function ReportesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [permissions]);
 
   useEffect(() => {
     fetchReportes();
@@ -282,8 +251,6 @@ export default function ReportesPage() {
   }, [pdfGeneratingId]);
 
   const handleCrearReporte = async () => {
-    const token = getToken();
-    if (!token) return;
     if (!canReportesCreate) return;
     const desdeIso = isAdmin ? adminRangoDesde : weekFrom;
     const hastaIso = isAdmin ? adminRangoHasta : weekTo;
@@ -308,12 +275,9 @@ export default function ReportesPage() {
       const body: Record<string, unknown> = isAdmin
         ? { semana_inicio: desdeIso, semana_fin: hastaIso, tecnico_id: adminTecnicoId }
         : { semana_fin: weekTo };
-      const res = await fetch(apiUrl("/api/ordenes/reportes-semanales/"), {
+      const res = await fetchApi("/api/ordenes/reportes-semanales/", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
@@ -329,13 +293,9 @@ export default function ReportesPage() {
   };
 
   const downloadReportePdf = async (reporteId: number, meta?: ReporteSemanal) => {
-    const token = getToken();
-    if (!token) return;
     setError(null);
     try {
-      const res = await fetch(apiUrlWithCrossOriginAccessToken(`/api/ordenes/reportes-semanales/${reporteId}/pdf/`, token), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetchApi(`/api/ordenes/reportes-semanales/${reporteId}/pdf/`);
       const contentType = res.headers.get("content-type") || "";
       const fallbackName = meta
         ? buildReporteSemanalPdfFilename(meta)
@@ -388,15 +348,12 @@ export default function ReportesPage() {
   const handleConfirmDeleteModal = async () => {
     if (!reporteDeleteModal || !canReportesDelete) return;
     const reporteId = reporteDeleteModal.id;
-    const token = getToken();
-    if (!token) return;
     setBusy({ id: reporteId, action: "delete" });
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(apiUrl(`/api/ordenes/reportes-semanales/${reporteId}/`), {
+      const res = await fetchApi(`/api/ordenes/reportes-semanales/${reporteId}/`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));

@@ -7,6 +7,103 @@ layer(base);
 
 @custom-variant dark (&:is(.dark *));
 
+/* =========================================================================
+   Accessibility
+   ========================================================================= */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.visually-hidden:not(:focus):not(:active) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Focus visible — only show focus ring for keyboard users, not mouse clicks */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid #b85c43;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Scroll margin for sticky header — prevents focus targets from being hidden */
+[id] {
+  scroll-margin-top: 80px;
+}
+
+:target {
+  scroll-margin-top: 80px;
+}
+
+/* Minimum target size for interactive elements (WCAG 2.2 2.5.8) */
+button,
+[role="button"],
+input[type="checkbox"] + label,
+input[type="radio"] + label,
+select,
+a[href]:not([tabindex="-1"]) {
+  min-height: 24px;
+  min-width: 24px;
+}
+
+/* System dark mode preference */
+@media (prefers-color-scheme: dark) {
+  html:not(.light) {
+    color-scheme: dark;
+  }
+}
+
+/* Alert animations */
+@keyframes alertSlideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes alertFadeOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.animate-in {
+  animation: alertSlideIn 0.3s ease-out;
+}
+
+.animate-out {
+  animation: alertFadeOut 0.3s ease-in;
+}
+
 @theme {
   --font-*: initial;
   --font-outfit: Outfit, sans-serif;
@@ -176,43 +273,49 @@ layer(base);
   color utility to any element that depends on these defaults.
 */
 @layer base {
-  html {
-    zoom: 90%;
-  }
   *,
   ::after,
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentColor);
+    border-color: rgba(214, 235, 253, 0.19);
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+  html {
+    zoom: 0.9;
+    min-height: 100dvh;
+    /* Misma base que AppLayout / auth: evita franja negra si hay hueco bajo el contenido */
+    background-color: var(--background);
+  }
   body {
-    @apply relative font-normal font-outfit z-1 bg-gray-50;
+    @apply relative z-1 min-h-dvh font-normal font-outfit bg-background text-foreground transition-colors duration-200;
+  }
+  #root {
+    @apply min-h-dvh bg-background;
   }
 }
 
 @utility menu-item {
-  @apply relative flex items-center w-full gap-3 px-3 py-2 font-medium rounded-lg text-theme-sm;
+  @apply relative flex items-center w-full gap-3 px-3 py-2 font-medium rounded-xl text-theme-sm;
 }
 
 @utility menu-item-active {
-  @apply bg-brand-50 text-brand-500 dark:bg-brand-500/[0.12] dark:text-brand-400;
+  @apply border border-[#eadfce] bg-[#fffdfa] text-[#1c1917] shadow-sm dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f8fafc] dark:shadow-none;
 }
 
 @utility menu-item-inactive {
-  @apply text-gray-700 hover:bg-gray-100 group-hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-300;
+  @apply text-[#6b5d4d] hover:bg-[#f3ece1] group-hover:text-[#1c1917] dark:text-[#8ea0b8] dark:hover:bg-[#111a2b] dark:group-hover:text-[#f8fafc];
 }
 
 @utility menu-item-icon {
-  @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400;
+  @apply text-gray-500 group-hover:text-black dark:text-[#a1a4a5] dark:group-hover:text-[#f0f0f0];
 }
 
 @utility menu-item-icon-active {
-  @apply text-brand-500 dark:text-brand-400;
+  @apply text-[#ea580c] dark:text-[#fb923c];
 }
 
 @utility menu-item-icon-size {
@@ -222,7 +325,7 @@ layer(base);
 }
 
 @utility menu-item-icon-inactive {
-  @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300;
+  @apply text-[#8b7b69] group-hover:text-[#1c1917] dark:text-[#8ea0b8] dark:group-hover:text-[#f8fafc];
 }
 
 @utility menu-item-arrow {
@@ -230,36 +333,52 @@ layer(base);
 }
 
 @utility menu-item-arrow-active {
-  @apply rotate-180 text-brand-500 dark:text-brand-400;
+  @apply rotate-180 text-[#ea580c] dark:text-[#fb923c];
 }
 
 @utility menu-item-arrow-inactive {
-  @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300;
+  @apply text-[#8b7b69] group-hover:text-[#1c1917] dark:text-[#8ea0b8] dark:group-hover:text-[#f8fafc];
 }
 
 @utility menu-dropdown-item {
-  @apply relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm font-medium;
+  @apply relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-theme-sm font-medium;
 }
 
 @utility menu-dropdown-item-active {
-  @apply bg-brand-50 text-brand-500 dark:bg-brand-500/[0.12] dark:text-brand-400;
+  @apply border border-[#eadfce] bg-[#fffdfa] text-[#1c1917] shadow-sm dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f8fafc] dark:shadow-none;
 }
 
 @utility menu-dropdown-item-inactive {
-  @apply text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5;
+  @apply text-[#6b5d4d] hover:bg-[#f3ece1] hover:text-[#1c1917] dark:text-[#8ea0b8] dark:hover:bg-[#111a2b] dark:hover:text-[#f8fafc];
 }
 
 @utility menu-dropdown-badge {
-  @apply block rounded-full px-2.5 py-0.5 text-xs font-medium uppercase text-brand-500 dark:text-brand-400;
+  @apply block rounded-full px-2.5 py-0.5 text-xs font-medium uppercase text-[#ea580c] dark:text-[#fb923c];
 }
 
 @utility menu-dropdown-badge-active {
-  @apply bg-brand-100 dark:bg-brand-500/20;
+  @apply bg-[#0075ff]/25;
 }
 
 @utility menu-dropdown-badge-inactive {
-  @apply bg-brand-50 group-hover:bg-brand-100 dark:bg-brand-500/15 dark:group-hover:bg-brand-500/20;
+  @apply bg-[#0075ff]/15 group-hover:bg-[#0075ff]/25;
 }
+
+/* Contenedor de páginas ERP (Clientes, Cotizaciones, Órdenes, Tareas, etc.) */
+@layer components {
+  .app-page-canvas {
+    @apply min-h-[calc(100vh-5rem)] min-h-[calc(100dvh-5rem)] bg-[#f9f7f3] text-[#1c1917] dark:bg-[#0f172a] dark:text-[#f8fafc];
+  }
+
+  .app-page-inner {
+    @apply mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)];
+  }
+
+  .app-page-inner-tight {
+    @apply mx-auto w-full max-w-[min(100%,1920px)] space-y-6 px-3 pb-10 pt-6 text-sm sm:space-y-7 sm:px-5 sm:pb-12 sm:pt-7 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)];
+  }
+}
+
 @utility no-scrollbar {
   /* Chrome, Safari and Opera */
   &::-webkit-scrollbar {
@@ -382,12 +501,12 @@ layer(base);
   @apply w-full;
 }
 .flatpickr-calendar {
-  @apply mt-2 !bg-white !rounded-xl !p-5 !border !border-gray-200 !text-gray-500 dark:!bg-gray-dark dark:!border-gray-700 dark:!text-gray-400 dark:!shadow-theme-xl 2xsm:!w-auto;
+  @apply mt-2 !bg-white !rounded-xl !p-5 !border !border-gray-200 !text-gray-500 dark:!bg-[#000000] dark:!border-[#d6ebfd]/20 dark:!text-gray-300 dark:!shadow-theme-xl 2xsm:!w-auto;
 }
 
 .flatpickr-months .flatpickr-prev-month:hover svg,
 .flatpickr-months .flatpickr-next-month:hover svg {
-  @apply stroke-brand-500;
+  @apply stroke-[#ff801f];
 }
 .flatpickr-calendar.arrowTop:before,
 .flatpickr-calendar.arrowTop:after {
@@ -416,7 +535,7 @@ layer(base);
 }
 
 .flatpickr-day {
-  @apply !flex !items-center !text-theme-sm !font-medium !text-gray-800 dark:!text-white/90 dark:hover:!border-gray-300 dark:hover:!bg-gray-900;
+  @apply !flex !items-center !text-theme-sm !font-medium !text-gray-800 dark:!text-white/90 dark:hover:!border-[#d6ebfd]/20 dark:hover:!bg-[#000000];
 }
 .flatpickr-day.nextMonthDay,
 .flatpickr-day.prevMonthDay {
@@ -479,7 +598,7 @@ span.flatpickr-weekday,
 .flatpickr-day:focus,
 .flatpickr-day.prevMonthDay:focus,
 .flatpickr-day.nextMonthDay:focus {
-  @apply !border-gray-50 !bg-gray-50 dark:!border-0 dark:!border-white/5 dark:!bg-white/5;
+  @apply !border-gray-50 !bg-gray-50 dark:!border-0 dark:!border-[#d6ebfd]/20 dark:!bg-[#000000];
 }
 .flatpickr-day.selected,
 .flatpickr-day.startRange,
@@ -505,13 +624,13 @@ span.flatpickr-weekday,
 .flatpickr-day.selected.nextMonthDay,
 .flatpickr-day.startRange.nextMonthDay,
 .flatpickr-day.endRange.nextMonthDay {
-  background: #465fff;
-  @apply !border-brand-500 !bg-brand-500 hover:!border-brand-500 hover:!bg-brand-500;
+  background: #ff801f;
+  @apply !border-[#ff801f] !bg-[#ff801f] hover:!border-[#ff6a00] hover:!bg-[#ff6a00];
 }
 .flatpickr-day.selected.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.startRange.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.endRange.startRange + .endRange:not(:nth-child(7n + 1)) {
-  box-shadow: -10px 0 0 #465fff;
+  box-shadow: -10px 0 0 #ff801f;
 }
 
 .flatpickr-months .flatpickr-prev-month svg,
@@ -816,37 +935,47 @@ span.flatpickr-weekday,
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.13 0.028 261.692);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.028 261.692);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.028 261.692);
-  --primary: oklch(0.21 0.034 264.665);
-  --primary-foreground: oklch(0.985 0.002 247.839);
-  --secondary: oklch(0.967 0.003 264.542);
-  --secondary-foreground: oklch(0.21 0.034 264.665);
-  --muted: oklch(0.967 0.003 264.542);
-  --muted-foreground: oklch(0.551 0.027 264.364);
-  --accent: oklch(0.967 0.003 264.542);
-  --accent-foreground: oklch(0.21 0.034 264.665);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.928 0.006 264.531);
-  --input: oklch(0.928 0.006 264.531);
-  --ring: oklch(0.707 0.022 261.325);
+  /* Sistema Intrax — misma paleta que sidebar / AppLayout */
+  --sn-canvas: #f9f7f3;
+  --sn-canvas-elevated: #fffdfa;
+  --sn-canvas-muted: #fcfaf6;
+  --sn-ink: #1c1917;
+  --sn-ink-muted: #57534e;
+  --sn-ink-subtle: #78716c;
+  --sn-border: #e7ded0;
+  --sn-border-soft: #e2d9ca;
+  --sn-accent: #ff801f;
+  --background: var(--sn-canvas);
+  --foreground: var(--sn-ink);
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #3b9eff;
+  --primary-foreground: #000000;
+  --secondary: #f1f1f1;
+  --secondary-foreground: #111111;
+  --muted: #efefef;
+  --muted-foreground: #666666;
+  --accent: #ececec;
+  --accent-foreground: #111111;
+  --destructive: #ff2047;
+  --border: #e0e4ea;
+  --input: #e0e4ea;
+  --ring: #3b9eff;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0.002 247.839);
-  --sidebar-foreground: oklch(0.13 0.028 261.692);
-  --sidebar-primary: oklch(0.21 0.034 264.665);
-  --sidebar-primary-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-accent: oklch(0.967 0.003 264.542);
-  --sidebar-accent-foreground: oklch(0.21 0.034 264.665);
-  --sidebar-border: oklch(0.928 0.006 264.531);
-  --sidebar-ring: oklch(0.707 0.022 261.325);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #3b9eff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #f5f7fa;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: #e0e4ea;
+  --sidebar-ring: #3b9eff;
 }
 
 /*
@@ -854,37 +983,45 @@ span.flatpickr-weekday,
 */
 
 .dark {
-  --background: oklch(0.13 0.028 261.692);
-  --foreground: oklch(0.985 0.002 247.839);
-  --card: oklch(0.21 0.034 264.665);
-  --card-foreground: oklch(0.985 0.002 247.839);
-  --popover: oklch(0.21 0.034 264.665);
-  --popover-foreground: oklch(0.985 0.002 247.839);
-  --primary: oklch(0.928 0.006 264.531);
-  --primary-foreground: oklch(0.21 0.034 264.665);
-  --secondary: oklch(0.278 0.033 256.848);
-  --secondary-foreground: oklch(0.985 0.002 247.839);
-  --muted: oklch(0.278 0.033 256.848);
-  --muted-foreground: oklch(0.707 0.022 261.325);
-  --accent: oklch(0.278 0.033 256.848);
-  --accent-foreground: oklch(0.985 0.002 247.839);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
+  --sn-canvas: #0f172a;
+  --sn-canvas-elevated: #111827;
+  --sn-canvas-muted: #111a2b;
+  --sn-ink: #f8fafc;
+  --sn-ink-muted: #aeb8c8;
+  --sn-ink-subtle: #8ea0b8;
+  --sn-border: #273244;
+  --sn-border-soft: #334155;
+  --background: var(--sn-canvas);
+  --foreground: var(--sn-ink);
+  --card: #111827;
+  --card-foreground: #f0f0f0;
+  --popover: #111827;
+  --popover-foreground: #f0f0f0;
+  --primary: #3b9eff;
+  --primary-foreground: #000000;
+  --secondary: rgba(255, 255, 255, 0.08);
+  --secondary-foreground: #f0f0f0;
+  --muted: rgba(255, 255, 255, 0.06);
+  --muted-foreground: #a1a4a5;
+  --accent: rgba(255, 255, 255, 0.1);
+  --accent-foreground: #f0f0f0;
+  --destructive: #ff2047;
+  --border: rgba(214, 235, 253, 0.19);
+  --input: rgba(214, 235, 253, 0.19);
+  --ring: #3b9eff;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.034 264.665);
-  --sidebar-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-accent: oklch(0.278 0.033 256.848);
-  --sidebar-accent-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --sidebar: #0f172a;
+  --sidebar-foreground: #f0f0f0;
+  --sidebar-primary: #3b9eff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #f0f0f0;
+  --sidebar-border: rgba(214, 235, 253, 0.19);
+  --sidebar-ring: #3b9eff;
 }
 
 /*
@@ -897,5 +1034,23 @@ span.flatpickr-weekday,
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Respect reduced motion preference (WCAG 2.2 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :focus-visible {
+    transition: outline-offset 0.2s ease;
   }
 }

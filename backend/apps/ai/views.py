@@ -2,6 +2,7 @@ import json
 import os
 import http.client
 import time
+import logging
 from urllib.parse import urlparse
 
 from django.http import StreamingHttpResponse
@@ -9,6 +10,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+
+logger = logging.getLogger(__name__)
 
 
 def _get_ai_config():
@@ -67,11 +70,11 @@ def chat(request):
                 try:
                     upstream.read()
                 except Exception:
-                    pass
+                    logger.exception("Failed to read upstream response during retry cleanup")
                 try:
                     conn.close()
                 except Exception:
-                    pass
+                    logger.exception("Failed to close connection during retry cleanup")
                 time.sleep(upstream_retry_backoff_s * (2 ** attempt))
                 continue
 
@@ -83,28 +86,29 @@ def chat(request):
         except TimeoutError as exc:
             last_exc = exc
             if attempt >= upstream_retries:
-                return Response({'detail': 'Upstream AI API timeout', 'error': str(exc)}, status=status.HTTP_504_GATEWAY_TIMEOUT)
+                return Response({'detail': 'El servicio de IA no responde. Intente de nuevo en unos minutos.'}, status=status.HTTP_504_GATEWAY_TIMEOUT)
             time.sleep(upstream_retry_backoff_s * (2 ** attempt))
             continue
         except OSError as exc:
             last_exc = exc
             if attempt >= upstream_retries:
-                return Response({'detail': 'Upstream AI API unreachable', 'error': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+                return Response({'detail': 'No se pudo conectar al servicio de IA.'}, status=status.HTTP_502_BAD_GATEWAY)
             time.sleep(upstream_retry_backoff_s * (2 ** attempt))
             continue
 
     if upstream is None or conn is None:
-        return Response({'detail': 'Upstream AI API failed', 'error': str(last_exc) if last_exc else ''}, status=status.HTTP_502_BAD_GATEWAY)
+        return Response({'detail': 'No se pudo conectar al servicio de IA.'}, status=status.HTTP_502_BAD_GATEWAY)
 
     if upstream.status >= 400:
         try:
             detail = upstream.read().decode('utf-8', errors='ignore')
         except Exception:
+            logger.exception("Failed to read upstream error response body")
             detail = ''
         try:
             conn.close()
         except Exception:
-            pass
+            logger.exception("Failed to close connection after upstream error")
         return Response(
             {'detail': 'Upstream AI API error', 'status': upstream.status, 'reason': getattr(upstream, 'reason', ''), 'body': detail},
             status=status.HTTP_502_BAD_GATEWAY,
@@ -124,10 +128,10 @@ def chat(request):
                 try:
                     upstream.close()
                 except Exception:
-                    pass
+                    logger.exception("Failed to close upstream connection in stream cleanup")
                 conn.close()
             except Exception:
-                pass
+                logger.exception("Failed to close HTTP connection in stream cleanup")
 
     resp = StreamingHttpResponse(stream(), content_type='text/event-stream; charset=utf-8')
     resp['Cache-Control'] = 'no-cache'

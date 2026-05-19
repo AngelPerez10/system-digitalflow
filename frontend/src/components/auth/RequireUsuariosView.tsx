@@ -1,43 +1,30 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
-function asBool(v: unknown, defaultValue: boolean): boolean {
-  if (typeof v === "boolean") return v;
-  if (typeof v === "string") {
-    const s = v.trim().toLowerCase();
-    if (s === "true") return true;
-    if (s === "false") return false;
-  }
-  return defaultValue;
-}
-
-function getPermissions(): Record<string, unknown> {
-  try {
-    const raw = localStorage.getItem("permissions") || sessionStorage.getItem("permissions");
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-/** Exige permiso granular `usuarios.view` (además de RequireAdmin en la ruta). */
 export default function RequireUsuariosView({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
+  const { permissions, isAdmin, loading } = useAuth();
 
-  const token =
-    localStorage.getItem("auth_token") ||
-    sessionStorage.getItem("auth_token") ||
-    localStorage.getItem("token") ||
-    sessionStorage.getItem("token");
-  if (!token) {
-    return <Navigate to="/signin" state={{ from: location }} replace />;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8" role="status" aria-live="polite" aria-busy="true">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600 dark:border-gray-700 dark:border-t-brand-400" aria-label="Verificando permisos..." />
+      </div>
+    );
   }
 
-  const p = getPermissions();
-  const u = (p?.usuarios || {}) as Record<string, unknown>;
-  const canView = asBool(u?.view, true);
+  if (isAdmin) {
+    return <>{children}</>;
+  }
+
+  const usuarios = (permissions as Record<string, unknown>)?.usuarios ?? {};
+  const userPerms = usuarios as { view?: boolean };
+  const canView = userPerms.view !== false;
 
   if (!canView) {
-    return <Navigate to="/" replace />;
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <p className="text-red-600 dark:text-red-400 font-semibold" role="alert">Acceso denegado</p>
+      </div>
+    );
   }
 
   return <>{children}</>;

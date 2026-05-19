@@ -1,25 +1,6 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 type CotizacionPerm = "view" | "create" | "edit";
-
-function asBool(v: unknown, defaultValue: boolean): boolean {
-  if (typeof v === "boolean") return v;
-  if (typeof v === "string") {
-    const s = v.trim().toLowerCase();
-    if (s === "true") return true;
-    if (s === "false") return false;
-  }
-  return defaultValue;
-}
-
-function getPermissions(): Record<string, unknown> {
-  try {
-    const raw = localStorage.getItem("permissions") || sessionStorage.getItem("permissions");
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
 
 export default function RequireCotizacionPermission({
   children,
@@ -28,38 +9,35 @@ export default function RequireCotizacionPermission({
   children: React.ReactNode;
   required: CotizacionPerm;
 }) {
-  const location = useLocation();
+  const { permissions, isAdmin, loading } = useAuth();
 
-  const token =
-    localStorage.getItem("auth_token") ||
-    sessionStorage.getItem("auth_token") ||
-    localStorage.getItem("token") ||
-    sessionStorage.getItem("token");
-  if (!token) {
-    return <Navigate to="/signin" state={{ from: location }} replace />;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8" role="status" aria-live="polite" aria-busy="true">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600 dark:border-gray-700 dark:border-t-brand-400" aria-label="Verificando permisos..." />
+      </div>
+    );
   }
-
-  const role = (localStorage.getItem("role") || sessionStorage.getItem("role") || "").toLowerCase();
-  const isSuperuser =
-    (localStorage.getItem("is_superuser") || sessionStorage.getItem("is_superuser") || "").toLowerCase() === "true";
-  const isAdmin = role === "admin" || isSuperuser;
 
   if (isAdmin) {
     return <>{children}</>;
   }
 
-  const p = getPermissions();
-  const c = (p?.cotizaciones || {}) as Record<string, unknown>;
-
+  const cotizaciones = (permissions as Record<string, unknown>)?.cotizaciones ?? {};
+  const cotPerms = cotizaciones as { view?: boolean; create?: boolean; edit?: boolean };
   const allowed =
     required === "view"
-      ? asBool(c?.view, true)
+      ? cotPerms.view !== false
       : required === "create"
-        ? asBool(c?.create, false)
-        : asBool(c?.edit, false);
+        ? cotPerms.create === true
+        : cotPerms.edit === true;
 
   if (!allowed) {
-    return <Navigate to="/operador/dashboard" replace />;
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <p className="text-red-600 dark:text-red-400 font-semibold" role="alert">Acceso denegado</p>
+      </div>
+    );
   }
 
   return <>{children}</>;

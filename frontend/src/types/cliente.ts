@@ -6,6 +6,9 @@ export interface Cliente {
     telefono: string;
     fecha_creacion: string;
 
+    clave?: string;
+    representante?: string;
+    celular?: string;
     correo?: string;
     calle?: string;
     numero_exterior?: string;
@@ -30,6 +33,10 @@ export interface Cliente {
     portal_web?: string;
     nombre_facturacion?: string;
     numero_facturacion?: string;
+    idcif?: string;
+    curp_fiscal?: string;
+    regimen_fiscal?: string;
+    uso_cfdi?: string;
     domicilio_facturacion?: string;
 
     calle_envio?: string;

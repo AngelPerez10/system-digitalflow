@@ -10,19 +10,55 @@ import { useDropzone } from "react-dropzone";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
-import { apiUrl } from "@/config/api";
+import { apiUrl, fetchApi } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
+import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
+import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
 import { PencilIcon, TrashBinIcon, TimeIcon } from "@/icons";
 import { MobileOrderList } from "./MobileOrderCard";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 import LevantamientoForm from "../OrdenLevantamiento/LevantamientoForm";
+import {
+  OrdenDeleteModal,
+  OrdenFormModalHeader,
+  OrdenModalFooterActions,
+  OrdenModalPrimaryButton,
+  OrdenPhotoDeleteModal,
+  OrdenViewModal,
+} from "../OrdenTrabajoModals";
+import {
+  claudeBodyClass,
+  erpBreadcrumbLinkClass,
+  erpBreadcrumbNavClass,
+  erpFilterBtnClass,
+  erpFilterPopoverClass,
+  erpHeroBlurClass,
+  erpHeroGradientClass,
+  erpHeroHeadingClass,
+  erpHeroIconWrapClass,
+  erpModalBodyClass,
+  erpModalFooterClass,
+  erpModalFormScrollClass,
+  erpModalShellClass,
+  erpModalTabClass,
+  erpMonthNavBtnClass,
+  erpPageCanvasClass,
+  erpPageInnerClass,
+  erpPrimaryBtnClass,
+  erpRowActionBarClass,
+  erpRowActionBtnClass,
+  erpSecondaryBtnClass,
+  erpStatCardClass,
+  erpTableHeaderClass,
+  erpTableRowHoverClass,
+  erpTableWrapClass,
+  pageCardShellClass,
+  pageSearchInputClass,
+  sectionLabelOrangeClass,
+} from "../ordenTrabajoStyles";
 
-const cardShellClass =
-  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
-
-const searchInputClass =
-  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
 
 const ORDEN_BASE_MAX_FOTOS = 5;
 const FOTOS_EXTRA_OPTIONS = [0, 2, 3, 4, 5] as const;
@@ -87,7 +123,6 @@ interface Usuario {
   is_superuser?: boolean;
 }
 
-let ordenesPagePermissionsLastLoadAt = 0;
 let ordenesPageInitialDataLastLoadAt = 0;
 let ordenesPageSignatureLastLoadAt = 0;
 
@@ -95,7 +130,6 @@ const getCurrentYearMonth = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
-let ordenesPageClientesLastLoadAt = 0;
 const ORDENES_PAGE_INIT_THROTTLE_MS = 800;
 
 export default function Ordenes() {
@@ -107,25 +141,13 @@ export default function Ordenes() {
 
   const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
 
-  const getPermissionsFromStorage = () => {
-    try {
-      const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  };
-
-  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
+  const { permissions, loading: authLoading, isAuthenticated } = useAuth();
 
   const canOrdenesView = permissions?.ordenes?.view !== false;
   const canOrdenesCreate = !!permissions?.ordenes?.create;
   const canOrdenesEdit = !!permissions?.ordenes?.edit;
   const canOrdenesDelete = !!permissions?.ordenes?.delete;
 
-  const getToken = () => {
-    return localStorage.getItem("token") || sessionStorage.getItem("token");
-  };
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -170,63 +192,25 @@ export default function Ordenes() {
     }
   }, [tipoOrden]);
 
-  useEffect(() => {
-    const sync = () => setPermissions(getPermissionsFromStorage());
-    window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
-  }, []);
-
-  useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    const now = Date.now();
-    if (now - ordenesPagePermissionsLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
-    ordenesPagePermissionsLastLoadAt = now;
-    const load = async () => {
-      try {
-        const res = await fetch(apiUrl('/api/me/permissions/'), {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store' as RequestCache,
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) return;
-        const p = JSON.stringify(data?.permissions || {});
-        localStorage.setItem('permissions', p);
-        sessionStorage.setItem('permissions', p);
-        setPermissions(data?.permissions || {});
-      } catch {
-        // ignore
-      }
-    };
-    load();
-  }, []);
-
   const [mySignatureUrl, setMySignatureUrl] = useState<string>('');
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
+    if (authLoading || !isAuthenticated) return;
     const now = Date.now();
     if (now - ordenesPageSignatureLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
     ordenesPageSignatureLastLoadAt = now;
     const load = async () => {
       try {
-        const res = await fetch(apiUrl('/api/me/signature/'), {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store' as RequestCache,
-        });
+        const res = await fetchApi("/api/me/signature/", { cache: "no-store" as RequestCache });
         const data = await res.json().catch(() => null);
         if (!res.ok) return;
-        const url = data?.url || '';
-        setMySignatureUrl(url);
+        setMySignatureUrl(data?.url || "");
       } catch {
-        return;
+        /* ignore */
       }
     };
     load();
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   const formatYmdToDMY = (ymd: string | null | undefined) => {
     if (!ymd) return '-';
@@ -297,13 +281,20 @@ export default function Ordenes() {
   }, [location.search, canOrdenesCreate, navigate]);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      setOrdenes([]);
+      setLoading(false);
+      return;
+    }
     const now = Date.now();
     if (now - ordenesPageInitialDataLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
     ordenesPageInitialDataLastLoadAt = now;
     loadServiciosDisponibles();
     fetchOrdenes();
     fetchUsuarios();
-  }, []);
+    fetchClientes("");
+  }, [authLoading, isAuthenticated]);
 
   const getPublicIdFromUrl = (url: string): string | null => {
     try {
@@ -333,25 +324,22 @@ export default function Ordenes() {
 
     setDeletingPhoto(true);
     try {
-      const token = getToken();
       // Eliminar de Cloudinary
       if (publicId) {
-        await fetch(apiUrl('/api/ordenes/delete-image/'), {
+        await fetchApi('/api/ordenes/delete-image/', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ public_id: publicId }),
         });
       }
       // Si estamos editando una orden existente, actualizar solo fotos_urls en backend
       if (editingOrden && editingOrden.id) {
-        const response = await fetch(apiUrl(`/api/ordenes/${editingOrden.id}/update-photos/`), {
+        const response = await fetchApi(`/api/ordenes/${editingOrden.id}/update-photos/`, {
           method: 'PATCH',
           headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ fotos_urls: updated }),
         });
@@ -534,12 +522,10 @@ export default function Ordenes() {
         const compressed = await compressImage(file, 80, 1400, 1400);
 
         // Subir al backend (Cloudinary)
-        const token = getToken();
-        const resp = await fetch(apiUrl('/api/ordenes/upload-image/'), {
+        const resp = await fetchApi("/api/ordenes/upload-image/", {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ data_url: compressed, folder: 'ordenes/fotos' }),
         });
@@ -698,13 +684,20 @@ export default function Ordenes() {
 
   // Estados para dropdowns personalizados
   const [clienteSearch, setClienteSearch] = useState('');
+  const [debouncedClienteSearch, setDebouncedClienteSearch] = useState('');
 
   useEffect(() => {
-    const now = Date.now();
-    if (now - ordenesPageClientesLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
-    ordenesPageClientesLastLoadAt = now;
-    fetchClientes(clienteSearch);
+    const timer = setTimeout(() => setDebouncedClienteSearch(clienteSearch), 400);
+    return () => clearTimeout(timer);
   }, [clienteSearch]);
+
+  useEffect(() => {
+    fetchClientes(debouncedClienteSearch);
+  }, [debouncedClienteSearch]);
+
+  useEffect(() => {
+    if (showModal) fetchClientes(debouncedClienteSearch);
+  }, [showModal]);
 
   const [tecnicoSearch, setTecnicoSearch] = useState('');
   const [quienInstaloSearch, setQuienInstaloSearch] = useState('');
@@ -733,13 +726,8 @@ export default function Ordenes() {
     }
 
     try {
-      const token = getToken();
-      if (!token) return;
-
-      const res = await fetch(apiUrl(`/api/users/accounts/${userId}/signature/`), {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store' as RequestCache,
+      const res = await fetchApi(`/api/users/accounts/${userId}/signature/`, {
+        cache: "no-store" as RequestCache,
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) return;
@@ -763,28 +751,11 @@ export default function Ordenes() {
 
   const fetchClientes = async (search = "") => {
     try {
-      const token = getToken();
-      if (!token) return;
-
-      const query = new URLSearchParams({
-        search: search.trim(),
-        page_size: '20', // Limit results for dropdown
-      });
-
-      const response = await fetch(apiUrl(`/api/clientes/?${query.toString()}`), {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const rows = Array.isArray(data) ? data : (data.results || []);
-        setClientes(rows);
-      }
+      const rows = await fetchClientesCatalog(search, 50);
+      setClientes(rows);
     } catch (error) {
       console.error("Error al cargar clientes:", error);
+      setClientes([]);
     }
   };
 
@@ -796,17 +767,9 @@ export default function Ordenes() {
 
   const fetchUsuarios = async () => {
     try {
-      const token = getToken();
-      if (!token) return;
-
-      const commonHeaders = {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      } as HeadersInit;
-
-      let response = await fetch(apiUrl("/api/ordenes/tecnico-opciones/"), { headers: commonHeaders });
+      let response = await fetchApi("/api/ordenes/tecnico-opciones/");
       if (!response.ok) {
-        response = await fetch(apiUrl("/api/users/accounts/"), { headers: commonHeaders });
+        response = await fetchApi("/api/users/accounts/");
       }
 
       if (response.ok) {
@@ -832,17 +795,9 @@ export default function Ordenes() {
       'VENTA DE PRODUCTO',
     ];
 
-    const token = getToken();
-    if (!token) {
-      setServiciosDisponibles(fallbackServicios);
-      return;
-    }
-
     try {
-      const res = await fetch(apiUrl('/api/servicios/?page=1&page_size=500&ordering=idx'), {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store' as RequestCache,
+      const res = await fetchApi("/api/servicios/?page=1&page_size=500&ordering=idx", {
+        cache: "no-store" as RequestCache,
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -870,19 +825,8 @@ export default function Ordenes() {
         setLoading(false);
         return;
       }
-      const token = getToken();
-      if (!token) {
-        console.warn("No hay token de autenticación");
-        setOrdenes([]);
-        setLoading(false);
-        return;
-      }
 
-      const response = await fetch(apiUrl(`/api/ordenes/?_ts=${Date.now()}`), {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
+      const response = await fetchApi(`/api/ordenes/?_ts=${Date.now()}`, {
         cache: "no-store" as RequestCache,
       });
 
@@ -912,8 +856,6 @@ export default function Ordenes() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
-    const token = getToken();
-
     // Reglas: Cliente, Dirección, Teléfono, Servicios Realizados y Fecha de Inicio son requeridos
     const { ok, missing } = validateForm();
     if (!ok) {
@@ -933,9 +875,9 @@ export default function Ordenes() {
 
     try {
       setIsSaving(true);
-      const url = editingOrden
-        ? apiUrl(`/api/ordenes/${editingOrden.id}/`)
-        : apiUrl("/api/ordenes/");
+      const path = editingOrden
+        ? `/api/ordenes/${editingOrden.id}/`
+        : "/api/ordenes/";
       const method = editingOrden ? "PUT" : "POST";
 
       // Construir payload, omitiendo tecnico_asignado si es null y contacto_id (solo uso interno)
@@ -968,12 +910,9 @@ export default function Ordenes() {
       // Asegurar arreglo para servicios_realizados
       if (!Array.isArray(payload.servicios_realizados)) payload.servicios_realizados = [];
 
-      const response = await fetch(url, {
+      const response = await fetchApi(path, {
         method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -996,11 +935,9 @@ export default function Ordenes() {
           }
 
           if (Object.keys(updates).length > 0) {
-            await fetch(apiUrl(`/api/clientes/${cid}/`), {
+            await fetchApi(`/api/clientes/${cid}/`, {
               method: 'PATCH',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
+              headers: {                'Content-Type': 'application/json',
               },
               body: JSON.stringify(updates),
             }).catch(() => null);
@@ -1019,11 +956,9 @@ export default function Ordenes() {
             if (nombre) body.nombre_apellido = nombre;
             if (celular) body.celular = celular;
             if (Object.keys(body).length > 0) {
-              await fetch(apiUrl(`/api/cliente-contactos/${contactoIdToUpdate}/`), {
+              await fetchApi(`/api/cliente-contactos/${contactoIdToUpdate}/`, {
                 method: 'PATCH',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
+                headers: {                  'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(body),
               }).catch(() => null);
@@ -1046,11 +981,9 @@ export default function Ordenes() {
 
         if (tipoOrden === 'levantamiento' && savedOrden?.id && levantamientoSnapshotRef.current) {
           const snap = levantamientoSnapshotRef.current;
-          await fetch(apiUrl(`/api/ordenes/${savedOrden.id}/levantamiento/`), {
+          await fetchApi(`/api/ordenes/${savedOrden.id}/levantamiento/`, {
             method: 'PUT',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
+            headers: {              'Content-Type': 'application/json',
             },
             body: JSON.stringify({
               payload: snap.payload || {},
@@ -1128,11 +1061,9 @@ export default function Ordenes() {
                 let existingCotizacionId: number | null = null;
                 try {
                   const searchParam = encodeURIComponent(ordenMarker);
-                  const searchRes = await fetch(apiUrl(`/api/cotizaciones/?search=${searchParam}`), {
+                  const searchRes = await fetchApi(`/api/cotizaciones/?search=${searchParam}`, {
                     method: 'GET',
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                      'Content-Type': 'application/json',
+                    headers: {                      'Content-Type': 'application/json',
                     },
                     cache: 'no-store' as RequestCache,
                   });
@@ -1147,16 +1078,14 @@ export default function Ordenes() {
                 }
 
                 const isUpdate = existingCotizacionId != null;
-                const cotUrl = isUpdate
-                  ? apiUrl(`/api/cotizaciones/${existingCotizacionId}/`)
-                  : apiUrl('/api/cotizaciones/');
+                const cotPath = isUpdate
+                  ? `/api/cotizaciones/${existingCotizacionId}/`
+                  : '/api/cotizaciones/';
                 const cotMethod = isUpdate ? 'PUT' : 'POST';
 
-                const cotRes = await fetch(cotUrl, {
+                const cotRes = await fetchApi(cotPath, {
                   method: cotMethod,
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
+                  headers: {                    'Content-Type': 'application/json',
                   },
                   body: JSON.stringify(cotPayload),
                 });
@@ -1284,14 +1213,9 @@ export default function Ordenes() {
   };
 
   const handleConfirmDelete = async () => {
-    if (!ordenToDelete) return;
-
-    const token = getToken();
-    try {
-      const response = await fetch(apiUrl(`/api/ordenes/${ordenToDelete.id}/`), {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+    if (!ordenToDelete) return;    try {
+      const response = await fetchApi(`/api/ordenes/${ordenToDelete.id}/`, {
+        method: "DELETE",      });
 
       if (response.ok) {
         await fetchOrdenes();
@@ -1396,11 +1320,8 @@ export default function Ordenes() {
     const open = async () => {
       let orden: Orden | undefined = ordenes.find((o) => o.id === id);
       if (!orden) {
-        const token = getToken();
-        if (!token) return;
         try {
-          const res = await fetch(apiUrl(`/api/ordenes/${id}/`), {
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          const res = await fetchApi(`/api/ordenes/${id}/`, {
             cache: "no-store" as RequestCache,
           });
           if (res.ok) {
@@ -1519,81 +1440,10 @@ export default function Ordenes() {
   const startIndex = 0;
   const currentOrdenes = shownList;
 
-  const clienteActions = useMemo(() => {
-    const q = clienteSearch.trim().toLowerCase();
-
-    const base = (clientes || [])
-      .flatMap((c) => {
-        const contactos = Array.isArray((c as any).contactos) ? ((c as any).contactos as any[]) : [];
-
-        // Sin contactos => 1 sola opción (empresa)
-        if (!contactos.length) {
-          const labelBase = (c.nombre || '-').toString();
-          return [
-            {
-              id: String(c.id),
-              label: labelBase,
-              icon: (
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold">
-                  {(labelBase || '?').slice(0, 1).toUpperCase()}
-                </span>
-              ),
-              description: c.telefono || '-',
-              short: '',
-              end: '',
-              __cliente: c,
-              __contacto: null,
-            },
-          ];
-        }
-
-        // Con contactos => duplicar empresa por contacto
-        return contactos.map((ct, idx) => {
-          const labelBase = (c.nombre || '-').toString();
-          const contactoNombre = String(ct?.nombre_apellido || '').trim();
-          const contactoTel = String(ct?.celular || '').trim();
-          const label = contactoNombre ? `${labelBase} - ${contactoNombre}` : labelBase;
-
-          return {
-            id: `${String(c.id)}::${String(ct?.id ?? idx)}`,
-            label,
-            icon: (
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold">
-                {(labelBase || '?').slice(0, 1).toUpperCase()}
-              </span>
-            ),
-            description: contactoTel || c.telefono || '-',
-            short: '',
-            end: '',
-            __cliente: c,
-            __contacto: ct,
-          };
-        });
-      })
-      .filter((a: any) => {
-        if (!q) return true;
-        const label = String(a?.label || '').toLowerCase();
-        const desc = String(a?.description || '').toLowerCase();
-        return label.includes(q) || desc.includes(q);
-      });
-
-    const newAction = {
-      id: "__new__",
-      label: "Nuevo Cliente",
-      icon: (
-        <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400">
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M12 5v14M5 12h14M4 12h16" strokeLinecap="round" />
-          </svg>
-        </span>
-      ),
-      description: "Crear cliente",
-      short: '',
-      end: '',
-    };
-
-    return [newAction, ...base];
-  }, [clientes, clienteSearch]);
+  const clienteActions = useMemo(
+    () => buildClienteSearchActions(clientes, clienteSearch),
+    [clientes, clienteSearch]
+  );
 
   const buildTecnicoActions = (searchValue: string) => {
     const q = searchValue.trim().toLowerCase();
@@ -1636,7 +1486,7 @@ export default function Ordenes() {
         id: s,
         label: s,
         icon: (
-          <svg className='w-4 h-4 text-brand-500' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+          <svg className='w-4 h-4 text-[#ff801f]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
             <path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' />
           </svg>
         ),
@@ -1651,7 +1501,7 @@ export default function Ordenes() {
           id: "__new__",
           label: `Crear "${servicioSearch.trim()}"`,
           icon: (
-            <svg className='w-4 h-4 text-brand-500' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+            <svg className='w-4 h-4 text-[#ff801f]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
               <path d='M12 5v14M5 12h14M4 12h16' />
             </svg>
           ),
@@ -1668,17 +1518,24 @@ export default function Ordenes() {
 
   const selectCliente = (cliente: Cliente | null) => {
     if (cliente) {
-      const contactoPrincipal = (cliente.contactos || []).find((c: any) => c.is_principal) || (cliente.contactos || [])[0];
-      const nombreContacto = contactoPrincipal?.nombre_apellido || '';
+      const contactos = cliente.contactos || [];
+      const contactoPrincipal = contactos.find((c) => c.is_principal) || contactos[0];
+      const nombreContacto =
+        String(contactoPrincipal?.nombre_apellido || "").trim() ||
+        String(cliente.representante || "").trim();
+      const telefonoCliente =
+        String(contactoPrincipal?.celular || "").trim() ||
+        String(cliente.celular || "").trim() ||
+        String(cliente.telefono || "").trim();
 
       setFormData({
         ...formData,
         cliente_id: cliente.id,
-        contacto_id: null,
+        contacto_id: contactoPrincipal?.id != null ? Number(contactoPrincipal.id) : null,
         cliente: cliente.nombre,
         direccion: cliente.direccion,
-        telefono_cliente: cliente.telefono ?? '',
-        nombre_cliente: nombreContacto
+        telefono_cliente: telefonoCliente,
+        nombre_cliente: nombreContacto,
       });
       setClienteSearch(cliente.nombre);
     } else {
@@ -1787,53 +1644,55 @@ export default function Ordenes() {
   }, [ordenes, statsMonthKey]);
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
-    <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
+    <div className={erpPageCanvasClass}>
+    <div className={erpPageInnerClass}>
       <PageMeta
         title="Órdenes de Trabajo | Sistema Grupo Intrax GPS"
         description="Gestión de órdenes de servicio para el sistema de administración Grupo Intrax GPS"
       />
       <nav
-        className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+        className={erpBreadcrumbNavClass}
         aria-label="Migas de pan"
       >
-        <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
+        <Link to="/" className={erpBreadcrumbLinkClass}>
           Inicio
         </Link>
-        <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+        <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
           /
         </span>
-        <span className="font-medium text-gray-700 dark:text-gray-300">Órdenes de trabajo</span>
+        <span className="text-[#44403c] dark:text-[#cbd5e1]">Órdenes de trabajo</span>
       </nav>
 
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
       )}
 
-      <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
-        <div className="flex min-w-0 gap-3 sm:gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+      <header className={`relative flex w-full flex-col gap-4 ${pageCardShellClass} p-4 sm:p-6`}>
+        <div className={erpHeroBlurClass} />
+        <div className="relative z-[1] flex min-w-0 gap-3 sm:gap-4">
+          <div className={erpHeroIconWrapClass}>
             <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+            <p className={sectionLabelOrangeClass}>
               Operación
             </p>
-            <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Órdenes de trabajo</h1>
-            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Órdenes de trabajo</h1>
+            <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
               Administra órdenes de servicio, fotos, firmas y PDF. Filtra por estado, servicio o fecha en el listado.
             </p>
+            <div className={erpHeroGradientClass} />
           </div>
         </div>
       </header>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div className={`${erpStatCardClass}`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#fb923c] sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M6 6h12" />
                 <path d="M6 12h12" />
@@ -1847,7 +1706,7 @@ export default function Ordenes() {
           </div>
         </div>
 
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div className={`${erpStatCardClass}`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1861,7 +1720,7 @@ export default function Ordenes() {
           </div>
         </div>
 
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div className={`${erpStatCardClass}`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-200/80 bg-orange-50/90 text-orange-900 dark:border-orange-500/25 dark:bg-orange-500/10 dark:text-orange-200 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1874,7 +1733,7 @@ export default function Ordenes() {
             </div>
           </div>
         </div>
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div className={`${erpStatCardClass}`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1898,7 +1757,7 @@ export default function Ordenes() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por folio, cliente, técnico o estado…"
-            className={searchInputClass}
+            className={pageSearchInputClass}
           />
           {searchTerm && (
             <button
@@ -1935,7 +1794,7 @@ export default function Ordenes() {
             setActiveTab("cliente");
             setShowModal(true);
           }}
-          className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
+          className={erpPrimaryBtnClass + " lg:shrink-0"}
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -1948,7 +1807,7 @@ export default function Ordenes() {
         compact
         title="Listado"
         desc="Resultados según búsqueda y filtros. En pantallas pequeñas desplázate horizontalmente si hace falta."
-        className={`overflow-visible ${cardShellClass}`}
+        className={`overflow-visible ${pageCardShellClass}`}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
             {/* Filtro desplegable */}
@@ -1956,7 +1815,7 @@ export default function Ordenes() {
               <button
                 type="button"
                 onClick={() => setFilterOpen(v => !v)}
-                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:border-gray-300/90 hover:bg-white dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:border-white/[0.12] dark:hover:bg-gray-900/40 sm:w-auto sm:min-w-[86px]"
+                className={erpFilterBtnClass}
               >
 
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1969,13 +1828,13 @@ export default function Ordenes() {
                 Filtros
               </button>
               {filterOpen && (
-                <div className="absolute right-0 z-[110] mt-2 w-72 max-h-[min(80vh,24rem)] overflow-auto rounded-xl border border-gray-200/70 bg-white p-4 shadow-xl ring-1 ring-black/5 dark:border-white/[0.08] dark:bg-gray-900/95 dark:ring-white/10">
+                <div className={erpFilterPopoverClass}>
                   <div className="mb-4">
                     <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Estado</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value as any)}
-                      className="h-10 w-full rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60"
+                      className="h-10 w-full rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none focus:border-[#ff801f]/80 focus:bg-white focus:ring-2 focus:ring-[#ff801f]/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60"
                     >
 
                       <option value="">Todos</option>
@@ -1999,7 +1858,7 @@ export default function Ordenes() {
                                   return (prev || []).filter(s => s !== srv);
                                 });
                               }}
-                              className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                              className="h-4 w-4 rounded border-gray-300 text-[#ea580c] focus:ring-[#ff801f]"
                             />
                             <span>{srv}</span>
                           </label>
@@ -2029,14 +1888,14 @@ export default function Ordenes() {
                     <button
                       type="button"
                       onClick={() => setFilterOpen(false)}
-                      className="bg-brand-600 hover:bg-brand-700 h-10 flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white"
+                      className="bg-[#ff801f] hover:bg-[#ff6a00] h-10 flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white"
                     >
                       Aplicar
                     </button>
                     <button
                       type="button"
                       onClick={() => { setFilterStatus(''); setFilterServicio([]); setFilterDate(''); setFilterOpen(false); }}
-                      className="h-10 flex-1 rounded-xl px-3 py-2 text-sm font-semibold border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                      className={erpSecondaryBtnClass + " h-10 flex-1 !w-full"}
                     >
                       Limpiar
                     </button>
@@ -2060,9 +1919,9 @@ export default function Ordenes() {
             canDelete={canOrdenesDelete}
             usuarios={usuarios}
           />
-          <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40">
+          <div className={"hidden md:block " + erpTableWrapClass}>
             <Table className="w-full min-w-[900px] table-fixed sm:min-w-0 xl:min-w-full">
-              <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
+              <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                 <TableRow>
                   <TableCell isHeader className="px-2 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-gray-700 dark:text-gray-300">Folio</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-gray-700 dark:text-gray-300">Cliente</TableCell>
@@ -2074,7 +1933,7 @@ export default function Ordenes() {
                   <TableCell isHeader className="px-2 py-2 text-center w-[120px] min-w-[120px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[11px] sm:text-[12px] text-gray-700 dark:text-gray-200">
+              <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
                 {currentOrdenes.map((orden, idx) => {
                   const fecha = orden.fecha_inicio || orden.fecha_creacion || '';
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
@@ -2086,7 +1945,7 @@ export default function Ordenes() {
                     ? (tecnico.first_name && tecnico.last_name ? `${tecnico.first_name} ${tecnico.last_name}` : tecnico.email)
                     : ((orden as any).nombre_encargado || '-');
                   return (
-                    <TableRow key={orden.id ?? idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                    <TableRow key={orden.id ?? idx} className={erpTableRowHoverClass}>
                       <TableCell className="px-2 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
                       <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
@@ -2151,11 +2010,11 @@ export default function Ordenes() {
                         )}
                       </TableCell>
                       <TableCell className="px-2 py-2 text-center w-[120px] min-w-[120px]">
-                        <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
+                        <div className={erpRowActionBarClass}>
                           <button
                             type="button"
                             onClick={() => navigate(`/ordenes/${orden.id}/pdf`)}
-                            className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 transition"
+                            className={erpRowActionBtnClass + " hover:border-red-400 hover:text-red-600"}
                             title="Ver PDF"
                           >
                             <svg className="w-4 h-4" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
@@ -2170,7 +2029,7 @@ export default function Ordenes() {
                           {canOrdenesEdit && (
                             <button
                               onClick={() => handleEdit(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-[#ffa057] hover:text-[#ea580c] dark:hover:border-[#ff801f] transition"
                               title="Editar"
                             >
                               <PencilIcon className="w-4 h-4" />
@@ -2179,7 +2038,7 @@ export default function Ordenes() {
                           {canOrdenesDelete && (
                             <button
                               onClick={() => handleDeleteClick(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                              className={erpRowActionBtnClass + " hover:border-rose-400 hover:text-rose-600"}
                               title="Eliminar"
                             >
                               <TrashBinIcon className="w-4 h-4" />
@@ -2225,7 +2084,7 @@ export default function Ordenes() {
                       const mm = String(d.getMonth() + 1).padStart(2, '0');
                       setSelectedMonth(`${d.getFullYear()}-${mm}`);
                     }}
-                    className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className={erpMonthNavBtnClass}
                     title="Mes anterior"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2249,7 +2108,7 @@ export default function Ordenes() {
                       const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
                       setSelectedMonth(next);
                     }}
-                    className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className={erpMonthNavBtnClass}
                     title="Mes siguiente"
                   >
                     <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2264,82 +2123,64 @@ export default function Ordenes() {
       </ComponentCard>
 
       {/* Modales de detalle */}
-      <Modal isOpen={problematicaModal.open} onClose={() => setProblematicaModal({ open: false, content: '' })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
-        <div className="p-0 overflow-hidden rounded-2xl">
-          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Problemática</h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Detalle completo reportado por el cliente</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 text-sm text-gray-800 dark:text-gray-200 max-h-[60vh] overflow-y-auto custom-scrollbar">
-            <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-gray-900/40 p-3">{problematicaModal.content || '-'}</pre>
-          </div>
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 text-right">
-            <button type="button" onClick={() => setProblematicaModal({ open: false, content: '' })} className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">Cerrar</button>
-          </div>
-        </div>
-      </Modal>
+      <OrdenViewModal
+        open={problematicaModal.open}
+        onClose={() => setProblematicaModal({ open: false, content: "" })}
+        title="Problemática"
+        subtitle="Detalle completo reportado por el cliente"
+        icon={
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            <path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        }
+      >
+        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#334155] dark:bg-[#0f172a]/40">
+          {problematicaModal.content || "-"}
+        </pre>
+      </OrdenViewModal>
 
-      <Modal isOpen={serviciosModal.open} onClose={() => setServiciosModal({ open: false, content: [] })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
-        <div className="p-0 overflow-hidden rounded-2xl">
-          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Servicios Realizados</h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Listado de servicios registrados</p>
-              </div>
-            </div>
+      <OrdenViewModal
+        open={serviciosModal.open}
+        onClose={() => setServiciosModal({ open: false, content: [] })}
+        title="Servicios realizados"
+        subtitle="Listado de servicios registrados"
+        icon={
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        }
+      >
+        {Array.isArray(serviciosModal.content) && serviciosModal.content.length > 0 ? (
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {serviciosModal.content.map((s: string, i: number) => (
+              <li key={i} className="inline-flex items-center gap-2 rounded-lg border border-[#e7ded0] bg-[#fcfaf6] px-3 py-2 dark:border-[#334155] dark:bg-[#0f172a]/40">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ff801f]" />
+                <span>{s}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="rounded-lg border border-dashed border-[#e7ded0] p-4 text-center text-[#78716c] dark:border-[#334155]">
+            Sin servicios registrados
           </div>
-          <div className="p-4 text-sm text-gray-800 dark:text-gray-200 max-h-[60vh] overflow-y-auto custom-scrollbar">
-            {Array.isArray(serviciosModal.content) && serviciosModal.content.length > 0 ? (
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {serviciosModal.content.map((s: string, i: number) => (
-                  <li key={i} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-gray-900/40 px-3 py-2">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand-500" />
-                    <span>{s}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="rounded-lg border border-dashed border-gray-200 dark:border-white/10 p-4 text-center text-gray-500 dark:text-gray-400">Sin servicios registrados</div>
-            )}
-          </div>
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 text-right">
-            <button type="button" onClick={() => setServiciosModal({ open: false, content: [] })} className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">Cerrar</button>
-          </div>
-        </div>
-      </Modal>
+        )}
+      </OrdenViewModal>
 
-      <Modal isOpen={comentarioModal.open} onClose={() => setComentarioModal({ open: false, content: '' })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
-        <div className="p-0 overflow-hidden rounded-2xl">
-          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /></svg>
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Comentario del Técnico</h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Observaciones y notas del técnico</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 text-sm text-gray-800 dark:text-gray-200 max-h-[60vh] overflow-y-auto custom-scrollbar">
-            <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-gray-900/40 p-3">{comentarioModal.content || '-'}</pre>
-          </div>
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 text-right">
-            <button type="button" onClick={() => setComentarioModal({ open: false, content: '' })} className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">Cerrar</button>
-          </div>
-        </div>
-      </Modal>
+      <OrdenViewModal
+        open={comentarioModal.open}
+        onClose={() => setComentarioModal({ open: false, content: "" })}
+        title="Comentario del técnico"
+        subtitle="Observaciones y notas del técnico"
+        icon={
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+          </svg>
+        }
+      >
+        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#334155] dark:bg-[#0f172a]/40">
+          {comentarioModal.content || "-"}
+        </pre>
+      </OrdenViewModal>
 
       {/* Modal Crear/Editar */}
       <Modal
@@ -2347,31 +2188,15 @@ export default function Ordenes() {
         onClose={handleCloseModal}
         closeOnBackdropClick={false}
         closeOnEscape={!confirmDelete.open}
-        className="w-[94vw] max-w-4xl max-h-[92vh] p-0 overflow-hidden"
+        className={erpModalShellClass}
       >
-        <div>
-          {/* Header */}
-          <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-white/10">
-            <div className="flex items-center gap-4">
-              <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10">
-                <svg className="w-6 h-6 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <div className="min-w-0">
-                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-                  {editingOrden ? 'Editar' : 'Nueva'} Orden de {tipoOrdenLabel}
-                </h5>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  Captura y revisa los datos antes de guardar
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Body */}
-
-          <form ref={formScrollRef} onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar">
+        <OrdenFormModalHeader
+          editing={!!editingOrden}
+          title={`${editingOrden ? "Editar" : "Nueva"} orden de ${tipoOrdenLabel}`}
+          subtitle="Captura y revisa los datos antes de guardar"
+        />
+        <form ref={formScrollRef} onSubmit={handleSubmit} className={erpModalBodyClass}>
+          <div className={erpModalFormScrollClass}>
 
             {/* Modal Alert */}
             {modalAlert.show && (
@@ -2385,20 +2210,14 @@ export default function Ordenes() {
               <button
                 type="button"
                 onClick={() => setActiveTab("cliente")}
-                className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === "cliente"
-                  ? "border-brand-500 bg-brand-500 text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                  }`}
+                className={erpModalTabClass(activeTab === "cliente")}
               >
                 Datos del cliente
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("orden")}
-                className={`px-3 py-2 rounded-lg text-xs font-medium border ${activeTab === "orden"
-                  ? "border-brand-500 bg-brand-500 text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                  }`}
+                className={erpModalTabClass(activeTab === "orden")}
               >
                 Datos de la orden
               </button>
@@ -2409,7 +2228,7 @@ export default function Ordenes() {
                 {/* Selector de Tipo de Orden */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tipo de Orden de Trabajo</h4>
@@ -2420,7 +2239,7 @@ export default function Ordenes() {
                       value={tipoOrden}
                       onChange={(e) => setTipoOrden(e.target.value as any)}
                       disabled={!!editingOrden || isReadOnly}
-                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${!!editingOrden || isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40'}`}
+                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${!!editingOrden || isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20'}`}
                     >
                       <option value="servicio_tecnico">Servicio Técnico</option>
                       <option value="levantamiento">Levantamiento</option>
@@ -2437,7 +2256,7 @@ export default function Ordenes() {
                 {/* SECCIÓN 1: Detalles Generales */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
@@ -2450,7 +2269,7 @@ export default function Ordenes() {
                           type="text"
                           value={(formData as any).folio || ''}
                           onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
-                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
                           placeholder="Ej: ATX2000"
                         />
                       </div>
@@ -2529,7 +2348,7 @@ export default function Ordenes() {
                           type="text"
                           value={formData.nombre_cliente}
                           onChange={(e) => setFormData({ ...formData, nombre_cliente: e.target.value })}
-                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
                           placeholder="Nombre completo del cliente"
                         />
                       </div>
@@ -2658,7 +2477,7 @@ export default function Ordenes() {
                 {/* SECCIÓN 2: Detalles del Cliente */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles del Cliente</h4>
@@ -2680,7 +2499,7 @@ export default function Ordenes() {
                               e.preventDefault();
                             }
                           }}
-                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
                           placeholder="Teléfono del cliente"
                           maxLength={10}
                         />
@@ -2720,7 +2539,7 @@ export default function Ordenes() {
                           value={formData.direccion}
                           onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
                           rows={2}
-                          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 pr-12 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 pr-12 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none resize-none"
                           placeholder="Dirección, coordenadas o URL de Google Maps"
                         />
                         {formData.direccion && (
@@ -2780,7 +2599,7 @@ export default function Ordenes() {
                 {/* SECCIÓN 3: Descripción de la Orden */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Descripción de la Orden</h4>
@@ -2793,7 +2612,7 @@ export default function Ordenes() {
                         value={formData.problematica}
                         onChange={(e) => setFormData({ ...formData, problematica: e.target.value })}
                         rows={3}
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none resize-none"
                         placeholder="Describe el problema reportado"
                       />
                     </div>
@@ -2849,7 +2668,7 @@ export default function Ordenes() {
                       {formData.servicios_realizados.map((servicio, index) => (
                         <span
                           key={index}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-md text-xs"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-[#fff3e8] dark:bg-[#ff801f]/15 text-[#9a3412] dark:text-[#fdba74] rounded-md text-xs"
                         >
                           {servicio}
                           <button
@@ -2860,7 +2679,7 @@ export default function Ordenes() {
                                 servicios_realizados: formData.servicios_realizados.filter((_, i) => i !== index)
                               });
                             }}
-                            className="hover:text-brand-900 dark:hover:text-brand-100 ml-1"
+                            className="hover:text-[#7c2d12] dark:hover:text-[#ffedd5] ml-1"
                           >
                             ×
                           </button>
@@ -2875,7 +2694,7 @@ export default function Ordenes() {
                         value={formData.comentario_tecnico}
                         onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
                         rows={3}
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none resize-none"
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none resize-none"
                         placeholder="Observaciones del técnico..."
                       />
                     </div>
@@ -2886,7 +2705,7 @@ export default function Ordenes() {
                       <select
                         value={formData.status}
                         onChange={(e) => setFormData({ ...formData, status: e.target.value as 'pendiente' | 'resuelto' })}
-                        className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                        className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
                       >
                         <option value="pendiente">No, pendiente</option>
                         <option value="resuelto">Sí, problema resuelto</option>
@@ -2902,7 +2721,7 @@ export default function Ordenes() {
                 {/* SECCIÓN 4: Detalles de Tiempo */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles de Tiempo</h4>
@@ -2912,12 +2731,16 @@ export default function Ordenes() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <DatePicker
+                          key={`fecha-inicio-${editingOrden?.id ?? "new"}-${formNonceRef.current}`}
                           id="fecha-inicio"
                           label="Fecha Inicio"
                           placeholder="Seleccionar fecha"
                           defaultDate={formData.fecha_inicio || undefined}
                           onChange={(_dates, currentDateString) => {
-                            setFormData({ ...formData, fecha_inicio: currentDateString || "" });
+                            setFormData((prev) => ({
+                              ...prev,
+                              fecha_inicio: currentDateString || "",
+                            }));
                           }}
                         />
                       </div>
@@ -2942,12 +2765,16 @@ export default function Ordenes() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <DatePicker
+                          key={`fecha-finalizacion-${editingOrden?.id ?? "new"}-${formNonceRef.current}`}
                           id="fecha-finalizacion"
                           label="Fecha Finalización"
                           placeholder="Seleccionar fecha"
                           defaultDate={formData.fecha_finalizacion || undefined}
                           onChange={(_dates, currentDateString) => {
-                            setFormData({ ...formData, fecha_finalizacion: currentDateString || "" });
+                            setFormData((prev) => ({
+                              ...prev,
+                              fecha_finalizacion: currentDateString || "",
+                            }));
                           }}
                         />
                       </div>
@@ -2977,7 +2804,7 @@ export default function Ordenes() {
                 {/* SECCIÓN 5: Firmas y Archivos */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Firmas y Archivos</h4>
@@ -3015,7 +2842,7 @@ export default function Ordenes() {
                           const n = Number(e.target.value) as FotosExtraMax;
                           setFormData({ ...formData, fotos_extra_max: n });
                         }}
-                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-brand-500/80 focus:ring-2 focus:ring-brand-500/20 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100"
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#ff801f]/80 focus:ring-2 focus:ring-[#ff801f]/20 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100"
                         aria-describedby="fotos-extra-hint-admin"
                       >
                         <option value={0}>Ninguna — máximo {ORDEN_BASE_MAX_FOTOS} en total</option>
@@ -3029,10 +2856,10 @@ export default function Ordenes() {
                       </p>
                     </div>
 
-                    <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-brand-500 dark:border-gray-700 rounded-lg hover:border-brand-500">
+                    <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-[#ff801f] dark:border-gray-700 rounded-lg hover:border-[#ff801f]">
                       <div
                         {...getRootProps()}
-                        className={`dropzone rounded-lg border-dashed border-gray-300 p-4 sm:p-5 ${isDragActive ? "border-brand-500 bg-gray-100 dark:bg-gray-800" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+                        className={`dropzone rounded-lg border-dashed border-gray-300 p-4 sm:p-5 ${isDragActive ? "border-[#ff801f] bg-[#fff8f1] dark:bg-gray-800" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
                           }`}
                         id="fotos-upload"
                         role="button"
@@ -3070,7 +2897,7 @@ export default function Ordenes() {
                             Formatos: PNG, JPG, WebP o SVG
                           </span>
 
-                          <span className="font-medium underline text-[12px] text-brand-500">
+                          <span className="font-medium underline text-[12px] text-[#ff801f]">
                             Buscar archivos
                           </span>
                         </div>
@@ -3097,165 +2924,70 @@ export default function Ordenes() {
                         ))}
                       </div>
                     )}
-                    {/* Modal Confirmación eliminar foto (type="button" evita submit del formulario padre) */}
-                    <Modal
-                      isOpen={confirmDelete.open}
-                      onClose={() => {
-                        if (!deletingPhoto) setConfirmDelete({ open: false, index: null, url: null });
+                    <OrdenPhotoDeleteModal
+                      open={confirmDelete.open}
+                      deleting={deletingPhoto}
+                      onCancel={() => setConfirmDelete({ open: false, index: null, url: null })}
+                      onConfirm={() => {
+                        if (confirmDelete.index != null && confirmDelete.url) {
+                          void handleDeletePhoto(confirmDelete.index, confirmDelete.url);
+                        }
                       }}
-                      closeOnBackdropClick={false}
-                      showCloseButton={!deletingPhoto}
-                      className="max-w-sm p-6 z-[100000]"
-                    >
-                      <div className="flex flex-col gap-4">
-                        <div className="text-center">
-                          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30">
-                            {deletingPhoto ? (
-                              <svg className="h-7 w-7 animate-spin text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" aria-hidden>
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                            ) : (
-                              <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                              </svg>
-                            )}
-                          </div>
-                          <h5 className="mt-4 font-semibold text-gray-800 text-theme-lg dark:text-white/90">
-                            {deletingPhoto ? 'Eliminando imagen…' : 'Confirmar eliminación'}
-                          </h5>
-                          <p className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                            {deletingPhoto
-                              ? 'Por favor espera; esto puede tardar unos segundos.'
-                              : 'Esta acción no se puede deshacer. ¿Eliminar la imagen seleccionada?'}
-                          </p>
-                        </div>
-                        <div className="flex justify-center gap-3 pt-2">
-                          <button
-                            type="button"
-                            disabled={deletingPhoto}
-                            onClick={() => setConfirmDelete({ open: false, index: null, url: null })}
-                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            type="button"
-                            disabled={deletingPhoto}
-                            onClick={() => {
-                              if (confirmDelete.index != null && confirmDelete.url) {
-                                void handleDeletePhoto(confirmDelete.index, confirmDelete.url);
-                              }
-                            }}
-                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            {deletingPhoto && (
-                              <svg className="h-4 w-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden>
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                            )}
-                            {deletingPhoto ? 'Eliminando…' : 'Eliminar'}
-                          </button>
-                        </div>
-                      </div>
-                    </Modal>
+                    />
                   </div>
                 </div>
               </>
             )}
 
-            {/* Footer Buttons */}
-            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
-                </svg>
-                Cancelar
-              </button>
-              {activeTab === 'cliente' ? (
-                <button
-                  key="cliente-next"
-                  type="button"
-                  disabled={isSaving}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setActiveTab('orden');
-                    requestAnimationFrame(() => {
-                      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-                    });
-                  }}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  Siguiente
-                </button>
-              ) : (
-                <button
-                  key="orden-submit"
-                  type="submit"
-                  disabled={isSaving}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isSaving ? (
-                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                      <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+          </div>
+          <div className={erpModalFooterClass}>
+            <OrdenModalFooterActions
+              onCancel={handleCloseModal}
+              primary={
+                activeTab === "cliente" ? (
+                  <OrdenModalPrimaryButton
+                    disabled={isSaving}
+                    onClick={() => {
+                      setActiveTab("orden");
+                      requestAnimationFrame(() => {
+                        formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+                      });
+                    }}
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                      <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                  ) : (
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                  {isSaving ? 'Guardando...' : (editingOrden ? 'Actualizar' : 'Guardar')}
-                </button>
-              )}
-            </div>
-          </form>
-
-        </div>
+                    Siguiente
+                  </OrdenModalPrimaryButton>
+                ) : (
+                  <OrdenModalPrimaryButton type="submit" disabled={isSaving}>
+                    {isSaving ? (
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                        <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                        <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                    {isSaving ? "Guardando…" : editingOrden ? "Actualizar" : "Guardar"}
+                  </OrdenModalPrimaryButton>
+                )
+              }
+            />
+          </div>
+        </form>
 
       </Modal>
 
-      {/* Modal Eliminar */}
       {ordenToDelete && (
-        <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} closeOnBackdropClick={false} className="w-full max-w-md mx-4 sm:mx-auto">
-          <div className="p-6">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-error-100 dark:bg-error-900/30">
-              <svg className="w-6 h-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-
-            <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">
-              ¿Eliminar Orden?
-            </h3>
-            <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
-              ¿Estás seguro de que deseas eliminar la orden para <span className="font-semibold">{ordenToDelete.cliente}</span>? Esta acción no se puede deshacer.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleCancelDelete}
-                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-error-600 rounded-lg hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/50"
-              >
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </Modal>
+        <OrdenDeleteModal
+          open={showDeleteModal}
+          clienteLabel={ordenToDelete.cliente}
+          onCancel={handleCancelDelete}
+          onConfirm={handleConfirmDelete}
+        />
       )}
 
       {/* Modal Mapa Interactivo */}
@@ -3313,7 +3045,7 @@ export default function Ordenes() {
                           });
                         }
                       }}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
                     />
                   </div>
                   <div>
@@ -3330,7 +3062,7 @@ export default function Ordenes() {
                           });
                         }
                       }}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200/70 dark:focus:border-brand-400 dark:focus:ring-brand-900/40 outline-none"
+                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
                     />
                   </div>
                 </div>
@@ -3397,7 +3129,7 @@ export default function Ordenes() {
                 setShowMapModal(false);
                 setSelectedLocation(null);
               }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-brand-500 text-white hover:bg-brand-600 focus:ring-2 focus:ring-brand-500/30"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-[#ff801f] text-white hover:bg-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/30"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />

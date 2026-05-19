@@ -1,4 +1,5 @@
 """ViewSets for clientes app."""
+import logging
 import os
 
 import cloudinary
@@ -16,6 +17,8 @@ from apps.users.permissions import ModulePermission, user_has_any_ordenes_access
 
 from .models import Cliente, ClienteContacto, ClienteDocumento
 from .serializers import ClienteContactoSerializer, ClienteDocumentoSerializer, ClienteSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class ClientesModulePermission(ModulePermission):
@@ -65,8 +68,12 @@ class ClienteViewSet(viewsets.ModelViewSet):
     search_fields = [
         'nombre',
         'telefono',
+        'celular',
+        'clave',
+        'representante',
         'direccion',
         'correo',
+        'rfc',
         'ciudad',
         'estado',
         'pais',
@@ -86,23 +93,25 @@ class ClienteViewSet(viewsets.ModelViewSet):
         try:
             return super().create(request, *args, **kwargs)
         except (DrfValidationError, DjangoValidationError) as exc:
-            detail = getattr(exc, 'detail', None) or getattr(exc, 'message_dict', None) or str(exc)
+            detail = getattr(exc, 'detail', None) or getattr(exc, 'message_dict', None) or 'Error de validacion'
             return Response(detail, status=status.HTTP_400_BAD_REQUEST)
-        except IntegrityError as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
-        except Exception as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError:
+            return Response({'detail': 'El registro ya existe o viola una restriccion.'}, status=status.HTTP_409_CONFLICT)
+        except Exception:
+            logger.exception("Error creando cliente")
+            return Response({'detail': 'Error al crear el registro.'}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):
         try:
             return super().update(request, *args, **kwargs)
         except (DrfValidationError, DjangoValidationError) as exc:
-            detail = getattr(exc, 'detail', None) or getattr(exc, 'message_dict', None) or str(exc)
+            detail = getattr(exc, 'detail', None) or getattr(exc, 'message_dict', None) or 'Error de validacion'
             return Response(detail, status=status.HTTP_400_BAD_REQUEST)
-        except IntegrityError as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
-        except Exception as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError:
+            return Response({'detail': 'El registro ya existe o viola una restriccion.'}, status=status.HTTP_409_CONFLICT)
+        except Exception:
+            logger.exception("Error actualizando cliente")
+            return Response({'detail': 'Error al actualizar el registro.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ClienteContactoViewSet(viewsets.ModelViewSet):

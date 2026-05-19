@@ -27,6 +27,12 @@ class CotizacionItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'cotizacion']
 
 
+class CotizacionTipoTrabajoField(serializers.PrimaryKeyRelatedField):
+    def get_queryset(self):
+        from apps.productos.models import Servicio
+        return Servicio.objects.filter(activo=True)
+
+
 class CotizacionSerializer(serializers.ModelSerializer):
     cliente_nombre = serializers.CharField(source='cliente_id.nombre', read_only=True)
     creado_por_username = serializers.CharField(source='creado_por.username', read_only=True)
@@ -35,6 +41,52 @@ class CotizacionSerializer(serializers.ModelSerializer):
     actualizado_por_full_name = serializers.SerializerMethodField()
 
     items = CotizacionItemSerializer(many=True, required=False)
+    tipo_trabajo = CotizacionTipoTrabajoField(many=True, required=False, allow_empty=True)
+    tipo_trabajo_nombres = serializers.SerializerMethodField()
+
+    def get_tipo_trabajo_nombres(self, obj):
+        try:
+            nombres = [
+                str(getattr(s, 'nombre', '') or '').strip()
+                for s in obj.tipo_trabajo.all()
+            ]
+            nombres = [n for n in nombres if n]
+            return ', '.join(nombres) if nombres else ''
+        except Exception:
+            return ''
+
+    def validate_medio_contacto(self, value):
+        raw = str(value or '').strip()
+        if not raw:
+            return ''
+        valid = {choice[0] for choice in Cotizacion.MEDIO_CONTACTO_CHOICES}
+        if raw not in valid:
+            raise serializers.ValidationError('Medio de contacto no válido.')
+        return raw
+
+    def validate(self, attrs):
+        instance = getattr(self, 'instance', None)
+
+        cliente_id = attrs.get('cliente_id')
+        if cliente_id is None and instance is not None:
+            cliente_id = instance.cliente_id_id
+
+        contacto = attrs.get('contacto')
+        if contacto is None and instance is not None:
+            contacto = instance.contacto
+
+        medio = attrs.get('medio_contacto')
+        if medio is None and instance is not None:
+            medio = instance.medio_contacto
+
+        errors = {}
+        if cliente_id and str(contacto or '').strip() and not str(medio or '').strip():
+            errors['medio_contacto'] = 'Este campo es obligatorio.'
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return attrs
 
     def get_creado_por_full_name(self, obj):
         if obj.creado_por:
@@ -65,6 +117,8 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'prospecto',
             'contacto',
             'medio_contacto',
+            'tipo_trabajo',
+            'tipo_trabajo_nombres',
             'status',
             'fecha',
             'vencimiento',
@@ -102,6 +156,7 @@ class CotizacionSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
+        tipo_trabajo_data = validated_data.pop('tipo_trabajo', [])
         request = self.context.get('request')
         user = getattr(request, 'user', None)
 
@@ -119,11 +174,13 @@ class CotizacionSerializer(serializers.ModelSerializer):
                 orden=int(orden) if orden is not None else i,
                 **item_data,
             )
+        cot.tipo_trabajo.set(tipo_trabajo_data or [])
         return cot
 
     @transaction.atomic
     def update(self, instance, validated_data):
         items_data = validated_data.pop('items', None)
+        tipo_trabajo_data = validated_data.pop('tipo_trabajo', None)
         current_items = items_data if items_data is not None else list(instance.items.all().values(
             'cantidad', 'precio_lista', 'descuento_pct', 'producto_externo_id'
         ))
@@ -153,6 +210,9 @@ class CotizacionSerializer(serializers.ModelSerializer):
                     orden=int(orden) if orden is not None else i,
                     **item_data,
                 )
+
+        if tipo_trabajo_data is not None:
+            instance.tipo_trabajo.set(tipo_trabajo_data)
 
         return instance
 

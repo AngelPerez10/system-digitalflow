@@ -83,6 +83,7 @@ INSTALLED_APPS = [
     # Django REST Framework
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
 
     # CORS
     'corsheaders',
@@ -105,6 +106,7 @@ MIDDLEWARE = [
     # CORS debe ir lo más arriba posible
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'config.middleware.SecurityHeadersMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -117,21 +119,26 @@ MIDDLEWARE = [
 
 # Permitir conexión desde frontend
 # Use explicit allowed origins for the Vite dev server(s) and enable credentials
-# IMPORTANT: If your frontend uses session authentication you must include credentials:
 # fetch(url, { method, credentials: 'include', ... })
 CORS_ALLOW_ALL_ORIGINS = False
-# Stateless API: do not rely on cookies across origins.
-CORS_ALLOW_CREDENTIALS = False
+# HttpOnly cookie auth requires credentials (cookies) to be sent cross-origin.
+CORS_ALLOW_CREDENTIALS = True
 
 # CORS: restrictivo en producción, permisivo en desarrollo
 if DEBUG:
     CORS_ALLOWED_ORIGINS = [
         'http://localhost:5173',
+        'http://127.0.0.1:5173',
         'http://10.0.0.5:5173',
         'http://10.0.0.6:5173',
         'http://192.168.10.152:5173',
     ]
-    CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+    # Cualquier IP local en el puerto de Vite (evita 401/CORS al abrir por LAN).
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r'^http://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}):5173$',
+        r'^http://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}):4173$',
+    ]
+    CSRF_TRUSTED_ORIGINS = list(CORS_ALLOWED_ORIGINS)
 else:
     _cors_env = os.environ.get('CORS_ALLOWED_ORIGINS', '').strip()
     if _cors_env:
@@ -153,8 +160,12 @@ CORS_EXPOSE_HEADERS = ['Content-Disposition']
 # CSRF/Session cookie settings: Secure solo en producción (HTTPS)
 CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
-SESSION_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
+# SameSite=Lax is safe for SPA cookie auth on the same site. In production with
+# different domains, adjust to 'None' and ensure HTTPS.
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_HTTPONLY = False
+CSRF_USE_SESSIONS = False
 
 # If behind a reverse proxy (Render), respect X-Forwarded-Proto for HTTPS detection
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -260,6 +271,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'apps.users.authentication.CookieJWTAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_THROTTLE_CLASSES': [
@@ -269,6 +281,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour',
+        'refresh_token': '60/minute',
     },
 }
 
@@ -278,9 +291,19 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 
 SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_COOKIE': 'access_token',
+    'AUTH_COOKIE_REFRESH': 'refresh_token',
+    'AUTH_COOKIE_SECURE': not DEBUG,
+    'AUTH_COOKIE_HTTP_ONLY': True,
+    'AUTH_COOKIE_PATH': '/',
+    'AUTH_COOKIE_SAMESITE': 'Lax',
 }
+
+CSRF_COOKIE_MAX_AGE = 604800
 
 # SYSCOM API (proveedor mayorista) — credenciales desde env
 SYSCOM_API_BASE = os.environ.get('SYSCOM_API_BASE', 'https://developers.syscom.mx/api/v1')

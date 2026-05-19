@@ -9,7 +9,7 @@ import Input from "@/components/form/input/InputField";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import {
   fetchSyscomProductosSugerencia,
@@ -17,6 +17,8 @@ import {
   getProductoImageUrl,
   type SyscomProducto,
 } from "@/pages/ProductosYServicios/syscomCatalog";
+import { CotizacionSaveStatus } from "@/components/cotizacion/CotizacionSaveStatus";
+import { erpPageCanvasClass, erpPageInnerClass } from "@/layout/erpPageStyles";
 
 type ClienteContacto = {
   id?: number;
@@ -94,6 +96,7 @@ type ApiCotizacion = {
   prospecto: boolean;
   contacto: string;
   medio_contacto?: string;
+  tipo_trabajo?: number[] | { id: number; nombre?: string }[];
   status?: string;
   fecha: string | null;
   subtotal: number;
@@ -105,33 +108,34 @@ type ApiCotizacion = {
   items: ApiCotizacionItem[];
 };
 
-/** Controles: superficie inset; `text-sm` en móvil para densidad (evitar sensación de texto “grande”) */
 const inputLikeClassName =
-  "w-full min-h-[42px] rounded-xl border border-gray-200/95 dark:border-white/[0.1] bg-white dark:bg-gray-950/45 px-3.5 py-2 text-sm font-medium text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all focus:border-brand-500/70 focus:bg-white dark:focus:bg-gray-900/70 focus:ring-4 focus:ring-brand-500/15 dark:focus:border-brand-400 dark:focus:ring-brand-900/35 outline-none sm:min-h-[2.8rem] sm:py-2.5";
+  "w-full min-h-[40px] rounded-lg border border-[#e2d9ca] dark:border-[#334155] bg-[#fffdfa] dark:bg-[#0f172a] px-3 py-2 text-sm text-[#1c1917] dark:text-[#e5e7eb] placeholder-[#a8a29e] dark:placeholder:text-[#8ea0b8] transition-colors focus:border-[#ff801f] focus:bg-[#fffdfa] dark:focus:bg-[#111a2b] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/25 outline-none sm:min-h-[2.75rem] sm:py-2.5";
 
 const textareaLikeClassName =
-  "w-full min-h-[7rem] rounded-xl border border-gray-200/95 dark:border-white/[0.1] bg-white dark:bg-gray-950/45 px-3.5 py-2.5 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all focus:border-brand-500/70 focus:bg-white dark:focus:bg-gray-900/70 focus:ring-4 focus:ring-brand-500/15 dark:focus:border-brand-400 dark:focus:ring-brand-900/35 outline-none sm:min-h-[8rem] sm:py-3";
+  "w-full min-h-[7rem] rounded-lg border border-[#e2d9ca] dark:border-[#334155] bg-[#fffdfa] dark:bg-[#0f172a] px-3 py-2.5 text-sm text-[#1c1917] dark:text-[#e5e7eb] placeholder-[#a8a29e] dark:placeholder:text-[#8ea0b8] transition-colors focus:border-[#ff801f] focus:bg-[#fffdfa] dark:focus:bg-[#111a2b] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/25 outline-none sm:min-h-[8rem] sm:py-3";
 
 const cardShellClass =
-  "overflow-hidden rounded-3xl border border-gray-200/85 bg-gradient-to-b from-white to-gray-50/35 shadow-[0_14px_30px_-20px_rgba(15,23,42,0.35)] dark:border-white/[0.08] dark:from-gray-900/85 dark:to-gray-950/45";
+  "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
 
 const cardShellMutedClass =
-  "overflow-hidden rounded-2xl border border-gray-200/80 bg-gradient-to-br from-gray-50 to-white dark:border-white/[0.08] dark:from-gray-900/60 dark:to-gray-950/55";
+  "overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fff8f1] dark:border-white/[0.06] dark:bg-[#111a2b]/90";
+
+const claudeHeroHeadingClass =
+  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.85rem,2.8vw,2.6rem)] font-medium leading-[1.2] tracking-[-0.01em] text-[#1c1917] dark:text-[#f8fafc]";
+
+const claudeBodyClass = "text-sm leading-relaxed text-[#57534e] dark:text-[#b7c1d1]";
 
 const cloneModalPanelClass =
-  "rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-white/[0.08] dark:bg-gray-900/55 dark:shadow-none sm:p-5";
+  "rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] dark:border-white/[0.07] dark:bg-[#111827]/45 dark:shadow-none sm:p-5";
 
 const cloneModalSearchInputClass =
-  "min-h-[46px] w-full rounded-xl border border-gray-200/90 bg-gray-50/95 py-2.5 pl-11 pr-10 text-sm font-medium text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-brand-500/70 focus:bg-white focus:ring-4 focus:ring-brand-500/15 dark:border-white/[0.08] dark:bg-gray-950/45 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/70";
+  "min-h-[44px] w-full rounded-lg border border-[#e2d9ca] bg-[#fffdfa] py-2.5 pl-10 pr-3 text-sm text-[#1c1917] outline-none transition-colors placeholder:text-[#a8a29e] focus:border-[#ff801f] focus:bg-[#fffdfa] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:bg-[#111a2b]";
 
-/** Misma escala que inputs nativos de la página */
 const inputFieldInsetClass =
-  "!text-sm !rounded-xl !bg-white !border-gray-200/95 dark:!bg-gray-950/45 dark:!border-white/[0.1] focus:!ring-brand-500/20";
+  "!text-sm !bg-[#fffdfa] !border-[#e2d9ca] dark:!bg-[#0f172a] dark:!border-[#334155] focus:!ring-[#ff801f]/25";
 
 /** Etiquetas de formulario ligeramente más pequeñas en móvil */
 const labelPageClass = "!mb-1 !text-xs !font-medium sm:!mb-1.5 sm:!text-sm";
-
-const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token") || "";
 
 const toNumber = (v: unknown, fallback = 0) => {
   const n = Number(v);
@@ -143,6 +147,20 @@ const clampPct = (v: number) => {
   if (v < 0) return 0;
   if (v > 100) return 100;
   return v;
+};
+
+/** IDs de servicios desde API (lista de números u objetos con `id`). */
+const normalizeTipoTrabajoIds = (raw: unknown): number[] => {
+  if (!Array.isArray(raw)) return [];
+  const ids = raw
+    .map((item) => {
+      if (typeof item === "number" && Number.isFinite(item)) return item;
+      if (typeof item === "string" && item.trim()) return Number(item);
+      if (item && typeof item === "object" && "id" in item) return Number((item as { id: unknown }).id);
+      return NaN;
+    })
+    .filter((id) => Number.isFinite(id) && id > 0);
+  return [...new Set(ids)];
 };
 
 const round2 = (v: number) => {
@@ -212,27 +230,20 @@ const getSyscomPrecioListaMxnConIva = (p: SyscomProducto, tipoCambio: number | n
   return Math.max(0, usdBase * tipoCambio * IVA_MX);
 };
 
+const asBool = (v: any, defaultValue: boolean) => {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    if (s === 'true') return true;
+    if (s === 'false') return false;
+  }
+  return defaultValue;
+};
+
 export default function NuevaCotizacionPage() {
-  const asBool = (v: any, defaultValue: boolean) => {
-    if (typeof v === 'boolean') return v;
-    if (typeof v === 'string') {
-      const s = v.trim().toLowerCase();
-      if (s === 'true') return true;
-      if (s === 'false') return false;
-    }
-    return defaultValue;
-  };
 
-  const getPermissionsFromStorage = () => {
-    try {
-      const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  };
 
-  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
+  const [permissions, setPermissions] = useState<any>({});
   const canCotizacionesView = asBool(permissions?.cotizaciones?.view, true);
   const canCotizacionesCreate = asBool(permissions?.cotizaciones?.create, false);
 
@@ -282,24 +293,13 @@ export default function NuevaCotizacionPage() {
   }, [exportBusy]);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-
     const load = async () => {
       try {
-        const res = await fetch(apiUrl('/api/me/permissions/'), {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store' as RequestCache,
-        });
-        const data = await res.json().catch(() => null);
+        const res = await fetchApi('/api/me/permissions/');
         if (!res.ok) return;
+        const data = await res.json().catch(() => null);
         const p = data?.permissions || {};
-        const pStr = JSON.stringify(p);
-        localStorage.setItem('permissions', pStr);
-        sessionStorage.setItem('permissions', pStr);
         setPermissions(p);
-        window.dispatchEvent(new Event('permissions:updated'));
       } catch {
         // ignore
       }
@@ -308,19 +308,7 @@ export default function NuevaCotizacionPage() {
     load();
   }, []);
 
-  useEffect(() => {
-    const sync = () => setPermissions(getPermissionsFromStorage());
-    window.addEventListener('storage', sync);
-    window.addEventListener('focus', sync);
-    document.addEventListener('visibilitychange', sync);
-    window.addEventListener('permissions:updated' as any, sync);
-    return () => {
-      window.removeEventListener('storage', sync);
-      window.removeEventListener('focus', sync);
-      document.removeEventListener('visibilitychange', sync);
-      window.removeEventListener('permissions:updated' as any, sync);
-    };
-  }, []);
+
 
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -402,6 +390,7 @@ export default function NuevaCotizacionPage() {
 
   const MEDIO_CONTACTO_OPTIONS = useMemo(
     () => [
+      { value: 'CLIENTE', label: 'Cliente' },
       { value: 'BNI', label: 'BNI' },
       { value: 'REFERIDO', label: 'Referido' },
       { value: 'WEB', label: 'Web' },
@@ -412,7 +401,6 @@ export default function NuevaCotizacionPage() {
       { value: 'GOOGLE_MAPS', label: 'Google Maps' },
       { value: 'YOUTUBE', label: 'Youtube' },
       { value: 'TIENDA_FISICA', label: 'Tienda Fisica' },
-      { value: 'OTRO', label: 'Otro' },
     ],
     []
   );
@@ -427,7 +415,22 @@ export default function NuevaCotizacionPage() {
   );
 
   const [medioContacto, setMedioContacto] = useState<string>('');
+  const [medioContactoTouched, setMedioContactoTouched] = useState(false);
   const [status, setStatus] = useState<string>('PENDIENTE');
+
+  const [servicios, setServicios] = useState<{ id: number; nombre: string }[]>([]);
+  const [tipoTrabajo, setTipoTrabajo] = useState<number[]>([]);
+  const [tipoTrabajoOpen, setTipoTrabajoOpen] = useState(false);
+  const tipoTrabajoRef = useRef<HTMLDivElement>(null);
+  const lastAutosaveSnapshotRef = useRef<string | null>(null);
+  const upsertCotizacionRef = useRef<
+    (opts?: {
+      navigateAfterSave?: boolean;
+      validateRequired?: boolean;
+      silent?: boolean;
+      autosave?: boolean;
+    }) => Promise<string | null>
+  >(() => Promise.resolve(null));
 
   const formatDMY = (iso: string) => {
     if (!iso) return "";
@@ -439,6 +442,53 @@ export default function NuevaCotizacionPage() {
     if (!clienteId) return null;
     return clientes.find((c) => c.id === clienteId) || null;
   }, [clientes, clienteId]);
+
+  const tipoTrabajoIds = useMemo(() => normalizeTipoTrabajoIds(tipoTrabajo), [tipoTrabajo]);
+
+  const tipoTrabajoAutosaveKey = useMemo(
+    () => [...tipoTrabajoIds].sort((a, b) => a - b).join(","),
+    [tipoTrabajoIds]
+  );
+
+  const conceptosAutosaveKey = useMemo(
+    () =>
+      JSON.stringify(
+        conceptos.map((c, i) => ({
+          producto_externo_id: c.producto_externo_id,
+          producto_nombre: c.producto_nombre,
+          producto_descripcion: c.producto_descripcion,
+          unidad: c.unidad,
+          thumbnail_url: c.thumbnail_url,
+          cantidad: c.cantidad,
+          precio_lista: c.precio_lista,
+          descuento_pct: c.descuento_pct,
+          orden: i,
+        }))
+      ),
+    [conceptos]
+  );
+
+  const tipoTrabajoDisplay = useMemo(() => {
+    if (tipoTrabajoIds.length === 0) return "";
+    const names = tipoTrabajoIds
+      .map((id) => servicios.find((s) => s.id === id)?.nombre)
+      .filter((n): n is string => Boolean(n));
+    if (names.length === 0) return `${tipoTrabajoIds.length} seleccionados`;
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return names.join(", ");
+    return `${tipoTrabajoIds.length} servicios seleccionados`;
+  }, [tipoTrabajoIds, servicios]);
+
+  useEffect(() => {
+    if (!tipoTrabajoOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (tipoTrabajoRef.current && !tipoTrabajoRef.current.contains(event.target as Node)) {
+        setTipoTrabajoOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [tipoTrabajoOpen]);
 
   const effectiveDescuentoClientePct = useMemo(() => {
     const hasManualConceptLines = conceptos.some((c) => String(c.producto_externo_id || "").trim() === "");
@@ -475,20 +525,13 @@ export default function NuevaCotizacionPage() {
 
   const fetchClientes = async (search = "") => {
     if (!canCotizacionesView) return;
-    const token = getToken();
-    if (!token) return null;
     setLoadingClientes(true);
     try {
       const query = new URLSearchParams({
         search: search.trim(),
         page_size: '20',
       });
-      const res = await fetch(apiUrl(`/api/clientes/?${query.toString()}`), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const res = await fetchApi(`/api/clientes/?${query.toString()}`);
       const data = await res.json().catch(() => ({ results: [], count: 0 }));
       if (!res.ok) {
         setClientes([]);
@@ -543,7 +586,7 @@ export default function NuevaCotizacionPage() {
   const filteredClientes = clientes;
 
   const hydrateFormFromCotizacionDetail = useCallback(
-    async (data: ApiCotizacion, token: string, opts: { updateIdxBadge: boolean }) => {
+    async (data: ApiCotizacion, opts: { updateIdxBadge: boolean }) => {
       if (opts.updateIdxBadge) {
         setEditingCotizacionIdx(Number.isFinite(Number(data.idx)) ? Number(data.idx) : null);
       }
@@ -553,6 +596,7 @@ export default function NuevaCotizacionPage() {
       setClienteSearch(nombreDesdeApi);
       setContactoNombre(String(data.contacto || ""));
       setMedioContacto(String((data as any)?.medio_contacto || ""));
+      setTipoTrabajo(normalizeTipoTrabajoIds(data.tipo_trabajo));
       setStatus(String((data as any)?.status || "PENDIENTE"));
       setDescuentoClientePct(clampPct(toNumber((data as any)?.descuento_cliente_pct, 0)));
       setDescuentoClienteTouched(true);
@@ -582,11 +626,7 @@ export default function NuevaCotizacionPage() {
       const cid = data.cliente_id ? Number(data.cliente_id) : null;
       if (cid) {
         try {
-          const cr = await fetch(apiUrl(`/api/clientes/${cid}/`), {
-            method: "GET",
-            headers: { Authorization: `Bearer ${token}` },
-            cache: "no-store" as RequestCache,
-          });
+          const cr = await fetchApi(`/api/clientes/${cid}/`);
           const one = (await cr.json().catch(() => null)) as Cliente | null;
           if (cr.ok && one && typeof one.id === "number") {
             setClientes((prev) => {
@@ -614,16 +654,12 @@ export default function NuevaCotizacionPage() {
 
   useEffect(() => {
     if (editingCotizacionId || activeCotizacionId || !canCotizacionesCreate) return;
-    const token = getToken();
-    if (!token) return;
-
     let cancelled = false;
     const createDraft = async () => {
       try {
-        const res = await fetch(apiUrl("/api/cotizaciones/"), {
+        const res = await fetchApi("/api/cotizaciones/", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -632,6 +668,7 @@ export default function NuevaCotizacionPage() {
             prospecto: false,
             contacto: "",
             medio_contacto: String(medioContacto || ""),
+            tipo_trabajo: [],
             status: String(status || "PENDIENTE"),
             fecha: todayIso,
             subtotal: 0,
@@ -678,19 +715,10 @@ export default function NuevaCotizacionPage() {
       return;
     }
     setHydratingFromStorage(true);
-    const token = getToken();
-    if (!token) {
-      setHydratingFromStorage(false);
-      return;
-    }
 
     const load = async () => {
       try {
-        const res = await fetch(apiUrl(`/api/cotizaciones/${editingCotizacionId}/`), {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store" as RequestCache,
-        });
+        const res = await fetchApi(`/api/cotizaciones/${editingCotizacionId}/`);
         const data = (await res.json().catch(() => null)) as ApiCotizacion | null;
         if (!res.ok || !data) {
           setEditingCotizacionIdx(null);
@@ -704,7 +732,7 @@ export default function NuevaCotizacionPage() {
           return;
         }
 
-        await hydrateFormFromCotizacionDetail(data, token, { updateIdxBadge: true });
+        await hydrateFormFromCotizacionDetail(data, { updateIdxBadge: true });
       } catch {
         setAlert({
           show: true,
@@ -727,8 +755,6 @@ export default function NuevaCotizacionPage() {
 
   useEffect(() => {
     if (!cloneModalOpen || !canCotizacionesView) return;
-    const token = getToken();
-    if (!token) return;
     if (cloneSearchDebounced.length < 1) {
       setCloneRows([]);
       return;
@@ -739,10 +765,7 @@ export default function NuevaCotizacionPage() {
       try {
         const params = new URLSearchParams();
         params.set("search", cloneSearchDebounced);
-        const res = await fetch(apiUrl(`/api/cotizaciones/?${params.toString()}`), {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store" as RequestCache,
-        });
+        const res = await fetchApi(`/api/cotizaciones/?${params.toString()}`);
         const data = await res.json().catch(() => null);
         if (cancelled) return;
         if (!res.ok) {
@@ -772,16 +795,10 @@ export default function NuevaCotizacionPage() {
   }, [cloneModalOpen, cloneSearchDebounced, canCotizacionesView]);
 
   const handleClonePick = async (id: number) => {
-    const token = getToken();
-    if (!token) return;
     setClonePickingId(id);
     setHydratingFromStorage(true);
     try {
-      const res = await fetch(apiUrl(`/api/cotizaciones/${id}/`), {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store" as RequestCache,
-      });
+      const res = await fetchApi(`/api/cotizaciones/${id}/`);
       const data = (await res.json().catch(() => null)) as ApiCotizacion | null;
       if (!res.ok || !data) {
         setAlert({
@@ -792,7 +809,7 @@ export default function NuevaCotizacionPage() {
         });
         return;
       }
-      await hydrateFormFromCotizacionDetail(data, token, { updateIdxBadge: false });
+      await hydrateFormFromCotizacionDetail(data, { updateIdxBadge: false });
       setCloneModalOpen(false);
       setCloneSearch("");
       setCloneSearchDebounced("");
@@ -858,9 +875,7 @@ export default function NuevaCotizacionPage() {
   }, [productoSearch]);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    fetchSyscomTipoCambio(token)
+    fetchSyscomTipoCambio()
       .then((tc) => setSyscomTipoCambio(tc))
       .catch(() => {
         // ignore
@@ -883,12 +898,6 @@ export default function NuevaCotizacionPage() {
     }
     // Abrir panel por búsqueda local (catálogo) aunque falle/no exista token de SYSCOM.
     setSyscomOpen(true);
-    const token = getToken();
-    if (!token) {
-      setSyscomProductos([]);
-      setSyscomError("");
-      return;
-    }
     const runGen = ++syscomSearchGenRef.current;
     const ac = new AbortController();
     const timer = window.setTimeout(async () => {
@@ -896,7 +905,7 @@ export default function NuevaCotizacionPage() {
       setSyscomError("");
       try {
         // Incluye variantes de búsqueda si el modelo trae `/` (p. ej. ICOM IC-M424G/41).
-        const { ok, productos } = await fetchSyscomProductosSugerencia(token, q, { signal: ac.signal });
+        const { ok, productos } = await fetchSyscomProductosSugerencia(q, { signal: ac.signal });
         if (runGen !== syscomSearchGenRef.current) return;
         if (!ok && productos.length === 0) {
           setSyscomProductos([]);
@@ -927,21 +936,11 @@ export default function NuevaCotizacionPage() {
       setCatalogoConceptosError("");
       return;
     }
-    const token = getToken();
-    if (!token) {
-      setCatalogoConceptos([]);
-      setCatalogoConceptosError("");
-      return;
-    }
     const loadCatalogoConceptos = async () => {
       setLoadingCatalogoConceptos(true);
       setCatalogoConceptosError("");
       try {
-        const res = await fetch(apiUrl("/api/conceptos/?ordering=folio"), {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store" as RequestCache,
-        });
+        const res = await fetchApi("/api/conceptos/?ordering=folio");
         const data = await res.json().catch(() => ({ results: [] }));
         if (!res.ok) {
           setCatalogoConceptos([]);
@@ -977,20 +976,10 @@ export default function NuevaCotizacionPage() {
       setCatalogoManualError("");
       return;
     }
-    const token = getToken();
-    if (!token) {
-      setCatalogoManualProductos([]);
-      setCatalogoManualError("");
-      return;
-    }
     const loadManualProductos = async () => {
       setCatalogoManualError("");
       try {
-        const res = await fetch(apiUrl("/api/productos-manuales/?ordering=-fecha_creacion&page_size=500"), {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store" as RequestCache,
-        });
+        const res = await fetchApi("/api/productos-manuales/?ordering=-fecha_creacion&page_size=500");
         const data = await res.json().catch(() => ({ results: [] }));
         if (!res.ok) {
           setCatalogoManualProductos([]);
@@ -1021,6 +1010,27 @@ export default function NuevaCotizacionPage() {
     };
     loadManualProductos();
   }, [canCotizacionesView]);
+
+  useEffect(() => {
+    const loadServicios = async () => {
+      try {
+        const res = await fetchApi("/api/servicios/?page_size=500&ordering=idx");
+        const data = await res.json().catch(() => ({ results: [] }));
+        if (!res.ok) return;
+        const list = Array.isArray((data as any)?.results)
+          ? (data as any).results
+          : Array.isArray(data) ? data : [];
+        setServicios(
+          list
+            .filter((s: any) => s.activo !== false)
+            .map((s: any) => ({ id: Number(s.id), nombre: String(s.nombre || "") }))
+        );
+      } catch {
+        // ignore
+      }
+    };
+    loadServicios();
+  }, []);
 
   const selectSyscomProducto = (p: SyscomProducto) => {
     setSelectedSyscomProducto(p);
@@ -1225,8 +1235,11 @@ export default function NuevaCotizacionPage() {
     const missing: string[] = [];
     if (!clienteId) missing.push("Cliente");
     if (!String(contactoNombre || "").trim()) missing.push("Contacto");
+    if (!String(medioContacto || "").trim()) missing.push("Medio de Contacto");
     return { ok: missing.length === 0, missing };
   };
+
+  const medioContactoInvalid = medioContactoTouched && !String(medioContacto || "").trim();
 
   const resolveClienteNombre = () => {
     const fromList = String(selectedCliente?.nombre || "").trim();
@@ -1257,6 +1270,7 @@ export default function NuevaCotizacionPage() {
       prospecto: !!selectedCliente?.is_prospecto,
       contacto: contacto || "",
       medio_contacto: String(medioContacto || ""),
+      tipo_trabajo: tipoTrabajoIds,
       status: String(status || "PENDIENTE"),
       fecha: nowIso,
       subtotal,
@@ -1285,6 +1299,7 @@ export default function NuevaCotizacionPage() {
     clienteSearch,
     contactoNombre,
     medioContacto,
+    tipoTrabajoIds,
     status,
     conceptos,
     effectiveDescuentoClientePct,
@@ -1302,10 +1317,9 @@ export default function NuevaCotizacionPage() {
     const validateRequired = opts?.validateRequired !== false;
     const silent = !!opts?.silent;
     const autosave = !!opts?.autosave;
-    const p = getPermissionsFromStorage();
-    const canView = asBool(p?.cotizaciones?.view, true);
-    const canCreate = asBool(p?.cotizaciones?.create, false);
-    const canEdit = asBool(p?.cotizaciones?.edit, false);
+    const canView = asBool(permissions?.cotizaciones?.view, true);
+    const canCreate = asBool(permissions?.cotizaciones?.create, false);
+    const canEdit = asBool(permissions?.cotizaciones?.edit, false);
     const targetId = (editingCotizacionId || activeCotizacionId || "").trim();
 
     if (!canView) {
@@ -1349,6 +1363,9 @@ export default function NuevaCotizacionPage() {
     if (validateRequired) {
       const v = validateClienteContacto();
       if (!v.ok) {
+        if (!String(medioContacto || "").trim()) {
+          setMedioContactoTouched(true);
+        }
         if (!silent) {
           setAlert({
             show: true,
@@ -1372,23 +1389,43 @@ export default function NuevaCotizacionPage() {
       }
     }
 
-    const token = getToken();
-    if (!token) return null;
     const payload: any = buildCotizacionPayload();
+
+    if (
+      autosave &&
+      clienteId &&
+      String(contactoNombre || "").trim() &&
+      !String(medioContacto || "").trim()
+    ) {
+      return null;
+    }
+
+    if (autosave) {
+      const snapshot = JSON.stringify({
+        ...payload,
+        tipo_trabajo: [...(payload.tipo_trabajo || [])].sort((a: number, b: number) => a - b),
+      });
+      if (lastAutosaveSnapshotRef.current === snapshot) {
+        return targetId || null;
+      }
+      lastAutosaveSnapshotRef.current = snapshot;
+    }
 
     try {
       if (autosave) setIsAutoSaving(true);
       const isEdit = !!targetId;
-      const res = await fetch(apiUrl(isEdit ? `/api/cotizaciones/${targetId}/` : "/api/cotizaciones/"), {
+      const res = await fetchApi(isEdit ? `/api/cotizaciones/${targetId}/` : "/api/cotizaciones/", {
         method: isEdit ? "PUT" : "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
+        if (autosave) {
+          lastAutosaveSnapshotRef.current = null;
+        }
         if (!silent) {
           const msg = formatCotizacionApiError(data);
           setAlert({ show: true, variant: "error", title: "Error", message: msg });
@@ -1400,6 +1437,9 @@ export default function NuevaCotizacionPage() {
       if (savedId && savedId !== activeCotizacionId) setActiveCotizacionId(savedId);
       if (data?.idx != null && Number.isFinite(Number(data.idx))) {
         setEditingCotizacionIdx(Number(data.idx));
+      }
+      if (!autosave && data && "tipo_trabajo" in data) {
+        setTipoTrabajo(normalizeTipoTrabajoIds((data as ApiCotizacion).tipo_trabajo));
       }
       if (autosave) {
         setLastAutoSavedAt(Date.now());
@@ -1416,6 +1456,9 @@ export default function NuevaCotizacionPage() {
       }
       return savedId || null;
     } catch {
+      if (autosave) {
+        lastAutosaveSnapshotRef.current = null;
+      }
       if (!silent) {
         setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo guardar la cotización." });
       }
@@ -1429,7 +1472,13 @@ export default function NuevaCotizacionPage() {
     buildCotizacionPayload,
     conceptos.length,
     navigate,
+    permissions,
+    clienteId,
+    contactoNombre,
+    medioContacto,
   ]);
+
+  upsertCotizacionRef.current = upsertCotizacion;
 
   const handleSaveCotizacion = async (navigateAfterSave = true): Promise<string | null> =>
     upsertCotizacion({ navigateAfterSave, validateRequired: true, silent: false, autosave: false });
@@ -1439,13 +1488,13 @@ export default function NuevaCotizacionPage() {
     if (!targetId || hydratingFromStorage) return;
 
     const timer = window.setTimeout(() => {
-      void upsertCotizacion({
+      void upsertCotizacionRef.current({
         navigateAfterSave: false,
         validateRequired: false,
         silent: true,
         autosave: true,
       });
-    }, 1200);
+    }, 2500);
 
     return () => window.clearTimeout(timer);
   }, [
@@ -1453,29 +1502,27 @@ export default function NuevaCotizacionPage() {
     activeCotizacionId,
     hydratingFromStorage,
     clienteId,
-    clienteSearch,
     contactoNombre,
     medioContacto,
+    tipoTrabajoAutosaveKey,
     status,
     descuentoClientePct,
-    conceptos,
+    conceptosAutosaveKey,
     textoArribaPrecios,
     terminos,
-    upsertCotizacion,
   ]);
+
+  useEffect(() => {
+    lastAutosaveSnapshotRef.current = null;
+  }, [editingCotizacionId, activeCotizacionId]);
 
   useEffect(() => {
     const onBeforeUnload = () => {
       const targetId = (editingCotizacionId || activeCotizacionId || "").trim();
-      const token = getToken();
-      if (!targetId || !token) return;
+      if (!targetId) return;
       try {
-        void fetch(apiUrl(`/api/cotizaciones/${targetId}/`), {
+        void fetchApi(`/api/cotizaciones/${targetId}/`, {
           method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(buildCotizacionPayload()),
           keepalive: true,
         });
@@ -1514,6 +1561,7 @@ export default function NuevaCotizacionPage() {
   }, [
     clienteId,
     contactoNombre,
+    medioContacto,
     cantidad,
     nombreConceptoResuelto,
     precioLista,
@@ -1687,9 +1735,10 @@ export default function NuevaCotizacionPage() {
   const canGuardarCotizacion = useMemo(() => {
     if (!clienteId) return false;
     if (!String(contactoNombre || "").trim()) return false;
+    if (!medioContacto) return false;
     if (!computed.lines.length) return false;
     return true;
-  }, [clienteId, contactoNombre, computed.lines.length]);
+  }, [clienteId, contactoNombre, medioContacto, computed.lines.length]);
 
   const resetAll = () => {
     setClienteId("");
@@ -1699,6 +1748,8 @@ export default function NuevaCotizacionPage() {
     setContactoNombre("");
 
     setMedioContacto('');
+    setMedioContactoTouched(false);
+    setTipoTrabajo([]);
     setStatus('PENDIENTE');
 
     setCantidad(1);
@@ -1742,12 +1793,6 @@ export default function NuevaCotizacionPage() {
   const handlePreviewPdf = async () => {
     if (previewLoading || excelLoading) return;
 
-    const token = getToken();
-    if (!token) {
-      setAlert({ show: true, variant: "error", title: "Sin sesión", message: "Inicia sesión para ver el PDF." });
-      return;
-    }
-
     if (!computed.lines.length) {
       setAlert({
         show: true,
@@ -1779,6 +1824,7 @@ export default function NuevaCotizacionPage() {
       prospecto: !!selectedCliente?.is_prospecto,
       contacto: contacto || "",
       medio_contacto: String(medioContacto || ''),
+      tipo_trabajo: tipoTrabajoIds,
       status: String(status || 'PENDIENTE'),
       fecha: nowIso,
       subtotal: round2(toNumber(computed.subtotal, 0)),
@@ -1815,12 +1861,6 @@ export default function NuevaCotizacionPage() {
   const handleDownloadExcel = async () => {
     if (previewLoading || excelLoading) return;
 
-    const token = getToken();
-    if (!token) {
-      setAlert({ show: true, variant: "error", title: "Sin sesión", message: "Inicia sesión para descargar el Excel." });
-      return;
-    }
-
     const cotizacionPk = String(editingCotizacionId || activeCotizacionId || "").trim();
     if (!cotizacionPk) {
       setAlert({
@@ -1834,9 +1874,7 @@ export default function NuevaCotizacionPage() {
 
     try {
       setExcelLoading(true);
-      const resp = await fetch(apiUrl(`/api/cotizaciones/${cotizacionPk}/excel/`), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const resp = await fetchApi(`/api/cotizaciones/${cotizacionPk}/excel/`);
 
       if (!resp.ok) {
         let msg = `No se pudo generar el Excel (HTTP ${resp.status}).`;
@@ -1876,17 +1914,17 @@ export default function NuevaCotizacionPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-gradient-to-b from-gray-100/70 via-gray-50 to-white dark:from-gray-950 dark:via-gray-950 dark:to-black">
-      <div className="mx-auto max-w-[92rem] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-8 sm:px-5 sm:pb-12 sm:pt-8 sm:text-base md:px-6 lg:px-10">
+    <div className={erpPageCanvasClass}>
+      <div className={erpPageInnerClass}>
         <PageMeta title="Nueva Cotización | Sistema Grupo Intrax GPS" description="Crear nueva cotización" />
 
         <Modal isOpen={exportBusy} onClose={() => { }} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
           <div className="p-7 sm:p-8">
             <div className="flex flex-col items-center justify-center text-center">
               <div className="relative mb-6">
-                <div className="relative flex items-center justify-center w-[76px] h-[76px] rounded-2xl border border-gray-200/80 dark:border-white/10 bg-gray-50 dark:bg-gray-900/80">
-                  <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-white/5">
-                    <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-brand-600 dark:border-t-brand-400 animate-spin" />
+                <div className="relative flex items-center justify-center w-[76px] h-[76px] rounded-2xl border border-gray-200/80 dark:border-white/10 bg-gray-50 dark:bg-[#111827]/80">
+                  <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-[#0f172a] border border-[#f1e8db] dark:border-[#273244] dark:border-white/5">
+                    <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[#ff801f] dark:border-t-[#ffa057] animate-spin" />
                     <div className="relative flex items-center justify-center">
                       {excelLoading ? (
                         <svg className="h-8 w-8 text-emerald-700 dark:text-emerald-300" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -1903,7 +1941,7 @@ export default function NuevaCotizacionPage() {
                         </svg>
                       ) : (
                         <svg
-                          className="w-8 h-8 text-brand-700 dark:text-brand-300"
+                          className="w-8 h-8 text-[#ea580c] dark:text-[#ffa057]"
                           viewBox="0 0 512 512"
                           fill="currentColor"
                           xmlns="http://www.w3.org/2000/svg"
@@ -1919,25 +1957,25 @@ export default function NuevaCotizacionPage() {
                 </div>
               </div>
 
-              <h3 className="text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">
+              <h3 className="text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">
                 {excelLoading ? "Generando Excel" : "Generando vista previa"}
               </h3>
-              <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
+              <p className="mt-1.5 text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">
                 Esto puede tardar unos segundos. No cierres esta ventana.
               </p>
 
               <div className="mt-6 w-full">
-                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                <div className="flex items-center justify-between text-xs text-[#78716c] dark:text-[#8ea0b8]">
                   <span>Progreso</span>
                   <span className="tabular-nums font-medium">{Math.min(99, Math.max(0, Math.round(loadingProgress)))}%</span>
                 </div>
-                <div className="mt-2 w-full rounded-full h-2 overflow-hidden bg-gray-100 dark:bg-gray-800/80 border border-gray-200/60 dark:border-white/[0.06]">
+                <div className="mt-2 w-full rounded-full h-2 overflow-hidden bg-gray-100 dark:bg-[#0f172a]/80 border border-gray-200/60 dark:border-white/[0.06]">
                   <div
-                    className="h-full bg-brand-600 dark:bg-brand-500 transition-[width] duration-500 ease-out"
+                    className="h-full bg-[#ff801f] dark:bg-[#ff801f] transition-[width] duration-500 ease-out"
                     style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
                   />
                 </div>
-                <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">
+                <div className="mt-3 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
                   {excelLoading ? "Preparando archivo XLSX…" : "Generando archivo de cotización…"}
                 </div>
               </div>
@@ -1953,13 +1991,13 @@ export default function NuevaCotizacionPage() {
           }}
           closeOnBackdropClick={clonePickingId == null}
           closeOnEscape={clonePickingId == null}
-          className="mx-4 flex max-h-[min(90vh,640px)] w-[min(96vw,30rem)] flex-col overflow-hidden rounded-3xl border border-gray-200/80 p-0 shadow-[0_24px_54px_-20px_rgba(15,23,42,0.35)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_54px_-18px_rgba(0,0,0,0.55)] sm:mx-auto sm:max-w-xl"
+          className="mx-4 flex max-h-[min(90vh,640px)] w-[min(96vw,30rem)] flex-col overflow-hidden rounded-3xl border border-gray-200/80 p-0 shadow-[0_24px_54px_-20px_rgba(15,23,42,0.35)] dark:border-white/[0.08] dark:bg-[#111827] dark:shadow-[0_24px_54px_-18px_rgba(0,0,0,0.55)] sm:mx-auto sm:max-w-xl"
         >
           <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-            <header className="relative shrink-0 border-b border-gray-200/70 bg-gradient-to-br from-white via-gray-50/85 to-brand-50/50 px-5 py-5 pr-12 dark:border-white/[0.06] dark:from-gray-900 dark:via-gray-900 dark:to-brand-900/10 sm:px-6 sm:pr-14">
-              <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-brand-500/85 dark:bg-brand-400/70" aria-hidden />
+            <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fffdfa] px-5 py-5 pr-12 dark:border-[#273244] dark:bg-[#111827]/80 sm:px-6 sm:pr-14">
+              <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]/85 dark:bg-[#ff801f]/80" aria-hidden />
               <div className="flex items-start gap-3 sm:gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-brand-500/15 bg-white text-brand-700 shadow-sm dark:border-brand-400/20 dark:bg-gray-900/70 dark:text-brand-300">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#ff801f]/15 bg-white text-[#ea580c] shadow-sm dark:border-[#ffa057]/20 dark:bg-[#111827]/70 dark:text-[#ffa057]">
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
                     <path d="M16 3h2a2 2 0 0 1 2 2v2M8 3H6a2 2 0 0 0-2 2v2" strokeLinecap="round" />
                     <path d="M8 21h8M12 17v4M9 17h6" strokeLinecap="round" strokeLinejoin="round" />
@@ -1968,18 +2006,18 @@ export default function NuevaCotizacionPage() {
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-600/80 dark:text-brand-300/80 sm:text-[11px]">Cotización</p>
-                  <h3 className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Clonar desde existente</h3>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ff801f]/80 dark:text-[#ffa057]/80 sm:text-[11px]">Cotización</p>
+                  <h3 className="mt-1 text-lg font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc]">Clonar desde existente</h3>
                   <p className="mt-1.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
-                    Busque por <span className="font-medium text-gray-800 dark:text-gray-200">cliente</span> o{" "}
-                    <span className="font-medium text-gray-800 dark:text-gray-200">folio</span>. Al elegir una fila se copian cliente, contacto,
+                    Busque por <span className="font-medium text-gray-800 dark:text-[#e5e7eb]">cliente</span> o{" "}
+                    <span className="font-medium text-gray-800 dark:text-[#e5e7eb]">folio</span>. Al elegir una fila se copian cliente, contacto,
                     descuentos, conceptos y textos al borrador actual.
                   </p>
                 </div>
               </div>
             </header>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden bg-gray-50/45 px-5 py-5 dark:bg-gray-950/25 sm:px-6">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden bg-gray-50/45 px-5 py-5 dark:bg-[#0f172a]/60 sm:px-6">
               <section className={cloneModalPanelClass}>
                 <label htmlFor="clone-cotizacion-search" className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm">
                   Buscar cotización
@@ -2031,37 +2069,37 @@ export default function NuevaCotizacionPage() {
                     <span className="tabular-nums text-[11px] font-medium text-gray-400 dark:text-gray-500">{cloneRows.length}</span>
                   )}
                 </div>
-                <div className="relative min-h-[12rem] flex-1 overflow-hidden rounded-2xl border border-gray-200/80 bg-white/75 dark:border-white/[0.08] dark:bg-gray-900/45">
+                <div className="relative min-h-[12rem] flex-1 overflow-hidden rounded-2xl border border-gray-200/80 bg-white/75 dark:border-white/[0.08] dark:bg-[#111827]/45">
                   <div className="custom-scrollbar max-h-[min(48vh,320px)] overflow-y-auto overscroll-contain sm:max-h-[min(50vh,340px)]">
                     {cloneListLoading && (
                       <div className="flex flex-col items-center justify-center gap-3 px-4 py-14">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600 dark:border-gray-700 dark:border-t-brand-400" />
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Buscando cotizaciones…</p>
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-[#ff801f] dark:border-gray-700 dark:border-t-[#ffa057]" />
+                        <p className="text-sm text-[#78716c] dark:text-[#8ea0b8]">Buscando cotizaciones…</p>
                       </div>
                     )}
                     {!cloneListLoading && cloneSearchDebounced.length < 1 && (
                       <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
-                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-50 text-gray-400 dark:border-white/[0.08] dark:bg-gray-950/50 dark:text-gray-500">
+                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-50 text-gray-400 dark:border-white/[0.08] dark:bg-[#0f172a] dark:text-gray-500">
                           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
                             <path d="M12 19V5M5 12h14" strokeLinecap="round" />
                           </svg>
                         </span>
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Empiece a escribir</p>
-                        <p className="max-w-[240px] text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                        <p className="max-w-[240px] text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
                           Escriba al menos un carácter para buscar en el directorio de cotizaciones.
                         </p>
                       </div>
                     )}
                     {!cloneListLoading && cloneSearchDebounced.length >= 1 && cloneRows.length === 0 && (
                       <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
-                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-50 text-gray-400 dark:border-white/[0.08] dark:bg-gray-950/50 dark:text-gray-500">
+                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-50 text-gray-400 dark:border-white/[0.08] dark:bg-[#0f172a] dark:text-gray-500">
                           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
                             <circle cx="11" cy="11" r="7" />
                             <path d="m20 20-3-3M8 11h6" strokeLinecap="round" />
                           </svg>
                         </span>
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Sin coincidencias</p>
-                        <p className="max-w-[260px] text-xs text-gray-500 dark:text-gray-400">Pruebe otro folio o parte del nombre del cliente.</p>
+                        <p className="max-w-[260px] text-xs text-[#78716c] dark:text-[#8ea0b8]">Pruebe otro folio o parte del nombre del cliente.</p>
                       </div>
                     )}
                     {!cloneListLoading && cloneRows.length > 0 && (
@@ -2072,15 +2110,15 @@ export default function NuevaCotizacionPage() {
                               type="button"
                               disabled={clonePickingId != null}
                               onClick={() => void handleClonePick(row.id)}
-                              className="flex w-full flex-col gap-2 rounded-2xl border border-gray-200/80 bg-gradient-to-br from-white to-gray-50/60 p-3.5 text-left shadow-sm transition-all hover:-translate-y-[1px] hover:border-brand-300/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/35 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:from-gray-900/70 dark:to-gray-900/40 dark:hover:border-brand-500/30 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                              className="flex w-full flex-col gap-2 rounded-2xl border border-gray-200/80 bg-gradient-to-br from-white to-gray-50/60 p-3.5 text-left shadow-sm transition-all hover:-translate-y-[1px] hover:border-[#ff801f]/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:from-gray-900/70 dark:to-gray-900/40 dark:hover:border-[#ff801f]/30 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                             >
                               <div className="flex min-w-0 flex-1 items-start gap-3">
-                                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-500/20 bg-brand-500/[0.08] text-sm font-bold tabular-nums text-brand-800 dark:border-brand-500/25 dark:bg-brand-500/15 dark:text-brand-200">
+                                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#ff801f]/20 bg-[#fff7ed]/80 text-sm font-bold tabular-nums text-[#9a3412] dark:border-[#ff801f]/25 dark:bg-[#ff801f]/15 dark:text-[#ffa057]">
                                   #{row.idx}
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{row.cliente}</p>
-                                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                  <p className="truncate text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">{row.cliente}</p>
+                                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
                                     {row.contacto && row.contacto !== "—" && <span>Contacto: {row.contacto}</span>}
                                     {row.fecha && (
                                       <span className="tabular-nums text-gray-400 dark:text-gray-500">{formatDMY(row.fecha)}</span>
@@ -2088,7 +2126,7 @@ export default function NuevaCotizacionPage() {
                                   </div>
                                 </div>
                               </div>
-                              <span className="shrink-0 rounded-lg border border-gray-200/80 bg-gray-50/90 px-2.5 py-1 text-xs font-semibold tabular-nums text-gray-800 dark:border-white/[0.08] dark:bg-white/[0.06] dark:text-gray-100">
+                              <span className="shrink-0 rounded-lg border border-gray-200/80 bg-gray-50/90 px-2.5 py-1 text-xs font-semibold tabular-nums text-gray-800 dark:border-white/[0.08] dark:bg-white/[0.06] dark:text-[#e5e7eb]">
                                 {formatMoney(row.total)}
                               </span>
                             </button>
@@ -2098,9 +2136,9 @@ export default function NuevaCotizacionPage() {
                     )}
                   </div>
                   {clonePickingId != null && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/55 backdrop-blur-[2px] dark:bg-gray-950/50">
-                      <div className="flex items-center gap-2 rounded-xl border border-gray-200/80 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-md dark:border-white/[0.1] dark:bg-gray-900 dark:text-gray-200">
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-brand-600 dark:border-gray-600 dark:border-t-brand-400" />
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/55 backdrop-blur-[2px] dark:bg-[#0f172a]">
+                      <div className="flex items-center gap-2 rounded-xl border border-gray-200/80 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-md dark:border-white/[0.1] dark:bg-[#111827] dark:text-[#e5e7eb]">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#ff801f] dark:border-gray-600 dark:border-t-[#ffa057]" />
                         Cargando cotización…
                       </div>
                     </div>
@@ -2126,16 +2164,16 @@ export default function NuevaCotizacionPage() {
                 maxHeight: syscomPopPos.maxHeight,
                 ...(syscomPopPos.top != null ? { top: syscomPopPos.top } : { bottom: syscomPopPos.bottom }),
               }}
-              className="flex flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white/98 shadow-2xl shadow-gray-900/20 ring-1 ring-black/[0.06] backdrop-blur-md dark:border-white/[0.12] dark:bg-gray-900/98 dark:shadow-black/50 dark:ring-white/[0.08]"
+              className="flex flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white/98 shadow-2xl shadow-gray-900/20 ring-1 ring-black/[0.06] backdrop-blur-md dark:border-white/[0.12] dark:bg-[#111827]/98 dark:shadow-black/50 dark:ring-white/[0.08]"
             >
-              <div className="shrink-0 border-b border-gray-100/90 bg-gradient-to-r from-brand-50/95 to-transparent px-3 py-2 dark:border-white/[0.06] dark:from-brand-950/50 dark:to-transparent">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-800 dark:text-brand-200">Resultados combinados</p>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Conceptos internos, productos manuales y Syscom</p>
+              <div className="shrink-0 border-b border-[#f1e8db] dark:border-[#273244]/90 bg-gradient-to-r from-[#fff7ed]/95 to-transparent px-3 py-2 dark:border-white/[0.06] dark:from-[#7c2d12]/50 dark:to-transparent">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#9a3412] dark:text-[#ffa057]">Resultados combinados</p>
+                <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Conceptos internos, productos manuales y Syscom</p>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-1.5 custom-scrollbar">
                 {loadingCatalogoConceptos && (
-                  <div className="mb-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs text-gray-500 dark:text-gray-400">
-                    <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" aria-hidden />
+                  <div className="mb-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                    <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[#ff801f] border-t-transparent" aria-hidden />
                     Cargando conceptos...
                   </div>
                 )}
@@ -2150,8 +2188,8 @@ export default function NuevaCotizacionPage() {
                   </div>
                 )}
                 {loadingSyscom && (
-                  <div className="flex items-center gap-2 rounded-lg px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
-                    <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" aria-hidden />
+                  <div className="flex items-center gap-2 rounded-lg px-3 py-3 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                    <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[#ff801f] border-t-transparent" aria-hidden />
                     Buscando en Syscom…
                   </div>
                 )}
@@ -2168,28 +2206,28 @@ export default function NuevaCotizacionPage() {
                       type="button"
                       role="option"
                       onClick={opt.onSelect}
-                      className="group mb-1 flex w-full rounded-xl px-2 py-2 text-left transition-colors last:mb-0 hover:bg-brand-50/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:hover:bg-white/[0.06]"
+                      className="group mb-1 flex w-full rounded-xl px-2 py-2 text-left transition-colors last:mb-0 hover:bg-[#ff801f]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40 dark:hover:bg-white/[0.06]"
                     >
                       <div className="flex w-full items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium leading-snug text-gray-900 group-hover:text-brand-900 dark:text-gray-100 dark:group-hover:text-brand-100">
+                          <p className="text-sm font-medium leading-snug text-gray-900 group-hover:text-[#9a3412] dark:text-[#e5e7eb] dark:group-hover:text-[#ffa057]">
                             {opt.title}
                           </p>
-                          <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                          <p className="mt-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
                             <span className="mr-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-white/[0.08]">
                               {opt.source === "catalogo" ? "Concepto" : opt.source === "manual" ? "Manual" : "Syscom"}
                             </span>
                             {opt.subtitle || "Sin detalle"}
                           </p>
                         </div>
-                        <span className="shrink-0 rounded-md bg-brand-500/10 px-2 py-1 text-xs font-semibold tabular-nums text-brand-700 dark:bg-brand-400/15 dark:text-brand-300">
+                        <span className="shrink-0 rounded-md bg-[#ff801f]/10 px-2 py-1 text-xs font-semibold tabular-nums text-[#ea580c] dark:bg-[#ff801f]/15 dark:text-[#ffa057]">
                           {formatMoney(opt.price)}
                         </span>
                       </div>
                     </button>
                   ))}
                 {!loadingSyscom && !loadingCatalogoConceptos && !syscomError && !catalogoConceptosError && !catalogoManualError && combinedConceptoOptions.length === 0 && productoSearch.trim().length >= 2 && (
-                  <div className="rounded-lg px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400">Sin resultados en catálogos</div>
+                  <div className="rounded-lg px-3 py-4 text-center text-xs text-[#78716c] dark:text-[#8ea0b8]">Sin resultados en catálogos</div>
                 )}
               </div>
             </div>,
@@ -2203,41 +2241,43 @@ export default function NuevaCotizacionPage() {
         )}
 
         {!canCotizacionesView ? (
-          <div className="py-10 text-center text-xs text-gray-500 dark:text-gray-400 sm:text-sm">No tienes permiso para ver Cotizaciones.</div>
+          <div className="rounded-3xl border border-[#e7ded0] bg-[#fffdfa] px-4 py-10 text-center text-sm text-[#57534e] dark:border-[#273244] dark:bg-[#111827]/80 dark:text-[#b7c1d1] sm:px-6">
+            No tienes permiso para ver Cotizaciones.
+          </div>
         ) : (
           <>
 
             <nav
-              className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+              className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
               aria-label="Migas de pan"
             >
               <Link
                 to="/"
-                className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
+                className="rounded-md px-1 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
               >
                 Inicio
               </Link>
-              <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+              <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
                 /
               </span>
               <Link
                 to="/cotizacion"
-                className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
+                className="rounded-md px-1 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
               >
                 Cotizaciones
               </Link>
-              <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+              <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
                 /
               </span>
-              <span className="font-medium text-gray-700 dark:text-gray-300">
+              <span className="text-[#44403c] dark:text-[#cbd5e1]">
                 {isEditingRoute ? "Editar" : "Nueva"}
               </span>
             </nav>
 
             <header className={`relative flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-500 via-brand-400 to-cyan-400" aria-hidden />
-              <div className="flex min-w-0 gap-3 sm:gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-brand-500/20 bg-white text-brand-700 shadow-sm dark:border-brand-400/20 dark:bg-gray-900/70 dark:text-brand-300 sm:h-12 sm:w-12">
+              <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
+              <div className="relative z-[1] flex min-w-0 gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
                   <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
@@ -2245,12 +2285,10 @@ export default function NuevaCotizacionPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-700/70 dark:text-brand-300/80 sm:text-[11px]">
-                      Cotización
-                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]">Cotización</p>
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
-                    <h1 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">
+                    <h1 className={claudeHeroHeadingClass}>
                       {isEditingRoute ? "Editar cotización" : "Nueva cotización"}
                     </h1>
                     {!!(isEditingRoute || activeCotizacionId) && (
@@ -2260,23 +2298,20 @@ export default function NuevaCotizacionPage() {
                       </span>
                     )}
                   </div>
-                  <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-300 sm:mt-2 sm:text-sm">
+                  <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
                     {isEditingRoute
                       ? "Ajusta cliente, conceptos y totales; guarda los cambios o revisa el PDF antes de enviar."
                       : "Define el cliente, agrega productos o servicios y revisa el resumen antes de guardar o generar la vista previa. Se guarda automáticamente como borrador."}
                   </p>
-                  {!!lastAutoSavedAt && (
-                    <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                      {isAutoSaving ? "Guardando cambios..." : `Autosave: ${new Date(lastAutoSavedAt).toLocaleTimeString("es-MX")}`}
-                    </p>
-                  )}
+                  <CotizacionSaveStatus isAutoSaving={isAutoSaving} lastAutoSavedAt={lastAutoSavedAt} />
+                  <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
                 </div>
               </div>
               <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
                 <button
                   type="button"
                   onClick={() => navigate("/cotizacion")}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-800 transition-all hover:-translate-y-[1px] hover:border-brand-300 hover:bg-brand-50/60 active:scale-[0.99] dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:hover:bg-brand-500/[0.09] sm:w-auto sm:min-h-0"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-[#e7ded0] bg-white px-4 py-2.5 text-sm font-medium text-[#57534e] shadow-none transition-colors hover:bg-[#fffdf8] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80 sm:w-auto sm:min-h-0"
                   aria-label="Regresar a cotizaciones"
                 >
                   <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2289,12 +2324,14 @@ export default function NuevaCotizacionPage() {
               </div>
             </header>
 
-            <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
+            <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-10">
               <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-9">
                 <ComponentCard
                   title="Datos del cliente"
                   desc="Busca por nombre o teléfono y completa contacto, descuento y estado."
-                  className={cardShellClass.replace(/^overflow-hidden\b/, "overflow-visible")}
+                  className={`${cardShellClass.replace(/^overflow-hidden\b/, "overflow-visible")} ${
+                    clienteOpen || tipoTrabajoOpen ? "relative z-[200]" : ""
+                  }`}
                   compact
                 >
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -2312,7 +2349,7 @@ export default function NuevaCotizacionPage() {
                             }}
                             onFocus={() => setClienteOpen(true)}
                             placeholder={loadingClientes ? "Cargando clientes..." : "Buscar cliente por nombre o teléfono..."}
-                            className="block min-h-[42px] w-full rounded-xl border border-gray-200/95 bg-white py-2 pl-8 pr-20 text-sm font-medium text-gray-800 outline-none transition-all focus:border-brand-500/70 focus:bg-white focus:ring-4 focus:ring-brand-500/15 dark:border-white/[0.1] dark:bg-gray-950/45 dark:text-gray-100 dark:focus:bg-gray-900/70 sm:min-h-[44px] sm:py-2.5"
+                            className={`block min-h-[42px] w-full pl-8 pr-20 sm:min-h-[44px] sm:py-2.5 ${inputLikeClassName}`}
                           />
                           <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
                             {(!!clienteId || clienteSearch.trim().length > 0) && (
@@ -2327,34 +2364,34 @@ export default function NuevaCotizacionPage() {
                                 </svg>
                               </button>
                             )}
-                            <button type='button' onClick={() => setClienteOpen(o => !o)} className='h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-300 transition'>
+                            <button type="button" onClick={() => setClienteOpen((o) => !o)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#e2d9ca] bg-[#fffdfa] text-[#78716c] transition hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#8ea0b8] dark:hover:bg-[#1e293b]">
                               <svg className={`w-3.5 h-3.5 transition-transform ${clienteOpen ? 'rotate-180' : ''}`} viewBox='0 0 20 20' fill='none'><path d='M5.25 7.5 10 12.25 14.75 7.5' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' /></svg>
                             </button>
                           </div>
                         </div>
                         {clienteOpen && (
-                          <div className="absolute left-0 right-0 top-full z-[110] mt-1 w-full max-h-64 overflow-auto divide-y divide-gray-100 rounded-xl border border-gray-200/80 bg-white shadow-xl ring-1 ring-black/5 backdrop-blur-sm dark:divide-white/[0.06] dark:border-white/[0.08] dark:bg-gray-900/95 dark:ring-white/10 custom-scrollbar">
-                            <button type='button' onClick={() => selectCliente(null)} className={`w-full text-left px-3 py-2 text-[11px] hover:bg-brand-50 dark:hover:bg-gray-800 dark:text-white ${!clienteId ? 'bg-brand-50/60 dark:bg-gray-800/50 font-medium text-brand-700 dark:text-white' : ''}`}>Selecciona cliente</button>
+                          <div className="absolute left-0 right-0 top-full z-[110] mt-1 max-h-64 w-full overflow-auto divide-y divide-[#f1e8db] rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl ring-1 ring-black/5 backdrop-blur-sm custom-scrollbar dark:divide-[#273244] dark:border-[#334155] dark:bg-[#111827]/95 dark:ring-white/10">
+                            <button type='button' onClick={() => selectCliente(null)} className={`w-full text-left px-3 py-2 text-[11px] hover:bg-[#ff801f]/10 dark:hover:bg-[#1e293b] dark:text-white ${!clienteId ? 'bg-[#ff801f]/10 dark:bg-[#0f172a]/50 font-medium text-[#ea580c] dark:text-white' : ''}`}>Selecciona cliente</button>
                             {filteredClientes.map(c => (
-                              <button key={c.id} type='button' onClick={() => selectCliente(c)} className='w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition'>
+                              <button key={c.id} type='button' onClick={() => selectCliente(c)} className='w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-[#1e293b] text-gray-700 dark:text-[#e5e7eb] transition'>
                                 <div className='flex items-center gap-2'>
                                   <span className='inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold'>
                                     {(c.nombre || '?').slice(0, 1).toUpperCase()}
                                   </span>
                                   <div className='flex flex-col flex-1'>
                                     <div className='flex items-center gap-2'>
-                                      <span className='text-[12px] font-medium text-gray-800 dark:text-gray-100'>{c.nombre || '-'}</span>
+                                      <span className='text-[12px] font-medium text-gray-800 dark:text-[#e5e7eb]'>{c.nombre || '-'}</span>
                                       {c.is_prospecto && (
                                         <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 text-[9px] font-bold uppercase tracking-wider">Prospecto</span>
                                       )}
                                     </div>
-                                    <span className='text-[11px] text-gray-500 dark:text-gray-400'>{c.telefono || '-'}</span>
+                                    <span className='text-[11px] text-[#78716c] dark:text-[#8ea0b8]'>{c.telefono || '-'}</span>
                                   </div>
                                 </div>
                               </button>
                             ))}
                             {filteredClientes.length === 0 && (
-                              <div className='px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400'>Sin resultados</div>
+                              <div className='px-3 py-2 text-[11px] text-[#78716c] dark:text-[#8ea0b8]'>Sin resultados</div>
                             )}
                           </div>
                         )}
@@ -2395,11 +2432,24 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div>
-                      <Label className={labelPageClass}>Medio de Contacto</Label>
+                      <Label className={labelPageClass}>
+                        Medio de Contacto <span className="text-red-500">*</span>
+                      </Label>
                       <select
                         value={medioContacto}
-                        onChange={(e) => setMedioContacto(e.target.value)}
-                        className={inputLikeClassName}
+                        onChange={(e) => {
+                          setMedioContacto(e.target.value);
+                          setMedioContactoTouched(true);
+                        }}
+                        onBlur={() => setMedioContactoTouched(true)}
+                        className={`${inputLikeClassName} ${
+                          medioContactoInvalid
+                            ? "border-red-500 focus:border-red-500 focus:ring-red-500/20 dark:border-red-400 dark:focus:border-red-400"
+                            : ""
+                        }`}
+                        required
+                        aria-invalid={medioContactoInvalid}
+                        aria-describedby={medioContactoInvalid ? "medio-contacto-error" : undefined}
                       >
                         <option value="">Selecciona</option>
                         {MEDIO_CONTACTO_OPTIONS.map((opt) => (
@@ -2408,6 +2458,154 @@ export default function NuevaCotizacionPage() {
                           </option>
                         ))}
                       </select>
+                      {medioContactoInvalid && (
+                        <p id="medio-contacto-error" className="mt-1 text-xs text-red-600 dark:text-red-400">
+                          Selecciona un medio de contacto.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label className={labelPageClass}>Tipo de Trabajo</Label>
+                      <div ref={tipoTrabajoRef} className={`relative ${tipoTrabajoOpen ? "z-[100]" : "z-0"}`}>
+                        <button
+                          type="button"
+                          onClick={() => setTipoTrabajoOpen((open) => !open)}
+                          disabled={servicios.length === 0}
+                          aria-expanded={tipoTrabajoOpen}
+                          aria-haspopup="listbox"
+                          className={`${inputLikeClassName} flex w-full items-center justify-between gap-2 pr-10 text-left disabled:cursor-not-allowed disabled:opacity-60`}
+                        >
+                          <span
+                            className={`min-w-0 flex-1 truncate ${
+                              tipoTrabajoIds.length === 0 ? "text-[#a8a29e] dark:text-[#8ea0b8]" : "text-[#1c1917] dark:text-[#e5e7eb]"
+                            }`}
+                          >
+                            {servicios.length === 0
+                              ? "Cargando servicios…"
+                              : tipoTrabajoIds.length === 0
+                                ? "Selecciona"
+                                : tipoTrabajoDisplay}
+                          </span>
+                        </button>
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#78716c] dark:text-[#8ea0b8]">
+                          <svg
+                            className={`h-4 w-4 transition-transform ${tipoTrabajoOpen ? "rotate-180" : ""}`}
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            aria-hidden
+                          >
+                            <path
+                              d="M5.25 7.5 10 12.25 14.75 7.5"
+                              stroke="currentColor"
+                              strokeWidth="1.6"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+
+                        {tipoTrabajoOpen && servicios.length > 0 && (
+                          <div
+                            className="absolute left-0 right-0 top-full z-[110] mt-1 max-h-64 w-full overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl ring-1 ring-black/5 dark:border-[#334155] dark:bg-[#111827]/95 dark:ring-white/10"
+                            role="listbox"
+                            aria-label="Servicios disponibles"
+                            aria-multiselectable
+                          >
+                            <div className="flex items-center justify-between gap-2 border-b border-[#e7ded0] bg-[#fcfaf6]/95 px-3 py-2 dark:border-[#273244] dark:bg-[#0f172a]/90">
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#78716c] dark:text-[#8ea0b8]">
+                                Servicios
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {tipoTrabajoIds.length > 0 && (
+                                  <span className="text-[10px] tabular-nums text-[#9a3412] dark:text-[#fdba74]">
+                                    {tipoTrabajoIds.length} sel.
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setTipoTrabajo(servicios.map((s) => s.id))}
+                                  className="text-[10px] font-medium text-[#ea580c] hover:text-[#c2410c] dark:text-[#fb923c] dark:hover:text-[#fdba74]"
+                                >
+                                  Todos
+                                </button>
+                                <span className="text-[#d6d3d1] dark:text-[#475569]" aria-hidden>
+                                  ·
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setTipoTrabajo([])}
+                                  className="text-[10px] font-medium text-[#78716c] hover:text-[#57534e] dark:text-[#8ea0b8] dark:hover:text-[#cbd5e1]"
+                                >
+                                  Ninguno
+                                </button>
+                              </div>
+                            </div>
+
+                            <ul className="max-h-52 divide-y divide-[#e7ded0]/90 overflow-y-auto custom-scrollbar dark:divide-[#273244] sm:max-h-56">
+                              {servicios.map((s) => {
+                                const checked = tipoTrabajoIds.includes(s.id);
+                                return (
+                                  <li key={s.id} role="option" aria-selected={checked}>
+                                    <label
+                                      className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors sm:px-4 sm:py-3 ${
+                                        checked
+                                          ? "bg-[#fff3e8]/90 dark:bg-[#ff801f]/10"
+                                          : "hover:bg-[#ff801f]/[0.04] dark:hover:bg-white/[0.03]"
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => {
+                                          setTipoTrabajo((prev) => {
+                                            const next = new Set(normalizeTipoTrabajoIds(prev));
+                                            if (next.has(s.id)) next.delete(s.id);
+                                            else next.add(s.id);
+                                            return Array.from(next);
+                                          });
+                                        }}
+                                        className="sr-only"
+                                      />
+                                      <span
+                                        className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                                          checked
+                                            ? "border-[#ff801f] bg-[#ff801f] text-[#0f172a] dark:border-[#fb923c] dark:bg-[#fb923c] dark:text-[#0f172a]"
+                                            : "border-[#d6d3d1] bg-white dark:border-[#475569] dark:bg-[#111a2b]"
+                                        }`}
+                                        aria-hidden
+                                      >
+                                        {checked ? (
+                                          <svg
+                                            className="h-2.5 w-2.5"
+                                            viewBox="0 0 12 12"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2.5"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          >
+                                            <path d="M2.5 6.5 5 9.5 9.5 2.5" />
+                                          </svg>
+                                        ) : null}
+                                      </span>
+                                      <span
+                                        className={`min-w-0 flex-1 text-sm leading-snug ${
+                                          checked
+                                            ? "font-medium text-[#1c1917] dark:text-[#f8fafc]"
+                                            : "text-[#57534e] dark:text-[#cbd5e1]"
+                                        }`}
+                                      >
+                                        {s.nombre}
+                                      </span>
+                                    </label>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div>
@@ -2432,7 +2630,7 @@ export default function NuevaCotizacionPage() {
                     <button
                       type="button"
                       onClick={clearConceptoForm}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200/90 bg-white text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/25 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:bg-white/[0.04]"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200/90 bg-white text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#ff801f]/25 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-[#e5e7eb] dark:hover:bg-white/[0.04]"
                       aria-label="Limpiar sección de producto"
                       title="Limpiar"
                     >
@@ -2446,7 +2644,7 @@ export default function NuevaCotizacionPage() {
                     </button>
                   }
                 >
-                  <div className="mb-4 rounded-2xl border border-brand-200/40 bg-gradient-to-r from-brand-50/80 to-cyan-50/60 px-4 py-2.5 text-[11px] text-brand-900 dark:border-brand-500/25 dark:from-brand-900/20 dark:to-cyan-900/15 dark:text-brand-100">
+                  <div className="mb-4 rounded-2xl border border-[#fed7aa]/40 bg-gradient-to-r from-[#fff7ed]/80 to-cyan-50/60 px-4 py-2.5 text-[11px] text-[#9a3412] dark:border-[#ff801f]/25 dark:from-[#7c2d12]/20 dark:to-cyan-900/15 dark:text-[#ffa057]">
                     Sugerencia: selecciona primero el producto para usar precio especial/lista automaticamente, y despues ajusta el concepto si deseas editar el texto final.
                   </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-6 lg:grid-cols-12 lg:gap-x-6">
@@ -2563,11 +2761,11 @@ export default function NuevaCotizacionPage() {
                         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
                           <div>
                             <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Precio unitario</div>
-                            <div className="mt-1 text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{formatMoney(preview.puBase)}</div>
+                            <div className="mt-1 text-sm font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc]">{formatMoney(preview.puBase)}</div>
                           </div>
                           <div className="text-left sm:text-right">
                             <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Importe de línea</div>
-                            <div className="mt-1 text-base font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white sm:text-lg">{formatMoney(preview.importe)}</div>
+                            <div className="mt-1 text-base font-semibold tabular-nums tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">{formatMoney(preview.importe)}</div>
                           </div>
                         </div>
                       </div>
@@ -2579,7 +2777,7 @@ export default function NuevaCotizacionPage() {
                           type="button"
                           onClick={addConcepto}
                           disabled={!canAddConcepto}
-                          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:-translate-y-[1px] hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:-translate-y-[1px] hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                         >
                           {editingConceptoId ? "Actualizar" : "Agregar"}
                         </button>
@@ -2594,14 +2792,14 @@ export default function NuevaCotizacionPage() {
                   className={cardShellClass}
                   compact
                 >
-                  <p className="mb-2 flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400 sm:hidden">
-                    <span className="inline-block h-px w-4 bg-brand-400/60" aria-hidden />
+                  <p className="mb-2 flex items-center gap-1.5 text-[10px] text-[#78716c] dark:text-[#8ea0b8] sm:hidden">
+                    <span className="inline-block h-px w-4 bg-[#ff801f]/50" aria-hidden />
                     Desliza horizontalmente para ver todas las columnas
                   </p>
-                  <div className="-mx-3 overflow-hidden rounded-xl border border-gray-200/70 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/25 sm:mx-0">
+                  <div className="-mx-3 overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/90 dark:border-[#273244] dark:bg-[#0f172a]/50 sm:mx-0">
                     <div className="touch-pan-x overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] px-1 pb-1 sm:px-0 sm:pb-0">
                       <Table className="min-w-[720px]">
-                        <TableHeader className="sticky top-0 z-10 border-b border-gray-200/80 bg-gray-100/90 text-[10px] font-semibold text-gray-700 backdrop-blur-sm dark:border-white/[0.06] dark:bg-gray-900/90 dark:text-gray-200 sm:text-[11px]">
+                        <TableHeader className="sticky top-0 z-10 border-b border-gray-200/80 bg-gray-100/90 text-[10px] font-semibold text-gray-700 backdrop-blur-sm dark:border-white/[0.06] dark:bg-[#111827]/90 dark:text-[#e5e7eb] sm:text-[11px]">
                           <TableRow>
                             <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Cantidad</TableCell>
                             <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Unidad</TableCell>
@@ -2613,10 +2811,10 @@ export default function NuevaCotizacionPage() {
                             <TableCell isHeader className="px-2 py-2 text-center w-1/12 text-gray-700 dark:text-gray-300"> </TableCell>
                           </TableRow>
                         </TableHeader>
-                        <TableBody className="divide-y divide-gray-100 text-[11px] text-gray-700 dark:divide-white/[0.06] dark:text-gray-200 sm:text-[12px]">
+                        <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
                           {computed.lines.map((c) => {
                             return (
-                              <TableRow key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                              <TableRow key={c.id} className="hover:bg-gray-50 dark:hover:bg-[#1e293b]/60">
                                 <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.cantidad}</TableCell>
                                 <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.unidad || "—"}</TableCell>
                                 <TableCell className="px-2 py-1.5">
@@ -2624,7 +2822,7 @@ export default function NuevaCotizacionPage() {
                                     {c.thumbnail_url ? (
                                       <img src={c.thumbnail_url} alt={c.producto_nombre} className="w-8 h-8 rounded object-cover border border-gray-200 dark:border-white/10" />
                                     ) : null}
-                                    <span className="text-gray-900 dark:text-white">{c.producto_nombre}</span>
+                                    <span className="text-[#1c1917] dark:text-[#f8fafc]">{c.producto_nombre}</span>
                                   </div>
                                 </TableCell>
                                 <TableCell className="px-2 py-1.5">{c.producto_descripcion || "—"}</TableCell>
@@ -2636,7 +2834,7 @@ export default function NuevaCotizacionPage() {
                                     <button
                                       type="button"
                                       onClick={() => editConcepto(c.id)}
-                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-brand-400 hover:text-brand-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-brand-500 sm:h-7 sm:w-7 sm:rounded"
+                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-[#ffa057] hover:text-[#ff801f] active:scale-[0.97] dark:border-white/10 dark:bg-[#0f172a] dark:hover:border-[#ff801f] sm:h-7 sm:w-7 sm:rounded"
                                       title="Editar"
                                     >
                                       <PencilIcon className="h-4 w-4" />
@@ -2644,7 +2842,7 @@ export default function NuevaCotizacionPage() {
                                     <button
                                       type="button"
                                       onClick={() => removeConcepto(c.id)}
-                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-white/10 dark:bg-gray-800 dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
+                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-white/10 dark:bg-[#0f172a] dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
                                       title="Eliminar"
                                     >
                                       <TrashBinIcon className="h-4 w-4" />
@@ -2664,8 +2862,8 @@ export default function NuevaCotizacionPage() {
                                       <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                                     </svg>
                                   </span>
-                                  <p className="text-xs font-medium text-gray-700 dark:text-gray-200 sm:text-sm">Aún no hay conceptos</p>
-                                  <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 sm:text-xs">Usa el formulario de arriba para agregar productos o servicios.</p>
+                                  <p className="text-xs font-medium text-gray-700 dark:text-[#e5e7eb] sm:text-sm">Aún no hay conceptos</p>
+                                  <p className="text-[11px] leading-relaxed text-[#78716c] dark:text-[#8ea0b8] sm:text-xs">Usa el formulario de arriba para agregar productos o servicios.</p>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -2686,7 +2884,7 @@ export default function NuevaCotizacionPage() {
                     <div>
                       <div className="flex items-baseline justify-between gap-3">
                         <Label className={labelPageClass}>Texto arriba de los precios</Label>
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Máx. 5000</span>
+                        <span className="text-[10px] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">Máx. 5000</span>
                       </div>
                       <textarea
                         value={textoArribaPrecios}
@@ -2701,7 +2899,7 @@ export default function NuevaCotizacionPage() {
                     <div>
                       <div className="flex items-baseline justify-between gap-3">
                         <Label className={labelPageClass}>Términos y condiciones</Label>
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400 sm:text-[11px]">Máx. 8000</span>
+                        <span className="text-[10px] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">Máx. 8000</span>
                       </div>
                       <textarea
                         value={terminos}
@@ -2722,21 +2920,21 @@ export default function NuevaCotizacionPage() {
                   compact
                 >
                   <div className="grid grid-cols-1 gap-4">
-                    <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200/85 bg-gradient-to-r from-gray-50 to-white px-3 py-2.5 dark:border-white/[0.06] dark:from-gray-950/40 dark:to-gray-900/30">
-                      <div className="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-200 sm:text-sm">
-                        <svg className="h-3.5 w-3.5 shrink-0 text-gray-500 dark:text-gray-400 sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e7ded0] bg-[#fcfaf6] px-3 py-2.5 dark:border-[#273244] dark:bg-[#111a2b]/90">
+                      <div className="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-[#e5e7eb] sm:text-sm">
+                        <svg className="h-3.5 w-3.5 shrink-0 text-[#78716c] dark:text-[#8ea0b8] sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                           <path d="M8 2v3M16 2v3M4 7h16M6 10h12v10H6z" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                         <span>Fecha de cotización</span>
                       </div>
-                      <span className="text-xs font-semibold tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatDMY(todayIso)}</span>
+                      <span className="text-xs font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-sm">{formatDMY(todayIso)}</span>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200/85 bg-gradient-to-b from-white to-gray-50/45 p-4 dark:border-white/[0.08] dark:from-gray-900/70 dark:to-gray-950/40">
-                      <div className="flex items-end justify-between gap-3 border-b border-gray-100 pb-3 dark:border-white/[0.06]">
+                    <div className="rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-4 dark:border-[#273244] dark:bg-[#111827]/80">
+                      <div className="flex items-end justify-between gap-3 border-b border-[#f1e8db] dark:border-[#273244] pb-3 dark:border-white/[0.06]">
                         <div>
                           <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Total estimado</div>
-                          <div className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white sm:text-2xl">{formatMoney(computed.total)}</div>
+                          <div className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-2xl">{formatMoney(computed.total)}</div>
                         </div>
                         <div className="text-right text-[9px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500 sm:text-[10px]">MXN</div>
                       </div>
@@ -2745,27 +2943,27 @@ export default function NuevaCotizacionPage() {
                         {!!toNumber(computed.descClientePct, 0) && (
                           <>
                             <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Importe conceptos</span>
-                              <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.subtotalLineas)}</span>
+                              <span className="text-[11px] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs">Importe conceptos</span>
+                              <span className="text-xs font-medium tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.subtotalLineas)}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Descuento cliente ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</span>
-                              <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">-{formatMoney(computed.descuentoCliente)}</span>
+                              <span className="text-[11px] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs">Descuento cliente ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</span>
+                              <span className="text-xs font-medium tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-sm">-{formatMoney(computed.descuentoCliente)}</span>
                             </div>
-                            <div className="border-t border-gray-100 pt-2 dark:border-white/[0.06]" aria-hidden />
+                            <div className="border-t border-[#f1e8db] dark:border-[#273244] pt-2 dark:border-white/[0.06]" aria-hidden />
                           </>
                         )}
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Subtotal</span>
-                          <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.subtotalSinIva)}</span>
+                          <span className="text-[11px] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs">Subtotal</span>
+                          <span className="text-xs font-medium tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.subtotalSinIva)}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">IVA (16%)</span>
-                          <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-white sm:text-sm">{formatMoney(computed.ivaDesglose)}</span>
+                          <span className="text-[11px] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs">IVA (16%)</span>
+                          <span className="text-xs font-medium tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.ivaDesglose)}</span>
                         </div>
-                        <div className="flex items-center justify-between border-t border-gray-100 pt-2 dark:border-white/[0.06]">
+                        <div className="flex items-center justify-between border-t border-[#f1e8db] dark:border-[#273244] pt-2 dark:border-white/[0.06]">
                           <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 sm:text-xs">Total</span>
-                          <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{formatMoney(computed.totalConIva)}</span>
+                          <span className="text-sm font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc]">{formatMoney(computed.totalConIva)}</span>
                         </div>
                       </div>
                     </div>
@@ -2776,6 +2974,7 @@ export default function NuevaCotizacionPage() {
                         <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-xs text-amber-900/90 dark:text-amber-200/90">
                           {!clienteId && <li>Selecciona un cliente</li>}
                           {!!clienteId && !String(contactoNombre || "").trim() && <li>Indica el nombre del contacto</li>}
+                          {!!clienteId && !!String(contactoNombre || "").trim() && !medioContacto && <li>Selecciona un medio de contacto</li>}
                           {!computed.lines.length && <li>Agrega al menos un producto o servicio</li>}
                         </ul>
                       </div>
@@ -2789,7 +2988,7 @@ export default function NuevaCotizacionPage() {
                           void handleSaveCotizacion(true);
                         }}
                         title={!clienteId ? "Selecciona un cliente" : undefined}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-xs font-semibold text-white shadow-sm transition-all hover:-translate-y-[1px] hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-[#ff801f] px-4 py-3 text-xs font-semibold text-[#1c1917] transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                       >
                         {isEditingRoute ? "Actualizar cotización" : "Guardar cotización"}
                       </button>
@@ -2797,7 +2996,7 @@ export default function NuevaCotizacionPage() {
                         type="button"
                         disabled={!canGuardarCotizacion || exportBusy}
                         onClick={handlePreviewPdf}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-brand-200/90 bg-white px-4 py-3 text-xs font-semibold text-brand-800 transition-all hover:-translate-y-[1px] hover:bg-brand-50/80 focus:outline-none focus:ring-2 focus:ring-brand-500/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-500/30 dark:bg-transparent dark:text-brand-200 dark:hover:bg-brand-500/[0.08] sm:min-h-0"
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-[#fed7aa] bg-white px-4 py-3 text-xs font-semibold text-[#9a3412] transition-colors hover:bg-[#fff3e8] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#fb923c]/40 dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#fb923c]/10 sm:min-h-0"
                       >
                         {previewLoading ? (
                           <>
@@ -2835,7 +3034,7 @@ export default function NuevaCotizacionPage() {
                       <button
                         type="button"
                         onClick={resetAll}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-white px-4 py-3 text-xs font-semibold text-gray-700 transition-all hover:-translate-y-[1px] hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-transparent dark:text-gray-200 dark:hover:bg-white/[0.04] sm:min-h-0"
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-white px-4 py-3 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-transparent dark:text-[#e5e7eb] dark:hover:bg-white/[0.04] sm:min-h-0"
                       >
                         Limpiar formulario
                       </button>
@@ -2848,7 +3047,7 @@ export default function NuevaCotizacionPage() {
                             setCloneRows([]);
                             setCloneModalOpen(true);
                           }}
-                          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-brand-200/90 bg-brand-50/80 px-4 py-3 text-xs font-semibold text-brand-800 transition-colors hover:bg-brand-100/90 active:scale-[0.99] dark:border-brand-500/30 dark:bg-brand-500/[0.12] dark:text-brand-100 dark:hover:bg-brand-500/20 sm:min-h-0"
+                          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-[#fed7aa] bg-[#fff3e8] px-4 py-3 text-xs font-semibold text-[#9a3412] transition-colors hover:bg-[#ffe7cc] active:scale-[0.99] dark:border-[#fb923c]/40 dark:bg-[#fb923c]/12 dark:text-[#fdba74] dark:hover:bg-[#fb923c]/20 sm:min-h-0"
                         >
                           <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeLinecap="round" strokeLinejoin="round" />

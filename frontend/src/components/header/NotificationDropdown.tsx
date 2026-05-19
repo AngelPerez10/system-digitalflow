@@ -88,7 +88,7 @@ export default function NotificationDropdown() {
                   width={40}
                   height={40}
                   src="/images/user/user-02.jpg"
-                  alt="User"
+                  alt="Avatar de usuario"
                   className="w-full overflow-hidden rounded-full"
                 />
                 <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
@@ -124,7 +124,7 @@ export default function NotificationDropdown() {
                   width={40}
                   height={40}
                   src="/images/user/user-03.jpg"
-                  alt="User"
+                  alt="Avatar de usuario"
                   className="w-full overflow-hidden rounded-full"
                 />
                 <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
@@ -160,7 +160,7 @@ export default function NotificationDropdown() {
                   width={40}
                   height={40}
                   src="/images/user/user-04.jpg"
-                  alt="User"
+                  alt="Avatar de usuario"
                   className="w-full overflow-hidden rounded-full"
                 />
                 <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
@@ -197,7 +197,7 @@ export default function NotificationDropdown() {
                   width={40}
                   height={40}
                   src="/images/user/user-05.jpg"
-                  alt="User"
+                  alt="Avatar de usuario"
                   className="w-full overflow-hidden rounded-full"
                 />
                 <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-error-500 dark:border-gray-900"></span>
@@ -233,7 +233,7 @@ export default function NotificationDropdown() {
                   width={40}
                   height={40}
                   src="/images/user/user-02.jpg"
-                  alt="User"
+                  alt="Avatar de usuario"
                   className="w-full overflow-hidden rounded-full"
                 />
                 <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
@@ -269,7 +269,7 @@ export default function NotificationDropdown() {
                   width={40}
                   height={40}
                   src="/images/user/user-03.jpg"
-                  alt="User"
+                  alt="Avatar de usuario"
                   className="w-full overflow-hidden rounded-full"
                 />
                 <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
@@ -305,7 +305,7 @@ export default function NotificationDropdown() {
                   width={40}
                   height={40}
                   src="/images/user/user-04.jpg"
-                  alt="User"
+                  alt="Avatar de usuario"
                   className="w-full overflow-hidden rounded-full"
                 />
                 <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
@@ -341,7 +341,7 @@ export default function NotificationDropdown() {
                   width={40}
                   height={40}
                   src="/images/user/user-05.jpg"
-                  alt="User"
+                  alt="Avatar de usuario"
                   className="overflow-hidden rounded-full"
                 />
                 <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-error-500 dark:border-gray-900"></span>

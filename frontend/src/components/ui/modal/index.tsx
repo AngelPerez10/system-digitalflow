@@ -10,6 +10,8 @@ interface ModalProps {
   closeOnBackdropClick?: boolean; // Control if clicking backdrop closes modal
   /** When false, Escape does not call onClose (useful when stacking modals). Default true. */
   closeOnEscape?: boolean;
+  /** Reservado para layout móvil tipo bottom sheet (compatibilidad con páginas ERP). */
+  mobileBottomSheet?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({

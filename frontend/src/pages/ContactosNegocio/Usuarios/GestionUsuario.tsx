@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import PageMeta from '@/components/common/PageMeta';
 import { Link, useNavigate } from 'react-router-dom';
 import ComponentCard from '@/components/common/ComponentCard';
@@ -7,8 +7,10 @@ import Input from '@/components/form/input/InputField';
 import Alert from '@/components/ui/alert/Alert';
 import { Modal } from '@/components/ui/modal';
 import SignaturePad from '@/components/ui/signature/SignaturePad';
-import { apiUrl } from '@/config/api';
+import { fetchApi } from '@/config/api';
+import { useAuth } from '@/context/AuthContext';
 import { EyeCloseIcon, EyeIcon, MoreDotIcon } from '@/icons';
+import { AnimatePresence, motion } from 'motion/react';
 
 type Role = 'admin' | 'tecnico';
 
@@ -92,77 +94,62 @@ const emptyEditForm: EditUserForm = {
 };
 
 const cardShellClass =
-  'overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none';
+  "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
 
 const searchInputClass =
-  'min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5';
+  "min-h-[44px] w-full rounded-2xl border border-[#e2d9ca] bg-[#fffdf8] py-2 pl-10 pr-10 text-sm text-[#1c1917] outline-none transition-all placeholder:text-[#7c7a74] focus:border-[#ff801f]/60 focus:ring-4 focus:ring-[#ff801f]/12 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c]/70 dark:focus:ring-[#fb923c]/20 sm:min-h-[46px] sm:pl-11";
 
-const getAuthHeaders = (): Record<string, string> => {
-  const token = (
-    localStorage.getItem('auth_token') ||
-    sessionStorage.getItem('auth_token') ||
-    localStorage.getItem('token') ||
-    sessionStorage.getItem('token') ||
-    ''
-  ).trim();
-  const h: Record<string, string> = {};
-  if (token) h['Authorization'] = `Bearer ${token}`;
-  return h;
+const claudeHeroHeadingClass =
+  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.85rem,2.8vw,2.6rem)] font-medium leading-[1.2] tracking-[-0.01em] text-[#1c1917] dark:text-[#f8fafc]";
+
+const claudeSectionHeadingClass =
+  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.25rem,1.8vw,1.75rem)] font-medium leading-[1.2] text-[#1c1917] dark:text-[#f8fafc]";
+
+const claudeSubheadingClass =
+  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.1rem,1.3vw,1.25rem)] font-medium leading-[1.2] text-[#1c1917] dark:text-[#f8fafc]";
+
+const claudeBodyClass = "text-base font-normal leading-[1.6] text-[#57534e] dark:text-[#b7c1d1]";
+
+const sectionLabelClass =
+  "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
+
+const claudeSansStyle = { fontFamily: "Outfit, sans-serif" } as const;
+
+const fadeInUp = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const },
 };
+
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.06,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const cardEnter = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as const },
+};
+
+const primaryOrangeBtnClass =
+  "inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-sm font-semibold text-black shadow-none transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:brightness-95 sm:w-auto sm:min-h-0";
+
+const secondaryOutlineBtnClass =
+  "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-[#e7ded0] bg-white px-4 py-2.5 text-sm font-medium text-[#57534e] shadow-none transition-colors hover:bg-[#fffdf8] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80 sm:w-auto sm:min-h-0";
+
+const selectFieldClass =
+  "h-11 w-full rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 text-sm text-[#1c1917] shadow-none outline-none transition-colors focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20";
 
 /** Usuarios que pueden asignar permisos (ver/crear/editar/eliminar) a otros, incluidos administradores. */
 const PERMISSION_DELEGATION_USERNAMES = new Set(['angelperez10', 'ivancruz01']);
 
-const getSessionUsernameNorm = (): string => {
-  try {
-    const direct = (localStorage.getItem('username') || sessionStorage.getItem('username') || '').trim();
-    if (direct) return direct.toLowerCase();
-    const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
-    if (raw) {
-      const u = JSON.parse(raw) as { username?: string };
-      if (u?.username) return String(u.username).trim().toLowerCase();
-    }
-  } catch {
-    /* ignore */
-  }
-  return '';
-};
-
-const canDelegateUserPermissions = (): boolean => PERMISSION_DELEGATION_USERNAMES.has(getSessionUsernameNorm());
-
 const isProtectedPrincipalUsername = (username: string): boolean =>
   PERMISSION_DELEGATION_USERNAMES.has((username || '').trim().toLowerCase());
-
-const SYSTEM_ACTIVITY_LOG_KEY = 'system_activity_log';
-
-const appendSystemHistoryEvent = (event: {
-  actor: string;
-  text: string;
-  module?: 'usuarios';
-  viewName?: string;
-  viewPath?: string;
-}) => {
-  try {
-    const raw = localStorage.getItem(SYSTEM_ACTIVITY_LOG_KEY) || '[]';
-    const rows = JSON.parse(raw);
-    const list = Array.isArray(rows) ? rows : [];
-    const next = [
-      {
-        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        when: new Date().toISOString(),
-        actor: event.actor || 'usuario',
-        text: event.text,
-        module: event.module || 'usuarios',
-        viewName: event.viewName || 'Gestión de usuarios',
-        viewPath: event.viewPath || '/usuarios',
-      },
-      ...list,
-    ].slice(0, 200);
-    localStorage.setItem(SYSTEM_ACTIVITY_LOG_KEY, JSON.stringify(next));
-  } catch {
-    // ignore local history persistence errors
-  }
-};
 
 const seedAdminPerms = async (userId: number) => {
   const full: Required<PermissionsPayload> = {
@@ -175,12 +162,9 @@ const seedAdminPerms = async (userId: number) => {
     usuarios: { view: true, create: true, edit: true, delete: true },
     reportes: { view: true, create: true, edit: true, delete: true },
   };
-  const res = await fetch(apiUrl(`/api/users/accounts/${userId}/permissions/`), {
+  const res = await fetchApi(`/api/users/accounts/${userId}/permissions/`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders(),
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ permissions: full }),
   });
   const data = await res.json().catch(() => null);
@@ -230,7 +214,7 @@ const generatePassword = (username: string, firstName: string, lastName: string)
 
 export default function UserProfiles() {
   const navigate = useNavigate();
-  const API = apiUrl('/api/users/accounts/');
+  const { user: authUser } = useAuth();
 
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(false);
@@ -284,7 +268,10 @@ export default function UserProfiles() {
   const [permsOpenSections, setPermsOpenSections] = useState<Record<string, boolean>>({});
 
   const didInitRef = useRef(false);
-  const canDelegatePerms = canDelegateUserPermissions();
+  const canDelegatePerms = useMemo(
+    () => PERMISSION_DELEGATION_USERNAMES.has((authUser?.username || '').trim().toLowerCase()),
+    [authUser?.username],
+  );
 
   const normalizePerms = (p: any): Required<PermissionsPayload> => {
     const base: Required<PermissionsPayload> = {
@@ -329,9 +316,8 @@ export default function UserProfiles() {
     setPermsLoading(true);
     setPermsOpenSections({});
     try {
-      const res = await fetch(apiUrl(`/api/users/accounts/${u.id}/permissions/`), {
+      const res = await fetchApi(`/api/users/accounts/${u.id}/permissions/`, {
         method: 'GET',
-        headers: { ...getAuthHeaders() },
         cache: 'no-store' as RequestCache,
       });
       const data = await res.json().catch(() => null);
@@ -353,7 +339,7 @@ export default function UserProfiles() {
   };
 
   const setPerm = (area: keyof Required<PermissionsPayload>, key: keyof CrudPerms, value: boolean) => {
-    if (!canDelegateUserPermissions()) return;
+    if (!canDelegatePerms) return;
     setPermsForm((prev) => {
       const cur = normalizePerms(prev);
       return {
@@ -368,7 +354,7 @@ export default function UserProfiles() {
 
   const savePerms = async () => {
     if (!permsUser) return;
-    if (!canDelegateUserPermissions()) {
+    if (!canDelegatePerms) {
       setPermsError('Solo Angel Pérez e Ivan Cruz pueden modificar permisos de usuarios.');
       return;
     }
@@ -388,50 +374,25 @@ export default function UserProfiles() {
             reportes: { ...merged.reportes, delete: false },
           };
 
-      const res = await fetch(apiUrl(`/api/users/accounts/${permsUser.id}/permissions/`), {
+      const res = await fetchApi(`/api/users/accounts/${permsUser.id}/permissions/`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ permissions: payloadPerms }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || 'No se pudieron guardar los permisos');
 
-      try {
-        const rawMe = localStorage.getItem('user') || sessionStorage.getItem('user');
-        const me = rawMe ? JSON.parse(rawMe) : null;
-        if (me && typeof me?.id === 'number' && me.id === permsUser.id) {
-          const pStr = JSON.stringify(payloadPerms || {});
-          localStorage.setItem('permissions', pStr);
-          sessionStorage.setItem('permissions', pStr);
-        }
-      } catch {
-        // ignore
+      if (authUser && typeof authUser.id === 'number' && authUser.id === permsUser.id) {
+        window.dispatchEvent(new Event('permissions:updated'));
       }
-      window.dispatchEvent(new Event('permissions:updated'));
-      appendSystemHistoryEvent({
-        actor: localStorage.getItem('username') || sessionStorage.getItem('username') || 'usuario',
-        text: `actualizo permisos de usuario ${permsUser.username}`,
-        module: 'usuarios',
-        viewName: 'Gestión de usuario',
-        viewPath: '/usuarios',
-      });
 
-      try {
-        const rawMe = localStorage.getItem('user') || sessionStorage.getItem('user');
-        const meAfter = rawMe ? JSON.parse(rawMe) : null;
-        if (meAfter && typeof meAfter?.id === 'number' && meAfter.id === permsUser.id) {
-          const effective = isAdmin ? merged.usuarios : (payloadPerms as PermissionsPayload).usuarios;
-          if (effective && effective.view === false) {
-            navigate('/', { replace: true });
-            setPermsSaving(false);
-            return;
-          }
+      if (authUser && typeof authUser.id === 'number' && authUser.id === permsUser.id) {
+        const effective = isAdmin ? merged.usuarios : (payloadPerms as PermissionsPayload).usuarios;
+        if (effective && effective.view === false) {
+          navigate('/', { replace: true });
+          setPermsSaving(false);
+          return;
         }
-      } catch {
-        // ignore
       }
 
       setSuccess('Permisos actualizados');
@@ -449,9 +410,8 @@ export default function UserProfiles() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(API, {
+      const res = await fetchApi('/api/users/accounts/', {
         method: 'GET',
-        headers: { ...getAuthHeaders() },
         cache: 'no-store' as RequestCache,
       });
       const data = await res.json().catch(() => null);
@@ -565,9 +525,8 @@ export default function UserProfiles() {
     setIsEditOpen(true);
 
     setSignatureLoading(true);
-    fetch(apiUrl(`/api/users/accounts/${u.id}/signature/`), {
+    fetchApi(`/api/users/accounts/${u.id}/signature/`, {
       method: 'GET',
-      headers: { ...getAuthHeaders() },
       cache: 'no-store' as RequestCache,
     })
       .then(async (res) => {
@@ -641,18 +600,15 @@ export default function UserProfiles() {
         password: form.password,
       };
 
-      const res = await fetch(API, {
+      const res = await fetchApi('/api/users/accounts/', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || 'Error al crear usuario');
 
-      if (form.role === 'admin' && typeof (data as any)?.id === 'number' && canDelegateUserPermissions()) {
+      if (form.role === 'admin' && typeof (data as any)?.id === 'number' && canDelegatePerms) {
         await seedAdminPerms((data as any).id);
       }
 
@@ -692,24 +648,18 @@ export default function UserProfiles() {
         payload.password2 = editForm.password2;
       }
 
-      const res = await fetch(apiUrl(`/api/users/accounts/${editUser.id}/`), {
+      const res = await fetchApi(`/api/users/accounts/${editUser.id}/`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || 'Error al actualizar usuario');
 
       if (hasNewSignature) {
-        const resSig = await fetch(apiUrl(`/api/users/accounts/${editUser.id}/signature/`), {
+        const resSig = await fetchApi(`/api/users/accounts/${editUser.id}/signature/`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...getAuthHeaders(),
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ signature: signatureValue }),
         });
         const dataSig = (await resSig.json().catch(() => null)) as UserSignaturePayload | null;
@@ -719,7 +669,7 @@ export default function UserProfiles() {
 
       const wasAdmin = !!editUser.is_superuser || !!editUser.is_staff;
       const willBeAdmin = editForm.role === 'admin';
-      if (!wasAdmin && willBeAdmin && canDelegateUserPermissions()) {
+      if (!wasAdmin && willBeAdmin && canDelegatePerms) {
         await seedAdminPerms(editUser.id);
       }
 
@@ -746,12 +696,9 @@ export default function UserProfiles() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(apiUrl(`/api/users/accounts/${u.id}/`), {
+      const res = await fetchApi(`/api/users/accounts/${u.id}/`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: next }),
       });
       const data = await res.json().catch(() => null);
@@ -767,28 +714,17 @@ export default function UserProfiles() {
 
   const doDelete = async () => {
     if (confirmDeleteId == null) return;
-    const deletedUser = users.find((u) => u.id === confirmDeleteId);
     setError(null);
     setSuccess(null);
     setDeleting(true);
     try {
-      const res = await fetch(apiUrl(`/api/users/accounts/${confirmDeleteId}/`), {
+      const res = await fetchApi(`/api/users/accounts/${confirmDeleteId}/`, {
         method: 'DELETE',
-        headers: {
-          ...getAuthHeaders(),
-        },
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || 'Error al eliminar usuario');
       setUsers((prev) => prev.filter((u) => u.id !== confirmDeleteId));
       setConfirmDeleteId(null);
-      appendSystemHistoryEvent({
-        actor: localStorage.getItem('username') || sessionStorage.getItem('username') || 'usuario',
-        text: `elimino al usuario ${deletedUser?.username || `#${confirmDeleteId}`}`,
-        module: 'usuarios',
-        viewName: 'Gestión de usuario',
-        viewPath: '/usuarios',
-      });
       setSuccess('Usuario eliminado');
     } catch (e: any) {
       setError(e?.message || 'Error');
@@ -800,58 +736,82 @@ export default function UserProfiles() {
   const roleBadge = (u: UserAccount) => {
     const isAdmin = isAdminUser(u);
     return isAdmin
-      ? 'border border-indigo-200/80 bg-indigo-50/90 text-indigo-800 dark:border-indigo-500/25 dark:bg-indigo-500/10 dark:text-indigo-300'
-      : 'border border-sky-200/80 bg-sky-50/90 text-sky-800 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300';
+      ? 'border border-[#ff801f]/35 bg-[#ff801f]/10 text-[#ff801f] dark:border-[#ffa057]/40 dark:bg-[#ff801f]/12 dark:text-[#ffa057]'
+      : 'border border-[#ff801f]/22 bg-[#ff801f]/[0.07] text-[#b45309] dark:border-[#ffa057]/28 dark:bg-[#ff801f]/10 dark:text-[#ffb174]';
   };
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
-      <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
-      <PageMeta title="Gestión de usuario | Digitalflow" description="Administración de usuarios del sistema" />
+    <>
+      <PageMeta title="Gestión de usuarios | Sistema Grupo Intrax GPS" description="Administración de cuentas, roles, permisos y firma digital" />
+      <div className="min-h-[calc(100dvh-5rem)] overflow-x-hidden">
+        <motion.div
+          className="relative mx-auto w-full max-w-[min(100%,88rem)] space-y-6 px-4 pb-10 pt-6 sm:space-y-8 sm:px-6 sm:pb-12 sm:pt-8 lg:px-8 xl:px-10"
+          style={claudeSansStyle}
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+        >
 
-      <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]" aria-label="Migas de pan">
-        <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
-          Inicio
-        </Link>
-        <span className="text-gray-300 dark:text-gray-600" aria-hidden>
-          /
-        </span>
-        <span className="font-medium text-gray-700 dark:text-gray-300">Usuarios</span>
-      </nav>
+          <motion.nav
+            variants={fadeInUp}
+            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
+            aria-label="Migas de pan"
+          >
+            <Link
+              to="/"
+              className="rounded-md px-1.5 py-1 text-[#57534e] transition-all duration-200 hover:bg-black/[0.05] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/[0.06] dark:hover:text-white"
+            >
+              Inicio
+            </Link>
+            <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+              /
+            </span>
+            <span className="text-[#44403c] dark:text-[#cbd5e1]">Usuarios</span>
+          </motion.nav>
 
-      <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
-        <div className="flex min-w-0 gap-3 sm:gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
-            <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
-              Contactos
-            </p>
-            <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Gestión de usuarios</h1>
-            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
-              Crea cuentas, asigna roles, ajusta permisos por módulo y administra la firma digital desde un panel unificado.
-            </p>
-          </div>
-        </div>
-      </header>
+          <motion.header variants={fadeInUp} className={`${cardShellClass} dark:bg-[#111827]/80 dark:border-[#273244]`}>
+            <div className="relative overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-px bg-[#e7ded0] dark:bg-[#334155]" />
+              <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6 sm:p-6 lg:p-8">
+                <div className="flex min-w-0 gap-3.5 sm:gap-4">
+                  <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#e2d9ca] bg-white text-[#1c1917] sm:h-12 sm:w-12 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f8fafc]">
+                    <svg className="h-5 w-5 sm:h-[18px] sm:w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#11ff99] dark:border-black" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className={sectionLabelClass}>Contactos de negocio</p>
+                    <h1 className={`mt-1 ${claudeHeroHeadingClass}`}>Gestión de usuarios</h1>
+                    <p className={`mt-2 max-w-xl ${claudeBodyClass}`}>
+                      Crea cuentas, asigna <span className="font-medium text-[#ea580c] dark:text-[#fb923c]">roles</span>, ajusta permisos por módulo y administra la firma digital.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.header>
 
-      {error && (
-        <Alert variant="error" title="Error" message={error} />
-      )}
-      {success && (
-        <Alert variant="success" title="Listo" message={success} />
-      )}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}>
+                <Alert variant="error" title="Error" message={error} showLink={false} />
+              </motion.div>
+            )}
+            {success && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}>
+                <Alert variant="success" title="Listo" message={success} showLink={false} />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0] bg-[#fcfaf6]/80 text-[#ff801f] sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
@@ -860,37 +820,37 @@ export default function UserProfiles() {
               </svg>
             </span>
             <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Total usuarios</p>
-              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.total}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-[#78716c] sm:text-[10px]">Total usuarios</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-[#1c1917] sm:text-lg">{stats.total}</p>
             </div>
           </div>
         </div>
 
-        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-indigo-200/70 bg-indigo-50/90 text-indigo-700 dark:border-indigo-500/25 dark:bg-indigo-500/10 dark:text-indigo-300 sm:h-10 sm:w-10">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#9a3412]/40 dark:bg-[#7c2d12]/20 dark:text-[#fdba74] sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor">
                 <path d="M12 3l2.5 6L21 10l-5 4 1.5 7L12 18l-5.5 3 1.5-7-5-4 6.5-1L12 3z" />
               </svg>
             </span>
             <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Admins</p>
-              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.admins}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-[#78716c] sm:text-[10px]">Admins</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-[#1c1917] sm:text-lg">{stats.admins}</p>
             </div>
           </div>
         </div>
 
-        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-200/70 bg-sky-50/90 text-sky-800 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300 sm:h-10 sm:w-10">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0]/70 bg-[#f5f0e8] text-[#44403c] sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" strokeWidth="1.8" />
                 <circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
               </svg>
             </span>
             <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Técnicos</p>
-              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{stats.tecnicos}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-[#78716c] sm:text-[10px]">Técnicos</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-[#1c1917] sm:text-lg">{stats.tecnicos}</p>
             </div>
           </div>
         </div>
@@ -899,7 +859,7 @@ export default function UserProfiles() {
       <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
         <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
           <svg
-            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4"
+            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#7c7a74] sm:left-3 sm:h-4 sm:w-4"
             viewBox="0 0 20 20"
             fill="none"
             stroke="currentColor"
@@ -924,7 +884,7 @@ export default function UserProfiles() {
               type="button"
               onClick={() => setQuery('')}
               aria-label="Limpiar búsqueda"
-              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-[#7c7a74] hover:bg-[#e7ded0]/60 hover:text-[#57534e] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
                 <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -936,7 +896,7 @@ export default function UserProfiles() {
         <button
           type="button"
           onClick={openCreate}
-          className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
+          className={primaryOrangeBtnClass}
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -949,13 +909,13 @@ export default function UserProfiles() {
         compact
         title="Listado de usuarios"
         desc="Filtra por rol con el botón Filtros, busca en tiempo real y abre el menú de cada tarjeta para editar, permisos o firma."
-        className={`!overflow-visible ${cardShellClass}`}
+        className="!overflow-visible border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)]"
         actions={(
           <div className="relative w-full sm:w-auto" ref={filterRef}>
             <button
               type="button"
               onClick={() => setFilterOpen(v => !v)}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:border-gray-300/90 hover:bg-white dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:border-white/[0.12] dark:hover:bg-gray-900/40 sm:w-auto"
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 px-3 py-2 text-xs font-semibold text-[#44403c] transition-colors hover:border-[#e2d9ca] hover:bg-[#fffdfa] sm:w-auto"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none">
                 <path d="M14.6537 5.90414C14.6537 4.48433 13.5027 3.33331 12.0829 3.33331C10.6631 3.33331 9.51206 4.48433 9.51204 5.90415M14.6537 5.90414C14.6537 7.32398 13.5027 8.47498 12.0829 8.47498C10.663 8.47498 9.51204 7.32398 9.51204 5.90415M14.6537 5.90414L17.7087 5.90411M9.51204 5.90415L2.29199 5.90411M5.34694 14.0958C5.34694 12.676 6.49794 11.525 7.91777 11.525C9.33761 11.525 10.4886 12.676 10.4886 14.0958M5.34694 14.0958C5.34694 15.5156 6.49794 16.6666 7.91778 16.6666C9.33761 16.6666 10.4886 15.5156 10.4886 14.0958M5.34694 14.0958L2.29199 14.0958M10.4886 14.0958L17.7087 14.0958" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -963,10 +923,10 @@ export default function UserProfiles() {
               Filtros
             </button>
             {filterOpen && (
-              <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-gray-200/70 bg-white p-4 shadow-lg dark:border-white/[0.08] dark:bg-gray-900/95">
+              <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-lg">
                 <div className="mb-2">
-                  <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Rol</label>
-                  <div className="inline-flex w-full rounded-lg border border-gray-200/90 bg-gray-50/90 p-1 dark:border-white/[0.08] dark:bg-gray-950/40">
+                  <label className="mb-2 block text-xs font-medium text-[#44403c]">Rol</label>
+                  <div className="inline-flex w-full rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 p-1">
                     {[
                       { value: 'all', label: 'Todos' },
                       { value: 'admin', label: 'Admins' },
@@ -981,8 +941,8 @@ export default function UserProfiles() {
                         }}
                         className={`h-8 flex-1 rounded-lg text-xs font-semibold transition ${
                           roleFilter === opt.value
-                            ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300'
-                            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100/80 dark:hover:bg-white/10'
+                            ? 'border border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#9a3412]/40 dark:bg-[#7c2d12]/20 dark:text-[#fdba74]'
+                            : 'text-[#44403c] hover:bg-[#e7ded0]/80'
                         }`}
                       >
                         {opt.label}
@@ -997,9 +957,10 @@ export default function UserProfiles() {
       >
 
         {loading ? (
-          <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Cargando...</div>
+          <div className="py-10 text-center text-sm text-[#78716c]">Cargando...</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <AnimatePresence mode="popLayout">
             {filtered.map((u) => {
               const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
               const isAdmin = isAdminUser(u);
@@ -1014,24 +975,27 @@ export default function UserProfiles() {
                 togglingActiveId === u.id || (isProtectedPrincipalUsername(u.username) && isActive);
 
               return (
-                <div
-                  data-anim="user-card"
+                <motion.div
                   key={u.id}
-                  className={`group relative overflow-visible rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm transition-shadow hover:border-gray-300/90 dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none dark:hover:border-white/[0.1]`}
+                  variants={cardEnter}
+                  initial="initial"
+                  animate="animate"
+                  layout
+                  className="group relative overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa]/95 p-4 shadow-[0_12px_32px_-28px_rgba(28,25,23,0.2)] transition-all hover:border-[#ff801f]/35 dark:border-[#273244] dark:bg-[#111827]/75 dark:hover:border-[#fb923c]/30"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-gray-50/90 text-sm font-semibold text-gray-700 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/90 text-sm font-semibold text-[#44403c]">
                         {initials || 'U'}
                       </div>
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
-                          <h4 className="truncate font-semibold text-gray-800 dark:text-white/90">{u.username}</h4>
+                          <h4 className="truncate font-semibold text-[#1c1917]">{u.username}</h4>
                           <span className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${roleBadge(u)}`}>
                             {isAdmin ? 'Admin' : 'Técnico'}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{fullName || '—'}</p>
+                        <p className="text-sm text-[#78716c] truncate">{fullName || '—'}</p>
                       </div>
                     </div>
 
@@ -1039,22 +1003,22 @@ export default function UserProfiles() {
                       <button
                         type="button"
                         onClick={() => setOpenMenuId((prev) => (prev === u.id ? null : u.id))}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200/90 bg-gray-50/90 text-gray-500 hover:border-gray-300/90 hover:bg-white hover:text-gray-700 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-300 dark:hover:bg-gray-900/60"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-[#fcfaf6]/90 text-[#78716c] hover:border-[#e2d9ca] hover:bg-[#fffdfa] hover:text-[#44403c]"
                       >
                         <MoreDotIcon className="h-5 w-5 fill-current" />
                       </button>
 
                       {openMenuId === u.id && (
-                        <div className="absolute right-0 top-full z-[200] mt-1.5 w-44 overflow-hidden rounded-xl border border-gray-200/90 bg-white py-1 shadow-lg ring-1 ring-black/5 dark:border-gray-700 dark:bg-gray-900 dark:ring-white/10">
+                        <div className="absolute right-0 top-full z-[200] mt-1.5 w-44 overflow-hidden rounded-xl border border-[#e2d9ca] bg-[#fffdfa] py-1 shadow-lg ring-1 ring-black/5">
                           <button
                             type="button"
                             onClick={() => {
                               setOpenMenuId(null);
                               openEdit(u);
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-[#44403c] transition-colors hover:bg-[#fcfaf6]"
                           >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f0e8] text-[#57534e]">
                               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -1067,9 +1031,9 @@ export default function UserProfiles() {
                             onClick={() => {
                               openPerms(u);
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-[#44403c] transition-colors hover:bg-[#fcfaf6]"
                           >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f0e8] text-[#57534e]">
                               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                               </svg>
@@ -1083,9 +1047,9 @@ export default function UserProfiles() {
                                 setOpenMenuId(null);
                                 setConfirmDeleteId(u.id);
                               }}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-error-600 transition-colors hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-500/10"
+                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
                             >
-                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400">
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600">
                                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                                 </svg>
@@ -1099,12 +1063,12 @@ export default function UserProfiles() {
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 gap-2">
-                    <div className="truncate text-sm text-gray-600 dark:text-gray-300">
-                      <span className="text-gray-500 dark:text-gray-400">Correo:</span>{' '}
+                    <div className="truncate text-sm text-[#57534e]">
+                      <span className="text-[#78716c]">Correo:</span>{' '}
                       {u.email || '—'}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center rounded-md border border-gray-200/80 bg-gray-50/90 px-2 py-0.5 text-[11px] font-semibold text-gray-700 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200">
+                      <span className="inline-flex items-center rounded-md border border-[#e7ded0] bg-[#fcfaf6]/90 px-2 py-0.5 text-[11px] font-semibold text-[#44403c]">
                         <svg className="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                           <path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2Z" />
                           <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -1112,10 +1076,10 @@ export default function UserProfiles() {
                         Acceso con contraseña
                       </span>
                     </div>
-                    <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 py-2.5 dark:border-white/[0.08] dark:bg-gray-950/40">
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 px-3 py-2.5">
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Acceso al sistema</p>
-                        <p className="mt-0.5 text-sm text-gray-900 dark:text-white">
+                        <p className="text-xs font-medium text-[#78716c]">Acceso al sistema</p>
+                        <p className="mt-0.5 text-sm text-[#1c1917]">
                           {isActive ? 'Cuenta habilitada' : 'Cuenta deshabilitada'}
                         </p>
                       </div>
@@ -1126,12 +1090,12 @@ export default function UserProfiles() {
                         aria-label={isActive ? 'Desactivar cuenta' : 'Activar cuenta'}
                         disabled={switchDisabled}
                         onClick={() => void toggleUserActive(u)}
-                        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-50 dark:focus-visible:ring-offset-gray-950 ${
+                        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fcfaf6] ${
                           switchDisabled
-                            ? 'cursor-not-allowed border border-gray-200/80 bg-gray-200/90 opacity-60 dark:border-white/[0.08] dark:bg-gray-800'
+                            ? 'cursor-not-allowed border border-[#e7ded0] bg-[#e7ded0]/90 opacity-60'
                             : isActive
-                              ? 'bg-emerald-600 dark:bg-emerald-500'
-                              : 'bg-gray-300 dark:bg-gray-600'
+                              ? 'bg-[#5db872]'
+                              : 'bg-[#e7ded0]'
                         }`}
                       >
                         <span
@@ -1142,12 +1106,14 @@ export default function UserProfiles() {
                       </button>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
 
+            </AnimatePresence>
+
             {!filtered.length && (
-              <div className="col-span-full py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+              <div className="col-span-full py-10 text-center text-sm text-[#78716c]">
                 No hay usuarios.
               </div>
             )}
@@ -1155,124 +1121,204 @@ export default function UserProfiles() {
         )}
       </ComponentCard>
 
-      <Modal isOpen={isCreateOpen} onClose={closeCreate} closeOnBackdropClick={false} className="max-w-2xl">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-white/10">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Nuevo usuario</h3>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Crea usuarios Admin o Técnico.
-          </p>
-        </div>
-
-        <div className="p-5">
-          {formError && (
-            <div className="mb-4">
-              <Alert variant="error" title="Revisa" message={formError} />
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label>Nombre de usuario <span className="text-error-500">*</span></Label>
-              <Input value={form.username} onChange={(e: any) => setForm((p) => ({ ...p, username: e.target.value }))} />
-              <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Máx. 150 caracteres. Letras, dígitos y @/./+/-/_</p>
-            </div>
-
-            <div>
-              <Label>Rol <span className="text-error-500">*</span></Label>
-              <select
-                value={form.role}
-                onChange={(e) => setForm((p) => ({ ...p, role: e.target.value as Role }))}
-                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 shadow-theme-xs transition-colors focus:border-ring-brand-300 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="tecnico">Técnico</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-
-            <div>
-              <Label>Nombre(s)</Label>
-              <Input value={form.first_name} onChange={(e: any) => setForm((p) => ({ ...p, first_name: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Apellidos</Label>
-              <Input value={form.last_name} onChange={(e: any) => setForm((p) => ({ ...p, last_name: e.target.value }))} />
-            </div>
-
-            <div className="sm:col-span-2">
-              <Label>Correo electrónico</Label>
-              <Input value={form.email} onChange={(e: any) => setForm((p) => ({ ...p, email: e.target.value }))} />
-            </div>
-
-            <div>
-              <Label>Contraseña <span className="text-error-500">*</span></Label>
-              <div className="relative">
-                <Input type={showPassword ? 'text' : 'password'} value={form.password} onChange={(e: any) => setForm((p) => ({ ...p, password: e.target.value }))} placeholder="Mínimo 8 caracteres" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2">
-                  {showPassword ? <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" /> : <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />}
-                </button>
+      <Modal mobileBottomSheet isOpen={isCreateOpen} onClose={closeCreate} closeOnBackdropClick={false} className="flex max-h-[min(92vh,780px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl">
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+          <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-[#111827] sm:pr-16">
+            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className={sectionLabelClass}>Contactos · Usuarios</p>
+                <h2 className={`mt-1 ${claudeSectionHeadingClass}`}>Nuevo usuario</h2>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Crea cuentas Admin o Técnico con contraseña segura.
+                </p>
               </div>
             </div>
-            <div>
-              <Label>Confirmación de contraseña <span className="text-error-500">*</span></Label>
-              <div className="relative">
-                <Input type={showPassword2 ? 'text' : 'password'} value={form.password2} onChange={(e: any) => setForm((p) => ({ ...p, password2: e.target.value }))} placeholder="Repite la contraseña" />
-                <button type="button" onClick={() => setShowPassword2(!showPassword2)} className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2">
-                  {showPassword2 ? <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" /> : <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />}
-                </button>
+          </header>
+
+          <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-[#fffdfa] px-4 py-4 pb-5 dark:bg-[#111a2b] sm:px-5">
+            {formError && (
+              <Alert variant="error" title="Revisa" message={formError} showLink={false} />
+            )}
+
+            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
+              <div className="mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80">
+                <p className={sectionLabelClass}>Identidad</p>
+                <p className={`mt-0.5 ${claudeSubheadingClass}`}>Acceso al sistema</p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+                <div className="sm:col-span-1">
+                  <Label>
+                    Nombre de usuario <span className="text-error-500">*</span>
+                  </Label>
+                  <Input
+                    value={form.username}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, username: e.target.value }))}
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Máx. 150 caracteres. Letras, dígitos y @/./+/-/_</p>
+                </div>
+                <div>
+                  <Label>
+                    Rol <span className="text-error-500">*</span>
+                  </Label>
+                  <select
+                    value={form.role}
+                    onChange={(e) => setForm((p) => ({ ...p, role: e.target.value as Role }))}
+                    className={selectFieldClass}
+                  >
+                    <option value="tecnico">Técnico</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Nombre(s)</Label>
+                  <Input
+                    value={form.first_name}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, first_name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Apellidos</Label>
+                  <Input
+                    value={form.last_name}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, last_name: e.target.value }))}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Correo electrónico</Label>
+                  <Input
+                    value={form.email}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, email: e.target.value }))}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="sm:col-span-2">
+            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
+              <div className="mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80">
+                <p className={sectionLabelClass}>Seguridad</p>
+                <p className={`mt-0.5 ${claudeSubheadingClass}`}>Contraseña</p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">8+ caracteres, no solo números, distinta al usuario.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+                <div>
+                  <Label>
+                    Contraseña <span className="text-error-500">*</span>
+                  </Label>
+                  <div className="relative mt-1">
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      value={form.password}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, password: e.target.value }))}
+                      placeholder="Mínimo 8 caracteres"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    >
+                      {showPassword ? (
+                        <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                      ) : (
+                        <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <Label>
+                    Confirmación <span className="text-error-500">*</span>
+                  </Label>
+                  <div className="relative mt-1">
+                    <Input
+                      type={showPassword2 ? 'text' : 'password'}
+                      value={form.password2}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, password2: e.target.value }))}
+                      placeholder="Repite la contraseña"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword2(!showPassword2)}
+                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                      aria-label={showPassword2 ? 'Ocultar confirmación' : 'Mostrar confirmación'}
+                    >
+                      {showPassword2 ? (
+                        <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                      ) : (
+                        <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const pw = generatePassword(form.username, form.first_name, form.last_name);
+                      setForm((p) => ({ ...p, password: pw, password2: pw }));
+                    }}
+                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 shadow-theme-xs transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M12 3v2" />
+                      <path d="M12 19v2" />
+                      <path d="M4.22 4.22l1.42 1.42" />
+                      <path d="M18.36 18.36l1.42 1.42" />
+                      <path d="M3 12h2" />
+                      <path d="M19 12h2" />
+                      <path d="M4.22 19.78l1.42-1.42" />
+                      <path d="M18.36 5.64l1.42-1.42" />
+                    </svg>
+                    Sugerir contraseña segura
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 dark:border-[#273244] dark:bg-[#0f172a]/70 sm:px-5">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2">
+              <button type="button" onClick={closeCreate} className={secondaryOutlineBtnClass} disabled={creating}>
+                Cancelar
+              </button>
               <button
                 type="button"
-                onClick={() => {
-                  const pw = generatePassword(form.username, form.first_name, form.last_name);
-                  setForm((p) => ({ ...p, password: pw, password2: pw }));
-                }}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-xs font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200"
+                onClick={doCreate}
+                className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-[#ff801f] px-4 text-sm font-medium text-black transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:brightness-95 disabled:opacity-60 sm:w-auto"
+                disabled={creating}
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M12 3v2" />
-                  <path d="M12 19v2" />
-                  <path d="M4.22 4.22l1.42 1.42" />
-                  <path d="M18.36 18.36l1.42 1.42" />
-                  <path d="M3 12h2" />
-                  <path d="M19 12h2" />
-                  <path d="M4.22 19.78l1.42-1.42" />
-                  <path d="M18.36 5.64l1.42-1.42" />
-                </svg>
-                Sugerir contraseña segura
+                {creating ? 'Creando…' : 'Crear usuario'}
               </button>
-              <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">Debe cumplir reglas de contraseña (8+ caracteres, no común, no completamente numérica, no similar al usuario).</p>
             </div>
           </div>
-
-          <div className="mt-6 flex items-center justify-end gap-2">
-            <button type="button" onClick={closeCreate} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-xs font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200" disabled={creating}>
-              Cancelar
-            </button>
-            <button type="button" onClick={doCreate} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" disabled={creating}>
-              {creating ? 'Creando...' : 'Crear usuario'}
-            </button>
-          </div>
         </div>
+
       </Modal>
 
-      <Modal isOpen={isPermsOpen} onClose={closePerms} closeOnBackdropClick={false} className="w-[94vw] max-w-2xl max-h-[92vh] p-0 overflow-hidden">
+      <Modal mobileBottomSheet isOpen={isPermsOpen} onClose={closePerms} closeOnBackdropClick={false} className="flex max-h-[min(92vh,880px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl">
         <div className="overflow-hidden rounded-2xl">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-white/10 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
+          <div className="px-5 py-4 border-b border-[#e7ded0] bg-[#fffdfa]/70 backdrop-blur">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#9a3412]/40 dark:bg-[#7c2d12]/20 dark:text-[#fdba74]">
                 <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path d="M12 3l7 4v6c0 5-3 8-7 8s-7-3-7-8V7l7-4Z" />
                   <path d="M9 12l2 2 4-4" />
                 </svg>
               </span>
               <div className="min-w-0">
-                <h3 className="text-base font-semibold text-gray-800 dark:text-white/90 truncate">
+                <h3 className="text-base font-semibold text-[#1c1917] truncate [font-family:Georgia,'Times_New_Roman',serif]">
                   Permisos{permsUser ? `: ${permsUser.username}` : ''}
                 </h3>
-                <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                <p className="mt-0.5 text-[11px] text-[#78716c]">
                   Define qué vistas puede ver y qué acciones puede realizar este usuario.
                 </p>
               </div>
@@ -1297,7 +1343,7 @@ export default function UserProfiles() {
             )}
 
             {permsLoading ? (
-              <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Cargando permisos...</div>
+              <div className="py-10 text-center text-sm text-[#78716c]">Cargando permisos...</div>
             ) : (
               <div className="space-y-4">
                 {(() => {
@@ -1437,28 +1483,28 @@ export default function UserProfiles() {
                         return (
                           <div
                             key={sec.key}
-                            className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/3 overflow-hidden"
+                            className="rounded-2xl border border-[#e7ded0] bg-[#fffdfa] shadow-theme-xs overflow-hidden"
                           >
                             <button
                               type="button"
                               onClick={() => setPermsOpenSections(prev => ({ ...prev, [sec.key]: !prev[sec.key] }))}
-                              className="w-full px-4 py-3 flex items-center justify-between gap-3 bg-white/70 dark:bg-gray-900/40 backdrop-blur"
+                              className="w-full px-4 py-3 flex items-center justify-between gap-3 bg-[#fffdfa]/70 backdrop-blur"
                               aria-expanded={isOpen}
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-50 text-gray-600 dark:bg-white/5 dark:text-gray-200">
+                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#f5f0e8] text-[#57534e]">
                                   <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                                     <path d="M4 6h16M4 12h16M4 18h16" />
                                   </svg>
                                 </span>
                                 <div className="min-w-0 text-left">
-                                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{sec.label}</div>
-                                  <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                                  <div className="text-sm font-semibold text-[#1c1917] truncate">{sec.label}</div>
+                                  <div className="text-[11px] text-[#78716c] truncate">
                                     {sec.modules.length > 0 ? `${sec.modules.length} módulo(s)` : 'Sin módulos configurados'}
                                   </div>
                                 </div>
                               </div>
-                              <svg className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="none">
+                              <svg className={`w-4 h-4 text-[#78716c] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="none">
                                 <path d="M5.25 7.5 10 12.25 14.75 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
                             </button>
@@ -1467,8 +1513,8 @@ export default function UserProfiles() {
                               className={`grid transition-all duration-300 ease-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
                             >
                               <div className="overflow-hidden">
-                                <div className="p-4 border-t border-gray-100 dark:border-white/10">
-                                  <div className="hidden sm:grid grid-cols-12 gap-3 pb-2 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+                                <div className="p-4 border-t border-[#e7ded0]">
+                                  <div className="hidden sm:grid grid-cols-12 gap-3 pb-2 text-[11px] font-semibold text-[#78716c]">
                                     <div className="col-span-5">Módulo</div>
                                     <div className="col-span-7 grid grid-cols-4 gap-3 text-center">
                                       {actionLabels.map(a => (
@@ -1495,7 +1541,7 @@ export default function UserProfiles() {
                                                 if (!canDelegatePerms) return;
                                                 setPerm(m.key, k, !checked);
                                               }}
-                                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-brand-500/40 active:scale-[0.98] ${checked ? 'bg-brand-600' : 'bg-gray-300 dark:bg-gray-700'} ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
+                                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-[#ff801f]/40 active:scale-[0.98] ${checked ? 'bg-[#ff801f]' : 'bg-[#e7ded0]'} ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
                                             >
                                               <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${checked ? 'translate-x-4' : 'translate-x-1'}`} />
                                             </button>
@@ -1505,16 +1551,16 @@ export default function UserProfiles() {
                                         return (
                                           <div
                                             key={m.key}
-                                            className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50/60 dark:bg-gray-900/30 px-3 py-3"
+                                            className="rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/60 px-3 py-3"
                                           >
                                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                                               <div className="sm:col-span-5">
                                                 <div className="flex items-center gap-2">
-                                                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm dark:bg-gray-800 dark:text-gray-200">
+                                                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#fffdfa] text-[#57534e] shadow-sm">
                                                     {getIcon(m.key)}
                                                   </span>
                                                   <div className="min-w-0">
-                                                    <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{m.label}</div>
+                                                    <div className="text-sm font-medium text-[#1c1917] truncate">{m.label}</div>
                                                     {supportsOwnScope && (
                                                       <button
                                                         type="button"
@@ -1526,17 +1572,17 @@ export default function UserProfiles() {
                                                           if (!canDelegatePerms) return;
                                                           setPerm(m.key, 'own_only', !cur.own_only);
                                                         }}
-                                                        className={`mt-1 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition-all ${
+                                                        className={`mt-1 inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition-all ${
                                                           cur.own_only
-                                                            ? 'border-brand-300/80 bg-brand-50/90 text-brand-800 dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-200'
-                                                            : 'border-gray-200/90 bg-white text-gray-600 hover:border-gray-300/90 hover:bg-gray-50 dark:border-white/10 dark:bg-gray-950/40 dark:text-gray-300 dark:hover:bg-white/[0.04]'
+                                                            ? 'border-[#ff801f]/80 bg-[#ff801f]/10 text-[#9a3412] dark:border-[#ffa057]/80 dark:bg-[#ff801f]/15 dark:text-[#ffa057]'
+                                                            : 'border-[#e2d9ca] bg-[#fffdfa] text-[#57534e] hover:border-[#e2d9ca] hover:bg-[#fcfaf6]'
                                                         } ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
                                                       >
                                                         <span
                                                           className={`relative inline-flex h-4 w-7 items-center rounded-full border transition-colors ${
                                                             cur.own_only
-                                                              ? 'border-brand-400/80 bg-brand-500/90 dark:border-brand-400/70 dark:bg-brand-500'
-                                                              : 'border-gray-300 bg-gray-200 dark:border-gray-600 dark:bg-gray-700'
+                                                              ? 'border-[#ff801f]/80 bg-[#ff801f]'
+                                                              : 'border-[#e7ded0] bg-[#e7ded0]'
                                                           }`}
                                                           aria-hidden
                                                         >
@@ -1566,7 +1612,7 @@ export default function UserProfiles() {
                                       })}
                                     </div>
                                   ) : (
-                                    <div className="rounded-xl border border-dashed border-gray-200 dark:border-white/10 p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                    <div className="rounded-xl border border-dashed border-[#e7ded0] p-4 text-center text-sm text-[#78716c]">
                                       Esta sección todavía no tiene módulos conectados a permisos.
                                     </div>
                                   )}
@@ -1584,7 +1630,7 @@ export default function UserProfiles() {
                   <button
                     type="button"
                     onClick={closePerms}
-                    className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-xs font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="inline-flex items-center justify-center rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-4 py-2.5 text-xs font-medium text-[#44403c] shadow-theme-xs hover:bg-[#fcfaf6]"
                   >
                     Cancelar
                   </button>
@@ -1593,7 +1639,7 @@ export default function UserProfiles() {
                     disabled={permsSaving || permsLoading || !permsUser || !canDelegatePerms}
                     title={!canDelegatePerms ? 'Solo Angel Pérez e Ivan Cruz pueden guardar cambios' : undefined}
                     onClick={savePerms}
-                    className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-brand-700 disabled:opacity-60"
+                    className="inline-flex items-center justify-center rounded-xl bg-[#ff801f] px-4 py-2.5 text-xs font-medium text-black shadow-theme-xs hover:bg-[#ff6a00] disabled:opacity-60"
                   >
                     {permsSaving ? 'Guardando...' : 'Guardar permisos'}
                   </button>
@@ -1604,154 +1650,234 @@ export default function UserProfiles() {
         </div>
       </Modal>
 
-      <Modal isOpen={isEditOpen} onClose={closeEdit} closeOnBackdropClick={false} className="w-[94vw] max-w-2xl">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-white/10">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Editar usuario</h3>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Actualiza datos del usuario y (opcional) cambia la contraseña.</p>
-        </div>
-
-        <div className="p-5 max-h-[80vh] overflow-y-auto">
-          {editError && (
-            <div className="mb-4">
-              <Alert variant="error" title="Revisa" message={editError} />
-            </div>
-          )}
-
-          {signatureError && (
-            <div className="mb-4">
-              <Alert variant="error" title="Firma" message={signatureError} />
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label>Nombre de usuario <span className="text-error-500">*</span></Label>
-              <Input value={editForm.username} onChange={(e: any) => setEditForm((p) => ({ ...p, username: e.target.value }))} />
-            </div>
-
-            <div>
-              <Label>Rol <span className="text-error-500">*</span></Label>
-              <select value={editForm.role} onChange={(e) => setEditForm((p) => ({ ...p, role: e.target.value as Role }))} className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 shadow-theme-xs transition-colors focus:border-ring-brand-300 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                <option value="tecnico">Técnico</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-
-            <div>
-              <Label>Nombre(s)</Label>
-              <Input value={editForm.first_name} onChange={(e: any) => setEditForm((p) => ({ ...p, first_name: e.target.value }))} />
-            </div>
-
-            <div>
-              <Label>Apellidos</Label>
-              <Input value={editForm.last_name} onChange={(e: any) => setEditForm((p) => ({ ...p, last_name: e.target.value }))} />
-            </div>
-
-            <div className="sm:col-span-2">
-              <Label>Correo electrónico</Label>
-              <Input value={editForm.email} onChange={(e: any) => setEditForm((p) => ({ ...p, email: e.target.value }))} />
-            </div>
-
-            <div>
-              <Label>Nueva contraseña</Label>
-              <div className="relative">
-                <Input type={showEditPassword ? 'text' : 'password'} value={editForm.password} onChange={(e: any) => setEditForm((p) => ({ ...p, password: e.target.value }))} placeholder="Deja vacío para no cambiar" />
-                <button type="button" onClick={() => setShowEditPassword(!showEditPassword)} className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2">
-                  {showEditPassword ? <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" /> : <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />}
-                </button>
+      <Modal mobileBottomSheet isOpen={isEditOpen} onClose={closeEdit} closeOnBackdropClick={false} className="flex max-h-[min(92vh,860px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl">
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+          <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 pr-14 dark:border-[#273244] dark:bg-[#0f172a]/70 sm:pr-16">
+            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f] text-black">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <p className={sectionLabelClass}>Contactos · Usuarios</p>
+                <h2 className={`mt-1 ${claudeSectionHeadingClass}`}>Editar usuario</h2>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Actualiza datos y, si aplica, la contraseña o la firma digital.
+                </p>
               </div>
             </div>
+          </header>
 
-            <div>
-              <Label>Confirmar nueva contraseña</Label>
-              <div className="relative">
-                <Input type={showEditPassword2 ? 'text' : 'password'} value={editForm.password2} onChange={(e: any) => setEditForm((p) => ({ ...p, password2: e.target.value }))} placeholder="Repite la contraseña" />
-                <button type="button" onClick={() => setShowEditPassword2(!showEditPassword2)} className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2">
-                  {showEditPassword2 ? <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" /> : <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />}
-                </button>
+          <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-[#fffdfa] px-4 py-4 pb-5 dark:bg-[#111a2b] sm:px-5">
+            {editError && <Alert variant="error" title="Revisa" message={editError} showLink={false} />}
+            {signatureError && <Alert variant="error" title="Firma" message={signatureError} showLink={false} />}
+
+            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
+              <div className="mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80">
+                <p className={sectionLabelClass}>Identidad</p>
+                <p className={`mt-0.5 ${claudeSubheadingClass}`}>Datos de la cuenta</p>
               </div>
-            </div>
-          </div>
-
-          <div className="mt-5 rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-white/3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-gray-800 dark:text-white/90">Firma</p>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Esta firma se guardará y se usará como "Firma del Encargado" en Órdenes.</p>
-              </div>
-              {!!signatureValue && !signatureValue.startsWith('data:') ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!editUser) return;
-                    setConfirmDeleteSignature(true);
-                  }}
-                  disabled={signatureSaving || signatureLoading || !editUser}
-                  className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white p-2 text-gray-700 shadow-theme-xs hover:bg-gray-50 disabled:opacity-60 dark:border-white/10 dark:bg-gray-900/40 dark:text-gray-200 dark:hover:bg-white/5"
-                  aria-label="Eliminar firma"
-                  title="Eliminar firma"
-                >
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 6h18" />
-                    <path d="M8 6V4h8v2" />
-                    <path d="M19 6l-1 14H6L5 6" />
-                    <path d="M10 11v6" />
-                    <path d="M14 11v6" />
-                  </svg>
-                </button>
-              ) : null}
-            </div>
-
-            <div className="mt-3">
-              {signatureLoading ? (
-                <div className="py-6 text-center text-xs text-gray-500 dark:text-gray-400">Cargando firma...</div>
-              ) : !!signatureValue && !signatureValue.startsWith('data:') ? (
-                <div className="flex items-center justify-center">
-                  <img
-                    src={signatureValue}
-                    alt="Firma del usuario"
-                    className="max-h-[180px] w-full max-w-[420px] rounded-lg border border-gray-200 bg-white object-contain dark:border-white/10"
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+                <div>
+                  <Label>
+                    Nombre de usuario <span className="text-error-500">*</span>
+                  </Label>
+                  <Input
+                    value={editForm.username}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p) => ({ ...p, username: e.target.value }))}
                   />
                 </div>
-              ) : (
-                <SignaturePad
-                  value={signatureValue}
-                  onChange={(sig) => setSignatureValue(sig)}
-                  width={420}
-                  height={180}
-                />
-              )}
+                <div>
+                  <Label>
+                    Rol <span className="text-error-500">*</span>
+                  </Label>
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => setEditForm((p) => ({ ...p, role: e.target.value as Role }))}
+                    className={selectFieldClass}
+                  >
+                    <option value="tecnico">Técnico</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Nombre(s)</Label>
+                  <Input
+                    value={editForm.first_name}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p) => ({ ...p, first_name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Apellidos</Label>
+                  <Input
+                    value={editForm.last_name}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p) => ({ ...p, last_name: e.target.value }))}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Correo electrónico</Label>
+                  <Input
+                    value={editForm.email}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p) => ({ ...p, email: e.target.value }))}
+                  />
+                </div>
+              </div>
             </div>
 
+            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
+              <div className="mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80">
+                <p className={sectionLabelClass}>Seguridad</p>
+                <p className={`mt-0.5 ${claudeSubheadingClass}`}>Cambiar contraseña</p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Opcional · deja vacío para mantener la actual.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+                <div>
+                  <Label>Nueva contraseña</Label>
+                  <div className="relative mt-1">
+                    <Input
+                      type={showEditPassword ? 'text' : 'password'}
+                      value={editForm.password}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p) => ({ ...p, password: e.target.value }))}
+                      placeholder="Deja vacío para no cambiar"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEditPassword(!showEditPassword)}
+                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                      aria-label={showEditPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    >
+                      {showEditPassword ? (
+                        <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                      ) : (
+                        <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <Label>Confirmar nueva contraseña</Label>
+                  <div className="relative mt-1">
+                    <Input
+                      type={showEditPassword2 ? 'text' : 'password'}
+                      value={editForm.password2}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p) => ({ ...p, password2: e.target.value }))}
+                      placeholder="Repite la contraseña"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEditPassword2(!showEditPassword2)}
+                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                      aria-label={showEditPassword2 ? 'Ocultar confirmación' : 'Mostrar confirmación'}
+                    >
+                      {showEditPassword2 ? (
+                        <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                      ) : (
+                        <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-gray-100/90 pb-3 dark:border-white/[0.06]">
+                <div>
+                  <p className={sectionLabelClass}>Documento</p>
+                  <p className={`mt-0.5 ${claudeSubheadingClass}`}>Firma digital</p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Se usa como &quot;Firma del Encargado&quot; en órdenes de servicio.
+                  </p>
+                </div>
+                {!!signatureValue && !signatureValue.startsWith('data:') ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!editUser) return;
+                      setConfirmDeleteSignature(true);
+                    }}
+                    disabled={signatureSaving || signatureLoading || !editUser}
+                    className="inline-flex shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white p-2 text-gray-700 shadow-theme-xs transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/5"
+                    aria-label="Eliminar firma"
+                    title="Eliminar firma"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4h8v2" />
+                      <path d="M19 6l-1 14H6L5 6" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                    </svg>
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="mt-1">
+                {signatureLoading ? (
+                  <div className="flex items-center justify-center gap-2 py-8 text-xs text-gray-500 dark:text-gray-400">
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                    </svg>
+                    Cargando firma…
+                  </div>
+                ) : !!signatureValue && !signatureValue.startsWith('data:') ? (
+                  <div className="flex items-center justify-center">
+                    <img
+                      src={signatureValue}
+                      alt="Firma del usuario"
+                      className="max-h-[180px] w-full max-w-[420px] rounded-xl border border-gray-200/80 bg-white object-contain dark:border-[#334155]"
+                    />
+                  </div>
+                ) : (
+                  <SignaturePad value={signatureValue} onChange={(sig) => setSignatureValue(sig)} width={420} height={180} />
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="mt-6 flex items-center justify-end gap-2">
-            <button type="button" onClick={closeEdit} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-xs font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:bg-gray-900/40 dark:border-white/10 dark:text-gray-200" disabled={editing}>
-              Cancelar
-            </button>
-            <button type="button" onClick={doUpdate} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-medium text-white shadow-theme-xs hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" disabled={editing || signatureSaving || signatureLoading}>
-              {editing ? 'Guardando...' : 'Guardar cambios'}
-            </button>
+          <div className="shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 dark:border-[#273244] dark:bg-[#0f172a]/70 sm:px-5">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2">
+              <button type="button" onClick={closeEdit} className={secondaryOutlineBtnClass} disabled={editing}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={doUpdate}
+                className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-[#ff801f] px-4 text-sm font-medium text-black transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:brightness-95 disabled:opacity-60 sm:w-auto"
+                disabled={editing || signatureSaving || signatureLoading}
+              >
+                {editing ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+            </div>
           </div>
         </div>
+
       </Modal>
 
-      <Modal isOpen={confirmDeleteSignature} onClose={() => setConfirmDeleteSignature(false)} closeOnBackdropClick={false} className="max-w-sm p-6">
-        <div className='flex flex-col gap-4'>
-          <div className='text-center'>
-            <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30'>
-              <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+      <Modal mobileBottomSheet isOpen={confirmDeleteSignature} onClose={() => setConfirmDeleteSignature(false)} closeOnBackdropClick={false} className="w-full max-w-sm overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b]">
+        <div className="bg-[#fffdfa] p-5 dark:bg-[#111a2b]">
+          <div className="mb-4 flex items-start gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ff801f] dark:text-[#ffa057]">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <path d="M3 6h18" strokeLinecap="round" />
+                <path d="M8 6V4h8v2" strokeLinecap="round" />
+                <path d="M6 6l1 16h10l1-16" strokeLinejoin="round" />
+                <path d="M10 11v6M14 11v6" strokeLinecap="round" />
               </svg>
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className={claudeSubheadingClass}>Eliminar firma</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Esta acción no se puede deshacer.</p>
             </div>
-            <h5 className='mt-4 font-semibold text-gray-800 text-theme-lg dark:text-white/90'>Confirmar eliminación</h5>
-            <p className='mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400'>Esta acción no se puede deshacer. ¿Eliminar la firma seleccionada?</p>
           </div>
-          <div className='flex justify-center gap-3 pt-2'>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2">
             <button
               type="button"
               onClick={() => setConfirmDeleteSignature(false)}
-              className='rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3'
+              className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06] sm:w-auto"
               disabled={signatureSaving}
             >
               Cancelar
@@ -1763,9 +1889,8 @@ export default function UserProfiles() {
                 setSignatureError(null);
                 setSignatureSaving(true);
                 try {
-                  const res = await fetch(apiUrl(`/api/users/accounts/${editUser.id}/signature/`), {
+                  const res = await fetchApi(`/api/users/accounts/${editUser.id}/signature/`, {
                     method: 'DELETE',
-                    headers: { ...getAuthHeaders() },
                   });
                   const data = (await res.json().catch(() => null)) as UserSignaturePayload | null;
                   if (!res.ok) throw new Error((data as any)?.detail || 'No se pudo borrar la firma');
@@ -1778,37 +1903,55 @@ export default function UserProfiles() {
                   setSignatureSaving(false);
                 }
               }}
-              className='rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-500 disabled:opacity-60'
+              className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60 sm:w-auto"
               disabled={signatureSaving}
             >
-              {signatureSaving ? 'Eliminando...' : 'Eliminar'}
+              {signatureSaving ? 'Eliminando…' : 'Eliminar'}
             </button>
           </div>
         </div>
+
       </Modal>
 
-      <Modal isOpen={confirmDeleteId != null} onClose={() => setConfirmDeleteId(null)} closeOnBackdropClick={false} className="max-w-sm p-6">
-        <div className='flex flex-col gap-4'>
-          <div className='text-center'>
-            <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30'>
-              <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+      <Modal mobileBottomSheet isOpen={confirmDeleteId != null} onClose={() => setConfirmDeleteId(null)} closeOnBackdropClick={false} className="w-full max-w-sm overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b]">
+        <div className="bg-[#fffdfa] p-5 dark:bg-[#111a2b]">
+          <div className="mb-4 flex items-start gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ff801f] dark:text-[#ffa057]">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <path d="M3 6h18" strokeLinecap="round" />
+                <path d="M8 6V4h8v2" strokeLinecap="round" />
+                <path d="M6 6l1 16h10l1-16" strokeLinejoin="round" />
+                <path d="M10 11v6M14 11v6" strokeLinecap="round" />
               </svg>
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className={claudeSubheadingClass}>Eliminar usuario</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Esta acción no se puede deshacer.</p>
             </div>
-            <h5 className='mt-4 font-semibold text-gray-800 text-theme-lg dark:text-white/90'>Confirmar eliminación</h5>
-            <p className='mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400'>Esta acción no se puede deshacer. ¿Eliminar el usuario seleccionado?</p>
           </div>
-          <div className='flex justify-center gap-3 pt-2'>
-            <button type="button" onClick={() => setConfirmDeleteId(null)} className='rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 center dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3' disabled={deleting}>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteId(null)}
+              className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06] sm:w-auto"
+              disabled={deleting}
+            >
               Cancelar
             </button>
-            <button type="button" onClick={doDelete} className='rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-500 disabled:opacity-60' disabled={deleting}>
-              {deleting ? 'Eliminando...' : 'Eliminar'}
+            <button
+              type="button"
+              onClick={doDelete}
+              className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60 sm:w-auto"
+              disabled={deleting}
+            >
+              {deleting ? 'Eliminando…' : 'Eliminar'}
             </button>
           </div>
         </div>
+
       </Modal>
+        </motion.div>
       </div>
-    </div>
+    </>
   );
 }

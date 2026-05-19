@@ -20,7 +20,6 @@ from django.db import transaction
 from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 
-from apps.users.authentication import JWTAuthenticationAllowQueryGETToken
 from apps.users.permissions import ModulePermission, OrdenesAnyAccessPermission, user_module_own_only
 from apps.cotizaciones.pdf_render import (
     PdfRenderError,
@@ -63,7 +62,7 @@ def _pdf_response_from_html(html: str, filename: str):
     try:
         pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)
     except PdfRenderError as e:
-        return Response({"detail": str(e), "error": e.detail}, status=502)
+        return Response({"detail": "No se pudo generar el PDF.", "error": e.detail}, status=502)
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="{filename}"'
@@ -129,6 +128,7 @@ try:
         if cn and ak and sec:
             cloudinary.config(cloud_name=cn, api_key=ak, api_secret=sec)
 except Exception:
+    logger.exception("Failed to configure Cloudinary, uploads will use data URLs")
     cloudinary = None  # type: ignore
 
 
@@ -169,6 +169,7 @@ def _decode_base64_image_bytes(data_url: str, max_input_bytes: int) -> tuple[str
     try:
         raw = base64.b64decode(b64_clean, validate=True)
     except Exception:
+        logger.exception("Failed to decode base64 image payload")
         raise ValueError("data_url base64 inválido")
 
     if len(raw) > max_input_bytes:
@@ -307,7 +308,7 @@ def _optimize_image(data_url: str, max_size_kb: int = 80) -> str:
         # Invalid/unsafe payload: propagate so endpoints can reject (HTTP 400).
         raise
     except Exception:
-        # If optimization fails after validation, return original (already validated/safe).
+        logger.exception("Image optimization failed, returning original data URL")
         return data_url
 
 
@@ -345,6 +346,7 @@ def _extract_public_id_from_url(url: str) -> str:
             return ""
         return public_id
     except Exception:
+        logger.exception("Failed to extract Cloudinary public_id from URL: %s", url)
         return ""
 
 
@@ -358,7 +360,7 @@ def _delete_cloudinary_resource(url: str, resource_type: str = "image"):
         if public_id:
             cloudinary.uploader.destroy(public_id, resource_type=resource_type)
     except Exception:
-        pass
+        logger.exception("Failed to delete Cloudinary resource: %s", public_id)
 
 
 def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
@@ -390,7 +392,7 @@ def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
         )
         return res.get("secure_url") or res.get("url") or optimized_url
     except Exception:
-        logger.exception("Cloudinary upload failed")
+        logger.exception("Cloudinary upload failed, returning optimized data URL")
         return optimized_url
 
 
@@ -443,6 +445,7 @@ def _img_url_to_data_uri(url: str) -> str:
         b64 = base64.b64encode(raw).decode('ascii')
         return f'data:{content_type};base64,{b64}'
     except Exception:
+        logger.exception("Failed to download and embed remote image for PDF")
         return ''
 
 
@@ -503,6 +506,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
             # casos donde el listado muestra registros pero el detalle falla.
             obj = Orden.objects.filter(**{self.lookup_field: lookup_value}).first()
         except Exception:
+            logger.exception("Failed to look up Orden by %s", self.lookup_field)
             obj = None
 
         if not obj:
@@ -563,6 +567,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 semana_inicio = date.fromisoformat(semana_inicio_raw)
                 semana_fin = date.fromisoformat(semana_fin_raw)
             except Exception:
+                logger.exception("Failed to parse reporte semanal date range")
                 raise ValidationError('Fechas de rango inválidas (use YYYY-MM-DD).')
             if semana_inicio > semana_fin:
                 raise ValidationError('La fecha de inicio no puede ser posterior a la fecha final.')
@@ -571,6 +576,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 if semana_fin_raw:
                     semana_fin = date.fromisoformat(semana_fin_raw)
             except Exception:
+                logger.exception("Failed to parse semana_fin date for reporte semanal")
                 semana_fin = None
 
             # Si no envían fecha, usamos el sábado de la semana actual.
@@ -654,6 +660,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
                 logo_data_uri = f"data:image/png;base64,{b64}"
         except Exception:
+            logger.exception("Failed to load Intrax logo for reporte semanal PDF")
             logo_data_uri = ""
 
         t = reporte.tecnico
@@ -690,6 +697,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
             try:
                 return date.fromisoformat(str(raw)[:10])
             except Exception:
+                logger.exception("Failed to parse date value: %s", raw)
                 return None
 
         def parse_hora_val(raw):
@@ -703,6 +711,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     return datetime.fromisoformat(s.replace('Z', '').split('+')[0].split('.')[0]).time()
                 return time.fromisoformat(s.split('.')[0])
             except Exception:
+                logger.exception("Failed to parse time value: %s", s)
                 return None
 
         def fmt_fecha_hora(fecha_raw, hora_raw):
@@ -749,6 +758,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     return 'Mismo día'
                 return f'{days} día(s)' if days != 1 else '1 día'
             except Exception:
+                logger.exception("Failed to calculate order duration")
                 return '—'
 
         def texto_problematica(o):
@@ -929,7 +939,6 @@ class OrdenViewSet(viewsets.ModelViewSet):
         detail=False,
         methods=['get'],
         url_path=r'reportes-semanales/(?P<reporte_id>[^/.]+)/pdf',
-        authentication_classes=[JWTAuthenticationAllowQueryGETToken],
     )
     def reporte_semanal_pdf(self, request, reporte_id=None):
         reporte = self._get_reporte_semanal_for_user(request, reporte_id)
@@ -1133,6 +1142,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
                 logo_data_uri = f"data:image/png;base64,{b64}"
         except Exception:
+            logger.exception("Failed to load Intrax logo for orden PDF")
             logo_data_uri = ""
 
         evidencias_html = ""
@@ -1437,6 +1447,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         try:
             payload = request.data if isinstance(request.data, dict) else json.loads(request.body.decode('utf-8'))
         except Exception:
+            logger.exception("Failed to parse upload_image request payload")
             payload = {}
         data_url = payload.get('data_url')
         folder = payload.get('folder') or 'ordenes/fotos'
@@ -1457,7 +1468,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         except ValidationError:
             return Response({"detail": "data_url inválido"}, status=400)
         except Exception:
-            logger.exception("Error subiendo imagen a Cloudinary")
+            logger.exception("Cloudinary upload-image failed")
             return Response({"detail": "Error subiendo imagen a Cloudinary"}, status=502)
 
     @action(detail=False, methods=['post'], url_path='delete-image')
@@ -1470,6 +1481,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         try:
             payload = request.data if isinstance(request.data, dict) else json.loads(request.body.decode('utf-8'))
         except Exception:
+            logger.exception("Failed to parse delete_image request payload")
             payload = {}
         public_id = payload.get('public_id')
         if not isinstance(public_id, str) or not public_id:
@@ -1487,7 +1499,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
             res = cloudinary.uploader.destroy(public_id, resource_type="image")
             return Response(res, status=200)
         except Exception:
-            logger.exception("Error eliminando imagen en Cloudinary")
+            logger.exception("Cloudinary delete-image failed for public_id=%s", public_id)
             return Response({"detail": "Error eliminando imagen en Cloudinary"}, status=502)
 
     @action(detail=True, methods=['patch'], url_path='update-photos')
@@ -1499,6 +1511,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         try:
             payload = request.data if isinstance(request.data, dict) else json.loads(request.body.decode('utf-8'))
         except Exception:
+            logger.exception("Failed to parse update_photos request payload")
             payload = {}
         
         fotos_urls = payload.get('fotos_urls')
@@ -1528,7 +1541,6 @@ class OrdenViewSet(viewsets.ModelViewSet):
         detail=True,
         methods=['get'],
         url_path='pdf',
-        authentication_classes=[JWTAuthenticationAllowQueryGETToken],
     )
     def pdf(self, request, pk=None):
         orden = self.get_object()

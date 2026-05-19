@@ -3,20 +3,41 @@ import { useNavigate, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
-import { Modal } from "@/components/ui/modal";
+import { OrdenDeleteModal, OrdenViewModal } from "../OrdenTrabajoModals";
+
 import Alert from "@/components/ui/alert/Alert";
 import DatePicker from "@/components/form/date-picker";
 import { apiUrl } from "@/config/api";
 import { formatMonthLabelEs, getCurrentMonthKey } from "@/utils/statsMonthKey";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { MobileOrderList } from "../OrdenServicio/MobileOrderCard";
+import {
+  claudeBodyClass,
+  erpBreadcrumbLinkClass,
+  erpBreadcrumbNavClass,
+  erpFilterBtnClass,
+  erpFilterPopoverClass,
+  erpHeroBlurClass,
+  erpHeroGradientClass,
+  erpHeroHeadingClass,
+  erpHeroIconWrapClass,
+  erpMonthNavBtnClass,
+  erpPageCanvasClass,
+  erpPageInnerClass,
+  erpPrimaryBtnClass,
+  erpRowActionBarClass,
+  erpRowActionBtnClass,
+  erpSecondaryBtnClass,
+  erpStatCardClass,
+  erpTableHeaderClass,
+  erpTableRowHoverClass,
+  erpTableWrapClass,
+  pageCardShellClass,
+  pageSearchInputClass,
+  sectionLabelOrangeClass,
+} from "../ordenTrabajoStyles";
 import OrdenServicioModal from "@/pages/Operacion/OrdenesTrabajo/OrdenLevantamiento/OrdenLevantamientoModal";
 
-const cardShellClass =
-  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
-
-const searchInputClass =
-  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
 
 type Orden = {
   id: number;
@@ -317,47 +338,49 @@ export default function LevantamientoPage() {
   const startIndex = 0;
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
-    <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
+    <div className={erpPageCanvasClass}>
+    <div className={erpPageInnerClass}>
       <PageMeta title="Levantamiento" description="Órdenes de levantamiento" />
       <nav
-        className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+        className={erpBreadcrumbNavClass}
         aria-label="Migas de pan"
       >
-        <Link to="/" className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200">
+        <Link to="/" className={erpBreadcrumbLinkClass}>
           Inicio
         </Link>
-        <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+        <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
           /
         </span>
-        <span className="font-medium text-gray-700 dark:text-gray-300">Levantamiento</span>
+        <span className="text-[#44403c] dark:text-[#cbd5e1]">Levantamiento</span>
       </nav>
 
       {alert.show && <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />}
 
-      <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
-        <div className="flex min-w-0 gap-3 sm:gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
+      <header className={`relative flex w-full flex-col gap-4 ${pageCardShellClass} p-4 sm:p-6`}>
+        <div className={erpHeroBlurClass} />
+        <div className="relative z-[1] flex min-w-0 gap-3 sm:gap-4">
+          <div className={erpHeroIconWrapClass}>
             <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
               <path d="M3 3h7v7H3V3zM14 3h7v7h-7V3zM14 14h7v7h-7v-7zM3 14h7v7H3v-7z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 sm:text-[11px]">
+            <p className={sectionLabelOrangeClass}>
               Operación
             </p>
-            <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">Levantamiento</h1>
-            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
+            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Levantamiento</h1>
+            <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
               Listado de órdenes tipo levantamiento. Abre el PDF, revisa el detalle o crea una nueva orden desde el modal.
             </p>
+            <div className={erpHeroGradientClass} />
           </div>
         </div>
       </header>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div className={`${erpStatCardClass}`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-[#fb923c] sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M6 6h12" />
                 <path d="M6 12h12" />
@@ -370,7 +393,7 @@ export default function LevantamientoPage() {
             </div>
           </div>
         </div>
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div className={`${erpStatCardClass}`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -383,7 +406,7 @@ export default function LevantamientoPage() {
             </div>
           </div>
         </div>
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div className={`${erpStatCardClass}`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -396,7 +419,7 @@ export default function LevantamientoPage() {
             </div>
           </div>
         </div>
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div className={`${erpStatCardClass}`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -421,7 +444,7 @@ export default function LevantamientoPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por folio, cliente, teléfono…"
-            className={searchInputClass}
+            className={pageSearchInputClass}
           />
           {search && (
             <button
@@ -442,7 +465,7 @@ export default function LevantamientoPage() {
             setEditingOrdenForModal(null);
             setShowOrderModal(true);
           }}
-          className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
+          className={erpPrimaryBtnClass + " lg:shrink-0"}
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -455,14 +478,14 @@ export default function LevantamientoPage() {
         compact
         title="Listado"
         desc="Resultados según búsqueda y filtros. En pantallas pequeñas usa el listado compacto."
-        className={`overflow-visible ${cardShellClass}`}
+        className={`overflow-visible ${pageCardShellClass}`}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
             <div className={`relative w-full ${filterOpen ? "z-[100]" : "z-0"}`} ref={filterRef}>
               <button
                 type="button"
                 onClick={() => setFilterOpen((v) => !v)}
-                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:border-gray-300/90 hover:bg-white dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:border-white/[0.12] dark:hover:bg-gray-900/40 sm:w-auto sm:min-w-[86px]"
+                className={erpFilterBtnClass}
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M3 7h13" />
@@ -474,13 +497,13 @@ export default function LevantamientoPage() {
                 Filtros
               </button>
               {filterOpen && (
-                <div className="absolute right-0 z-[110] mt-2 w-72 max-h-[min(80vh,24rem)] overflow-auto rounded-xl border border-gray-200/70 bg-white p-4 shadow-xl ring-1 ring-black/5 dark:border-white/[0.08] dark:bg-gray-900/95 dark:ring-white/10">
+                <div className={erpFilterPopoverClass}>
                   <div className="mb-4">
-                    <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Estado</label>
+                    <label className="mb-2 block text-xs text-[#44403c] dark:text-[#cbd5e1]">Estado</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value as "" | "pendiente" | "resuelto")}
-                      className="h-10 w-full rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60"
+                      className="h-10 w-full rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none focus:border-[#ff801f]/80 focus:bg-white focus:ring-2 focus:ring-[#ff801f]/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60"
                     >
                       <option value="">Todos</option>
                       <option value="pendiente">Pendiente</option>
@@ -488,13 +511,13 @@ export default function LevantamientoPage() {
                     </select>
                   </div>
                   <div className="mb-4">
-                    <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Tipo de levantamiento</label>
+                    <label className="mb-2 block text-xs text-[#44403c] dark:text-[#cbd5e1]">Tipo de levantamiento</label>
                     <select
                       value={filterTipoLevantamiento}
                       onChange={(e) =>
                         setFilterTipoLevantamiento((e.target.value || "") as "" | "camara" | "cerco" | "alarmas")
                       }
-                      className="h-10 w-full rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60"
+                      className="h-10 w-full rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none focus:border-[#ff801f]/80 focus:bg-white focus:ring-2 focus:ring-[#ff801f]/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60"
                     >
                       <option value="">Todos</option>
                       <option value="camara">Cámara</option>
@@ -503,7 +526,7 @@ export default function LevantamientoPage() {
                     </select>
                   </div>
                   <div className="mb-4">
-                    <label className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Fecha</label>
+                    <label className="mb-2 block text-xs text-[#44403c] dark:text-[#cbd5e1]">Fecha</label>
                     <div className="relative w-full">
                       <DatePicker
                         id="filtro-fecha-levantamiento"
@@ -519,7 +542,7 @@ export default function LevantamientoPage() {
                     <button
                       type="button"
                       onClick={() => setFilterOpen(false)}
-                      className="bg-brand-600 hover:bg-brand-700 h-10 flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white"
+                      className="bg-[#ff801f] hover:bg-[#ff6a00] h-10 flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white"
                     >
                       Aplicar
                     </button>
@@ -531,7 +554,7 @@ export default function LevantamientoPage() {
                         setFilterDate("");
                         setFilterOpen(false);
                       }}
-                      className="h-10 flex-1 rounded-xl px-3 py-2 text-sm font-semibold border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                      className={erpSecondaryBtnClass + " h-10 flex-1 !w-full"}
                     >
                       Limpiar
                     </button>
@@ -555,9 +578,9 @@ export default function LevantamientoPage() {
             canDelete={true}
             usuarios={[]}
           />
-          <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-gray-900/40">
+          <div className={"hidden md:block " + erpTableWrapClass}>
             <Table className="w-full min-w-[900px] table-fixed sm:min-w-0 xl:min-w-full">
-              <TableHeader className="bg-gray-50/80 dark:bg-gray-900/70 sticky top-0 z-10 text-[11px] font-semibold text-gray-900 dark:text-white">
+              <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                 <TableRow>
                   <TableCell isHeader className="px-2 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-gray-700 dark:text-gray-300">Folio</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-gray-700 dark:text-gray-300">Cliente</TableCell>
@@ -568,7 +591,7 @@ export default function LevantamientoPage() {
                   <TableCell isHeader className="px-2 py-2 text-center w-[120px] min-w-[120px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y divide-gray-100 dark:divide-white/10 text-[11px] sm:text-[12px] text-gray-700 dark:text-gray-200">
+              <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
                 {loading && (
                   <TableRow>
                     <TableCell colSpan={7} className="px-2 py-3">
@@ -592,7 +615,7 @@ export default function LevantamientoPage() {
                     const tecnicoNombre =
                       (orden as any).tecnico_asignado_full_name || (orden as any).nombre_encargado || "-";
                     return (
-                      <TableRow key={orden.id ?? idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                      <TableRow key={orden.id ?? idx} className={erpTableRowHoverClass}>
                         <TableCell className="px-2 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
                         <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-1/5 min-w-[220px]">
                           <div className="font-medium truncate">{orden.cliente || "Sin cliente"}</div>
@@ -681,11 +704,11 @@ export default function LevantamientoPage() {
                           )}
                         </TableCell>
                         <TableCell className="px-2 py-2 text-center w-[120px] min-w-[120px]">
-                          <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
+                          <div className={erpRowActionBarClass}>
                             <button
                               type="button"
                               onClick={() => navigate(`/ordenes/${orden.id}/pdf`)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 transition"
+                              className={erpRowActionBtnClass + " hover:border-red-400 hover:text-red-600"}
                               title="Ver PDF"
                             >
                               <svg className="w-4 h-4" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
@@ -700,7 +723,7 @@ export default function LevantamientoPage() {
                             <button
                               type="button"
                               onClick={() => handleEdit(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 transition"
+                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-[#ffa057] hover:text-[#ea580c] dark:hover:border-[#ff801f] transition"
                               title="Editar"
                             >
                               <PencilIcon className="w-4 h-4" />
@@ -708,7 +731,7 @@ export default function LevantamientoPage() {
                             <button
                               type="button"
                               onClick={() => handleDeleteClick(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                              className={erpRowActionBtnClass + " hover:border-rose-400 hover:text-rose-600"}
                               title="Eliminar"
                             >
                               <TrashBinIcon className="w-4 h-4" />
@@ -742,7 +765,7 @@ export default function LevantamientoPage() {
                     const mm = String(d.getMonth() + 1).padStart(2, "0");
                     setSelectedMonth(`${d.getFullYear()}-${mm}`);
                   }}
-                  className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className={erpMonthNavBtnClass}
                   title="Mes anterior"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -766,7 +789,7 @@ export default function LevantamientoPage() {
                     const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
                     setSelectedMonth(next);
                   }}
-                  className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className={erpMonthNavBtnClass}
                   title="Mes siguiente"
                 >
                   <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -779,94 +802,64 @@ export default function LevantamientoPage() {
         )}
       </ComponentCard>
 
-      <Modal isOpen={problematicaModal.open} onClose={() => setProblematicaModal({ open: false, content: "" })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
-        <div className="p-0 overflow-hidden rounded-2xl">
-          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Problemática</h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Detalle completo reportado por el cliente</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 text-sm text-gray-800 dark:text-gray-200 max-h-[60vh] overflow-y-auto custom-scrollbar">
-            <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-gray-900/40 p-3">{problematicaModal.content || "-"}</pre>
-          </div>
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 text-right">
-            <button type="button" onClick={() => setProblematicaModal({ open: false, content: "" })} className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
-              Cerrar
-            </button>
-          </div>
-        </div>
-      </Modal>
+      <OrdenViewModal
+        open={problematicaModal.open}
+        onClose={() => setProblematicaModal({ open: false, content: "" })}
+        title="Problemática"
+        subtitle="Detalle completo reportado por el cliente"
+        icon={
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            <path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        }
+      >
+        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#334155] dark:bg-[#0f172a]/40">
+          {problematicaModal.content || "-"}
+        </pre>
+      </OrdenViewModal>
 
-      <Modal isOpen={serviciosModal.open} onClose={() => setServiciosModal({ open: false, content: [] })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
-        <div className="p-0 overflow-hidden rounded-2xl">
-          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Servicios Realizados</h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Listado de servicios registrados</p>
-              </div>
-            </div>
+      <OrdenViewModal
+        open={serviciosModal.open}
+        onClose={() => setServiciosModal({ open: false, content: [] })}
+        title="Servicios realizados"
+        subtitle="Listado de servicios registrados"
+        icon={
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        }
+      >
+        {Array.isArray(serviciosModal.content) && serviciosModal.content.length > 0 ? (
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {serviciosModal.content.map((s: string, i: number) => (
+              <li key={i} className="inline-flex items-center gap-2 rounded-lg border border-[#e7ded0] bg-[#fcfaf6] px-3 py-2 dark:border-[#334155] dark:bg-[#0f172a]/40">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ff801f]" />
+                <span>{s}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="rounded-lg border border-dashed border-[#e7ded0] p-4 text-center text-[#78716c] dark:border-[#334155]">
+            Sin servicios registrados
           </div>
-          <div className="p-4 text-sm text-gray-800 dark:text-gray-200 max-h-[60vh] overflow-y-auto custom-scrollbar">
-            {Array.isArray(serviciosModal.content) && serviciosModal.content.length > 0 ? (
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {serviciosModal.content.map((s: string, i: number) => (
-                  <li key={i} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-gray-900/40 px-3 py-2">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand-500" />
-                    <span>{s}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="rounded-lg border border-dashed border-gray-200 dark:border-white/10 p-4 text-center text-gray-500 dark:text-gray-400">Sin servicios registrados</div>
-            )}
-          </div>
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 text-right">
-            <button type="button" onClick={() => setServiciosModal({ open: false, content: [] })} className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
-              Cerrar
-            </button>
-          </div>
-        </div>
-      </Modal>
+        )}
+      </OrdenViewModal>
 
-      <Modal isOpen={comentarioModal.open} onClose={() => setComentarioModal({ open: false, content: "" })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
-        <div className="p-0 overflow-hidden rounded-2xl">
-          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
-                </svg>
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Comentario del Técnico</h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Observaciones y notas del técnico</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 text-sm text-gray-800 dark:text-gray-200 max-h-[60vh] overflow-y-auto custom-scrollbar">
-            <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-gray-900/40 p-3">{comentarioModal.content || "-"}</pre>
-          </div>
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/40 text-right">
-            <button type="button" onClick={() => setComentarioModal({ open: false, content: "" })} className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
-              Cerrar
-            </button>
-          </div>
-        </div>
-      </Modal>
+      <OrdenViewModal
+        open={comentarioModal.open}
+        onClose={() => setComentarioModal({ open: false, content: "" })}
+        title="Comentario del técnico"
+        subtitle="Observaciones y notas del técnico"
+        icon={
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+          </svg>
+        }
+      >
+        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#334155] dark:bg-[#0f172a]/40">
+          {comentarioModal.content || "-"}
+        </pre>
+      </OrdenViewModal>
 
       <OrdenServicioModal
         open={showOrderModal}
@@ -880,27 +873,12 @@ export default function LevantamientoPage() {
       />
 
       {ordenToDelete && (
-        <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} closeOnBackdropClick={false} className="w-full max-w-md mx-4 sm:mx-auto">
-          <div className="p-6">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-error-100 dark:bg-error-900/30">
-              <svg className="w-6 h-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">¿Eliminar Orden?</h3>
-            <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
-              ¿Estás seguro de que deseas eliminar la orden para <span className="font-semibold">{ordenToDelete.cliente}</span>? Esta acción no se puede deshacer.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={handleCancelDelete} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
-                Cancelar
-              </button>
-              <button onClick={handleConfirmDelete} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-error-600 rounded-lg hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/50">
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </Modal>
+        <OrdenDeleteModal
+          open={showDeleteModal}
+          clienteLabel={ordenToDelete.cliente ?? "esta orden"}
+          onCancel={handleCancelDelete}
+          onConfirm={handleConfirmDelete}
+        />
       )}
     </div>
     </div>

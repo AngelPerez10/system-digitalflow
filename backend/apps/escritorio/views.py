@@ -59,6 +59,7 @@ def _decode_base64_image_bytes(data_url: str, max_input_bytes: int) -> tuple[str
     try:
         raw = base64.b64decode(b64_clean, validate=True)
     except Exception:
+        logger.debug('Failed to decode base64 image data')
         raise ValueError("data_url base64 inválido")
     if len(raw) > max_input_bytes:
         raise ValueError("Imagen demasiado grande")
@@ -73,6 +74,7 @@ def _open_and_verify_image(raw: bytes) -> None:
         img2 = Image.open(io.BytesIO(raw))
         img2.load()
     except Exception:
+        logger.debug('Image verification failed (invalid or dangerous)')
         raise ValueError("Imagen inválida o peligrosa")
 
 
@@ -185,6 +187,8 @@ class TareaViewSet(viewsets.ModelViewSet):
                 else:
                     raise ValidationError("fotos_urls contiene una entrada inválida")
             data['fotos_urls'] = new_fotos
+        if not data.get('estado'):
+            data['estado'] = Tarea.ESTADO_TODO
         serializer.save(creado_por=self.request.user, **data)
 
     def perform_update(self, serializer):
@@ -232,6 +236,7 @@ class TareaViewSet(viewsets.ModelViewSet):
         try:
             payload = request.data if isinstance(request.data, dict) else {}
         except Exception:
+            logger.debug('Could not read request.data for upload-image')
             payload = {}
         data_url = payload.get('data_url')
         folder = payload.get('folder') or 'tareas/fotos'
@@ -258,6 +263,7 @@ class TareaViewSet(viewsets.ModelViewSet):
         try:
             payload = request.data if isinstance(request.data, dict) else {}
         except Exception:
+            logger.debug('Could not read request.data for delete-image')
             payload = {}
         public_id = payload.get('public_id')
         if not isinstance(public_id, str) or not public_id:

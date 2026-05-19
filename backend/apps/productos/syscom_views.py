@@ -174,6 +174,7 @@ class SyscomProductosSearchView(APIView):
             try:
                 body = e.response.json() if e.response else {}
             except Exception:
+                logger.debug('Could not parse SYSCOM error response body')
                 body = {}
             # No propagar 500 de Syscom como 500 de nuestra API (confunde con error de Django).
             upstream = getattr(e.response, 'status_code', None) if e.response else None
