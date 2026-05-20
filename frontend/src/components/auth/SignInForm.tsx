@@ -5,7 +5,13 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import Checkbox from "@/components/form/input/Checkbox";
 import Button from "@/components/ui/button/Button";
-import { ensureCsrfCookie, fetchApi, markAuthSession, resetRefreshState, storeCsrfTokenFromPayload } from "@/config/api";
+import {
+  ensureCsrfCookie,
+  fetchApi,
+  resetRefreshState,
+  storeCsrfTokenFromPayload,
+} from "@/config/api";
+import { parseLoginError, type LoginSuccessPayload } from "@/config/loginErrors";
 import { useAuth } from "@/context/AuthContext";
 
 async function login(loginValue: string, password: string) {
@@ -19,8 +25,8 @@ async function login(loginValue: string, password: string) {
         : { username: loginValue, password }
     ),
   });
-  const data = await res.json().catch(() => ({ detail: "Respuesta inválida" }));
-  if (!res.ok) throw new Error(data.detail || "Error");
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(parseLoginError(res, data));
   return data;
 }
 
@@ -34,7 +40,7 @@ export default function SignInForm() {
   const [authReady, setAuthReady] = useState(false);
   const navigate = useNavigate();
   const location = useLocation() as any;
-  const { refresh: refreshAuth, user } = useAuth();
+  const { refresh: refreshAuth, applyLoginSession, user } = useAuth();
 
   useEffect(() => {
     if (user?.username) {
@@ -54,9 +60,13 @@ export default function SignInForm() {
     try {
       const data = await login(loginValue, password);
       storeCsrfTokenFromPayload(data);
-      markAuthSession();
       resetRefreshState();
+      applyLoginSession(data as LoginSuccessPayload);
+      if (!String(data.username ?? "").trim()) {
+        throw new Error("Respuesta de inicio de sesión incompleta. Contacta al administrador.");
+      }
       await refreshAuth();
+      setPassword("");
       setMessage(null);
       const isAdmin = data.is_superuser || data.is_staff;
       const from = location?.state?.from?.pathname;

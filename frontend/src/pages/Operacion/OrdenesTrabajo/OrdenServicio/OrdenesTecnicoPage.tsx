@@ -10,7 +10,8 @@ import { useDropzone } from "react-dropzone";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
 import { PencilIcon, TrashBinIcon, TimeIcon } from "@/icons";
@@ -132,7 +133,6 @@ const getCurrentYearMonth = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
-let ordenesTecnicoPermissionsLastLoadAt = 0;
 let ordenesTecnicoSignatureLastLoadAt = 0;
 let ordenesTecnicoServiciosLastLoadAt = 0;
 
@@ -140,36 +140,26 @@ let ordenesTecnicoServiciosLastLoadAt = 0;
 
 export default function OrdenesTecnico() {
   const navigate = useNavigate();
+  const { user, permissions, isAdmin, isAuthenticated, loading: authLoading } = useAuth();
 
   const formNonceRef = useRef(0);
   const formScrollRef = useRef<HTMLFormElement>(null);
 
   const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
 
-  const getToken = () => {
-    return localStorage.getItem("token") || sessionStorage.getItem("token");
-  };
-
-  const getPermissionsFromStorage = () => {
-    try {
-      const raw = localStorage.getItem('permissions') || sessionStorage.getItem('permissions');
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  };
+  const canOrdenesView = permissions?.ordenes?.view !== false;
+  const canOrdenesCreate = !!permissions?.ordenes?.create;
+  const canOrdenesEdit = !!permissions?.ordenes?.edit;
+  const canOrdenesDelete = !!permissions?.ordenes?.delete;
 
   const loadServiciosDisponibles = async () => {
-    const token = getToken();
-    if (!token) {
+    if (!isAuthenticated) {
       setServiciosDisponibles([]);
       return;
     }
 
     try {
-      const res = await fetch(apiUrl('/api/servicios/?page=1&page_size=500&ordering=idx'), {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetchApi('/api/servicios/?page=1&page_size=500&ordering=idx', {
         cache: 'no-store' as RequestCache,
       });
       const data = await res.json().catch(() => null);
@@ -190,81 +180,37 @@ export default function OrdenesTecnico() {
     }
   };
 
-  const [permissions, setPermissions] = useState<any>(() => getPermissionsFromStorage());
   const [mySignatureUrl, setMySignatureUrl] = useState<string>('');
 
-  const canOrdenesView = permissions?.ordenes?.view !== false;
-  const canOrdenesCreate = !!permissions?.ordenes?.create;
-  const canOrdenesEdit = !!permissions?.ordenes?.edit;
-  const canOrdenesDelete = !!permissions?.ordenes?.delete;
-
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-
-    const now = Date.now();
-    if (now - ordenesTecnicoPermissionsLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
-    ordenesTecnicoPermissionsLastLoadAt = now;
-
-    const load = async () => {
-      try {
-        const res = await fetch(apiUrl('/api/me/permissions/'), {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store' as RequestCache,
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) return;
-        const p = data?.permissions || {};
-        const pStr = JSON.stringify(p);
-        localStorage.setItem('permissions', pStr);
-        sessionStorage.setItem('permissions', pStr);
-        setPermissions(p);
-      } catch (e) {
-        console.error("Error syncing permissions", e);
-      }
-    };
-    load();
-  }, []);
-
-  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
     const now = Date.now();
     if (now - ordenesTecnicoServiciosLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
     ordenesTecnicoServiciosLastLoadAt = now;
     loadServiciosDisponibles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-
+    if (authLoading || !isAuthenticated) return;
     const now = Date.now();
     if (now - ordenesTecnicoSignatureLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
     ordenesTecnicoSignatureLastLoadAt = now;
     const load = async () => {
       try {
-        const res = await fetch(apiUrl('/api/me/signature/'), {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await fetchApi('/api/me/signature/', {
           cache: 'no-store' as RequestCache,
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) return;
-        const url = data?.url || '';
-        setMySignatureUrl(url);
+        setMySignatureUrl(data?.url || '');
       } catch {
-        return;
+        /* ignore */
       }
     };
     load();
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
-  useEffect(() => {
-    const sync = () => setPermissions(getPermissionsFromStorage());
-    window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
-  }, []);
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -350,6 +296,7 @@ export default function OrdenesTecnico() {
   }, [filterOpen]);
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
     const now = Date.now();
     if (now - ordenesPageInitialDataLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
     ordenesPageInitialDataLastLoadAt = now;
@@ -357,7 +304,7 @@ export default function OrdenesTecnico() {
     fetchOrdenes();
     fetchClientes();
     fetchUsuarios();
-  }, []);
+  }, [authLoading, isAuthenticated, canOrdenesView]);
 
   const getPublicIdFromUrl = (url: string): string | null => {
     try {
@@ -386,26 +333,19 @@ export default function OrdenesTecnico() {
     const updated = (Array.isArray(formData.fotos_urls) ? formData.fotos_urls : []).filter((_, i) => i !== index);
     setDeletingPhoto(true);
     try {
-      const token = getToken();
       // Eliminar de Cloudinary
       if (publicId) {
-        await fetch(apiUrl('/api/ordenes/delete-image/'), {
+        await fetchApi('/api/ordenes/delete-image/', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ public_id: publicId }),
         });
       }
       // Si estamos editando una orden existente, actualizar solo fotos_urls en backend
       if (editingOrden && editingOrden.id) {
-        const response = await fetch(apiUrl(`/api/ordenes/${editingOrden.id}/update-photos/`), {
+        const response = await fetchApi(`/api/ordenes/${editingOrden.id}/update-photos/`, {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fotos_urls: updated }),
         });
 
@@ -584,13 +524,9 @@ export default function OrdenesTecnico() {
     const uploadOne = async (file: File): Promise<string | null> => {
       try {
         const compressed = await compressImage(file, 80, 1400, 1400);
-        const token = getToken();
-        const resp = await fetch(apiUrl('/api/ordenes/upload-image/'), {
+        const resp = await fetchApi('/api/ordenes/upload-image/', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ data_url: compressed, folder: 'ordenes/fotos' }),
         });
         if (!resp.ok) return null;
@@ -775,12 +711,9 @@ export default function OrdenesTecnico() {
       return;
     }
 
-    const token = getToken();
-    if (!token) return;
+    if (!isAuthenticated) return;
     try {
-      const res = await fetch(apiUrl(`/api/users/accounts/${userId}/signature/`), {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetchApi(`/api/users/accounts/${userId}/signature/`, {
         cache: 'no-store' as RequestCache,
       });
       const data = await res.json().catch(() => null);
@@ -832,17 +765,9 @@ export default function OrdenesTecnico() {
 
   const fetchUsuarios = async () => {
     try {
-      const token = getToken();
-      if (!token) return;
-
-      const commonHeaders = {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      } as HeadersInit;
-
-      let response = await fetch(apiUrl("/api/ordenes/tecnico-opciones/"), { headers: commonHeaders });
+      let response = await fetchApi("/api/ordenes/tecnico-opciones/");
       if (!response.ok) {
-        response = await fetch(apiUrl("/api/users/accounts/"), { headers: commonHeaders });
+        response = await fetchApi("/api/users/accounts/");
       }
 
       if (response.ok) {
@@ -862,51 +787,18 @@ export default function OrdenesTecnico() {
         setLoading(false);
         return;
       }
-      const token = getToken();
-      if (!token) {
-        console.warn("No hay token de autenticación");
-        setOrdenes([]);
-        setLoading(false);
-        return;
-      }
 
-      const response = await fetch(apiUrl(`/api/ordenes/?_ts=${Date.now()}`), {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
+      const response = await fetchApi(`/api/ordenes/?_ts=${Date.now()}`, {
         cache: "no-store" as RequestCache,
       });
 
       if (response.ok) {
-        let data = await response.json();
-        let rows = Array.isArray(data)
+        const data = await response.json();
+        const rows = Array.isArray(data)
           ? data
           : Array.isArray((data as any)?.results)
             ? (data as any).results
             : [];
-
-        // Filter for technicians if not admin
-        const role = localStorage.getItem('role');
-        const userRaw = localStorage.getItem('user');
-        if (role !== 'admin' && userRaw) {
-          try {
-            const user = JSON.parse(userRaw);
-            if (user.id) {
-              const userId = Number(user.id);
-              // El backend permite ver órdenes por `tecnico_asignado` o por `creado_por`.
-              // Para no ocultar órdenes recién creadas que todavía no tienen `tecnico_asignado`,
-              // filtramos por ambos campos.
-              rows = rows.filter((o: any) => {
-                const tecnicoId = Number(o.tecnico_asignado ?? NaN);
-                const creadoId = Number(o.creado_por ?? o.creado_por_id ?? NaN);
-                return tecnicoId === userId || creadoId === userId;
-              });
-            }
-          } catch (e) {
-            console.error("Error filtering orders for technician", e);
-          }
-        }
 
         console.debug("[OrdenesTecnicoPage] fetchOrdenes idx:", rows.map((r: any) => Number(r?.idx || 0)).filter((n: number) => Number.isFinite(n)));
         setOrdenes(rows);
@@ -931,7 +823,6 @@ export default function OrdenesTecnico() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
-    const token = getToken();
     // Reglas: Cliente, Dirección, Teléfono, Servicios Realizados y Fecha de Inicio son requeridos
     const { ok, missing } = validateForm();
     if (!ok) {
@@ -951,9 +842,9 @@ export default function OrdenesTecnico() {
 
     try {
       setIsSaving(true);
-      const url = editingOrden
-        ? apiUrl(`/api/ordenes/${editingOrden.id}/`)
-        : apiUrl("/api/ordenes/");
+      const path = editingOrden
+        ? `/api/ordenes/${editingOrden.id}/`
+        : "/api/ordenes/";
       const method = editingOrden ? "PUT" : "POST";
 
       // Construir payload, omitiendo tecnico_asignado si es null
@@ -988,12 +879,9 @@ export default function OrdenesTecnico() {
       // Asegurar arreglo para servicios_realizados
       if (!Array.isArray(payload.servicios_realizados)) payload.servicios_realizados = [];
 
-      const response = await fetch(url, {
+      const response = await fetchApi(path, {
         method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
@@ -1003,12 +891,9 @@ export default function OrdenesTecnico() {
 
         if (tipoOrden === 'levantamiento' && savedOrden?.id && levantamientoSnapshotRef.current) {
           const snap = levantamientoSnapshotRef.current;
-          await fetch(apiUrl(`/api/ordenes/${savedOrden.id}/levantamiento/`), {
+          await fetchApi(`/api/ordenes/${savedOrden.id}/levantamiento/`, {
             method: 'PUT',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               payload: snap.payload || {},
               dibujo_url: snap.dibujo_url || '',
@@ -1085,12 +970,7 @@ export default function OrdenesTecnico() {
                 let existingCotizacionId: number | null = null;
                 try {
                   const searchParam = encodeURIComponent(ordenMarker);
-                  const searchRes = await fetch(apiUrl(`/api/cotizaciones/?search=${searchParam}`), {
-                    method: 'GET',
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                      'Content-Type': 'application/json',
-                    },
+                  const searchRes = await fetchApi(`/api/cotizaciones/?search=${searchParam}`, {
                     cache: 'no-store' as RequestCache,
                   });
                   if (searchRes.ok) {
@@ -1104,17 +984,14 @@ export default function OrdenesTecnico() {
                 }
 
                 const isUpdate = existingCotizacionId != null;
-                const cotUrl = isUpdate
-                  ? apiUrl(`/api/cotizaciones/${existingCotizacionId}/`)
-                  : apiUrl('/api/cotizaciones/');
+                const cotPath = isUpdate
+                  ? `/api/cotizaciones/${existingCotizacionId}/`
+                  : '/api/cotizaciones/';
                 const cotMethod = isUpdate ? 'PUT' : 'POST';
 
-                const cotRes = await fetch(cotUrl, {
+                const cotRes = await fetchApi(cotPath, {
                   method: cotMethod,
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  },
+                  headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(cotPayload),
                 });
 
@@ -1170,12 +1047,9 @@ export default function OrdenesTecnico() {
           }
 
           if (Object.keys(updates).length > 0) {
-            await fetch(apiUrl(`/api/clientes/${cid}/`), {
+            await fetchApi(`/api/clientes/${cid}/`, {
               method: 'PATCH',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(updates),
             }).catch(() => null);
           }
@@ -1193,12 +1067,9 @@ export default function OrdenesTecnico() {
             if (nombre) body.nombre_apellido = nombre;
             if (celular) body.celular = celular;
             if (Object.keys(body).length > 0) {
-              await fetch(apiUrl(`/api/cliente-contactos/${contactoIdToUpdate}/`), {
+              await fetchApi(`/api/cliente-contactos/${contactoIdToUpdate}/`, {
                 method: 'PATCH',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
               }).catch(() => null);
             }
@@ -1206,20 +1077,14 @@ export default function OrdenesTecnico() {
         }
 
         if (savedOrden && savedOrden.id) {
-          const role = localStorage.getItem('role');
-          const userRaw = localStorage.getItem('user');
-          let canShow = true;
-          if (role !== 'admin' && userRaw) {
-            try {
-              const user = JSON.parse(userRaw);
-              if (user.id) {
-                const userId = Number(user.id);
-                canShow = Number((savedOrden as any).tecnico_asignado) === userId;
-              }
-            } catch {
-              // ignore
-            }
-          }
+          const userId = user?.id != null ? Number(user.id) : null;
+          const tecnicoId = Number((savedOrden as any).tecnico_asignado ?? NaN);
+          const creadoId = Number((savedOrden as any).creado_por ?? (savedOrden as any).creado_por_id ?? NaN);
+          const canShow =
+            isAdmin ||
+            userId == null ||
+            tecnicoId === userId ||
+            creadoId === userId;
           if (canShow) {
             setOrdenes((prev) => {
               const list = Array.isArray(prev) ? prev : [];
@@ -1321,11 +1186,9 @@ export default function OrdenesTecnico() {
   const handleConfirmDelete = async () => {
     if (!ordenToDelete) return;
 
-    const token = getToken();
     try {
-      const response = await fetch(apiUrl(`/api/ordenes/${ordenToDelete.id}/`), {
+      const response = await fetchApi(`/api/ordenes/${ordenToDelete.id}/`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
       });
 
       if (response.ok) {

@@ -38,6 +38,7 @@ describe('RequireAuth', () => {
       isAuthenticated: false,
       loading: true,
       refresh: vi.fn(),
+      applyLoginSession: vi.fn(),
       signOut: vi.fn(),
     });
 
@@ -59,6 +60,7 @@ describe('RequireAuth', () => {
       isAuthenticated: false,
       loading: false,
       refresh: vi.fn(),
+      applyLoginSession: vi.fn(),
       signOut: vi.fn(),
     });
 
@@ -88,6 +90,7 @@ describe('RequireAuth', () => {
       isAuthenticated: true,
       loading: false,
       refresh: vi.fn(),
+      applyLoginSession: vi.fn(),
       signOut: vi.fn(),
     });
 
@@ -116,6 +119,7 @@ describe('RequireAuth', () => {
       isAuthenticated: true,
       loading: false,
       refresh: vi.fn(),
+      applyLoginSession: vi.fn(),
       signOut: vi.fn(),
     });
 

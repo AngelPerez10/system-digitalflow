@@ -24,22 +24,30 @@ interface Orden {
     status: 'pendiente' | 'resuelto';
     fecha_inicio: string;
     tecnico_asignado: number | null;
+    creado_por?: number | null;
+    creado_por_id?: number | null;
     servicios_realizados: string[];
 }
 
 export default function TechnicianDashboard() {
-    const { user } = useAuth();
+    const { user, loading: authLoading, isAuthenticated } = useAuth();
     const [ordenes, setOrdenes] = useState<Orden[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedRange, setSelectedRange] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
 
     useEffect(() => {
+        if (authLoading || !isAuthenticated) return;
         const fetchOrdenes = async () => {
             try {
                 const response = await fetchApi("/api/ordenes/");
                 if (response.ok) {
                     const data = await response.json();
-                    setOrdenes(data);
+                    const rows = Array.isArray(data)
+                        ? data
+                        : Array.isArray((data as { results?: Orden[] })?.results)
+                          ? (data as { results: Orden[] }).results
+                          : [];
+                    setOrdenes(rows);
                 }
             } catch (error) {
                 console.error("Error fetching orders:", error);
@@ -49,11 +57,16 @@ export default function TechnicianDashboard() {
         };
 
         fetchOrdenes();
-    }, []);
+    }, [authLoading, isAuthenticated]);
 
     const myOrdenes = useMemo(() => {
         if (!user?.id) return [];
-        return ordenes.filter(o => o.tecnico_asignado === user.id);
+        const userId = Number(user.id);
+        return ordenes.filter((o) => {
+            const tecnicoId = Number(o.tecnico_asignado ?? NaN);
+            const creadoId = Number(o.creado_por ?? o.creado_por_id ?? NaN);
+            return tecnicoId === userId || creadoId === userId;
+        });
     }, [ordenes, user?.id]);
 
     const filteredOrdenes = useMemo(() => {

@@ -6,22 +6,13 @@ import {
   fetchApi,
   hasAuthSessionFlag,
   markAuthSession,
+  setAccessTokenFromLogin,
 } from "@/config/api";
+import { hasBearerFallback } from "@/config/authSession";
+import { userFromLoginPayload, type LoginSuccessPayload } from "@/config/loginErrors";
+import type { AuthUser, Permissions } from "@/context/authTypes";
 
-export interface AuthUser {
-  username: string;
-  email: string;
-  is_staff: boolean;
-  is_superuser: boolean;
-  first_name: string;
-  last_name: string;
-  id: number;
-  avatar_url?: string;
-}
-
-interface Permissions {
-  [module: string]: { view?: boolean; create?: boolean; edit?: boolean; delete?: boolean };
-}
+export type { AuthUser } from "@/context/authTypes";
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -30,6 +21,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   refresh: () => Promise<void>;
+  /** Tras login exitoso: hidrata usuario/permisos sin depender solo de cookies HttpOnly. */
+  applyLoginSession: (data: LoginSuccessPayload) => void;
   signOut: () => void;
 }
 
@@ -62,6 +55,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [permissions, setPermissions] = useState<Permissions>({});
   const [loading, setLoading] = useState(true);
+
+  const applyLoginSession = useCallback((data: LoginSuccessPayload) => {
+    const nextUser = userFromLoginPayload(data);
+    if (!nextUser) return;
+    const nextPerms = (data.permissions as Permissions) ?? {};
+    setUser(nextUser);
+    setPermissions(nextPerms);
+    writeCache(nextUser, nextPerms);
+    markAuthSession();
+    setAccessTokenFromLogin(data.access);
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -96,6 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!nextUser) {
+        const cached = readCache();
+        if (cached?.user?.username && hasBearerFallback()) {
+          setUser(cached.user);
+          setPermissions(cached.permissions ?? {});
+          return;
+        }
         clearAuthSession();
         setUser(null);
         setPermissions({});
@@ -115,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(() => {
+    void fetchApi("/api/logout/", { method: "POST" }).catch(() => null);
     clearAuthSession();
     setUser(null);
     setPermissions({});
@@ -129,7 +140,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!user?.username;
 
   return (
-    <AuthContext.Provider value={{ user, permissions, isAdmin, isAuthenticated, loading, refresh, signOut }}>
+    <AuthContext.Provider
+      value={{ user, permissions, isAdmin, isAuthenticated, loading, refresh, applyLoginSession, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -4,12 +4,38 @@ import { type ReactNode } from 'react';
 import { AuthProvider, useAuth } from './AuthContext';
 import type { AuthUser } from './AuthContext';
 
+vi.mock('@/config/authSession', () => ({
+  hasBearerFallback: vi.fn().mockReturnValue(false),
+  setAccessTokenFromLogin: vi.fn(),
+  clearAccessToken: vi.fn(),
+}));
+
+vi.mock('@/config/loginErrors', () => ({
+  userFromLoginPayload: vi.fn((data: { username?: string }) =>
+    data?.username
+      ? {
+          id: 1,
+          username: data.username,
+          email: '',
+          is_staff: false,
+          is_superuser: false,
+          first_name: '',
+          last_name: '',
+        }
+      : null
+  ),
+}));
+
 vi.mock('@/config/api', () => ({
   AUTH_CACHE_KEY: 'auth_state',
   fetchApi: vi.fn(),
   ensureCsrfCookie: vi.fn().mockResolvedValue(undefined),
   hasAuthSessionFlag: vi.fn().mockReturnValue(true),
+  hasBearerFallback: vi.fn().mockReturnValue(false),
+  hasAccessTokenFallback: vi.fn().mockReturnValue(false),
   markAuthSession: vi.fn(),
+  setAccessTokenFromLogin: vi.fn(),
+  setAuthTokensFromLogin: vi.fn(),
   clearAuthSession: vi.fn(),
 }));
 

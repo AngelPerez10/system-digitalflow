@@ -2,7 +2,8 @@ from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 
 
 class LoginRateThrottle(AnonRateThrottle):
-    rate = '5/minute'
+    # Varios técnicos pueden compartir la misma IP (oficina / datos móviles).
+    rate = '20/minute'
     scope = 'login'
 
 

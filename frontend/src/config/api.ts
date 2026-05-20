@@ -1,4 +1,10 @@
 import {
+  bearerAuthHeader,
+  clearAccessToken,
+  hasBearerFallback,
+  setAccessTokenFromLogin,
+} from "./authSession";
+import {
   clearCsrfTokenCache,
   ensureCsrfCookie,
   getCsrfRequestHeaders,
@@ -6,6 +12,17 @@ import {
   storeCsrfTokenFromPayload,
 } from "./csrf";
 import { apiUrl, API_BASE, PUBLIC_ORIGIN, publicUrl } from "./apiBase";
+
+export {
+  bearerAuthHeader,
+  clearAccessToken,
+  getAccessToken,
+  hasBearerFallback,
+  isApiCrossOrigin,
+  setAccessTokenFromLogin,
+} from "./authSession";
+export { parseLoginError, userFromLoginPayload } from "./loginErrors";
+export type { LoginSuccessPayload } from "./loginErrors";
 
 export { API_BASE, apiUrl, PUBLIC_ORIGIN, publicUrl };
 export {
@@ -23,6 +40,18 @@ export function getAuthHeaders(method: string = "GET"): Record<string, string> {
 /** Indica que hubo login exitoso (cookies HttpOnly no son legibles desde JS). */
 export const AUTH_SESSION_FLAG = "auth_has_session";
 export const AUTH_CACHE_KEY = "auth_state";
+
+/** @deprecated Use setAccessTokenFromLogin */
+export function setAuthTokensFromLogin(data: unknown) {
+  if (!data || typeof data !== "object") return;
+  const access = (data as { access?: unknown }).access;
+  setAccessTokenFromLogin(access);
+}
+
+/** @deprecated Use hasBearerFallback */
+export function hasAccessTokenFallback(): boolean {
+  return hasBearerFallback();
+}
 
 export function hasAuthSessionFlag(): boolean {
   if (typeof window === "undefined") return false;
@@ -92,6 +121,7 @@ export function clearAuthSession() {
   } catch {
     /* ignore */
   }
+  clearAccessToken();
   resetRefreshState();
 }
 
@@ -112,13 +142,19 @@ async function attemptRefresh(): Promise<boolean> {
     try {
       const hasCsrf = await ensureCsrfCookie();
       if (!hasCsrf) return false;
+      const csrfHeaders = getCsrfRequestHeaders("POST");
       const res = await fetch(apiUrl("/api/token/refresh/"), {
         method: "POST",
         credentials: "include",
-        headers: getCsrfRequestHeaders("POST"),
+        headers: csrfHeaders,
       });
       const ok = res.ok;
-      if (!ok) {
+      if (ok) {
+        const data = await res.json().catch(() => null);
+        if (data && typeof data === "object") {
+          setAccessTokenFromLogin((data as { access?: unknown }).access);
+        }
+      } else {
         refreshFailed = true;
         clearAuthSession();
       }
@@ -151,11 +187,12 @@ function buildRequestHeaders(
   const headers: Record<string, string> = {
     ...((options.headers as Record<string, string>) || {}),
   };
-  if (!unsafe) return headers;
+  const withBearer = { ...headers, ...bearerAuthHeader() };
+  if (!unsafe) return withBearer;
 
   const csrfHeaders = getCsrfRequestHeaders(method);
   if (!csrfHeaders["X-CSRFToken"]) return null;
-  return { ...headers, ...csrfHeaders };
+  return { ...withBearer, ...csrfHeaders };
 }
 
 export async function fetchApi(path: string, options: FetchApiOptions = {}): Promise<Response> {

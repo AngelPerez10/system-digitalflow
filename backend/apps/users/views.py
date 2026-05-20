@@ -195,16 +195,32 @@ def login_view(request):
     User = get_user_model()
 
     resolved_username = login_value
+    candidate = None
     if '@' in login_value:
-        user_obj = User.objects.filter(Q(email__iexact=login_value)).first()
-        if user_obj:
-            resolved_username = user_obj.get_username()
+        candidate = User.objects.filter(Q(email__iexact=login_value)).first()
+        if candidate:
+            resolved_username = candidate.get_username()
+
+    if candidate is None and '@' not in login_value:
+        candidate = User.objects.filter(username__iexact=login_value).first()
+
+    if candidate is not None and not candidate.is_active:
+        return Response(
+            {'detail': 'Tu cuenta está desactivada. Contacta al administrador.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     user = authenticate(request, username=resolved_username, password=password)
     if not user and '@' in login_value:
         user = authenticate(request, username=login_value, password=password)
     if not user:
         return Response({'detail': 'Credenciales inválidas'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if not user.is_active:
+        return Response(
+            {'detail': 'Tu cuenta está desactivada. Contacta al administrador.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     refresh = RefreshToken.for_user(user)
     access = refresh.access_token
@@ -214,10 +230,11 @@ def login_view(request):
 
     from django.middleware.csrf import get_token
 
+    # access en JSON solo para SPA cross-origin cuando las cookies HttpOnly no se guardan.
+    # refresh va únicamente en cookie HttpOnly (no en el cuerpo) para reducir exposición a XSS.
     resp = Response(
         {
             'access': str(access),
-            'refresh': str(refresh),
             'username': user.get_username(),
             'email': getattr(user, 'email', None),
             'is_staff': bool(getattr(user, 'is_staff', False)),
