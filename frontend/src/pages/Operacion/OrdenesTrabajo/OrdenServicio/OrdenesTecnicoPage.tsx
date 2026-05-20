@@ -20,6 +20,7 @@ import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 import LevantamientoForm from "../OrdenLevantamiento/LevantamientoForm";
+import InstalacionForm from "../OrdenInstalacion/InstalacionForm";
 import {
   OrdenDeleteModal,
   OrdenFormModalHeader,
@@ -146,6 +147,7 @@ export default function OrdenesTecnico() {
   const formScrollRef = useRef<HTMLFormElement>(null);
 
   const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
+  const instalacionSnapshotRef = useRef<{ payload: any; dibujo_url: string } | null>(null);
 
   const canOrdenesView = permissions?.ordenes?.view !== false;
   const canOrdenesCreate = !!permissions?.ordenes?.create;
@@ -1031,6 +1033,17 @@ export default function OrdenesTecnico() {
             }
             return prev;
           });
+        }
+        if (tipoOrden === 'instalaciones' && savedOrden?.id && instalacionSnapshotRef.current) {
+          const snap = instalacionSnapshotRef.current;
+          await fetchApi(`/api/ordenes/${savedOrden.id}/instalacion/`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              payload: snap.payload || {},
+              dibujo_url: snap.dibujo_url || '',
+            }),
+          }).catch(() => null);
         }
         if (cid && (payload?.direccion || payload?.telefono_cliente)) {
           const existingCliente = clientes.find(c => c.id === cid);
@@ -2139,6 +2152,18 @@ export default function OrdenesTecnico() {
                   disabled={isReadOnly}
                   onSnapshot={(snapshot) => {
                     levantamientoSnapshotRef.current = snapshot;
+                  }}
+                />
+              </div>
+            )}
+
+            {tipoOrden === 'instalaciones' && (
+              <div className={activeTab === 'orden' ? '' : 'hidden'}>
+                <InstalacionForm
+                  ordenId={editingOrden?.id ?? null}
+                  disabled={isReadOnly}
+                  onSnapshot={(snapshot) => {
+                    instalacionSnapshotRef.current = snapshot;
                   }}
                 />
               </div>

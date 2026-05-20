@@ -1050,6 +1050,55 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
         return Response(OrdenLevantamientoSerializer(obj).data)
 
+    @action(detail=True, methods=['get', 'put', 'patch'], url_path='instalacion')
+    def instalacion(self, request, pk=None):
+        orden = self.get_object()
+        existing = getattr(orden, 'instalacion', None)
+
+        if request.method.upper() == 'GET':
+            if not existing:
+                return Response({
+                    'id': None,
+                    'orden': orden.id,
+                    'payload': {},
+                    'dibujo_url': '',
+                    'creado_por': None,
+                    'fecha_creacion': None,
+                    'fecha_actualizacion': None,
+                })
+            ser = OrdenInstalacionSerializer(existing)
+            return Response(ser.data)
+
+        payload = request.data if isinstance(request.data, dict) else {}
+        if existing:
+            ser = OrdenInstalacionSerializer(existing, data=payload, partial=(request.method.upper() == 'PATCH'))
+        else:
+            ser = OrdenInstalacionSerializer(data=payload)
+
+        ser.is_valid(raise_exception=True)
+
+        validated = ser.validated_data
+        dibujo_url = validated.get('dibujo_url') or ''
+        if _is_data_url(dibujo_url):
+            dibujo_url = _upload_data_url(
+                dibujo_url,
+                folder='ordenes/instalacion/dibujos',
+                max_size_kb=200,
+            )
+            validated['dibujo_url'] = dibujo_url
+
+        if existing:
+            obj = ser.save()
+        else:
+            obj = OrdenInstalacion.objects.create(
+                orden=orden,
+                payload=validated.get('payload', {}),
+                dibujo_url=validated.get('dibujo_url', ''),
+                creado_por=getattr(request, 'user', None) if getattr(request, 'user', None) and request.user.is_authenticated else None,
+            )
+
+        return Response(OrdenInstalacionSerializer(obj).data)
+
     @action(detail=False, methods=['post'], url_path='reindex')
     def reindex(self, request):
         """Reasigna idx de todas las órdenes.

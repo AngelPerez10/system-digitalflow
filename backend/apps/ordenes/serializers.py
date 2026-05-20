@@ -2,7 +2,7 @@ import logging
 
 from rest_framework import serializers
 
-from .models import Orden, OrdenLevantamiento, ReporteSemanal
+from .models import Orden, OrdenLevantamiento, OrdenInstalacion, ReporteSemanal
 
 logger = logging.getLogger(__name__)
 
@@ -255,6 +255,20 @@ class OrdenLevantamientoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id',
+            'orden',
+            'creado_por',
+            'fecha_creacion',
+            'fecha_actualizacion',
+        ]
+
+
+class OrdenInstalacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrdenInstalacion
+        fields = [
+            'id',
+            'payload',
+            'dibujo_url',
             'orden',
             'creado_por',
             'fecha_creacion',

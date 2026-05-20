@@ -1,4 +1,4 @@
-import { fetchApi } from "@/config/api";
+import { fetchApi, hasAuthSessionFlag, hasBearerFallback } from "@/config/api";
 
 export const SYSCOM_SITE_URL = "https://www.syscom.mx";
 
@@ -58,10 +58,16 @@ export type SyscomSearchParams = {
 export type SyscomPriceKind = "lista" | "especial" | "descuento" | "auto";
 export type IntraxFuente = "syscom" | "manual";
 
-export const getAuthToken = () => {
-  const hasCsrf = document.cookie.includes('csrftoken');
-  return hasCsrf ? 'cookie' : '';
-};
+/**
+ * Sesión lista para llamar al API (cookies HttpOnly y/o Bearer de respaldo).
+ * No usar document.cookie: en producción el csrftoken vive en el dominio del API.
+ */
+export function isCatalogAuthReady(): boolean {
+  return hasAuthSessionFlag() || hasBearerFallback();
+}
+
+/** @deprecated Usar isCatalogAuthReady */
+export const getAuthToken = isCatalogAuthReady;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

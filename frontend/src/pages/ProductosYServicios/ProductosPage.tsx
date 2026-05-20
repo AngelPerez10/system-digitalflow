@@ -12,7 +12,7 @@ import {
   formatPrecioPublicoMxnConIva,
   fetchSyscomProductoDetalle,
   fetchIntraxProductos,
-  getAuthToken,
+  isCatalogAuthReady,
   getProductoImageUrl,
   getProductoImagenesUrls,
   getProductoLink,
@@ -27,7 +27,8 @@ import {
   fetchSyscom,
 } from "./syscomCatalog";
 import { Modal } from "@/components/ui/modal";
-import { fetchApi } from "@/config/api";
+import { fetchApi, resolveMediaUrl } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 
 /* ── Claude-style design tokens ── */
 const claudeCardShell =
@@ -131,7 +132,28 @@ const manualToSyscomProducto = (m: ManualProduct): SyscomProducto => ({
 
 const toMoney2 = (v: number) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0; };
 
+function mapApiCatalogError(res: Response, data: unknown): string {
+  const detail =
+    data && typeof data === "object" && "detail" in data
+      ? String((data as { detail?: unknown }).detail ?? "")
+      : "";
+  if (res.status === 401) {
+    return "Tu sesión expiró. Cierra sesión y vuelve a entrar.";
+  }
+  if (res.status === 403) {
+    return detail || "No tienes permiso para ver el catálogo de productos.";
+  }
+  if (res.status === 502 && /SYSCOM_CLIENT|SYSCOM/i.test(detail)) {
+    return "El catálogo SYSCOM no está configurado en el servidor. Contacta al administrador.";
+  }
+  if (detail) return detail;
+  return "Error al cargar productos.";
+}
+
 export default function ProductosPage() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const catalogReady = isAuthenticated && !authLoading;
+
   const [productos, setProductos] = useState<SyscomProducto[]>([]);
   const [pagina, setPagina] = useState(1);
   const [paginas, setPaginas] = useState(1);
@@ -173,7 +195,7 @@ export default function ProductosPage() {
   const [manualForm, setManualForm] = useState({ imagen_url: "", producto: "", caracteristicas: "", marca: "", modelo: "", precio: "", stock: "" });
 
   const fetchManualProducts = useCallback(async () => {
-    const token = getAuthToken(); if (!token) return;
+    if (!catalogReady) return;
     try {
       const res = await fetchApi("/api/productos-manuales/?page_size=500&ordering=-fecha_creacion", { method: "GET" });
       const data = await res.json().catch(() => ({ results: [] }));
@@ -181,42 +203,69 @@ export default function ProductosPage() {
       const list = Array.isArray((data as any)?.results) ? (data as any).results : Array.isArray(data) ? data : [];
       const mapped: ManualProduct[] = list.filter((x: any) => x && typeof x === "object").map((x: any): ManualProduct => ({ id: String(x.id), imagen_url: String(x.imagen_url || ""), producto: String(x.producto || ""), caracteristicas: String(x.caracteristicas || ""), marca: String(x.marca || ""), modelo: String(x.modelo || ""), fuente: "manual", precio: toMoney2(Number(x.precio || 0)), stock: Number.isFinite(Number(x.stock)) ? Number(x.stock) : 0 })).filter((x: ManualProduct) => x.producto.trim());
       setManualProducts(mapped);
-    } catch {}
-  }, []);
+    } catch {
+      /* ignore */
+    }
+  }, [catalogReady]);
 
-  useEffect(() => { fetchManualProducts(); }, [fetchManualProducts]);
+  useEffect(() => {
+    if (catalogReady) fetchManualProducts();
+  }, [catalogReady, fetchManualProducts]);
 
   const onDropManualImage = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles.find((f) => f.type.startsWith("image/")); if (!file) return;
     setManualFormError(""); setManualImageUploading(true);
     try {
+      if (!catalogReady) {
+        setManualFormError("Debes iniciar sesión para subir imágenes.");
+        return;
+      }
       const compressed = await compressImage(file, 50, 1400, 1400);
-      const token = getAuthToken(); if (!token) return;
-      const resp = await fetchApi("/api/ordenes/upload-image/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data_url: compressed, folder: MANUAL_PRODUCTS_IMAGE_FOLDER }) });
+      const resp = await fetchApi("/api/ordenes/upload-image/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data_url: compressed, folder: MANUAL_PRODUCTS_IMAGE_FOLDER }),
+      });
       if (!resp.ok) { const errData = await resp.json().catch(() => null); setManualFormError(typeof errData?.detail === "string" && errData.detail.trim() ? errData.detail : "No se pudo subir la imagen."); return; }
       const data = await resp.json().catch(() => null);
       const newUrl = data?.url ? String(data.url) : "";
       if (!newUrl) { setManualFormError("No se pudo subir la imagen."); return; }
       setManualForm((prev) => ({ ...prev, imagen_url: newUrl }));
-    } catch (err) { setManualFormError(String(err)); } finally { setManualImageUploading(false); }
-  }, []);
+    } catch (err) {
+      setManualFormError(err instanceof Error ? err.message : "Error al subir la imagen.");
+    } finally {
+      setManualImageUploading(false);
+    }
+  }, [catalogReady]);
 
   const { getRootProps: getManualImageRootProps, getInputProps: getManualImageInputProps, isDragActive: isManualImageDragActive } = useDropzone({ onDrop: onDropManualImage, accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".svg"] }, maxFiles: 1, disabled: manualImageUploading, multiple: false });
 
   const loadCatalogos = useCallback(async () => {
-    const token = getAuthToken(); if (!token) return; setLoadingCatalogos(true);
+    if (!catalogReady) return;
+    setLoadingCatalogos(true);
     try {
       const [tc, catRes, marRes] = await Promise.all([fetchSyscomTipoCambio().catch(() => null), fetchSyscom("categorias/"), fetchSyscom("marcas/")]);
       if (catRes.ok) { const data = await catRes.json().catch(() => []); setCategorias(Array.isArray(data) ? data : []); }
       if (marRes.ok) { const data = await marRes.json().catch(() => []); setMarcas(Array.isArray(data) ? data : []); }
       setTipoCambio(tc);
-    } catch {} finally { setLoadingCatalogos(false); }
-  }, []);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingCatalogos(false);
+    }
+  }, [catalogReady]);
 
   const loadProductos = useCallback(async () => {
+    if (!catalogReady) return;
     if (!hasFiltro && !autoCatalog) return;
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
+      if (!isCatalogAuthReady()) {
+        setError("Debe iniciar sesión para ver el catálogo.");
+        setProductos([]);
+        return;
+      }
       if (fuente === "manual") {
         const q = busqueda.trim().toLowerCase();
         const filtered = manualProducts.filter((m) => { if (!q) return true; return m.producto.toLowerCase().includes(q) || m.marca.toLowerCase().includes(q) || m.modelo.toLowerCase().includes(q); });
@@ -233,19 +282,32 @@ export default function ProductosPage() {
         const intraxProductos = (data.productos ?? []).map(mapIntraxProductoToSyscom);
         setProductos(intraxProductos); setPaginas(data.resumen?.total_paginas ?? 1); setTotal(data.resumen?.total_resultados ?? intraxProductos.length); return;
       }
-      const token = getAuthToken(); if (!token) { setError("Debe iniciar sesión para ver el catálogo."); setProductos([]); return; }
       const isAuto = autoCatalog && !hasFiltro;
       const query = buildProductosQuery(isAuto ? { busqueda: AUTO_DEFAULT_SEARCH, pagina, orden: "topseller", stock: "1" } : { busqueda: busqueda.trim() || undefined, categoria: categoriaId || undefined, marca: marcaId || undefined, pagina, orden, ...SYSCOM_BUSQUEDA_AMPLIA });
       const res = await fetchSyscom(`productos/?${query}`);
       const data: SyscomProductosResponse = await res.json().catch(() => ({}));
-      if (!res.ok) { setProductos([]); setError((data as { detail?: string }).detail || "Error al cargar productos."); return; }
+      if (!res.ok) {
+        setProductos([]);
+        setError(mapApiCatalogError(res, data));
+        return;
+      }
       const productosSyscomConFuente = (data.productos ?? []).map((p) => ({ ...p, fuente: p.fuente || "syscom" }));
       setProductos(productosSyscomConFuente); setPaginas(data.paginas ?? 1); setTotal(data.cantidad ?? 0);
-    } catch { setProductos([]); setError("Error de conexión con el catálogo."); } finally { setLoading(false); }
-  }, [busqueda, categoriaId, marcaId, orden, pagina, hasFiltro, autoCatalog, fuente, manualProducts]);
+    } catch {
+      setProductos([]);
+      setError("Error de conexión con el catálogo.");
+    } finally {
+      setLoading(false);
+    }
+  }, [busqueda, categoriaId, marcaId, orden, pagina, hasFiltro, autoCatalog, fuente, manualProducts, catalogReady]);
 
-  useEffect(() => { loadCatalogos(); }, [loadCatalogos]);
-  useEffect(() => { loadProductos(); }, [loadProductos]);
+  useEffect(() => {
+    if (catalogReady) loadCatalogos();
+  }, [catalogReady, loadCatalogos]);
+
+  useEffect(() => {
+    if (catalogReady) loadProductos();
+  }, [catalogReady, loadProductos]);
   useEffect(() => { productosRef.current = productos; }, [productos]);
 
   useEffect(() => { if (!filterOpen) return; const onPointerDown = (e: PointerEvent) => { const t = e.target as Node; if (filterRef.current?.contains(t)) return; setFilterOpen(false); }; document.addEventListener("pointerdown", onPointerDown); return () => document.removeEventListener("pointerdown", onPointerDown); }, [filterOpen]);
@@ -253,8 +315,9 @@ export default function ProductosPage() {
   useEffect(() => {
     if (!detailModalOpen || !selectedProductId) { setDetailProduct(null); return; }
     if (fuente) { const intraxProduct = productosRef.current.find((p) => p.producto_id === selectedProductId); setDetailProduct((intraxProduct as SyscomProductoDetalle) ?? null); setLoadingDetail(false); return; }
-    const token = getAuthToken(); if (!token) return;
-    setLoadingDetail(true); setDetailProduct(null);
+    if (!isCatalogAuthReady()) return;
+    setLoadingDetail(true);
+    setDetailProduct(null);
     fetchSyscomProductoDetalle(selectedProductId).then((data) => { setDetailProduct(data ?? null); setSelectedImageIndex(0); }).finally(() => setLoadingDetail(false));
   }, [detailModalOpen, selectedProductId, fuente]);
 
@@ -275,7 +338,10 @@ export default function ProductosPage() {
     if (!producto || !marca || !modelo) { setManualFormError("Producto, marca y modelo son requeridos."); return; }
     if (!Number.isFinite(precio) || precio < 0) { setManualFormError("Precio inválido."); return; }
     if (!Number.isFinite(stock) || stock < 0) { setManualFormError("Stock inválido."); return; }
-    const token = getAuthToken(); if (!token) { setManualFormError("Debes iniciar sesión para guardar productos."); return; }
+    if (!catalogReady) {
+      setManualFormError("Debes iniciar sesión para guardar productos.");
+      return;
+    }
     const body = { imagen_url: manualForm.imagen_url.trim(), producto, caracteristicas: manualForm.caracteristicas.trim(), marca, modelo, precio: toMoney2(precio), stock: Math.round(stock), activo: true };
     try {
       const isEdit = Boolean(editingManualId);
@@ -288,7 +354,7 @@ export default function ProductosPage() {
   };
 
   const confirmDeleteManual = async () => {
-    if (!manualDeleteId) return; const token = getAuthToken(); if (!token) return;
+    if (!manualDeleteId || !catalogReady) return;
     try { const res = await fetchApi(`/api/productos-manuales/${manualDeleteId}/`, { method: "DELETE" }); if (!res.ok) return; await fetchManualProducts(); setManualProducts((prev) => prev.filter((x) => x.id !== manualDeleteId)); setManualDeleteId(null); } catch {}
   };
 
@@ -609,7 +675,7 @@ export default function ProductosPage() {
             {manualForm.imagen_url ? (
               <div className="space-y-2">
                 <div className="relative w-full max-w-[280px] overflow-hidden rounded-lg border border-gray-200/80 bg-gray-50 dark:border-white/[0.08] dark:bg-gray-800/40">
-                  <img src={manualForm.imagen_url} alt="Producto" className="h-40 w-full object-contain p-2" />
+                  <img src={resolveMediaUrl(manualForm.imagen_url)} alt="Producto" className="h-40 w-full object-contain p-2" />
                 </div>
                 <button type="button" onClick={() => setManualForm((prev) => ({ ...prev, imagen_url: "" }))} className="inline-flex h-9 items-center rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-white/[0.08] dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-white/[0.05]">Quitar imagen</button>
               </div>
