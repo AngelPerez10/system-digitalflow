@@ -6,7 +6,6 @@ import {
   erpFormPanelClass,
   erpFormInputClass,
   erpSelectFieldClass,
-  erpTextareaLikeClass,
 } from '../ordenTrabajoStyles';
 
 type InstalacionSubtipo = '' | 'gps';
@@ -43,11 +42,27 @@ const TIPOS_CHIP = [
   { value: 'yobi', label: 'Yobi' },
 ];
 
+const TIPOS_PLATAFORMA = [
+  { value: '', label: 'Seleccionar...' },
+  { value: 'tracksolidpro', label: 'Tracksolidpro' },
+  { value: 'wialon', label: 'Wialon' },
+];
+
+const TIPOS_CORTE = [
+  { value: '', label: 'Seleccionar...' },
+  { value: 'bomba_combustible', label: 'Bomba de combustible' },
+  { value: 'switch_principal', label: 'Switch principal' },
+];
+
 export type InstalacionFormValue = {
   tipo_vehiculo: string;
   placas: string;
   tipo_gps: string;
   tipo_chip: string;
+  telefono: string;
+  tipo_plataforma: string;
+  tipo_corte: string;
+  color_cable_cortado: string;
   marca: string;
   modelo: string;
   anio: string;
@@ -62,6 +77,10 @@ const INITIAL: InstalacionFormValue = {
   placas: '',
   tipo_gps: '',
   tipo_chip: '',
+  telefono: '',
+  tipo_plataforma: '',
+  tipo_corte: '',
+  color_cable_cortado: '',
   marca: '',
   modelo: '',
   anio: '',
@@ -239,6 +258,22 @@ export default function InstalacionForm({ ordenId, disabled = false, onSnapshot 
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+            <SelectField
+              label="Tipo de vehículo"
+              value={form.tipo_vehiculo}
+              onChange={(v) => setField('tipo_vehiculo', v)}
+              options={TIPOS_VEHICULO}
+              disabled={disabled}
+              required
+            />
+
+            <TextField
+              label="Placas"
+              value={form.placas}
+              onChange={(v) => setField('placas', v)}
+              placeholder="Ej: ABC-123-D"
+              disabled={disabled}
+            />
 
           <SelectField
               label="Tipo de GPS"
@@ -257,21 +292,36 @@ export default function InstalacionForm({ ordenId, disabled = false, onSnapshot 
               disabled={disabled}
               required
             />
-            
-            <SelectField
-              label="Tipo de vehículo"
-              value={form.tipo_vehiculo}
-              onChange={(v) => setField('tipo_vehiculo', v)}
-              options={TIPOS_VEHICULO}
+
+            <TextField
+              label="Teléfono"
+              value={form.telefono}
+              onChange={(v) => setField('telefono', v)}
+              placeholder="Ej: 10 dígitos"
               disabled={disabled}
-              required
+            />
+
+            <SelectField
+              label="Tipo de plataforma"
+              value={form.tipo_plataforma}
+              onChange={(v) => setField('tipo_plataforma', v)}
+              options={TIPOS_PLATAFORMA}
+              disabled={disabled}
+            />
+
+            <SelectField
+              label="Tipo de corte"
+              value={form.tipo_corte}
+              onChange={(v) => setField('tipo_corte', v)}
+              options={TIPOS_CORTE}
+              disabled={disabled}
             />
 
             <TextField
-              label="Placas"
-              value={form.placas}
-              onChange={(v) => setField('placas', v)}
-              placeholder="Ej: ABC-123-D"
+              label="Color de cable cortado"
+              value={form.color_cable_cortado}
+              onChange={(v) => setField('color_cable_cortado', v)}
+              placeholder="Ej: Negro"
               disabled={disabled}
             />
 
@@ -321,20 +371,6 @@ export default function InstalacionForm({ ordenId, disabled = false, onSnapshot 
               onChange={(v) => setField('icc', v)}
               placeholder="20 dígitos"
               disabled={disabled}
-            />
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-[#e7ded0] dark:border-[#334155]">
-            <Label className="!mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 sm:!text-xs">
-              Comentario
-            </Label>
-            <textarea
-              value={form.comentario}
-              onChange={(e) => setField('comentario', e.target.value)}
-              placeholder="Notas adicionales sobre la instalación..."
-              disabled={disabled}
-              rows={3}
-              className={erpTextareaLikeClass}
             />
           </div>
         </div>

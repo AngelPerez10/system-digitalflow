@@ -747,9 +747,20 @@ export default function OrdenServicioModal({
     return { ok: missing.length === 0, missing };
   };
 
+  const goToOrdenTab = () => {
+    setActiveTab("orden");
+    requestAnimationFrame(() => {
+      formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
+    if (activeTab === "cliente") {
+      goToOrdenTab();
+      return;
+    }
     const token = getToken();
     if (!token) return;
 
@@ -1623,12 +1634,12 @@ export default function OrdenServicioModal({
             primary={
               activeTab === "cliente" ? (
                 <OrdenModalPrimaryButton
+                  type="button"
                   disabled={isSaving}
-                  onClick={() => {
-                    setActiveTab("orden");
-                    requestAnimationFrame(() => {
-                      formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-                    });
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    goToOrdenTab();
                   }}
                 >
                   Siguiente

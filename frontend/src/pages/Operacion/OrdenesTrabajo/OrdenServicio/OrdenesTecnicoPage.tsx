@@ -822,9 +822,21 @@ export default function OrdenesTecnico() {
     }
   };
 
+  const goToOrdenTab = () => {
+    setActiveTab("orden");
+    requestAnimationFrame(() => {
+      formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
+    // En móvil, Enter en un input dispara submit del <form>; en pestaña cliente solo avanzar.
+    if (activeTab === "cliente") {
+      goToOrdenTab();
+      return;
+    }
     // Reglas: Cliente, Dirección, Teléfono, Servicios Realizados y Fecha de Inicio son requeridos
     const { ok, missing } = validateForm();
     if (!ok) {
@@ -2872,13 +2884,9 @@ export default function OrdenesTecnico() {
               primary={
                 activeTab === "cliente" ? (
                   <OrdenModalPrimaryButton
+                    type="button"
                     disabled={isSaving}
-                    onClick={() => {
-                      setActiveTab("orden");
-                      requestAnimationFrame(() => {
-                        formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-                      });
-                    }}
+                    onClick={() => goToOrdenTab()}
                   >
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                       <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />

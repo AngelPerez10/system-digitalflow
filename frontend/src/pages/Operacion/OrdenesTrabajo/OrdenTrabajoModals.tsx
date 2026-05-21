@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { MouseEventHandler, ReactNode } from "react";
 import { Modal } from "@/components/ui/modal";
 import { erpSubheadingClass } from "@/layout/erpPageStyles";
 import {
@@ -218,7 +218,7 @@ export function OrdenModalPrimaryButton({
   children: ReactNode;
   disabled?: boolean;
   type?: "button" | "submit";
-  onClick?: () => void;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
 }) {
   return (
     <button type={type} disabled={disabled} onClick={onClick} className={`${erpPrimaryBtnClass} w-full sm:w-auto`}>
