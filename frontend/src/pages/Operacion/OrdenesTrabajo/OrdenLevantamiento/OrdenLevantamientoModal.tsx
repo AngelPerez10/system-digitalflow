@@ -747,17 +747,33 @@ export default function OrdenServicioModal({
     return { ok: missing.length === 0, missing };
   };
 
-  const goToOrdenTab = () => {
-    setActiveTab("orden");
-    requestAnimationFrame(() => {
-      formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    });
+  const activeTabRef = useRef<"orden" | "cliente">(activeTab);
+  activeTabRef.current = activeTab;
+
+  const goToOrdenTab = (fromPointer?: boolean) => {
+    const apply = () => {
+      setActiveTab("orden");
+      activeTabRef.current = "orden";
+      requestAnimationFrame(() => {
+        formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    };
+    if (fromPointer) window.setTimeout(apply, 0);
+    else apply();
+  };
+
+  const triggerSaveFromFooter = () => {
+    if (activeTabRef.current === "cliente") {
+      goToOrdenTab();
+      return;
+    }
+    formScrollRef.current?.requestSubmit();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
-    if (activeTab === "cliente") {
+    if (activeTabRef.current === "cliente") {
       goToOrdenTab();
       return;
     }
@@ -1042,7 +1058,20 @@ export default function OrdenServicioModal({
         subtitle="Captura y revisa los datos del levantamiento antes de guardar"
         contextLabel="Operación · Levantamiento"
       />
-      <form ref={formScrollRef} onSubmit={handleSubmit} className={erpModalBodyClass}>
+      <div className={erpModalBodyClass}>
+      <form
+        ref={formScrollRef}
+        onSubmit={handleSubmit}
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || e.defaultPrevented) return;
+          const t = e.target as HTMLElement;
+          if (t.tagName === "TEXTAREA") return;
+          if (activeTabRef.current !== "cliente") return;
+          e.preventDefault();
+          goToOrdenTab();
+        }}
+      >
         <div className={erpModalFormScrollClass}>
           {modalAlert.show && (
             <div className="mb-4">
@@ -1628,6 +1657,7 @@ export default function OrdenServicioModal({
           )}
 
         </div>
+      </form>
         <div className={erpModalFooterClass}>
           <OrdenModalFooterActions
             onCancel={handleCloseModal}
@@ -1639,20 +1669,20 @@ export default function OrdenServicioModal({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    goToOrdenTab();
+                    goToOrdenTab(true);
                   }}
                 >
                   Siguiente
                 </OrdenModalPrimaryButton>
               ) : (
-                <OrdenModalPrimaryButton type="submit" disabled={isSaving}>
+                <OrdenModalPrimaryButton type="button" disabled={isSaving} onClick={triggerSaveFromFooter}>
                   {isSaving ? "Guardando…" : orden?.id ? "Actualizar" : "Guardar"}
                 </OrdenModalPrimaryButton>
               )
             }
           />
         </div>
-      </form>
+      </div>
     </Modal>
 
       {/* Modal Mapa Interactivo (igual que OrdenesPage; id de contenedor único) */}

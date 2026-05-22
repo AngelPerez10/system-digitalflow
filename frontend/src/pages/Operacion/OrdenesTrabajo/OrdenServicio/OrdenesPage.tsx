@@ -855,18 +855,33 @@ export default function Ordenes() {
     }
   };
 
-  const goToOrdenTab = () => {
-    setActiveTab("orden");
-    requestAnimationFrame(() => {
-      formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    });
+  const activeTabRef = useRef<"orden" | "cliente">(activeTab);
+  activeTabRef.current = activeTab;
+
+  const goToOrdenTab = (fromPointer?: boolean) => {
+    const apply = () => {
+      setActiveTab("orden");
+      activeTabRef.current = "orden";
+      requestAnimationFrame(() => {
+        formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    };
+    if (fromPointer) window.setTimeout(apply, 0);
+    else apply();
+  };
+
+  const triggerSaveFromFooter = () => {
+    if (activeTabRef.current === "cliente") {
+      goToOrdenTab();
+      return;
+    }
+    formScrollRef.current?.requestSubmit();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
-    // En móvil, Enter en un input dispara submit del <form>; en pestaña cliente solo avanzar.
-    if (activeTab === "cliente") {
+    if (activeTabRef.current === "cliente") {
       goToOrdenTab();
       return;
     }
@@ -2222,7 +2237,20 @@ export default function Ordenes() {
           title={`${editingOrden ? "Editar" : "Nueva"} orden de ${tipoOrdenLabel}`}
           subtitle="Captura y revisa los datos antes de guardar"
         />
-        <form ref={formScrollRef} onSubmit={handleSubmit} className={erpModalBodyClass}>
+        <div className={erpModalBodyClass}>
+        <form
+          ref={formScrollRef}
+          onSubmit={handleSubmit}
+          className="flex min-h-0 min-w-0 flex-1 flex-col"
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" || e.defaultPrevented) return;
+            const t = e.target as HTMLElement;
+            if (t.tagName === "TEXTAREA") return;
+            if (activeTabRef.current !== "cliente") return;
+            e.preventDefault();
+            goToOrdenTab();
+          }}
+        >
           <div className={erpModalFormScrollClass}>
 
             {/* Modal Alert */}
@@ -2979,6 +3007,7 @@ export default function Ordenes() {
             )}
 
           </div>
+        </form>
           <div className={erpModalFooterClass}>
             <OrdenModalFooterActions
               onCancel={handleCloseModal}
@@ -2987,7 +3016,11 @@ export default function Ordenes() {
                   <OrdenModalPrimaryButton
                     type="button"
                     disabled={isSaving}
-                    onClick={() => goToOrdenTab()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      goToOrdenTab(true);
+                    }}
                   >
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                       <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
@@ -2995,7 +3028,7 @@ export default function Ordenes() {
                     Siguiente
                   </OrdenModalPrimaryButton>
                 ) : (
-                  <OrdenModalPrimaryButton type="submit" disabled={isSaving}>
+                  <OrdenModalPrimaryButton type="button" disabled={isSaving} onClick={triggerSaveFromFooter}>
                     {isSaving ? (
                       <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                         <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
@@ -3012,7 +3045,7 @@ export default function Ordenes() {
               }
             />
           </div>
-        </form>
+        </div>
 
       </Modal>
 
