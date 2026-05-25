@@ -149,6 +149,53 @@ type OrdenPhotoDeleteModalProps = {
   onConfirm: () => void;
 };
 
+type OrdenPhotoPreviewModalProps = {
+  open: boolean;
+  url: string | null;
+  index?: number;
+  total?: number;
+  onClose: () => void;
+};
+
+export function OrdenPhotoPreviewModal({ open, url, index, total, onClose }: OrdenPhotoPreviewModalProps) {
+  const label =
+    index != null && total != null && total > 0
+      ? `Foto ${index + 1} de ${total}`
+      : "Vista ampliada de la foto";
+
+  return (
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      closeOnBackdropClick
+      className="z-[100001] mx-2 flex max-h-[96vh] w-[min(96vw,56rem)] flex-col overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#181715] p-0 shadow-2xl dark:border-[#334155] sm:mx-auto"
+    >
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5">
+        <p className="text-sm font-medium text-[#faf9f5]">{label}</p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar vista ampliada"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-[#faf9f5] transition-colors hover:bg-white/10"
+        >
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[#0f0e0c] p-3 sm:p-6">
+        {url ? (
+          <img
+            src={url}
+            alt={label}
+            className="max-h-[min(78vh,900px)] w-auto max-w-full object-contain"
+          />
+        ) : null}
+      </div>
+    </Modal>
+  );
+}
+
 export function OrdenPhotoDeleteModal({ open, deleting, onCancel, onConfirm }: OrdenPhotoDeleteModalProps) {
   return (
     <Modal

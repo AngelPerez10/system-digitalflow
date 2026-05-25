@@ -29,6 +29,7 @@ import {
   OrdenModalFooterActions,
   OrdenModalPrimaryButton,
   OrdenPhotoDeleteModal,
+  OrdenPhotoPreviewModal,
   OrdenViewModal,
 } from "../OrdenTrabajoModals";
 import {
@@ -169,6 +170,11 @@ export default function Ordenes() {
   // si caen fuera del mes “actual” según cuándo se abrió la pantalla.
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
+  const [photoPreview, setPhotoPreview] = useState<{ open: boolean; url: string | null; index: number }>({
+    open: false,
+    url: null,
+    index: 0,
+  });
   const [deletingPhoto, setDeletingPhoto] = useState(false);
   // Filtros
   const [filterOpen, setFilterOpen] = useState(false);
@@ -2245,7 +2251,7 @@ export default function Ordenes() {
         isOpen={showModal}
         onClose={handleCloseModal}
         closeOnBackdropClick={false}
-        closeOnEscape={!confirmDelete.open}
+        closeOnEscape={!confirmDelete.open && !photoPreview.open}
         className={erpModalShellClass}
       >
         <OrdenFormModalHeader
@@ -2992,11 +2998,25 @@ export default function Ordenes() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-3">
                         {formData.fotos_urls.map((preview, index) => (
                           <div key={index} className="relative group">
-                            <img src={preview} alt={`Preview ${index + 1}`} className="w-full h-24 object-cover rounded-lg border-2 border-gray-300 dark:border-gray-700" />
                             <button
                               type="button"
-                              onClick={() => setConfirmDelete({ open: true, index, url: preview })}
-                              className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-error-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error-700"
+                              onClick={() => setPhotoPreview({ open: true, url: preview, index })}
+                              className="block w-full cursor-zoom-in overflow-hidden rounded-lg border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#ff801f]/40 dark:border-gray-700"
+                              aria-label={`Ver foto ${index + 1} en tamaño completo`}
+                            >
+                              <img
+                                src={preview}
+                                alt={`Foto ${index + 1}`}
+                                className="h-24 w-full object-cover pointer-events-none"
+                              />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDelete({ open: true, index, url: preview });
+                              }}
+                              className="absolute top-1 right-1 z-[1] flex h-6 w-6 items-center justify-center rounded-full bg-error-600 text-white opacity-100 transition-opacity hover:bg-error-700 sm:opacity-0 sm:group-hover:opacity-100"
                               title="Eliminar imagen"
                             >
                               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -3007,6 +3027,13 @@ export default function Ordenes() {
                         ))}
                       </div>
                     )}
+                    <OrdenPhotoPreviewModal
+                      open={photoPreview.open}
+                      url={photoPreview.url}
+                      index={photoPreview.index}
+                      total={formData.fotos_urls.length}
+                      onClose={() => setPhotoPreview({ open: false, url: null, index: 0 })}
+                    />
                     <OrdenPhotoDeleteModal
                       open={confirmDelete.open}
                       deleting={deletingPhoto}
