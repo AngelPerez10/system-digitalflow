@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,6 +11,8 @@ import { apiUrl } from "@/config/api";
 import { formatMonthLabelEs, getCurrentMonthKey } from "@/utils/statsMonthKey";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { MobileOrderList } from "../OrdenServicio/MobileOrderCard";
+import { OrdenPdfLoadingModal } from "../OrdenServicio/OrdenPdfLoadingModal";
+import { handleOrdenPdfClick } from "../OrdenServicio/useOrdenesShared";
 import {
   claudeBodyClass,
   erpBreadcrumbLinkClass,
@@ -94,6 +96,7 @@ const parseYearMonth = (ym: string) => {
 
 export default function LevantamientoPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [search, setSearch] = useState("");
@@ -120,6 +123,18 @@ export default function LevantamientoPage() {
 
   const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token");
   const normalizeStatus = (value: unknown) => String(value ?? "").trim().toLowerCase();
+
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+
+  const handleOrdenPdf = (orden: Orden) => {
+    handleOrdenPdfClick(orden, navigate, location.pathname, {
+      onDownloading: (id) => setPdfDownloading(id != null),
+      onError: (message) => {
+        setAlert({ show: true, variant: "error", title: "PDF", message });
+        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 5000);
+      },
+    });
+  };
 
   const formatYmdToDMY = (ymd: string | null | undefined) => {
     if (!ymd) return "-";
@@ -354,6 +369,8 @@ export default function LevantamientoPage() {
         <span className="text-[#44403c] dark:text-[#cbd5e1]">Levantamiento</span>
       </nav>
 
+      <OrdenPdfLoadingModal open={pdfDownloading} downloading />
+
       {alert.show && <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />}
 
       <header className={`relative flex w-full flex-col gap-4 ${pageCardShellClass} p-4 sm:p-6`}>
@@ -571,7 +588,7 @@ export default function LevantamientoPage() {
             startIndex={startIndex}
             loading={loading}
             formatDate={formatYmdToDMY}
-            onPdf={(id) => navigate(`/ordenes/${id}/pdf`)}
+            onPdf={handleOrdenPdf}
             onEdit={handleEdit}
             onDelete={handleDeleteClick}
             canEdit={true}
@@ -707,7 +724,7 @@ export default function LevantamientoPage() {
                           <div className={erpRowActionBarClass}>
                             <button
                               type="button"
-                              onClick={() => navigate(`/ordenes/${orden.id}/pdf`)}
+                              onClick={() => handleOrdenPdf(orden)}
                               className={erpRowActionBtnClass + " hover:border-red-400 hover:text-red-600"}
                               title="Ver PDF"
                             >

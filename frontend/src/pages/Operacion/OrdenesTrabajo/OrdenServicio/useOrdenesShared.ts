@@ -103,6 +103,77 @@ export const formatYmdToDMY = (ymd: string | null | undefined): string => {
 export const normalizeStatus = (value: unknown): string =>
   String(value || "").trim().toLowerCase();
 
+/** Órdenes cerradas: PDF sin vista previa, solo descarga. */
+export const isOrdenPdfDirectDownload = (status: unknown): boolean => {
+  const s = normalizeStatus(status);
+  return s === "resuelto" || s === "completado" || s === "completada";
+};
+
+export async function downloadOrdenPdfById(
+  ordenId: number
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const resp = await fetchApi(`/api/ordenes/${ordenId}/pdf/`);
+    if (!resp.ok) {
+      let msg = `No se pudo generar el PDF (HTTP ${resp.status}).`;
+      try {
+        const ct = resp.headers.get("content-type") || "";
+        if (ct.includes("application/json")) {
+          const data = await resp.json();
+          msg = (data as { detail?: string })?.detail || msg;
+        } else {
+          msg = (await resp.text()) || msg;
+        }
+      } catch {
+        /* ignore */
+      }
+      return { ok: false, message: msg };
+    }
+
+    const ct = (resp.headers.get("content-type") || "").toLowerCase();
+    const dispo = resp.headers.get("content-disposition") || "";
+    const m = dispo.match(/filename="?([^";]+)"?/i);
+    const filename = m?.[1]
+      ? String(m[1])
+      : ct.includes("application/pdf")
+        ? `Orden_Servicio_${ordenId}.pdf`
+        : `Orden_Servicio_${ordenId}.html`;
+
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "No se pudo descargar el PDF." };
+  }
+}
+
+export function handleOrdenPdfClick(
+  orden: { id: number; status?: unknown },
+  navigate: (path: string, options?: { state?: { from?: string } }) => void,
+  returnPath: string,
+  callbacks?: {
+    onDownloading?: (id: number | null) => void;
+    onError?: (message: string) => void;
+  }
+): void {
+  if (isOrdenPdfDirectDownload(orden.status)) {
+    callbacks?.onDownloading?.(orden.id);
+    void downloadOrdenPdfById(orden.id).then((result) => {
+      callbacks?.onDownloading?.(null);
+      if (!result.ok && result.message) callbacks?.onError?.(result.message);
+    });
+    return;
+  }
+  navigate(`/ordenes/${orden.id}/pdf`, { state: { from: returnPath } });
+}
+
 export const parseYearMonth = (value: string): { year: number; month: number } | null => {
   const m = /^(\d{4})-(\d{2})$/.exec((value || "").trim());
   if (!m) return null;

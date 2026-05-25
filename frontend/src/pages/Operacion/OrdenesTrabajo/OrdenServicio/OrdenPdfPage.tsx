@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
-import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
+import { OrdenPdfLoadingModal } from "./OrdenPdfLoadingModal";
 import {
   erpCardShellClass as cardShellClass,
   erpCardShellMutedClass,
@@ -15,6 +15,7 @@ import {
   erpSubheadingClass,
 } from "@/layout/erpPageStyles";
 import { claudeBodyClass, outlineCoralBtnClass, sectionLabelOrangeClass } from "../ordenTrabajoStyles";
+import { downloadOrdenPdfById, isOrdenPdfDirectDownload } from "./useOrdenesShared";
 
 const externalLinkIcon = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -39,11 +40,13 @@ export default function OrdenPdfPage() {
   const params = useParams();
   const ordenId = params.id;
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnPath = (location.state as { from?: string } | null)?.from || "/ordenes";
 
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
   const [filename, setFilename] = useState<string>("orden.pdf");
   const [loading, setLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(8);
+  const [directDownload, setDirectDownload] = useState(false);
   const [alert, setAlert] = useState<{
     show: boolean;
     variant: "success" | "error" | "warning" | "info";
@@ -52,37 +55,6 @@ export default function OrdenPdfPage() {
   }>({ show: false, variant: "error", title: "", message: "" });
 
   const [ordenIdx, setOrdenIdx] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const id = ordenId;
-    if (!id) {
-      setOrdenIdx(null);
-      return;
-    }
-
-    fetchApi(`/api/ordenes/${id}/`, {
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store" as RequestCache,
-    })
-      .then(async (res) => {
-        if (!res.ok || cancelled) return;
-        const data = (await res.json().catch(() => null)) as { idx?: number | null } | null;
-        if (cancelled || !data) return;
-        if (data.idx != null && Number.isFinite(Number(data.idx))) {
-          setOrdenIdx(Number(data.idx));
-        } else {
-          setOrdenIdx(null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setOrdenIdx(null);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [ordenId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -98,6 +70,39 @@ export default function OrdenPdfPage() {
 
       try {
         if (isMounted) setLoading(true);
+
+        const metaRes = await fetchApi(`/api/ordenes/${ordenId}/`, {
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store" as RequestCache,
+        });
+        if (!isMounted) return;
+
+        if (metaRes.ok) {
+          const meta = (await metaRes.json().catch(() => null)) as { idx?: number | null; status?: string } | null;
+          if (meta?.idx != null && Number.isFinite(Number(meta.idx))) {
+            setOrdenIdx(Number(meta.idx));
+          } else {
+            setOrdenIdx(null);
+          }
+
+          if (isOrdenPdfDirectDownload(meta?.status)) {
+            if (isMounted) setDirectDownload(true);
+            const dl = await downloadOrdenPdfById(Number(ordenId));
+            if (!isMounted) return;
+            if (dl.ok) {
+              navigate(returnPath, { replace: true });
+              return;
+            }
+            setAlert({
+              show: true,
+              variant: "error",
+              title: "Error",
+              message: dl.message || "No se pudo descargar el PDF.",
+            });
+            setPdfObjectUrl(null);
+            return;
+          }
+        }
 
         const resp = await fetchApi(`/api/ordenes/${ordenId}/pdf/`);
 
@@ -150,25 +155,7 @@ export default function OrdenPdfPage() {
     return () => {
       isMounted = false;
     };
-  }, [ordenId]);
-
-  useEffect(() => {
-    if (!loading) {
-      setLoadingProgress(100);
-      return;
-    }
-
-    setLoadingProgress(8);
-
-    const interval = window.setInterval(() => {
-      setLoadingProgress((p) => {
-        const next = p + (p < 55 ? 10 : p < 80 ? 6 : 3);
-        return Math.min(95, next);
-      });
-    }, 650);
-
-    return () => window.clearInterval(interval);
-  }, [loading]);
+  }, [ordenId, navigate, returnPath]);
 
   useEffect(() => {
     return () => {
@@ -176,58 +163,12 @@ export default function OrdenPdfPage() {
     };
   }, [pdfObjectUrl]);
 
-  const pct = Math.min(99, Math.max(0, Math.round(loadingProgress)));
-
   return (
     <div className={erpPageCanvasClass}>
       <div className={erpPageInnerClass}>
         <PageMeta title="PDF Orden de servicio | Digitalflow" description="Vista previa y descarga del PDF de la orden" />
 
-        <Modal isOpen={loading} onClose={() => {}} showCloseButton={false} className="mx-4 max-w-md sm:mx-auto">
-          <div className="p-7 sm:p-8" aria-busy="true" aria-live="polite">
-            <div className="flex flex-col items-center justify-center text-center">
-              <div className="relative mb-6">
-                <div className="relative flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111a2b]/90">
-                  <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#e2d9ca] bg-[#fffdfa] dark:border-[#334155] dark:bg-[#0f172a]">
-                    <div
-                      className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#ff801f] dark:border-t-[#ffa057]"
-                      aria-hidden
-                    />
-                    <svg className="relative h-7 w-7 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" aria-hidden>
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                      <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <p className={sectionLabelOrangeClass}>Documento</p>
-              <h2 className="mt-1 text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">Generando PDF</h2>
-              <p className="mt-1.5 max-w-xs text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">
-                Puede incluir fotos y firmas. No cierre esta ventana.
-              </p>
-              <div className="mt-6 w-full">
-                <div className="flex items-center justify-between text-xs text-[#78716c] dark:text-[#8ea0b8]">
-                  <span>Progreso</span>
-                  <span className="font-medium tabular-nums">{pct}%</span>
-                </div>
-                <div
-                  className="mt-2 h-2 w-full overflow-hidden rounded-full border border-[#e2d9ca] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]"
-                  role="progressbar"
-                  aria-valuenow={pct}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label="Progreso de generación del PDF"
-                >
-                  <div
-                    className="h-full bg-[#ff801f] transition-[width] duration-500 ease-out"
-                    style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
-                  />
-                </div>
-                <p className="mt-3 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Preparando archivo…</p>
-              </div>
-            </div>
-          </div>
-        </Modal>
+        <OrdenPdfLoadingModal open={loading} downloading={directDownload} />
 
         <nav
           className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"

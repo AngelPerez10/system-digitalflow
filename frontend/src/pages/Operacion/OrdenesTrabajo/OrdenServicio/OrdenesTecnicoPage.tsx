@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,6 +16,8 @@ import { buildClienteSearchActions } from "@/components/clientes/clienteSearchAc
 import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
 import { PencilIcon, TrashBinIcon, TimeIcon } from "@/icons";
 import { MobileOrderList } from "./MobileOrderCard";
+import { OrdenPdfLoadingModal } from "./OrdenPdfLoadingModal";
+import { handleOrdenPdfClick } from "./useOrdenesShared";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
@@ -141,6 +143,7 @@ let ordenesTecnicoServiciosLastLoadAt = 0;
 
 export default function OrdenesTecnico() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, permissions, isAdmin, isAuthenticated, loading: authLoading } = useAuth();
 
   const formNonceRef = useRef(0);
@@ -487,6 +490,18 @@ export default function OrdenesTecnico() {
     title: string;
     message: string;
   }>({ show: false, variant: "success", title: "", message: "" });
+
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+
+  const handleOrdenPdf = (orden: Orden) => {
+    handleOrdenPdfClick(orden, navigate, location.pathname, {
+      onDownloading: (id) => setPdfDownloading(id != null),
+      onError: (message) => {
+        setAlert({ show: true, variant: "error", title: "PDF", message });
+        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 5000);
+      },
+    });
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -1612,6 +1627,8 @@ export default function OrdenesTecnico() {
         <span className="text-[#44403c] dark:text-[#cbd5e1]">Mis órdenes</span>
       </nav>
 
+      <OrdenPdfLoadingModal open={pdfDownloading} downloading />
+
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
       )}
@@ -1835,7 +1852,7 @@ export default function OrdenesTecnico() {
             startIndex={startIndex}
             loading={loading}
             formatDate={formatYmdToDMY}
-            onPdf={(id) => navigate(`/ordenes/${id}/pdf`)}
+            onPdf={handleOrdenPdf}
             onEdit={canOrdenesEdit ? handleEdit : undefined}
             onDelete={canOrdenesDelete ? handleDeleteClick : undefined}
             canEdit={canOrdenesEdit}
@@ -1937,9 +1954,9 @@ export default function OrdenesTecnico() {
                         <div className={erpRowActionBarClass}>
                           <button
                             type="button"
-                            onClick={() => navigate(`/ordenes/${orden.id}/pdf`)}
+                            onClick={() => handleOrdenPdf(orden)}
                             className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 transition"
-                            title="Ver PDF"
+                            title={orden.status === "resuelto" ? "Descargar PDF" : "Ver PDF"}
                           >
                             <svg className="w-4 h-4" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
                               <g>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchApi } from '@/config/api';
 import Label from '@/components/form/Label';
 import Input from '@/components/form/input/InputField';
@@ -29,10 +29,18 @@ const TIPOS_VEHICULO = [
 
 const TIPOS_GPS = [
   { value: '', label: 'Seleccionar...' },
-  { value: 'basico', label: 'Básico' },
-  { value: 'medio', label: 'Medio' },
-  { value: 'premium', label: 'Premium' },
-  { value: 'avanzado', label: 'Avanzado' },
+  { value: 'antarix-gps-kitgpsdt16', label: 'Antarix GPS - KITGPSDT16' },
+  { value: 'jimiiot-kitgpsvl103', label: 'JIMIIOT - KITGPSVL103' },
+  { value: 'topflytech-kitgpstlw2-6bl', label: 'TopFlyTech - KITGPSTLW2-6BL' },
+  { value: 'teltonika-kitgpsfmc920', label: 'Teltonika - KITGPSFMC920' },
+  { value: 'teltonika-kitgpsfmc130', label: 'Teltonika - KITGPSFMC130' },
+  { value: 'teltonika-kitgpsfmc650', label: 'Teltonika - KITGPSFMC650' },
+  { value: 'meitrack-kitgpst633l', label: 'Meitrack - KITGPST633L' },
+  { value: 'antarix-gps-kitgpsdt34b', label: 'Antarix GPS - KITGPSDT34B' },
+  { value: 'jimiiot-kitgpsll301', label: 'JimiIot - KITGPSLL301' },
+  { value: 'topflytech-kitgpsknightx100', label: 'Topflytech - KITGPKNIGHTX100' },
+  { value: 'topflytech-kitgpssolarguardx100', label: 'Topflytech - KITGPSSOLARGUARDX100' },
+  { value: 'topflytech-kitgpstlp2-sfb', label: 'Topflytech - KITGPSTLP2-SFB' },
 ];
 
 const TIPOS_CHIP = [
@@ -54,6 +62,12 @@ const TIPOS_CORTE = [
   { value: 'switch_principal', label: 'Switch principal' },
 ];
 
+const SI_NO = [
+  { value: '', label: 'Seleccionar...' },
+  { value: 'si', label: 'Sí' },
+  { value: 'no', label: 'No' },
+];
+
 export type InstalacionFormValue = {
   tipo_vehiculo: string;
   placas: string;
@@ -62,6 +76,7 @@ export type InstalacionFormValue = {
   telefono: string;
   tipo_plataforma: string;
   tipo_corte: string;
+  ubicacion_corte: string;
   color_cable_cortado: string;
   marca: string;
   modelo: string;
@@ -69,6 +84,14 @@ export type InstalacionFormValue = {
   color: string;
   imei: string;
   icc: string;
+  boton_panico: string;
+  ubicacion_boton_panico: string;
+  microfono: string;
+  ubicacion_microfono: string;
+  temperatura: string;
+  humedad: string;
+  contacto_magnetico: string;
+  identificacion_conductores: string;
   comentario: string;
 };
 
@@ -80,6 +103,7 @@ const INITIAL: InstalacionFormValue = {
   telefono: '',
   tipo_plataforma: '',
   tipo_corte: '',
+  ubicacion_corte: '',
   color_cable_cortado: '',
   marca: '',
   modelo: '',
@@ -87,8 +111,105 @@ const INITIAL: InstalacionFormValue = {
   color: '',
   imei: '',
   icc: '',
+  boton_panico: '',
+  ubicacion_boton_panico: '',
+  microfono: '',
+  ubicacion_microfono: '',
+  temperatura: '',
+  humedad: '',
+  contacto_magnetico: '',
+  identificacion_conductores: '',
   comentario: '',
 };
+
+function SearchableSelect({
+  label,
+  value,
+  onChange,
+  options,
+  disabled,
+  required,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  disabled?: boolean;
+  required?: boolean;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selected = options.find(o => o.value === value);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return options;
+    const q = search.toLowerCase();
+    return options.filter(o => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q));
+  }, [search, options]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  return (
+    <div>
+      <Label className="!mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 sm:!text-xs">
+        {label} {required && <span className="text-red-500">*</span>}
+      </Label>
+      <div className="relative" ref={ref}>
+        <input
+          type="text"
+          value={open ? search : (selected?.label || '')}
+          onChange={(e) => { setSearch(e.target.value); setOpen(true); }}
+          onFocus={() => { setSearch(''); setOpen(true); }}
+          disabled={disabled}
+          placeholder={placeholder || 'Buscar...'}
+          className={erpFormInputClass}
+          readOnly={!open}
+        />
+        {open && (
+          <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-[#e2d9ca] bg-white shadow-lg dark:border-[#334155] dark:bg-[#111a2b]">
+            <button
+              type="button"
+              onClick={() => { onChange(''); setSearch(''); setOpen(false); }}
+              className="w-full px-3 py-2.5 text-left text-sm text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+            >
+              {placeholder || 'Seleccionar...'}
+            </button>
+            {filtered.map(o => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => { onChange(o.value); setSearch(''); setOpen(false); }}
+                className={`w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-white/5 ${
+                  o.value === value
+                    ? 'bg-[#ff801f]/10 font-medium text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]'
+                    : 'text-gray-700 dark:text-gray-200'
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div className="px-3 py-2.5 text-center text-xs text-gray-400 dark:text-gray-500">
+                Sin resultados
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface InstalacionFormProps {
   ordenId: number | null;
@@ -225,6 +346,8 @@ export default function InstalacionForm({ ordenId, disabled = false, onSnapshot 
     );
   }
 
+  const esTelcel = form.tipo_chip === 'telcel';
+
   return (
     <div className="space-y-5">
       {/* ── Tipo de Instalación ── */}
@@ -271,17 +394,50 @@ export default function InstalacionForm({ ordenId, disabled = false, onSnapshot 
               label="Placas"
               value={form.placas}
               onChange={(v) => setField('placas', v)}
-              placeholder="Ej: ABC-123-D"
+              placeholder="ABC-123-D"
               disabled={disabled}
             />
 
-          <SelectField
+            <TextField
+              label="Marca"
+              value={form.marca}
+              onChange={(v) => setField('marca', v)}
+              placeholder="Teltonika"
+              disabled={disabled}
+            />
+
+            <TextField
+              label="Modelo"
+              value={form.modelo}
+              onChange={(v) => setField('modelo', v)}
+              placeholder="FMB920"
+              disabled={disabled}
+            />
+
+            <TextField
+              label="Año"
+              value={form.anio}
+              onChange={(v) => setField('anio', v)}
+              placeholder="Año del vehículo"
+              disabled={disabled}
+            />
+
+            <TextField
+              label="Color del vehículo"
+              value={form.color}
+              onChange={(v) => setField('color', v)}
+              placeholder="Color del vehículo"
+              disabled={disabled}
+            />
+
+            <SearchableSelect
               label="Tipo de GPS"
               value={form.tipo_gps}
               onChange={(v) => setField('tipo_gps', v)}
               options={TIPOS_GPS}
               disabled={disabled}
               required
+              placeholder="Buscar GPS..."
             />
 
             <SelectField
@@ -293,13 +449,15 @@ export default function InstalacionForm({ ordenId, disabled = false, onSnapshot 
               required
             />
 
-            <TextField
-              label="Teléfono"
-              value={form.telefono}
-              onChange={(v) => setField('telefono', v)}
-              placeholder="Ej: 10 dígitos"
-              disabled={disabled}
-            />
+            {esTelcel && (
+              <TextField
+                label="Teléfono"
+                value={form.telefono}
+                onChange={(v) => setField('telefono', v)}
+                placeholder="Ej: 10 dígitos"
+                disabled={disabled}
+              />
+            )}
 
             <SelectField
               label="Tipo de plataforma"
@@ -318,41 +476,17 @@ export default function InstalacionForm({ ordenId, disabled = false, onSnapshot 
             />
 
             <TextField
+              label="Ubicación del corte"
+              value={form.ubicacion_corte}
+              onChange={(v) => setField('ubicacion_corte', v)}
+              placeholder="Ej: Cerca del tablero"
+              disabled={disabled}
+            />
+
+            <TextField
               label="Color de cable cortado"
               value={form.color_cable_cortado}
               onChange={(v) => setField('color_cable_cortado', v)}
-              placeholder="Ej: Negro"
-              disabled={disabled}
-            />
-
-            <TextField
-              label="Marca"
-              value={form.marca}
-              onChange={(v) => setField('marca', v)}
-              placeholder="Ej: Teltonika"
-              disabled={disabled}
-            />
-
-            <TextField
-              label="Modelo"
-              value={form.modelo}
-              onChange={(v) => setField('modelo', v)}
-              placeholder="Ej: FMB920"
-              disabled={disabled}
-            />
-
-            <TextField
-              label="Año"
-              value={form.anio}
-              onChange={(v) => setField('anio', v)}
-              placeholder="Ej: 2024"
-              disabled={disabled}
-            />
-
-            <TextField
-              label="Color"
-              value={form.color}
-              onChange={(v) => setField('color', v)}
               placeholder="Ej: Negro"
               disabled={disabled}
             />
@@ -370,6 +504,91 @@ export default function InstalacionForm({ ordenId, disabled = false, onSnapshot 
               value={form.icc}
               onChange={(v) => setField('icc', v)}
               placeholder="20 dígitos"
+              disabled={disabled}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Equipos adicionales ── */}
+      {subtipo === 'gps' && (
+        <div className={erpFormPanelClass}>
+          <div className="flex items-center gap-2 pb-3 border-b border-[#e7ded0] dark:border-[#334155]">
+            <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 3H5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 3v18m0 0h10a2 2 0 002-2V9m0 0H9m0-3h2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Equipos adicionales</h4>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+            {/* Botón de pánico */}
+            <SelectField
+              label="Botón de pánico"
+              value={form.boton_panico}
+              onChange={(v) => setField('boton_panico', v)}
+              options={SI_NO}
+              disabled={disabled}
+            />
+
+            {form.boton_panico === 'si' && (
+              <TextField
+                label="Ubicación del botón"
+                value={form.ubicacion_boton_panico}
+                onChange={(v) => setField('ubicacion_boton_panico', v)}
+                placeholder="Ej: Debajo del volante"
+                disabled={disabled}
+              />
+            )}
+
+            {/* Micrófono */}
+            <SelectField
+              label="Micrófono"
+              value={form.microfono}
+              onChange={(v) => setField('microfono', v)}
+              options={SI_NO}
+              disabled={disabled}
+            />
+
+            {form.microfono === 'si' && (
+              <TextField
+                label="Ubicación del micrófono"
+                value={form.ubicacion_microfono}
+                onChange={(v) => setField('ubicacion_microfono', v)}
+                placeholder="Ej: Visera del conductor"
+                disabled={disabled}
+              />
+            )}
+
+            {/* Resto de campos */}
+            <TextField
+              label="Temperatura"
+              value={form.temperatura}
+              onChange={(v) => setField('temperatura', v)}
+              placeholder="Ej: Sensor externo"
+              disabled={disabled}
+            />
+
+            <TextField
+              label="Humedad"
+              value={form.humedad}
+              onChange={(v) => setField('humedad', v)}
+              placeholder="Ej: Sensor interno"
+              disabled={disabled}
+            />
+
+            <TextField
+              label="Contacto magnético"
+              value={form.contacto_magnetico}
+              onChange={(v) => setField('contacto_magnetico', v)}
+              placeholder="Ej: Puerta principal"
+              disabled={disabled}
+            />
+
+            <TextField
+              label="Identificación de conductores"
+              value={form.identificacion_conductores}
+              onChange={(v) => setField('identificacion_conductores', v)}
+              placeholder="Ej: Tarjeta RFID"
               disabled={disabled}
             />
           </div>
