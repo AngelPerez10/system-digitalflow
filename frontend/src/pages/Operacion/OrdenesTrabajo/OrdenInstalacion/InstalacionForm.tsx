@@ -54,10 +54,12 @@ const TIPOS_PLATAFORMA = [
   { value: '', label: 'Seleccionar...' },
   { value: 'tracksolidpro', label: 'Tracksolidpro' },
   { value: 'wialon', label: 'Wialon' },
+  { value: 'Antarix', label: 'Antarix' },
 ];
 
 const TIPOS_CORTE = [
   { value: '', label: 'Seleccionar...' },
+  { value: 'sin_corte', label: 'Sin corte' },
   { value: 'bomba_combustible', label: 'Bomba de combustible' },
   { value: 'switch_principal', label: 'Switch principal' },
 ];

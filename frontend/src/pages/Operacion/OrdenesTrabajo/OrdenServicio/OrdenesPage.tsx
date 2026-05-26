@@ -1179,7 +1179,7 @@ export default function Ordenes() {
 
         if (tipoOrden === 'instalaciones' && savedOrden?.id && instalacionSnapshotRef.current) {
           const snap = instalacionSnapshotRef.current;
-          await fetchApi(`/api/ordenes/${savedOrden.id}/instalacion/`, {
+          const instalacionRes = await fetchApi(`/api/ordenes/${savedOrden.id}/instalacion/`, {
             method: 'PUT',
             headers: {              'Content-Type': 'application/json',
             },
@@ -1187,7 +1187,27 @@ export default function Ordenes() {
               payload: snap.payload || {},
               dibujo_url: snap.dibujo_url || '',
             }),
-          }).catch(() => null);
+          });
+          if (!instalacionRes.ok) {
+            let detail = `No se pudo guardar la instalación (HTTP ${instalacionRes.status}).`;
+            try {
+              const data = await instalacionRes.json();
+              detail = (data as { detail?: string })?.detail || detail;
+            } catch {
+              // ignore parse errors, keep default message
+            }
+            throw new Error(detail);
+          }
+          setOrdenes((prev) => {
+            const list = Array.isArray(prev) ? prev : [];
+            const idx = list.findIndex((o) => (o as any).id === savedOrden.id);
+            if (idx >= 0) {
+              const copy = list.slice();
+              copy[idx] = { ...copy[idx], tipo_orden: 'instalaciones' as const };
+              return copy;
+            }
+            return prev;
+          });
         }
 
         // Refresh from backend to avoid any stale client state/caching.
@@ -1317,6 +1337,7 @@ export default function Ordenes() {
 
   const handleEdit = (orden: Orden) => {
     formNonceRef.current += 1;
+    const editNonce = formNonceRef.current;
     if (!canOrdenesEdit) {
       setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar órdenes.' });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
@@ -1325,8 +1346,32 @@ export default function Ordenes() {
     setEditingOrden(orden);
     setTecnicoSearch('');
     setActiveTab("cliente");
-    const orderType = (orden as any)?.tipo_orden;
-    setTipoOrden(String(orderType || '').toLowerCase() === 'levantamiento' ? 'levantamiento' : 'servicio_tecnico');
+    const orderType = String((orden as any)?.tipo_orden || '').toLowerCase();
+    setTipoOrden(
+      orderType === 'levantamiento'
+        ? 'levantamiento'
+        : orderType === 'instalaciones'
+          ? 'instalaciones'
+          : 'servicio_tecnico'
+    );
+    if (orderType !== 'instalaciones' && orderType !== 'levantamiento') {
+      void fetchApi(`/api/ordenes/${orden.id}/instalacion/`, {
+        method: 'GET',
+        cache: 'no-store' as RequestCache,
+      })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json().catch(() => null);
+          if (!data) return;
+          const payload = (data as any).payload;
+          const hasPayload = payload && typeof payload === 'object' && Object.keys(payload).length > 0;
+          const hasInstalacion = Number((data as any).id || 0) > 0 || hasPayload;
+          if (hasInstalacion && formNonceRef.current === editNonce) {
+            setTipoOrden('instalaciones');
+          }
+        })
+        .catch(() => null);
+    }
 
     setFormData({
       folio: ((orden as any).folio ?? '').toString(),
@@ -2315,8 +2360,8 @@ export default function Ordenes() {
                     <select
                       value={tipoOrden}
                       onChange={(e) => setTipoOrden(e.target.value as any)}
-                      disabled={!!editingOrden || isReadOnly}
-                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${!!editingOrden || isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20'}`}
+                      disabled={isReadOnly}
+                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20'}`}
                     >
                       <option value="servicio_tecnico">Servicio Técnico</option>
                       <option value="levantamiento">Levantamiento</option>

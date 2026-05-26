@@ -32,8 +32,13 @@ from PIL import Image
 from datetime import date, datetime, time, timedelta
 
 from .models import Orden
-from .models import OrdenLevantamiento, ReporteSemanal
-from .serializers import OrdenLevantamientoSerializer, OrdenSerializer, ReporteSemanalSerializer
+from .models import OrdenInstalacion, OrdenLevantamiento, ReporteSemanal
+from .serializers import (
+    OrdenInstalacionSerializer,
+    OrdenLevantamientoSerializer,
+    OrdenSerializer,
+    ReporteSemanalSerializer,
+)
 from apps.users.models import UserSignature
 
 logger = logging.getLogger(__name__)
@@ -474,8 +479,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
         # y evitar cache accidental de resultados en el queryset de clase.
         qs = (
             self.queryset.all()
-            .annotate(tiene_levantamiento=Exists(OrdenLevantamiento.objects.filter(orden_id=OuterRef('pk'))))
-            .select_related('cliente_id', 'tecnico_asignado', 'creado_por', 'levantamiento')
+            .annotate(
+                tiene_levantamiento=Exists(OrdenLevantamiento.objects.filter(orden_id=OuterRef('pk'))),
+                tiene_instalacion=Exists(OrdenInstalacion.objects.filter(orden_id=OuterRef('pk'))),
+            )
+            .select_related('cliente_id', 'tecnico_asignado', 'creado_por', 'levantamiento', 'instalacion')
             .order_by(
                 F('fecha_inicio').desc(nulls_last=True),
                 F('fecha_creacion').desc(nulls_last=True),

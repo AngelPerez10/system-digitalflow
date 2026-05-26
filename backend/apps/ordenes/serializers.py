@@ -44,6 +44,13 @@ class OrdenSerializer(serializers.ModelSerializer):
         return None
 
     def get_tipo_orden(self, obj):
+        if getattr(obj, 'tiene_instalacion', False):
+            return 'instalaciones'
+        try:
+            if hasattr(obj, 'instalacion') and obj.instalacion is not None:
+                return 'instalaciones'
+        except Exception:
+            logger.debug('Could not access instalacion on orden %s', getattr(obj, 'id', '?'))
         if getattr(obj, 'tiene_levantamiento', False):
             return 'levantamiento'
         try:
@@ -269,6 +276,13 @@ class OrdenInstalacionSerializer(serializers.ModelSerializer):
             'id',
             'payload',
             'dibujo_url',
+            'orden',
+            'creado_por',
+            'fecha_creacion',
+            'fecha_actualizacion',
+        ]
+        read_only_fields = [
+            'id',
             'orden',
             'creado_por',
             'fecha_creacion',
