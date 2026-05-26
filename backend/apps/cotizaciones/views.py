@@ -370,66 +370,26 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     total_guardado = float(cotizacion.total or 0)
     if total_guardado > 0:
         total_con_iva = total_guardado
+    base_sin_iva, iva_display = _subtotal_iva_display_split(total_con_iva)
 
     money_fmt = '$#,##0.00'
     totals_label_font = Font(bold=True, color="111827")
     totals_rows_start = r + 1
 
     r = totals_rows_start
-    subtotal_conceptos_row = r
-    ws.cell(row=r, column=7, value="Subtotal conceptos").font = totals_label_font
-    if last_data_row >= first_data_row:
-        ws.cell(row=r, column=8, value=f"=SUM(H{first_data_row}:H{last_data_row})")
-    else:
-        ws.cell(row=r, column=8, value=round(subtotal_lineas, 2))
-    ws.cell(row=r, column=8).number_format = money_fmt
-
-    descuento_row = None
-    if descuento_cliente_pct:
-        r += 1
-        descuento_row = r
-        ws.cell(row=r, column=7, value=f"Descuento cliente ({descuento_cliente_pct:.2f}%)").font = totals_label_font
-        ws.cell(
-            row=r,
-            column=8,
-            value=f"=-ROUND(H{subtotal_conceptos_row}*{descuento_cliente_pct}/100,2)",
-        )
-        ws.cell(row=r, column=8).number_format = money_fmt
-
-    if descuento_row:
-        total_expr = f"=ROUND(H{subtotal_conceptos_row}+H{descuento_row},2)"
-    else:
-        total_expr = f"=H{subtotal_conceptos_row}"
-    if last_data_row < first_data_row:
-        total_expr = round(total_con_iva, 2)
-
-    r += 1
-    subtotal_sin_iva_row = r
-    ws.cell(row=r, column=7, value="Subtotal (sin IVA)").font = totals_label_font
-    if isinstance(total_expr, str):
-        ws.cell(row=r, column=8, value=f"=ROUND({total_expr}/{IVA_MX_DISPLAY},2)")
-    else:
-        base_sin_iva, _ = _subtotal_iva_display_split(total_expr)
-        ws.cell(row=r, column=8, value=base_sin_iva)
+    ws.cell(row=r, column=7, value="Subtotal").font = totals_label_font
+    ws.cell(row=r, column=8, value=round(base_sin_iva, 2))
     ws.cell(row=r, column=8).number_format = money_fmt
 
     r += 1
-    iva_row = r
     ws.cell(row=r, column=7, value="IVA (16%)").font = totals_label_font
-    if isinstance(total_expr, str):
-        ws.cell(row=r, column=8, value=f"=ROUND({total_expr}-H{subtotal_sin_iva_row},2)")
-    else:
-        _base, iva_display = _subtotal_iva_display_split(total_expr)
-        ws.cell(row=r, column=8, value=iva_display)
+    ws.cell(row=r, column=8, value=round(iva_display, 2))
     ws.cell(row=r, column=8).number_format = money_fmt
 
     r += 1
     ws.cell(row=r, column=7, value="Total").font = Font(bold=True, color="FFFFFF")
     ws.cell(row=r, column=7).fill = PatternFill("solid", fgColor="374151")
-    if isinstance(total_expr, str):
-        ws.cell(row=r, column=8, value=total_expr)
-    else:
-        ws.cell(row=r, column=8, value=total_expr)
+    ws.cell(row=r, column=8, value=round(total_con_iva, 2))
     ws.cell(row=r, column=8).number_format = money_fmt
     ws.cell(row=r, column=8).font = Font(bold=True, color="FFFFFF")
     ws.cell(row=r, column=8).fill = PatternFill("solid", fgColor="374151")
