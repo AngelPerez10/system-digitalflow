@@ -2242,8 +2242,8 @@ export default function OrdenesTecnico() {
                     <select
                       value={tipoOrden}
                       onChange={(e) => setTipoOrden(e.target.value as any)}
-                      disabled={isReadOnly}
-                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20'}`}
+                      disabled
+                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-100 text-gray-600 cursor-not-allowed text-sm px-3 shadow-theme-xs outline-none dark:bg-gray-800/50 dark:text-gray-400"
                     >
                       <option value="servicio_tecnico">Servicio Técnico</option>
                       <option value="levantamiento">Levantamiento</option>
