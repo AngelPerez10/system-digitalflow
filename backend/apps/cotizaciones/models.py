@@ -19,6 +19,7 @@ class Cotizacion(models.Model):
     cliente = models.CharField(max_length=255, blank=True, default='')
     prospecto = models.BooleanField(default=False)
     contacto = models.CharField(max_length=200, blank=True, default='')
+    contacto_telefono = models.CharField(max_length=30, blank=True, default='')
 
     MEDIO_CONTACTO_CHOICES = [
         ('CLIENTE', 'Cliente'),

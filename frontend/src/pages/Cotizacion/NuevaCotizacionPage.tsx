@@ -95,6 +95,7 @@ type ApiCotizacion = {
   cliente: string;
   prospecto: boolean;
   contacto: string;
+  contacto_telefono?: string;
   medio_contacto?: string;
   tipo_trabajo?: number[] | { id: number; nombre?: string }[];
   status?: string;
@@ -332,6 +333,7 @@ export default function NuevaCotizacionPage() {
   const isEditingRoute = !!editingCotizacionId;
 
   const [contactoNombre, setContactoNombre] = useState("");
+  const [contactoTelefono, setContactoTelefono] = useState("");
 
   const [cantidad, setCantidad] = useState<number>(1);
   const [conceptoNombre, setConceptoNombre] = useState("");
@@ -348,6 +350,8 @@ export default function NuevaCotizacionPage() {
   const [selectedSyscomProducto, setSelectedSyscomProducto] = useState<SyscomProducto | null>(null);
   const [selectedCatalogoConcepto, setSelectedCatalogoConcepto] = useState<CatalogoConcepto | null>(null);
   const [selectedManualProducto, setSelectedManualProducto] = useState<ProductoManualCatalogo | null>(null);
+  const [conceptoOpen, setConceptoOpen] = useState(false);
+  const [conceptoSearch, setConceptoSearch] = useState("");
   const [catalogoConceptos, setCatalogoConceptos] = useState<CatalogoConcepto[]>([]);
   const [catalogoManualProductos, setCatalogoManualProductos] = useState<ProductoManualCatalogo[]>([]);
   const [loadingCatalogoConceptos, setLoadingCatalogoConceptos] = useState(false);
@@ -356,6 +360,7 @@ export default function NuevaCotizacionPage() {
 
   const syscomInputWrapRef = useRef<HTMLDivElement>(null);
   const syscomPopRef = useRef<HTMLDivElement>(null);
+  const conceptoRef = useRef<HTMLDivElement>(null);
   /** Evita aplicar resultados de una petición SYSCOM anterior si el usuario sigue escribiendo. */
   const syscomSearchGenRef = useRef(0);
   const [syscomPopPos, setSyscomPopPos] = useState<SyscomPopPos | null>(null);
@@ -496,6 +501,17 @@ export default function NuevaCotizacionPage() {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [tipoTrabajoOpen]);
 
+  useEffect(() => {
+    if (!conceptoOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (conceptoRef.current && !conceptoRef.current.contains(event.target as Node)) {
+        setConceptoOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [conceptoOpen]);
+
   const effectiveDescuentoClientePct = useMemo(() => {
     const hasManualConceptLines = conceptos.some((c) => String(c.producto_externo_id || "").trim() === "");
     const hasProductLines = conceptos.some((c) => String(c.producto_externo_id || "").trim() !== "");
@@ -569,6 +585,12 @@ export default function NuevaCotizacionPage() {
     return String(principal?.nombre_apellido || first?.nombre_apellido || "").trim();
   };
 
+  const telefonoPrincipalDeCliente = (cliente: Cliente) => {
+    const principal = (cliente.contactos || []).find((x) => x.is_principal);
+    const first = (cliente.contactos || [])[0];
+    return String(principal?.celular || first?.celular || cliente.telefono || "").trim();
+  };
+
   const selectCliente = (cliente: Cliente | null) => {
     if (cliente) {
       setClienteId(cliente.id);
@@ -578,6 +600,7 @@ export default function NuevaCotizacionPage() {
       setDescuentoClientePct(desc);
       setDescuentoClienteTouched(false);
       setContactoNombre(contactoPrincipalDeCliente(cliente));
+      setContactoTelefono(telefonoPrincipalDeCliente(cliente));
     } else {
       setClienteId("");
       setClienteSearch("");
@@ -585,6 +608,7 @@ export default function NuevaCotizacionPage() {
       setDescuentoClientePct(0);
       setDescuentoClienteTouched(false);
       setContactoNombre("");
+      setContactoTelefono("");
     }
     setClienteOpen(false);
   };
@@ -601,6 +625,7 @@ export default function NuevaCotizacionPage() {
       const nombreDesdeApi = String(data.cliente_nombre || data.cliente || "").trim();
       setClienteSearch(nombreDesdeApi);
       setContactoNombre(String(data.contacto || ""));
+      setContactoTelefono(String((data as any)?.contacto_telefono || ""));
       setMedioContacto(String((data as any)?.medio_contacto || ""));
       setTipoTrabajo(normalizeTipoTrabajoIds(data.tipo_trabajo));
       setStatus(String((data as any)?.status || "PENDIENTE"));
@@ -673,6 +698,7 @@ export default function NuevaCotizacionPage() {
             cliente: "",
             prospecto: false,
             contacto: "",
+            contacto_telefono: "",
             medio_contacto: String(medioContacto || ""),
             tipo_trabajo: [],
             status: String(status || "PENDIENTE"),
@@ -842,7 +868,10 @@ export default function NuevaCotizacionPage() {
   useEffect(() => {
     if (hydratingFromStorage) return;
     if (!selectedCliente) {
-      if (!editingCotizacionId) setContactoNombre("");
+      if (!editingCotizacionId) {
+        setContactoNombre("");
+        setContactoTelefono("");
+      }
       return;
     }
 
@@ -853,6 +882,18 @@ export default function NuevaCotizacionPage() {
     const next = (principal?.nombre_apellido || first?.nombre_apellido || "").trim();
     setContactoNombre(next);
   }, [selectedCliente, hydratingFromStorage, editingCotizacionId, contactoNombre]);
+
+  useEffect(() => {
+    if (hydratingFromStorage || !selectedCliente) return;
+    const name = String(contactoNombre || "").trim().toLowerCase();
+    if (!name) return;
+    const match = (selectedCliente.contactos || []).find(
+      (c) => String(c.nombre_apellido || "").trim().toLowerCase() === name
+    );
+    if (!match) return;
+    const phone = String(match.celular || "").trim();
+    if (phone) setContactoTelefono(phone);
+  }, [selectedCliente, contactoNombre, hydratingFromStorage]);
 
   useEffect(() => {
     if (hydratingFromStorage) return;
@@ -1257,6 +1298,7 @@ export default function NuevaCotizacionPage() {
     const nowIso = todayIso;
     const clienteNombre = resolveClienteNombre();
     const contacto = String(contactoNombre || "").trim();
+    const contactoTelefonoValue = String(contactoTelefono || "").trim();
     const lines = conceptos.map((c) => ({ ...c }));
     const subtotalLineasConIva = lines.reduce((acc, c) => {
       const descuento = clampPct(toNumber(c.descuento_pct, 0));
@@ -1275,6 +1317,7 @@ export default function NuevaCotizacionPage() {
       cliente: truncateStr(clienteNombre, MAX_COTIZ_CLIENTE_LEN),
       prospecto: !!selectedCliente?.is_prospecto,
       contacto: contacto || "",
+      contacto_telefono: contactoTelefonoValue || "",
       medio_contacto: String(medioContacto || ""),
       tipo_trabajo: tipoTrabajoIds,
       status: String(status || "PENDIENTE"),
@@ -1304,6 +1347,7 @@ export default function NuevaCotizacionPage() {
     clienteId,
     clienteSearch,
     contactoNombre,
+    contactoTelefono,
     medioContacto,
     tipoTrabajoIds,
     status,
@@ -1588,6 +1632,34 @@ export default function NuevaCotizacionPage() {
     setSyscomProductos([]);
     setSyscomError("");
     setSyscomOpen(false);
+    setConceptoOpen(false);
+    setConceptoSearch("");
+  };
+
+  const handleConceptoInputChange = (nextConcepto: string) => {
+    setConceptoNombre(nextConcepto);
+    setConceptoSearch(nextConcepto);
+    if (toNumber(cantidad, 0) <= 0) {
+      setCantidad(1);
+    }
+    if (nextConcepto.trim().length > 0) {
+      setProductoSearch("");
+      setSyscomOpen(false);
+    }
+    setSelectedSyscomProducto(null);
+    setSelectedManualProducto(null);
+    const match = catalogoConceptos.find(
+      (c) => String(c.concepto || "").trim().toLowerCase() === nextConcepto.trim().toLowerCase()
+    );
+    if (match) {
+      setSelectedCatalogoConcepto(match);
+      if (toNumber(precioLista, 0) <= 0) {
+        setPrecioLista(Math.max(0, toNumber(match.precio1, 0)));
+      }
+      setUnidad((u) => (u.trim() ? u : "SERV"));
+    } else {
+      setSelectedCatalogoConcepto(null);
+    }
   };
 
   const addConcepto = () => {
@@ -1752,6 +1824,7 @@ export default function NuevaCotizacionPage() {
     setClienteOpen(false);
     setDebouncedClienteSearch("");
     setContactoNombre("");
+    setContactoTelefono("");
 
     setMedioContacto('');
     setMedioContactoTouched(false);
@@ -1823,12 +1896,14 @@ export default function NuevaCotizacionPage() {
     const nowIso = todayIso;
     const clienteNombre = resolveClienteNombre();
     const contacto = String(contactoNombre || "").trim();
+    const contactoTelefonoValue = String(contactoTelefono || "").trim();
 
     const payload: any = {
       cliente_id: clienteId ? Number(clienteId) : null,
       cliente: clienteNombre || "",
       prospecto: !!selectedCliente?.is_prospecto,
       contacto: contacto || "",
+      contacto_telefono: contactoTelefonoValue || "",
       medio_contacto: String(medioContacto || ''),
       tipo_trabajo: tipoTrabajoIds,
       status: String(status || 'PENDIENTE'),
@@ -2421,6 +2496,16 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div>
+                      <Label className={labelPageClass}>Teléfono contacto</Label>
+                      <Input
+                        className={inputFieldInsetClass}
+                        value={contactoTelefono}
+                        onChange={(e) => setContactoTelefono(e.target.value)}
+                        placeholder="Ej. 3141234567"
+                      />
+                    </div>
+
+                    <div>
                       <Label className={labelPageClass}>Descuento de Cliente (%)</Label>
                       <Input
                         className={inputFieldInsetClass}
@@ -2669,47 +2754,59 @@ export default function NuevaCotizacionPage() {
 
                     <div className="sm:col-span-6 lg:col-span-5">
                       <Label className={labelPageClass}>Concepto</Label>
-                      <div className="relative">
+                      <div className="relative" ref={conceptoRef}>
                         <input
                           className={`${inputLikeClassName} min-h-[46px] text-sm sm:text-base`}
-                          value={conceptoNombre}
+                          value={conceptoOpen ? conceptoSearch : conceptoNombre}
                           disabled={bloquearConceptoInput}
+                          onFocus={() => {
+                            setConceptoSearch(conceptoNombre || "");
+                            setConceptoOpen(true);
+                          }}
                           onChange={(e) => {
                             const nextConcepto = e.target.value;
-                            setConceptoNombre(nextConcepto);
-                            if (toNumber(cantidad, 0) <= 0) {
-                              setCantidad(1);
-                            }
-                            if (nextConcepto.trim().length > 0) {
-                              setProductoSearch("");
-                              setSyscomOpen(false);
-                            }
-                            setSelectedSyscomProducto(null);
-                            setSelectedManualProducto(null);
-                            const match = catalogoConceptos.find(
-                              (c) => String(c.concepto || "").trim().toLowerCase() === nextConcepto.trim().toLowerCase()
-                            );
-                            if (match) {
-                              setSelectedCatalogoConcepto(match);
-                              if (toNumber(precioLista, 0) <= 0) {
-                                setPrecioLista(Math.max(0, toNumber(match.precio1, 0)));
-                              }
-                              setUnidad((u) => (u.trim() ? u : "SERV"));
-                            } else {
-                              setSelectedCatalogoConcepto(null);
-                            }
+                            handleConceptoInputChange(nextConcepto);
+                            setConceptoOpen(true);
                           }}
-                          placeholder={bloquearConceptoInput ? "Concepto bloqueado por selección de producto" : "Escribe el concepto que irá en la cotización"}
-                          list="conceptos-servicios-datalist"
+                          placeholder={bloquearConceptoInput ? "Concepto bloqueado por selección de producto" : "Buscar o escribir concepto..."}
                           autoComplete="off"
                         />
-                        <datalist id="conceptos-servicios-datalist">
-                          {catalogoConceptos.map((c) => (
-                            <option key={c.id} value={c.concepto || ""}>
-                              {`Folio ${c.folio} · ${formatMoney(toNumber(c.precio1, 0))}`}
-                            </option>
-                          ))}
-                        </datalist>
+                        {!bloquearConceptoInput && conceptoOpen && (
+                          <div className="absolute left-0 right-0 top-full z-[110] mt-1 max-h-64 w-full overflow-auto rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl ring-1 ring-black/5 dark:border-[#334155] dark:bg-[#111827]/95 dark:ring-white/10">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleConceptoInputChange(conceptoSearch);
+                                setConceptoOpen(false);
+                              }}
+                              className="w-full px-3 py-2.5 text-left text-sm text-[#57534e] transition-colors hover:bg-gray-100 dark:text-[#cbd5e1] dark:hover:bg-white/[0.06]"
+                            >
+                              Usar: {conceptoSearch.trim() || "Concepto personalizado"}
+                            </button>
+                            {catalogoConceptos
+                              .filter((c) => {
+                                const q = (conceptoSearch || "").trim().toLowerCase();
+                                if (!q) return true;
+                                return String(c.concepto || "").toLowerCase().includes(q) || String(c.folio || "").toLowerCase().includes(q);
+                              })
+                              .map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => {
+                                    handleConceptoInputChange(String(c.concepto || ""));
+                                    setConceptoOpen(false);
+                                  }}
+                                  className="w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]"
+                                >
+                                  <div className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{c.concepto || "Sin nombre"}</div>
+                                  <div className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                                    {`Folio ${c.folio} · ${formatMoney(toNumber(c.precio1, 0))}`}
+                                  </div>
+                                </button>
+                              ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 

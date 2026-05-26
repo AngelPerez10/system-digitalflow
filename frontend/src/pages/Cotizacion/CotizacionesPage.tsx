@@ -153,6 +153,7 @@ export default function CotizacionesPage() {
           creadaPor: creado,
           editadaPor: editado,
           cliente: String(x?.cliente || x?.cliente_nombre || '—'),
+          clienteTelefono: String(x?.cliente_telefono || '—'),
           contacto: String(x?.contacto || '—'),
           tipoTrabajo: String(x?.tipo_trabajo_nombres || '').trim() || '—',
           monto: formatMoney(Number(x?.total ?? 0)),

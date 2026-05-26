@@ -35,6 +35,7 @@ class CotizacionTipoTrabajoField(serializers.PrimaryKeyRelatedField):
 
 class CotizacionSerializer(serializers.ModelSerializer):
     cliente_nombre = serializers.CharField(source='cliente_id.nombre', read_only=True)
+    cliente_telefono = serializers.CharField(source='cliente_id.telefono', read_only=True)
     creado_por_username = serializers.CharField(source='creado_por.username', read_only=True)
     creado_por_full_name = serializers.SerializerMethodField()
     actualizado_por_username = serializers.CharField(source='actualizado_por.username', read_only=True)
@@ -113,9 +114,11 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'idx',
             'cliente_id',
             'cliente_nombre',
+            'cliente_telefono',
             'cliente',
             'prospecto',
             'contacto',
+            'contacto_telefono',
             'medio_contacto',
             'tipo_trabajo',
             'tipo_trabajo_nombres',
@@ -143,6 +146,7 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'id',
             'idx',
             'cliente_nombre',
+            'cliente_telefono',
             'creado_por',
             'creado_por_username',
             'creado_por_full_name',

@@ -2,6 +2,33 @@ import { Link } from "react-router-dom";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 
+const normalizePhoneForWhatsapp = (raw?: string) => {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("52")) return digits;
+  if (digits.length === 10) return `52${digits}`;
+  return digits;
+};
+
+const buildWhatsappMessage = (row: CotizacionRow) => {
+  const numero = row.idx || row.id || "—";
+  const tipo = String(row.tipoTrabajo || "Sin tipo").trim();
+  return `Hola estimado(a), espero se encuentre muy bien.
+
+Le doy seguimiento a la cotización No. ${numero} del sistema: "${tipo}", para saber si pudo revisar la propuesta y conocer si le gustaría avanzar con el proyecto.
+
+Quedo a atento para resolver cualquier duda o realizar los ajustes necesarios para adaptar la solución a sus necesidades y presupuesto.
+
+Gracias y saludos!`;
+};
+
+const buildWhatsappUrl = (row: CotizacionRow) => {
+  const phone = normalizePhoneForWhatsapp(row.clienteTelefono);
+  if (!phone) return "";
+  const text = encodeURIComponent(buildWhatsappMessage(row));
+  return `https://wa.me/${phone}?text=${text}`;
+};
+
 export type CotizacionRow = {
   id: number;
   idx: number;
@@ -11,6 +38,7 @@ export type CotizacionRow = {
   creadaPor: string;
   editadaPor: string;
   cliente: string;
+  clienteTelefono?: string;
   contacto: string;
   tipoTrabajo: string;
   monto: string;
@@ -214,6 +242,23 @@ export function CotizacionesMobileList({
                   </span>
                 </div>
                 <p className="mt-2 truncate text-sm font-semibold text-[#1c1917] dark:text-white">{r.cliente}</p>
+                {r.clienteTelefono && r.clienteTelefono !== "—" ? (
+                  <a
+                    href={buildWhatsappUrl(r) || undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8] ${
+                      buildWhatsappUrl(r)
+                        ? "inline-flex hover:text-[#16a34a] hover:underline"
+                        : "inline-flex cursor-default"
+                    }`}
+                    onClick={(e) => {
+                      if (!buildWhatsappUrl(r)) e.preventDefault();
+                    }}
+                  >
+                    {r.clienteTelefono}
+                  </a>
+                ) : null}
                 {r.tipoTrabajo && r.tipoTrabajo !== "—" ? (
                   <p className="mt-1 line-clamp-2 text-xs text-[#57534e] dark:text-[#cbd5e1]" title={r.tipoTrabajo}>
                     {r.tipoTrabajo}
@@ -345,6 +390,23 @@ export function CotizacionesTable({
                       <span className="block truncate font-medium sm:text-[12px]" title={r.cliente}>
                         {r.cliente}
                       </span>
+                      {r.clienteTelefono && r.clienteTelefono !== "—" ? (
+                        <a
+                          href={buildWhatsappUrl(r) || undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`mt-0.5 block text-[11px] text-[#cc785c] dark:text-[#cc785c] ${
+                            buildWhatsappUrl(r)
+                              ? "hover:text-[#16a34a] hover:underline"
+                              : "cursor-default"
+                          }`}
+                          onClick={(e) => {
+                            if (!buildWhatsappUrl(r)) e.preventDefault();
+                          }}
+                        >
+                          {r.clienteTelefono}
+                        </a>
+                      ) : null}
                     </TableCell>
                     <TableCell className="min-w-[140px] max-w-[220px] px-2 py-2 align-top sm:px-3">
                       <span

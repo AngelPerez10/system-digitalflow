@@ -32,6 +32,39 @@ logger = logging.getLogger(__name__)
 IVA_MX_DISPLAY = 1.16
 
 
+def _cotizacion_item_line_totals(
+    cantidad: float,
+    precio_lista: float,
+    descuento_pct: float,
+    producto_externo_id: str,
+) -> tuple[float, float, float]:
+    """
+    Importes por línea (misma regla que CotizacionSerializer._calculate_totals).
+    Retorna (precio_unitario_con_iva, importe_con_iva, importe_sin_iva).
+    """
+    producto_externo_id = str(producto_externo_id or "").strip()
+    es_manual = producto_externo_id == ""
+    descuento_pct = float(descuento_pct or 0)
+    if descuento_pct < 0:
+        descuento_pct = 0.0
+    if descuento_pct > 100:
+        descuento_pct = 100.0
+
+    factor = 1.0 - (descuento_pct / 100.0)
+    pu_lista_desc = float(precio_lista or 0) * factor
+    if es_manual:
+        pu_sin_iva = pu_lista_desc
+        pu_con_iva = pu_lista_desc * IVA_MX_DISPLAY
+    else:
+        pu_sin_iva = (float(precio_lista or 0) / IVA_MX_DISPLAY) * factor
+        pu_con_iva = pu_lista_desc
+
+    qty = float(cantidad or 0)
+    importe_con_iva = qty * pu_con_iva
+    importe_sin_iva = qty * pu_sin_iva
+    return pu_con_iva, importe_con_iva, importe_sin_iva
+
+
 def _safe_http_image_bytes(url: str, max_bytes: int = 2_500_000) -> bytes | None:
     """Fetch remote image bytes for Excel embedding (basic SSRF guard)."""
     if not isinstance(url, str):
@@ -176,6 +209,7 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
         ("Editada por", _user_display(getattr(cotizacion, "actualizado_por", None))),
         ("Cliente", cliente_nombre),
         ("Contacto", str(cotizacion.contacto or "").strip() or "—"),
+        ("Teléfono de contacto", str(getattr(cotizacion, "contacto_telefono", "") or "").strip() or "—"),
         ("Tipo de trabajo", _tipo_trabajo_labels(cotizacion)),
     ]
     try:
@@ -267,7 +301,6 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     else:
         items = []
 
-    net_subtotal_sin_iva = 0.0
     net_subtotal_con_iva = 0.0
     for it in items:
         try:
@@ -275,16 +308,10 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
             precio_lista = float(it.precio_lista or 0)
             descuento = float(it.descuento_pct or 0)
             producto_externo_id = str(getattr(it, "producto_externo_id", "") or "").strip()
-            es_solo_concepto_manual = producto_externo_id == ""
-            precio_base = precio_lista * (1 - (descuento / 100.0))
-            # Regla unificada:
-            # - producto_externo_id con valor => precio_lista ya incluye IVA.
-            # - sin producto_externo_id => concepto manual con precio base sin IVA (sumar 16%).
-            precio_con_iva = precio_base if not es_solo_concepto_manual else (precio_base * IVA_MX_DISPLAY)
-            pu = precio_base
-            importe = cantidad * pu
-            net_subtotal_sin_iva += importe
-            net_subtotal_con_iva += cantidad * precio_con_iva
+            pu, importe, _importe_sin_iva = _cotizacion_item_line_totals(
+                cantidad, precio_lista, descuento, producto_externo_id
+            )
+            net_subtotal_con_iva += importe
         except Exception:
             logger.exception("Failed to parse cotizacion item values for Excel")
             cantidad = 0.0
@@ -340,34 +367,74 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
 
     descuento_cliente_monto = subtotal_lineas * (descuento_cliente_pct / 100.0)
     total_con_iva = max(0.0, subtotal_lineas - descuento_cliente_monto)
-    base_sin_iva, iva_display = _subtotal_iva_display_split(total_con_iva)
+    total_guardado = float(cotizacion.total or 0)
+    if total_guardado > 0:
+        total_con_iva = total_guardado
 
-    r += 1
-    ws.cell(row=r, column=7, value="Importe conceptos (sin IVA)").font = Font(bold=True, color="111827")
-    ws.cell(row=r, column=8, value=round(net_subtotal_sin_iva, 2))
-    ws.cell(row=r, column=8).number_format = '$#,##0.00'
-    r += 1
+    money_fmt = '$#,##0.00'
+    totals_label_font = Font(bold=True, color="111827")
+    totals_rows_start = r + 1
+
+    r = totals_rows_start
+    subtotal_conceptos_row = r
+    ws.cell(row=r, column=7, value="Subtotal conceptos").font = totals_label_font
+    if last_data_row >= first_data_row:
+        ws.cell(row=r, column=8, value=f"=SUM(H{first_data_row}:H{last_data_row})")
+    else:
+        ws.cell(row=r, column=8, value=round(subtotal_lineas, 2))
+    ws.cell(row=r, column=8).number_format = money_fmt
+
+    descuento_row = None
     if descuento_cliente_pct:
-        ws.cell(row=r, column=7, value=f"Descuento cliente ({descuento_cliente_pct:.2f}%)").font = Font(bold=True, color="111827")
-        ws.cell(row=r, column=8, value=round(descuento_cliente_monto, 2))
-        ws.cell(row=r, column=8).number_format = '$#,##0.00'
         r += 1
+        descuento_row = r
+        ws.cell(row=r, column=7, value=f"Descuento cliente ({descuento_cliente_pct:.2f}%)").font = totals_label_font
+        ws.cell(
+            row=r,
+            column=8,
+            value=f"=-ROUND(H{subtotal_conceptos_row}*{descuento_cliente_pct}/100,2)",
+        )
+        ws.cell(row=r, column=8).number_format = money_fmt
 
-    ws.cell(row=r, column=7, value="Subtotal").font = Font(bold=True, color="111827")
-    ws.cell(row=r, column=8, value=round(base_sin_iva, 2))
-    ws.cell(row=r, column=8).number_format = '$#,##0.00'
+    if descuento_row:
+        total_expr = f"=ROUND(H{subtotal_conceptos_row}+H{descuento_row},2)"
+    else:
+        total_expr = f"=H{subtotal_conceptos_row}"
+    if last_data_row < first_data_row:
+        total_expr = round(total_con_iva, 2)
+
     r += 1
-    ws.cell(row=r, column=7, value="IVA (16%)").font = Font(bold=True, color="111827")
-    ws.cell(row=r, column=8, value=round(iva_display, 2))
-    ws.cell(row=r, column=8).number_format = '$#,##0.00'
+    subtotal_sin_iva_row = r
+    ws.cell(row=r, column=7, value="Subtotal (sin IVA)").font = totals_label_font
+    if isinstance(total_expr, str):
+        ws.cell(row=r, column=8, value=f"=ROUND({total_expr}/{IVA_MX_DISPLAY},2)")
+    else:
+        base_sin_iva, _ = _subtotal_iva_display_split(total_expr)
+        ws.cell(row=r, column=8, value=base_sin_iva)
+    ws.cell(row=r, column=8).number_format = money_fmt
+
+    r += 1
+    iva_row = r
+    ws.cell(row=r, column=7, value="IVA (16%)").font = totals_label_font
+    if isinstance(total_expr, str):
+        ws.cell(row=r, column=8, value=f"=ROUND({total_expr}-H{subtotal_sin_iva_row},2)")
+    else:
+        _base, iva_display = _subtotal_iva_display_split(total_expr)
+        ws.cell(row=r, column=8, value=iva_display)
+    ws.cell(row=r, column=8).number_format = money_fmt
+
     r += 1
     ws.cell(row=r, column=7, value="Total").font = Font(bold=True, color="FFFFFF")
     ws.cell(row=r, column=7).fill = PatternFill("solid", fgColor="374151")
-    ws.cell(row=r, column=8, value=round(total_con_iva, 2))
-    ws.cell(row=r, column=8).number_format = '$#,##0.00'
+    if isinstance(total_expr, str):
+        ws.cell(row=r, column=8, value=total_expr)
+    else:
+        ws.cell(row=r, column=8, value=total_expr)
+    ws.cell(row=r, column=8).number_format = money_fmt
     ws.cell(row=r, column=8).font = Font(bold=True, color="FFFFFF")
     ws.cell(row=r, column=8).fill = PatternFill("solid", fgColor="374151")
-    for rr in range(r - (3 if descuento_cliente_pct else 2), r + 1):
+
+    for rr in range(totals_rows_start, r + 1):
         ws.cell(row=rr, column=7).border = table_border
         ws.cell(row=rr, column=8).border = table_border
 
@@ -807,6 +874,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         <div class='l'>Nombre:</div><div class='v'><b>{esc(cliente_nombre)}</b></div>
         <div class='l'>Domicilio:</div><div class='v'>{esc(cliente_dir)}</div>
         <div class='l'>Contacto:</div><div class='v'>{esc(cotizacion.contacto or '-')}</div>
+        <div class='l'>Tel. contacto:</div><div class='v'>{esc(getattr(cotizacion, "contacto_telefono", "") or '-')}</div>
         {f"<div class='l'>RFC:</div><div class='v'>{esc(cliente_rfc)}</div>" if cliente_rfc else ""}
         {f"<div class='l'>Mail:</div><div class='v'>{esc(cliente_mail)}</div>" if cliente_mail else ""}
         {f"<div class='l'>Ciudad:</div><div class='v'>{esc(cliente_ubicacion)}</div>" if cliente_ubicacion else ""}
@@ -1006,6 +1074,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             cliente_id=data.get('cliente_id'),
             cliente=data.get('cliente', ''),
             contacto=data.get('contacto', ''),
+            contacto_telefono=data.get('contacto_telefono', ''),
             fecha=data.get('fecha'),
             vencimiento=data.get('vencimiento'),
             subtotal=data.get('subtotal', 0),
