@@ -171,9 +171,7 @@ const AppSidebar: React.FC = () => {
         items.push({
           icon: <PieChartIcon />,
           name: "Ventas",
-          subItems: [
-            { name: "Cotizaciones", path: "/cotizacion", pro: false },
-          ],
+          subItems: [{ name: "Cotizaciones", path: "/cotizacion", pro: false }],
         });
       }
 
@@ -185,6 +183,9 @@ const AppSidebar: React.FC = () => {
             ? [{ name: "Agenda", path: "/agenda", pro: false } as const]
             : []),
           { name: "Órdenes de Trabajo", path: "/ordenes", pro: false },
+          ...(permissions?.cuentas_antarix?.view === true || isAdmin
+            ? [{ name: "Cuentas de Antarix GPS", path: "/cuentas", pro: false } as const]
+            : []),
           ...(SIDEBAR_FUTURE.operacionExtended
             ? ([
                 { name: "Levantamiento", path: "/levantamiento", pro: false },
@@ -213,6 +214,10 @@ const AppSidebar: React.FC = () => {
 
       if (permissions?.tareas?.view !== false) {
         subItems.push({ name: "Tareas", path: "/tareas-tecnico", pro: false });
+      }
+
+      if (permissions?.cuentas_antarix?.view === true) {
+        subItems.push({ name: "Cuentas de Antarix GPS", path: "/cuentas", pro: false });
       }
 
       if (subItems.length > 0) {

@@ -109,6 +109,55 @@ export const isOrdenPdfDirectDownload = (status: unknown): boolean => {
   return s === "resuelto" || s === "completado" || s === "completada";
 };
 
+export async function downloadOrdenesMesPdf(
+  yearMonth: string
+): Promise<{ ok: boolean; message?: string }> {
+  const mes = (yearMonth || "").trim();
+  if (!/^\d{4}-\d{2}$/.test(mes)) {
+    return { ok: false, message: "Mes inválido." };
+  }
+  try {
+    const resp = await fetchApi(`/api/ordenes/listado-mes-pdf/?mes=${encodeURIComponent(mes)}`);
+    if (!resp.ok) {
+      let msg = `No se pudo generar el PDF (HTTP ${resp.status}).`;
+      try {
+        const ct = resp.headers.get("content-type") || "";
+        if (ct.includes("application/json")) {
+          const data = await resp.json();
+          msg = (data as { detail?: string; mes?: string[] })?.detail || (data as { mes?: string[] })?.mes?.[0] || msg;
+        } else {
+          msg = (await resp.text()) || msg;
+        }
+      } catch {
+        /* ignore */
+      }
+      return { ok: false, message: msg };
+    }
+
+    const ct = (resp.headers.get("content-type") || "").toLowerCase();
+    const dispo = resp.headers.get("content-disposition") || "";
+    const m = dispo.match(/filename="?([^";]+)"?/i);
+    const filename = m?.[1]
+      ? String(m[1])
+      : ct.includes("application/pdf")
+        ? `Ordenes_servicio_${mes}.pdf`
+        : `Ordenes_servicio_${mes}.html`;
+
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "No se pudo descargar el PDF del mes." };
+  }
+}
+
 export async function downloadOrdenPdfById(
   ordenId: number
 ): Promise<{ ok: boolean; message?: string }> {

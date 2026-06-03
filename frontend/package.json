@@ -18,6 +18,7 @@
     "@fullcalendar/list": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
     "@fullcalendar/timegrid": "^6.1.15",
+    "@tanstack/react-table": "^8.21.3",
     "@uiw/react-color-sketch": "^2.9.5",
     "animejs": "^4.3.4",
     "apexcharts": "^4.1.0",

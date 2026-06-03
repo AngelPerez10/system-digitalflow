@@ -13,6 +13,7 @@ import { ScrollToTop } from "@/components/common/ScrollToTop";
 import Home from "@/pages/Dashboard/Home";
 import RequireAuth from "@/components/auth/RequireAuth";
 import RequireAdmin from "@/components/auth/RequireAdmin";
+import RequireCuentasAntarixPermission from "@/components/auth/RequireCuentasAntarixPermission";
 import RequireUsuariosView from "@/components/auth/RequireUsuariosView";
 import RequireCotizacionPermission from "@/components/auth/RequireCotizacionPermission";
 import RequireClientePermission from "@/components/auth/RequireClientePermission";
@@ -33,6 +34,7 @@ import NuevaCotizacionPage from "@/pages/Cotizacion/NuevaCotizacionPage";
 import CotizacionPdfPage from "@/pages/Cotizacion/CotizacionPdfPage";
 import IaPage from "@/pages/IA/iaPage";
 import ReportesPage from "@/pages/Operacion/Reportes/ReportesPage";
+import CuentasAntarixPage from "@/pages/Operacion/CuentasAntarix/CuentasAntarixPage";
 
 export default function App() {
   return (
@@ -51,6 +53,14 @@ export default function App() {
 
             {/* Dashboard Pages */}
             <Route path="/ordenes" element={<RequireAdmin><Ordenes /></RequireAdmin>} />
+            <Route
+              path="/cuentas"
+              element={
+                <RequireCuentasAntarixPermission required="view">
+                  <CuentasAntarixPage />
+                </RequireCuentasAntarixPermission>
+              }
+            />
             <Route path="/ordenes/:id/pdf" element={<OrdenPdfPage />} />
             <Route path="/ordenes-tecnico" element={<OrdenesTecnico />} />
             <Route path="/reportes" element={<ReportesPage />} />

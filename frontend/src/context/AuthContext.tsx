@@ -99,9 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         nextPerms = permsData.permissions ?? {};
       }
 
+      const sessionRejected =
+        userRes.status === 401 || permsRes.status === 401;
+
       if (!nextUser) {
         const cached = readCache();
-        if (cached?.user?.username && hasBearerFallback()) {
+        if (cached?.user?.username && hasBearerFallback() && !sessionRejected) {
           setUser(cached.user);
           setPermissions(cached.permissions ?? {});
           return;

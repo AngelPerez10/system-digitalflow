@@ -225,3 +225,9 @@ class ModulePermission(BasePermission):
             owner = getattr(obj, 'creado_por', None)
             owner_id = getattr(owner, 'id', None) if owner else None
         return owner_id is not None and owner_id == user.id
+
+
+class CuentasAntarixPermission(ModulePermission):
+    """Permisos JSON para la vista Wialon / Cuentas Antarix GPS."""
+
+    module_key = 'cuentas_antarix'

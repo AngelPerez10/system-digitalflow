@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/modal';
 import SignaturePad from '@/components/ui/signature/SignaturePad';
 import { fetchApi } from '@/config/api';
 import { useAuth } from '@/context/AuthContext';
+import { cn } from '@/lib/utils';
 import { EyeCloseIcon, EyeIcon, MoreDotIcon } from '@/icons';
 import { AnimatePresence, motion } from 'motion/react';
 
@@ -38,6 +39,7 @@ type PermissionsPayload = {
   tareas?: Partial<CrudPerms>;
   usuarios?: Partial<CrudPerms>;
   reportes?: Partial<CrudPerms>;
+  cuentas_antarix?: Partial<CrudPerms>;
 };
 
 type UserAccount = {
@@ -113,6 +115,26 @@ const claudeBodyClass = "text-base font-normal leading-[1.6] text-[#57534e] dark
 const sectionLabelClass =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
 
+const statLabelClass =
+  "text-[9px] font-semibold uppercase tracking-wide text-[#78716c] dark:text-[#8ea0b8] sm:text-[10px]";
+
+const statValueClass =
+  "mt-0.5 text-base font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-lg";
+
+const bodyMutedClass = "text-sm text-[#57534e] dark:text-[#cbd5e1]";
+
+const permsModalHeaderClass =
+  "px-5 py-4 border-b border-[#e7ded0] bg-[#fffdfa]/70 backdrop-blur dark:border-[#334155] dark:bg-[#111827]/80";
+
+const permsAccordionClass =
+  "rounded-2xl border border-[#e7ded0] bg-[#fffdfa] shadow-theme-xs overflow-hidden dark:border-[#273244] dark:bg-[#111827]/80";
+
+const permsAccordionBtnClass =
+  "w-full px-4 py-3 flex items-center justify-between gap-3 bg-[#fffdfa]/70 backdrop-blur dark:bg-[#111827]/70";
+
+const permsModuleRowClass =
+  "rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/60 px-3 py-3 dark:border-[#334155] dark:bg-[#0f172a]/50";
+
 const claudeSansStyle = { fontFamily: "Outfit, sans-serif" } as const;
 
 const fadeInUp = {
@@ -161,6 +183,7 @@ const seedAdminPerms = async (userId: number) => {
     tareas: { view: true, create: true, edit: true, delete: true },
     usuarios: { view: true, create: true, edit: true, delete: true },
     reportes: { view: true, create: true, edit: true, delete: true },
+    cuentas_antarix: { view: true, create: true, edit: true, delete: true },
   };
   const res = await fetchApi(`/api/users/accounts/${userId}/permissions/`, {
     method: 'PUT',
@@ -283,6 +306,7 @@ export default function UserProfiles() {
       tareas: { view: true, create: false, edit: false, delete: false },
       usuarios: { view: true, create: false, edit: false, delete: false },
       reportes: { view: true, create: true, edit: false, delete: false },
+      cuentas_antarix: { view: false, create: false, edit: false, delete: false },
     };
     const safe = (v: any) => (typeof v === 'boolean' ? v : undefined);
     const mergeCrud = (dst: any, src: any) => {
@@ -304,6 +328,7 @@ export default function UserProfiles() {
       tareas: mergeCrud(base.tareas, p?.tareas),
       usuarios: mergeCrud(base.usuarios, p?.usuarios),
       reportes: mergeCrud(base.reportes, p?.reportes),
+      cuentas_antarix: mergeCrud(base.cuentas_antarix, p?.cuentas_antarix),
     };
   };
 
@@ -370,6 +395,7 @@ export default function UserProfiles() {
             ...permsForm,
             // Cotizaciones: los técnicos pueden tener permisos granulares (ver/crear/editar/eliminar)
             cotizaciones: merged.cotizaciones,
+            cuentas_antarix: merged.cuentas_antarix,
             usuarios: { view: false, create: false, edit: false, delete: false },
             reportes: { ...merged.reportes, delete: false },
           };
@@ -809,9 +835,9 @@ export default function UserProfiles() {
           </AnimatePresence>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] sm:p-4`}>
+        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] dark:hover:border-[#334155] sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0] bg-[#fcfaf6]/80 text-[#ff801f] sm:h-10 sm:w-10">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0] bg-[#fcfaf6]/80 text-[#ff801f] dark:border-[#334155] dark:bg-[#1e293b]/80 dark:text-[#fb923c] sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
@@ -820,13 +846,13 @@ export default function UserProfiles() {
               </svg>
             </span>
             <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-[#78716c] sm:text-[10px]">Total usuarios</p>
-              <p className="mt-0.5 text-base font-semibold tabular-nums text-[#1c1917] sm:text-lg">{stats.total}</p>
+              <p className={statLabelClass}>Total usuarios</p>
+              <p className={statValueClass}>{stats.total}</p>
             </div>
           </div>
         </div>
 
-        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] sm:p-4`}>
+        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] dark:hover:border-[#334155] sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#9a3412]/40 dark:bg-[#7c2d12]/20 dark:text-[#fdba74] sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor">
@@ -834,23 +860,23 @@ export default function UserProfiles() {
               </svg>
             </span>
             <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-[#78716c] sm:text-[10px]">Admins</p>
-              <p className="mt-0.5 text-base font-semibold tabular-nums text-[#1c1917] sm:text-lg">{stats.admins}</p>
+              <p className={statLabelClass}>Admins</p>
+              <p className={statValueClass}>{stats.admins}</p>
             </div>
           </div>
         </div>
 
-        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] sm:p-4`}>
+        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] dark:hover:border-[#334155] sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0]/70 bg-[#f5f0e8] text-[#44403c] sm:h-10 sm:w-10">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0]/70 bg-[#f5f0e8] text-[#44403c] dark:border-[#334155] dark:bg-[#1e293b] dark:text-[#cbd5e1] sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" strokeWidth="1.8" />
                 <circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
               </svg>
             </span>
             <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-[#78716c] sm:text-[10px]">Técnicos</p>
-              <p className="mt-0.5 text-base font-semibold tabular-nums text-[#1c1917] sm:text-lg">{stats.tecnicos}</p>
+              <p className={statLabelClass}>Técnicos</p>
+              <p className={statValueClass}>{stats.tecnicos}</p>
             </div>
           </div>
         </div>
@@ -915,7 +941,7 @@ export default function UserProfiles() {
             <button
               type="button"
               onClick={() => setFilterOpen(v => !v)}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 px-3 py-2 text-xs font-semibold text-[#44403c] transition-colors hover:border-[#e2d9ca] hover:bg-[#fffdfa] sm:w-auto"
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 px-3 py-2 text-xs font-semibold text-[#44403c] transition-colors hover:border-[#e2d9ca] hover:bg-[#fffdfa] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80 sm:w-auto"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none">
                 <path d="M14.6537 5.90414C14.6537 4.48433 13.5027 3.33331 12.0829 3.33331C10.6631 3.33331 9.51206 4.48433 9.51204 5.90415M14.6537 5.90414C14.6537 7.32398 13.5027 8.47498 12.0829 8.47498C10.663 8.47498 9.51204 7.32398 9.51204 5.90415M14.6537 5.90414L17.7087 5.90411M9.51204 5.90415L2.29199 5.90411M5.34694 14.0958C5.34694 12.676 6.49794 11.525 7.91777 11.525C9.33761 11.525 10.4886 12.676 10.4886 14.0958M5.34694 14.0958C5.34694 15.5156 6.49794 16.6666 7.91778 16.6666C9.33761 16.6666 10.4886 15.5156 10.4886 14.0958M5.34694 14.0958L2.29199 14.0958M10.4886 14.0958L17.7087 14.0958" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -923,10 +949,10 @@ export default function UserProfiles() {
               Filtros
             </button>
             {filterOpen && (
-              <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-lg">
+              <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-lg dark:border-[#334155] dark:bg-[#111827] dark:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)]">
                 <div className="mb-2">
-                  <label className="mb-2 block text-xs font-medium text-[#44403c]">Rol</label>
-                  <div className="inline-flex w-full rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 p-1">
+                  <label className="mb-2 block text-xs font-medium text-[#44403c] dark:text-[#cbd5e1]">Rol</label>
+                  <div className="inline-flex w-full rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 p-1 dark:border-[#334155] dark:bg-[#0f172a]/90">
                     {[
                       { value: 'all', label: 'Todos' },
                       { value: 'admin', label: 'Admins' },
@@ -942,7 +968,7 @@ export default function UserProfiles() {
                         className={`h-8 flex-1 rounded-lg text-xs font-semibold transition ${
                           roleFilter === opt.value
                             ? 'border border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#9a3412]/40 dark:bg-[#7c2d12]/20 dark:text-[#fdba74]'
-                            : 'text-[#44403c] hover:bg-[#e7ded0]/80'
+                            : 'text-[#44403c] hover:bg-[#e7ded0]/80 dark:text-[#cbd5e1] dark:hover:bg-[#334155]/80'
                         }`}
                       >
                         {opt.label}
@@ -957,7 +983,7 @@ export default function UserProfiles() {
       >
 
         {loading ? (
-          <div className="py-10 text-center text-sm text-[#78716c]">Cargando...</div>
+          <div className="py-10 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]">Cargando...</div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <AnimatePresence mode="popLayout">
@@ -985,17 +1011,17 @@ export default function UserProfiles() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/90 text-sm font-semibold text-[#44403c]">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/90 text-sm font-semibold text-[#44403c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
                         {initials || 'U'}
                       </div>
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
-                          <h4 className="truncate font-semibold text-[#1c1917]">{u.username}</h4>
+                          <h4 className="truncate font-semibold text-[#1c1917] dark:text-[#f8fafc]">{u.username}</h4>
                           <span className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${roleBadge(u)}`}>
                             {isAdmin ? 'Admin' : 'Técnico'}
                           </span>
                         </div>
-                        <p className="text-sm text-[#78716c] truncate">{fullName || '—'}</p>
+                        <p className="text-sm text-[#78716c] dark:text-[#8ea0b8] truncate">{fullName || '—'}</p>
                       </div>
                     </div>
 
@@ -1003,22 +1029,22 @@ export default function UserProfiles() {
                       <button
                         type="button"
                         onClick={() => setOpenMenuId((prev) => (prev === u.id ? null : u.id))}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-[#fcfaf6]/90 text-[#78716c] hover:border-[#e2d9ca] hover:bg-[#fffdfa] hover:text-[#44403c]"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-[#fcfaf6]/90 text-[#78716c] hover:border-[#e2d9ca] hover:bg-[#fffdfa] hover:text-[#44403c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#8ea0b8] dark:hover:bg-[#1e293b] dark:hover:text-[#f8fafc]"
                       >
                         <MoreDotIcon className="h-5 w-5 fill-current" />
                       </button>
 
                       {openMenuId === u.id && (
-                        <div className="absolute right-0 top-full z-[200] mt-1.5 w-44 overflow-hidden rounded-xl border border-[#e2d9ca] bg-[#fffdfa] py-1 shadow-lg ring-1 ring-black/5">
+                        <div className="absolute right-0 top-full z-[200] mt-1.5 w-44 overflow-hidden rounded-xl border border-[#e2d9ca] bg-[#fffdfa] py-1 shadow-lg ring-1 ring-black/5 dark:border-[#334155] dark:bg-[#111827] dark:ring-white/10">
                           <button
                             type="button"
                             onClick={() => {
                               setOpenMenuId(null);
                               openEdit(u);
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-[#44403c] transition-colors hover:bg-[#fcfaf6]"
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-[#44403c] transition-colors hover:bg-[#fcfaf6] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80"
                           >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f0e8] text-[#57534e]">
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f0e8] text-[#57534e] dark:bg-[#1e293b] dark:text-[#cbd5e1]">
                               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -1031,9 +1057,9 @@ export default function UserProfiles() {
                             onClick={() => {
                               openPerms(u);
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-[#44403c] transition-colors hover:bg-[#fcfaf6]"
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-[#44403c] transition-colors hover:bg-[#fcfaf6] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80"
                           >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f0e8] text-[#57534e]">
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f0e8] text-[#57534e] dark:bg-[#1e293b] dark:text-[#cbd5e1]">
                               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                               </svg>
@@ -1047,9 +1073,9 @@ export default function UserProfiles() {
                                 setOpenMenuId(null);
                                 setConfirmDeleteId(u.id);
                               }}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
                             >
-                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600">
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400">
                                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                                 </svg>
@@ -1063,12 +1089,12 @@ export default function UserProfiles() {
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 gap-2">
-                    <div className="truncate text-sm text-[#57534e]">
-                      <span className="text-[#78716c]">Correo:</span>{' '}
+                    <div className={cn("truncate", bodyMutedClass)}>
+                      <span className="text-[#78716c] dark:text-[#8ea0b8]">Correo:</span>{' '}
                       {u.email || '—'}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center rounded-md border border-[#e7ded0] bg-[#fcfaf6]/90 px-2 py-0.5 text-[11px] font-semibold text-[#44403c]">
+                      <span className="inline-flex items-center rounded-md border border-[#e7ded0] bg-[#fcfaf6]/90 px-2 py-0.5 text-[11px] font-semibold text-[#44403c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1]">
                         <svg className="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                           <path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2Z" />
                           <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -1076,10 +1102,10 @@ export default function UserProfiles() {
                         Acceso con contraseña
                       </span>
                     </div>
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 px-3 py-2.5 dark:border-[#334155] dark:bg-[#0f172a]/80">
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-[#78716c]">Acceso al sistema</p>
-                        <p className="mt-0.5 text-sm text-[#1c1917]">
+                        <p className="text-xs font-medium text-[#78716c] dark:text-[#8ea0b8]">Acceso al sistema</p>
+                        <p className="mt-0.5 text-sm text-[#1c1917] dark:text-[#f8fafc]">
                           {isActive ? 'Cuenta habilitada' : 'Cuenta deshabilitada'}
                         </p>
                       </div>
@@ -1090,12 +1116,12 @@ export default function UserProfiles() {
                         aria-label={isActive ? 'Desactivar cuenta' : 'Activar cuenta'}
                         disabled={switchDisabled}
                         onClick={() => void toggleUserActive(u)}
-                        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fcfaf6] ${
+                        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fcfaf6] dark:focus-visible:ring-offset-[#111827] ${
                           switchDisabled
-                            ? 'cursor-not-allowed border border-[#e7ded0] bg-[#e7ded0]/90 opacity-60'
+                            ? 'cursor-not-allowed border border-[#e7ded0] bg-[#e7ded0]/90 opacity-60 dark:border-[#334155] dark:bg-[#334155]/90'
                             : isActive
                               ? 'bg-[#5db872]'
-                              : 'bg-[#e7ded0]'
+                              : 'bg-[#e7ded0] dark:bg-[#334155]'
                         }`}
                       >
                         <span
@@ -1113,7 +1139,7 @@ export default function UserProfiles() {
             </AnimatePresence>
 
             {!filtered.length && (
-              <div className="col-span-full py-10 text-center text-sm text-[#78716c]">
+              <div className="col-span-full py-10 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]">
                 No hay usuarios.
               </div>
             )}
@@ -1306,7 +1332,7 @@ export default function UserProfiles() {
 
       <Modal mobileBottomSheet isOpen={isPermsOpen} onClose={closePerms} closeOnBackdropClick={false} className="flex max-h-[min(92vh,880px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl">
         <div className="overflow-hidden rounded-2xl">
-          <div className="px-5 py-4 border-b border-[#e7ded0] bg-[#fffdfa]/70 backdrop-blur">
+          <div className={permsModalHeaderClass}>
             <div className="flex items-center gap-3">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#9a3412]/40 dark:bg-[#7c2d12]/20 dark:text-[#fdba74]">
                 <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1315,10 +1341,10 @@ export default function UserProfiles() {
                 </svg>
               </span>
               <div className="min-w-0">
-                <h3 className="text-base font-semibold text-[#1c1917] truncate [font-family:Georgia,'Times_New_Roman',serif]">
+                <h3 className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc] truncate [font-family:Georgia,'Times_New_Roman',serif]">
                   Permisos{permsUser ? `: ${permsUser.username}` : ''}
                 </h3>
-                <p className="mt-0.5 text-[11px] text-[#78716c]">
+                <p className="mt-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
                   Define qué vistas puede ver y qué acciones puede realizar este usuario.
                 </p>
               </div>
@@ -1343,7 +1369,7 @@ export default function UserProfiles() {
             )}
 
             {permsLoading ? (
-              <div className="py-10 text-center text-sm text-[#78716c]">Cargando permisos...</div>
+              <div className="py-10 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]">Cargando permisos...</div>
             ) : (
               <div className="space-y-4">
                 {(() => {
@@ -1428,6 +1454,16 @@ export default function UserProfiles() {
                         </svg>
                       );
                     }
+                    if (key === 'cuentas_antarix') {
+                      return (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                          <path d="M12 11v4" />
+                          <path d="M10 13h4" />
+                        </svg>
+                      );
+                    }
                     return (
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                         <path d="M4 19V5" />
@@ -1450,6 +1486,7 @@ export default function UserProfiles() {
                           modules: [
                             { key: 'ordenes' as const, label: 'Órdenes de Servicios' },
                             { key: 'reportes' as const, label: 'Reportes semanales' },
+                            { key: 'cuentas_antarix' as const, label: 'Cuentas Antarix GPS' },
                           ],
                         },
                       ] as const)
@@ -1465,6 +1502,7 @@ export default function UserProfiles() {
                           modules: [
                             { key: 'ordenes' as const, label: 'Órdenes de Servicios' },
                             { key: 'reportes' as const, label: 'Reportes semanales' },
+                            { key: 'cuentas_antarix' as const, label: 'Cuentas Antarix GPS' },
                           ],
                         },
                       ] as const);
@@ -1481,30 +1519,27 @@ export default function UserProfiles() {
                       {sections.map((sec) => {
                         const isOpen = !!permsOpenSections[sec.key];
                         return (
-                          <div
-                            key={sec.key}
-                            className="rounded-2xl border border-[#e7ded0] bg-[#fffdfa] shadow-theme-xs overflow-hidden"
-                          >
+                          <div key={sec.key} className={permsAccordionClass}>
                             <button
                               type="button"
                               onClick={() => setPermsOpenSections(prev => ({ ...prev, [sec.key]: !prev[sec.key] }))}
-                              className="w-full px-4 py-3 flex items-center justify-between gap-3 bg-[#fffdfa]/70 backdrop-blur"
+                              className={permsAccordionBtnClass}
                               aria-expanded={isOpen}
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#f5f0e8] text-[#57534e]">
+                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#f5f0e8] text-[#57534e] dark:bg-[#1e293b] dark:text-[#cbd5e1]">
                                   <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                                     <path d="M4 6h16M4 12h16M4 18h16" />
                                   </svg>
                                 </span>
                                 <div className="min-w-0 text-left">
-                                  <div className="text-sm font-semibold text-[#1c1917] truncate">{sec.label}</div>
-                                  <div className="text-[11px] text-[#78716c] truncate">
+                                  <div className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc] truncate">{sec.label}</div>
+                                  <div className="text-[11px] text-[#78716c] dark:text-[#8ea0b8] truncate">
                                     {sec.modules.length > 0 ? `${sec.modules.length} módulo(s)` : 'Sin módulos configurados'}
                                   </div>
                                 </div>
                               </div>
-                              <svg className={`w-4 h-4 text-[#78716c] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="none">
+                              <svg className={`w-4 h-4 text-[#78716c] dark:text-[#8ea0b8] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="none">
                                 <path d="M5.25 7.5 10 12.25 14.75 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
                             </button>
@@ -1513,8 +1548,8 @@ export default function UserProfiles() {
                               className={`grid transition-all duration-300 ease-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
                             >
                               <div className="overflow-hidden">
-                                <div className="p-4 border-t border-[#e7ded0]">
-                                  <div className="hidden sm:grid grid-cols-12 gap-3 pb-2 text-[11px] font-semibold text-[#78716c]">
+                                <div className="p-4 border-t border-[#e7ded0] dark:border-[#334155]">
+                                  <div className="hidden sm:grid grid-cols-12 gap-3 pb-2 text-[11px] font-semibold text-[#78716c] dark:text-[#8ea0b8]">
                                     <div className="col-span-5">Módulo</div>
                                     <div className="col-span-7 grid grid-cols-4 gap-3 text-center">
                                       {actionLabels.map(a => (
@@ -1541,7 +1576,7 @@ export default function UserProfiles() {
                                                 if (!canDelegatePerms) return;
                                                 setPerm(m.key, k, !checked);
                                               }}
-                                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-[#ff801f]/40 active:scale-[0.98] ${checked ? 'bg-[#ff801f]' : 'bg-[#e7ded0]'} ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
+                                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-[#ff801f]/40 active:scale-[0.98] ${checked ? 'bg-[#ff801f]' : 'bg-[#e7ded0] dark:bg-[#334155]'} ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
                                             >
                                               <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${checked ? 'translate-x-4' : 'translate-x-1'}`} />
                                             </button>
@@ -1549,18 +1584,15 @@ export default function UserProfiles() {
                                         };
 
                                         return (
-                                          <div
-                                            key={m.key}
-                                            className="rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/60 px-3 py-3"
-                                          >
+                                          <div key={m.key} className={permsModuleRowClass}>
                                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                                               <div className="sm:col-span-5">
                                                 <div className="flex items-center gap-2">
-                                                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#fffdfa] text-[#57534e] shadow-sm">
+                                                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#fffdfa] text-[#57534e] shadow-sm dark:bg-[#111a2b] dark:text-[#cbd5e1]">
                                                     {getIcon(m.key)}
                                                   </span>
                                                   <div className="min-w-0">
-                                                    <div className="text-sm font-medium text-[#1c1917] truncate">{m.label}</div>
+                                                    <div className="text-sm font-medium text-[#1c1917] dark:text-[#f8fafc] truncate">{m.label}</div>
                                                     {supportsOwnScope && (
                                                       <button
                                                         type="button"
@@ -1575,14 +1607,14 @@ export default function UserProfiles() {
                                                         className={`mt-1 inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition-all ${
                                                           cur.own_only
                                                             ? 'border-[#ff801f]/80 bg-[#ff801f]/10 text-[#9a3412] dark:border-[#ffa057]/80 dark:bg-[#ff801f]/15 dark:text-[#ffa057]'
-                                                            : 'border-[#e2d9ca] bg-[#fffdfa] text-[#57534e] hover:border-[#e2d9ca] hover:bg-[#fcfaf6]'
+                                                            : 'border-[#e2d9ca] bg-[#fffdfa] text-[#57534e] hover:border-[#e2d9ca] hover:bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]/80'
                                                         } ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
                                                       >
                                                         <span
                                                           className={`relative inline-flex h-4 w-7 items-center rounded-full border transition-colors ${
                                                             cur.own_only
                                                               ? 'border-[#ff801f]/80 bg-[#ff801f]'
-                                                              : 'border-[#e7ded0] bg-[#e7ded0]'
+                                                              : 'border-[#e7ded0] bg-[#e7ded0] dark:border-[#334155] dark:bg-[#334155]'
                                                           }`}
                                                           aria-hidden
                                                         >
@@ -1612,7 +1644,7 @@ export default function UserProfiles() {
                                       })}
                                     </div>
                                   ) : (
-                                    <div className="rounded-xl border border-dashed border-[#e7ded0] p-4 text-center text-sm text-[#78716c]">
+                                    <div className="rounded-xl border border-dashed border-[#e7ded0] dark:border-[#334155] p-4 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]">
                                       Esta sección todavía no tiene módulos conectados a permisos.
                                     </div>
                                   )}
@@ -1630,7 +1662,7 @@ export default function UserProfiles() {
                   <button
                     type="button"
                     onClick={closePerms}
-                    className="inline-flex items-center justify-center rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-4 py-2.5 text-xs font-medium text-[#44403c] shadow-theme-xs hover:bg-[#fcfaf6]"
+                    className={secondaryOutlineBtnClass}
                   >
                     Cancelar
                   </button>

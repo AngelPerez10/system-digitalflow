@@ -17,7 +17,7 @@ import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog
 import { PencilIcon, TrashBinIcon, TimeIcon } from "@/icons";
 import { MobileOrderList } from "./MobileOrderCard";
 import { OrdenPdfLoadingModal } from "./OrdenPdfLoadingModal";
-import { handleOrdenPdfClick } from "./useOrdenesShared";
+import { downloadOrdenesMesPdf, handleOrdenPdfClick } from "./useOrdenesShared";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
@@ -491,6 +491,7 @@ export default function Ordenes() {
   }>({ show: false, variant: "success", title: "", message: "" });
 
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [mesPdfLoading, setMesPdfLoading] = useState(false);
 
   const handleOrdenPdf = (orden: Orden) => {
     handleOrdenPdfClick(orden, navigate, location.pathname, {
@@ -499,6 +500,47 @@ export default function Ordenes() {
         setAlert({ show: true, variant: "error", title: "PDF", message });
         setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 5000);
       },
+    });
+  };
+
+  const ordenesDelMes = useMemo(() => {
+    if (!selectedMonth || !Array.isArray(ordenes)) return [];
+    const prefix = `${selectedMonth}-`;
+    return ordenes.filter((o) => {
+      const base = (o.fecha_inicio || o.fecha_creacion || "").toString();
+      return base.startsWith(prefix);
+    });
+  }, [ordenes, selectedMonth]);
+
+  const handleDownloadMesPdf = () => {
+    const ym = parseYearMonth(selectedMonth);
+    if (!ym) {
+      setAlert({
+        show: true,
+        variant: "warning",
+        title: "PDF del mes",
+        message: "Seleccione un mes válido para descargar el listado.",
+      });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
+      return;
+    }
+    if (ordenesDelMes.length === 0) {
+      setAlert({
+        show: true,
+        variant: "info",
+        title: "Sin órdenes",
+        message: "No hay órdenes registradas en el mes seleccionado.",
+      });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
+      return;
+    }
+    setMesPdfLoading(true);
+    void downloadOrdenesMesPdf(selectedMonth).then((result) => {
+      setMesPdfLoading(false);
+      if (!result.ok && result.message) {
+        setAlert({ show: true, variant: "error", title: "PDF del mes", message: result.message });
+        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 5000);
+      }
     });
   };
 
@@ -1770,7 +1812,7 @@ export default function Ordenes() {
         <span className="text-[#44403c] dark:text-[#cbd5e1]">Órdenes de trabajo</span>
       </nav>
 
-      <OrdenPdfLoadingModal open={pdfDownloading} downloading />
+      <OrdenPdfLoadingModal open={pdfDownloading || mesPdfLoading} downloading />
 
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
@@ -1919,12 +1961,26 @@ export default function Ordenes() {
         className={`overflow-visible ${pageCardShellClass}`}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadMesPdf}
+              disabled={mesPdfLoading || loading}
+              className={erpSecondaryBtnClass + " h-10 w-full sm:w-auto shrink-0"}
+              title="Descargar PDF con todas las órdenes del mes visible"
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M7 10l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M12 15V3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              PDF del mes
+            </button>
             {/* Filtro desplegable */}
-            <div className={`relative w-full ${filterOpen ? "z-[100]" : "z-0"}`} ref={filterRef}>
+            <div className={`relative w-full sm:w-auto ${filterOpen ? "z-[100]" : "z-0"}`} ref={filterRef}>
               <button
                 type="button"
                 onClick={() => setFilterOpen(v => !v)}
-                className={erpFilterBtnClass}
+                className={erpFilterBtnClass + " w-full sm:w-auto"}
               >
 
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

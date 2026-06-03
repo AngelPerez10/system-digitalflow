@@ -74,6 +74,40 @@ def _pdf_response_from_html(html: str, filename: str):
     return response
 
 
+MESES_ES_PDF = (
+    '',
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+)
+
+
+def _intrax_logo_data_uri() -> str:
+    try:
+        repo_root = Path(__file__).resolve().parents[3]
+        logo_path = repo_root / 'frontend' / 'public' / 'images' / 'logo' / 'intrax-logo.png'
+        if logo_path.exists():
+            b64 = base64.b64encode(logo_path.read_bytes()).decode('ascii')
+            return f'data:image/png;base64,{b64}'
+    except Exception:
+        logger.exception('Failed to load Intrax logo for PDF')
+    return ''
+
+
+def _filename_listado_mes_pdf(mes: str) -> str:
+    safe = re.sub(r'[^\d\-]', '', mes) or 'mes'
+    return f'Ordenes_servicio_{safe}.pdf'
+
+
 def _filename_reporte_semanal_pdf(reporte: ReporteSemanal) -> str:
     """Nombre descargable: Reporte_semanal_tecnico_YYYY-MM-DD_YYYY-MM-DD.pdf"""
     t = reporte.tecnico
@@ -942,6 +976,244 @@ class OrdenViewSet(viewsets.ModelViewSet):
 </body>
 </html>"""
         return html
+
+    def _generate_listado_mes_pdf_html(self, mes: str, ordenes: list) -> str:
+        """HTML para PDF del listado mensual (folio, cliente, fechas, técnico, estado, comentarios vacíos)."""
+
+        def esc(v):
+            return (
+                str(v if v is not None else '')
+                .replace('&', '&amp;')
+                .replace('<', '&lt;')
+                .replace('>', '&gt;')
+                .replace('"', '&quot;')
+                .replace("'", '&#39;')
+            )
+
+        m = re.match(r'^(\d{4})-(\d{2})$', (mes or '').strip())
+        if m:
+            year, month_num = int(m.group(1)), int(m.group(2))
+            mes_label = (
+                f'{MESES_ES_PDF[month_num].capitalize()} {year}'
+                if 1 <= month_num <= 12
+                else mes
+            )
+        else:
+            mes_label = mes
+
+        logo_data_uri = _intrax_logo_data_uri()
+        logo_html = (
+            f"<div class='logo'><img src='{esc(logo_data_uri)}' alt='Intrax' /></div>"
+            if logo_data_uri
+            else "<div class='logo'></div>"
+        )
+
+        def fmt_date(d):
+            if not d:
+                return '—'
+            if hasattr(d, 'strftime'):
+                return d.strftime('%d/%m/%Y')
+            s = str(d)[:10]
+            try:
+                return date.fromisoformat(s).strftime('%d/%m/%Y')
+            except Exception:
+                return esc(s) if s else '—'
+
+        def tecnico_nombre(o: Orden) -> str:
+            t = o.tecnico_asignado
+            if t:
+                name = f'{t.first_name or ""} {t.last_name or ""}'.strip()
+                return name or (t.email or t.username or f'#{t.pk}')
+            enc = (o.nombre_encargado or '').strip()
+            return enc or '—'
+
+        def status_label(raw) -> str:
+            s = str(raw or '').strip().lower()
+            if s == 'resuelto':
+                return 'Resuelto'
+            if s == 'pendiente':
+                return 'Pendiente'
+            return str(raw or '—').strip() or '—'
+
+        rows = []
+        for o in ordenes:
+            folio = (o.folio or '').strip() or str(o.idx or o.pk)
+            rows.append(
+                f"""
+                <tr>
+                  <td class='col-folio'>{esc(folio)}</td>
+                  <td class='col-cliente'>{esc(o.cliente or 'Sin cliente')}</td>
+                  <td class='col-fecha'>{esc(fmt_date(o.fecha_inicio))}</td>
+                  <td class='col-fecha'>{esc(fmt_date(o.fecha_finalizacion))}</td>
+                  <td class='col-tecnico'>{esc(tecnico_nombre(o))}</td>
+                  <td class='col-status td-status'>{esc(status_label(o.status))}</td>
+                  <td class='col-notas td-notas'>&nbsp;</td>
+                </tr>
+                """
+            )
+        rows_html = ''.join(rows) or (
+            "<tr><td colspan='7' class='empty-row'>No hay órdenes registradas en este mes.</td></tr>"
+        )
+
+        generado = timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M')
+
+        html = f"""<!doctype html>
+<html lang='es'>
+<head>
+  <meta charset='utf-8' />
+  <title>Órdenes — {esc(mes_label)}</title>
+  <style>
+    @page {{ size: A4 landscape; margin: 12mm 14mm; }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+      color: #1a1a1a;
+      font-size: 9.5px;
+      line-height: 1.35;
+      background: #fff;
+    }}
+    .header {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #1a1a1a;
+    }}
+    .header-text {{ flex: 1; }}
+    .header-label {{
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }}
+    h1 {{
+      font-size: 15px;
+      font-weight: 600;
+      color: #111827;
+      letter-spacing: -0.01em;
+    }}
+    .meta {{
+      margin-top: 4px;
+      font-size: 8.5px;
+      color: #6b7280;
+    }}
+    .logo img {{
+      max-height: 44px;
+      max-width: 130px;
+      object-fit: contain;
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }}
+    thead th {{
+      background: #f3f4f6;
+      color: #374151;
+      font-size: 8px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 8px 7px;
+      border: 1px solid #d1d5db;
+      text-align: left;
+      vertical-align: bottom;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }}
+    tbody td {{
+      padding: 7px;
+      border: 1px solid #e5e7eb;
+      vertical-align: middle;
+      color: #111827;
+      font-size: 9px;
+      word-wrap: break-word;
+    }}
+    tbody tr:nth-child(even) td {{ background: #fafafa; }}
+    .col-folio {{ width: 7%; font-weight: 600; }}
+    .col-cliente {{ width: 22%; }}
+    .col-fecha {{ width: 9%; white-space: nowrap; color: #374151; }}
+    .col-tecnico {{ width: 15%; color: #374151; }}
+    .col-status {{ width: 8%; text-align: center; }}
+    .col-notas {{ width: 30%; }}
+    thead th.col-status {{ text-align: center; }}
+    thead th.col-notas {{ font-style: italic; font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 8.5px; color: #6b7280; }}
+    .td-status {{ text-align: center; font-weight: 500; }}
+    .td-notas {{
+      min-height: 26px;
+      height: 26px;
+      background: #fff !important;
+    }}
+    .empty-row {{
+      text-align: center;
+      color: #9ca3af;
+      font-style: italic;
+      padding: 16px !important;
+    }}
+  </style>
+</head>
+<body>
+  <header class='header'>
+    <div class='header-text'>
+      <p class='header-label'>Listado mensual</p>
+      <h1>Órdenes de servicio · {esc(mes_label)}</h1>
+      <p class='meta'>Generado el {esc(generado)}</p>
+    </div>
+    {logo_html}
+  </header>
+  <table>
+    <thead>
+      <tr>
+        <th class='col-folio'>Folio</th>
+        <th class='col-cliente'>Cliente</th>
+        <th class='col-fecha'>Inicio</th>
+        <th class='col-fecha'>Fin</th>
+        <th class='col-tecnico'>Técnico</th>
+        <th class='col-status'>Estado</th>
+        <th class='col-notas'>Comentarios</th>
+      </tr>
+    </thead>
+    <tbody>
+      {rows_html}
+    </tbody>
+  </table>
+</body>
+</html>"""
+        return html
+
+    def _ordenes_for_month(self, mes: str):
+        """Órdenes visibles para el usuario cuya fecha de inicio o creación cae en YYYY-MM."""
+        prefix = f'{mes}-'
+        result = []
+        for o in self.get_queryset():
+            base = o.fecha_inicio or o.fecha_creacion
+            if not base:
+                continue
+            if str(base).startswith(prefix):
+                result.append(o)
+        result.sort(
+            key=lambda x: (
+                -(x.fecha_inicio.toordinal() if x.fecha_inicio else 0),
+                -(x.fecha_creacion.timestamp() if x.fecha_creacion else 0),
+                -(x.pk or 0),
+            )
+        )
+        return result
+
+    @action(detail=False, methods=['get'], url_path='listado-mes-pdf')
+    def listado_mes_pdf(self, request):
+        """PDF con todas las órdenes del mes (query: mes=YYYY-MM)."""
+        mes = (request.query_params.get('mes') or '').strip()
+        if not re.match(r'^\d{4}-\d{2}$', mes):
+            raise ValidationError({'mes': 'Formato requerido: YYYY-MM (ej. 2026-06).'})
+        ordenes = self._ordenes_for_month(mes)
+        html = self._generate_listado_mes_pdf_html(mes, ordenes)
+        filename = _filename_listado_mes_pdf(mes)
+        return _pdf_response_from_html(html, filename)
 
     @action(
         detail=False,

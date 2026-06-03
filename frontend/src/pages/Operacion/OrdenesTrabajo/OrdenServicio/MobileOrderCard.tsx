@@ -34,6 +34,8 @@ interface MobileOrderCardProps {
   canEdit?: boolean;
   canDelete?: boolean;
   tecnicoNombre?: string;
+  notaPdf?: string;
+  onNotaChange?: (ordenId: number, value: string) => void;
 }
 
 export function MobileOrderCard({
@@ -47,6 +49,8 @@ export function MobileOrderCard({
   canEdit,
   canDelete,
   tecnicoNombre,
+  notaPdf = "",
+  onNotaChange,
 }: MobileOrderCardProps) {
   const [showProblematicaModal, setShowProblematicaModal] = useState(false);
   const fechaInicio = orden.fecha_inicio || orden.fecha_creacion || '';
@@ -118,6 +122,21 @@ export function MobileOrderCard({
         </div>
       )}
 
+      {onNotaChange && (
+        <div className="mt-2 pt-2 border-t border-[#e7ded0] dark:border-[#273244]">
+          <label className="block text-[10px] font-medium uppercase tracking-wide text-[#78716c] dark:text-[#8ea0b8] mb-1">
+            Comentarios
+          </label>
+          <textarea
+            value={notaPdf}
+            onChange={(e) => onNotaChange(orden.id, e.target.value)}
+            rows={2}
+            placeholder="Escriba sus notas…"
+            className="w-full min-h-[40px] resize-y rounded-lg border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-1.5 text-[11px] text-[#1c1917] outline-none placeholder:text-[#a8a29e] focus:border-[#9ca3af] focus:ring-1 focus:ring-[#d1d5db] dark:border-[#334155] dark:bg-[#0f172a]/60 dark:text-[#e5e7eb]"
+          />
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#78716c] dark:text-[#8ea0b8] pt-2 mt-2 border-t border-[#e7ded0] dark:border-[#273244]">
         <div className="flex items-center gap-1">
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
@@ -160,6 +179,8 @@ interface MobileOrderListProps {
   canEdit?: boolean;
   canDelete?: boolean;
   usuarios?: any[];
+  notasMesPdf?: Record<number, string>;
+  onNotaChange?: (ordenId: number, value: string) => void;
 }
 
 export function MobileOrderList({
@@ -173,6 +194,8 @@ export function MobileOrderList({
   canEdit,
   canDelete,
   usuarios = [],
+  notasMesPdf = {},
+  onNotaChange,
 }: MobileOrderListProps) {
   const getTecnicoNombre = (orden: any): string => {
     const tecnico = usuarios.find((u: any) => u.id === orden.tecnico_asignado);
@@ -202,6 +225,8 @@ export function MobileOrderList({
           canEdit={canEdit}
           canDelete={canDelete}
           tecnicoNombre={getTecnicoNombre(orden)}
+          notaPdf={notasMesPdf[orden.id] ?? ""}
+          onNotaChange={onNotaChange}
         />
       ))}
       {!loading && ordenes.length === 0 && (
