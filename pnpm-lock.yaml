@@ -44,6 +44,9 @@ importers:
       '@fullcalendar/timegrid':
         specifier: ^6.1.15
         version: 6.1.20(@fullcalendar/core@6.1.20)
+      '@tanstack/react-table':
+        specifier: ^8.21.3
+        version: 8.21.3(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@uiw/react-color-sketch':
         specifier: ^2.9.5
         version: 2.10.1(@babel/runtime@7.29.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -958,6 +961,17 @@ packages:
 
   '@tailwindcss/postcss@4.2.2':
     resolution: {integrity: sha512-n4goKQbW8RVXIbNKRB/45LzyUqN451deQK0nzIeauVEqjlI49slUlgKYJM2QyUzap/PcpnS7kzSUmPb1sCRvYQ==}
+
+  '@tanstack/react-table@8.21.3':
+    resolution: {integrity: sha512-5nNMTSETP4ykGegmVkhjcS8tTLW6Vl4axfEGQN3v0zdHYbK4UfoqfPChclTrJ4EoK9QynqAu9oUf8VEmrpZ5Ww==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      react: '>=16.8'
+      react-dom: '>=16.8'
+
+  '@tanstack/table-core@8.21.3':
+    resolution: {integrity: sha512-ldZXEhOBb8Is7xLs01fR3YEc3DERiz5silj8tnGkFZytt1abEvl/GhUmCE0PMLaMPTa3Jk4HbKmRlHmu+gCftg==}
+    engines: {node: '>=12'}
 
   '@teddyzhu/clipboard-darwin-arm64@0.0.5':
     resolution: {integrity: sha512-FB3yykRAcw0VLmSjIGFddgew2t20UnLp80NZvi5e/lbsy/3mruHibMHkxHWqzCncuZsHdRsRXS/FmR/ggepW9A==}
@@ -3359,6 +3373,14 @@ snapshots:
       '@tailwindcss/oxide': 4.2.2
       postcss: 8.5.9
       tailwindcss: 4.2.2
+
+  '@tanstack/react-table@8.21.3(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
+    dependencies:
+      '@tanstack/table-core': 8.21.3
+      react: 19.2.5
+      react-dom: 19.2.5(react@19.2.5)
+
+  '@tanstack/table-core@8.21.3': {}
 
   '@teddyzhu/clipboard-darwin-arm64@0.0.5':
     optional: true
