@@ -5,8 +5,8 @@ from rest_framework.test import APIRequestFactory
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.users.models import UserPermissions
-from apps.users.views import login_view, token_refresh_view
 from apps.users.permissions import OrdenesPermission, TareasPermission
+from apps.users.views import login_view, token_refresh_view
 
 User = get_user_model()
 

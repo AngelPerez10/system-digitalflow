@@ -233,11 +233,11 @@ def _open_and_verify_image(raw: bytes) -> Image.Image:
 
 def _optimize_image(data_url: str, max_size_kb: int = 80) -> str:
     """Optimize image to reduce file size while maintaining transparency.
-    
+
     Args:
         data_url: Base64 data URL of the image
         max_size_kb: Maximum file size in KB (default 80KB)
-    
+
     Returns:
         Optimized data URL
     """
@@ -259,9 +259,6 @@ def _optimize_image(data_url: str, max_size_kb: int = 80) -> str:
 
         if has_transparency:
             # Use PNG for images with transparency
-            # Start with compression level 6 (default)
-            compress_level = 6
-
             # Try different compression levels
             for level in range(6, 10):
                 output = io.BytesIO()
@@ -331,7 +328,7 @@ def _optimize_image(data_url: str, max_size_kb: int = 80) -> str:
 
 def _extract_public_id_from_url(url: str) -> str:
     """Extract Cloudinary public_id from URL.
-    
+
     Example: https://res.cloudinary.com/cloud/image/upload/v123/ordenes/fotos/abc.jpg
     Returns: ordenes/fotos/abc
     """
@@ -383,7 +380,7 @@ def _delete_cloudinary_resource(url: str, resource_type: str = "image"):
 def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
     """Upload a data URL (base64) to Cloudinary and return the secure URL.
     If Cloudinary is not configured, returns the original data URL.
-    
+
     Args:
         data_url: Base64 data URL
         folder: Cloudinary folder path
