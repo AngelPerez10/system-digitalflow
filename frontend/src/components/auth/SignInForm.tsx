@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { EyeCloseIcon, EyeIcon } from "@/icons";
 import Label from "@/components/form/Label";
@@ -13,6 +13,12 @@ import {
 } from "@/config/api";
 import { parseLoginError, type LoginSuccessPayload } from "@/config/loginErrors";
 import { useAuth } from "@/context/AuthContext";
+
+type SignInLocationState = {
+  from?: {
+    pathname?: string;
+  };
+};
 
 async function login(loginValue: string, password: string) {
   await ensureCsrfCookie();
@@ -39,13 +45,13 @@ export default function SignInForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation() as any;
+  const location = useLocation();
   const { refresh: refreshAuth, applyLoginSession, user } = useAuth();
 
   useEffect(() => {
     if (user?.username) {
       const isAdmin = user.is_superuser || user.is_staff;
-      const from = location?.state?.from?.pathname;
+      const from = (location.state as SignInLocationState | null)?.from?.pathname;
       navigate(isAdmin ? (from || '/') : '/ordenes-tecnico', { replace: true });
       return;
     }
@@ -53,7 +59,7 @@ export default function SignInForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
@@ -69,11 +75,11 @@ export default function SignInForm() {
       setPassword("");
       setMessage(null);
       const isAdmin = data.is_superuser || data.is_staff;
-      const from = location?.state?.from?.pathname;
+      const from = (location.state as SignInLocationState | null)?.from?.pathname;
       const to = isAdmin ? (from && from !== '/' ? from : '/') : '/ordenes-tecnico';
       navigate(to, { replace: true });
-    } catch (err: any) {
-      setMessage(err.message || 'Error');
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : 'Error');
     } finally {
       setLoading(false);
     }
@@ -101,12 +107,12 @@ export default function SignInForm() {
               <div className="space-y-6">
                 <div>
                   <Label htmlFor="login-value">Correo o usuario <span className="text-error-500">*</span></Label>
-                  <Input id="login-value" value={loginValue} onChange={(e: any) => setLoginValue(e.target.value)} placeholder="correo@ejemplo.com" />
+                  <Input id="login-value" value={loginValue} onChange={(e: ChangeEvent<HTMLInputElement>) => setLoginValue(e.target.value)} placeholder="correo@ejemplo.com" />
                 </div>
                 <div>
                   <Label htmlFor="login-password">Contraseña <span className="text-error-500">*</span></Label>
                   <div className="relative">
-                    <Input id="login-password" value={password} onChange={(e: any) => setPassword(e.target.value)} type={showPassword ? 'text' : 'password'} placeholder="Ingresa tu contraseña" />
+                    <Input id="login-password" value={password} onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} type={showPassword ? 'text' : 'password'} placeholder="Ingresa tu contraseña" />
                     <button
                       type="button"
                       aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}

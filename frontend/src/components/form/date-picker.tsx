@@ -69,7 +69,7 @@ export default function DatePicker({
       cal.style.right = 'auto';
       cal.style.bottom = 'auto';
     } catch {
-      // ignore
+      /* ignore */
     }
   };
 
@@ -133,37 +133,45 @@ export default function DatePicker({
 
     // Keep instance reference and adjust z-index
     if (!Array.isArray(flatPickr)) {
-      instanceRef.current = flatPickr as any;
+      instanceRef.current = flatPickr;
       try {
-        calendarElRef.current = (flatPickr as any).calendarContainer as HTMLElement;
+        calendarElRef.current = flatPickr.calendarContainer;
         // Ensure the calendar renders above app modals/overlays (use max int z-index)
-        (flatPickr as any).calendarContainer.style.zIndex = '2147483647';
-        (flatPickr as any).calendarContainer.style.pointerEvents = 'auto';
+        flatPickr.calendarContainer.style.zIndex = '2147483647';
+        flatPickr.calendarContainer.style.pointerEvents = 'auto';
         // Initial position fix (covers cases where flatpickr opens immediately)
         requestAnimationFrame(() => repositionCalendar());
-      } catch { }
+      } catch {
+        /* ignore */
+      }
     }
 
     return () => {
       if (!Array.isArray(flatPickr)) {
-        try { flatPickr.destroy(); } catch { }
+        try {
+          flatPickr.destroy();
+        } catch {
+          /* ignore */
+        }
         instanceRef.current = null;
         // When using appendTo: body, flatpickr may leave the calendar node behind.
         // Remove it to avoid blocking clicks on elements below.
         try {
           calendarElRef.current?.remove();
-        } catch { }
+        } catch {
+          /* ignore */
+        }
         calendarElRef.current = null;
       }
     };
-  }, [mode, id, appendToBody]);
+  }, [mode, id, appendToBody, defaultDate]);
 
   // Sync external defaultDate into flatpickr without re-creating the instance
   useEffect(() => {
     if (!instanceRef.current) return;
     try {
       if (defaultDate) {
-        instanceRef.current.setDate(defaultDate as any, false);
+        instanceRef.current.setDate(defaultDate, false);
       } else {
         instanceRef.current.clear(false);
       }

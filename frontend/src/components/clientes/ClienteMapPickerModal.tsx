@@ -1,13 +1,42 @@
 import { useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 
+type LatLng = { lat: number; lng: number };
+
+type LeafletClickEvent = {
+  latlng: LatLng;
+};
+
+type LeafletMarkerLike = {
+  setLatLng: (coords: [number, number]) => void;
+  addTo: (map: LeafletMapLike) => LeafletMarkerLike;
+};
+
+type LeafletMapLike = {
+  setView: (coords: [number, number], zoom: number) => LeafletMapLike;
+  on(event: "zoomend", handler: () => void): void;
+  on(event: "click", handler: (event: LeafletClickEvent) => void): void;
+  getZoom: () => number;
+  remove: () => void;
+};
+
+type LeafletLike = {
+  map: (container: HTMLElement) => LeafletMapLike;
+  tileLayer: (url: string, options: { maxZoom: number; attribution: string }) => { addTo: (map: LeafletMapLike) => void };
+  marker: (coords: [number, number]) => LeafletMarkerLike;
+};
+
+function windowWithLeaflet(): Window & { L?: LeafletLike } {
+  return window as unknown as Window & { L?: LeafletLike };
+}
+
 type Props = {
   isOpen: boolean;
   onClose: () => void;
   mapContainerId: string;
   direccion: string;
-  selectedLocation: { lat: number; lng: number } | null;
-  setSelectedLocation: (loc: { lat: number; lng: number } | null) => void;
+  selectedLocation: LatLng | null;
+  setSelectedLocation: (loc: LatLng | null) => void;
   onConfirm: () => void;
   onMapError?: (message: string) => void;
 };
@@ -22,8 +51,8 @@ export function ClienteMapPickerModal({
   onConfirm,
   onMapError,
 }: Props) {
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+  const mapRef = useRef<LeafletMapLike | null>(null);
+  const markerRef = useRef<LeafletMarkerLike | null>(null);
   const zoomRef = useRef<number>(15);
 
   useEffect(() => {
@@ -42,7 +71,7 @@ export function ClienteMapPickerModal({
 
     const initFromDireccion = () => {
       const d = String(direccion || "").trim();
-      const m = d.match(/q=([\-\d\.]+),([\-\d\.]+)/);
+      const m = d.match(/q=([-\d.]+),([-\d.]+)/);
       if (m) {
         const lat = parseFloat(m[1]);
         const lng = parseFloat(m[2]);
@@ -64,7 +93,7 @@ export function ClienteMapPickerModal({
     };
 
     const ensureLeaflet = async () => {
-      const w: any = window as any;
+      const w = windowWithLeaflet();
       if (w.L) return w.L;
       if (!document.getElementById("leaflet-css")) {
         const link = document.createElement("link");
@@ -86,12 +115,15 @@ export function ClienteMapPickerModal({
         script.onerror = () => reject(new Error("Leaflet load error"));
         document.body.appendChild(script);
       });
-      return (window as any).L;
+      return windowWithLeaflet().L;
     };
 
     (async () => {
       try {
         const L = await ensureLeaflet();
+        if (!L) {
+          throw new Error("Leaflet unavailable");
+        }
         const had = initFromDireccion();
         if (!had && !selectedLocation) {
           setSelectedLocation({ lat: 19.0653, lng: -104.2831 });
@@ -111,7 +143,7 @@ export function ClienteMapPickerModal({
             /* ignore */
           }
         });
-        map.on("click", (e: any) => {
+        map.on("click", (e: LeafletClickEvent) => {
           const { lat, lng } = e.latlng;
           setSelectedLocation({ lat, lng });
         });
@@ -127,7 +159,7 @@ export function ClienteMapPickerModal({
   }, [isOpen, mapContainerId]);
 
   useEffect(() => {
-    const L: any = (window as any).L;
+    const L = windowWithLeaflet().L;
     if (!mapRef.current || !selectedLocation || !L) return;
     const map = mapRef.current;
     const currentZoom = typeof zoomRef.current === "number" ? zoomRef.current : map.getZoom?.() || 15;

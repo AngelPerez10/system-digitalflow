@@ -125,7 +125,7 @@ export function clearAuthSession() {
   resetRefreshState();
 }
 
-interface FetchApiOptions extends RequestInit {}
+type FetchApiOptions = RequestInit;
 
 let refreshPromise: Promise<boolean> | null = null;
 let refreshFailed = false;

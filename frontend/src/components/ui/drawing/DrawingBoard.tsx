@@ -1,6 +1,10 @@
 import { useRef, useEffect, useState, type ReactElement } from 'react';
 import Sketch from '@uiw/react-color-sketch';
 
+type SketchColorChange = {
+  hex?: string;
+};
+
 type DrawingTool =
   | 'select'
   | 'pencil'
@@ -118,7 +122,7 @@ export default function DrawingBoard({
     };
 
     void getSvgStampImage(svgPath, color, lw).then((img) => {
-      if ((img as any).complete && img.naturalWidth > 0) {
+      if (img.complete && img.naturalWidth > 0) {
         drawNow(img);
         return;
       }
@@ -432,7 +436,7 @@ export default function DrawingBoard({
     // esperamos a onload para rasterizar, para evitar que desaparezca "de golpe".
     if (hit.shape.type === 'camera') {
       const img = getCctvStampImage(hit.shape.color, hit.shape.lineWidth);
-      if (!((img as any).complete && img.naturalWidth > 0)) {
+      if (!(img.complete && img.naturalWidth > 0)) {
         img.onload = () => {
           rasterizeAndRemove();
         };
@@ -498,7 +502,7 @@ export default function DrawingBoard({
       }
     };
 
-    if ((img as any).complete && img.naturalWidth > 0) {
+    if (img.complete && img.naturalWidth > 0) {
       drawNow();
       return;
     }
@@ -1241,7 +1245,7 @@ export default function DrawingBoard({
               <div className="absolute left-0 z-30 mt-2 rounded-xl border border-gray-200 bg-white p-2 shadow-theme-lg dark:border-gray-700 dark:bg-gray-900">
                 <Sketch
                   color={currentColor}
-                  onChange={(c: any) => {
+                  onChange={(c: SketchColorChange) => {
                     if (c?.hex) setCurrentColor(c.hex);
                   }}
                 />

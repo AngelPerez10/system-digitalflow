@@ -14,9 +14,14 @@ import {
 } from "@/icons";
 import { useSidebar } from "@/context/SidebarContext";
 import { useAuth } from "@/context/AuthContext";
+import type { Permissions } from "@/context/authTypes";
 import { fetchApi } from "@/config/api";
 
-let appSidebarPermissionsInFlight: Promise<any> | null = null;
+type PermissionsResponse = {
+  permissions?: Permissions;
+};
+
+let appSidebarPermissionsInFlight: Promise<PermissionsResponse | null> | null = null;
 let appSidebarPermissionsLastFetchAt = 0;
 const APP_SIDEBAR_PERMS_TTL_MS = 2 * 60 * 1000;
 
@@ -50,7 +55,7 @@ const AppSidebar: React.FC = () => {
   const location = useLocation();
   const { isAdmin, permissions: authPermissions } = useAuth();
 
-  const [permissions, setPermissions] = useState<any>(authPermissions || {});
+  const [permissions, setPermissions] = useState<Permissions>(authPermissions || {});
 
   const companyName = useMemo(() => {
     try {
@@ -60,7 +65,9 @@ const AppSidebar: React.FC = () => {
         localStorage.getItem("empresa") ||
         sessionStorage.getItem("empresa");
       if (typeof fromStorage === "string" && fromStorage.trim()) return fromStorage.trim();
-    } catch { }
+    } catch {
+      /* ignore */
+    }
     return "Workspace";
   }, []);
 
@@ -93,7 +100,9 @@ const AppSidebar: React.FC = () => {
         })();
 
         await appSidebarPermissionsInFlight;
-      } catch { }
+      } catch {
+        /* ignore */
+      }
       finally {
         appSidebarPermissionsInFlight = null;
       }
@@ -105,7 +114,9 @@ const AppSidebar: React.FC = () => {
     const sync = () => {
       try {
         setPermissions(authPermissions || {});
-      } catch { }
+      } catch {
+        /* ignore */
+      }
     };
     window.addEventListener('permissions:updated', sync);
     return () => {
@@ -139,33 +150,29 @@ const AppSidebar: React.FC = () => {
         ],
       });
 
-      {
-        const contactosSub: SidebarSubItem[] = [
-          { name: "Todos", path: "/clientes", pro: false },
-          { name: "Empresas", path: "/empresas", pro: false },
-          { name: "Personas", path: "/personas", pro: false },
-          { name: "Proveedores", path: "/proveedores", pro: false },
-        ];
-        if (permissions?.usuarios?.view === true) {
-          contactosSub.push({ name: "Gestión de Usuarios", path: "/usuarios", pro: false });
-        } 
-        items.push({
-          icon: <UserCircleIcon />,
-          name: "Contactos de Negocio",
-          subItems: contactosSub,
-        });
+      const contactosSub: SidebarSubItem[] = [
+        { name: "Todos", path: "/clientes", pro: false },
+        { name: "Empresas", path: "/empresas", pro: false },
+        { name: "Personas", path: "/personas", pro: false },
+        { name: "Proveedores", path: "/proveedores", pro: false },
+      ];
+      if (permissions?.usuarios?.view === true) {
+        contactosSub.push({ name: "Gestión de Usuarios", path: "/usuarios", pro: false });
       }
+      items.push({
+        icon: <UserCircleIcon />,
+        name: "Contactos de Negocio",
+        subItems: contactosSub,
+      });
 
-      if (true) {
-        items.push({
-          icon: <BoxCubeIcon />,
-          name: "Productos Y Servicios",
-          subItems: [
-            { name: "Productos", path: "/productos", pro: false },
-            { name: "Servicios", path: "/servicios", pro: false },
-          ],
-        });
-      }
+      items.push({
+        icon: <BoxCubeIcon />,
+        name: "Productos Y Servicios",
+        subItems: [
+          { name: "Productos", path: "/productos", pro: false },
+          { name: "Servicios", path: "/servicios", pro: false },
+        ],
+      });
 
       if (permissions?.cotizaciones?.view === true) {
         items.push({
@@ -203,7 +210,7 @@ const AppSidebar: React.FC = () => {
         });
       }
     } else {
-      const subItems = [];
+      const subItems: Array<{ name: string; path: string; pro?: boolean; new?: boolean }> = [];
       if (permissions?.ordenes?.view === true) {
         subItems.push({ name: "Agenda", path: "/calendar", pro: false });
       }

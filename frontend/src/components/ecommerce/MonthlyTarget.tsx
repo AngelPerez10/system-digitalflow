@@ -36,6 +36,19 @@ type ActivityItem = {
   openEntityId?: number;
 };
 
+type UserAccountRow = {
+  id: number;
+  username?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+};
+
+type NamedRecord = {
+  nombre?: unknown;
+  username?: unknown;
+};
+
 const MAX_ITEMS = 40;
 const LOCAL_HISTORY_KEY = "system_activity_log";
 
@@ -79,9 +92,16 @@ const formatNumberWithCommas = (value: unknown) => {
   return n.toLocaleString("en-US");
 };
 
-const normalizeRows = (data: any): any[] => {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.results)) return data.results;
+const normalizeRows = (data: unknown): Record<string, unknown>[] => {
+  if (Array.isArray(data)) return data as Record<string, unknown>[];
+  if (
+    data &&
+    typeof data === "object" &&
+    "results" in data &&
+    Array.isArray((data as { results?: unknown[] }).results)
+  ) {
+    return (data as { results: Record<string, unknown>[] }).results;
+  }
   return [];
 };
 
@@ -222,7 +242,9 @@ export default function MonthlyTarget() {
             o?.tecnico_asignado_full_name
           ) || firstNonEmpty(o?.actualizado_por_username, o?.creado_por_username, o?.tecnico_asignado_username);
           const folio = String(o?.folio || o?.idx || o?.id || "-");
-          const cliente = String(o?.cliente_nombre || o?.cliente?.nombre || "sin cliente");
+          const cliente = String(
+            o?.cliente_nombre || (o?.cliente as NamedRecord | undefined)?.nombre || "sin cliente"
+          );
           const tecnico = String(o?.tecnico_asignado_username || o?.tecnico_nombre || "sin técnico");
           const estado = normalizeOrderStatus(
             o?.estado ?? o?.status ?? o?.estatus ?? o?.estado_orden ?? o?.situacion
@@ -273,7 +295,9 @@ export default function MonthlyTarget() {
             creatorName
           );
           const folio = String(c?.idx || c?.id || "-");
-          const cliente = String(c?.cliente_nombre || c?.cliente?.nombre || "sin cliente");
+          const cliente = String(
+            c?.cliente_nombre || (c?.cliente as NamedRecord | undefined)?.nombre || "sin cliente"
+          );
           const total = c?.monto_total ?? c?.total ?? c?.subtotal;
           if (created) {
             items.push({
@@ -319,7 +343,7 @@ export default function MonthlyTarget() {
               cl?.usuario_creador,
               cl?.asesor_username,
               cl?.vendedor_username,
-              cl?.owner?.username
+              (cl?.owner as NamedRecord | undefined)?.username
             ) ||
             "sistema";
           const actualizador =
@@ -335,7 +359,7 @@ export default function MonthlyTarget() {
               cl?.creado_por_username,
               cl?.asesor_username,
               cl?.vendedor_username,
-              cl?.owner?.username
+              (cl?.owner as NamedRecord | undefined)?.username
             ) ||
             creador;
           const tipo = String(cl?.tipo || cl?.tipo_cliente || "general");
@@ -468,7 +492,7 @@ export default function MonthlyTarget() {
 
         if (isAdmin && Array.isArray(usersData)) {
           const permsRows = await Promise.all(
-            usersData.map(async (u: any) => {
+            (usersData as UserAccountRow[]).map(async (u) => {
               const r = await fetchApi(`/api/users/accounts/${u.id}/permissions/`, {
                 cache: "no-store" as RequestCache,
               });

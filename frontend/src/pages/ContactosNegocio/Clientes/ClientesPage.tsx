@@ -206,8 +206,8 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
 
   useEffect(() => {
     if (!fixedTipo) return;
-    setFormData((prev: any) => ({ ...prev, tipo: fixedTipo }));
-     
+    setFormData((prev) => ({ ...prev, tipo: fixedTipo }));
+      
   }, [fixedTipo]);
 
   const fetchClientes = async (page = 1, search = "") => {
