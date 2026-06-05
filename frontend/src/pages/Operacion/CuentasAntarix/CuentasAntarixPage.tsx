@@ -3,11 +3,10 @@ import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
-import { Modal } from "@/components/ui/modal";
 import Alert from "@/components/ui/alert/Alert";
 import CuentasAntarixUsersTable from "./CuentasAntarixUsersTable";
 import EditWialonUserModal from "./EditWialonUserModal";
-import type { WialonUnitRow, WialonUserRow } from "./wialonTypes";
+import type { WialonUnitSearchEntry, WialonUserRow } from "./wialonTypes";
 import { fetchApi } from "@/config/api";
 import { cn } from "@/lib/utils";
 import {
@@ -18,16 +17,14 @@ import {
   erpPrimaryBtnClass,
   erpSansStyle,
   erpSearchInputClass,
-  erpSecondaryBtnClass,
   erpSectionHeadingClass,
   erpSectionLabelClass,
-  erpSubheadingClass,
 } from "@/layout/erpPageStyles";
 import {
   erpRowActionBarClass,
   erpRowActionBtnClass,
 } from "@/pages/Operacion/OrdenesTrabajo/ordenTrabajoStyles";
-import { PencilIcon, BoxCubeIcon } from "@/icons";
+import { PencilIcon } from "@/icons";
 
 /** Tipografía unificada (Outfit) — misma escala en página, tabla, cards y modal */
 const uiLabel = erpSectionLabelClass;
@@ -47,130 +44,8 @@ const statCardClass =
 const statIconWrapClass =
   "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#fb923c] sm:h-10 sm:w-10";
 
-const unitsModalClass =
-  "my-2 flex max-h-[min(92dvh,820px)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_30px_90px_-45px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111a2b] sm:my-auto sm:w-[min(98vw,72rem)] sm:max-w-[72rem] sm:rounded-3xl";
-
 const mobileUserCardClass =
   "w-full min-w-0 overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fcfaf6]/90 p-4 text-left font-normal shadow-[0_8px_24px_-16px_rgba(28,25,23,0.2)] transition-all hover:border-[#ff801f]/35 hover:bg-[#fff8f1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff801f] dark:border-[#273244] dark:bg-[#111a2b]/80 dark:hover:border-[#fb923c]/40 dark:hover:bg-white/[0.04] sm:p-5";
-
-const TRUCK_CARD_IMAGE = "/images/cards/truck.png";
-
-type UnitCardLevel = "ok" | "warn" | "neutral";
-
-function getUnitCardLevel(unit: WialonUnitRow): UnitCardLevel {
-  if (unit.last_message_at?.trim()) return "ok";
-  if (unit.uid?.trim() || unit.phone?.trim()) return "warn";
-  return "neutral";
-}
-
-function UnitField({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: string;
-  className?: string;
-}) {
-  return (
-    <div className={cn("min-w-0 space-y-1.5", className)}>
-      <p className={uiLabel}>{label}</p>
-      <p className={cn("break-words leading-snug tabular-nums", uiValue)}>{value || "—"}</p>
-    </div>
-  );
-}
-
-function WialonUnitCard({ unit }: { unit: WialonUnitRow }) {
-  const level = getUnitCardLevel(unit);
-  const borderCls =
-    level === "warn"
-      ? "border-amber-200/90 dark:border-amber-500/35"
-      : level === "neutral"
-        ? "border-[#e7ded0] dark:border-[#334155]"
-        : "border-emerald-200/90 dark:border-emerald-500/35";
-  const headerBgCls =
-    level === "warn"
-      ? "from-amber-50/80 via-[#fffdfa] to-[#fffdfa] dark:from-amber-500/8 dark:via-[#111a2b] dark:to-[#111a2b]"
-      : level === "neutral"
-        ? "from-[#fcfaf6] via-[#fffdfa] to-[#fffdfa] dark:from-white/[0.02] dark:via-[#111a2b] dark:to-[#111a2b]"
-        : "from-emerald-50/80 via-[#fffdfa] to-[#fffdfa] dark:from-emerald-500/8 dark:via-[#111a2b] dark:to-[#111a2b]";
-  const badgeCls =
-    level === "warn"
-      ? "bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300"
-      : level === "neutral"
-        ? "bg-[#f5f0e8] text-[#57534e] dark:bg-[#1e293b] dark:text-[#cbd5e1]"
-        : "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300";
-  const statusText = level === "warn" ? "Sin reporte reciente" : level === "neutral" ? "Datos incompletos" : "En línea";
-  const statusColorCls =
-    level === "warn"
-      ? "text-amber-700 dark:text-amber-300"
-      : level === "neutral"
-        ? "text-[#57534e] dark:text-[#cbd5e1]"
-        : "text-emerald-700 dark:text-emerald-300";
-
-  return (
-    <article
-      className={cn(
-        "group relative overflow-hidden rounded-2xl border bg-[#fffdfa] shadow-[0_10px_28px_-18px_rgba(28,25,23,0.22)] transition-shadow hover:shadow-[0_14px_36px_-16px_rgba(28,25,23,0.28)] dark:bg-[#111a2b]/90 dark:shadow-[0_14px_36px_-16px_rgba(0,0,0,0.5)] xl:pb-6",
-        borderCls
-      )}
-    >
-      <div className={cn("bg-gradient-to-br p-5 sm:p-6", headerBgCls)}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <h3 className={cn("break-words", uiCardTitle)}>{unit.name || "Unidad sin nombre"}</h3>
-            <p className={cn("mt-1 break-words", uiCaption)}>
-              {unit.device_type || "Sin tipo"} · UID {unit.uid || "—"}
-            </p>
-            {unit.is_shared ? (
-              <p className={cn("mt-2 break-words", uiCaption)}>
-                <span className="font-medium text-[#c45f00] dark:text-[#fb923c]">Compartida:</span>{" "}
-                {unit.shared_with || "otros usuarios"}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 sm:max-w-[45%] sm:shrink-0 sm:flex-col sm:items-end">
-            {unit.is_shared ? (
-              <span className={cn(uiBadge, "rounded-lg bg-[#fff3e6] text-[#c45f00] dark:bg-[#ff801f]/15 dark:text-[#ffb366]")}>
-                Compartida
-              </span>
-            ) : null}
-            <span className={cn(uiBadge, "rounded-lg whitespace-nowrap", badgeCls)}>
-              {level === "ok" ? "Activa" : level === "warn" ? "Aviso" : "Pendiente"}
-            </span>
-          </div>
-        </div>
-
-        <div className="relative mt-5 space-y-5 pb-2">
-          <div className="grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5 xl:grid-cols-2 xl:pr-28">
-            <UnitField label="Teléfono" value={unit.phone} />
-            <UnitField label="Último mensaje" value={unit.last_message_at} />
-            <UnitField label="Creada" value={unit.created_at} className="sm:col-span-2 xl:col-span-1" />
-            <div className="flex items-end sm:col-span-2 xl:col-span-1">
-              <p className={cn("text-sm font-medium", statusColorCls)}>{statusText}</p>
-            </div>
-            {unit.custom_fields ? (
-              <div className="sm:col-span-2 rounded-xl border border-[#e7ded0]/90 bg-white/70 px-3 py-2.5 dark:border-[#334155] dark:bg-[#0f172a]/50">
-                <p className={uiLabel}>Campos personalizados</p>
-                <p className={cn("mt-1 break-words", uiValueMuted)}>{unit.custom_fields}</p>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="pointer-events-none flex justify-center sm:justify-end xl:absolute xl:bottom-4 xl:right-4 xl:justify-end">
-            <img
-              className="h-16 w-auto max-w-[9rem] select-none opacity-70 sm:h-20 sm:max-w-[10rem] xl:h-24"
-              src={TRUCK_CARD_IMAGE}
-              alt=""
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-}
 
 function StatusBadge({ status }: { status: string }) {
   const active = status === "Activo";
@@ -202,6 +77,34 @@ function DealerBadge({ value }: { value: string }) {
   );
 }
 
+function compactSearchToken(value: string): string {
+  return value.replace(/[\s\-_./:;]+/g, "").toLowerCase();
+}
+
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+function unitEntryMatchesQuery(entry: WialonUnitSearchEntry, query: string): boolean {
+  const haystack = (
+    entry.search_text ??
+    [entry.name, entry.uid, entry.phone, entry.custom_fields, String(entry.unit_id)].join(" ")
+  ).toLowerCase();
+  if (haystack.includes(query)) return true;
+
+  const queryDigits = digitsOnly(query);
+  const uidDigits = digitsOnly(String(entry.uid ?? ""));
+  const phoneDigits = digitsOnly(String(entry.phone ?? ""));
+  if (queryDigits.length >= 6) {
+    if (uidDigits.includes(queryDigits) || phoneDigits.includes(queryDigits)) return true;
+    if (digitsOnly(haystack).includes(queryDigits)) return true;
+  }
+
+  const compactQuery = compactSearchToken(query);
+  if (compactQuery.length < 3) return false;
+  return compactSearchToken(haystack).includes(compactQuery);
+}
+
 function MetaItem({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
     <div className={cn("min-w-0", className)}>
@@ -218,7 +121,9 @@ export default function CuentasAntarixPage() {
   const canView = isAdmin || cuentasPerms?.view === true;
   const canEdit = isAdmin || cuentasPerms?.edit === true;
   const [rows, setRows] = useState<WialonUserRow[]>([]);
+  const [unitSearchIndex, setUnitSearchIndex] = useState<WialonUnitSearchEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unitIndexLoading, setUnitIndexLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [alert, setAlert] = useState<{
@@ -228,17 +133,13 @@ export default function CuentasAntarixPage() {
     message: string;
   }>({ show: false, variant: "info", title: "", message: "" });
 
-  const [selectedUser, setSelectedUser] = useState<WialonUserRow | null>(null);
-  const [editUser, setEditUser] = useState<WialonUserRow | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
-  const [unitsOpen, setUnitsOpen] = useState(false);
-  const [unitsLoading, setUnitsLoading] = useState(false);
-  const [unitsError, setUnitsError] = useState("");
-  const [units, setUnits] = useState<WialonUnitRow[]>([]);
+  const [modalUser, setModalUser] = useState<WialonUserRow | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const loadUsers = async (forceRefresh = false) => {
     const showFullPageLoader = rows.length === 0;
     if (showFullPageLoader) setLoading(true);
+    setUnitIndexLoading(true);
     setError("");
     try {
       const url = forceRefresh ? "/api/wialon/usuarios/?refresh=1" : "/api/wialon/usuarios/";
@@ -260,26 +161,80 @@ export default function CuentasAntarixPage() {
       }
       const list = Array.isArray(data?.users) ? (data.users as WialonUserRow[]) : [];
       setRows(list);
+      const bundledUnits = Array.isArray(data?.units_index)
+        ? (data.units_index as WialonUnitSearchEntry[])
+        : null;
+      if (bundledUnits) {
+        setUnitSearchIndex(bundledUnits);
+        setUnitIndexLoading(false);
+      } else if (!forceRefresh) {
+        await loadUnitSearchIndex(false);
+      }
     } catch {
       setRows([]);
+      setUnitSearchIndex([]);
       setError("No se pudo conectar con el servidor.");
     } finally {
       setLoading(false);
+      setUnitIndexLoading(false);
+    }
+  };
+
+  const loadUnitSearchIndex = async (forceRefresh = false) => {
+    setUnitIndexLoading(true);
+    try {
+      const url = forceRefresh ? "/api/wialon/indice-unidades/?refresh=1" : "/api/wialon/indice-unidades/";
+      const res = await fetchApi(url, {
+        method: "GET",
+        cache: "no-store" as RequestCache,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setUnitSearchIndex([]);
+        return;
+      }
+      const list = Array.isArray(data?.units) ? (data.units as WialonUnitSearchEntry[]) : [];
+      setUnitSearchIndex(list);
+    } catch {
+      setUnitSearchIndex([]);
+    } finally {
+      setUnitIndexLoading(false);
     }
   };
 
   useEffect(() => {
     if (authLoading || !isAuthenticated || !canView) return;
-    loadUsers();
+    void loadUsers();
   }, [authLoading, isAuthenticated, canView]);
 
   const activosCount = useMemo(() => rows.filter((r) => r.status === "Activo").length, [rows]);
 
-  const filtered = useMemo(() => {
+  const { filteredRows, matchedUnitsByUser } = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
-      const haystack = [
+    if (!q) {
+      return { filteredRows: rows, matchedUnitsByUser: new Map<number, string[]>() };
+    }
+
+    const matchedUnitsByUser = new Map<number, string[]>();
+    const userIdsFromUnits = new Set<number>();
+
+    for (const entry of unitSearchIndex) {
+      if (!unitEntryMatchesQuery(entry, q)) continue;
+
+      const unitLabel = entry.name || entry.uid || `Unidad ${entry.unit_id}`;
+      for (const owner of entry.users) {
+        const ownerId = Number(owner.wialon_id);
+        if (!Number.isFinite(ownerId)) continue;
+        userIdsFromUnits.add(ownerId);
+        const prev = matchedUnitsByUser.get(ownerId) ?? [];
+        if (!prev.includes(unitLabel)) {
+          matchedUnitsByUser.set(ownerId, [...prev, unitLabel]);
+        }
+      }
+    }
+
+    const filteredRows = rows.filter((r) => {
+      const accountHaystack = [
         r.user_id,
         r.name,
         r.creator,
@@ -291,9 +246,12 @@ export default function CuentasAntarixPage() {
       ]
         .join(" ")
         .toLowerCase();
-      return haystack.includes(q);
+      if (accountHaystack.includes(q)) return true;
+      return userIdsFromUnits.has(Number(r.wialon_id));
     });
-  }, [rows, search]);
+
+    return { filteredRows, matchedUnitsByUser };
+  }, [rows, search, unitSearchIndex]);
 
   const showAlert = (
     variant: "success" | "error" | "warning" | "info",
@@ -307,72 +265,34 @@ export default function CuentasAntarixPage() {
   const handleRefresh = async () => {
     await loadUsers(true);
     if (!error) {
-      showAlert("info", "Actualizado", "Lista de usuarios Wialon sincronizada.");
+      showAlert("info", "Actualizado", "Usuarios e índice de unidades sincronizados con Wialon.");
     }
   };
 
-  const closeUnitsModal = useCallback(() => {
-    setUnitsOpen(false);
-    setSelectedUser(null);
-    setUnits([]);
-    setUnitsError("");
-    setUnitsLoading(false);
+  const closeModal = useCallback(() => {
+    setModalOpen(false);
+    setModalUser(null);
   }, []);
 
   const openEditUser = useCallback(
     (row: WialonUserRow) => {
       if (!canEdit) return;
-      setEditUser(row);
-      setEditOpen(true);
+      setModalUser(row);
+      setModalOpen(true);
     },
     [canEdit]
   );
-
-  const closeEditModal = useCallback(() => {
-    setEditOpen(false);
-    setEditUser(null);
-  }, []);
 
   const handleUserSaved = useCallback((updated: WialonUserRow) => {
     const id = Number(updated.wialon_id);
     setRows((prev) =>
       prev.map((r) => (Number(r.wialon_id) === id ? { ...r, ...updated, wialon_id: id } : r))
     );
-    setSelectedUser((prev) =>
-      prev && Number(prev.wialon_id) === id ? { ...prev, ...updated, wialon_id: id } : prev
-    );
-    setEditUser((prev) =>
+    setModalUser((prev) =>
       prev && Number(prev.wialon_id) === id ? { ...prev, ...updated, wialon_id: id } : prev
     );
     showAlert("success", "Guardado", "Los cambios se aplicaron en Wialon.");
   }, []);
-
-  const openUserUnits = useCallback(async (row: WialonUserRow) => {
-    setSelectedUser(row);
-    setUnitsOpen(true);
-    setUnitsLoading(true);
-    setUnitsError("");
-    setUnits([]);
-    try {
-      const res = await fetchApi(`/api/wialon/usuarios/${row.wialon_id}/unidades/`, {
-        method: "GET",
-        cache: "no-store" as RequestCache,
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setUnitsError(String(data?.detail || `Error HTTP ${res.status}`));
-        return;
-      }
-      const list = Array.isArray(data?.units) ? (data.units as WialonUnitRow[]) : [];
-      setUnits(list);
-    } catch {
-      setUnitsError("No se pudieron cargar las unidades.");
-    } finally {
-      setUnitsLoading(false);
-    }
-  }, []);
-
-  const unitsModalTitleId = "cuentas-antarix-unidades-title";
 
   if (authLoading) {
     return (
@@ -497,9 +417,12 @@ export default function CuentasAntarixPage() {
               </span>
               <div className="min-w-0">
                 <p className={uiLabel}>Mostrando</p>
-                <p className={cn("mt-1", uiStatNumber)}>{loading ? "—" : filtered.length.toLocaleString("es-MX")}</p>
+                <p className={cn("mt-1", uiStatNumber)}>{loading ? "—" : filteredRows.length.toLocaleString("es-MX")}</p>
                 {!loading && search.trim() ? (
-                  <p className={cn("mt-1 truncate", uiCaption)}>Filtro: {search.trim()}</p>
+                  <p className={cn("mt-1 truncate", uiCaption)}>
+                    Filtro: {search.trim()}
+                    {unitIndexLoading ? " · unidades…" : ""}
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -526,9 +449,9 @@ export default function CuentasAntarixPage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por ID, nombre, creador, cuenta padre…"
+              placeholder="Buscar cuenta, nombre de unidad, UID/IMEI, campo personalizado…"
               className={erpSearchInputClass}
-              aria-label="Buscar usuarios Wialon"
+              aria-label="Buscar usuarios o unidades Wialon"
             />
           </div>
           <button
@@ -543,6 +466,14 @@ export default function CuentasAntarixPage() {
             {loading ? "Cargando…" : "Actualizar"}
           </button>
         </div>
+        {search.trim() && unitIndexLoading ? (
+          <p className={cn("-mt-1", uiCaption)}>Cargando índice de unidades para búsqueda por IMEI…</p>
+        ) : null}
+        {search.trim() && !unitIndexLoading && unitSearchIndex.length === 0 ? (
+          <p className={cn("-mt-1 text-amber-800 dark:text-amber-300", uiCaption)}>
+            El índice de unidades no está disponible. Pulsa Actualizar e intenta de nuevo.
+          </p>
+        ) : null}
 
         <ComponentCard
           title="Usuarios Wialon"
@@ -554,12 +485,12 @@ export default function CuentasAntarixPage() {
               <p className={uiLabel}>Listado</p>
               <h2 className={cn("mt-1", erpSectionHeadingClass)}>Usuarios Wialon</h2>
               <p className={cn("mt-1", uiCaption)}>
-                Edita la cuenta en Wialon o abre las unidades asignadas desde Acciones.
+                Edita la cuenta y sus unidades en Wialon desde Acciones.
               </p>
             </div>
             {!loading && !error ? (
               <p className={cn("tabular-nums", uiCaption)}>
-                {filtered.length} de {rows.length} registros
+                {filteredRows.length} de {rows.length} registros
               </p>
             ) : null}
           </div>
@@ -573,15 +504,17 @@ export default function CuentasAntarixPage() {
                 Verifica <span className={uiValue}>WIALON_ACCESS_TOKEN</span> en backend/.env y reinicia el servidor.
               </p>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : filteredRows.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 px-6 py-14 text-center dark:border-[#334155] dark:bg-[#0f172a]/40">
               <p className={uiCardTitle}>Sin resultados</p>
-              <p className={cn("mt-1", uiCaption)}>No hay usuarios que coincidan con la búsqueda.</p>
+              <p className={cn("mt-1", uiCaption)}>
+                No hay cuentas ni unidades que coincidan con la búsqueda.
+              </p>
             </div>
           ) : (
             <>
               <div className="space-y-3 xl:hidden">
-                {filtered.map((row) => (
+                {filteredRows.map((row) => (
                   <article key={row.wialon_id} className={mobileUserCardClass}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
@@ -593,6 +526,14 @@ export default function CuentasAntarixPage() {
                         <DealerBadge value={row.dealer_rights} />
                       </div>
                     </div>
+                    {search.trim() && matchedUnitsByUser.get(Number(row.wialon_id))?.length ? (
+                      <div className="mt-3 rounded-xl border border-[#e7ded0]/90 bg-[#fff8f1]/80 px-3 py-2.5 dark:border-[#334155] dark:bg-[#ff801f]/10">
+                        <p className={uiLabel}>Unidades coincidentes</p>
+                        <p className={cn("mt-1 break-words", uiCaption)}>
+                          {matchedUnitsByUser.get(Number(row.wialon_id))!.join(" · ")}
+                        </p>
+                      </div>
+                    ) : null}
                     <dl className="mt-4 flex flex-col gap-4 border-t border-[#e7ded0]/80 pt-4 dark:border-[#334155]">
                       <MetaItem label="Cuenta padre" value={row.parent_account} />
                       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -605,10 +546,10 @@ export default function CuentasAntarixPage() {
                         />
                       </div>
                     </dl>
-                    <div className="mt-4 flex flex-col gap-2 border-t border-[#e7ded0]/80 pt-4 dark:border-[#334155] sm:flex-row sm:items-center sm:justify-between">
-                      <p className={cn(uiCaption)}>Acciones</p>
-                      <div className={cn(erpRowActionBarClass, "w-full justify-center gap-2 p-2 sm:w-fit sm:gap-1 sm:p-1")}>
-                        {canEdit ? (
+                    {canEdit ? (
+                      <div className="mt-4 flex flex-col gap-2 border-t border-[#e7ded0]/80 pt-4 dark:border-[#334155] sm:flex-row sm:items-center sm:justify-between">
+                        <p className={cn(uiCaption)}>Acciones</p>
+                        <div className={cn(erpRowActionBarClass, "w-full justify-center gap-2 p-2 sm:w-fit sm:gap-1 sm:p-1")}>
                           <button
                             type="button"
                             onClick={() => openEditUser(row)}
@@ -622,32 +563,19 @@ export default function CuentasAntarixPage() {
                           >
                             <PencilIcon className="h-4 w-4" />
                           </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => openUserUnits(row)}
-                          className={cn(
-                            erpRowActionBtnClass,
-                            "h-10 w-10 sm:h-7 sm:w-7",
-                            "hover:border-[#ffa057] hover:text-[#ea580c] dark:hover:border-[#ff801f] dark:hover:text-[#ff801f]"
-                          )}
-                          title="Ver unidades"
-                          aria-label={`Ver unidades de ${row.name || row.user_id}`}
-                        >
-                          <BoxCubeIcon className="h-4 w-4" />
-                        </button>
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
                   </article>
                 ))}
               </div>
 
               <div className="hidden min-w-0 xl:block">
                 <CuentasAntarixUsersTable
-                  rows={filtered}
+                  rows={filteredRows}
                   canEdit={canEdit}
+                  matchedUnitsByUser={search.trim() ? matchedUnitsByUser : undefined}
                   onEdit={openEditUser}
-                  onViewUnits={openUserUnits}
                 />
               </div>
             </>
@@ -655,99 +583,13 @@ export default function CuentasAntarixPage() {
         </ComponentCard>
 
         <EditWialonUserModal
-          user={editUser}
-          isOpen={editOpen}
-          onClose={closeEditModal}
+          user={modalUser}
+          isOpen={modalOpen}
+          initialTab="cuenta"
+          canEdit={canEdit}
+          onClose={closeModal}
           onSaved={handleUserSaved}
         />
-
-        <Modal
-          isOpen={unitsOpen}
-          onClose={closeUnitsModal}
-          closeOnBackdropClick={!unitsLoading}
-          ariaLabelledBy={unitsModalTitleId}
-          className={unitsModalClass}
-        >
-          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#fffdfa] dark:bg-[#111a2b]">
-            <header className="relative shrink-0 border-b border-[#e7ded0] bg-gradient-to-r from-[#fcfaf6] via-[#fffaf3] to-[#fffdfa] px-4 py-4 pr-14 dark:border-[#334155] dark:from-[#111827] dark:via-[#111827] dark:to-[#111827] sm:px-6 sm:py-5 sm:pr-16">
-              <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm sm:h-11 sm:w-11">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                    <path d="M12 2 4 7v10l8 5 8-5V7l-8-5Z" strokeLinejoin="round" />
-                    <path d="M12 12 8 9.5V7l4 2.5v2.5L12 12Z" strokeLinejoin="round" />
-                  </svg>
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className={cn(uiLabel, "text-[#ea580c] dark:text-[#fb923c]")}>Unidades asignadas</p>
-                  <h2 id={unitsModalTitleId} className={cn("mt-1", erpSubheadingClass)}>
-                    {selectedUser?.name || "—"}
-                  </h2>
-                  <p className={cn("mt-1 break-words tabular-nums", uiCaption)}>
-                    ID {selectedUser?.user_id || "—"}
-                    {selectedUser?.parent_account ? (
-                      <>
-                        <span className="hidden min-[420px]:inline"> · </span>
-                        <span className="block min-[420px]:inline">{selectedUser.parent_account}</span>
-                      </>
-                    ) : null}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className={cn(uiBadge, "rounded-lg border border-[#e7ded0] bg-white/90 text-[#57534e] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1]")}>
-                      {unitsLoading ? "Cargando…" : `${units.length} unidad${units.length === 1 ? "" : "es"}`}
-                    </span>
-                    {selectedUser ? <StatusBadge status={selectedUser.status} /> : null}
-                    {selectedUser ? (
-                      <span className={cn(uiBadge, "rounded-lg bg-[#fff3e6] text-[#c45f00] dark:bg-[#ff801f]/15 dark:text-[#ffb366]")}>
-                        {selectedUser.assigned_units} asignadas
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </header>
-
-            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#faf9f5]/50 p-4 dark:bg-[#0f172a]/30 sm:p-6">
-              {unitsLoading ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-20">
-                  <span className="inline-flex h-10 w-10 animate-spin rounded-full border-2 border-[#ff801f] border-t-transparent" aria-hidden />
-                  <p className={uiValueMuted}>Cargando unidades…</p>
-                </div>
-              ) : unitsError ? (
-                <div className="rounded-2xl border border-rose-200/80 bg-rose-50/70 px-6 py-12 text-center dark:border-rose-900/45 dark:bg-rose-950/30">
-                  <p className={cn(uiValue, "text-rose-700 dark:text-rose-300")}>{unitsError}</p>
-                </div>
-              ) : units.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/70 px-6 py-16 text-center dark:border-[#334155] dark:bg-[#0f172a]/40">
-                  <p className={uiCardTitle}>Sin unidades</p>
-                  <p className={cn("mt-1", uiCaption)}>Este usuario no tiene unidades asignadas en Wialon.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-4 flex items-center justify-between gap-2">
-                    <p className={uiLabel}>Flota asignada</p>
-                    <p className={cn("tabular-nums", uiCaption)}>{units.length} en total</p>
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 min-[480px]:gap-5 2xl:grid-cols-3">
-                    {units.map((unit) => (
-                      <WialonUnitCard key={unit.wialon_id} unit={unit} />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <footer className="shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3.5 dark:border-[#334155] dark:bg-[#111827] sm:px-6 sm:py-4">
-              <button
-                type="button"
-                onClick={closeUnitsModal}
-                className={cn(erpSecondaryBtnClass, "w-full sm:ml-auto sm:w-auto")}
-              >
-                Cerrar
-              </button>
-            </footer>
-          </div>
-        </Modal>
       </div>
     </div>
   );

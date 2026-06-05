@@ -184,7 +184,7 @@ const AppSidebar: React.FC = () => {
             : []),
           { name: "Órdenes de Trabajo", path: "/ordenes", pro: false },
           ...(permissions?.cuentas_antarix?.view === true || isAdmin
-            ? [{ name: "Cuentas de Antarix GPS", path: "/cuentas", pro: false } as const]
+            ? [{ name: "Antarix GPS", path: "/cuentas", pro: false } as const]
             : []),
           ...(SIDEBAR_FUTURE.operacionExtended
             ? ([

@@ -31,8 +31,27 @@ WIALON_ACCESS_TOKEN = os.environ.get("WIALON_ACCESS_TOKEN", "").strip()
 USER_FLAGS = 0x00000001 | 0x00000002 | 0x00000004 | 0x00000100
 # base + billing (bpact)
 ACCOUNT_FLAGS = 0x00000001 | 0x00000004
-# base + custom + billing + custom fields + other (lmsg, hw, uid, ph)
+# base + custom + billing + custom fields + advanced (hw, uid, ph, psw) + lmsg + profile
 UNIT_FLAGS = 0x00000001 | 0x00000002 | 0x00000004 | 0x00000008 | 0x00000100 | 0x00000200 | 0x00000400
+UNIT_DETAIL_FLAGS = UNIT_FLAGS | 0x00800000
+
+# Máscara de acceso por defecto al compartir unidad (ver + detalle + conectividad).
+WIALON_UNIT_ACCESS_DEFAULT = 0x1 | 0x2 | 0x1000000
+
+WIALON_VEHICLE_TYPES: list[dict[str, str]] = [
+    {"value": "passenger car", "label": "Automóvil"},
+    {"value": "truck", "label": "Camión"},
+    {"value": "bus", "label": "Autobús"},
+    {"value": "special equipment", "label": "Equipo especial"},
+    {"value": "agricultural", "label": "Agrícola"},
+    {"value": "motorcycle", "label": "Motocicleta"},
+    {"value": "bicycle", "label": "Bicicleta"},
+    {"value": "pedestrian", "label": "Peatón"},
+    {"value": "animal", "label": "Animal"},
+    {"value": "ship", "label": "Embarcación"},
+    {"value": "plane", "label": "Avión"},
+    {"value": "other", "label": "Otro"},
+]
 
 # Cuentas administrador / distribuidor: no marcan la unidad como "compartida" en la UI.
 _SHARING_IGNORE_LOGINS = frozenset({"intraxadmin"})
@@ -51,7 +70,10 @@ _users_prp_cache: tuple[dict[int, dict[str, Any]], float] | None = None
 _accounts_context_cache: tuple[dict[str, Any], float] | None = None
 _units_index_cache: tuple[dict[int, dict[str, Any]], float] | None = None
 _hw_names_cache: tuple[dict[int, str], float] | None = None
+_hw_catalog_cache: tuple[list[dict[str, Any]], float] | None = None
+_vehicle_types_cache: tuple[list[dict[str, str]], float] | None = None
 _unit_sharing_cache: tuple[dict[int, list[dict[str, Any]]], float] | None = None
+_units_search_index_cache: tuple[list[dict[str, Any]], float] | None = None
 
 
 class WialonError(Exception):
@@ -121,7 +143,8 @@ def login_session() -> str:
 def invalidate_wialon_cache() -> None:
     """Limpia cachés en memoria (p. ej. tras cambiar token o refresh forzado)."""
     global _session, _users_list_cache, _users_raw_cache, _users_prp_cache, _accounts_context_cache
-    global _units_index_cache, _hw_names_cache, _unit_sharing_cache
+    global _units_index_cache, _hw_names_cache, _hw_catalog_cache, _unit_sharing_cache
+    global _vehicle_types_cache, _units_search_index_cache
     with _cache_lock:
         _session = None
         _users_list_cache = None
@@ -130,7 +153,10 @@ def invalidate_wialon_cache() -> None:
         _accounts_context_cache = None
         _units_index_cache = None
         _hw_names_cache = None
+        _hw_catalog_cache = None
         _unit_sharing_cache = None
+        _vehicle_types_cache = None
+        _units_search_index_cache = None
 
 
 def _coerce_wialon_id(value: Any) -> int | None:
@@ -1037,6 +1063,169 @@ def update_wialon_user(
     return row
 
 
+def _unit_custom_fields_search_text(flds: Any) -> str:
+    if not isinstance(flds, dict) or not flds:
+        return ""
+    parts: list[str] = []
+    for entry in flds.values():
+        if not isinstance(entry, dict):
+            continue
+        label = str(entry.get("n") or "").strip()
+        value = str(entry.get("v") or "").strip()
+        if label:
+            parts.append(label)
+        if value:
+            parts.append(value)
+    return " ".join(parts)
+
+
+def _unit_search_haystack(
+    *,
+    unit_id: int,
+    name: str,
+    uid: str,
+    phone: str,
+    custom_fields: str,
+) -> str:
+    return " ".join(
+        part
+        for part in (
+            name,
+            uid,
+            phone,
+            custom_fields,
+            str(unit_id),
+        )
+        if part
+    ).strip()
+
+
+def _resolve_unit_owners_for_search(
+    unit_id: int,
+    item: dict[str, Any],
+    *,
+    sharing_index: dict[int, list[dict[str, Any]]] | None,
+    users_normalized: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Cuentas vinculadas a la unidad: monu compartido, cuenta de facturación (bact) o creador (crt)."""
+    seen_owners: set[int] = set()
+    owners: list[dict[str, Any]] = []
+
+    def add_owner(wialon_id: int, user_id: str, name: str) -> None:
+        if wialon_id in seen_owners:
+            return
+        seen_owners.add(wialon_id)
+        owners.append(
+            {
+                "wialon_id": wialon_id,
+                "user_id": user_id or "—",
+                "name": name or user_id or "—",
+            }
+        )
+
+    for owner in (sharing_index or {}).get(int(unit_id), []):
+        wid = owner.get("wialon_id")
+        if wid is None:
+            continue
+        add_owner(
+            int(wid),
+            str(owner.get("user_id") or "—"),
+            str(owner.get("name") or owner.get("user_id") or "—"),
+        )
+
+    norm_by_id = {
+        int(u["wialon_id"]): u for u in users_normalized if u.get("wialon_id") is not None
+    }
+    norm_by_account: dict[int, list[dict[str, Any]]] = {}
+    for user in users_normalized:
+        account_id = user.get("account_id")
+        if account_id is None:
+            continue
+        norm_by_account.setdefault(int(account_id), []).append(user)
+
+    bact = item.get("bact")
+    if bact is not None:
+        for user in norm_by_account.get(int(bact), []):
+            wid = user.get("wialon_id")
+            if wid is None:
+                continue
+            add_owner(
+                int(wid),
+                str(user.get("user_id") or "—"),
+                str(user.get("name") or user.get("user_id") or "—"),
+            )
+
+    crt = item.get("crt")
+    if crt is not None:
+        user = norm_by_id.get(int(crt))
+        if user and user.get("wialon_id") is not None:
+            add_owner(
+                int(user["wialon_id"]),
+                str(user.get("user_id") or "—"),
+                str(user.get("name") or user.get("user_id") or "—"),
+            )
+
+    return owners
+
+
+def fetch_units_search_index(*, use_cache: bool = True) -> list[dict[str, Any]]:
+    """Índice unidad → cuentas asignadas para búsqueda en la vista de usuarios."""
+    global _units_search_index_cache
+    now = time.monotonic()
+    if use_cache:
+        with _cache_lock:
+            if _units_search_index_cache and _units_search_index_cache[1] > now:
+                return list(_units_search_index_cache[0])
+
+    sid = get_session()
+    users_raw = _users_raw_from_cache()
+    users_normalized = _users_normalized_from_cache()
+    if not users_raw or not users_normalized:
+        fetch_users(use_cache=True)
+        users_raw = _users_raw_from_cache() or []
+        users_normalized = _users_normalized_from_cache() or []
+
+    sharing_index = _sharing_index_from_cache()
+    if sharing_index is None and users_raw and users_normalized:
+        sharing_index = _build_unit_sharing_index(users_raw, users_normalized)
+
+    units_index = _get_units_index(sid)
+    entries: list[dict[str, Any]] = []
+    for unit_id, item in units_index.items():
+        name = str(item.get("nm") or "").strip()
+        uid = str(item.get("uid") or item.get("uid2") or "").strip()
+        phone = str(item.get("ph") or "").strip()
+        custom_fields = _unit_custom_fields_search_text(item.get("flds"))
+        owners = _resolve_unit_owners_for_search(
+            int(unit_id),
+            item,
+            sharing_index=sharing_index,
+            users_normalized=users_normalized,
+        )
+        entries.append(
+            {
+                "unit_id": int(unit_id),
+                "name": name,
+                "uid": uid,
+                "phone": phone,
+                "custom_fields": custom_fields,
+                "search_text": _unit_search_haystack(
+                    unit_id=int(unit_id),
+                    name=name,
+                    uid=uid,
+                    phone=phone,
+                    custom_fields=custom_fields,
+                ),
+                "users": owners,
+            }
+        )
+
+    entries.sort(key=lambda row: (row.get("name") or row.get("uid") or "").lower())
+    with _cache_lock:
+        _units_search_index_cache = (entries, now + _UNITS_INDEX_TTL_SEC)
+    return entries
+
+
 def fetch_user_units(wialon_user_id: int) -> dict[str, Any]:
     """Unidades asignadas a un usuario Wialon (monitoring units en prp.monu)."""
     user_id = int(wialon_user_id)
@@ -1109,3 +1298,438 @@ def _build_units_on_demand(sid: str, user_id: int, user_login: str) -> list[dict
         sharing_index=sharing_index,
         hw_names=hw_names,
     )
+
+
+def _parse_custom_fields_list(flds: Any) -> list[dict[str, Any]]:
+    if not isinstance(flds, dict):
+        return []
+    rows: list[dict[str, Any]] = []
+    for entry in flds.values():
+        if not isinstance(entry, dict):
+            continue
+        field_id = entry.get("id")
+        if field_id is None:
+            continue
+        rows.append(
+            {
+                "id": int(field_id),
+                "name": str(entry.get("n") or "").strip(),
+                "value": str(entry.get("v") or "").strip(),
+            }
+        )
+    rows.sort(key=lambda r: (r.get("name") or "").lower())
+    return rows
+
+
+def _profile_field_value(item: dict[str, Any], field_name: str) -> str:
+    pflds = item.get("pflds")
+    if not isinstance(pflds, dict):
+        return ""
+    for entry in pflds.values():
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("n") or "").strip() == field_name:
+            return str(entry.get("v") or "").strip()
+    return ""
+
+
+def _label_for_vehicle_type_key(key: str, name: str, category_path: list[str]) -> str:
+    clean_name = str(name or "").strip()
+    if clean_name:
+        return clean_name
+    if key == "empty_vehicle":
+        return "Vehículo"
+    if key.startswith("empty_") and category_path:
+        return category_path[-1]
+    return key.replace("_", " ").strip().title() or key
+
+
+def _walk_type_library_nodes(
+    nodes: Any,
+    category_path: list[str],
+    out: list[dict[str, str]],
+    *,
+    seen: set[str],
+) -> None:
+    if not isinstance(nodes, list):
+        return
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        key = str(node.get("key") or "").strip()
+        name = str(node.get("name") or "").strip()
+        children = node.get("items")
+        if isinstance(children, list) and children:
+            next_path = category_path + [name] if key and name else category_path
+            _walk_type_library_nodes(children, next_path, out, seen=seen)
+            continue
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        category = " › ".join(category_path) if category_path else ""
+        out.append(
+            {
+                "value": key,
+                "label": _label_for_vehicle_type_key(key, name, category_path),
+                "category": category,
+            }
+        )
+
+
+def _parse_type_library_payload(payload: Any) -> list[dict[str, str]]:
+    roots: list[Any] = []
+    if isinstance(payload, dict):
+        items = payload.get("items")
+        if isinstance(items, list):
+            roots = items
+    elif isinstance(payload, list):
+        roots = payload
+    catalog: list[dict[str, str]] = []
+    _walk_type_library_nodes(roots, [], catalog, seen=set())
+    catalog.sort(
+        key=lambda row: (
+            (row.get("category") or "").lower(),
+            (row.get("label") or "").lower(),
+        )
+    )
+    return catalog
+
+
+def _fetch_vehicle_types(sid: str, *, lang: str = "es") -> list[dict[str, str]]:
+    global _vehicle_types_cache
+    now = time.monotonic()
+    with _cache_lock:
+        if _vehicle_types_cache and _vehicle_types_cache[1] > now:
+            return list(_vehicle_types_cache[0])
+
+    payload = _call("file/type_library", {"lang": lang}, sid=sid)
+    catalog = _parse_type_library_payload(payload)
+    if not catalog:
+        catalog = list(WIALON_VEHICLE_TYPES)
+    with _cache_lock:
+        _vehicle_types_cache = (catalog, now + _UNITS_INDEX_TTL_SEC)
+    return catalog
+
+
+def _fetch_all_hw_types(sid: str) -> list[dict[str, Any]]:
+    global _hw_catalog_cache
+    now = time.monotonic()
+    with _cache_lock:
+        if _hw_catalog_cache and _hw_catalog_cache[1] > now:
+            return list(_hw_catalog_cache[0])
+
+    payload = _call(
+        "core/get_hw_types",
+        {"filterType": "name", "filterValue": "", "includeType": True},
+        sid=sid,
+    )
+    catalog: list[dict[str, Any]] = []
+    if isinstance(payload, list):
+        for entry in payload:
+            if not isinstance(entry, dict) or entry.get("id") is None:
+                continue
+            catalog.append(
+                {
+                    "id": int(entry["id"]),
+                    "name": str(entry.get("name") or entry.get("hw_category") or "").strip(),
+                    "category": str(entry.get("hw_category") or "").strip(),
+                }
+            )
+    catalog.sort(key=lambda r: (r.get("name") or "").lower())
+    with _cache_lock:
+        _hw_catalog_cache = (catalog, now + _UNITS_INDEX_TTL_SEC)
+    return catalog
+
+
+def fetch_unit_catalogs() -> dict[str, Any]:
+    sid = get_session()
+    return {
+        "hw_types": _fetch_all_hw_types(sid),
+        "vehicle_types": _fetch_vehicle_types(sid, lang="es"),
+    }
+
+
+def fetch_users_for_access() -> list[dict[str, Any]]:
+    users = fetch_users(use_cache=True)
+    return [
+        {
+            "wialon_id": int(u["wialon_id"]),
+            "user_id": u.get("user_id") or "—",
+            "name": u.get("name") or u.get("user_id") or "—",
+        }
+        for u in users
+        if u.get("wialon_id") is not None
+    ]
+
+
+def _raw_unit_by_id(unit_id: int) -> dict[str, Any]:
+    target = int(unit_id)
+    with _cache_lock:
+        if _units_index_cache and _units_index_cache[1] > time.monotonic():
+            cached = _units_index_cache[0].get(target)
+            if cached:
+                return cached
+    sid = get_session()
+    resp = _call("core/search_item", {"id": target, "flags": UNIT_DETAIL_FLAGS}, sid=sid)
+    if not isinstance(resp, dict):
+        raise WialonError("Unidad no encontrada en Wialon.")
+    item = resp.get("item")
+    if not isinstance(item, dict):
+        raise WialonError("Unidad no encontrada en Wialon.")
+    return item
+
+
+def _unit_access_users(unit_id: int, *, context_user_id: int | None = None) -> list[dict[str, Any]]:
+    sharing_index = _sharing_index_from_cache()
+    if sharing_index is None:
+        users_raw = _users_raw_from_cache() or []
+        users_normalized = _users_normalized_from_cache() or []
+        if users_raw and users_normalized:
+            sharing_index = _build_unit_sharing_index(users_raw, users_normalized)
+        else:
+            sharing_index = {}
+    owners = sharing_index.get(int(unit_id), [])
+    if context_user_id is not None:
+        owners = [o for o in owners if int(o.get("wialon_id", -1)) != int(context_user_id)]
+    return [
+        {
+            "wialon_id": int(o.get("wialon_id")),
+            "user_id": o.get("user_id") or "—",
+            "name": o.get("name") or o.get("user_id") or "—",
+        }
+        for o in owners
+        if o.get("wialon_id") is not None and not _is_ignored_sharing_owner(o)
+    ]
+
+
+def _normalize_unit_detail(
+    item: dict[str, Any],
+    hw_names: dict[int, str],
+    *,
+    unit_id: int,
+    context_user_id: int | None = None,
+) -> dict[str, Any]:
+    hw_id = item.get("hw")
+    hw_int: int | None = None
+    if hw_id is not None:
+        try:
+            hw_int = int(hw_id)
+        except (TypeError, ValueError):
+            hw_int = None
+    uid = str(item.get("uid") or "").strip() or str(item.get("uid2") or "").strip()
+    phone = str(item.get("ph") or "").strip()
+    unit_type = _profile_field_value(item, "vehicle_class") or _profile_field_value(item, "vehicle_type")
+    access_users = _unit_access_users(unit_id, context_user_id=context_user_id)
+
+    return {
+        "wialon_id": int(unit_id),
+        "name": str(item.get("nm") or "").strip(),
+        "unit_type": unit_type or "",
+        "hw_id": hw_int,
+        "device_type": (hw_names.get(hw_int, "") if hw_int is not None else "") or "—",
+        "uid": uid,
+        "phone": phone,
+        "has_password": bool(str(item.get("psw") or "").strip()),
+        "custom_fields": _parse_custom_fields_list(item.get("flds")),
+        "access_users": access_users,
+        "last_message_at": _format_unix_datetime(int(item["lmsg"]["t"]))
+        if isinstance(item.get("lmsg"), dict) and item["lmsg"].get("t")
+        else "—",
+        "created_at": _format_unix_datetime(int(item["ct"])) if item.get("ct") else "—",
+    }
+
+
+def fetch_unit_detail(unit_id: int, *, context_user_id: int | None = None) -> dict[str, Any]:
+    target = int(unit_id)
+    sid = get_session()
+    item = _raw_unit_by_id(target)
+    hw_ids: set[int] = set()
+    if item.get("hw") is not None:
+        try:
+            hw_ids.add(int(item["hw"]))
+        except (TypeError, ValueError):
+            pass
+    hw_names = _get_hw_type_names(sid, hw_ids)
+    return _normalize_unit_detail(
+        item,
+        hw_names,
+        unit_id=target,
+        context_user_id=context_user_id,
+    )
+
+
+def _patch_units_index_entry(unit_id: int, item: dict[str, Any]) -> None:
+    global _units_index_cache
+    with _cache_lock:
+        if not _units_index_cache or _units_index_cache[1] <= time.monotonic():
+            return
+        index = dict(_units_index_cache[0])
+        index[int(unit_id)] = item
+        _units_index_cache = (index, _units_index_cache[1])
+
+
+def update_wialon_unit(
+    unit_id: int,
+    *,
+    name: str | None = None,
+    unit_type: str | None = None,
+    hw_id: int | None = None,
+    uid: str | None = None,
+    phone: str | None = None,
+    access_password: str | None = None,
+    custom_fields: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    target = int(unit_id)
+    sid = get_session()
+    item = _raw_unit_by_id(target)
+
+    tasks: list[Callable[[], None]] = []
+
+    if name is not None:
+        clean_name = str(name).strip()
+        if not clean_name:
+            raise WialonError("El nombre de la unidad no puede estar vacío.")
+
+        def _apply_name() -> None:
+            _call("item/update_name", {"itemId": target, "name": clean_name}, sid=sid)
+
+        tasks.append(_apply_name)
+
+    if unit_type is not None:
+        clean_type = str(unit_type).strip()
+
+        def _apply_unit_type() -> None:
+            _call(
+                "item/update_profile_field",
+                {"itemId": target, "n": "vehicle_class", "v": clean_type},
+                sid=sid,
+            )
+
+        tasks.append(_apply_unit_type)
+
+    if hw_id is not None or uid is not None:
+        current_hw = item.get("hw")
+        try:
+            current_hw_int = int(current_hw) if current_hw is not None else None
+        except (TypeError, ValueError):
+            current_hw_int = None
+        current_uid = str(item.get("uid") or item.get("uid2") or "").strip()
+        new_hw = int(hw_id) if hw_id is not None else current_hw_int
+        new_uid = str(uid).strip() if uid is not None else current_uid
+        if new_hw is None:
+            raise WialonError("Selecciona un tipo de dispositivo.")
+        if not new_uid:
+            raise WialonError("El ID único no puede estar vacío.")
+
+        def _apply_device() -> None:
+            _call(
+                "unit/update_device_type",
+                {"itemId": target, "deviceTypeId": new_hw, "uniqueId": new_uid},
+                sid=sid,
+            )
+
+        tasks.append(_apply_device)
+
+    if phone is not None:
+        clean_phone = str(phone).strip()
+
+        def _apply_phone() -> None:
+            _call(
+                "unit/update_phone",
+                {"itemId": target, "phoneNumber": clean_phone},
+                sid=sid,
+            )
+
+        tasks.append(_apply_phone)
+
+    if access_password is not None and str(access_password).strip():
+        clean_password = str(access_password).strip()
+
+        def _apply_password() -> None:
+            _call(
+                "unit/update_access_password",
+                {"itemId": target, "accessPassword": clean_password},
+                sid=sid,
+            )
+
+        tasks.append(_apply_password)
+
+    if custom_fields is not None:
+        for field in custom_fields:
+            call_mode = str(field.get("callMode") or field.get("call_mode") or "update").strip().lower()
+            if call_mode not in ("create", "update", "delete"):
+                raise WialonError("callMode de campo personalizado inválido.")
+            field_id = field.get("id")
+            field_name = str(field.get("name") or field.get("n") or "").strip()
+            field_value = str(field.get("value") or field.get("v") or "").strip()
+            if call_mode == "delete":
+                if field_id is None:
+                    raise WialonError("Falta id para eliminar campo personalizado.")
+                params = {"itemId": target, "id": int(field_id), "callMode": "delete"}
+            else:
+                if not field_name:
+                    raise WialonError("El nombre del campo personalizado es obligatorio.")
+                params = {
+                    "itemId": target,
+                    "id": int(field_id) if field_id is not None else 0,
+                    "callMode": call_mode,
+                    "n": field_name,
+                    "v": field_value,
+                }
+
+            def _apply_field(p: dict[str, Any] = params) -> None:
+                _call("item/update_custom_field", p, sid=sid)
+
+            tasks.append(_apply_field)
+
+    if not tasks:
+        return fetch_unit_detail(target)
+
+    if len(tasks) == 1:
+        tasks[0]()
+    else:
+        with ThreadPoolExecutor(max_workers=min(4, len(tasks))) as executor:
+            futs = [executor.submit(fn) for fn in tasks]
+            for fut in futs:
+                fut.result()
+
+    refreshed = _call("core/search_item", {"id": target, "flags": UNIT_DETAIL_FLAGS}, sid=sid)
+    if isinstance(refreshed, dict) and isinstance(refreshed.get("item"), dict):
+        _patch_units_index_entry(target, refreshed["item"])
+
+    global _unit_sharing_cache
+    with _cache_lock:
+        _unit_sharing_cache = None
+
+    return fetch_unit_detail(target)
+
+
+def grant_unit_access(unit_id: int, user_id: int, *, access_mask: int | None = None) -> None:
+    sid = get_session()
+    mask = int(access_mask if access_mask is not None else WIALON_UNIT_ACCESS_DEFAULT)
+    _call(
+        "user/update_item_access",
+        {"userId": int(user_id), "itemId": int(unit_id), "accessMask": mask},
+        sid=sid,
+    )
+    global _unit_sharing_cache, _users_list_cache, _users_raw_cache, _users_prp_cache
+    with _cache_lock:
+        _unit_sharing_cache = None
+        _users_list_cache = None
+        _users_raw_cache = None
+        _users_prp_cache = None
+
+
+def revoke_unit_access(unit_id: int, user_id: int) -> None:
+    sid = get_session()
+    _call(
+        "user/update_item_access",
+        {"userId": int(user_id), "itemId": int(unit_id), "accessMask": 0},
+        sid=sid,
+    )
+    global _unit_sharing_cache, _users_list_cache, _users_raw_cache, _users_prp_cache
+    with _cache_lock:
+        _unit_sharing_cache = None
+        _users_list_cache = None
+        _users_raw_cache = None
+        _users_prp_cache = None

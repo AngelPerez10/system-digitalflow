@@ -30,6 +30,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 IVA_MX_DISPLAY = 1.16
+ANTICIPO_PCT = 60
 
 
 def _cotizacion_item_line_totals(
@@ -709,6 +710,9 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     <div class='row'><span>Descuento cliente ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_base_visible:,.2f}</strong></div>
 """
 
+        anticipo_monto = round(total * (ANTICIPO_PCT / 100.0), 2)
+        saldo_monto = round(max(0.0, total - anticipo_monto), 2)
+
         html = f"""<!doctype html>
 <html lang='es'>
 <head>
@@ -754,6 +758,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     .totals {{ margin-top: 14px; width: 100%; max-width: 340px; margin-left: auto; margin-right: 16px; border-top: 1px solid #e5e7eb; padding-top: 10px; }}
     .totals .row {{ display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }}
     .totals .row strong {{ font-weight: 600; }}
+    .totals .row.anticipo {{ margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; color: #374151; }}
+    .totals .row.anticipo strong {{ color: #111827; }}
     .terms {{ margin-top: 14px; border-top: 1px solid #e5e7eb; padding-top: 10px; font-size: 9px; line-height: 1.35; color: #374151; }}
     .terms .terms-title {{ font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #111827; margin-bottom: 6px; }}
     .terms ul {{ margin: 0; padding-left: 16px; }}
@@ -878,6 +884,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     {discount_rows}
     <div class='row'><span>IVA (16%)</span><strong>$ {iva_display:,.2f}</strong></div>
     <div class='row'><span>Total</span><strong>$ {total:,.2f}</strong></div>
+    <div class='row anticipo'><span>Anticipo ({ANTICIPO_PCT}%)</span><strong>$ {anticipo_monto:,.2f}</strong></div>
+    <div class='row anticipo'><span>Saldo al finalizar ({100 - ANTICIPO_PCT}%)</span><strong>$ {saldo_monto:,.2f}</strong></div>
   </div>
 
   <div class='pagebreak'></div>

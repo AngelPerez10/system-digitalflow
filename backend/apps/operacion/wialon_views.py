@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from .wialon_client import (
     WialonError,
+    fetch_units_search_index,
     fetch_user_units,
     fetch_users,
     invalidate_wialon_cache,
@@ -29,6 +30,7 @@ class WialonUsuariosView(APIView):
 
         try:
             users = fetch_users(use_cache=not refresh)
+            units_index = fetch_units_search_index(use_cache=not refresh)
         except WialonError as exc:
             logger.warning("Wialon usuarios: %s", exc)
             return Response({"detail": str(exc)}, status=502)
@@ -42,6 +44,36 @@ class WialonUsuariosView(APIView):
                 "items_type": "user",
                 "count": len(users),
                 "users": users,
+                "units_index": units_index,
+                "units_index_count": len(units_index),
+            }
+        )
+
+
+class WialonUnitsSearchIndexView(APIView):
+    """Índice de unidades con las cuentas a las que están asignadas (búsqueda global)."""
+
+    permission_classes = [IsAuthenticated, CuentasAntarixPermission]
+
+    def get(self, request):
+        refresh = str(request.query_params.get("refresh", "")).lower() in ("1", "true", "yes")
+        if refresh:
+            invalidate_wialon_cache()
+
+        try:
+            units = fetch_units_search_index(use_cache=not refresh)
+        except WialonError as exc:
+            logger.warning("Wialon índice unidades: %s", exc)
+            return Response({"detail": str(exc)}, status=502)
+        except Exception:
+            logger.exception("Error inesperado construyendo índice de unidades Wialon")
+            return Response({"detail": "No se pudo cargar el índice de unidades."}, status=502)
+
+        return Response(
+            {
+                "source": "wialon",
+                "count": len(units),
+                "units": units,
             }
         )
 

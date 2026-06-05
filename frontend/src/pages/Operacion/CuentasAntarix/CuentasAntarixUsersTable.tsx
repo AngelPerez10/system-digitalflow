@@ -1,5 +1,5 @@
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
-import { PencilIcon, BoxCubeIcon } from "@/icons";
+import { PencilIcon } from "@/icons";
 import { erpChipNeutralClass, erpSectionLabelClass, erpTableWrapClass } from "@/layout/erpPageStyles";
 import {
   erpRowActionBarClass,
@@ -59,15 +59,20 @@ function DealerBadge({ value }: { value: string }) {
 type Props = {
   rows: WialonUserRow[];
   canEdit?: boolean;
+  matchedUnitsByUser?: Map<number, string[]>;
   onEdit: (row: WialonUserRow) => void;
-  onViewUnits: (row: WialonUserRow) => void;
 };
 
 /**
  * Tabla con anchos mínimos en px + columna Nombre flexible.
  * En pantallas anchas el nombre crece; en estrechas hay scroll horizontal suave.
  */
-export default function CuentasAntarixUsersTable({ rows, canEdit = true, onEdit, onViewUnits }: Props) {
+export default function CuentasAntarixUsersTable({
+  rows,
+  canEdit = true,
+  matchedUnitsByUser,
+  onEdit,
+}: Props) {
   return (
     <div className="min-w-0">
       <div
@@ -128,7 +133,9 @@ export default function CuentasAntarixUsersTable({ rows, canEdit = true, onEdit,
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row, idx) => (
+              rows.map((row, idx) => {
+                const matchedUnits = matchedUnitsByUser?.get(Number(row.wialon_id));
+                return (
                 <TableRow
                   key={row.wialon_id}
                   className={cn(
@@ -156,6 +163,14 @@ export default function CuentasAntarixUsersTable({ rows, canEdit = true, onEdit,
                       >
                         {row.creator || "—"}
                       </p>
+                      {matchedUnits?.length ? (
+                        <p
+                          className="text-xs font-normal leading-snug text-[#c45f00] line-clamp-2 dark:text-[#ffb366]"
+                          title={matchedUnits.join(" · ")}
+                        >
+                          Unidad: {matchedUnits.join(" · ")}
+                        </p>
+                      ) : null}
                     </div>
                   </TableCell>
 
@@ -209,22 +224,11 @@ export default function CuentasAntarixUsersTable({ rows, canEdit = true, onEdit,
                           <PencilIcon className="h-4 w-4" />
                         </button>
                       ) : null}
-                      <button
-                        type="button"
-                        onClick={() => onViewUnits(row)}
-                        className={cn(
-                          erpRowActionBtnClass,
-                          "hover:border-[#ffa057] hover:text-[#ea580c] dark:hover:border-[#ff801f] dark:hover:text-[#ff801f]"
-                        )}
-                        title="Ver unidades"
-                        aria-label={`Ver unidades de ${row.name || row.user_id}`}
-                      >
-                        <BoxCubeIcon className="h-4 w-4" />
-                      </button>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+              );
+              })
             )}
           </TableBody>
         </Table>
