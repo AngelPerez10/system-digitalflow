@@ -7,7 +7,7 @@
  * 3. sessionStorage del access — solo si API y front son orígenes distintos
  *    (cookies de terceros bloqueadas). Nunca se persiste el refresh token.
  */
-import { API_BASE, isViteDevServer } from "./apiBase";
+import { API_BASE, isViteDevServer, shouldUseDevProxy } from "./apiBase";
 
 const ACCESS_PERSIST_KEY = "auth_access_persist";
 
@@ -16,7 +16,7 @@ let accessTokenMemory: string | null = null;
 /** True cuando el front llama al API en otro origen (p. ej. Render estático + backend aparte). */
 export function isApiCrossOrigin(): boolean {
   if (typeof window === "undefined") return false;
-  if (isViteDevServer) return false;
+  if (shouldUseDevProxy() || isViteDevServer()) return false;
   try {
     const apiOrigin = new URL(API_BASE, window.location.href).origin;
     return apiOrigin !== window.location.origin;

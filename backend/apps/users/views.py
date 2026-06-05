@@ -1,11 +1,12 @@
 import base64
+import logging
 import os
 import re
 from pathlib import Path
 
+from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.db.models import Q
-from django.conf import settings
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -14,11 +15,9 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .throttling import LoginRateThrottle, RefreshRateThrottle
-
 from .models import UserPermissions, UserSignature
 from .serializers import UserAccountSerializer, UserPermissionsSerializer, UserSignatureSerializer
-import logging
+from .throttling import LoginRateThrottle, RefreshRateThrottle
 
 logger = logging.getLogger(__name__)
 
@@ -204,15 +203,18 @@ def login_view(request):
     if candidate is None and '@' not in login_value:
         candidate = User.objects.filter(username__iexact=login_value).first()
 
-    if candidate is not None and not candidate.is_active:
-        return Response(
-            {'detail': 'Tu cuenta está desactivada. Contacta al administrador.'},
-            status=status.HTTP_403_FORBIDDEN,
-        )
-
     user = authenticate(request, username=resolved_username, password=password)
     if not user and '@' in login_value:
         user = authenticate(request, username=login_value, password=password)
+    if not user and candidate is not None and not candidate.is_active:
+        try:
+            if candidate.check_password(password):
+                return Response(
+                    {'detail': 'Tu cuenta está desactivada. Contacta al administrador.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        except Exception:
+            logger.exception("Failed to validate password for inactive user %s", candidate.pk)
     if not user:
         return Response({'detail': 'Credenciales inválidas'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -455,12 +457,25 @@ def token_refresh_view(request):
     if not refresh_raw:
         return Response({'detail': 'Refresh token no proporcionado'}, status=status.HTTP_401_UNAUTHORIZED)
     try:
-        refresh = RefreshToken(refresh_raw)
-        refresh.check_exp()
-        access = str(refresh.access_token)
-        new_refresh = str(refresh)
+        User = get_user_model()
+        current_refresh = RefreshToken(refresh_raw)
+        current_refresh.check_exp()
+        user_id = current_refresh.get('user_id')
+        user = User.objects.filter(pk=user_id).first()
+        if not user or not user.is_active:
+            raise TokenError('User inactive or missing')
+
+        try:
+            current_refresh.blacklist()
+        except TokenError:
+            raise
+        except Exception:
+            logger.exception("Failed to blacklist refresh token for user %s", user_id)
+
+        rotated_refresh = RefreshToken.for_user(user)
+        access = str(rotated_refresh.access_token)
         resp = Response({'access': access})
-        _set_jwt_cookies(resp, access, new_refresh)
+        _set_jwt_cookies(resp, access, str(rotated_refresh))
         return resp
     except TokenError:
         resp = Response({'detail': 'Token invalido o expirado.'}, status=status.HTTP_401_UNAUTHORIZED)

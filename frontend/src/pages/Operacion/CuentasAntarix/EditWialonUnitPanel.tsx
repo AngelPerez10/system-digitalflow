@@ -42,6 +42,25 @@ function emptyField(): WialonCustomField {
   return { name: "", value: "", callMode: "create" };
 }
 
+function UnitStatusBadge({ status }: { status: string }) {
+  const active = status === "Activo";
+  const unknown = !status || status === "—";
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium leading-none",
+        unknown
+          ? "bg-[#f5f0e8] text-[#78716c] dark:bg-[#1e293b] dark:text-[#94a3b8]"
+          : active
+            ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+            : "bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
+      )}
+    >
+      {unknown ? "Sin dato" : status}
+    </span>
+  );
+}
+
 export default function EditWialonUnitPanel({
   unitId,
   contextUserId,
@@ -292,7 +311,10 @@ export default function EditWialonUnitPanel({
       ) : null}
 
       <div className={cn(modalPanelClass, "space-y-4")}>
-        <p className={uiLabel}>Datos de la unidad</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className={uiLabel}>Datos de la unidad</p>
+          {detail ? <UnitStatusBadge status={detail.status ?? "—"} /> : null}
+        </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label htmlFor="unit-edit-name" className={uiLabel}>

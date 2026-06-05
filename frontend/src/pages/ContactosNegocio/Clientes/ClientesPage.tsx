@@ -156,10 +156,10 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
         ? 'Persona'
         : 'Empresa';
 
-  const canClientesView = permissions?.clientes?.view !== false;
-  const canClientesCreate = !!permissions?.clientes?.create;
-  const canClientesEdit = !!permissions?.clientes?.edit;
-  const canClientesDelete = !!permissions?.clientes?.delete;
+  const canClientesView = permissions?.clientes?.view === true;
+  const canClientesCreate = permissions?.clientes?.create === true;
+  const canClientesEdit = permissions?.clientes?.edit === true;
+  const canClientesDelete = permissions?.clientes?.delete === true;
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [totalCount, setTotalCount] = useState(0);

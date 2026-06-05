@@ -2,7 +2,7 @@
  * CSRF para SPA con API en otro origen (Render).
  * El token se guarda en memoria (no localStorage) tras GET /api/auth/csrf/ o login.
  */
-import { apiUrl } from "./apiBase";
+import { resolveApiFetchUrl } from "./apiBase";
 
 export const CSRF_HEADER_MIN_LENGTH = 32;
 
@@ -44,7 +44,7 @@ export async function ensureCsrfCookie(force = false): Promise<boolean> {
 
   csrfBootstrapPromise = (async () => {
     try {
-      const res = await fetch(apiUrl("/api/auth/csrf/"), {
+      const res = await fetch(resolveApiFetchUrl("/api/auth/csrf/"), {
         method: "GET",
         credentials: "include",
       });

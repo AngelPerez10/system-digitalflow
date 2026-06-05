@@ -1,6 +1,6 @@
 """ViewSets for productos app (Servicios + SYSCOM proxy in syscom_views)."""
-from rest_framework.pagination import PageNumberPagination
 from rest_framework import filters, viewsets
+from rest_framework.pagination import PageNumberPagination
 
 from apps.users.permissions import ModulePermission, user_has_any_ordenes_access
 

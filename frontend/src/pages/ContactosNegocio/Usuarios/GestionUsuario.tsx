@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import PageMeta from '@/components/common/PageMeta';
 import { Link, useNavigate } from 'react-router-dom';
 import ComponentCard from '@/components/common/ComponentCard';
@@ -238,6 +238,11 @@ const generatePassword = (username: string, firstName: string, lastName: string)
 export default function UserProfiles() {
   const navigate = useNavigate();
   const { user: authUser } = useAuth();
+  const createModalTitleId = useId();
+  const permsModalTitleId = useId();
+  const editModalTitleId = useId();
+  const deleteSignatureModalTitleId = useId();
+  const deleteUserModalTitleId = useId();
 
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1147,7 +1152,7 @@ export default function UserProfiles() {
         )}
       </ComponentCard>
 
-      <Modal mobileBottomSheet isOpen={isCreateOpen} onClose={closeCreate} closeOnBackdropClick={false} className="flex max-h-[min(92vh,780px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl">
+      <Modal mobileBottomSheet isOpen={isCreateOpen} onClose={closeCreate} closeOnBackdropClick={false} className="flex max-h-[min(92vh,780px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl" ariaLabelledBy={createModalTitleId}>
         <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-[#111827] sm:pr-16">
             <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
@@ -1162,7 +1167,7 @@ export default function UserProfiles() {
               </div>
               <div className="min-w-0">
                 <p className={sectionLabelClass}>Contactos · Usuarios</p>
-                <h2 className={`mt-1 ${claudeSectionHeadingClass}`}>Nuevo usuario</h2>
+                <h2 id={createModalTitleId} className={`mt-1 ${claudeSectionHeadingClass}`}>Nuevo usuario</h2>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   Crea cuentas Admin o Técnico con contraseña segura.
                 </p>
@@ -1330,7 +1335,7 @@ export default function UserProfiles() {
 
       </Modal>
 
-      <Modal mobileBottomSheet isOpen={isPermsOpen} onClose={closePerms} closeOnBackdropClick={false} className="flex max-h-[min(92vh,880px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl">
+      <Modal mobileBottomSheet isOpen={isPermsOpen} onClose={closePerms} closeOnBackdropClick={false} className="flex max-h-[min(92vh,880px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl" ariaLabelledBy={permsModalTitleId}>
         <div className="overflow-hidden rounded-2xl">
           <div className={permsModalHeaderClass}>
             <div className="flex items-center gap-3">
@@ -1341,7 +1346,7 @@ export default function UserProfiles() {
                 </svg>
               </span>
               <div className="min-w-0">
-                <h3 className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc] truncate [font-family:Georgia,'Times_New_Roman',serif]">
+                <h3 id={permsModalTitleId} className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc] truncate [font-family:Georgia,'Times_New_Roman',serif]">
                   Permisos{permsUser ? `: ${permsUser.username}` : ''}
                 </h3>
                 <p className="mt-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
@@ -1682,7 +1687,7 @@ export default function UserProfiles() {
         </div>
       </Modal>
 
-      <Modal mobileBottomSheet isOpen={isEditOpen} onClose={closeEdit} closeOnBackdropClick={false} className="flex max-h-[min(92vh,860px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl">
+      <Modal mobileBottomSheet isOpen={isEditOpen} onClose={closeEdit} closeOnBackdropClick={false} className="flex max-h-[min(92vh,860px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl" ariaLabelledBy={editModalTitleId}>
         <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 pr-14 dark:border-[#273244] dark:bg-[#0f172a]/70 sm:pr-16">
             <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
@@ -1695,7 +1700,7 @@ export default function UserProfiles() {
               </div>
               <div className="min-w-0 flex-1 pt-0.5">
                 <p className={sectionLabelClass}>Contactos · Usuarios</p>
-                <h2 className={`mt-1 ${claudeSectionHeadingClass}`}>Editar usuario</h2>
+                <h2 id={editModalTitleId} className={`mt-1 ${claudeSectionHeadingClass}`}>Editar usuario</h2>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   Actualiza datos y, si aplica, la contraseña o la firma digital.
                 </p>
@@ -1889,7 +1894,7 @@ export default function UserProfiles() {
 
       </Modal>
 
-      <Modal mobileBottomSheet isOpen={confirmDeleteSignature} onClose={() => setConfirmDeleteSignature(false)} closeOnBackdropClick={false} className="w-full max-w-sm overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b]">
+      <Modal mobileBottomSheet isOpen={confirmDeleteSignature} onClose={() => setConfirmDeleteSignature(false)} closeOnBackdropClick={false} className="w-full max-w-sm overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b]" ariaLabelledBy={deleteSignatureModalTitleId}>
         <div className="bg-[#fffdfa] p-5 dark:bg-[#111a2b]">
           <div className="mb-4 flex items-start gap-3">
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ff801f] dark:text-[#ffa057]">
@@ -1901,7 +1906,7 @@ export default function UserProfiles() {
               </svg>
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className={claudeSubheadingClass}>Eliminar firma</h3>
+              <h3 id={deleteSignatureModalTitleId} className={claudeSubheadingClass}>Eliminar firma</h3>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Esta acción no se puede deshacer.</p>
             </div>
           </div>
@@ -1945,7 +1950,7 @@ export default function UserProfiles() {
 
       </Modal>
 
-      <Modal mobileBottomSheet isOpen={confirmDeleteId != null} onClose={() => setConfirmDeleteId(null)} closeOnBackdropClick={false} className="w-full max-w-sm overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b]">
+      <Modal mobileBottomSheet isOpen={confirmDeleteId != null} onClose={() => setConfirmDeleteId(null)} closeOnBackdropClick={false} className="w-full max-w-sm overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b]" ariaLabelledBy={deleteUserModalTitleId}>
         <div className="bg-[#fffdfa] p-5 dark:bg-[#111a2b]">
           <div className="mb-4 flex items-start gap-3">
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ff801f] dark:text-[#ffa057]">
@@ -1957,7 +1962,7 @@ export default function UserProfiles() {
               </svg>
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className={claudeSubheadingClass}>Eliminar usuario</h3>
+              <h3 id={deleteUserModalTitleId} className={claudeSubheadingClass}>Eliminar usuario</h3>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Esta acción no se puede deshacer.</p>
             </div>
           </div>

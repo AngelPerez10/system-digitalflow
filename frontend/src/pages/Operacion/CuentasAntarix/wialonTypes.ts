@@ -17,6 +17,9 @@ export type WialonUnitRow = {
   device_type: string;
   uid: string;
   phone: string;
+  /** Activo / Inactivo (facturación Wialon, campo act). */
+  status: string;
+  is_active?: boolean | null;
   last_message_at: string;
   created_at: string;
   custom_fields: string;
@@ -40,6 +43,8 @@ export type WialonUnitDetail = {
   device_type: string;
   uid: string;
   phone: string;
+  status: string;
+  is_active?: boolean | null;
   has_password: boolean;
   custom_fields: WialonCustomField[];
   access_users: WialonAccessUser[];

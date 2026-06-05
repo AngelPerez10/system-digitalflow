@@ -1,10 +1,10 @@
 import logging
 
 from rest_framework.permissions import IsAuthenticated
-
-from apps.users.permissions import CuentasAntarixPermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from apps.users.permissions import CuentasAntarixPermission
 
 from .wialon_client import (
     WialonError,
@@ -33,7 +33,7 @@ class WialonUsuariosView(APIView):
             units_index = fetch_units_search_index(use_cache=not refresh)
         except WialonError as exc:
             logger.warning("Wialon usuarios: %s", exc)
-            return Response({"detail": str(exc)}, status=502)
+            return Response({"detail": "No se pudieron cargar los usuarios de Wialon."}, status=502)
         except Exception:
             logger.exception("Error inesperado consultando usuarios Wialon")
             return Response({"detail": "No se pudieron cargar los usuarios de Wialon."}, status=502)
@@ -64,7 +64,7 @@ class WialonUnitsSearchIndexView(APIView):
             units = fetch_units_search_index(use_cache=not refresh)
         except WialonError as exc:
             logger.warning("Wialon índice unidades: %s", exc)
-            return Response({"detail": str(exc)}, status=502)
+            return Response({"detail": "No se pudo cargar el índice de unidades."}, status=502)
         except Exception:
             logger.exception("Error inesperado construyendo índice de unidades Wialon")
             return Response({"detail": "No se pudo cargar el índice de unidades."}, status=502)
@@ -88,7 +88,7 @@ class WialonUsuarioUnidadesView(APIView):
             payload = fetch_user_units(wialon_user_id)
         except WialonError as exc:
             logger.warning("Wialon unidades usuario %s: %s", wialon_user_id, exc)
-            return Response({"detail": str(exc)}, status=502)
+            return Response({"detail": "No se pudieron cargar las unidades."}, status=502)
         except Exception:
             logger.exception("Error inesperado consultando unidades Wialon user=%s", wialon_user_id)
             return Response({"detail": "No se pudieron cargar las unidades."}, status=502)
@@ -150,7 +150,7 @@ class WialonUsuarioDetailView(APIView):
             )
         except WialonError as exc:
             logger.warning("Wialon actualizar usuario %s: %s", wialon_user_id, exc)
-            return Response({"detail": str(exc)}, status=502)
+            return Response({"detail": "No se pudo actualizar el usuario en Wialon."}, status=502)
         except Exception:
             logger.exception("Error inesperado actualizando usuario Wialon %s", wialon_user_id)
             return Response({"detail": "No se pudo actualizar el usuario en Wialon."}, status=502)

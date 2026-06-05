@@ -14,7 +14,7 @@ class Cliente(models.Model):
     rfc = models.CharField(max_length=50, blank=True, default='')
     curp = models.CharField(max_length=100, blank=True, default='')
     correo = models.EmailField(blank=True, default='')
-    
+
     # Dirección
     calle = models.CharField(max_length=255, blank=True, default='')
     numero_exterior = models.CharField(max_length=100, blank=True, default='')
@@ -26,12 +26,12 @@ class Cliente(models.Model):
     ciudad = models.CharField(max_length=255, blank=True, default='')
     pais = models.CharField(max_length=255, blank=True, default='')
     estado = models.CharField(max_length=255, blank=True, default='')
-    
+
     # Configuración Fiscal / Precios
     aplica_retenciones = models.BooleanField(default=False)
     desglosar_ieps = models.BooleanField(default=False)
     numero_precio = models.CharField(max_length=50, blank=True, default='1')
-    
+
     # Crédito
     limite_credito = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     dias_credito = models.IntegerField(default=0)

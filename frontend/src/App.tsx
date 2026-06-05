@@ -17,6 +17,9 @@ import RequireCuentasAntarixPermission from "@/components/auth/RequireCuentasAnt
 import RequireUsuariosView from "@/components/auth/RequireUsuariosView";
 import RequireCotizacionPermission from "@/components/auth/RequireCotizacionPermission";
 import RequireClientePermission from "@/components/auth/RequireClientePermission";
+import RequireOrdenesPermission from "@/components/auth/RequireOrdenesPermission";
+import RequireReportesPermission from "@/components/auth/RequireReportesPermission";
+import RequireTareasPermission from "@/components/auth/RequireTareasPermission";
 import Ordenes from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenesPage";
 import OrdenPdfPage from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenPdfPage";
 import OrdenesTecnico from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenesTecnicoPage";
@@ -52,7 +55,7 @@ export default function App() {
             <Route path="/operador/dashboard" element={<Home />} />
 
             {/* Dashboard Pages */}
-            <Route path="/ordenes" element={<RequireAdmin><Ordenes /></RequireAdmin>} />
+            <Route path="/ordenes" element={<RequireOrdenesPermission required="view"><Ordenes /></RequireOrdenesPermission>} />
             <Route
               path="/cuentas"
               element={
@@ -61,10 +64,24 @@ export default function App() {
                 </RequireCuentasAntarixPermission>
               }
             />
-            <Route path="/ordenes/:id/pdf" element={<OrdenPdfPage />} />
-            <Route path="/ordenes-tecnico" element={<OrdenesTecnico />} />
-            <Route path="/reportes" element={<ReportesPage />} />
-            <Route path="/levantamiento" element={<RequireAdmin><LevantamientoPage /></RequireAdmin>} />
+            <Route
+              path="/ordenes/:id/pdf"
+              element={
+                <RequireOrdenesPermission required="view">
+                  <OrdenPdfPage />
+                </RequireOrdenesPermission>
+              }
+            />
+            <Route path="/ordenes-tecnico" element={<RequireOrdenesPermission required="view"><OrdenesTecnico /></RequireOrdenesPermission>} />
+            <Route
+              path="/reportes"
+              element={
+                <RequireReportesPermission required="view">
+                  <ReportesPage />
+                </RequireReportesPermission>
+              }
+            />
+            <Route path="/levantamiento" element={<RequireOrdenesPermission required="view"><LevantamientoPage /></RequireOrdenesPermission>} />
             <Route path="/clientes" element={<RequireClientePermission required="view"><Clientes /></RequireClientePermission>} />
             <Route path="/empresas" element={<RequireClientePermission required="view"><EmpresaPage /></RequireClientePermission>} />
             <Route path="/personas" element={<RequireClientePermission required="view"><PersonasPage /></RequireClientePermission>} />
@@ -74,7 +91,14 @@ export default function App() {
             <Route path="/cotizacion" element={<RequireCotizacionPermission required="view"><CotizacionesPage /></RequireCotizacionPermission>} />
             <Route path="/cotizacion/nueva" element={<RequireCotizacionPermission required="create"><NuevaCotizacionPage /></RequireCotizacionPermission>} />
             <Route path="/cotizacion/:id/editar" element={<RequireCotizacionPermission required="edit"><NuevaCotizacionPage /></RequireCotizacionPermission>} />
-            <Route path="/cotizacion/:id/pdf" element={<CotizacionPdfPage />} />
+            <Route
+              path="/cotizacion/:id/pdf"
+              element={
+                <RequireCotizacionPermission required="view">
+                  <CotizacionPdfPage />
+                </RequireCotizacionPermission>
+              }
+            />
 
             {/* IA (Admin only) */}
             <Route path="/ia" element={<RequireAdmin><IaPage /></RequireAdmin>} />
@@ -83,8 +107,8 @@ export default function App() {
             <Route path="/correo" element={<RequireAdmin><CorreoPage /></RequireAdmin>} />
 
             {/* Tareas */}
-            <Route path="/tareas" element={<RequireAdmin><TareasPage /></RequireAdmin>} />
-            <Route path="/tareas-tecnico" element={<TareasTecnicoPage />} />
+            <Route path="/tareas" element={<RequireTareasPermission required="view"><TareasPage /></RequireTareasPermission>} />
+            <Route path="/tareas-tecnico" element={<RequireTareasPermission required="view"><TareasTecnicoPage /></RequireTareasPermission>} />
 
             {/* Others Page */}
             <Route path="/profile" element={<ProfilePage />} />

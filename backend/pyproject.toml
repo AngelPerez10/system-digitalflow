@@ -1,0 +1,12 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+exclude = [".venv", "migrations", "__pycache__", ".playwright-browsers"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"apps/ordenes/views.py" = ["E501"]
+"apps/cotizaciones/views.py" = ["E501"]

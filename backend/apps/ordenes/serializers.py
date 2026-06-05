@@ -2,7 +2,7 @@ import logging
 
 from rest_framework import serializers
 
-from .models import Orden, OrdenLevantamiento, OrdenInstalacion, ReporteSemanal
+from .models import Orden, OrdenInstalacion, OrdenLevantamiento, ReporteSemanal
 
 logger = logging.getLogger(__name__)
 

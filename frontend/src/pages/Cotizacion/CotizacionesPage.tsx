@@ -1,5 +1,5 @@
 import PageMeta from "@/components/common/PageMeta";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import { useNavigate } from "react-router-dom";
 import Alert from "@/components/ui/alert/Alert";
@@ -44,9 +44,11 @@ const parseYearMonth = (value: string) => {
 };
 
 export default function CotizacionesPage() {
+  const excelLoadingTitleId = useId();
+  const deleteModalTitleId = useId();
   const [permissions, setPermissions] = useState<any>({});
 
-  const canCotizacionesView = permissions?.cotizaciones?.view !== false;
+  const canCotizacionesView = permissions?.cotizaciones?.view === true;
   const canCotizacionesCreate = permissions?.cotizaciones?.create === true;
   const canCotizacionesEdit = permissions?.cotizaciones?.edit === true;
   const canCotizacionesDelete = permissions?.cotizaciones?.delete === true;
@@ -407,7 +409,13 @@ export default function CotizacionesPage() {
       <div className={erpPageInnerClass}>
       <PageMeta title="Cotizaciones | Sistema Grupo Intrax GPS" description="Gestión de cotizaciones" />
 
-      <Modal isOpen={excelLoading} onClose={() => {}} showCloseButton={false} className="mx-4 max-w-md sm:mx-auto">
+      <Modal
+        isOpen={excelLoading}
+        onClose={() => {}}
+        showCloseButton={false}
+        className="mx-4 max-w-md sm:mx-auto"
+        ariaLabelledBy={excelLoadingTitleId}
+      >
         <div className="p-7 sm:p-8">
           <div className="flex flex-col items-center justify-center text-center">
             <div className="relative mb-6">
@@ -430,7 +438,7 @@ export default function CotizacionesPage() {
               </div>
             </div>
 
-            <h3 className="text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">Generando Excel</h3>
+            <h3 id={excelLoadingTitleId} className="text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">Generando Excel</h3>
             <p className="mt-1.5 text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">Esto puede tardar unos segundos. No cierres esta ventana.</p>
 
             <div className="mt-6 w-full">
@@ -597,7 +605,12 @@ export default function CotizacionesPage() {
           </div>
 
           {cotizacionToDelete && (
-            <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="mx-4 w-full max-w-md sm:mx-auto">
+            <Modal
+              isOpen={showDeleteModal}
+              onClose={handleCancelDelete}
+              className="mx-4 w-full max-w-md sm:mx-auto"
+              ariaLabelledBy={deleteModalTitleId}
+            >
               <div className="border-b border-gray-100 p-5 dark:border-white/[0.06] sm:p-6">
                 <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-error-200/80 bg-error-50/90 dark:border-error-500/25 dark:bg-error-500/[0.12]">
                   <svg className="h-5 w-5 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -609,7 +622,10 @@ export default function CotizacionesPage() {
                     />
                   </svg>
                 </div>
-                <h3 className="mb-2 text-center text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">
+                <h3
+                  id={deleteModalTitleId}
+                  className="mb-2 text-center text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg"
+                >
                   ¿Eliminar cotización?
                 </h3>
                 <p className="mb-6 text-center text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">

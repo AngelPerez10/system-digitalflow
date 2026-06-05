@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import PageMeta from "@/components/common/PageMeta";
@@ -157,11 +157,15 @@ function PdfDocGlyph({ className }: { className?: string }) {
 }
 
 export default function ReportesPage() {
+  const adminCreateModalTitleId = useId();
+  const pdfConfirmModalTitleId = useId();
+  const deleteReportModalTitleId = useId();
+  const pdfGeneratingModalTitleId = useId();
   const { permissions, isAdmin } = useAuth();
 
-  const canReportesView = permissions?.reportes?.view !== false;
-  const canReportesCreate = !!permissions?.reportes?.create;
-  const canReportesDelete = !!permissions?.reportes?.delete;
+  const canReportesView = permissions?.reportes?.view === true;
+  const canReportesCreate = permissions?.reportes?.create === true;
+  const canReportesDelete = permissions?.reportes?.delete === true;
 
   const [reportes, setReportes] = useState<ReporteSemanal[]>([]);
   const [loading, setLoading] = useState(false);
@@ -826,6 +830,7 @@ export default function ReportesPage() {
           }}
           closeOnBackdropClick={!saving}
           className="w-[94vw] max-w-2xl max-h-[92vh] p-0 overflow-hidden mx-4 sm:mx-auto"
+          ariaLabelledBy={adminCreateModalTitleId}
         >
           <div>
             {/* Header — mismo patrón que OrdenesPage */}
@@ -841,7 +846,7 @@ export default function ReportesPage() {
                   </svg>
                 </span>
                 <div className="min-w-0">
-                  <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">Nuevo reporte semanal</h5>
+                  <h5 id={adminCreateModalTitleId} className="text-base font-semibold text-gray-800 dark:text-gray-100">Nuevo reporte semanal</h5>
                   <p className="text-[11px] text-gray-500 dark:text-gray-400">
                     Selecciona el técnico y revisa el rango (lunes a sábado) antes de guardar
                   </p>
@@ -960,12 +965,13 @@ export default function ReportesPage() {
           onClose={handleCancelPdfModal}
           closeOnBackdropClick={false}
           className="w-full max-w-md mx-4 sm:mx-auto"
+          ariaLabelledBy={pdfConfirmModalTitleId}
         >
           <div className="p-6">
             <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-brand-100 dark:bg-brand-900/30">
               <PdfDocGlyph className="w-7 h-7 text-brand-600 dark:text-brand-400" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">¿Descargar PDF?</h3>
+            <h3 id={pdfConfirmModalTitleId} className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">¿Descargar PDF?</h3>
             <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
               Se generará el reporte en PDF de{" "}
               <span className="font-semibold text-gray-800 dark:text-gray-200">{reportePdfModal.tecnico_nombre || "—"}</span>{" "}
@@ -1001,6 +1007,7 @@ export default function ReportesPage() {
           onClose={handleCancelDeleteModal}
           closeOnBackdropClick={false}
           className="w-full max-w-md mx-4 sm:mx-auto"
+          ariaLabelledBy={deleteReportModalTitleId}
         >
           <div className="p-6">
             <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-error-100 dark:bg-error-900/30">
@@ -1013,7 +1020,7 @@ export default function ReportesPage() {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">¿Eliminar reporte?</h3>
+            <h3 id={deleteReportModalTitleId} className="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">¿Eliminar reporte?</h3>
             <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
               ¿Estás seguro de que deseas eliminar el reporte de{" "}
               <span className="font-semibold">{reporteDeleteModal.tecnico_nombre || "—"}</span> (
@@ -1040,7 +1047,7 @@ export default function ReportesPage() {
         </Modal>
       )}
 
-      <Modal isOpen={pdfGeneratingId !== null} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
+      <Modal isOpen={pdfGeneratingId !== null} onClose={() => {}} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto" ariaLabelledBy={pdfGeneratingModalTitleId}>
         <div className="p-7 sm:p-8">
           <div className="flex flex-col items-center justify-center text-center">
             <div className="relative mb-6">
@@ -1057,7 +1064,7 @@ export default function ReportesPage() {
               </div>
             </div>
 
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Generando PDF</h3>
+            <h3 id={pdfGeneratingModalTitleId} className="text-lg font-semibold text-gray-900 dark:text-white">Generando PDF</h3>
             <p className="mt-1 text-[13px] text-gray-600 dark:text-gray-400">
               Esto puede tardar unos segundos. No cierres esta ventana.
             </p>

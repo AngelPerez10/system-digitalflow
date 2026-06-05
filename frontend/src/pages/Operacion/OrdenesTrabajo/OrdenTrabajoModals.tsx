@@ -1,4 +1,4 @@
-import type { MouseEventHandler, ReactNode } from "react";
+import { useId, type MouseEventHandler, type ReactNode } from "react";
 import { Modal } from "@/components/ui/modal";
 import { erpSubheadingClass } from "@/layout/erpPageStyles";
 import {
@@ -80,15 +80,23 @@ type OrdenDeleteModalProps = {
 };
 
 export function OrdenDeleteModal({ open, clienteLabel, onCancel, onConfirm }: OrdenDeleteModalProps) {
+  const titleId = useId();
+
   return (
-    <Modal isOpen={open} onClose={onCancel} closeOnBackdropClick={false} className={erpDeleteModalClass}>
+    <Modal
+      isOpen={open}
+      onClose={onCancel}
+      closeOnBackdropClick={false}
+      className={erpDeleteModalClass}
+      ariaLabelledBy={titleId}
+    >
       <div className={erpDeleteModalPanelClass}>
         <div className="mb-4 flex items-center gap-3">
           <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400">
             {warnIcon}
           </span>
           <div>
-            <h3 className={erpSubheadingClass}>¿Eliminar orden?</h3>
+            <h3 id={titleId} className={erpSubheadingClass}>¿Eliminar orden?</h3>
             <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Esta acción no se puede deshacer.</p>
           </div>
         </div>
@@ -119,15 +127,23 @@ type OrdenViewModalProps = {
 };
 
 export function OrdenViewModal({ open, onClose, title, subtitle, icon, children }: OrdenViewModalProps) {
+  const titleId = useId();
+
   return (
-    <Modal isOpen={open} onClose={onClose} closeOnBackdropClick={false} className={erpViewModalClass}>
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      closeOnBackdropClick={false}
+      className={erpViewModalClass}
+      ariaLabelledBy={titleId}
+    >
       <div className={erpViewModalPanelClass}>
         <div className={erpViewModalHeaderClass}>
           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ea580c] dark:bg-[#ff801f]/15 dark:text-[#fb923c]">
             {icon ?? docIcon}
           </span>
           <div className="min-w-0">
-            <h3 className={erpSubheadingClass}>{title}</h3>
+            <h3 id={titleId} className={erpSubheadingClass}>{title}</h3>
             {subtitle ? <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">{subtitle}</p> : null}
           </div>
         </div>
@@ -169,6 +185,7 @@ export function OrdenPhotoPreviewModal({ open, url, index, total, onClose }: Ord
       onClose={onClose}
       closeOnBackdropClick
       showCloseButton={false}
+      ariaLabel={label}
       className="z-[100001] flex h-[100dvh] max-h-[100dvh] w-[100vw] max-w-[100vw] flex-col overflow-hidden rounded-none border-0 bg-[#181715] p-0 shadow-2xl sm:mx-2 sm:h-auto sm:max-h-[96vh] sm:w-[min(96vw,56rem)] sm:max-w-[min(96vw,56rem)] sm:rounded-2xl sm:border sm:border-[#334155]"
     >
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] sm:gap-3 sm:px-5 sm:py-3">
@@ -198,6 +215,9 @@ export function OrdenPhotoPreviewModal({ open, url, index, total, onClose }: Ord
 }
 
 export function OrdenPhotoDeleteModal({ open, deleting, onCancel, onConfirm }: OrdenPhotoDeleteModalProps) {
+  const titleId = useId();
+  const modalTitle = deleting ? "Eliminando imagen…" : "Confirmar eliminación";
+
   return (
     <Modal
       isOpen={open}
@@ -207,6 +227,7 @@ export function OrdenPhotoDeleteModal({ open, deleting, onCancel, onConfirm }: O
       closeOnBackdropClick={false}
       showCloseButton={!deleting}
       className={`${erpDeleteModalClass} z-[100000]`}
+      ariaLabelledBy={titleId}
     >
       <div className={erpDeleteModalPanelClass}>
         <div className="mb-4 flex flex-col items-center text-center">
@@ -217,7 +238,7 @@ export function OrdenPhotoDeleteModal({ open, deleting, onCancel, onConfirm }: O
               warnIcon
             )}
           </span>
-          <h3 className={erpSubheadingClass}>{deleting ? "Eliminando imagen…" : "Confirmar eliminación"}</h3>
+          <h3 id={titleId} className={erpSubheadingClass}>{modalTitle}</h3>
           <p className={`mt-2 text-sm ${claudeBodyClass}`}>
             {deleting ? "Por favor espera; esto puede tardar unos segundos." : "Esta acción no se puede deshacer. ¿Eliminar la imagen seleccionada?"}
           </p>

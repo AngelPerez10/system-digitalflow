@@ -11,7 +11,7 @@ import {
   getCsrfToken,
   storeCsrfTokenFromPayload,
 } from "./csrf";
-import { apiUrl, API_BASE, PUBLIC_ORIGIN, publicUrl } from "./apiBase";
+import { apiUrl, resolveApiFetchUrl, API_BASE, PUBLIC_ORIGIN, publicUrl } from "./apiBase";
 
 export {
   bearerAuthHeader,
@@ -143,7 +143,7 @@ async function attemptRefresh(): Promise<boolean> {
       const hasCsrf = await ensureCsrfCookie();
       if (!hasCsrf) return false;
       const csrfHeaders = getCsrfRequestHeaders("POST");
-      const res = await fetch(apiUrl("/api/token/refresh/"), {
+      const res = await fetch(resolveApiFetchUrl("/api/token/refresh/"), {
         method: "POST",
         credentials: "include",
         headers: csrfHeaders,
@@ -207,7 +207,7 @@ export async function fetchApi(path: string, options: FetchApiOptions = {}): Pro
     return unauthenticatedResponse();
   }
 
-  const url = apiUrl(path);
+  const url = resolveApiFetchUrl(path);
   const method = (options.method || "GET").toUpperCase();
   const unsafe = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 

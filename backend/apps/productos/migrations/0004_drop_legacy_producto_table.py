@@ -1,4 +1,12 @@
-from django.db import migrations
+from django.db import connection, migrations
+
+
+def drop_legacy_producto_table(apps, schema_editor):
+    with connection.cursor() as cursor:
+        if connection.vendor == 'postgresql':
+            cursor.execute('DROP TABLE IF EXISTS productos_producto CASCADE;')
+        else:
+            cursor.execute('DROP TABLE IF EXISTS productos_producto;')
 
 
 class Migration(migrations.Migration):
@@ -8,8 +16,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
-            sql="DROP TABLE IF EXISTS productos_producto CASCADE;",
-            reverse_sql=migrations.RunSQL.noop,
-        ),
+        migrations.RunPython(drop_legacy_producto_table, migrations.RunPython.noop),
     ]

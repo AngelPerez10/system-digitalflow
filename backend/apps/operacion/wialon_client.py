@@ -188,6 +188,7 @@ def _raw_user_from_cache(wialon_user_id: int) -> dict[str, Any] | None:
 
 def _upsert_user_list_cache(row: dict[str, Any]) -> None:
     """Actualiza una fila en la lista cacheada sin reconstruir todo Wialon."""
+    global _users_list_cache
     user_id = _coerce_wialon_id(row.get("wialon_id"))
     if user_id is None:
         return
@@ -286,8 +287,48 @@ def _user_unit_ids_from_prp(prp: dict[str, Any]) -> list[int]:
     return []
 
 
-def _assigned_units_count(prp: dict[str, Any]) -> int:
-    return len(_user_unit_ids_from_prp(prp))
+def _unit_status_from_item(item: dict[str, Any]) -> tuple[str, bool | None]:
+    """
+    Estado de facturación Wialon (props avanzadas):
+    - act: 1 = activa, 0 = inactiva
+    - dactt: 0 = activa; >0 = timestamp de desactivación
+    """
+    act = item.get("act")
+    if act is not None:
+        if isinstance(act, bool):
+            return ("Activo" if act else "Inactivo", act)
+        try:
+            active = bool(int(act))
+            return ("Activo" if active else "Inactivo", active)
+        except (TypeError, ValueError):
+            pass
+    dactt = item.get("dactt")
+    if dactt is not None:
+        try:
+            if int(dactt) == 0:
+                return ("Activo", True)
+            return ("Inactivo", False)
+        except (TypeError, ValueError):
+            pass
+    return ("—", None)
+
+
+def _assigned_units_count(
+    prp: dict[str, Any],
+    units_index: dict[int, dict[str, Any]] | None = None,
+) -> int:
+    unit_ids = _user_unit_ids_from_prp(prp)
+    if units_index is None:
+        return len(unit_ids)
+    active = 0
+    for unit_id in unit_ids:
+        item = units_index.get(int(unit_id))
+        if not item:
+            continue
+        _, is_active = _unit_status_from_item(item)
+        if is_active is not False:
+            active += 1
+    return active
 
 
 def _resolve_item_name(sid: str, item_id: int) -> tuple[int, str]:
@@ -362,6 +403,7 @@ def _normalize_user(
     blocked_account_ids: set[int],
     dealer_account_ids: set[int],
     blocked_dates_by_account: dict[int, str],
+    units_index: dict[int, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     prp = item.get("prp") if isinstance(item.get("prp"), dict) else {}
     creator_id = item.get("crt")
@@ -378,7 +420,7 @@ def _normalize_user(
     acct_int = int(account_id) if account_id is not None else None
     is_blocked = acct_int in blocked_account_ids if acct_int is not None else False
     dealer_on = acct_int in dealer_account_ids if acct_int is not None else False
-    units_count = _assigned_units_count(prp)
+    units_count = _assigned_units_count(prp, units_index)
     user_login = str(item.get("nm") or "").strip()
     account_name = ""
     if account:
@@ -513,6 +555,8 @@ def _build_users_payload(sid: str, users: list[dict[str, Any]]) -> list[dict[str
     if missing_ids:
         _resolve_item_names(sid, missing_ids, names_by_id)
 
+    units_index = _get_units_index(sid)
+
     result = [
         _normalize_user(
             item,
@@ -521,6 +565,7 @@ def _build_users_payload(sid: str, users: list[dict[str, Any]]) -> list[dict[str
             blocked_account_ids=blocked_account_ids,
             dealer_account_ids=dealer_account_ids,
             blocked_dates_by_account=blocked_dates_by_account,
+            units_index=units_index,
         )
         for item in users
     ]
@@ -723,6 +768,7 @@ def _normalize_unit(
     other_owners = _other_sharing_owners(owners, current_user_id=current_user_id)
     is_shared = len(other_owners) > 0
     shared_with = ", ".join(_owner_label(o) for o in other_owners) if other_owners else "—"
+    status_label, is_active = _unit_status_from_item(item)
 
     return {
         "wialon_id": item.get("id"),
@@ -730,6 +776,8 @@ def _normalize_unit(
         "device_type": device_type or "—",
         "uid": uid or "—",
         "phone": str(item.get("ph") or "").strip() or "—",
+        "status": status_label,
+        "is_active": is_active,
         "last_message_at": _format_unix_datetime(int(last_msg_ts)) if last_msg_ts else "—",
         "created_at": _format_unix_datetime(int(created_ts)) if created_ts else "—",
         "custom_fields": _format_custom_fields(item.get("flds")),
@@ -974,7 +1022,8 @@ def update_wialon_user(
         "parent_account": "—",
         "dealer_rights": "No",
         "assigned_units": _assigned_units_count(
-            user_item.get("prp") if isinstance(user_item.get("prp"), dict) else {}
+            user_item.get("prp") if isinstance(user_item.get("prp"), dict) else {},
+            _get_units_index(sid),
         ),
         "status": "Activo",
         "blocked": "No",
@@ -1054,6 +1103,7 @@ def update_wialon_user(
     _upsert_user_list_cache(row)
 
     prp = user_item.get("prp") if isinstance(user_item.get("prp"), dict) else {}
+    global _users_prp_cache
     with _cache_lock:
         if _users_prp_cache and _users_prp_cache[1] > time.monotonic():
             prp_map = dict(_users_prp_cache[0])
@@ -1520,6 +1570,7 @@ def _normalize_unit_detail(
     phone = str(item.get("ph") or "").strip()
     unit_type = _profile_field_value(item, "vehicle_class") or _profile_field_value(item, "vehicle_type")
     access_users = _unit_access_users(unit_id, context_user_id=context_user_id)
+    status_label, is_active = _unit_status_from_item(item)
 
     return {
         "wialon_id": int(unit_id),
@@ -1529,6 +1580,8 @@ def _normalize_unit_detail(
         "device_type": (hw_names.get(hw_int, "") if hw_int is not None else "") or "—",
         "uid": uid,
         "phone": phone,
+        "status": status_label,
+        "is_active": is_active,
         "has_password": bool(str(item.get("psw") or "").strip()),
         "custom_fields": _parse_custom_fields_list(item.get("flds")),
         "access_users": access_users,

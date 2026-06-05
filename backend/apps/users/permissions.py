@@ -89,14 +89,14 @@ class OrdenesAnyAccessPermission(BasePermission):
 class ModulePermission(BasePermission):
     """
     Base permission class that checks user permissions from JSON profile.
-    
+
     Subclasses should define `module_key` to specify which module to check.
     Permissions are checked based on HTTP method:
     - GET/HEAD/OPTIONS: requires 'view' permission
     - POST: requires 'create' permission
     - PUT/PATCH: requires 'edit' permission
     - DELETE: requires 'delete' permission
-    
+
     Superusers and staff always have access.
     """
     module_key = None  # Must be overridden in subclass
@@ -104,11 +104,11 @@ class ModulePermission(BasePermission):
     def _as_bool(self, value, default=False):
         """
         Convert various value types to boolean.
-        
+
         Args:
             value: Value to convert (bool, str, or other)
             default: Default value if conversion fails
-            
+
         Returns:
             bool: Converted boolean value
         """
@@ -125,11 +125,11 @@ class ModulePermission(BasePermission):
     def has_permission(self, request, view):
         """
         Check if user has permission for the requested action.
-        
+
         Args:
             request: The HTTP request
             view: The view being accessed
-            
+
         Returns:
             bool: True if user has permission, False otherwise
         """
@@ -193,7 +193,7 @@ class ModulePermission(BasePermission):
             return self._as_bool(module_perms.get('create'), False)
         if method == 'DELETE':
             return self._as_bool(module_perms.get('delete'), False)
-        
+
         return False
 
     def has_object_permission(self, request, view, obj):
@@ -225,6 +225,18 @@ class ModulePermission(BasePermission):
             owner = getattr(obj, 'creado_por', None)
             owner_id = getattr(owner, 'id', None) if owner else None
         return owner_id is not None and owner_id == user.id
+
+
+class OrdenesPermission(ModulePermission):
+    """Permisos JSON para órdenes de trabajo."""
+
+    module_key = 'ordenes'
+
+
+class TareasPermission(ModulePermission):
+    """Permisos JSON para el módulo Mi Escritorio / Tareas."""
+
+    module_key = 'tareas'
 
 
 class CuentasAntarixPermission(ModulePermission):

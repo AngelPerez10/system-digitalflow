@@ -4,7 +4,6 @@ from rest_framework import serializers
 
 from .models import UserPermissions, UserSignature
 
-
 User = get_user_model()
 
 

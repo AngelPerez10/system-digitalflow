@@ -107,16 +107,14 @@ export default function SignInForm() {
                   <Label htmlFor="login-password">Contraseña <span className="text-error-500">*</span></Label>
                   <div className="relative">
                     <Input id="login-password" value={password} onChange={(e: any) => setPassword(e.target.value)} type={showPassword ? 'text' : 'password'} placeholder="Ingresa tu contraseña" />
-                    <span
-                      role="button"
-                      tabIndex={0}
+                    <button
+                      type="button"
                       aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                       onClick={() => setShowPassword(!showPassword)}
-                      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setShowPassword(!showPassword)}
-                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                      className="absolute right-4 top-1/2 z-30 -translate-y-1/2 rounded-sm"
                     >
                       {showPassword ? <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" /> : <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />}
-                    </span>
+                    </button>
                   </div>
                 </div>
                 {message && <p className="text-sm text-error-500" role="alert">{message}</p>}

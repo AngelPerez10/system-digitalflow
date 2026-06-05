@@ -1,17 +1,19 @@
+import base64
+import io
+import logging
 import os
 import re
-import io
-import base64
-import logging
 from urllib.parse import urlparse
 
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import ValidationError
 from django.db.models import Q
 from PIL import Image
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from apps.users.permissions import TareasPermission
 
 from .models import Tarea
 from .serializers import TareaSerializer
@@ -158,7 +160,7 @@ def _delete_cloudinary_resource(url: str):
 
 
 class TareaViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, TareasPermission]
     queryset = Tarea.objects.select_related('usuario_asignado', 'creado_por').order_by('estado', 'orden', '-fecha_creacion')
     serializer_class = TareaSerializer
 
@@ -194,7 +196,7 @@ class TareaViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         instance = serializer.instance
         old_fotos = list(instance.fotos_urls) if instance.fotos_urls else []
-        
+
         data = serializer.validated_data
 
         # Handle photo updates - delete removed photos
@@ -207,7 +209,7 @@ class TareaViewSet(viewsets.ModelViewSet):
             for old_foto in old_fotos:
                 if old_foto not in fotos and isinstance(old_foto, str) and _is_allowed_tareas_photo_url(old_foto):
                     _delete_cloudinary_resource(old_foto)
-            
+
             # Process new photos
             for f in fotos:
                 if isinstance(f, str) and _is_data_url(f):
@@ -217,7 +219,7 @@ class TareaViewSet(viewsets.ModelViewSet):
                 else:
                     raise ValidationError("fotos_urls contiene una entrada inválida")
             data['fotos_urls'] = new_fotos
-        
+
         serializer.save(**data)
 
     def perform_destroy(self, instance):

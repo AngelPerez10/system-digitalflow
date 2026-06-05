@@ -56,7 +56,7 @@ class ClientePagination(PageNumberPagination):
 class ClienteViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing Cliente instances.
-    
+
     Provides CRUD operations for clients with permission-based access control.
     """
     queryset = Cliente.objects.prefetch_related('contactos').select_related('documento').all()
@@ -117,7 +117,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
 class ClienteContactoViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing ClienteContacto instances.
-    
+
     Handles client contacts.
     Restricted to admin users only.
     """
@@ -142,7 +142,7 @@ class ClienteContactoViewSet(viewsets.ModelViewSet):
 class ClienteDocumentoViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing ClienteDocumento instances.
-    
+
     Handles document uploads to Cloudinary for clients.
     Restricted to admin users only.
     """

@@ -27,7 +27,7 @@ export default function RequireCotizacionPermission({
   const cotPerms = cotizaciones as { view?: boolean; create?: boolean; edit?: boolean };
   const allowed =
     required === "view"
-      ? cotPerms.view !== false
+      ? cotPerms.view === true
       : required === "create"
         ? cotPerms.create === true
         : cotPerms.edit === true;

@@ -1,45 +1,49 @@
-import json
-import os
-import re
-import logging
 import base64
 import io
+import json
+import logging
+import os
+import re
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
-from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound
-
 from django.contrib.auth import get_user_model
-from django.http import HttpResponse
 from django.db import transaction
 from django.db.models import Exists, F, OuterRef, Q
+from django.http import HttpResponse
 from django.utils import timezone
+from PIL import Image
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.response import Response
 
-from apps.users.permissions import ModulePermission, OrdenesAnyAccessPermission, user_module_own_only
+from apps.common.ssrf import is_cloudinary_host
 from apps.cotizaciones.pdf_render import (
     PdfRenderError,
     any_provider_configured,
     render_html_to_pdf,
 )
+from apps.ordenes.pdf_limits import normalize_fotos_extra_max as _normalize_fotos_extra_max
+from apps.ordenes.pdf_limits import orden_max_fotos as _orden_max_fotos
+from apps.users.models import UserPermissions, UserSignature
+from apps.users.permissions import (
+    ModulePermission,
+    OrdenesAnyAccessPermission,
+    OrdenesPermission,
+    user_has_any_ordenes_access,
+    user_module_own_only,
+)
 
-from PIL import Image
-
-from datetime import date, datetime, time, timedelta
-
-from .models import Orden
-from .models import OrdenInstalacion, OrdenLevantamiento, ReporteSemanal
+from .models import Orden, OrdenInstalacion, OrdenLevantamiento, ReporteSemanal
 from .serializers import (
     OrdenInstalacionSerializer,
     OrdenLevantamientoSerializer,
     OrdenSerializer,
     ReporteSemanalSerializer,
 )
-from apps.users.models import UserSignature
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +71,8 @@ def _pdf_response_from_html(html: str, filename: str):
     try:
         pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)
     except PdfRenderError as e:
-        return Response({"detail": "No se pudo generar el PDF.", "error": e.detail}, status=502)
+        logger.exception("PDF render failed: %s", e.detail)
+        return Response({"detail": "No se pudo generar el PDF."}, status=502)
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="{filename}"'
@@ -146,11 +151,6 @@ ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES = (
 
 DEFAULT_MAX_FOTOS = 5
 ALLOWED_FOTOS_EXTRA = frozenset({0, 2, 3, 4, 5})
-
-_allowed_embed_hosts_env = os.environ.get("IMG_EMBED_ALLOW_HOSTS", "").strip()
-IMG_EMBED_ALLOW_HOSTS = {
-    h.strip().lower() for h in (_allowed_embed_hosts_env.split(",") if _allowed_embed_hosts_env else []) if h.strip()
-}
 
 # Cloudinary setup (enabled if credentials are provided)
 try:
@@ -231,27 +231,6 @@ def _open_and_verify_image(raw: bytes) -> Image.Image:
         raise ValueError("Imagen inválida o peligrosa")
 
 
-def _is_cloudinary_host(host: str) -> bool:
-    host = (host or "").lower()
-    return host.endswith("cloudinary.com")
-
-
-def _is_embed_url_allowed(url: str) -> bool:
-    """
-    Allow only data: URLs and approved remote hosts (Cloudinary/allowlist),
-    to avoid SSRF when embedding into HTML/PDF.
-    """
-    if not isinstance(url, str) or not url:
-        return False
-    if url.startswith("data:"):
-        return True
-    if not (url.startswith("http://") or url.startswith("https://")):
-        return False
-    host = urlparse(url).hostname or ""
-    host = host.lower()
-    return host in IMG_EMBED_ALLOW_HOSTS or _is_cloudinary_host(host)
-
-
 def _optimize_image(data_url: str, max_size_kb: int = 80) -> str:
     """Optimize image to reduce file size while maintaining transparency.
     
@@ -267,42 +246,41 @@ def _optimize_image(data_url: str, max_size_kb: int = 80) -> str:
         # Validate base64 payload size + image safety before processing
         _, img_data = _decode_base64_image_bytes(data_url, max_input_bytes)
         img = _open_and_verify_image(img_data)
-        
+
         # Determine if image has transparency
         has_transparency = img.mode in ('RGBA', 'LA', 'P')
-        
+
         # Convert palette images to RGBA if they have transparency
         if img.mode == 'P':
             img = img.convert('RGBA')
             has_transparency = True
-        
+
         max_size_bytes = max_size_kb * 1024
-        
+
         if has_transparency:
             # Use PNG for images with transparency
             # Start with compression level 6 (default)
             compress_level = 6
-            
+
             # Try different compression levels
             for level in range(6, 10):
                 output = io.BytesIO()
                 img.save(output, format='PNG', optimize=True, compress_level=level)
                 size = output.tell()
-                
+
                 if size <= max_size_bytes:
                     break
-                compress_level = level
-            
+
             # If still too large, resize image
             if size > max_size_bytes:
                 scale = (max_size_bytes / size) ** 0.5
                 new_width = int(img.width * scale)
                 new_height = int(img.height * scale)
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                
+
                 output = io.BytesIO()
                 img.save(output, format='PNG', optimize=True, compress_level=9)
-            
+
             # Convert back to base64
             output.seek(0)
             optimized_b64 = base64.b64encode(output.read()).decode('utf-8')
@@ -312,37 +290,37 @@ def _optimize_image(data_url: str, max_size_kb: int = 80) -> str:
             # Convert to RGB if needed
             if img.mode not in ('RGB', 'L'):
                 img = img.convert('RGB')
-            
+
             # Start with quality 85
             quality = 85
-            
+
             # Try to compress until we reach target size
             while quality > 20:
                 output = io.BytesIO()
                 img.save(output, format='JPEG', quality=quality, optimize=True)
                 size = output.tell()
-                
+
                 if size <= max_size_bytes:
                     break
-                
+
                 # Reduce quality for next iteration
                 quality -= 5
-            
+
             # If still too large, resize image
             if size > max_size_bytes:
                 scale = (max_size_bytes / size) ** 0.5
                 new_width = int(img.width * scale)
                 new_height = int(img.height * scale)
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                
+
                 output = io.BytesIO()
                 img.save(output, format='JPEG', quality=quality, optimize=True)
-            
+
             # Convert back to base64
             output.seek(0)
             optimized_b64 = base64.b64encode(output.read()).decode('utf-8')
             return f"data:image/jpeg;base64,{optimized_b64}"
-    
+
     except ValueError:
         # Invalid/unsafe payload: propagate so endpoints can reject (HTTP 400).
         raise
@@ -362,24 +340,24 @@ def _extract_public_id_from_url(url: str) -> str:
             return ""
 
         parsed = urlparse(url)
-        if not parsed.hostname or not _is_cloudinary_host(parsed.hostname):
+        if not parsed.hostname or not is_cloudinary_host(parsed.hostname):
             return ""
-        
+
         # Find the part after /upload/
         parts = url.split('/upload/')
         if len(parts) < 2:
             return ""
-        
+
         # Get the path after version (v123456/)
         path = parts[1]
         # Remove version if present
         if path.startswith('v') and '/' in path:
             path = path.split('/', 1)[1]
-        
+
         # Remove file extension
         if '.' in path:
             path = path.rsplit('.', 1)[0]
-        
+
         public_id = path.lstrip("/")
         if public_id and not public_id.startswith(ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES):
             return ""
@@ -393,7 +371,7 @@ def _delete_cloudinary_resource(url: str, resource_type: str = "image"):
     """Delete a resource from Cloudinary by its URL."""
     if not cloudinary or not url:
         return
-    
+
     try:
         public_id = _extract_public_id_from_url(url)
         if public_id:
@@ -435,61 +413,14 @@ def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
         return optimized_url
 
 
-def _normalize_fotos_extra_max(raw) -> int:
-    try:
-        v = int(raw)
-    except (TypeError, ValueError):
-        return 0
-    return v if v in ALLOWED_FOTOS_EXTRA else 0
-
-
-def _orden_max_fotos(*, fotos_extra_max: int) -> int:
-    return DEFAULT_MAX_FOTOS + _normalize_fotos_extra_max(fotos_extra_max)
-
-
 def _resolve_fotos_extra_max(data: dict, instance=None) -> int:
     if isinstance(data, dict) and 'fotos_extra_max' in data:
         return _normalize_fotos_extra_max(data.get('fotos_extra_max'))
     return _normalize_fotos_extra_max(getattr(instance, 'fotos_extra_max', 0))
 
 
-def _img_url_to_data_uri(url: str) -> str:
-    """Download an image URL and embed as data URI for reliable PDF rendering.
-
-    If anything fails (timeout, non-image response, too large, disallowed host),
-    returns '' to avoid SSRF / external fetches.
-    """
-    if not isinstance(url, str) or not url:
-        return ''
-    if not _is_embed_url_allowed(url):
-        return ''
-    try:
-        req = Request(
-            url=url,
-            headers={
-                'User-Agent': 'Mozilla/5.0',
-                'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-            },
-            method='GET',
-        )
-        with urlopen(req, timeout=30) as resp:
-            content_type = (resp.headers.get('Content-Type') or '').split(';')[0].strip().lower()
-            raw = resp.read()
-
-        # Guardrail: avoid embedding extremely large images
-        if raw and len(raw) > MAX_EMBED_REMOTE_BYTES:
-            return ''
-        if not content_type.startswith('image/'):
-            return ''
-        b64 = base64.b64encode(raw).decode('ascii')
-        return f'data:{content_type};base64,{b64}'
-    except Exception:
-        logger.exception("Failed to download and embed remote image for PDF")
-        return ''
-
-
 class OrdenViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, OrdenesPermission]
     # Evitar paginación por defecto para que el frontend reciba todas las órdenes
     # y no “se corten” (p.ej. mostrar solo hasta idx=10).
     pagination_class = None
@@ -1240,20 +1171,33 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='tecnico-opciones')
     def tecnico_opciones(self, request):
-        """Usuarios activos para técnicos asignados, quien instaló, quien entregó (módulo órdenes)."""
-        qs = User.objects.filter(is_active=True).order_by('first_name', 'last_name', 'id')
-        data = [
-            {
+        """Usuarios elegibles para asignación en órdenes (staff o permiso órdenes)."""
+        eligible_ids = set(
+            User.objects.filter(is_active=True, is_staff=True).values_list('id', flat=True)
+        )
+        for profile in UserPermissions.objects.filter(user__is_active=True).only('user_id', 'permissions'):
+            if user_has_any_ordenes_access(profile.permissions):
+                eligible_ids.add(profile.user_id)
+
+        qs = User.objects.filter(id__in=eligible_ids, is_active=True).order_by(
+            'first_name', 'last_name', 'id'
+        )
+        include_sensitive = bool(
+            getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
+        )
+        data = []
+        for u in qs:
+            row = {
                 'id': u.id,
                 'username': u.username or '',
-                'email': u.email or '',
                 'first_name': u.first_name or '',
                 'last_name': u.last_name or '',
-                'is_staff': bool(getattr(u, 'is_staff', False)),
-                'is_superuser': bool(getattr(u, 'is_superuser', False)),
             }
-            for u in qs
-        ]
+            if include_sensitive:
+                row['email'] = u.email or ''
+                row['is_staff'] = bool(getattr(u, 'is_staff', False))
+                row['is_superuser'] = bool(getattr(u, 'is_superuser', False))
+            data.append(row)
         return Response(data)
 
     @action(detail=False, methods=['get'], url_path='reportes-tecnico-opciones')
@@ -1393,11 +1337,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
             F('fecha_creacion').asc(nulls_last=True),
             'id'
         )
-        
+
         with transaction.atomic():
             # Limpiar IDs para evitar unique constraint violations
             qs.update(idx=None)
-            
+
             for i, orden in enumerate(qs, start=1):
                 if i <= 588:
                     new_idx = i
@@ -1405,265 +1349,15 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     # El 589 se convierte en 5000, 590 en 5001, etc.
                     # Formula: 5000 + (i - 589)
                     new_idx = 5000 + (i - 589)
-                
+
                 Orden.objects.filter(id=orden.id).update(idx=new_idx)
-                
+
         return Response({"detail": "IDX reindexado correctamente", "total": qs.count()})
 
     def _generate_pdf_html(self, orden):
-        """Genera el HTML para el PDF de la orden (usado por el endpoint /pdf).
+        from .pdf_templates import generate_orden_pdf_html
 
-        La conversión a PDF la hace `_pdf_response_from_html`: primero
-        htmldocs si hay clave; si no, fallo o ausencia de clave, Playwright
-        en el servidor. Si no hay motor disponible, se devuelve HTML para
-        vista previa en el navegador.
-        """
-        tecnico = orden.tecnico_asignado
-        tecnico_nombre = None
-        if tecnico:
-            tecnico_nombre = (f"{tecnico.first_name} {tecnico.last_name}".strip() or getattr(tecnico, 'email', None) or getattr(tecnico, 'username', None))
-        if not tecnico_nombre:
-            tecnico_nombre = getattr(orden, 'nombre_encargado', None) or None
-
-        def esc(s):
-            if s is None:
-                return ""
-            s = str(s)
-            return (
-                s.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace('"', "&quot;")
-                .replace("'", "&#39;")
-            )
-
-        servicios = orden.servicios_realizados if isinstance(orden.servicios_realizados, list) else []
-        fotos = orden.fotos_urls if isinstance(orden.fotos_urls, list) else []
-        fotos = fotos[:_orden_max_fotos(fotos_extra_max=orden.fotos_extra_max)]
-        fotos_limpias = [url for url in fotos if url]
-        fotos_embedded = [_img_url_to_data_uri(url) for url in fotos_limpias]
-        fotos_embedded = [src for src in fotos_embedded if src]
-        has_photos = bool(fotos_embedded)
-
-        firma_tecnico = _img_url_to_data_uri(getattr(orden, 'firma_encargado_url', None) or '')
-        firma_cliente = _img_url_to_data_uri(getattr(orden, 'firma_cliente_url', None) or '')
-
-        status_text = "RESUELTO" if orden.status == "resuelto" else "PENDIENTE"
-        status_bg = "#dcfce7" if orden.status == "resuelto" else "#fef3c7"
-        status_border = "#86efac" if orden.status == "resuelto" else "#fcd34d"
-        status_fg = "#166534" if orden.status == "resuelto" else "#92400e"
-
-        folio_display = getattr(orden, 'folio', None) or getattr(orden, 'idx', None) or '-'
-
-        servicios_pills_html = "".join(
-            f"<span class='service-pill'>{esc(s)}</span>" for s in servicios if s
-        ) or "<span class='muted'>-</span>"
-
-        fotos_grid_html = "".join(
-            f"<div class='photo-box'><img src='{esc(src)}' /></div>" for src in fotos_embedded
-        ) or "<div class='muted'>No hay fotos adjuntas.</div>"
-
-        logo_data_uri = ""
-        try:
-            repo_root = Path(__file__).resolve().parents[3]
-            logo_path = repo_root / "frontend" / "public" / "images" / "logo" / "intrax-logo.png"
-            if logo_path.exists():
-                b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
-                logo_data_uri = f"data:image/png;base64,{b64}"
-        except Exception:
-            logger.exception("Failed to load Intrax logo for orden PDF")
-            logo_data_uri = ""
-
-        evidencias_html = ""
-        if has_photos:
-            evidencias_html = f"""
-
-    <div class='pagebreak'></div>
-    <div class='page'>
-      <div class='content'>
-        <div class='section'>
-          <div class='section-title'>Evidencias</div>
-          <div class='box'>
-            <div class='photos'>
-              {fotos_grid_html}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-"""
-
-        html = f"""<!doctype html>
-<html>
-  <head>
-    <meta charset='utf-8' />
-    <meta name='viewport' content='width=device-width, initial-scale=1' />
-    <style>
-      :root {{
-        --blue-900: #1e3a8a;
-        --blue-700: #1d4ed8;
-        --blue-600: #2563eb;
-        --blue-100: #dbeafe;
-        --blue-50: #eff6ff;
-        --text: #0f172a;
-        --muted: #64748b;
-        --border: #dbeafe;
-        --bg: #ffffff;
-        --green: #16a34a;
-        --amber: #f59e0b;
-      }}
-      @page {{
-        size: A4;
-        margin-left: 12mm;
-        margin-right: 16mm;
-        margin-top: 12mm;
-        margin-bottom: 14mm;
-      }}
-      * {{ box-sizing: border-box; }}
-      body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; font-size: 14px; color: var(--text); background: var(--bg); margin: 0; }}
-      .page {{ width: 210mm; min-height: 297mm; padding: 0; margin: 0 auto; }}
-      .content {{ padding: 0; }}
-      .topbar {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }}
-      .brandwrap {{ display: flex; align-items: flex-start; gap: 12px; min-width: 0; }}
-      .logo {{ width: 96px; height: 96px; border-radius: 0; background: transparent; border: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto; }}
-      .logo img {{ width: 100%; height: 100%; object-fit: contain; }}
-      .brand {{ min-width: 0; }}
-      .brand .name {{ font-size: 15px; font-weight: 700; color: var(--blue-900); letter-spacing: -0.2px; }}
-      .brand .meta {{ margin-top: 6px; font-size: 11px; line-height: 1.25; color: var(--muted); max-width: 330px; }}
-      .brand .meta b {{ color: var(--text); font-weight: 600; }}
-      .status {{ text-align: right; max-width: 45%; margin-left: auto; }}
-      .status .pill {{ display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .7px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); }}
-      .status .dates {{ margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.35; }}
-      .status .folio {{ font-size: 17px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }}
-      .status .folio .num {{ color: #dc2626; font-weight: 700; }}
-      .hero {{ border: 1px solid var(--border); border-left: 6px solid var(--blue-700); border-radius: 14px; padding: 14px 14px 12px 14px; background: #eff6ff; margin-bottom: 14px; }}
-      .hero .title {{ font-size: 19px; font-weight: 700; color: var(--blue-900); letter-spacing: -0.3px; }}
-      .hero .sub {{ margin-top: 5px; font-size: 11px; color: var(--muted); }}
-      .grid2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
-      .card {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
-      .card h3 {{ margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: var(--blue-900); letter-spacing: .3px; text-transform: uppercase; }}
-      .row {{ display: flex; gap: 12px; }}
-      .col {{ flex: 1; min-width: 0; }}
-      .label {{ font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }}
-      .value {{ margin-top: 4px; font-size: 13px; color: var(--text); }}
-      .pre {{ white-space: pre-wrap; overflow-wrap: anywhere; }}
-      .muted {{ color: var(--muted); font-size: 13px; }}
-      .services {{ margin-top: 6px; }}
-      .service-pill {{ display: inline-block; font-size: 11px; font-weight: 600; color: #fff; padding: 4px 10px; border-radius: 999px; background: #2563eb; margin: 4px 6px 0 0; }}
-      .section {{ margin-top: 12px; }}
-      .section-title {{ margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: var(--blue-900); letter-spacing: .3px; text-transform: uppercase; }}
-      .box {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
-      .photos {{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }}
-      .photo-box {{ border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--blue-50); height: 260px; display: flex; align-items: center; justify-content: center; }}
-      .photo-box img {{ width: 100%; height: 100%; object-fit: cover; }}
-      .pagebreak {{ page-break-before: always; }}
-      .sigs {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
-      .sigbox {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
-      .sigimgwrap {{ height: 105px; border-radius: 12px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--blue-50); margin-top: 8px; }}
-      .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; }}
-      .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 12px; color: var(--muted); }}
-      .sigline b {{ font-weight: 700; color: var(--text); }}
-    </style>
-  </head>
-  <body>
-    <div class='page'>
-      <div class='content'>
-      <div class='topbar'>
-        <div class='brandwrap'>
-          <div class='logo'>
-            {f"<img src='{logo_data_uri}' />" if logo_data_uri else ""}
-          </div>
-          <div class='brand'>
-            <div class='name'>GRUPO INTRAX SEGURIDAD Y RASTREO</div>
-            <div class='meta'>
-              <b>RFC:</b> IMA200110CI4<br/>
-              Av. Elias Zamora Verduzco No. 149 Barrio 2, Valle de las garzas. #149<br/>
-              Col: Valle de las Garzas C.P.: 20219 Barrio 2, Manzanillo, Colima, México<br/>
-              <b>Tel:</b> 3141130469 &nbsp;|&nbsp; <b>Cel:</b> 3141245830 &nbsp;|&nbsp; <b>Mail:</b> hola@intrax.mx
-            </div>
-          </div>
-        </div>
-        <div class='status'>
-          <div class='folio'><b>FOLIO:</b> <span class='num'>{esc(folio_display)}</span></div>
-          <div class='pill' style='background: {status_bg}; border-color: {status_border}; color: {status_fg};'>
-            {esc(status_text)}
-          </div>
-          <div class='dates'>
-            <div><b>Inicio:</b> {esc(orden.fecha_inicio or '-') } {esc(orden.hora_inicio or '')}</div>
-            <div><b>Término:</b> {esc(orden.fecha_finalizacion or '-') } {esc(orden.hora_termino or '')}</div>
-          </div>
-        </div>
-      </div>
-
-      <div class='hero'>
-        <div class='title'>Orden de Servicio</div>
-        <div class='sub'>Cliente: {esc(orden.cliente or getattr(orden.cliente_id, 'nombre', '') or '-')}</div>
-      </div>
-
-      <div class='grid2'>
-        <div class='card'>
-          <h3>Datos del cliente</h3>
-          <div class='label'>Dirección</div>
-          <div class='value pre'>{esc(orden.direccion or '-')}</div>
-          <div class='row' style='margin-top: 10px;'>
-            <div class='col'>
-              <div class='label'>Teléfono</div>
-              <div class='value'>{esc(orden.telefono_cliente or '-')}</div>
-            </div>
-            <div class='col'>
-              <div class='label'>Contacto</div>
-              <div class='value'>{esc(orden.nombre_cliente or '-')}</div>
-            </div>
-          </div>
-        </div>
-
-        <div class='card'>
-          <h3>Servicio</h3>
-          <div class='label'>Técnico</div>
-          <div class='value'>{esc(tecnico_nombre or orden.nombre_encargado or '-')}</div>
-          <div class='label' style='margin-top: 10px;'>Servicios realizados</div>
-          <div class='value services'>{servicios_pills_html}</div>
-        </div>
-      </div>
-
-      <div class='section'>
-        <div class='section-title'>Detalle del servicio</div>
-        <div class='box'>
-          <div class='label'>Problemática</div>
-          <div class='value pre'>{esc(orden.problematica or '-')}</div>
-          <div class='label' style='margin-top: 10px;'>Comentario del técnico</div>
-          <div class='value pre'>{esc(orden.comentario_tecnico or '-')}</div>
-        </div>
-      </div>
-
-      <div class='section'>
-        <div class='section-title'>Firmas</div>
-        <div class='sigs'>
-          <div class='sigbox'>
-            <div class='label'>Firma técnico</div>
-            <div class='sigimgwrap'>
-              {f"<img src='{firma_tecnico}' />" if firma_tecnico else "<div class='muted'>Sin firma</div>"}
-            </div>
-            <div class='sigline'><b>Nombre:</b> {esc(tecnico_nombre or orden.nombre_encargado or '-') }</div>
-          </div>
-          <div class='sigbox'>
-            <div class='label'>Firma cliente</div>
-            <div class='sigimgwrap'>
-              {f"<img src='{firma_cliente}' />" if firma_cliente else "<div class='muted'>Sin firma</div>"}
-            </div>
-            <div class='sigline'><b>Nombre:</b> {esc(orden.nombre_cliente or '-') }</div>
-          </div>
-        </div>
-      </div>
-
-      </div>
-    </div>
-
-    {evidencias_html}
-  </body>
-</html>"""
-
-        return html
+        return generate_orden_pdf_html(orden)
 
     def perform_create(self, serializer):
         data = serializer.validated_data
@@ -1706,15 +1400,14 @@ class OrdenViewSet(viewsets.ModelViewSet):
         instance = serializer.instance
         old_firma_cliente = instance.firma_cliente_url
         old_fotos = list(instance.fotos_urls) if instance.fotos_urls else []
-        old_pdf_url = instance.pdf_url
-        
+
         data = serializer.validated_data
 
         # Firma del encargado: siempre se toma desde el perfil del usuario (no subir/borrar desde órdenes)
         sig = UserSignature.objects.filter(user=self.request.user).first()
         if sig and sig.url:
             data['firma_encargado_url'] = sig.url
-        
+
         firma_cliente = data.get('firma_cliente_url')
         if isinstance(firma_cliente, str) and _is_data_url(firma_cliente):
             # Delete old signature from Cloudinary (only within our scope) if exists
@@ -1735,7 +1428,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         else:
             # Unexpected type
             raise ValidationError("firma_cliente_url inválida")
-        
+
         # Handle photo updates - delete removed photos
         fotos = data.get('fotos_urls')
         if isinstance(fotos, list):
@@ -1749,7 +1442,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
             for old_foto in old_fotos:
                 if old_foto not in fotos and isinstance(old_foto, str) and _extract_public_id_from_url(old_foto):
                     _delete_cloudinary_resource(old_foto)
-            
+
             # Process new photos
             for f in fotos:
                 if isinstance(f, str) and _is_data_url(f):
@@ -1760,10 +1453,10 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 else:
                     raise ValidationError("fotos_urls contiene una entrada inválida")
             data['fotos_urls'] = new_fotos
-        
+
         # Save updated instance
         instance = serializer.save(**data)
-        
+
         return instance
 
     @action(detail=False, methods=['post'], url_path='upload-image')
@@ -1842,7 +1535,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         except Exception:
             logger.exception("Failed to parse update_photos request payload")
             payload = {}
-        
+
         fotos_urls = payload.get('fotos_urls')
         if not isinstance(fotos_urls, list):
             return Response({"detail": "fotos_urls debe ser una lista"}, status=400)
@@ -1862,7 +1555,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
         orden.fotos_urls = new_fotos
         orden.save(update_fields=['fotos_urls'])
-        
+
         serializer = self.get_serializer(orden)
         return Response(serializer.data, status=200)
 

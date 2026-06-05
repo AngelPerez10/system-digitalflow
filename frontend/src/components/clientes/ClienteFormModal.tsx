@@ -65,8 +65,8 @@ export function ClienteFormModal({
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [mapError, setMapError] = useState("");
 
-  const canClientesCreate = !!permissions?.clientes?.create;
-  const canClientesEdit = permissions?.clientes?.edit !== false;
+  const canClientesCreate = permissions?.clientes?.create === true;
+  const canClientesEdit = permissions?.clientes?.edit === true;
 
   const viewSingular =
     fixedTipo === "EMPRESA"

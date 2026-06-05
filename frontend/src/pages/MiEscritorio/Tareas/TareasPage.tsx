@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useId, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
@@ -59,8 +59,13 @@ function userLabel(t: Tarea, list: Usuario[]) {
 }
 
 export default function TareasPage() {
+  const taskFormTitleId = useId();
+  const descModalTitleId = useId();
+  const fotosModalTitleId = useId();
+  const deleteModalTitleId = useId();
+  const deletePhotoModalTitleId = useId();
   const [perms, setPerms] = useState<any>({});
-  const V = perms?.tareas?.view !== false;
+  const V = perms?.tareas?.view === true;
   const C = !!perms?.tareas?.create;
   const E = !!perms?.tareas?.edit;
   const D = !!perms?.tareas?.delete;
@@ -288,7 +293,13 @@ export default function TareasPage() {
         </div>
       </div>
 
-      <Modal isOpen={showModal} onClose={closeModal} closeOnBackdropClick={false} className="flex max-h-[min(92vh,720px)] w-[min(96vw,36rem)] flex-col overflow-hidden rounded-2xl border border-[#e7ded0] bg-white p-0 shadow-[0_24px_48px_-12px_rgba(28,25,23,0.18)] dark:border-[#334155] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] sm:max-w-xl">
+      <Modal
+        isOpen={showModal}
+        onClose={closeModal}
+        closeOnBackdropClick={false}
+        className="flex max-h-[min(92vh,720px)] w-[min(96vw,36rem)] flex-col overflow-hidden rounded-2xl border border-[#e7ded0] bg-white p-0 shadow-[0_24px_48px_-12px_rgba(28,25,23,0.18)] dark:border-[#334155] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] sm:max-w-xl"
+        ariaLabelledBy={taskFormTitleId}
+      >
         <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-[#111827] sm:pr-16">
             <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
@@ -301,7 +312,7 @@ export default function TareasPage() {
                   <p className={sectionLabelClass}>Mi escritorio · Tareas</p>
                   {editing ? <span className="rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">Edición</span> : <span className="rounded-md border border-[#e7ded0] bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#78716c] dark:border-[#334155] dark:bg-[#111827] dark:text-[#8ea0b8]">Nueva</span>}
                 </div>
-                <h2 className={`mt-1.5 ${claudeSubheading}`}>{editing ? "Editar tarea" : "Crear tarea"}</h2>
+                <h2 id={taskFormTitleId} className={`mt-1.5 ${claudeSubheading}`}>{editing ? "Editar tarea" : "Crear tarea"}</h2>
                 <p className={`mt-1.5 max-w-md ${claudeBody} text-sm`}>Defina responsable y descripción; las fotos son opcionales (máx. 2).</p>
               </div>
             </div>
@@ -357,17 +368,29 @@ export default function TareasPage() {
         </div>
       </Modal>
 
-      <Modal isOpen={descM.open} onClose={() => setDescM({ open: false, content: "" })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]">
+      <Modal
+        isOpen={descM.open}
+        onClose={() => setDescM({ open: false, content: "" })}
+        closeOnBackdropClick={false}
+        className="max-w-2xl w-[92vw]"
+        ariaLabelledBy={descModalTitleId}
+      >
         <div className="overflow-hidden rounded-2xl border border-[#e7ded0] bg-white dark:border-[#273244] dark:bg-[#111a2b]">
-          <div className="flex items-center gap-3 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 dark:border-[#334155] dark:bg-[#111827]"><span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ea580c] dark:bg-[#ff801f]/15 dark:text-[#fb923c]"><svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 19.5V4a2 2 0 0 1 2-2h10l4 4v13.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" /><path d="M14 2v4h4" /><path d="M8 10h8" /><path d="M8 14h8" /></svg></span><div className="min-w-0"><h3 className={`${claudeSubheading}`}>Descripción</h3><p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Detalle completo de la tarea</p></div></div>
+          <div className="flex items-center gap-3 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 dark:border-[#334155] dark:bg-[#111827]"><span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ea580c] dark:bg-[#ff801f]/15 dark:text-[#fb923c]"><svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 19.5V4a2 2 0 0 1 2-2h10l4 4v13.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" /><path d="M14 2v4h4" /><path d="M8 10h8" /><path d="M8 14h8" /></svg></span><div className="min-w-0"><h3 id={descModalTitleId} className={`${claudeSubheading}`}>Descripción</h3><p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Detalle completo de la tarea</p></div></div>
           <div className="p-4 text-sm text-[#1c1917] dark:text-gray-200 max-h-[60vh] overflow-y-auto custom-scrollbar"><pre className="whitespace-pre-wrap rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 text-[13px] leading-relaxed dark:border-[#334155] dark:bg-[#111827]/60">{descM.content || "—"}</pre></div>
           <div className="border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 text-right dark:border-[#334155] dark:bg-[#111827]"><button type="button" onClick={() => setDescM({ open: false, content: "" })} className={orangeBtnOutline}>Cerrar</button></div>
         </div>
       </Modal>
 
-      <Modal isOpen={fotosM.open} onClose={() => setFotosM({ open: false, urls: [] })} closeOnBackdropClick={false} className="max-w-3xl w-[92vw]">
+      <Modal
+        isOpen={fotosM.open}
+        onClose={() => setFotosM({ open: false, urls: [] })}
+        closeOnBackdropClick={false}
+        className="max-w-3xl w-[92vw]"
+        ariaLabelledBy={fotosModalTitleId}
+      >
         <div className="overflow-hidden rounded-2xl border border-[#e7ded0] bg-white dark:border-[#273244] dark:bg-[#111a2b]">
-          <div className="flex items-center gap-3 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 dark:border-[#334155] dark:bg-[#111827]"><span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ea580c] dark:bg-[#ff801f]/15 dark:text-[#fb923c]"><svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" /><circle cx="12" cy="13" r="3" /></svg></span><div className="min-w-0"><h3 className={`${claudeSubheading}`}>Fotos</h3><p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Imágenes adjuntas a la tarea</p></div></div>
+          <div className="flex items-center gap-3 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 dark:border-[#334155] dark:bg-[#111827]"><span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ea580c] dark:bg-[#ff801f]/15 dark:text-[#fb923c]"><svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" /><circle cx="12" cy="13" r="3" /></svg></span><div className="min-w-0"><h3 id={fotosModalTitleId} className={`${claudeSubheading}`}>Fotos</h3><p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Imágenes adjuntas a la tarea</p></div></div>
           <div className="p-4 text-sm max-h-[70vh] overflow-y-auto custom-scrollbar">
             {Array.isArray(fotosM.urls) && fotosM.urls.length > 0 ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{fotosM.urls.map((url, idx) => (<a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer" className="group relative block overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111827]/50"><img src={url} alt={`Foto ${idx + 1}`} className="h-44 w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]" /><div className="absolute inset-x-0 bottom-0 p-2 bg-linear-to-t from-black/40 to-transparent"><div className="text-[11px] text-white/95">Ver en tamaño completo</div></div></a>))}</div> : <div className="rounded-lg border border-dashed border-[#e7ded0] p-4 text-center text-[#78716c] dark:border-[#334155] dark:text-[#8ea0b8]">Sin fotos adjuntas</div>}
           </div>
@@ -375,9 +398,15 @@ export default function TareasPage() {
         </div>
       </Modal>
 
-      <Modal isOpen={delM} onClose={delCancel} closeOnBackdropClick={false} className="w-full max-w-md">
+      <Modal
+        isOpen={delM}
+        onClose={delCancel}
+        closeOnBackdropClick={false}
+        className="w-full max-w-md"
+        ariaLabelledBy={deleteModalTitleId}
+      >
         <div className="rounded-2xl border border-[#e7ded0] bg-white p-6 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]">
-          <div className="flex items-center gap-3 mb-4"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18" strokeLinecap="round" /><path d="M8 6V4h8v2" strokeLinecap="round" /><path d="M6 6l1 16h10l1-16" strokeLinejoin="round" /><path d="M10 11v6M14 11v6" strokeLinecap="round" /></svg></span><div><h3 className={`${claudeSubheading}`}>Confirmar eliminación</h3><p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Esta acción no se puede deshacer.</p></div></div>
+          <div className="flex items-center gap-3 mb-4"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18" strokeLinecap="round" /><path d="M8 6V4h8v2" strokeLinecap="round" /><path d="M6 6l1 16h10l1-16" strokeLinejoin="round" /><path d="M10 11v6M14 11v6" strokeLinecap="round" /></svg></span><div><h3 id={deleteModalTitleId} className={`${claudeSubheading}`}>Confirmar eliminación</h3><p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Esta acción no se puede deshacer.</p></div></div>
           <p className={`${claudeBody} text-sm mb-6`}>¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.</p>
           <div className="flex justify-end gap-3">
             <button onClick={delCancel} className={orangeBtnOutline}>Cancelar</button>
@@ -386,9 +415,15 @@ export default function TareasPage() {
         </div>
       </Modal>
 
-      <Modal isOpen={confirmDel.open} onClose={() => setConfirmDel({ open: false, index: null, url: null })} closeOnBackdropClick={false} className="w-full max-w-md">
+      <Modal
+        isOpen={confirmDel.open}
+        onClose={() => setConfirmDel({ open: false, index: null, url: null })}
+        closeOnBackdropClick={false}
+        className="w-full max-w-md"
+        ariaLabelledBy={deletePhotoModalTitleId}
+      >
         <div className="rounded-2xl border border-[#e7ded0] bg-white p-6 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]">
-          <div className="flex items-center gap-3 mb-4"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18" strokeLinecap="round" /><path d="M8 6V4h8v2" strokeLinecap="round" /><path d="M6 6l1 16h10l1-16" strokeLinejoin="round" /><path d="M10 11v6M14 11v6" strokeLinecap="round" /></svg></span><div><h3 className={`${claudeSubheading}`}>Eliminar foto</h3><p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Se eliminará permanentemente.</p></div></div>
+          <div className="flex items-center gap-3 mb-4"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18" strokeLinecap="round" /><path d="M8 6V4h8v2" strokeLinecap="round" /><path d="M6 6l1 16h10l1-16" strokeLinejoin="round" /><path d="M10 11v6M14 11v6" strokeLinecap="round" /></svg></span><div><h3 id={deletePhotoModalTitleId} className={`${claudeSubheading}`}>Eliminar foto</h3><p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Se eliminará permanentemente.</p></div></div>
           <p className={`${claudeBody} text-sm mb-6`}>¿Estás seguro de que deseas eliminar esta foto?</p>
           <div className="flex justify-end gap-3">
             <button onClick={() => setConfirmDel({ open: false, index: null, url: null })} className={orangeBtnOutline}>Cancelar</button>

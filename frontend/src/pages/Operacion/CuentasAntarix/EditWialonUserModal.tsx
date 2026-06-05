@@ -32,24 +32,21 @@ type Props = {
   onSaved: (updated: WialonUserRow) => void;
 };
 
-function unitOnline(unit: WialonUnitRow): "ok" | "warn" | "neutral" {
-  if (unit.last_message_at?.trim() && unit.last_message_at !== "—") return "ok";
-  if (unit.uid?.trim() && unit.uid !== "—") return "warn";
-  return "neutral";
-}
-
 function StatusBadge({ status }: { status: string }) {
   const active = status === "Activo";
+  const unknown = !status || status === "—";
   return (
     <span
       className={cn(
         uiBadge,
-        active
-          ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-          : "bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
+        unknown
+          ? "bg-[#f5f0e8] text-[#78716c] dark:bg-[#1e293b] dark:text-[#94a3b8]"
+          : active
+            ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+            : "bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
       )}
     >
-      {status}
+      {unknown ? "Sin dato" : status}
     </span>
   );
 }
@@ -116,13 +113,26 @@ export default function EditWialonUserModal({
     if (activeTab === "unidades") void loadUnits();
   }, [isOpen, user, activeTab, loadUnits]);
 
+  const activeUnits = useMemo(
+    () =>
+      units.filter((u) => {
+        if (u.is_active === true || u.status === "Activo") return true;
+        if (u.is_active === false || u.status === "Inactivo") return false;
+        return true;
+      }),
+    [units]
+  );
+
   const filteredUnits = useMemo(() => {
     const q = unitSearch.trim().toLowerCase();
-    if (!q) return units;
-    return units.filter((u) =>
-      [u.name, u.device_type, u.uid, u.phone, u.custom_fields].join(" ").toLowerCase().includes(q)
+    if (!q) return activeUnits;
+    return activeUnits.filter((u) =>
+      [u.name, u.device_type, u.uid, u.phone, u.custom_fields, u.status]
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
     );
-  }, [units, unitSearch]);
+  }, [activeUnits, unitSearch]);
 
   const handleClose = () => {
     if (saving) return;
@@ -223,7 +233,7 @@ export default function EditWialonUserModal({
               <div className="mt-3 flex flex-wrap gap-2">
                 {user ? <StatusBadge status={user.status} /> : null}
                 <span className={cn(uiBadge, "rounded-lg border border-[#e7ded0] bg-white/90 text-[#57534e] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1]")}>
-                  {unitsLoading ? "…" : `${user?.assigned_units ?? units.length} unidades`}
+                  {unitsLoading ? "…" : `${activeUnits.length} activas`}
                 </span>
                 {user?.dealer_rights === "Sí" ? (
                   <span className={cn(uiBadge, "rounded-lg bg-[#fff3e6] text-[#c45f00] dark:bg-[#ff801f]/15 dark:text-[#ffb366]")}>
@@ -258,9 +268,9 @@ export default function EditWialonUserModal({
                   )}
                 >
                   Unidades
-                  {units.length > 0 ? (
+                  {activeUnits.length > 0 ? (
                     <span className="ml-1.5 rounded-full bg-black/10 px-1.5 py-0.5 text-[10px] font-semibold dark:bg-white/20">
-                      {units.length}
+                      {activeUnits.length}
                     </span>
                   ) : null}
                 </button>
@@ -363,7 +373,9 @@ export default function EditWialonUserModal({
               <aside className="shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6]/90 p-4 dark:border-[#334155] dark:bg-[#111827]/60 lg:w-[min(100%,320px)] lg:border-b-0 lg:border-r">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <p className={uiLabel}>Flota</p>
-                  <span className={cn(uiCaption, "tabular-nums")}>{filteredUnits.length} / {units.length}</span>
+                  <span className={cn(uiCaption, "tabular-nums")}>
+                    {filteredUnits.length} activa{filteredUnits.length === 1 ? "" : "s"}
+                  </span>
                 </div>
 
                 <div className="relative mb-3">
@@ -400,11 +412,12 @@ export default function EditWialonUserModal({
                     </p>
                   ) : filteredUnits.length === 0 ? (
                     <p className={cn("py-8 text-center", uiCaption)}>
-                      {units.length === 0 ? "Sin unidades asignadas." : "Ninguna coincidencia."}
+                      {activeUnits.length === 0
+                        ? "Sin unidades activas asignadas."
+                        : "Ninguna unidad activa coincide con la búsqueda."}
                     </p>
                   ) : (
                     filteredUnits.map((unit) => {
-                      const level = unitOnline(unit);
                       const selected = selectedUnitId === unit.wialon_id;
                       return (
                         <button
@@ -418,16 +431,7 @@ export default function EditWialonUserModal({
                               : "border-[#e7ded0]/90 bg-white/80 hover:border-[#ff801f]/30 hover:bg-[#fffdfa] dark:border-[#334155] dark:bg-[#0f172a]/50 dark:hover:border-[#fb923c]/30"
                           )}
                         >
-                          <div className="flex items-start gap-2.5">
-                            <span
-                              className={cn(
-                                "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                                level === "ok" && "bg-emerald-500",
-                                level === "warn" && "bg-amber-400",
-                                level === "neutral" && "bg-[#d6d3d1] dark:bg-[#475569]"
-                              )}
-                              aria-hidden
-                            />
+                          <div className="flex items-start gap-2">
                             <div className="min-w-0 flex-1">
                               <p className={cn("truncate text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]")}>
                                 {unit.name || "Sin nombre"}
@@ -435,13 +439,13 @@ export default function EditWialonUserModal({
                               <p className={cn("mt-0.5 truncate font-mono text-[11px] text-[#78716c] dark:text-[#8ea0b8]")}>
                                 {unit.uid !== "—" ? unit.uid : "Sin UID"}
                               </p>
-                              <p className={cn("mt-1 truncate", uiCaption)}>{unit.device_type}</p>
+                              <p className={cn("mt-1 truncate", uiCaption)}>
+                                {unit.device_type}
+                                {unit.last_message_at && unit.last_message_at !== "—"
+                                  ? ` · Último msg. ${unit.last_message_at}`
+                                  : ""}
+                              </p>
                             </div>
-                            {unit.is_shared ? (
-                              <span className={cn(uiBadge, "shrink-0 rounded-md bg-[#fff3e6] text-[#c45f00] dark:bg-[#ff801f]/15 dark:text-[#ffb366]")}>
-                                Shared
-                              </span>
-                            ) : null}
                           </div>
                         </button>
                       );

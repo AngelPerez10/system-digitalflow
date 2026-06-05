@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { sectionLabelOrangeClass } from "../ordenTrabajoStyles";
 
@@ -33,6 +33,7 @@ export function OrdenPdfLoadingModal({ open, downloading = false }: OrdenPdfLoad
     return () => setLoadingProgress(100);
   }, [open]);
 
+  const titleId = useId();
   const pct = Math.min(open ? 99 : 100, Math.max(0, Math.round(loadingProgress)));
   const title = downloading ? "Descargando PDF" : "Generando PDF";
   const hint = downloading
@@ -41,7 +42,13 @@ export function OrdenPdfLoadingModal({ open, downloading = false }: OrdenPdfLoad
   const footerHint = downloading ? "Preparando descarga…" : "Preparando archivo…";
 
   return (
-    <Modal isOpen={open} onClose={() => {}} showCloseButton={false} className="mx-4 max-w-md sm:mx-auto z-[100001]">
+    <Modal
+      isOpen={open}
+      onClose={() => {}}
+      showCloseButton={false}
+      className="mx-4 max-w-md sm:mx-auto z-[100001]"
+      ariaLabelledBy={titleId}
+    >
       <div className="p-7 sm:p-8" aria-busy="true" aria-live="polite">
         <div className="flex flex-col items-center justify-center text-center">
           <div className="relative mb-6">
@@ -59,7 +66,7 @@ export function OrdenPdfLoadingModal({ open, downloading = false }: OrdenPdfLoad
             </div>
           </div>
           <p className={sectionLabelOrangeClass}>Documento</p>
-          <h2 className="mt-1 text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">{title}</h2>
+          <h2 id={titleId} className="mt-1 text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">{title}</h2>
           <p className="mt-1.5 max-w-xs text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">{hint}</p>
           <div className="mt-6 w-full">
             <div className="flex items-center justify-between text-xs text-[#78716c] dark:text-[#8ea0b8]">

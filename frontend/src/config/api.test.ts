@@ -12,8 +12,12 @@ describe('apiUrl', () => {
     expect(result).toMatch(/\/api\/me$/);
   });
 
-  it('returns absolute URL when not in Vite dev mode', () => {
+  it('uses relative paths under Vite dev (proxy to backend)', () => {
     const result = apiUrl('/api/test');
-    expect(result).toMatch(/^https?:\/\//);
+    if (import.meta.env.DEV) {
+      expect(result).toBe('/api/test');
+    } else {
+      expect(result).toMatch(/^https?:\/\//);
+    }
   });
 });

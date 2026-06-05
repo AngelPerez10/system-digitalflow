@@ -7,7 +7,7 @@ import { OrdenDeleteModal, OrdenViewModal } from "../OrdenTrabajoModals";
 
 import Alert from "@/components/ui/alert/Alert";
 import DatePicker from "@/components/form/date-picker";
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
 import { formatMonthLabelEs, getCurrentMonthKey } from "@/utils/statsMonthKey";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { MobileOrderList } from "../OrdenServicio/MobileOrderCard";
@@ -121,7 +121,6 @@ export default function LevantamientoPage() {
     message: "",
   });
 
-  const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token");
   const normalizeStatus = (value: unknown) => String(value ?? "").trim().toLowerCase();
 
   const [pdfDownloading, setPdfDownloading] = useState(false);
@@ -152,17 +151,7 @@ export default function LevantamientoPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const token = getToken();
-        if (!token) {
-          setOrdenes([]);
-          setAlert({ show: true, variant: "warning", title: "Sin sesión", message: "No se encontró token. Inicia sesión nuevamente." });
-          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
-          return;
-        }
-        const res = await fetch(apiUrl("/api/ordenes/"), {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        });
+        const res = await fetchApi("/api/ordenes/");
         const data = await res.json().catch(() => null);
         if (!res.ok) {
           setOrdenes([]);
@@ -290,11 +279,9 @@ export default function LevantamientoPage() {
 
   const handleConfirmDelete = async () => {
     if (!ordenToDelete) return;
-    const token = getToken();
     try {
-      const response = await fetch(apiUrl(`/api/ordenes/${ordenToDelete.id}/`), {
+      const response = await fetchApi(`/api/ordenes/${ordenToDelete.id}/`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
         setOrdenes((prev) => prev.filter((o) => (o as any).id !== ordenToDelete.id));
@@ -331,12 +318,8 @@ export default function LevantamientoPage() {
   };
 
   const fetchOrdenes = async () => {
-    const token = getToken();
-    if (!token) return;
     try {
-      const res = await fetch(apiUrl(`/api/ordenes/?_ts=${Date.now()}`), {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      const res = await fetchApi(`/api/ordenes/?_ts=${Date.now()}`, {
         cache: "no-store" as RequestCache,
       });
       const data = await res.json().catch(() => null);
@@ -886,7 +869,6 @@ export default function LevantamientoPage() {
         defaultFechaInicioForNewOrden={selectedMonth === getCurrentMonthKey() ? undefined : `${selectedMonth}-01`}
         levantamientoListadoMonthLabel={formatMonthLabelEs(selectedMonth)}
         onSaved={() => { fetchOrdenes(); setShowOrderModal(false); setEditingOrdenForModal(null); setAlert({ show: true, variant: "success", title: "Orden guardada", message: "La orden se guardó correctamente." }); setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500); }}
-        getToken={getToken}
       />
 
       {ordenToDelete && (

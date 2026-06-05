@@ -12,6 +12,10 @@ import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
+import { OrdenesPageStats } from "./OrdenesPageStats";
+import { computeOrdenStats, getCurrentYearMonth } from "./ordenesPageTypes";
+import { useOrdenFormModalState } from "./useOrdenFormModalState";
+import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
 import { PencilIcon, TrashBinIcon, TimeIcon } from "@/icons";
@@ -54,7 +58,6 @@ import {
   erpRowActionBarClass,
   erpRowActionBtnClass,
   erpSecondaryBtnClass,
-  erpStatCardClass,
   erpTableHeaderClass,
   erpTableRowHoverClass,
   erpTableWrapClass,
@@ -132,10 +135,6 @@ interface ServicioCatalogo {
 
 let ordenesPageInitialDataLastLoadAt = 0;
 const ORDENES_PAGE_INIT_THROTTLE_MS = 800;
-const getCurrentYearMonth = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-};
 
 let ordenesTecnicoSignatureLastLoadAt = 0;
 let ordenesTecnicoServiciosLastLoadAt = 0;
@@ -145,18 +144,22 @@ let ordenesTecnicoServiciosLastLoadAt = 0;
 export default function OrdenesTecnico() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, permissions, isAdmin, isAuthenticated, loading: authLoading } = useAuth();
+  const {
+    permissions,
+    authLoading,
+    isAuthenticated,
+    canOrdenesView,
+    canOrdenesCreate,
+    canOrdenesEdit,
+    canOrdenesDelete,
+  } = useOrdenesPagePermissions();
+  const { user, isAdmin } = useAuth();
 
   const formNonceRef = useRef(0);
   const formScrollRef = useRef<HTMLFormElement>(null);
 
   const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
   const instalacionSnapshotRef = useRef<{ payload: any; dibujo_url: string } | null>(null);
-
-  const canOrdenesView = permissions?.ordenes?.view !== false;
-  const canOrdenesCreate = !!permissions?.ordenes?.create;
-  const canOrdenesEdit = !!permissions?.ordenes?.edit;
-  const canOrdenesDelete = !!permissions?.ordenes?.delete;
 
   const loadServiciosDisponibles = async () => {
     if (!isAuthenticated) {
@@ -222,16 +225,29 @@ export default function OrdenesTecnico() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [serviciosDisponibles, setServiciosDisponibles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [showClienteModal, setShowClienteModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"orden" | "cliente">("cliente");
+  const {
+    showModal,
+    setShowModal,
+    showClienteModal,
+    setShowClienteModal,
+    activeTab,
+    setActiveTab,
+    editingOrden,
+    setEditingOrden,
+    tipoOrden,
+    setTipoOrden,
+    isReadOnly,
+    tipoOrdenLabel,
+    resetOrdenModalShell,
+  } = useOrdenFormModalState({
+    canCreate: canOrdenesCreate,
+    canEdit: canOrdenesEdit,
+  });
+
   const [isSaving, setIsSaving] = useState(false);
-  const [tipoOrden, setTipoOrden] = useState<'servicio_tecnico' | 'levantamiento' | 'instalaciones' | 'mantenimiento'>('servicio_tecnico');
-  const [editingOrden, setEditingOrden] = useState<Orden | null>(null);
-  const isReadOnly = editingOrden ? !canOrdenesEdit : !canOrdenesCreate;
   const [searchTerm, setSearchTerm] = useState("");
   // Por defecto no filtramos por mes para no ocultar órdenes recién creadas.
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
@@ -249,23 +265,6 @@ export default function OrdenesTecnico() {
   const [filterDate, setFilterDate] = useState(''); // YYYY-MM-DD
   const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
   const filterRef = useRef<HTMLDivElement | null>(null);
-
-  const tipoOrdenLabel = useMemo(() => {
-    switch (tipoOrden) {
-      case 'levantamiento':
-        return 'Levantamiento';
-      case 'instalaciones':
-        return 'Instalaciones';
-      case 'mantenimiento':
-        return 'Mantenimiento';
-      case 'servicio_tecnico':
-      default:
-        return 'Servicio';
-    }
-  }, [tipoOrden]);
-
-
-
 
   const formatYmdToDMY = (ymd: string | null | undefined) => {
     if (!ymd) return '-';
@@ -1000,7 +999,7 @@ export default function OrdenesTecnico() {
                   "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
                   "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
                   "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
-                  "- El anticipo no es reembolsable en caso de cancelación.\n" +
+                  "- El anticipo o liquidación no es reembolsable en caso de cancelación.\n" +
                   "- La aceptación de la cotización implica conformidad con estos términos.",
                 // Para evitar errores de validación de URL en el backend,
                 // NO enviamos thumbnail_url en la creación automática desde levantamiento.
@@ -1377,9 +1376,7 @@ export default function OrdenesTecnico() {
 
   const handleCloseModal = () => {
     formNonceRef.current += 1;
-    setShowModal(false);
-    setActiveTab("cliente");
-    setTipoOrden('servicio_tecnico');
+    resetOrdenModalShell();
     setFormData({
       folio: "",
       cliente_id: null,
@@ -1405,7 +1402,6 @@ export default function OrdenesTecnico() {
       fotos_urls: [],
       fotos_extra_max: 0 as FotosExtraMax
     });
-    setEditingOrden(null);
     // Limpiar estados de búsqueda de dropdowns
     setClienteSearch('');
     setTecnicoSearch('');
@@ -1640,23 +1636,10 @@ export default function OrdenesTecnico() {
 
   const statsMonthKey = selectedMonth || getCurrentYearMonth();
 
-  const ordenStats = useMemo(() => {
-    const list = Array.isArray(ordenes) ? ordenes : [];
-
-    const monthList = list.filter((o) => {
-      const base = (o.fecha_inicio || o.fecha_creacion || '').toString();
-      return base.startsWith(statsMonthKey);
-    });
-
-    const completedMonth = monthList.filter((o) => (o.status || '').toString().toLowerCase() === 'resuelto');
-    const pendingMonth = monthList.filter((o) => (o.status || '').toString().toLowerCase() === 'pendiente');
-
-    return {
-      monthTotal: monthList.length,
-      monthCompleted: completedMonth.length,
-      monthPending: pendingMonth.length,
-    };
-  }, [ordenes, statsMonthKey]);
+  const ordenStats = useMemo(
+    () => computeOrdenStats(ordenes, statsMonthKey, { includeEstrella: false }),
+    [ordenes, statsMonthKey]
+  );
 
   return (
     <div className={erpPageCanvasClass}>
@@ -1706,49 +1689,7 @@ export default function OrdenesTecnico() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
-        <div className={`${erpStatCardClass}`}>
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-[#fb923c] sm:h-10 sm:w-10">
-              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Órdenes del mes</p>
-              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{ordenStats.monthTotal}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className={`${erpStatCardClass}`}>
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
-              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Completadas</p>
-              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{ordenStats.monthCompleted}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className={`${erpStatCardClass}`}>
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-orange-200/80 bg-orange-50/90 text-orange-900 dark:border-orange-500/25 dark:bg-orange-500/10 dark:text-orange-200 sm:h-10 sm:w-10">
-              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[10px]">Pendientes</p>
-              <p className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-white sm:text-lg">{ordenStats.monthPending}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <OrdenesPageStats stats={ordenStats} showEstrella={false} />
 
       <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
         <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">

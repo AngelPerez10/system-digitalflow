@@ -9,9 +9,9 @@ from .views import (
     me,
     my_permissions,
     my_signature,
+    token_refresh_view,
     user_permissions,
     user_signature,
-    token_refresh_view,
 )
 
 router = DefaultRouter()

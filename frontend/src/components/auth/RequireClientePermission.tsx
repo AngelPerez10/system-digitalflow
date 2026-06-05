@@ -25,7 +25,7 @@ export default function RequireClientePermission({
 
   const clientes = (permissions as Record<string, unknown>)?.clientes ?? {};
   const cliPerms = clientes as { view?: boolean };
-  const allowed = required === "view" ? cliPerms.view !== false : false;
+  const allowed = required === "view" ? cliPerms.view === true : false;
 
   if (!allowed) {
     return (

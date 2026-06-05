@@ -22,11 +22,42 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 """Security & environment"""
-# Allow overriding via DEBUG env, otherwise auto-detect Render (DEBUG False on Render)
-SECRET_KEY = os.environ.get('SECRET_KEY', default='')
 
-# SECRET_KEY must be set in production
-DEBUG = 'RENDER' not in os.environ
+
+def _load_dotenv_file() -> None:
+    """Load backend/.env into os.environ when present (local dev)."""
+    env_path = BASE_DIR / '.env'
+    if not env_path.exists():
+        return
+    try:
+        for raw_line in env_path.read_text(encoding='utf-8', errors='ignore').splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            k, v = line.split('=', 1)
+            k = k.strip()
+            v = v.strip().strip('"').strip("'")
+            if k and k not in os.environ:
+                os.environ[k] = v
+    except Exception:
+        pass
+
+
+_load_dotenv_file()
+
+
+def _parse_debug_env() -> bool:
+    """Read DEBUG from environment; default False for production safety."""
+    raw = os.environ.get('DEBUG', '').strip().lower()
+    if raw in ('true', '1', 'yes', 'on'):
+        return True
+    if raw in ('false', '0', 'no', 'off'):
+        return False
+    return False
+
+
+DEBUG = _parse_debug_env()
+SECRET_KEY = os.environ.get('SECRET_KEY', default='')
 
 # In development, Django/SimpleJWT require SECRET_KEY to be non-empty.
 # In production (DEBUG False), enforce that it must come from env.
@@ -34,23 +65,6 @@ if DEBUG and not SECRET_KEY:
     SECRET_KEY = 'dev-only-insecure-secret-key-change-me'
 if not DEBUG and not SECRET_KEY:
     raise RuntimeError('SECRET_KEY environment variable must be set in production')
-
-# Cargar variables desde .env en desarrollo local (sin dependencias externas)
-if DEBUG:
-    env_path = BASE_DIR / '.env'
-    if env_path.exists():
-        try:
-            for raw_line in env_path.read_text(encoding='utf-8', errors='ignore').splitlines():
-                line = raw_line.strip()
-                if not line or line.startswith('#') or '=' not in line:
-                    continue
-                k, v = line.split('=', 1)
-                k = k.strip()
-                v = v.strip().strip('"').strip("'")
-                if k and k not in os.environ:
-                    os.environ[k] = v
-        except Exception:
-            pass
 
 _allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '').strip()
 if _allowed_hosts_env:
@@ -210,6 +224,11 @@ else:
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
+            # SQLite serializa escrituras; en dev (Windows + runserver) varias
+            # peticiones paralelas (p. ej. POST cotización + GETs) provocan "database is locked".
+            "OPTIONS": {
+                "timeout": 30,
+            },
         }
     }
 

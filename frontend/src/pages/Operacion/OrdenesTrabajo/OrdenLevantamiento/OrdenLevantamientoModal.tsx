@@ -18,7 +18,7 @@ import Alert from "@/components/ui/alert/Alert";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
-import { apiUrl } from "@/config/api";
+import { fetchApi } from "@/config/api";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 import LevantamientoForm from "./LevantamientoForm";
 import SignaturePad from "@/components/ui/signature/SignaturePad";
@@ -47,7 +47,6 @@ export interface OrdenServicioModalProps {
   orden: any | null;
   forceTipoOrden?: "levantamiento";
   onSaved: (savedOrden: any) => void;
-  getToken: () => string | null;
   /** Nueva orden: fecha de inicio sugerida (YYYY-MM-DD). Si no se envía, se usa hoy. */
   defaultFechaInicioForNewOrden?: string;
   /** Texto del mes seleccionado en el listado (solo informativo en el formulario de levantamiento). */
@@ -85,7 +84,6 @@ export default function OrdenServicioModal({
   orden,
   forceTipoOrden,
   onSaved,
-  getToken,
   defaultFechaInicioForNewOrden,
   levantamientoListadoMonthLabel,
 }: OrdenServicioModalProps) {
@@ -238,27 +236,16 @@ export default function OrdenServicioModal({
   // Load data when modal opens
   useEffect(() => {
     if (!open) return;
-    const token = getToken();
-    if (!token) return;
-
     const load = async () => {
       try {
         const [clientesRes, serviciosRes] = await Promise.all([
-          fetch(apiUrl("/api/clientes/?search=&page_size=50"), {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(apiUrl("/api/servicios/?page=1&page_size=500&ordering=idx"), {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+          fetchApi("/api/clientes/?search=&page_size=50"),
+          fetchApi("/api/servicios/?page=1&page_size=500&ordering=idx"),
         ]);
 
-        let usuariosRes = await fetch(apiUrl("/api/ordenes/tecnico-opciones/"), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        let usuariosRes = await fetchApi("/api/ordenes/tecnico-opciones/");
         if (!usuariosRes.ok) {
-          usuariosRes = await fetch(apiUrl("/api/users/accounts/"), {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          usuariosRes = await fetchApi("/api/users/accounts/");
         }
 
         if (clientesRes.ok) {
@@ -284,7 +271,7 @@ export default function OrdenServicioModal({
       }
     };
     load();
-  }, [open, getToken]);
+  }, [open]);
 
   // Initialize form when orden changes or modal opens
   useEffect(() => {
@@ -520,18 +507,12 @@ export default function OrdenServicioModal({
     const files = acceptedFiles.slice(0, remainingSlots).filter((f) => f.type.startsWith("image/"));
     if (!files.length) return;
 
-    const token = getToken();
-    if (!token) return;
-
     const uploadOne = async (file: File): Promise<string | null> => {
       try {
         const compressed = await compressImage(file, 80, 1400, 1400);
-        const resp = await fetch(apiUrl("/api/ordenes/upload-image/"), {
+        const resp = await fetchApi("/api/ordenes/upload-image/", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ data_url: compressed, folder: "ordenes/fotos" }),
         });
         if (!resp.ok) return null;
@@ -593,25 +574,18 @@ export default function OrdenServicioModal({
     const updated = (Array.isArray(formData.fotos_urls) ? formData.fotos_urls : []).filter((_, i) => i !== index);
     setDeletingPhoto(true);
     try {
-      const token = getToken();
       const publicId = getPublicIdFromUrl(url);
       if (publicId) {
-        await fetch(apiUrl("/api/ordenes/delete-image/"), {
+        await fetchApi("/api/ordenes/delete-image/", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ public_id: publicId }),
         });
       }
       if (orden && orden.id) {
-        const response = await fetch(apiUrl(`/api/ordenes/${orden.id}/update-photos/`), {
+        const response = await fetchApi(`/api/ordenes/${orden.id}/update-photos/`, {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fotos_urls: updated }),
         });
         if (response.ok) {
@@ -777,9 +751,6 @@ export default function OrdenServicioModal({
       goToOrdenTab();
       return;
     }
-    const token = getToken();
-    if (!token) return;
-
     const { ok, missing } = validate();
     if (!ok) {
       setModalAlert({
@@ -794,7 +765,7 @@ export default function OrdenServicioModal({
 
     try {
       setIsSaving(true);
-      const url = orden?.id ? apiUrl(`/api/ordenes/${orden.id}/`) : apiUrl("/api/ordenes/");
+      const path = orden?.id ? `/api/ordenes/${orden.id}/` : "/api/ordenes/";
       const method = orden?.id ? "PUT" : "POST";
 
       const payload: any = { ...formData };
@@ -818,9 +789,9 @@ export default function OrdenServicioModal({
       payload.firma_cliente_url = toNullIfEmpty(payload.firma_cliente_url);
       if (!Array.isArray(payload.servicios_realizados)) payload.servicios_realizados = [];
 
-      const response = await fetch(url, {
+      const response = await fetchApi(path, {
         method,
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -848,9 +819,9 @@ export default function OrdenServicioModal({
         if (!hasDir && payload?.direccion) updates.direccion = String(payload.direccion);
         if (!hasTel && payload?.telefono_cliente) updates.telefono = String(payload.telefono_cliente);
         if (Object.keys(updates).length > 0) {
-          await fetch(apiUrl(`/api/clientes/${cid}/`), {
+          await fetchApi(`/api/clientes/${cid}/`, {
             method: "PATCH",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(updates),
           }).catch(() => null);
         }
@@ -868,9 +839,9 @@ export default function OrdenServicioModal({
           if (nombre) body.nombre_apellido = nombre;
           if (celular) body.celular = celular;
           if (Object.keys(body).length > 0) {
-            const res = await fetch(apiUrl(`/api/cliente-contactos/${contactoIdToUpdate}/`), {
+            const res = await fetchApi(`/api/cliente-contactos/${contactoIdToUpdate}/`, {
               method: "PATCH",
-              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify(body),
             }).catch(() => null);
             if (res?.ok) contactUpdated = true;
@@ -883,16 +854,16 @@ export default function OrdenServicioModal({
             if (nombre) body.nombre_apellido = nombre;
             if (celular) body.celular = celular;
             if (Object.keys(body).length > 0) {
-              await fetch(apiUrl(`/api/cliente-contactos/${target.id}/`), {
+              await fetchApi(`/api/cliente-contactos/${target.id}/`, {
                 method: "PATCH",
-                headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
               }).catch(() => null);
             }
           } else if (nombre || celular) {
-            await fetch(apiUrl("/api/cliente-contactos/"), {
+            await fetchApi("/api/cliente-contactos/", {
               method: "POST",
-              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 cliente: cid,
                 nombre_apellido: nombre || (existingCliente?.nombre || ""),
@@ -909,9 +880,9 @@ export default function OrdenServicioModal({
 
       if (tipoOrden === "levantamiento" && savedOrden?.id && levantamientoSnapshotRef.current) {
         const snap = levantamientoSnapshotRef.current;
-        await fetch(apiUrl(`/api/ordenes/${savedOrden.id}/levantamiento/`), {
+        await fetchApi(`/api/ordenes/${savedOrden.id}/levantamiento/`, {
           method: "PUT",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ payload: snap.payload || {}, dibujo_url: snap.dibujo_url || "" }),
         }).catch(() => null);
 
@@ -985,12 +956,9 @@ export default function OrdenServicioModal({
               })),
             };
 
-            const cotRes = await fetch(apiUrl('/api/cotizaciones/'), {
+            const cotRes = await fetchApi('/api/cotizaciones/', {
               method: 'POST',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(cotPayload),
             }).catch(() => null as any);
 

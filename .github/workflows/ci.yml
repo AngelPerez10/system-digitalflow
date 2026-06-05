@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        working-directory: frontend
+        run: pnpm exec tsc -b --noEmit
+      - name: Lint
+        working-directory: frontend
+        run: pnpm lint
+      - name: Test
+        working-directory: frontend
+        run: pnpm test
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt ruff
+      - name: Ruff
+        run: ruff check apps
+      - name: Django tests
+        env:
+          DEBUG: "true"
+          SECRET_KEY: ci-test-secret-key
+        run: >-
+          python manage.py test
+          apps.users apps.cotizaciones apps.ordenes apps.common apps.clientes apps.escritorio
+          --verbosity 1

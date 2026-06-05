@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import { fetchApi } from "@/config/api";
+import { Modal } from "@/components/ui/modal";
 
 type ChatRole = "user" | "assistant";
 
@@ -124,6 +125,16 @@ export default function IaPage() {
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [openConversationMenuId]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpenConversationMenuId(null);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const systemPrompt =
     "Eres un asistente de IA profesional. Responde siempre en español neutro. Usa el contexto de toda la conversación (mensajes anteriores) para mantener continuidad. No inventes datos como fechas actuales; si no sabes algo, dilo. No digas que eres de Google, Meta, Moonshot, Kimi, etc.; solo di que eres un asistente de IA.";
@@ -748,24 +759,32 @@ export default function IaPage() {
                         return (
                           <li key={item.id} className="relative">
                             <div
-                              className={`group flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-all ${
+                              className={`group flex items-center gap-2 rounded-xl text-sm transition-all ${
                                 isActive
                                   ? 'bg-gradient-to-r from-blue-50 to-indigo-50 ring-1 ring-blue-200/60 dark:from-blue-950/30 dark:to-indigo-950/30 dark:ring-blue-500/30'
                                   : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
                               }`}
-                              onClick={() => handleSelectConversation(item.id)}
                             >
+                              <button
+                                type="button"
+                                className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-3 py-2.5 text-left"
+                                onClick={() => handleSelectConversation(item.id)}
+                                aria-current={isActive ? "true" : undefined}
+                              >
                               <svg className={`h-4 w-4 shrink-0 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
                               </svg>
                               <span className={`min-w-0 flex-1 truncate font-medium ${isActive ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'}`}>
                                 {item.title}
                               </span>
+                              </button>
                               <button
                                 type="button"
                                 className={`rounded-md p-1 transition ${isMenuOpen ? 'visible bg-slate-100 dark:bg-slate-700' : 'invisible group-hover:visible group-hover:bg-slate-100 dark:group-hover:bg-slate-700'} text-slate-400 hover:text-slate-600 dark:hover:text-slate-200`}
                                 onClick={(e) => { e.stopPropagation(); setOpenConversationMenuId((cur) => (cur === item.id ? null : item.id)); }}
                                 aria-label="Menú"
+                                aria-expanded={isMenuOpen}
+                                aria-haspopup="menu"
                               >
                                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                   <path strokeLinecap="round" d="M12 5v.01M12 12v.01M12 19v.01" />
@@ -776,6 +795,7 @@ export default function IaPage() {
                             {/* Context Menu */}
                             {isMenuOpen && (
                               <div
+                                ref={menuRef}
                                 className="absolute right-2 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-slate-200/70 bg-white/95 py-1 shadow-lg backdrop-blur-xl dark:border-slate-700/40 dark:bg-slate-800/95"
                                 onClick={(e) => e.stopPropagation()}
                                 role="menu"
@@ -823,89 +843,73 @@ export default function IaPage() {
       </main>
 
       {/* ===== Rename Modal ===== */}
-      {renameConversationId && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm dark:bg-black/60"
-          onClick={() => { setRenameConversationId(null); setRenameTitle(''); }}
-        >
-          <div
-            className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200/50 bg-white shadow-xl dark:border-slate-700/30 dark:bg-slate-900"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Renombrar chat"
-          >
-            <div className="border-b border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Renombrar chat</h3>
-            </div>
-            <div className="px-6 py-4">
-              <input
-                value={renameTitle}
-                onChange={(e) => setRenameTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveRename(); } }}
-                className="w-full rounded-lg border border-slate-200/60 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700/30 dark:bg-slate-800 dark:text-white dark:focus:border-blue-500"
-                autoFocus
-              />
-            </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
-              <button
-                type="button"
-                onClick={() => { setRenameConversationId(null); setRenameTitle(''); }}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={!renameTitle.trim()}
-                className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
-                onClick={saveRename}
-              >
-                Guardar
-              </button>
-            </div>
-          </div>
+      <Modal
+        isOpen={Boolean(renameConversationId)}
+        onClose={() => { setRenameConversationId(null); setRenameTitle(''); }}
+        ariaLabel="Renombrar chat"
+        className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200/50 bg-white shadow-xl dark:border-slate-700/30 dark:bg-slate-900"
+      >
+        <div className="border-b border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">Renombrar chat</h3>
         </div>
-      )}
+        <div className="px-6 py-4">
+          <input
+            value={renameTitle}
+            onChange={(e) => setRenameTitle(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveRename(); } }}
+            className="w-full rounded-lg border border-slate-200/60 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700/30 dark:bg-slate-800 dark:text-white dark:focus:border-blue-500"
+            autoFocus
+          />
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
+          <button
+            type="button"
+            onClick={() => { setRenameConversationId(null); setRenameTitle(''); }}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!renameTitle.trim()}
+            className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={saveRename}
+          >
+            Guardar
+          </button>
+        </div>
+      </Modal>
 
       {/* ===== Delete Confirmation Modal ===== */}
-      {deleteConversationId && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm dark:bg-black/60"
-          onClick={() => setDeleteConversationId(null)}
-        >
-          <div
-            className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200/50 bg-white shadow-xl dark:border-slate-700/30 dark:bg-slate-900"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Eliminar chat"
-          >
-            <div className="border-b border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Eliminar chat</h3>
-            </div>
-            <div className="px-6 py-4">
-              <p className="text-sm text-slate-600 dark:text-slate-400">¿Estás seguro de que quieres eliminar esta conversación? Esta acción no se puede deshacer.</p>
-            </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
-              <button
-                type="button"
-                onClick={() => setDeleteConversationId(null)}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-red-700"
-                onClick={deleteConversation}
-              >
-                Eliminar
-              </button>
-            </div>
-          </div>
+      <Modal
+        isOpen={Boolean(deleteConversationId)}
+        onClose={() => setDeleteConversationId(null)}
+        ariaLabel="Eliminar chat"
+        className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200/50 bg-white shadow-xl dark:border-slate-700/30 dark:bg-slate-900"
+      >
+        <div className="border-b border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">Eliminar chat</h3>
         </div>
-      )}
+        <div className="px-6 py-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400">¿Estás seguro de que quieres eliminar esta conversación? Esta acción no se puede deshacer.</p>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200/50 px-6 py-4 dark:border-slate-700/30">
+          <button
+            type="button"
+            onClick={() => setDeleteConversationId(null)}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-red-700"
+            onClick={deleteConversation}
+          >
+            Eliminar
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

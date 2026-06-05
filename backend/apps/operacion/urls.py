@@ -10,8 +10,8 @@ from .wialon_unit_views import (
 from .wialon_views import (
     WialonUnitsSearchIndexView,
     WialonUsuarioDetailView,
-    WialonUsuarioUnidadesView,
     WialonUsuariosView,
+    WialonUsuarioUnidadesView,
 )
 
 urlpatterns = [

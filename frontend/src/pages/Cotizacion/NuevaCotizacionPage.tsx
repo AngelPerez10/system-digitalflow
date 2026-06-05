@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import {
   fetchSyscomProductosSugerencia,
@@ -19,240 +20,46 @@ import {
 } from "@/pages/ProductosYServicios/syscomCatalog";
 import { CotizacionSaveStatus } from "@/components/cotizacion/CotizacionSaveStatus";
 import { erpPageCanvasClass, erpPageInnerClass } from "@/layout/erpPageStyles";
-
-type ClienteContacto = {
-  id?: number;
-  cliente?: number;
-  nombre_apellido: string;
-  titulo?: string;
-  area_puesto?: string;
-  celular?: string;
-  correo?: string;
-  is_principal?: boolean;
-};
-
-type Cliente = {
-  id: number;
-  idx: number;
-  nombre: string;
-  is_prospecto?: boolean;
-  telefono?: string;
-  direccion?: string;
-  contactos?: ClienteContacto[];
-};
-
-type Concepto = {
-  id: string;
-  producto_externo_id: string;
-  producto_nombre: string;
-  producto_descripcion: string;
-  unidad: string;
-  thumbnail_url?: string;
-  cantidad: number;
-  precio_lista: number;
-  descuento_pct: number;
-};
-
-type ApiCotizacionItem = {
-  id?: number;
-  producto_externo_id?: string;
-  producto_nombre: string;
-  producto_descripcion: string;
-  unidad: string;
-  thumbnail_url?: string;
-  cantidad: number;
-  precio_lista: number;
-  descuento_pct: number;
-  orden?: number;
-};
-
-type SyscomPopPos = { left: number; width: number; top?: number; bottom?: number; maxHeight: number };
-
-type CatalogoConcepto = {
-  id: number;
-  folio: string;
-  concepto: string;
-  precio1: number;
-  imagen_url?: string;
-};
-
-type ProductoManualCatalogo = {
-  id: number;
-  producto: string;
-  marca: string;
-  modelo: string;
-  precio: number;
-  stock: number;
-  imagen_url?: string;
-};
-
-type ApiCotizacion = {
-  id: number;
-  idx: number;
-  cliente_id: number | null;
-  /** Nombre desde FK (siempre que exista cliente_id); preferir sobre `cliente` guardado. */
-  cliente_nombre?: string;
-  cliente: string;
-  prospecto: boolean;
-  contacto: string;
-  contacto_telefono?: string;
-  medio_contacto?: string;
-  tipo_trabajo?: number[] | { id: number; nombre?: string }[];
-  status?: string;
-  fecha: string | null;
-  subtotal: number;
-  iva_pct: number;
-  iva: number;
-  total: number;
-  texto_arriba_precios: string;
-  terminos: string;
-  items: ApiCotizacionItem[];
-};
-
-const inputLikeClassName =
-  "w-full min-h-[40px] rounded-lg border border-[#e2d9ca] dark:border-[#334155] bg-[#fffdfa] dark:bg-[#0f172a] px-3 py-2 text-sm text-[#1c1917] dark:text-[#e5e7eb] placeholder-[#a8a29e] dark:placeholder:text-[#8ea0b8] transition-colors focus:border-[#ff801f] focus:bg-[#fffdfa] dark:focus:bg-[#111a2b] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/25 outline-none sm:min-h-[2.75rem] sm:py-2.5";
-
-const textareaLikeClassName =
-  "w-full min-h-[7rem] rounded-lg border border-[#e2d9ca] dark:border-[#334155] bg-[#fffdfa] dark:bg-[#0f172a] px-3 py-2.5 text-sm text-[#1c1917] dark:text-[#e5e7eb] placeholder-[#a8a29e] dark:placeholder:text-[#8ea0b8] transition-colors focus:border-[#ff801f] focus:bg-[#fffdfa] dark:focus:bg-[#111a2b] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/25 outline-none sm:min-h-[8rem] sm:py-3";
-
-const cardShellClass =
-  "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
-
-const cardShellMutedClass =
-  "overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fff8f1] dark:border-white/[0.06] dark:bg-[#111a2b]/90";
-
-const claudeHeroHeadingClass =
-  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.85rem,2.8vw,2.6rem)] font-medium leading-[1.2] tracking-[-0.01em] text-[#1c1917] dark:text-[#f8fafc]";
-
-const claudeBodyClass = "text-sm leading-relaxed text-[#57534e] dark:text-[#b7c1d1]";
-
-const cloneModalPanelClass =
-  "rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] dark:border-white/[0.07] dark:bg-[#111827]/45 dark:shadow-none sm:p-5";
-
-const cloneModalSearchInputClass =
-  "min-h-[44px] w-full rounded-lg border border-[#e2d9ca] bg-[#fffdfa] py-2.5 pl-10 pr-3 text-sm text-[#1c1917] outline-none transition-colors placeholder:text-[#a8a29e] focus:border-[#ff801f] focus:bg-[#fffdfa] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:bg-[#111a2b]";
-
-const inputFieldInsetClass =
-  "!text-sm !bg-[#fffdfa] !border-[#e2d9ca] dark:!bg-[#0f172a] dark:!border-[#334155] focus:!ring-[#ff801f]/25";
-
-/** Etiquetas de formulario ligeramente más pequeñas en móvil */
-const labelPageClass = "!mb-1 !text-xs !font-medium sm:!mb-1.5 sm:!text-sm";
-
-const toNumber = (v: unknown, fallback = 0) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-};
-
-const clampPct = (v: number) => {
-  if (!Number.isFinite(v)) return 0;
-  if (v < 0) return 0;
-  if (v > 100) return 100;
-  return v;
-};
-
-/** IDs de servicios desde API (lista de números u objetos con `id`). */
-const normalizeTipoTrabajoIds = (raw: unknown): number[] => {
-  if (!Array.isArray(raw)) return [];
-  const ids = raw
-    .map((item) => {
-      if (typeof item === "number" && Number.isFinite(item)) return item;
-      if (typeof item === "string" && item.trim()) return Number(item);
-      if (item && typeof item === "object" && "id" in item) return Number((item as { id: unknown }).id);
-      return NaN;
-    })
-    .filter((id) => Number.isFinite(id) && id > 0);
-  return [...new Set(ids)];
-};
-
-const round2 = (v: number) => {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100) / 100;
-};
-
-/** Alineado con backend (Cotizacion.cliente / CotizacionItem.thumbnail_url). */
-const MAX_COTIZ_CLIENTE_LEN = 255;
-const MAX_COTIZ_THUMB_URL_LEN = 512;
-const MAX_COTIZ_PRODUCTO_NOMBRE_LEN = 255;
-
-const truncateStr = (v: unknown, max: number) => String(v ?? "").slice(0, max);
-
-const formatCotizacionApiError = (data: unknown): string => {
-  if (data == null || typeof data !== "object") return "No se pudo guardar la cotización.";
-  const d = data as Record<string, unknown>;
-  if (typeof d.detail === "string" && d.detail.trim()) {
-    const detail = d.detail.trim();
-    if (/csrf/i.test(detail)) {
-      return "La sesión no pudo validarse (CSRF). Cierra sesión, vuelve a entrar e intenta guardar de nuevo.";
-    }
-    return detail;
-  }
-  if (Array.isArray(d.detail) && d.detail.length) return d.detail.map(String).join(" ");
-  const parts: string[] = [];
-  for (const [key, val] of Object.entries(d)) {
-    if (key === "detail") continue;
-    if (Array.isArray(val)) {
-      parts.push(`${key}: ${val.join(", ")}`);
-    } else if (val && typeof val === "object") {
-      for (const [k2, v2] of Object.entries(val as Record<string, unknown>)) {
-        const msg = Array.isArray(v2) ? v2.join(", ") : String(v2);
-        parts.push(`${key}.${k2}: ${msg}`);
-      }
-    } else if (val != null) {
-      parts.push(`${key}: ${String(val)}`);
-    }
-  }
-  return parts.length ? parts.join(" | ") : JSON.stringify(data);
-};
-
-const formatMoney = (n: number) => {
-  const v = Number.isFinite(n) ? n : 0;
-  return v.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-};
-
-const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-const toFinite = (v: unknown): number | null => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-};
-
-/** Precio en MXN con IVA 16%: USD × tipo de cambio × 1.16. Si viene `precio_mxn`, se usa tal cual (ya en MXN). */
-const IVA_MX = 1.16;
-
-const getSyscomPrecioListaMxnConIva = (p: SyscomProducto, tipoCambio: number | null) => {
-  const directMxn = toFinite(p.precio_mxn);
-  if (directMxn !== null && directMxn > 0) return Math.max(0, directMxn);
-
-  const lista = toFinite(p.precios?.precio_lista);
-  const especial = toFinite(p.precios?.precio_especial);
-  const usdBase = especial ?? lista;
-
-  if (usdBase == null) return 0;
-  if (!tipoCambio) {
-    // Fallback sin TC: mostrar USD como número (sin conversión ni IVA aplicable).
-    return Math.max(0, usdBase);
-  }
-
-  return Math.max(0, usdBase * tipoCambio * IVA_MX);
-};
-
-const asBool = (v: any, defaultValue: boolean) => {
-  if (typeof v === 'boolean') return v;
-  if (typeof v === 'string') {
-    const s = v.trim().toLowerCase();
-    if (s === 'true') return true;
-    if (s === 'false') return false;
-  }
-  return defaultValue;
-};
+import type {
+  ApiCotizacion,
+  CatalogoConcepto,
+  Cliente,
+  Concepto,
+  ProductoManualCatalogo,
+  SyscomPopPos,
+} from "./cotizacionFormTypes";
+import {
+  cardShellClass,
+  cardShellMutedClass,
+  claudeBodyClass,
+  claudeHeroHeadingClass,
+  cloneModalPanelClass,
+  cloneModalSearchInputClass,
+  inputFieldInsetClass,
+  inputLikeClassName,
+  labelPageClass,
+  textareaLikeClassName,
+} from "./cotizacionFormStyles";
+import {
+  clampPct,
+  formatCotizacionApiError,
+  formatMoney,
+  getSyscomPrecioListaMxnConIva,
+  MAX_COTIZ_CLIENTE_LEN,
+  MAX_COTIZ_PRODUCTO_NOMBRE_LEN,
+  MAX_COTIZ_THUMB_URL_LEN,
+  normalizeTipoTrabajoIds,
+  round2,
+  IVA_MX,
+  toNumber,
+  truncateStr,
+  uid,
+} from "./cotizacionFormUtils";
 
 export default function NuevaCotizacionPage() {
-
-
-  const [permissions, setPermissions] = useState<any>({});
-  const canCotizacionesView = asBool(permissions?.cotizaciones?.view, true);
-  const canCotizacionesCreate = asBool(permissions?.cotizaciones?.create, false);
+  const { permissions } = useAuth();
+  const canCotizacionesView = permissions?.cotizaciones?.view === true;
+  const canCotizacionesCreate = permissions?.cotizaciones?.create === true;
 
   const navigate = useNavigate();
   const params = useParams();
@@ -298,24 +105,6 @@ export default function NuevaCotizacionPage() {
 
     return () => window.clearInterval(interval);
   }, [exportBusy]);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetchApi('/api/me/permissions/');
-        if (!res.ok) return;
-        const data = await res.json().catch(() => null);
-        const p = data?.permissions || {};
-        setPermissions(p);
-      } catch {
-        // ignore
-      }
-    };
-
-    load();
-  }, []);
-
-
 
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -387,7 +176,7 @@ export default function NuevaCotizacionPage() {
     "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
     "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
     "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
-    "- El anticipo no es reembolsable en caso de cancelación.\n" +
+    "- El anticipo o liquidación no es reembolsable en caso de cancelación.\n" +
     "- La aceptación de la cotización implica conformidad con estos términos."
   );
 
@@ -1367,9 +1156,9 @@ export default function NuevaCotizacionPage() {
     const validateRequired = opts?.validateRequired !== false;
     const silent = !!opts?.silent;
     const autosave = !!opts?.autosave;
-    const canView = asBool(permissions?.cotizaciones?.view, true);
-    const canCreate = asBool(permissions?.cotizaciones?.create, false);
-    const canEdit = asBool(permissions?.cotizaciones?.edit, false);
+    const canView = permissions?.cotizaciones?.view === true;
+    const canCreate = permissions?.cotizaciones?.create === true;
+    const canEdit = permissions?.cotizaciones?.edit === true;
     const targetId = (editingCotizacionId || activeCotizacionId || "").trim();
 
     if (!canView) {
@@ -1864,7 +1653,7 @@ export default function NuevaCotizacionPage() {
       "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
       "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
       "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
-      "- El anticipo no es reembolsable en caso de cancelación.\n" +
+      "- El anticipo o liquidación no es reembolsable en caso de cancelación.\n" +
       "- La aceptación de la cotización implica conformidad con estos términos."
     );
   };

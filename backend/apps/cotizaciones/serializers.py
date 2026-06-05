@@ -194,12 +194,12 @@ class CotizacionSerializer(serializers.ModelSerializer):
 
         for k, v in validated_data.items():
             setattr(instance, k, v)
-        
+
         request = self.context.get('request')
         user = getattr(request, 'user', None)
         if user:
             instance.actualizado_por = user
-            
+
         instance.save()
 
         if items_data is not None:

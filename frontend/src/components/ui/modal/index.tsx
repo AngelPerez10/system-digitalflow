@@ -1,6 +1,6 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useId } from "react";
 
-interface ModalProps {
+interface ModalBaseProps {
   isOpen: boolean;
   onClose: () => void;
   className?: string;
@@ -11,25 +11,36 @@ interface ModalProps {
   /** When false, Escape does not call onClose (useful when stacking modals). Default true. */
   closeOnEscape?: boolean;
   mobileBottomSheet?: boolean;
-  /** id del elemento que titula el diálogo (aria-labelledby). */
-  ariaLabelledBy?: string;
   /** id del elemento que describe el diálogo (aria-describedby). */
   ariaDescribedBy?: string;
+  /** Nombre accesible del diálogo (obligatorio si no hay ariaLabelledBy). */
+  ariaLabel?: string;
+  /** id del título visible del diálogo (preferido cuando hay encabezado). */
+  ariaLabelledBy?: string;
 }
+
+export type ModalProps = ModalBaseProps;
+
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   children,
   className,
-  showCloseButton = true, // Default to true for backwards compatibility
+  showCloseButton = true,
   isFullscreen = false,
-  closeOnBackdropClick = true, // Default to true for backwards compatibility
+  closeOnBackdropClick = true,
   closeOnEscape = true,
   ariaLabelledBy,
+  ariaLabel,
   ariaDescribedBy,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const fallbackLabelId = useId().replace(/:/g, "");
+  const resolvedAriaLabel = ariaLabel ?? (ariaLabelledBy ? undefined : "Diálogo");
+  const labelledBy = ariaLabelledBy ?? (resolvedAriaLabel ? fallbackLabelId : undefined);
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -60,6 +71,56 @@ export const Modal: React.FC<ModalProps> = ({
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen || !modalRef.current) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const root = modalRef.current;
+
+    const getFocusable = () =>
+      Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+        (el) => !el.hasAttribute("disabled") && el.offsetParent !== null
+      );
+
+    const focusInitial = () => {
+      const focusable = getFocusable();
+      const closeBtn = root.querySelector<HTMLElement>('button[aria-label="Cerrar ventana"]');
+      (closeBtn && focusable.includes(closeBtn) ? closeBtn : focusable[0])?.focus();
+    };
+
+    const raf = requestAnimationFrame(focusInitial);
+
+    const handleTab = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (event.shiftKey) {
+        if (active === first || !root.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !root.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleTab);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener("keydown", handleTab);
+      previouslyFocused?.focus?.();
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const contentClasses = isFullscreen
@@ -78,11 +139,17 @@ export const Modal: React.FC<ModalProps> = ({
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={ariaLabelledBy}
+        aria-labelledby={labelledBy}
+        aria-label={resolvedAriaLabel}
         aria-describedby={ariaDescribedBy}
         className={`${contentClasses}  ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
+        {resolvedAriaLabel && !ariaLabelledBy ? (
+          <span id={fallbackLabelId} className="sr-only">
+            {resolvedAriaLabel}
+          </span>
+        ) : null}
         {showCloseButton && (
           <button
             type="button"
@@ -96,6 +163,7 @@ export const Modal: React.FC<ModalProps> = ({
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
             >
               <path
                 fillRule="evenodd"

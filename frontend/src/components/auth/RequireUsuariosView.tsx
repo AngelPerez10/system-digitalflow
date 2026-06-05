@@ -17,7 +17,7 @@ export default function RequireUsuariosView({ children }: { children: React.Reac
 
   const usuarios = (permissions as Record<string, unknown>)?.usuarios ?? {};
   const userPerms = usuarios as { view?: boolean };
-  const canView = userPerms.view !== false;
+  const canView = userPerms.view === true;
 
   if (!canView) {
     return (

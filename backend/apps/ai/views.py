@@ -1,15 +1,15 @@
-import json
-import os
 import http.client
-import time
+import json
 import logging
+import os
+import time
 from urllib.parse import urlparse
 
 from django.http import StreamingHttpResponse
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,6 @@ def chat(request):
     upstream_timeout_s = int(os.environ.get('AI_API_UPSTREAM_TIMEOUT_S') or '120')
     upstream_retries = int(os.environ.get('AI_API_UPSTREAM_RETRIES') or '2')
     upstream_retry_backoff_s = float(os.environ.get('AI_API_UPSTREAM_RETRY_BACKOFF_S') or '0.8')
-    last_exc = None
     conn = None
     upstream = None
 
@@ -83,14 +82,12 @@ def chat(request):
             if getattr(conn, 'sock', None) is not None:
                 conn.sock.settimeout(None)
             break
-        except TimeoutError as exc:
-            last_exc = exc
+        except TimeoutError:
             if attempt >= upstream_retries:
                 return Response({'detail': 'El servicio de IA no responde. Intente de nuevo en unos minutos.'}, status=status.HTTP_504_GATEWAY_TIMEOUT)
             time.sleep(upstream_retry_backoff_s * (2 ** attempt))
             continue
-        except OSError as exc:
-            last_exc = exc
+        except OSError:
             if attempt >= upstream_retries:
                 return Response({'detail': 'No se pudo conectar al servicio de IA.'}, status=status.HTTP_502_BAD_GATEWAY)
             time.sleep(upstream_retry_backoff_s * (2 ** attempt))

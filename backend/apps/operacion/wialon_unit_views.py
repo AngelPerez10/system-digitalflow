@@ -27,7 +27,7 @@ class WialonUnitCatalogsView(APIView):
             catalogs = fetch_unit_catalogs()
         except WialonError as exc:
             logger.warning("Wialon catálogos unidades: %s", exc)
-            return Response({"detail": str(exc)}, status=502)
+            return Response({"detail": "No se pudo completar la solicitud con Wialon."}, status=502)
         except Exception:
             logger.exception("Error inesperado consultando catálogos Wialon")
             return Response({"detail": "No se pudieron cargar los catálogos."}, status=502)
@@ -42,7 +42,7 @@ class WialonAccessUsersView(APIView):
             users = fetch_users_for_access()
         except WialonError as exc:
             logger.warning("Wialon usuarios acceso: %s", exc)
-            return Response({"detail": str(exc)}, status=502)
+            return Response({"detail": "No se pudo completar la solicitud con Wialon."}, status=502)
         except Exception:
             logger.exception("Error inesperado consultando usuarios Wialon")
             return Response({"detail": "No se pudieron cargar los usuarios."}, status=502)
@@ -59,7 +59,7 @@ class WialonUnitDetailView(APIView):
             unit = fetch_unit_detail(int(unit_id), context_user_id=ctx_id)
         except WialonError as exc:
             logger.warning("Wialon unidad %s: %s", unit_id, exc)
-            return Response({"detail": str(exc)}, status=502)
+            return Response({"detail": "No se pudo completar la solicitud con Wialon."}, status=502)
         except Exception:
             logger.exception("Error inesperado consultando unidad Wialon %s", unit_id)
             return Response({"detail": "No se pudo cargar la unidad."}, status=502)
@@ -95,7 +95,7 @@ class WialonUnitDetailView(APIView):
             )
         except WialonError as exc:
             logger.warning("Wialon actualizar unidad %s: %s", unit_id, exc)
-            return Response({"detail": str(exc)}, status=502)
+            return Response({"detail": "No se pudo completar la solicitud con Wialon."}, status=502)
         except Exception:
             logger.exception("Error inesperado actualizando unidad Wialon %s", unit_id)
             return Response({"detail": "No se pudo actualizar la unidad en Wialon."}, status=502)
@@ -115,7 +115,7 @@ class WialonUnitAccessView(APIView):
             grant_unit_access(int(unit_id), int(user_id))
         except WialonError as exc:
             logger.warning("Wialon conceder acceso unidad %s: %s", unit_id, exc)
-            return Response({"detail": str(exc)}, status=502)
+            return Response({"detail": "No se pudo completar la solicitud con Wialon."}, status=502)
         except Exception:
             logger.exception("Error inesperado concediendo acceso unidad %s", unit_id)
             return Response({"detail": "No se pudo conceder acceso."}, status=502)
@@ -130,7 +130,7 @@ class WialonUnitAccessRevokeView(APIView):
             revoke_unit_access(int(unit_id), int(user_id))
         except WialonError as exc:
             logger.warning("Wialon revocar acceso unidad %s user %s: %s", unit_id, user_id, exc)
-            return Response({"detail": str(exc)}, status=502)
+            return Response({"detail": "No se pudo completar la solicitud con Wialon."}, status=502)
         except Exception:
             logger.exception("Error inesperado revocando acceso unidad %s", unit_id)
             return Response({"detail": "No se pudo revocar acceso."}, status=502)

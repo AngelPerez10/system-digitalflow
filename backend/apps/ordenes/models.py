@@ -1,6 +1,6 @@
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils import timezone
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
@@ -94,16 +94,16 @@ class Orden(models.Model):
             # If we are below 564, continue sequential (1, 2, ... 564)
             # Once we reach 564, jump to 5000.
             # If we are already at 5000+, continue sequential (5000, 5001...)
-            
+
             if current_max >= 588 and current_max < 5000:
                 idx = 5000
             else:
                 idx = current_max + 1
-            
+
             # Asegurar que no exista (collision check)
             while Orden.objects.filter(idx=idx).exists():
                 idx += 1
-            
+
             self.idx = idx
         super().save(*args, **kwargs)
 
