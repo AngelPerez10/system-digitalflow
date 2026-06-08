@@ -34,7 +34,7 @@ type Props = {
 
 function StatusBadge({ status }: { status: string }) {
   const active = status === "Activo";
-  const unknown = !status || status === "—";
+  const unknown = !status || status === "â€”";
   return (
     <span
       className={cn(
@@ -76,7 +76,7 @@ export default function EditWialonUserModal({
   useEffect(() => {
     if (!user || !isOpen) return;
     setActiveTab(initialTab);
-    setName(user.name === "—" ? "" : user.name);
+    setName(user.name === "â€”" ? "" : user.name);
     setDealerRights(user.dealer_rights);
     setStatus(user.status);
     setError("");
@@ -143,7 +143,7 @@ export default function EditWialonUserModal({
     e.preventDefault();
     if (!user || saving || !canEdit) return;
 
-    const baselineName = user.name === "—" ? "" : user.name;
+    const baselineName = user.name === "â€”" ? "" : user.name;
     const trimmedName = name.trim();
     const payload: WialonUserUpdatePayload = {};
 
@@ -174,7 +174,7 @@ export default function EditWialonUserModal({
       }
       const updated = (data?.user ?? data) as WialonUserRow | null;
       if (!updated || updated.wialon_id == null) {
-        setError("Wialon respondió sin datos de la cuenta actualizada.");
+        setError("Wialon respondiÃ³ sin datos de la cuenta actualizada.");
         return;
       }
       onSaved({ ...user, ...updated, wialon_id: Number(updated.wialon_id) });
@@ -213,7 +213,7 @@ export default function EditWialonUserModal({
             </span>
 
             <div className="min-w-0 flex-1">
-              <p className={cn(uiLabel, "text-[#cc785c] dark:text-[#fb923c]")}>Wialon Hosting · Antarix GPS</p>
+              <p className={cn(uiLabel, "text-[#cc785c] dark:text-[#fb923c]")}>Wialon Hosting Â· Antarix GPS</p>
               <h2
                 id={titleId}
                 className={cn("mt-1 text-balance", erpHeroHeadingClass, "text-[clamp(1.35rem,2.5vw,1.85rem)]")}
@@ -221,10 +221,10 @@ export default function EditWialonUserModal({
                 {user?.name || "Cuenta"}
               </h2>
               <p className={cn("mt-1.5 break-words tabular-nums", uiCaption)}>
-                Login <span className="font-medium text-[#57534e] dark:text-[#cbd5e1]">{user?.user_id || "—"}</span>
+                Login <span className="font-medium text-[#57534e] dark:text-[#cbd5e1]">{user?.user_id || "â€”"}</span>
                 {user?.parent_account ? (
                   <>
-                    <span className="mx-1.5 text-[#d6d3d1] dark:text-[#475569]">·</span>
+                    <span className="mx-1.5 text-[#d6d3d1] dark:text-[#475569]">Â·</span>
                     {user.parent_account}
                   </>
                 ) : null}
@@ -233,9 +233,9 @@ export default function EditWialonUserModal({
               <div className="mt-3 flex flex-wrap gap-2">
                 {user ? <StatusBadge status={user.status} /> : null}
                 <span className={cn(uiBadge, "rounded-lg border border-[#e7ded0] bg-white/90 text-[#57534e] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1]")}>
-                  {unitsLoading ? "…" : `${activeUnits.length} activas`}
+                  {unitsLoading ? "â€¦" : `${activeUnits.length} activas`}
                 </span>
-                {user?.dealer_rights === "Sí" ? (
+                {user?.dealer_rights === "SÃ­" ? (
                   <span className={cn(uiBadge, "rounded-lg bg-[#fff3e6] text-[#c45f00] dark:bg-[#ff801f]/15 dark:text-[#ffb366]")}>
                     Distribuidor
                   </span>
@@ -290,7 +290,7 @@ export default function EditWialonUserModal({
               ) : null}
 
               <div className={cn(modalPanelClass, "grid grid-cols-1 gap-4 sm:grid-cols-2")}>
-                <p className={cn(uiLabel, "sm:col-span-2")}>Información de facturación</p>
+                <p className={cn(uiLabel, "sm:col-span-2")}>InformaciÃ³n de facturaciÃ³n</p>
 
                 <div className="sm:col-span-2">
                   <label htmlFor="wialon-edit-name" className={uiLabel}>
@@ -319,7 +319,7 @@ export default function EditWialonUserModal({
                     disabled={!canEdit || saving}
                   >
                     <option value="No">No</option>
-                    <option value="Sí">Sí</option>
+                    <option value="SÃ­">SÃ­</option>
                   </select>
                 </div>
 
@@ -344,11 +344,11 @@ export default function EditWialonUserModal({
                   <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <p className={uiCaption}>Creador</p>
-                      <p className={cn("mt-0.5", uiValue)}>{user?.creator || "—"}</p>
+                      <p className={cn("mt-0.5", uiValue)}>{user?.creator || "â€”"}</p>
                     </div>
                     <div>
                       <p className={uiCaption}>Cuenta padre</p>
-                      <p className={cn("mt-0.5", uiValue)}>{user?.parent_account || "—"}</p>
+                      <p className={cn("mt-0.5", uiValue)}>{user?.parent_account || "â€”"}</p>
                     </div>
                   </div>
                 </div>
@@ -360,7 +360,7 @@ export default function EditWialonUserModal({
                     Cancelar
                   </button>
                   <button type="submit" disabled={saving} className={erpPrimaryBtnClass}>
-                    {saving ? "Guardando…" : "Guardar cuenta"}
+                    {saving ? "Guardandoâ€¦" : "Guardar cuenta"}
                   </button>
                 </div>
               ) : (
@@ -383,7 +383,7 @@ export default function EditWialonUserModal({
                     type="search"
                     value={unitSearch}
                     onChange={(e) => setUnitSearch(e.target.value)}
-                    placeholder="Buscar por nombre, UID…"
+                    placeholder="Buscar por nombre, UIDâ€¦"
                     className={cn(erpSearchInputClass, "w-full pl-9")}
                     aria-label="Buscar unidad"
                   />
@@ -404,7 +404,7 @@ export default function EditWialonUserModal({
                   {unitsLoading ? (
                     <div className="flex flex-col items-center gap-2 py-10">
                       <span className="inline-flex h-8 w-8 animate-spin rounded-full border-2 border-[#ff801f] border-t-transparent" />
-                      <p className={uiCaption}>Cargando…</p>
+                      <p className={uiCaption}>Cargandoâ€¦</p>
                     </div>
                   ) : unitsError ? (
                     <p className="rounded-lg border border-rose-200/80 bg-rose-50/70 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">
@@ -414,7 +414,7 @@ export default function EditWialonUserModal({
                     <p className={cn("py-8 text-center", uiCaption)}>
                       {activeUnits.length === 0
                         ? "Sin unidades activas asignadas."
-                        : "Ninguna unidad activa coincide con la búsqueda."}
+                        : "Ninguna unidad activa coincide con la bÃºsqueda."}
                     </p>
                   ) : (
                     filteredUnits.map((unit) => {
@@ -437,12 +437,12 @@ export default function EditWialonUserModal({
                                 {unit.name || "Sin nombre"}
                               </p>
                               <p className={cn("mt-0.5 truncate font-mono text-[11px] text-[#78716c] dark:text-[#8ea0b8]")}>
-                                {unit.uid !== "—" ? unit.uid : "Sin UID"}
+                                {unit.uid !== "â€”" ? unit.uid : "Sin UID"}
                               </p>
                               <p className={cn("mt-1 truncate", uiCaption)}>
                                 {unit.device_type}
-                                {unit.last_message_at && unit.last_message_at !== "—"
-                                  ? ` · Último msg. ${unit.last_message_at}`
+                                {unit.last_message_at && unit.last_message_at !== "â€”"
+                                  ? ` Â· Ãšltimo msg. ${unit.last_message_at}`
                                   : ""}
                               </p>
                             </div>
@@ -454,7 +454,7 @@ export default function EditWialonUserModal({
                 </div>
               </aside>
 
-              {/* Panel de edición */}
+              {/* Panel de ediciÃ³n */}
               <div className="min-w-0 flex-1 p-4 sm:p-5 lg:p-6">
                 <EditWialonUnitPanel
                   unitId={selectedUnitId}

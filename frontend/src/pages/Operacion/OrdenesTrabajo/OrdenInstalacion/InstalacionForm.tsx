@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { fetchApi } from '@/config/api';
 import Label from '@/components/form/Label';
 import Input from '@/components/form/input/InputField';
+import SearchableSelect from '@/components/form/SearchableSelect';
 import {
   erpFormPanelClass,
   erpFormInputClass,
@@ -123,95 +124,6 @@ const INITIAL: InstalacionFormValue = {
   identificacion_conductores: '',
   comentario: '',
 };
-
-function SearchableSelect({
-  label,
-  value,
-  onChange,
-  options,
-  disabled,
-  required,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-  disabled?: boolean;
-  required?: boolean;
-  placeholder?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
-
-  const selected = options.find(o => o.value === value);
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return options;
-    const q = search.toLowerCase();
-    return options.filter(o => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q));
-  }, [search, options]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open]);
-
-  return (
-    <div>
-      <Label className="!mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 sm:!text-xs">
-        {label} {required && <span className="text-red-500">*</span>}
-      </Label>
-      <div className="relative" ref={ref}>
-        <input
-          type="text"
-          value={open ? search : (selected?.label || '')}
-          onChange={(e) => { setSearch(e.target.value); setOpen(true); }}
-          onFocus={() => { setSearch(''); setOpen(true); }}
-          disabled={disabled}
-          placeholder={placeholder || 'Buscar...'}
-          className={erpFormInputClass}
-          readOnly={!open}
-        />
-        {open && (
-          <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-[#e2d9ca] bg-white shadow-lg dark:border-[#334155] dark:bg-[#111a2b]">
-            <button
-              type="button"
-              onClick={() => { onChange(''); setSearch(''); setOpen(false); }}
-              className="w-full px-3 py-2.5 text-left text-sm text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
-            >
-              {placeholder || 'Seleccionar...'}
-            </button>
-            {filtered.map(o => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => { onChange(o.value); setSearch(''); setOpen(false); }}
-                className={`w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-white/5 ${
-                  o.value === value
-                    ? 'bg-[#ff801f]/10 font-medium text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]'
-                    : 'text-gray-700 dark:text-gray-200'
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <div className="px-3 py-2.5 text-center text-xs text-gray-400 dark:text-gray-500">
-                Sin resultados
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 interface InstalacionFormProps {
   ordenId: number | null;

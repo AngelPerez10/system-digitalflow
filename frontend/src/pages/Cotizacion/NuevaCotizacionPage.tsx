@@ -390,6 +390,8 @@ export default function NuevaCotizacionPage() {
       setDescuentoClienteTouched(false);
       setContactoNombre(contactoPrincipalDeCliente(cliente));
       setContactoTelefono(telefonoPrincipalDeCliente(cliente));
+      setMedioContacto("CLIENTE");
+      setMedioContactoTouched(false);
     } else {
       setClienteId("");
       setClienteSearch("");
@@ -398,6 +400,8 @@ export default function NuevaCotizacionPage() {
       setDescuentoClienteTouched(false);
       setContactoNombre("");
       setContactoTelefono("");
+      setMedioContacto("");
+      setMedioContactoTouched(false);
     }
     setClienteOpen(false);
   };
@@ -660,6 +664,8 @@ export default function NuevaCotizacionPage() {
       if (!editingCotizacionId) {
         setContactoNombre("");
         setContactoTelefono("");
+        setMedioContacto("");
+        setMedioContactoTouched(false);
       }
       return;
     }
