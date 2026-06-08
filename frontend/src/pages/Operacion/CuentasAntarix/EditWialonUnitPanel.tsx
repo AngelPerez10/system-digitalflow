@@ -23,7 +23,7 @@ import type {
 
 const uiLabel = erpSectionLabelClass;
 const uiCaption = "text-xs font-normal leading-relaxed text-[#78716c] dark:text-[#8ea0b8]";
-/** Iconos discretos â€” tono piedra, sin acento coral/naranja */
+/** Iconos discretos — tono piedra, sin acento coral/naranja */
 const uiIconMuted = "h-4 w-4 shrink-0 text-[#78716c] dark:text-[#8ea0b8]";
 const uiIconOnPrimary = "h-4 w-4 shrink-0 text-black/75";
 const uiFieldInputClass = cn(erpInputLikeClass, "mt-0 w-full");
@@ -45,7 +45,7 @@ function emptyField(): WialonCustomField {
 
 function UnitStatusBadge({ status }: { status: string }) {
   const active = status === "Activo";
-  const unknown = !status || status === "â€”";
+  const unknown = !status || status === "—";
   return (
     <span
       className={cn(
@@ -159,7 +159,7 @@ export default function EditWialonUnitPanel({
 
   const hwTypeOptions = useMemo(
     () => [
-      { value: "", label: "â€” Seleccionar â€”" },
+      { value: "", label: "— Seleccionar —" },
       ...hwTypes.map((t) => ({
         value: String(t.id),
         label: t.name || `Tipo ${t.id}`,
@@ -170,10 +170,10 @@ export default function EditWialonUnitPanel({
 
   const grantUserOptions = useMemo(
     () => [
-      { value: "", label: "â€” Usuario â€”" },
+      { value: "", label: "— Usuario —" },
       ...grantableUsers.map((u) => ({
         value: String(u.wialon_id),
-        label: `${u.user_id} Â· ${u.name}`,
+        label: `${u.user_id} · ${u.name}`,
       })),
     ],
     [grantableUsers]
@@ -310,7 +310,7 @@ export default function EditWialonUnitPanel({
         <p className={cn("max-w-xs", uiCaption)}>
           {embedded
             ? "Elige una unidad de la lista para ver y editar sus datos en Wialon."
-            : "En la pestaÃ±a Flota, pulsa Editar en la tarjeta de la unidad."}
+            : "En la pestaña Flota, pulsa Editar en la tarjeta de la unidad."}
         </p>
       </div>
     );
@@ -320,7 +320,7 @@ export default function EditWialonUnitPanel({
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-20">
         <span className="inline-flex h-10 w-10 animate-spin rounded-full border-2 border-[#ff801f] border-t-transparent" aria-hidden />
-        <p className={uiCaption}>Cargando unidadâ€¦</p>
+        <p className={uiCaption}>Cargando unidad…</p>
       </div>
     );
   }
@@ -336,7 +336,7 @@ export default function EditWialonUnitPanel({
       <div className={cn(modalPanelClass, "space-y-4")}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className={uiLabel}>Datos de la unidad</p>
-          {detail ? <UnitStatusBadge status={detail.status ?? "â€”"} /> : null}
+          {detail ? <UnitStatusBadge status={detail.status ?? "—"} /> : null}
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -366,7 +366,7 @@ export default function EditWialonUnitPanel({
 
           <div>
             <label htmlFor="unit-edit-uid" className={uiLabel}>
-              ID Ãºnico
+              ID único
             </label>
             <input
               id="unit-edit-uid"
@@ -381,7 +381,7 @@ export default function EditWialonUnitPanel({
 
           <div>
             <label htmlFor="unit-edit-phone" className={uiLabel}>
-              NÃºmero de telÃ©fono
+              Número de teléfono
             </label>
             <input
               id="unit-edit-phone"
@@ -395,20 +395,20 @@ export default function EditWialonUnitPanel({
 
           <div className="sm:col-span-2">
             <label htmlFor="unit-edit-password" className={uiLabel}>
-              ContraseÃ±a de acceso
+              Contraseña de acceso
             </label>
             <input
               id="unit-edit-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={detail?.has_password ? "Dejar vacÃ­o para no cambiar" : "Nueva contraseÃ±a"}
+              placeholder={detail?.has_password ? "Dejar vacío para no cambiar" : "Nueva contraseña"}
               className={cn(erpSearchInputClass, "mt-2 w-full")}
               disabled={!canEdit || saving}
               autoComplete="new-password"
             />
             <p className={cn("mt-1.5", uiCaption)}>
-              Wialon no devuelve la contraseÃ±a actual; solo puedes establecer una nueva.
+              Wialon no devuelve la contraseña actual; solo puedes establecer una nueva.
             </p>
           </div>
         </div>
@@ -425,7 +425,7 @@ export default function EditWialonUnitPanel({
             </span>
             <div>
               <p className={uiLabel}>Campos personalizados</p>
-              <p className={cn("mt-0.5 hidden sm:block", uiCaption)}>Pares nombre Â· valor en Wialon</p>
+              <p className={cn("mt-0.5 hidden sm:block", uiCaption)}>Pares nombre · valor en Wialon</p>
             </div>
           </div>
           {canEdit ? (
@@ -473,7 +473,7 @@ export default function EditWialonUnitPanel({
                         prev.map((f, i) => (i === idx ? { ...f, name: e.target.value } : f))
                       )
                     }
-                    placeholder="Ej. Placa, VINâ€¦"
+                    placeholder="Ej. Placa, VIN…"
                     className={uiFieldInputClass}
                     disabled={!canEdit || saving}
                   />
@@ -498,7 +498,7 @@ export default function EditWialonUnitPanel({
                 </div>
                 {canEdit ? (
                   <div className="md:col-span-2 lg:col-span-1">
-                    <span className={cn(uiCaption, "mb-1.5 block font-medium lg:sr-only")}>AcciÃ³n</span>
+                    <span className={cn(uiCaption, "mb-1.5 block font-medium lg:sr-only")}>Acción</span>
                     <button
                       type="button"
                       className={cn(
@@ -525,10 +525,10 @@ export default function EditWialonUnitPanel({
 
       <div className={cn(modalPanelClass, "space-y-3")}>
         <p className={uiLabel}>Accesos a la unidad</p>
-        <p className={uiCaption}>Usuarios Wialon con acceso ademÃ¡s del titular de la cuenta.</p>
+        <p className={uiCaption}>Usuarios Wialon con acceso además del titular de la cuenta.</p>
 
         {accessUsers.length === 0 ? (
-          <p className={uiCaption}>NingÃºn acceso compartido registrado.</p>
+          <p className={uiCaption}>Ningún acceso compartido registrado.</p>
         ) : (
           <ul className="space-y-2">
             {accessUsers.map((u) => (
@@ -537,7 +537,7 @@ export default function EditWialonUnitPanel({
                 className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e7ded0] bg-white/70 px-3 py-2 dark:border-[#334155] dark:bg-[#0f172a]/50"
               >
                 <span className="text-sm text-[#1c1917] dark:text-[#f8fafc]">
-                  {u.user_id} Â· {u.name}
+                  {u.user_id} · {u.name}
                 </span>
                 {canEdit ? (
                   <button
@@ -577,7 +577,7 @@ export default function EditWialonUnitPanel({
               onClick={() => void handleGrantAccess()}
             >
               <UserIcon className={uiIconOnPrimary} aria-hidden />
-              <span>{accessBusy ? "Aplicandoâ€¦" : "Dar acceso"}</span>
+              <span>{accessBusy ? "Aplicando…" : "Dar acceso"}</span>
             </button>
           </div>
         ) : null}
@@ -596,7 +596,7 @@ export default function EditWialonUnitPanel({
           </button>
           <button type="submit" disabled={saving || accessBusy} className={erpPrimaryBtnClass}>
             <CheckLineIcon className={uiIconOnPrimary} aria-hidden />
-            <span>{saving ? "Guardandoâ€¦" : "Guardar unidad"}</span>
+            <span>{saving ? "Guardando…" : "Guardar unidad"}</span>
           </button>
         </div>
       ) : null}
