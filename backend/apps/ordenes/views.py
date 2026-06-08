@@ -32,6 +32,7 @@ from apps.users.models import UserPermissions, UserSignature
 from apps.users.permissions import (
     ModulePermission,
     OrdenesAnyAccessPermission,
+    OrdenesAttachmentPermission,
     OrdenesPermission,
     user_has_any_ordenes_access,
     user_module_own_only,
@@ -434,6 +435,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated()]
         if self.action == 'tecnico_opciones':
             return [IsAuthenticated(), OrdenesAnyAccessPermission()]
+        if self.action in ('upload_image', 'delete_image'):
+            return [IsAuthenticated(), OrdenesAttachmentPermission()]
         return super().get_permissions()
 
     def get_queryset(self):

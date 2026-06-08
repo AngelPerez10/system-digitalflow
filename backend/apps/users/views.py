@@ -16,6 +16,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import UserPermissions, UserSignature
+from .permissions import user_has_any_ordenes_access
 from .serializers import UserAccountSerializer, UserPermissionsSerializer, UserSignatureSerializer
 from .throttling import LoginRateThrottle, RefreshRateThrottle
 
@@ -406,8 +407,19 @@ def user_permissions(request, user_id: int):
     return Response(UserPermissionsSerializer(obj).data)
 
 
+def _can_read_user_signature(request, target_user_id: int) -> bool:
+    actor = request.user
+    if getattr(actor, 'is_staff', False) or getattr(actor, 'is_superuser', False):
+        return True
+    if getattr(actor, 'id', None) == target_user_id:
+        return True
+    perms_obj = getattr(actor, 'permissions_profile', None)
+    permissions = getattr(perms_obj, 'permissions', None) or {}
+    return user_has_any_ordenes_access(permissions)
+
+
 @api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def user_signature(request, user_id: int):
     User = get_user_model()
     user = User.objects.filter(id=user_id).first()
@@ -417,7 +429,12 @@ def user_signature(request, user_id: int):
     obj, _ = UserSignature.objects.get_or_create(user=user)
 
     if request.method == 'GET':
+        if not _can_read_user_signature(request, user_id):
+            return Response({'detail': 'No autorizado'}, status=status.HTTP_403_FORBIDDEN)
         return Response(UserSignatureSerializer(obj).data)
+
+    if not getattr(request.user, 'is_staff', False) and not getattr(request.user, 'is_superuser', False):
+        return Response({'detail': 'No autorizado'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'DELETE':
         _delete_signature_public_id(obj.public_id)

@@ -727,6 +727,12 @@ export default function OrdenesTecnico() {
       return;
     }
 
+    const currentUserId = user?.id != null ? Number(user.id) : null;
+    if (currentUserId != null && userId === currentUserId) {
+      setTecnicoSignatureUrl(mySignatureUrl || '');
+      return;
+    }
+
     const cached = tecnicoSignatureCacheRef.current[userId];
     if (typeof cached === 'string') {
       setTecnicoSignatureUrl(cached);
@@ -1621,7 +1627,7 @@ export default function OrdenesTecnico() {
       return;
     }
     loadTecnicoSignature(tecnicoId);
-  }, [formData?.tecnico_asignado]);
+  }, [formData?.tecnico_asignado, mySignatureUrl, user?.id]);
 
   const addServicio = (servicio: string) => {
     // Selección ÚNICA: reemplazar la lista por el servicio elegido

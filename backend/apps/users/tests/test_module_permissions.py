@@ -1,12 +1,12 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework import status
-from rest_framework.test import APIRequestFactory
+from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.users.models import UserPermissions
-from apps.users.permissions import OrdenesPermission, TareasPermission
-from apps.users.views import login_view, token_refresh_view
+from apps.users.permissions import OrdenesAttachmentPermission, OrdenesPermission, TareasPermission
+from apps.users.views import login_view, token_refresh_view, user_signature
 
 User = get_user_model()
 
@@ -32,6 +32,40 @@ class ModulePermissionTests(TestCase):
         request = self.factory.post("/api/ordenes/")
         request.user = self.user
         self.assertFalse(OrdenesPermission().has_permission(request, None))
+
+    def test_ordenes_upload_allowed_with_edit_only(self):
+        editor = User.objects.create_user(username="editor", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=editor,
+            permissions={
+                "ordenes": {"view": True, "create": False, "edit": True, "delete": False},
+            },
+        )
+        request = self.factory.post("/api/ordenes/upload-image/")
+        request.user = editor
+        self.assertTrue(OrdenesAttachmentPermission().has_permission(request, None))
+
+    def test_ordenes_upload_denied_with_view_only(self):
+        request = self.factory.post("/api/ordenes/upload-image/")
+        request.user = self.user
+        self.assertFalse(OrdenesAttachmentPermission().has_permission(request, None))
+
+    def test_user_signature_get_allowed_for_ordenes_user(self):
+        other = User.objects.create_user(username="tecnico", password="test-pass-123")
+        request = self.factory.get(f"/api/users/accounts/{other.id}/signature/")
+        force_authenticate(request, user=self.user)
+        response = user_signature(request, other.id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_user_signature_put_denied_for_non_staff(self):
+        request = self.factory.put(
+            f"/api/users/accounts/{self.user.id}/signature/",
+            {"signature": ""},
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+        response = user_signature(request, self.user.id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_tareas_view_denied_by_default(self):
         request = self.factory.get("/api/tareas/")
