@@ -277,6 +277,13 @@ export default function NuevaCotizacionPage() {
     [tipoTrabajoIds]
   );
 
+  const pdfOpcionesAutosaveKey = useMemo(() => JSON.stringify(pdfOpciones), [pdfOpciones]);
+
+  const pdfDescripcionCortaAutosaveKey = useMemo(
+    () => JSON.stringify(pdfDescripcionCorta),
+    [pdfDescripcionCorta]
+  );
+
   const conceptosAutosaveKey = useMemo(
     () =>
       JSON.stringify({
@@ -1408,6 +1415,8 @@ export default function NuevaCotizacionPage() {
     status,
     descuentoClientePct,
     conceptosAutosaveKey,
+    pdfOpcionesAutosaveKey,
+    pdfDescripcionCortaAutosaveKey,
     textoArribaPrecios,
     terminos,
   ]);

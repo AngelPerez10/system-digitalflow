@@ -304,15 +304,23 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
         ws.row_dimensions[r].height = 64
         ws.cell(row=r, column=2, value=cantidad)
         ws.cell(row=r, column=3, value=str(getattr(it, "unidad", "") or ""))
-        ws.cell(row=r, column=4, value=str(getattr(it, "producto_nombre", "") or "")).alignment = wrap
-        detalle_val = ""
-        if show_detalle:
-            if pdf_opciones.simplificar_descripcion:
-                detalle_val = str(getattr(it, "pdf_descripcion_corta", "") or "").strip()
-                if not detalle_val:
-                    detalle_val = str(getattr(it, "producto_descripcion", "") or "")
-            else:
-                detalle_val = str(getattr(it, "producto_descripcion", "") or "")
+        nombre_base = str(getattr(it, "producto_nombre", "") or "")
+        descripcion_larga = str(getattr(it, "producto_descripcion", "") or "")
+        if pdf_opciones.simplificar_descripcion:
+            corta = str(getattr(it, "pdf_descripcion_corta", "") or "").strip()
+            if not corta:
+                larga = descripcion_larga.strip()
+                corta = (
+                    larga[:120].rstrip() + ("…" if len(larga) > 120 else "")
+                    if larga
+                    else ""
+                )
+            producto_val = corta or nombre_base
+            detalle_val = descripcion_larga if show_detalle else ""
+        else:
+            producto_val = nombre_base
+            detalle_val = descripcion_larga if show_detalle else ""
+        ws.cell(row=r, column=4, value=producto_val).alignment = wrap
         ws.cell(row=r, column=5, value=detalle_val).alignment = wrap
         ws.cell(row=r, column=6, value=round(pu, 2))
         ws.cell(row=r, column=7, value=round(descuento, 2))

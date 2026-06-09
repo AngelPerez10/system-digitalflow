@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import Label from "@/components/form/Label";
 import { cardShellClass, labelPageClass, textareaLikeClassName } from "./cotizacionFormStyles";
@@ -38,7 +39,7 @@ const OPCIONES: { key: OpcionKey; label: string; hint: string }[] = [
   {
     key: "simplificar_descripcion",
     label: "Simplificar descripción",
-    hint: "Usa una descripción corta por concepto en lugar del texto completo (PDF).",
+    hint: "Reemplaza el texto del producto en PDF y Excel por la descripción corta. Desactiva «Ocultar detalle» automáticamente.",
   },
 ];
 
@@ -83,9 +84,32 @@ export function CotizacionPdfOptionsPanel({
   onDescripcionCortaChange,
   lines,
 }: Props) {
+  const simplificarSectionRef = useRef<HTMLDivElement | null>(null);
+
   const setOpcion = (key: OpcionKey, value: boolean) => {
+    if (key === "simplificar_descripcion" && value) {
+      onOpcionesChange({
+        ...opciones,
+        simplificar_descripcion: true,
+        ocultar_detalle: false,
+      });
+      return;
+    }
+    if (key === "ocultar_detalle" && value) {
+      onOpcionesChange({
+        ...opciones,
+        ocultar_detalle: true,
+        simplificar_descripcion: false,
+      });
+      return;
+    }
     onOpcionesChange({ ...opciones, [key]: value });
   };
+
+  useEffect(() => {
+    if (!opciones.simplificar_descripcion || lines.length === 0) return;
+    simplificarSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [opciones.simplificar_descripcion, lines.length]);
 
   const setOcultarPreciosLinea = (value: boolean) => {
     onOpcionesChange({
@@ -102,7 +126,7 @@ export function CotizacionPdfOptionsPanel({
     <ComponentCard
       title="Opciones de exportación"
       desc="Se guardan con la cotización y aplican al PDF y Excel generados."
-      className={cardShellClass}
+      className={cardShellClass.replace("overflow-hidden", "overflow-visible")}
       compact
     >
       <div className="grid grid-cols-1 gap-2.5">
@@ -123,10 +147,14 @@ export function CotizacionPdfOptionsPanel({
         ))}
       </div>
 
-      {opciones.simplificar_descripcion && !opciones.ocultar_detalle && lines.length > 0 && (
-        <div className="mt-5 space-y-4 border-t border-[#e7ded0] pt-5 dark:border-[#273244]">
+      {opciones.simplificar_descripcion && lines.length > 0 && (
+        <div
+          ref={simplificarSectionRef}
+          className="mt-5 space-y-4 border-t border-[#e7ded0] pt-5 dark:border-[#273244]"
+        >
           <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
-            Escribe una descripción breve para cada concepto. Si la dejas vacía, el PDF mostrará solo el nombre del producto.
+            Este texto reemplaza el nombre del producto en el PDF y Excel (columna Descripción). El detalle sigue mostrando
+            la descripción completa. Si lo dejas en blanco, se usa un resumen automático en el producto.
           </p>
           <ul className="space-y-4">
             {lines.map((line) => (
@@ -141,7 +169,7 @@ export function CotizacionPdfOptionsPanel({
                   Descripción completa: {hintPreview(line.producto_descripcion)}
                 </p>
                 <div className="mt-3">
-                  <Label className={labelPageClass}>Descripción corta para PDF</Label>
+                  <Label className={labelPageClass}>Texto del producto en PDF/Excel</Label>
                   <textarea
                     value={descripcionesCortas[line.id] || ""}
                     onChange={(e) => onDescripcionCortaChange(line.id, e.target.value.slice(0, 500))}
@@ -156,7 +184,7 @@ export function CotizacionPdfOptionsPanel({
         </div>
       )}
 
-      {opciones.simplificar_descripcion && !opciones.ocultar_detalle && lines.length === 0 && (
+      {opciones.simplificar_descripcion && lines.length === 0 && (
         <p className="mt-4 text-xs text-[#78716c] dark:text-[#8ea0b8]">
           Agrega conceptos para configurar descripciones cortas.
         </p>

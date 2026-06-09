@@ -131,14 +131,27 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
             cantidad_str = str(cantidad)
 
         thumb_src = safe_pdf_thumbnail_src(getattr(it, "thumbnail_url", "") or "")
-        nombre = str(getattr(it, 'producto_nombre', '') or '-').strip() or '-'
-        if show_detalle:
-            if opts.simplificar_descripcion:
-                corta = str(getattr(it, 'pdf_descripcion_corta', '') or '').strip()
-                desc_html = f"<div class='desc'>{esc(corta)}</div>" if corta else ""
-            else:
-                desc_html = f"<div class='desc'>{esc(getattr(it, 'producto_descripcion', '') or '')}</div>"
+        nombre_base = str(getattr(it, 'producto_nombre', '') or '-').strip() or '-'
+        descripcion_larga = str(getattr(it, 'producto_descripcion', '') or '').strip()
+        if opts.simplificar_descripcion:
+            corta = str(getattr(it, 'pdf_descripcion_corta', '') or '').strip()
+            if not corta:
+                corta = (
+                    descripcion_larga[:120].rstrip() + ('…' if len(descripcion_larga) > 120 else '')
+                    if descripcion_larga
+                    else ''
+                )
+            nombre = corta or nombre_base
+            desc_html = (
+                f"<div class='desc'>{esc(descripcion_larga)}</div>"
+                if show_detalle and descripcion_larga
+                else ""
+            )
+        elif show_detalle:
+            nombre = nombre_base
+            desc_html = f"<div class='desc'>{esc(descripcion_larga)}</div>" if descripcion_larga else ""
         else:
+            nombre = nombre_base
             desc_html = ""
 
         price_cells = ""
