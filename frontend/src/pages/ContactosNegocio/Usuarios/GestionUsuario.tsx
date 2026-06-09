@@ -303,7 +303,7 @@ export default function UserProfiles() {
 
   const normalizePerms = (p: any): Required<PermissionsPayload> => {
     const base: Required<PermissionsPayload> = {
-      ordenes: { view: true, create: false, edit: false, delete: false, own_only: false },
+      ordenes: { view: true, create: false, edit: false, delete: false, own_only: true },
       clientes: { view: true, create: false, edit: false, delete: false },
       productos: { view: true, create: false, edit: false, delete: false },
       servicios: { view: true, create: false, edit: false, delete: false },
@@ -1568,76 +1568,75 @@ export default function UserProfiles() {
                                       {sec.modules.map((m) => {
                                         const cur = normalizePerms(permsForm)[m.key] as CrudPerms;
                                         const supportsOwnScope = m.key === 'cotizaciones' || m.key === 'ordenes';
-                                        const Switch = ({ k }: { k: keyof CrudPerms }) => {
-                                          const checked = !!cur[k];
-                                          return (
-                                            <button
-                                              type="button"
-                                              role="switch"
-                                              aria-checked={checked}
-                                              disabled={!canDelegatePerms}
-                                              title={!canDelegatePerms ? 'Sin permiso para cambiar' : undefined}
-                                              onClick={() => {
-                                                if (!canDelegatePerms) return;
-                                                setPerm(m.key, k, !checked);
-                                              }}
-                                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-[#ff801f]/40 active:scale-[0.98] ${checked ? 'bg-[#ff801f]' : 'bg-[#e7ded0] dark:bg-[#334155]'} ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
-                                            >
-                                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${checked ? 'translate-x-4' : 'translate-x-1'}`} />
-                                            </button>
-                                          );
-                                        };
+                                        const isOrdenes = m.key === 'ordenes';
+                                        const ownScopeActive = supportsOwnScope
+                                          ? (isOrdenes ? !cur.own_only : !!cur.own_only)
+                                          : false;
+                                        const ownScopeText = isOrdenes ? 'Ver todas las órdenes' : 'Solo propios';
+                                        const ownScopeAria = isOrdenes
+                                          ? (ownScopeActive ? 'Ver todas las órdenes: activo' : 'Ver todas las órdenes: inactivo')
+                                          : (ownScopeActive ? 'Solo propios: activo' : 'Solo propios: inactivo');
+
+                                        const PermSwitch = ({
+                                          checked,
+                                          onToggle,
+                                          ariaLabel,
+                                        }: {
+                                          checked: boolean;
+                                          onToggle: () => void;
+                                          ariaLabel?: string;
+                                        }) => (
+                                          <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={checked}
+                                            aria-label={ariaLabel}
+                                            disabled={!canDelegatePerms}
+                                            title={!canDelegatePerms ? 'Sin permiso para cambiar' : undefined}
+                                            onClick={() => {
+                                              if (!canDelegatePerms) return;
+                                              onToggle();
+                                            }}
+                                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-[#ff801f]/40 active:scale-[0.98] ${checked ? 'bg-[#ff801f]' : 'bg-[#e7ded0] dark:bg-[#334155]'} ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
+                                          >
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${checked ? 'translate-x-4' : 'translate-x-1'}`} />
+                                          </button>
+                                        );
+
+                                        const Switch = ({ k }: { k: keyof CrudPerms }) => (
+                                          <PermSwitch
+                                            checked={!!cur[k]}
+                                            onToggle={() => setPerm(m.key, k, !cur[k])}
+                                            ariaLabel={actionLabels.find((a) => a.key === k)?.label}
+                                          />
+                                        );
 
                                         return (
                                           <div key={m.key} className={permsModuleRowClass}>
-                                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:items-center">
                                               <div className="sm:col-span-5">
-                                                <div className="flex items-center gap-2">
-                                                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#fffdfa] text-[#57534e] shadow-sm dark:bg-[#111a2b] dark:text-[#cbd5e1]">
+                                                <div className="flex items-center gap-2.5">
+                                                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#fffdfa] text-[#57534e] shadow-sm dark:bg-[#111a2b] dark:text-[#cbd5e1]">
                                                     {getIcon(m.key)}
                                                   </span>
-                                                  <div className="min-w-0">
+                                                  <div className="min-w-0 flex-1">
                                                     <div className="text-sm font-medium text-[#1c1917] dark:text-[#f8fafc] truncate">{m.label}</div>
                                                     {supportsOwnScope && (
-                                                      <button
-                                                        type="button"
-                                                        role="switch"
-                                                        aria-checked={!!cur.own_only}
-                                                        disabled={!canDelegatePerms}
-                                                        title={!canDelegatePerms ? 'Sin permiso para cambiar' : undefined}
-                                                        onClick={() => {
-                                                          if (!canDelegatePerms) return;
-                                                          setPerm(m.key, 'own_only', !cur.own_only);
-                                                        }}
-                                                        className={`mt-1 inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition-all ${
-                                                          cur.own_only
-                                                            ? 'border-[#ff801f]/80 bg-[#ff801f]/10 text-[#9a3412] dark:border-[#ffa057]/80 dark:bg-[#ff801f]/15 dark:text-[#ffa057]'
-                                                            : 'border-[#e2d9ca] bg-[#fffdfa] text-[#57534e] hover:border-[#e2d9ca] hover:bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]/80'
-                                                        } ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
-                                                      >
-                                                        <span
-                                                          className={`relative inline-flex h-4 w-7 items-center rounded-full border transition-colors ${
-                                                            cur.own_only
-                                                              ? 'border-[#ff801f]/80 bg-[#ff801f]'
-                                                              : 'border-[#e7ded0] bg-[#e7ded0] dark:border-[#334155] dark:bg-[#334155]'
-                                                          }`}
-                                                          aria-hidden
-                                                        >
-                                                          <span
-                                                            className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${
-                                                              cur.own_only ? 'translate-x-[14px]' : 'translate-x-[2px]'
-                                                            }`}
-                                                          />
+                                                      <div className="mt-1.5 flex items-center gap-2">
+                                                        <PermSwitch
+                                                          checked={ownScopeActive}
+                                                          onToggle={() => setPerm(m.key, 'own_only', !cur.own_only)}
+                                                          ariaLabel={ownScopeAria}
+                                                        />
+                                                        <span className="text-[11px] leading-tight text-[#78716c] dark:text-[#8ea0b8] truncate">
+                                                          {ownScopeText}
                                                         </span>
-                                                        <span className="tracking-wide">
-                                                          {cur.own_only ? 'Solo propios: Activo' : 'Solo propios: Inactivo'}
-                                                        </span>
-                                                      </button>
+                                                      </div>
                                                     )}
                                                   </div>
                                                 </div>
                                               </div>
-                                              <div className="sm:col-span-7 grid grid-cols-4 gap-3 items-center justify-items-center">
+                                              <div className="sm:col-span-7 grid grid-cols-4 gap-3 items-center justify-items-center sm:min-h-[2.5rem]">
                                                 <Switch k="view" />
                                                 <Switch k="create" />
                                                 <Switch k="edit" />

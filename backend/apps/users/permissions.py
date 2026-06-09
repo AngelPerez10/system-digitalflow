@@ -43,7 +43,11 @@ def user_module_own_only(user, module_key: str) -> bool:
     perms_obj = getattr(user, 'permissions_profile', None)
     permissions = getattr(perms_obj, 'permissions', None) or {}
     module_perms = _module_perms_for_key(permissions, module_key)
-    return _as_bool_value(module_perms.get('own_only'), False)
+    if 'own_only' in module_perms:
+        return _as_bool_value(module_perms.get('own_only'), False)
+    if module_key == 'ordenes':
+        return not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False))
+    return False
 
 
 def user_has_any_ordenes_access(permissions):

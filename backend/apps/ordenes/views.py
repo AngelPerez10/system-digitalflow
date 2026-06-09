@@ -456,11 +456,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
             )
         )
         user = getattr(self.request, 'user', None)
-        own_only = user_module_own_only(user, 'ordenes') if user and getattr(user, 'is_authenticated', False) else False
-        if user and (user.is_authenticated and (user.is_staff or user.is_superuser)) and not own_only:
-            return qs
         if not user or not getattr(user, 'is_authenticated', False):
             return qs.none()
+        own_only = user_module_own_only(user, 'ordenes')
+        if not own_only:
+            return qs
         return qs.filter(Q(tecnico_asignado=user) | Q(creado_por=user))
 
     def get_object(self):
@@ -486,14 +486,14 @@ class OrdenViewSet(viewsets.ModelViewSet):
             raise NotFound()
 
         user = getattr(self.request, 'user', None)
-        own_only = user_module_own_only(user, 'ordenes') if user and getattr(user, 'is_authenticated', False) else False
-        if user and getattr(user, 'is_authenticated', False) and (user.is_staff or user.is_superuser) and not own_only:
+        if not user or not getattr(user, 'is_authenticated', False):
+            raise PermissionDenied()
+
+        own_only = user_module_own_only(user, 'ordenes')
+        if not own_only:
             return obj
-
-        if user and getattr(user, 'is_authenticated', False):
-            if obj.tecnico_asignado_id == user.id or obj.creado_por_id == user.id:
-                return obj
-
+        if obj.tecnico_asignado_id == user.id or obj.creado_por_id == user.id:
+            return obj
         raise PermissionDenied()
 
     @action(detail=False, methods=['get', 'post'], url_path='reportes-semanales')
