@@ -10,6 +10,7 @@ class CotizacionPdfOpciones:
     ocultar_precios_unitarios: bool = False
     ocultar_importes_linea: bool = False
     ocultar_totales: bool = False
+    ocultar_detalle: bool = False
     simplificar_descripcion: bool = False
 
 
@@ -34,6 +35,7 @@ def parse_pdf_opciones(raw: Any) -> CotizacionPdfOpciones:
         ocultar_precios_unitarios=_as_bool(raw.get("ocultar_precios_unitarios")),
         ocultar_importes_linea=_as_bool(raw.get("ocultar_importes_linea")),
         ocultar_totales=_as_bool(raw.get("ocultar_totales")),
+        ocultar_detalle=_as_bool(raw.get("ocultar_detalle")),
         simplificar_descripcion=_as_bool(raw.get("simplificar_descripcion")),
     )
 
@@ -49,6 +51,7 @@ def pdf_opciones_to_dict(opts: CotizacionPdfOpciones) -> dict[str, bool]:
         "ocultar_precios_unitarios": opts.ocultar_precios_unitarios,
         "ocultar_importes_linea": opts.ocultar_importes_linea,
         "ocultar_totales": opts.ocultar_totales,
+        "ocultar_detalle": opts.ocultar_detalle,
         "simplificar_descripcion": opts.simplificar_descripcion,
     }
 
@@ -63,5 +66,6 @@ def parse_pdf_opciones_from_query(query_params: Mapping[str, str]) -> Cotizacion
         ocultar_precios_unitarios=_as_bool(query_params.get(f"{prefix}ocultar_precios_unitarios")),
         ocultar_importes_linea=_as_bool(query_params.get(f"{prefix}ocultar_importes_linea")),
         ocultar_totales=_as_bool(query_params.get(f"{prefix}ocultar_totales")),
+        ocultar_detalle=_as_bool(query_params.get(f"{prefix}ocultar_detalle")),
         simplificar_descripcion=_as_bool(query_params.get(f"{prefix}simplificar_descripcion")),
     )

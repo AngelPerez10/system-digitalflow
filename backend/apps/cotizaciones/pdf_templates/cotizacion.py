@@ -25,6 +25,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     show_pu = not opts.ocultar_precios_unitarios
     show_importe = not opts.ocultar_importes_linea
     show_totales = not opts.ocultar_totales
+    show_detalle = not opts.ocultar_detalle
 
     def iter_items(obj):
         items = getattr(obj, 'items', None)
@@ -131,11 +132,14 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
 
         thumb_src = safe_pdf_thumbnail_src(getattr(it, "thumbnail_url", "") or "")
         nombre = str(getattr(it, 'producto_nombre', '') or '-').strip() or '-'
-        if opts.simplificar_descripcion:
-            corta = str(getattr(it, 'pdf_descripcion_corta', '') or '').strip()
-            desc_html = f"<div class='desc'>{esc(corta)}</div>" if corta else ""
+        if show_detalle:
+            if opts.simplificar_descripcion:
+                corta = str(getattr(it, 'pdf_descripcion_corta', '') or '').strip()
+                desc_html = f"<div class='desc'>{esc(corta)}</div>" if corta else ""
+            else:
+                desc_html = f"<div class='desc'>{esc(getattr(it, 'producto_descripcion', '') or '')}</div>"
         else:
-            desc_html = f"<div class='desc'>{esc(getattr(it, 'producto_descripcion', '') or '')}</div>"
+            desc_html = ""
 
         price_cells = ""
         if show_pu:

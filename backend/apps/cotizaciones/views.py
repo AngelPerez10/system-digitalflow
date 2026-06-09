@@ -122,6 +122,10 @@ COTIZACION_EXPORT_BRAND_HEX = "3160E3"
 
 def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     """Genera un .xlsx con encabezado, líneas (con miniatura) y totales."""
+    from .pdf_opciones import parse_pdf_opciones_from_cotizacion
+
+    pdf_opciones = parse_pdf_opciones_from_cotizacion(cotizacion)
+    show_detalle = not pdf_opciones.ocultar_detalle
     wb = Workbook()
     ws = wb.active
     ws.title = "Cotización"
@@ -301,7 +305,15 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
         ws.cell(row=r, column=2, value=cantidad)
         ws.cell(row=r, column=3, value=str(getattr(it, "unidad", "") or ""))
         ws.cell(row=r, column=4, value=str(getattr(it, "producto_nombre", "") or "")).alignment = wrap
-        ws.cell(row=r, column=5, value=str(getattr(it, "producto_descripcion", "") or "")).alignment = wrap
+        detalle_val = ""
+        if show_detalle:
+            if pdf_opciones.simplificar_descripcion:
+                detalle_val = str(getattr(it, "pdf_descripcion_corta", "") or "").strip()
+                if not detalle_val:
+                    detalle_val = str(getattr(it, "producto_descripcion", "") or "")
+            else:
+                detalle_val = str(getattr(it, "producto_descripcion", "") or "")
+        ws.cell(row=r, column=5, value=detalle_val).alignment = wrap
         ws.cell(row=r, column=6, value=round(pu, 2))
         ws.cell(row=r, column=7, value=round(descuento, 2))
         ws.cell(row=r, column=8, value=round(importe, 2))
@@ -380,6 +392,8 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     ws.column_dimensions["C"].width = 12
     ws.column_dimensions["D"].width = 30
     ws.column_dimensions["E"].width = 34
+    if not show_detalle:
+        ws.column_dimensions["E"].hidden = True
     ws.column_dimensions["F"].width = 18
     ws.column_dimensions["G"].width = 14
     ws.column_dimensions["H"].width = 16

@@ -19,26 +19,26 @@ type Props = {
 
 type OpcionKey = keyof CotizacionPdfOpciones;
 
+const OCULTAR_PRECIOS_LINEA = {
+  label: "Ocultar precios por línea",
+  hint: "No muestra P. UNIT., DESC ni IMPORTE por producto en el PDF.",
+} as const;
+
 const OPCIONES: { key: OpcionKey; label: string; hint: string }[] = [
-  {
-    key: "ocultar_precios_unitarios",
-    label: "Ocultar precios unitarios y descuentos",
-    hint: "No muestra las columnas P. UNIT. ni DESC en el PDF.",
-  },
-  {
-    key: "ocultar_importes_linea",
-    label: "Ocultar subtotales por producto",
-    hint: "No muestra la columna IMPORTE por línea.",
-  },
   {
     key: "ocultar_totales",
     label: "Ocultar totales",
     hint: "Oculta subtotal, IVA, total, anticipo y saldo en el PDF.",
   },
   {
+    key: "ocultar_detalle",
+    label: "Ocultar detalle",
+    hint: "No muestra la descripción o detalle del producto en el PDF ni en Excel.",
+  },
+  {
     key: "simplificar_descripcion",
     label: "Simplificar descripción",
-    hint: "Usa una descripción corta por concepto en lugar del texto completo.",
+    hint: "Usa una descripción corta por concepto en lugar del texto completo (PDF).",
   },
 ];
 
@@ -87,14 +87,31 @@ export function CotizacionPdfOptionsPanel({
     onOpcionesChange({ ...opciones, [key]: value });
   };
 
+  const setOcultarPreciosLinea = (value: boolean) => {
+    onOpcionesChange({
+      ...opciones,
+      ocultar_precios_unitarios: value,
+      ocultar_importes_linea: value,
+    });
+  };
+
+  const ocultarPreciosLineaActivo =
+    opciones.ocultar_precios_unitarios || opciones.ocultar_importes_linea;
+
   return (
     <ComponentCard
-      title="Opciones del PDF"
-      desc="Se guardan con la cotización y aplican al PDF generado."
+      title="Opciones de exportación"
+      desc="Se guardan con la cotización y aplican al PDF y Excel generados."
       className={cardShellClass}
       compact
     >
       <div className="grid grid-cols-1 gap-2.5">
+        <PdfOptionCheckbox
+          checked={ocultarPreciosLineaActivo}
+          label={OCULTAR_PRECIOS_LINEA.label}
+          hint={OCULTAR_PRECIOS_LINEA.hint}
+          onChange={setOcultarPreciosLinea}
+        />
         {OPCIONES.map((op) => (
           <PdfOptionCheckbox
             key={op.key}
@@ -106,7 +123,7 @@ export function CotizacionPdfOptionsPanel({
         ))}
       </div>
 
-      {opciones.simplificar_descripcion && lines.length > 0 && (
+      {opciones.simplificar_descripcion && !opciones.ocultar_detalle && lines.length > 0 && (
         <div className="mt-5 space-y-4 border-t border-[#e7ded0] pt-5 dark:border-[#273244]">
           <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
             Escribe una descripción breve para cada concepto. Si la dejas vacía, el PDF mostrará solo el nombre del producto.
@@ -139,7 +156,7 @@ export function CotizacionPdfOptionsPanel({
         </div>
       )}
 
-      {opciones.simplificar_descripcion && lines.length === 0 && (
+      {opciones.simplificar_descripcion && !opciones.ocultar_detalle && lines.length === 0 && (
         <p className="mt-4 text-xs text-[#78716c] dark:text-[#8ea0b8]">
           Agrega conceptos para configurar descripciones cortas.
         </p>
