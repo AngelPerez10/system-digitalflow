@@ -240,12 +240,22 @@ export default function OrdenesTecnico() {
     tipoOrden,
     setTipoOrden,
     isReadOnly,
+    isLimitedEdit,
+    isFieldReadOnly,
     tipoOrdenLabel,
     resetOrdenModalShell,
   } = useOrdenFormModalState({
     canCreate: canOrdenesCreate,
     canEdit: canOrdenesEdit,
+    userId: user?.id ?? null,
+    isAdmin,
   });
+
+  const ro = isFieldReadOnly;
+  const inputLockedClass = (field: Parameters<typeof isFieldReadOnly>[0]) =>
+    ro(field)
+      ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400'
+      : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20';
 
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -946,7 +956,7 @@ export default function OrdenesTecnico() {
         const savedOrden = await response.json().catch(() => null);
         const cid = payload?.cliente_id;
 
-        if (tipoOrden === 'levantamiento' && savedOrden?.id && levantamientoSnapshotRef.current) {
+        if (!isLimitedEdit && tipoOrden === 'levantamiento' && savedOrden?.id && levantamientoSnapshotRef.current) {
           const snap = levantamientoSnapshotRef.current;
           await fetchApi(`/api/ordenes/${savedOrden.id}/levantamiento/`, {
             method: 'PUT',
@@ -1089,7 +1099,7 @@ export default function OrdenesTecnico() {
             return prev;
           });
         }
-        if (tipoOrden === 'instalaciones' && savedOrden?.id && instalacionSnapshotRef.current) {
+        if (!isLimitedEdit && tipoOrden === 'instalaciones' && savedOrden?.id && instalacionSnapshotRef.current) {
           const snap = instalacionSnapshotRef.current;
           const instalacionRes = await fetchApi(`/api/ordenes/${savedOrden.id}/instalacion/`, {
             method: 'PUT',
@@ -2134,6 +2144,11 @@ export default function OrdenesTecnico() {
           subtitle="Captura y revisa los datos antes de guardar"
         />
         <div className={erpModalBodyClass}>
+        {isLimitedEdit && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+            Edición limitada: solo puedes actualizar problemática, estado, tiempos y fotos en órdenes de otros técnicos.
+          </div>
+        )}
         <form
           ref={formScrollRef}
           onSubmit={handleSubmit}
@@ -2206,7 +2221,7 @@ export default function OrdenesTecnico() {
               <div className={activeTab === 'orden' ? '' : 'hidden'}>
                 <LevantamientoForm
                   ordenId={editingOrden?.id ?? null}
-                  disabled={isReadOnly}
+                  disabled={isReadOnly || isLimitedEdit}
                   onSnapshot={(snapshot) => {
                     levantamientoSnapshotRef.current = snapshot;
                   }}
@@ -2218,7 +2233,7 @@ export default function OrdenesTecnico() {
               <div className={activeTab === 'orden' ? '' : 'hidden'}>
                 <InstalacionForm
                   ordenId={editingOrden?.id ?? null}
-                  disabled={isReadOnly}
+                  disabled={isReadOnly || isLimitedEdit}
                   onSnapshot={(snapshot) => {
                     instalacionSnapshotRef.current = snapshot;
                   }}
@@ -2243,10 +2258,10 @@ export default function OrdenesTecnico() {
                     <input
                       type="text"
                       value={(formData as any).folio || ''}
-                      readOnly={isReadOnly}
-                      disabled={isReadOnly}
+                      readOnly={ro('folio')}
+                      disabled={ro('folio')}
                       onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
-                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20'}`}
+                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('folio')}`}
                       placeholder="Ej: ATX2000"
                     />
                   </div>
@@ -2264,8 +2279,9 @@ export default function OrdenesTecnico() {
                       onQueryChange={(q: string) => setClienteSearch(q)}
 
                       onSelectAction={(action: any) => {
+                        if (ro('cliente') && action?.id !== '__new__') return;
                         if (action?.id === '__new__') {
-                          if (isReadOnly) return;
+                          if (ro('cliente')) return;
                           setShowClienteModal(true);
                           return;
                         }
@@ -2294,7 +2310,7 @@ export default function OrdenesTecnico() {
                       }}
                     />
                   </div>
-                  {(formData.cliente_id || formData.cliente) && !isReadOnly && (
+                  {(formData.cliente_id || formData.cliente) && !ro('cliente') && (
                     <button
                       type="button"
                       onClick={() => selectCliente(null)}
@@ -2324,10 +2340,10 @@ export default function OrdenesTecnico() {
                     <input
                       type="text"
                       value={formData.nombre_cliente}
-                      readOnly={isReadOnly}
-                      disabled={isReadOnly}
+                      readOnly={ro('nombre_cliente')}
+                      disabled={ro('nombre_cliente')}
                       onChange={(e) => setFormData({ ...formData, nombre_cliente: e.target.value })}
-                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20'}`}
+                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('nombre_cliente')}`}
                       placeholder="Nombre completo del cliente"
                     />
                   </div>
@@ -2345,13 +2361,14 @@ export default function OrdenesTecnico() {
                         })() : '')}
                         onQueryChange={(q: string) => setTecnicoSearch(q)}
                         onSelectAction={(action: any) => {
+                          if (ro('tecnico_asignado')) return;
                           const id = Number(action?.id);
                           const u = (usuarios || []).find((x) => Number(x.id) === id);
                           if (u) selectTecnico(u);
                         }}
                       />
                     </div>
-                    {formData.tecnico_asignado && !isReadOnly && (
+                    {formData.tecnico_asignado && !ro('tecnico_asignado') && (
                       <button
                         type="button"
                         onClick={() => selectTecnico(null)}
@@ -2392,13 +2409,14 @@ export default function OrdenesTecnico() {
                         })() : '')}
                         onQueryChange={(q: string) => setQuienInstaloSearch(q)}
                         onSelectAction={(action: any) => {
+                          if (ro('quien_instalo')) return;
                           const id = Number(action?.id);
                           const u = (usuarios || []).find((x) => Number(x.id) === id);
                           if (u) selectQuienInstalo(u);
                         }}
                       />
                     </div>
-                    {formData.quien_instalo && !isReadOnly && (
+                    {formData.quien_instalo && !ro('quien_instalo') && (
                       <button
                         type="button"
                         onClick={() => selectQuienInstalo(null)}
@@ -2426,13 +2444,14 @@ export default function OrdenesTecnico() {
                         })() : '')}
                         onQueryChange={(q: string) => setQuienEntregoSearch(q)}
                         onSelectAction={(action: any) => {
+                          if (ro('quien_entrego')) return;
                           const id = Number(action?.id);
                           const u = (usuarios || []).find((x) => Number(x.id) === id);
                           if (u) selectQuienEntrego(u);
                         }}
                       />
                     </div>
-                    {formData.quien_entrego && !isReadOnly && (
+                    {formData.quien_entrego && !ro('quien_entrego') && (
                       <button
                         type="button"
                         onClick={() => selectQuienEntrego(null)}
@@ -2471,8 +2490,8 @@ export default function OrdenesTecnico() {
                     <input
                       type="tel"
                       value={formData.telefono_cliente}
-                      readOnly={isReadOnly}
-                      disabled={isReadOnly}
+                      readOnly={ro('telefono_cliente')}
+                      disabled={ro('telefono_cliente')}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, '');
                         setFormData({ ...formData, telefono_cliente: value });
@@ -2482,7 +2501,7 @@ export default function OrdenesTecnico() {
                           e.preventDefault();
                         }
                       }}
-                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20'}`}
+                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('telefono_cliente')}`}
                       placeholder="Teléfono del cliente"
                       maxLength={10}
                     />
@@ -2520,11 +2539,11 @@ export default function OrdenesTecnico() {
                   <div className="relative">
                     <textarea
                       value={formData.direccion}
-                      readOnly={isReadOnly}
-                      disabled={isReadOnly}
+                      readOnly={ro('direccion')}
+                      disabled={ro('direccion')}
                       onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
                       rows={2}
-                      className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 pr-12 shadow-theme-xs outline-none resize-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20'}`}
+                      className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 pr-12 shadow-theme-xs outline-none resize-none ${inputLockedClass('direccion')}`}
                       placeholder="Dirección, coordenadas o URL de Google Maps"
                     />
                     {formData.direccion && (
@@ -2583,11 +2602,11 @@ export default function OrdenesTecnico() {
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Problemática</label>
                   <textarea
                     value={formData.problematica}
-                    readOnly={isReadOnly}
-                    disabled={isReadOnly}
+                    readOnly={ro('problematica')}
+                    disabled={ro('problematica')}
                     onChange={(e) => setFormData({ ...formData, problematica: e.target.value })}
                     rows={3}
-                    className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20'}`}
+                    className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${inputLockedClass('problematica')}`}
                     placeholder="Describe el problema reportado"
                   />
                 </div>
@@ -2599,11 +2618,11 @@ export default function OrdenesTecnico() {
                       actions={servicioActions as any}
                       defaultOpen={false}
                       label="Servicios Realizados"
-                      placeholder={isReadOnly ? 'Servicios (Solo lectura)' : 'Buscar o agregar servicio...'}
+                      placeholder={ro('servicios_realizados') ? 'Servicios (Solo lectura)' : 'Buscar o agregar servicio...'}
                       value={servicioSearch}
                       onQueryChange={(q: string) => setServicioSearch(q)}
                       onSelectAction={(action: any) => {
-                        if (isReadOnly) return;
+                        if (ro('servicios_realizados')) return;
                         if (action?.id === '__new__') {
                           const nuevoServicio = servicioSearch.trim();
                           if (nuevoServicio && !serviciosDisponibles.includes(nuevoServicio)) {
@@ -2616,7 +2635,7 @@ export default function OrdenesTecnico() {
                       }}
                     />
                   </div>
-                  {formData.servicios_realizados.length > 0 && !isReadOnly && (
+                  {formData.servicios_realizados.length > 0 && !ro('servicios_realizados') && (
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, servicios_realizados: [] })}
@@ -2647,7 +2666,7 @@ export default function OrdenesTecnico() {
                       className="inline-flex items-center gap-1 px-2 py-1 bg-[#fff3e8] dark:bg-[#ff801f]/15 text-[#9a3412] dark:text-[#fdba74] rounded-md text-xs"
                     >
                       {servicio}
-                      {!isReadOnly && (
+                      {!ro('servicios_realizados') && (
                         <button
                           type="button"
                           onClick={() => {
@@ -2670,11 +2689,11 @@ export default function OrdenesTecnico() {
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario del Técnico</label>
                   <textarea
                     value={formData.comentario_tecnico}
-                    readOnly={isReadOnly}
-                    disabled={isReadOnly}
+                    readOnly={ro('comentario_tecnico')}
+                    disabled={ro('comentario_tecnico')}
                     onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
                     rows={3}
-                    className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20'}`}
+                    className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${inputLockedClass('comentario_tecnico')}`}
                     placeholder="Observaciones del técnico..."
                   />
                 </div>
@@ -2684,9 +2703,9 @@ export default function OrdenesTecnico() {
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Estado del Problema</label>
                   <select
                     value={formData.status}
-                    disabled={isReadOnly}
+                    disabled={ro('status')}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as 'pendiente' | 'resuelto' })}
-                    className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20'}`}
+                    className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('status')}`}
                   >
                     <option value="pendiente">No, pendiente</option>
                     <option value="resuelto">Sí, problema resuelto</option>
@@ -2716,7 +2735,7 @@ export default function OrdenesTecnico() {
                       id="fecha-inicio"
                       label="Fecha Inicio"
                       placeholder="Seleccionar fecha"
-                      disabled={isReadOnly}
+                      disabled={ro('fecha_inicio')}
                       defaultDate={formData.fecha_inicio || undefined}
                       onChange={(_dates, currentDateString) => {
                         setFormData({ ...formData, fecha_inicio: currentDateString || "" });
@@ -2730,7 +2749,7 @@ export default function OrdenesTecnico() {
                         type="time"
                         id="hora-inicio"
                         name="hora-inicio"
-                        disabled={isReadOnly}
+                        disabled={ro('hora_inicio')}
                         value={formData.hora_inicio}
                         onChange={(e) => setFormData({ ...formData, hora_inicio: e.target.value })}
                       />
@@ -2748,7 +2767,7 @@ export default function OrdenesTecnico() {
                       id="fecha-finalizacion"
                       label="Fecha Finalización"
                       placeholder="Seleccionar fecha"
-                      disabled={isReadOnly}
+                      disabled={ro('fecha_finalizacion')}
                       defaultDate={formData.fecha_finalizacion || undefined}
                       onChange={(_dates, currentDateString) => {
                         setFormData({ ...formData, fecha_finalizacion: currentDateString || "" });
@@ -2762,7 +2781,7 @@ export default function OrdenesTecnico() {
                         type="time"
                         id="hora-termino"
                         name="hora-termino"
-                        disabled={isReadOnly}
+                        disabled={ro('hora_termino')}
                         value={formData.hora_termino}
                         onChange={(e) => setFormData({ ...formData, hora_termino: e.target.value })}
                       />
@@ -2801,7 +2820,7 @@ export default function OrdenesTecnico() {
                   <SignaturePad
                     label="Firma del Cliente"
                     value={formData.firma_cliente_url}
-                    disabled={isReadOnly}
+                    disabled={ro('firma_cliente_url')}
                     onChange={(signature) => setFormData({ ...formData, firma_cliente_url: signature })}
                     width={400}
                     height={250}
@@ -2809,7 +2828,7 @@ export default function OrdenesTecnico() {
                 </div>
 
                 {/* Subida de Fotos - Dropzone con dz-message */}
-                {!isReadOnly && (
+                {!ro('fotos_extra_max') && (
                   <div className="rounded-lg border border-gray-200 dark:border-white/10 p-3 sm:p-4 mb-3 space-y-2">
                     <label htmlFor="fotos-extra-max-tecnico" className="block text-sm font-medium text-gray-800 dark:text-gray-100">
                       Fotos adicionales (además de las {ORDEN_BASE_MAX_FOTOS} base)
@@ -2835,7 +2854,7 @@ export default function OrdenesTecnico() {
                     </p>
                   </div>
                 )}
-                {!isReadOnly && (
+                {!ro('fotos_urls') && (
                   <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-[#ff801f] dark:border-gray-700 rounded-lg hover:border-[#ff801f]">
                     <div
                       {...getRootProps()}
@@ -2902,7 +2921,7 @@ export default function OrdenesTecnico() {
                             className="h-24 w-full object-cover pointer-events-none"
                           />
                         </button>
-                        {!isReadOnly && (
+                        {!ro('fotos_urls') && (
                           <button
                             type="button"
                             onClick={(e) => {

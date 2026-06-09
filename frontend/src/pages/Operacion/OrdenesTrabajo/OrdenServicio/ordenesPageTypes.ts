@@ -29,6 +29,7 @@ export interface Orden {
   nombre_encargado: string;
   nombre_cliente: string;
   tecnico_asignado?: number | null;
+  creado_por?: number | null;
   quien_instalo?: number | null;
   quien_entrego?: number | null;
   firma_encargado_url: string;

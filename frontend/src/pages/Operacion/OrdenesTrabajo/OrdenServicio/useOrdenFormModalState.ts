@@ -1,5 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import type { Orden } from "./ordenesPageTypes";
+import {
+  isOrdenFieldReadOnly,
+  isOrdenLimitedEdit,
+  type OrdenEditableField,
+} from "./ordenEditScope";
 
 export type TipoOrden = "servicio_tecnico" | "levantamiento" | "instalaciones" | "mantenimiento";
 export type OrdenFormTab = "orden" | "cliente";
@@ -7,9 +12,15 @@ export type OrdenFormTab = "orden" | "cliente";
 export function useOrdenFormModalState({
   canCreate,
   canEdit,
+  editingOrdenForScope,
+  userId,
+  isAdmin = false,
 }: {
   canCreate: boolean;
   canEdit: boolean;
+  editingOrdenForScope?: Orden | null;
+  userId?: number | null;
+  isAdmin?: boolean;
 }) {
   const [showModal, setShowModal] = useState(false);
   const [showClienteModal, setShowClienteModal] = useState(false);
@@ -17,7 +28,25 @@ export function useOrdenFormModalState({
   const [editingOrden, setEditingOrden] = useState<Orden | null>(null);
   const [tipoOrden, setTipoOrden] = useState<TipoOrden>("servicio_tecnico");
 
-  const isReadOnly = editingOrden ? !canEdit : !canCreate;
+  const scopeOrden = editingOrdenForScope ?? editingOrden;
+  const isReadOnly = scopeOrden ? !canEdit : !canCreate;
+
+  const isLimitedEdit = useMemo(
+    () =>
+      isOrdenLimitedEdit({
+        orden: scopeOrden,
+        userId: userId ?? null,
+        isAdmin,
+        canEdit,
+      }),
+    [scopeOrden, userId, isAdmin, canEdit],
+  );
+
+  const isFieldReadOnly = useCallback(
+    (field: OrdenEditableField) =>
+      isOrdenFieldReadOnly(field, { isReadOnly, isLimitedEdit }),
+    [isReadOnly, isLimitedEdit],
+  );
 
   const tipoOrdenLabel = useMemo(() => {
     switch (tipoOrden) {
@@ -62,6 +91,8 @@ export function useOrdenFormModalState({
     tipoOrden,
     setTipoOrden,
     isReadOnly,
+    isLimitedEdit,
+    isFieldReadOnly,
     tipoOrdenLabel,
     openNewOrden,
     resetOrdenModalShell,

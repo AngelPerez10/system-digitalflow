@@ -417,6 +417,77 @@ def _resolve_fotos_extra_max(data: dict, instance=None) -> int:
     return _normalize_fotos_extra_max(getattr(instance, 'fotos_extra_max', 0))
 
 
+LIMITED_ORDEN_EDIT_FIELDS = frozenset({
+    'problematica',
+    'status',
+    'fecha_inicio',
+    'hora_inicio',
+    'fecha_finalizacion',
+    'hora_termino',
+    'fotos_urls',
+    'fotos_extra_max',
+})
+
+
+def orden_user_owns(user, orden) -> bool:
+    uid = getattr(user, 'id', None)
+    if not uid:
+        return False
+    return orden.tecnico_asignado_id == uid or orden.creado_por_id == uid
+
+
+def user_has_full_orden_edit(user, orden) -> bool:
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+        return True
+    return orden_user_owns(user, orden)
+
+
+def _normalize_orden_compare_value(value):
+    if value is None:
+        return None
+    if isinstance(value, (date, datetime)):
+        return value.isoformat() if hasattr(value, 'isoformat') else str(value)
+    if isinstance(value, time):
+        return value.strftime('%H:%M:%S')
+    if hasattr(value, 'pk'):
+        return value.pk
+    if isinstance(value, list):
+        return list(value)
+    return value
+
+
+def _orden_field_values_differ(instance, field_name: str, new_value) -> bool:
+    current = getattr(instance, field_name, None)
+    if field_name == 'fotos_urls':
+        old = list(current or [])
+        new = list(new_value or []) if isinstance(new_value, list) else []
+        return old != new
+    if field_name == 'fotos_extra_max':
+        return _normalize_fotos_extra_max(current) != _normalize_fotos_extra_max(new_value)
+    return _normalize_orden_compare_value(current) != _normalize_orden_compare_value(new_value)
+
+
+def _filter_limited_orden_update(user, instance, data: dict) -> dict:
+    if user_has_full_orden_edit(user, instance):
+        return data
+    disallowed = []
+    allowed_data = {}
+    for key, value in data.items():
+        if key in LIMITED_ORDEN_EDIT_FIELDS:
+            allowed_data[key] = value
+            continue
+        if _orden_field_values_differ(instance, key, value):
+            disallowed.append(key)
+    if disallowed:
+        raise PermissionDenied(
+            'No puede modificar estos campos en órdenes de otros técnicos: '
+            + ', '.join(sorted(disallowed))
+        )
+    return allowed_data
+
+
 class OrdenViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, OrdenesPermission]
     # Evitar paginación por defecto para que el frontend reciba todas las órdenes
@@ -1243,6 +1314,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
             ser = OrdenLevantamientoSerializer(existing)
             return Response(ser.data)
 
+        if not user_has_full_orden_edit(request.user, orden):
+            raise PermissionDenied('No puede modificar levantamiento en órdenes de otros técnicos.')
+
         payload = request.data if isinstance(request.data, dict) else {}
         if existing:
             ser = OrdenLevantamientoSerializer(existing, data=payload, partial=(request.method.upper() == 'PATCH'))
@@ -1292,6 +1366,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 })
             ser = OrdenInstalacionSerializer(existing)
             return Response(ser.data)
+
+        if not user_has_full_orden_edit(request.user, orden):
+            raise PermissionDenied('No puede modificar instalación en órdenes de otros técnicos.')
 
         payload = request.data if isinstance(request.data, dict) else {}
         if existing:
@@ -1398,36 +1475,36 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         instance = serializer.instance
+        user = getattr(self.request, 'user', None)
+        full_edit = user_has_full_orden_edit(user, instance)
         old_firma_cliente = instance.firma_cliente_url
         old_fotos = list(instance.fotos_urls) if instance.fotos_urls else []
 
-        data = serializer.validated_data
+        data = dict(serializer.validated_data)
+        data = _filter_limited_orden_update(user, instance, data)
 
-        # Firma del encargado: siempre se toma desde el perfil del usuario (no subir/borrar desde órdenes)
-        sig = UserSignature.objects.filter(user=self.request.user).first()
-        if sig and sig.url:
-            data['firma_encargado_url'] = sig.url
+        if full_edit:
+            # Firma del encargado: siempre se toma desde el perfil del usuario (no subir/borrar desde órdenes)
+            sig = UserSignature.objects.filter(user=self.request.user).first()
+            if sig and sig.url:
+                data['firma_encargado_url'] = sig.url
 
-        firma_cliente = data.get('firma_cliente_url')
-        if isinstance(firma_cliente, str) and _is_data_url(firma_cliente):
-            # Delete old signature from Cloudinary (only within our scope) if exists
-            if old_firma_cliente and _extract_public_id_from_url(old_firma_cliente):
-                _delete_cloudinary_resource(old_firma_cliente)
-            # Upload new optimized signature (80KB max)
-            data['firma_cliente_url'] = _upload_data_url(firma_cliente, folder='ordenes/firmas', max_size_kb=80)
-        elif firma_cliente == '' or firma_cliente is None:
-            # Signature was cleared - delete from Cloudinary (only within our scope)
-            if old_firma_cliente and _extract_public_id_from_url(old_firma_cliente):
-                _delete_cloudinary_resource(old_firma_cliente)
-            data['firma_cliente_url'] = "" if firma_cliente == '' else None
-        elif isinstance(firma_cliente, str):
-            # Allow only safe Cloudinary URLs within our scope.
-            if not _extract_public_id_from_url(firma_cliente):
+        if full_edit:
+            firma_cliente = data.get('firma_cliente_url')
+            if isinstance(firma_cliente, str) and _is_data_url(firma_cliente):
+                if old_firma_cliente and _extract_public_id_from_url(old_firma_cliente):
+                    _delete_cloudinary_resource(old_firma_cliente)
+                data['firma_cliente_url'] = _upload_data_url(firma_cliente, folder='ordenes/firmas', max_size_kb=80)
+            elif firma_cliente == '' or firma_cliente is None:
+                if old_firma_cliente and _extract_public_id_from_url(old_firma_cliente):
+                    _delete_cloudinary_resource(old_firma_cliente)
+                data['firma_cliente_url'] = "" if firma_cliente == '' else None
+            elif isinstance(firma_cliente, str):
+                if not _extract_public_id_from_url(firma_cliente):
+                    raise ValidationError("firma_cliente_url inválida")
+                data['firma_cliente_url'] = firma_cliente
+            elif firma_cliente is not None:
                 raise ValidationError("firma_cliente_url inválida")
-            data['firma_cliente_url'] = firma_cliente
-        else:
-            # Unexpected type
-            raise ValidationError("firma_cliente_url inválida")
 
         # Handle photo updates - delete removed photos
         fotos = data.get('fotos_urls')

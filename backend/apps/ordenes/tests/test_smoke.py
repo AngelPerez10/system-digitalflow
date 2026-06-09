@@ -172,3 +172,78 @@ class OrdenesOwnOnlyScopeTests(APITestCase):
             {row["id"] for row in response.data},
             {self.orden_propia.id, self.orden_ajena.id},
         )
+
+
+class OrdenesLimitedEditTests(APITestCase):
+    def setUp(self):
+        self.jefe = User.objects.create_user(username="jefe_tecnico", password="test-pass-123")
+        self.otro = User.objects.create_user(username="otro_tecnico_le", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=self.jefe,
+            permissions={
+                "ordenes": {
+                    "view": True,
+                    "create": True,
+                    "edit": True,
+                    "delete": False,
+                    "own_only": False,
+                },
+            },
+        )
+        self.orden_ajena = Orden.objects.create(
+            cliente="Cliente ajeno",
+            direccion="Calle remota",
+            telefono_cliente="5551112233",
+            servicios_realizados=["Instalación"],
+            tecnico_asignado=self.otro,
+            creado_por=self.otro,
+        )
+        self.client.force_authenticate(user=self.jefe)
+
+    def test_limited_patch_problematica_and_status(self):
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden_ajena.id}/",
+            {"problematica": "Falla remota", "status": "resuelto"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.orden_ajena.refresh_from_db()
+        self.assertEqual(self.orden_ajena.problematica, "Falla remota")
+        self.assertEqual(self.orden_ajena.status, "resuelto")
+
+    def test_limited_patch_time_fields(self):
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden_ajena.id}/",
+            {
+                "fecha_inicio": "2026-06-01",
+                "hora_inicio": "09:30:00",
+                "fecha_finalizacion": "2026-06-02",
+                "hora_termino": "11:00:00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_limited_patch_disallowed_cliente_returns_403(self):
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden_ajena.id}/",
+            {"cliente": "Cliente modificado"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_limited_update_photos_allowed(self):
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden_ajena.id}/update-photos/",
+            {"fotos_urls": []},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_limited_levantamiento_returns_403(self):
+        response = self.client.put(
+            f"/api/ordenes/{self.orden_ajena.id}/levantamiento/",
+            {"payload": {"tipo": "cerco"}, "dibujo_url": ""},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

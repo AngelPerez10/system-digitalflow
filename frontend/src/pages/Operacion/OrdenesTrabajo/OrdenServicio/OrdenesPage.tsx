@@ -11,6 +11,7 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { fetchApi } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 import { OrdenesPageStats } from "./OrdenesPageStats";
 import {
   computeOrdenStats,
@@ -99,6 +100,7 @@ export default function Ordenes() {
     canOrdenesEdit,
     canOrdenesDelete,
   } = useOrdenesPagePermissions();
+  const { user, isAdmin } = useAuth();
 
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -120,13 +122,23 @@ export default function Ordenes() {
     tipoOrden,
     setTipoOrden,
     isReadOnly,
+    isLimitedEdit,
+    isFieldReadOnly,
     tipoOrdenLabel,
     openNewOrden,
     resetOrdenModalShell,
   } = useOrdenFormModalState({
     canCreate: canOrdenesCreate,
     canEdit: canOrdenesEdit,
+    userId: user?.id ?? null,
+    isAdmin,
   });
+
+  const ro = isFieldReadOnly;
+  const inputLockedClass = (field: Parameters<typeof isFieldReadOnly>[0]) =>
+    ro(field)
+      ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400'
+      : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20';
   const [searchTerm, setSearchTerm] = useState("");
   // Por defecto no filtramos por mes; evitamos que órdenes nuevas queden ocultas
   // si caen fuera del mes “actual” según cuándo se abrió la pantalla.
@@ -1012,7 +1024,7 @@ export default function Ordenes() {
           });
         }
 
-        if (tipoOrden === 'levantamiento' && savedOrden?.id && levantamientoSnapshotRef.current) {
+        if (!isLimitedEdit && tipoOrden === 'levantamiento' && savedOrden?.id && levantamientoSnapshotRef.current) {
           const snap = levantamientoSnapshotRef.current;
           await fetchApi(`/api/ordenes/${savedOrden.id}/levantamiento/`, {
             method: 'PUT',
@@ -1161,7 +1173,7 @@ export default function Ordenes() {
           });
         }
 
-        if (tipoOrden === 'instalaciones' && savedOrden?.id && instalacionSnapshotRef.current) {
+        if (!isLimitedEdit && tipoOrden === 'instalaciones' && savedOrden?.id && instalacionSnapshotRef.current) {
           const snap = instalacionSnapshotRef.current;
           const instalacionRes = await fetchApi(`/api/ordenes/${savedOrden.id}/instalacion/`, {
             method: 'PUT',
@@ -2212,6 +2224,11 @@ export default function Ordenes() {
           subtitle="Captura y revisa los datos antes de guardar"
         />
         <div className={erpModalBodyClass}>
+        {isLimitedEdit && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+            Edición limitada: solo puedes actualizar problemática, estado, tiempos y fotos en órdenes de otros técnicos.
+          </div>
+        )}
         <form
           ref={formScrollRef}
           onSubmit={handleSubmit}
@@ -2267,8 +2284,8 @@ export default function Ordenes() {
                     <select
                       value={tipoOrden}
                       onChange={(e) => setTipoOrden(e.target.value as any)}
-                      disabled={isReadOnly}
-                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20'}`}
+                      disabled={isReadOnly || isLimitedEdit}
+                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly || isLimitedEdit ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20'}`}
                     >
                       <option value="servicio_tecnico">Servicio Técnico</option>
                       <option value="levantamiento">Levantamiento</option>
@@ -2297,8 +2314,10 @@ export default function Ordenes() {
                         <input
                           type="text"
                           value={(formData as any).folio || ''}
+                          readOnly={ro('folio')}
+                          disabled={ro('folio')}
                           onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
-                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
+                          className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('folio')}`}
                           placeholder="Ej: ATX2000"
                         />
                       </div>
@@ -2316,6 +2335,7 @@ export default function Ordenes() {
                           onQueryChange={(q: string) => setClienteSearch(q)}
 
                           onSelectAction={(action: any) => {
+                            if (ro('cliente')) return;
                             if (action?.id === '__new__') {
                               setShowClienteModal(true);
                               return;
@@ -2345,7 +2365,7 @@ export default function Ordenes() {
                           }}
                         />
                       </div>
-                      {(formData.cliente_id || formData.cliente) && (
+                      {(formData.cliente_id || formData.cliente) && !ro('cliente') && (
                         <button
                           type="button"
                           onClick={() => selectCliente(null)}
@@ -2376,8 +2396,10 @@ export default function Ordenes() {
                         <input
                           type="text"
                           value={formData.nombre_cliente}
+                          readOnly={ro('nombre_cliente')}
+                          disabled={ro('nombre_cliente')}
                           onChange={(e) => setFormData({ ...formData, nombre_cliente: e.target.value })}
-                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
+                          className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('nombre_cliente')}`}
                           placeholder="Nombre completo del cliente"
                         />
                       </div>
@@ -2396,13 +2418,14 @@ export default function Ordenes() {
                             onQueryChange={(q: string) => setTecnicoSearch(q)}
 
                             onSelectAction={(action: any) => {
+                              if (ro('tecnico_asignado')) return;
                               const id = Number(action?.id);
                               const u = (usuarios || []).find((x) => Number(x.id) === id);
                               if (u) selectTecnico(u);
                             }}
                           />
                         </div>
-                        {formData.tecnico_asignado && (
+                        {formData.tecnico_asignado && !ro('tecnico_asignado') && (
                           <button
                             type="button"
                             onClick={() => selectTecnico(null)}
@@ -2441,13 +2464,14 @@ export default function Ordenes() {
                             })() : '')}
                             onQueryChange={(q: string) => setQuienInstaloSearch(q)}
                             onSelectAction={(action: any) => {
+                              if (ro('quien_instalo')) return;
                               const id = Number(action?.id);
                               const u = (usuarios || []).find((x) => Number(x.id) === id);
                               if (u) selectQuienInstalo(u);
                             }}
                           />
                         </div>
-                        {formData.quien_instalo && (
+                        {formData.quien_instalo && !ro('quien_instalo') && (
                           <button
                             type="button"
                             onClick={() => selectQuienInstalo(null)}
@@ -2475,13 +2499,14 @@ export default function Ordenes() {
                             })() : '')}
                             onQueryChange={(q: string) => setQuienEntregoSearch(q)}
                             onSelectAction={(action: any) => {
+                              if (ro('quien_entrego')) return;
                               const id = Number(action?.id);
                               const u = (usuarios || []).find((x) => Number(x.id) === id);
                               if (u) selectQuienEntrego(u);
                             }}
                           />
                         </div>
-                        {formData.quien_entrego && (
+                        {formData.quien_entrego && !ro('quien_entrego') && (
                           <button
                             type="button"
                             onClick={() => selectQuienEntrego(null)}
@@ -2519,6 +2544,8 @@ export default function Ordenes() {
                         <input
                           type="tel"
                           value={formData.telefono_cliente}
+                          readOnly={ro('telefono_cliente')}
+                          disabled={ro('telefono_cliente')}
                           onChange={(e) => {
                             const value = e.target.value.replace(/\D/g, '');
                             setFormData({ ...formData, telefono_cliente: value });
@@ -2528,7 +2555,7 @@ export default function Ordenes() {
                               e.preventDefault();
                             }
                           }}
-                          className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
+                          className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('telefono_cliente')}`}
                           placeholder="Teléfono del cliente"
                           maxLength={10}
                         />
@@ -2566,9 +2593,11 @@ export default function Ordenes() {
                       <div className="relative">
                         <textarea
                           value={formData.direccion}
+                          readOnly={ro('direccion')}
+                          disabled={ro('direccion')}
                           onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
                           rows={2}
-                          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 pr-12 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none resize-none"
+                          className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 pr-12 shadow-theme-xs outline-none resize-none ${inputLockedClass('direccion')}`}
                           placeholder="Dirección, coordenadas o URL de Google Maps"
                         />
                         {formData.direccion && (
@@ -2615,7 +2644,7 @@ export default function Ordenes() {
               <div className={activeTab === 'orden' ? '' : 'hidden'}>
                 <LevantamientoForm
                   ordenId={editingOrden?.id ?? null}
-                  disabled={isReadOnly}
+                  disabled={isReadOnly || isLimitedEdit}
                   onSnapshot={(snapshot) => {
                     levantamientoSnapshotRef.current = snapshot;
                   }}
@@ -2627,7 +2656,7 @@ export default function Ordenes() {
               <div className={activeTab === 'orden' ? '' : 'hidden'}>
                 <InstalacionForm
                   ordenId={editingOrden?.id ?? null}
-                  disabled={isReadOnly}
+                  disabled={isReadOnly || isLimitedEdit}
                   onSnapshot={(snapshot) => {
                     instalacionSnapshotRef.current = snapshot;
                   }}
@@ -2651,9 +2680,11 @@ export default function Ordenes() {
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Problemática</label>
                       <textarea
                         value={formData.problematica}
+                        readOnly={ro('problematica')}
+                        disabled={ro('problematica')}
                         onChange={(e) => setFormData({ ...formData, problematica: e.target.value })}
                         rows={3}
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none resize-none"
+                        className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${inputLockedClass('problematica')}`}
                         placeholder="Describe el problema reportado"
                       />
                     </div>
@@ -2669,6 +2700,7 @@ export default function Ordenes() {
                           value={servicioSearch}
                           onQueryChange={(q: string) => setServicioSearch(q)}
                           onSelectAction={(action: any) => {
+                            if (ro('servicios_realizados')) return;
                             if (action?.id === '__new__') {
                               const nuevoServicio = servicioSearch.trim();
                               if (nuevoServicio && !serviciosDisponibles.includes(nuevoServicio)) {
@@ -2681,7 +2713,7 @@ export default function Ordenes() {
                           }}
                         />
                       </div>
-                      {formData.servicios_realizados.length > 0 && (
+                      {formData.servicios_realizados.length > 0 && !ro('servicios_realizados') && (
                         <button
                           type="button"
                           onClick={() => setFormData({ ...formData, servicios_realizados: [] })}
@@ -2712,18 +2744,20 @@ export default function Ordenes() {
                           className="inline-flex items-center gap-1 px-2 py-1 bg-[#fff3e8] dark:bg-[#ff801f]/15 text-[#9a3412] dark:text-[#fdba74] rounded-md text-xs"
                         >
                           {servicio}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFormData({
-                                ...formData,
-                                servicios_realizados: formData.servicios_realizados.filter((_, i) => i !== index)
-                              });
-                            }}
-                            className="hover:text-[#7c2d12] dark:hover:text-[#ffedd5] ml-1"
-                          >
-                            ×
-                          </button>
+                          {!ro('servicios_realizados') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData({
+                                  ...formData,
+                                  servicios_realizados: formData.servicios_realizados.filter((_, i) => i !== index)
+                                });
+                              }}
+                              className="hover:text-[#7c2d12] dark:hover:text-[#ffedd5] ml-1"
+                            >
+                              ×
+                            </button>
+                          )}
                         </span>
                       ))}
                     </div>
@@ -2733,9 +2767,11 @@ export default function Ordenes() {
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario del Técnico</label>
                       <textarea
                         value={formData.comentario_tecnico}
+                        readOnly={ro('comentario_tecnico')}
+                        disabled={ro('comentario_tecnico')}
                         onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
                         rows={3}
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none resize-none"
+                        className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${inputLockedClass('comentario_tecnico')}`}
                         placeholder="Observaciones del técnico..."
                       />
                     </div>
@@ -2745,8 +2781,9 @@ export default function Ordenes() {
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Estado del Problema</label>
                       <select
                         value={formData.status}
+                        disabled={ro('status')}
                         onChange={(e) => setFormData({ ...formData, status: e.target.value as 'pendiente' | 'resuelto' })}
-                        className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
+                        className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('status')}`}
                       >
                         <option value="pendiente">No, pendiente</option>
                         <option value="resuelto">Sí, problema resuelto</option>
@@ -2776,6 +2813,7 @@ export default function Ordenes() {
                           id="fecha-inicio"
                           label="Fecha Inicio"
                           placeholder="Seleccionar fecha"
+                          disabled={ro('fecha_inicio')}
                           defaultDate={formData.fecha_inicio || undefined}
                           onChange={(_dates, currentDateString) => {
                             setFormData((prev) => ({
@@ -2792,6 +2830,7 @@ export default function Ordenes() {
                             type="time"
                             id="hora-inicio"
                             name="hora-inicio"
+                            disabled={ro('hora_inicio')}
                             value={formData.hora_inicio}
                             onChange={(e) => setFormData({ ...formData, hora_inicio: e.target.value })}
                           />
@@ -2810,6 +2849,7 @@ export default function Ordenes() {
                           id="fecha-finalizacion"
                           label="Fecha Finalización"
                           placeholder="Seleccionar fecha"
+                          disabled={ro('fecha_finalizacion')}
                           defaultDate={formData.fecha_finalizacion || undefined}
                           onChange={(_dates, currentDateString) => {
                             setFormData((prev) => ({
@@ -2826,6 +2866,7 @@ export default function Ordenes() {
                             type="time"
                             id="hora-termino"
                             name="hora-termino"
+                            disabled={ro('hora_termino')}
                             value={formData.hora_termino}
                             onChange={(e) => setFormData({ ...formData, hora_termino: e.target.value })}
                           />
@@ -2865,6 +2906,7 @@ export default function Ordenes() {
                       <SignaturePad
                         label="Firma del Cliente"
                         value={formData.firma_cliente_url}
+                        disabled={ro('firma_cliente_url')}
                         onChange={(signature) => setFormData({ ...formData, firma_cliente_url: signature })}
                         width={400}
                         height={250}
@@ -2872,6 +2914,7 @@ export default function Ordenes() {
                     </div>
 
                     {/* Subida de Fotos - Dropzone con dz-message */}
+                    {!ro('fotos_extra_max') && (
                     <div className="rounded-lg border border-gray-200 dark:border-white/10 p-3 sm:p-4 space-y-2">
                       <label htmlFor="fotos-extra-max" className="block text-sm font-medium text-gray-800 dark:text-gray-100">
                         Fotos adicionales (además de las {ORDEN_BASE_MAX_FOTOS} base)
@@ -2896,7 +2939,9 @@ export default function Ordenes() {
                         Límite actual: {maxPhotosAllowed} fotos en total.
                       </p>
                     </div>
+                    )}
 
+                    {!ro('fotos_urls') && (
                     <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-[#ff801f] dark:border-gray-700 rounded-lg hover:border-[#ff801f]">
                       <div
                         {...getRootProps()}
@@ -2944,6 +2989,7 @@ export default function Ordenes() {
                         </div>
                       </div>
                     </div>
+                    )}
 
                     {/* Previsualizaciones y eliminar */}
                     {Array.isArray(formData.fotos_urls) && formData.fotos_urls.length > 0 && (
@@ -2962,19 +3008,21 @@ export default function Ordenes() {
                                 className="h-24 w-full object-cover pointer-events-none"
                               />
                             </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setConfirmDelete({ open: true, index, url: preview });
-                              }}
-                              className="absolute top-1 right-1 z-[1] flex h-6 w-6 items-center justify-center rounded-full bg-error-600 text-white opacity-100 transition-opacity hover:bg-error-700 sm:opacity-0 sm:group-hover:opacity-100"
-                              title="Eliminar imagen"
-                            >
-                              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                              </svg>
-                            </button>
+                            {!ro('fotos_urls') && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConfirmDelete({ open: true, index, url: preview });
+                                }}
+                                className="absolute top-1 right-1 z-[1] flex h-6 w-6 items-center justify-center rounded-full bg-error-600 text-white opacity-100 transition-opacity hover:bg-error-700 sm:opacity-0 sm:group-hover:opacity-100"
+                                title="Eliminar imagen"
+                              >
+                                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
