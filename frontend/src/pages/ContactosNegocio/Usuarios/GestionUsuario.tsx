@@ -301,9 +301,10 @@ export default function UserProfiles() {
     [authUser?.username],
   );
 
-  const normalizePerms = (p: any): Required<PermissionsPayload> => {
+  const normalizePerms = (p: any, options?: { isAdmin?: boolean }): Required<PermissionsPayload> => {
+    const isAdmin = !!options?.isAdmin;
     const base: Required<PermissionsPayload> = {
-      ordenes: { view: true, create: false, edit: false, delete: false, own_only: true },
+      ordenes: { view: true, create: false, edit: false, delete: false, own_only: isAdmin ? false : true },
       clientes: { view: true, create: false, edit: false, delete: false },
       productos: { view: true, create: false, edit: false, delete: false },
       servicios: { view: true, create: false, edit: false, delete: false },
@@ -352,10 +353,10 @@ export default function UserProfiles() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || 'No se pudieron cargar los permisos');
-      setPermsForm(normalizePerms(data?.permissions || {}));
+      setPermsForm(normalizePerms(data?.permissions || {}, { isAdmin: isAdminUser(u) }));
     } catch (e: any) {
       setPermsError(e?.message || 'Error');
-      setPermsForm(normalizePerms({}));
+      setPermsForm(normalizePerms({}, { isAdmin: isAdminUser(u) }));
     } finally {
       setPermsLoading(false);
     }
@@ -371,7 +372,7 @@ export default function UserProfiles() {
   const setPerm = (area: keyof Required<PermissionsPayload>, key: keyof CrudPerms, value: boolean) => {
     if (!canDelegatePerms) return;
     setPermsForm((prev) => {
-      const cur = normalizePerms(prev);
+      const cur = normalizePerms(prev, { isAdmin: !!(permsUser?.is_superuser || permsUser?.is_staff) });
       return {
         ...cur,
         [area]: {
@@ -393,7 +394,7 @@ export default function UserProfiles() {
     setPermsSaving(true);
     try {
       const isAdmin = permsUser.is_superuser || permsUser.is_staff;
-      const merged = normalizePerms(permsForm);
+      const merged = normalizePerms(permsForm, { isAdmin });
       const payloadPerms = isAdmin
         ? permsForm
         : {
@@ -1566,7 +1567,7 @@ export default function UserProfiles() {
                                   {sec.modules.length > 0 ? (
                                     <div className="space-y-2">
                                       {sec.modules.map((m) => {
-                                        const cur = normalizePerms(permsForm)[m.key] as CrudPerms;
+                                        const cur = normalizePerms(permsForm, { isAdmin: !!(permsUser?.is_superuser || permsUser?.is_staff) })[m.key] as CrudPerms;
                                         const supportsOwnScope = m.key === 'cotizaciones' || m.key === 'ordenes';
                                         const isOrdenes = m.key === 'ordenes';
                                         const ownScopeActive = supportsOwnScope
