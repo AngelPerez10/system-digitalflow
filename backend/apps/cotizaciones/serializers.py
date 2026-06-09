@@ -3,7 +3,9 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 from rest_framework import serializers
 
+from .categorias_productos import normalize_categorias_productos
 from .models import Cotizacion, CotizacionItem
+from .pdf_opciones import parse_pdf_opciones, pdf_opciones_to_dict
 
 IVA_MX_DISPLAY = Decimal('1.16')
 
@@ -17,12 +19,14 @@ class CotizacionItemSerializer(serializers.ModelSerializer):
             'producto_externo_id',
             'producto_nombre',
             'producto_descripcion',
+            'pdf_descripcion_corta',
             'unidad',
             'thumbnail_url',
             'cantidad',
             'precio_lista',
             'descuento_pct',
             'orden',
+            'categoria_id',
         ]
         read_only_fields = ['id', 'cotizacion']
 
@@ -55,6 +59,12 @@ class CotizacionSerializer(serializers.ModelSerializer):
             return ', '.join(nombres) if nombres else ''
         except Exception:
             return ''
+
+    def validate_pdf_opciones(self, value):
+        return pdf_opciones_to_dict(parse_pdf_opciones(value))
+
+    def validate_categorias_productos(self, value):
+        return normalize_categorias_productos(value)
 
     def validate_medio_contacto(self, value):
         raw = str(value or '').strip()
@@ -132,6 +142,8 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'total',
             'texto_arriba_precios',
             'terminos',
+            'pdf_opciones',
+            'categorias_productos',
             'creado_por',
             'creado_por_username',
             'creado_por_full_name',

@@ -9,15 +9,22 @@ from apps.common.pdf_html import (
     subtotal_iva_display_split,
 )
 from apps.common.pdf_images import safe_pdf_thumbnail_src
+from apps.cotizaciones.categorias_productos import categorias_nombres_por_id, normalize_categorias_productos
+from apps.cotizaciones.pdf_opciones import CotizacionPdfOpciones
 
 logger = logging.getLogger(__name__)
 
 IVA_MX_DISPLAY = 1.16
 ANTICIPO_PCT = 60
+EXPORT_BRAND_COLOR = "#3160e3"
 
 
-def generate_cotizacion_pdf_html(cotizacion) -> str:
+def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones | None = None) -> str:
     """Genera el HTML para el PDF de la cotización."""
+    opts = pdf_opciones or CotizacionPdfOpciones()
+    show_pu = not opts.ocultar_precios_unitarios
+    show_importe = not opts.ocultar_importes_linea
+    show_totales = not opts.ocultar_totales
 
     def iter_items(obj):
         items = getattr(obj, 'items', None)
@@ -61,6 +68,12 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
     fecha = cotizacion.fecha.strftime('%d/%m/%Y') if cotizacion.fecha else '-'
     moneda = 'MXN'
 
+    col_count = 4 + (2 if show_pu else 0) + (1 if show_importe else 0)
+    cat_names = categorias_nombres_por_id(
+        normalize_categorias_productos(getattr(cotizacion, 'categorias_productos', None))
+    )
+    last_cat_id = None
+
     rows = []
     net_subtotal_sin_iva = 0.0
     gross_subtotal_sin_iva = 0.0
@@ -68,6 +81,18 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
     has_manual_concept_lines = False
     has_product_lines = False
     for it in iter_items(cotizacion):
+        cat_id = str(getattr(it, 'categoria_id', '') or '').strip()
+        if cat_id and cat_id in cat_names and cat_id != last_cat_id:
+            rows.append(
+                f"""
+            <tr class='cat-row'>
+              <td colspan='{col_count}' style='padding:10px 8px 6px; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:{EXPORT_BRAND_COLOR}; border-bottom:none;'>
+                {esc(cat_names[cat_id])}
+              </td>
+            </tr>
+            """
+            )
+            last_cat_id = cat_id
         try:
             cantidad = float(it.cantidad or 0)
             precio_lista = float(it.precio_lista or 0)
@@ -105,6 +130,19 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
             cantidad_str = str(cantidad)
 
         thumb_src = safe_pdf_thumbnail_src(getattr(it, "thumbnail_url", "") or "")
+        nombre = str(getattr(it, 'producto_nombre', '') or '-').strip() or '-'
+        if opts.simplificar_descripcion:
+            corta = str(getattr(it, 'pdf_descripcion_corta', '') or '').strip()
+            desc_html = f"<div class='desc'>{esc(corta)}</div>" if corta else ""
+        else:
+            desc_html = f"<div class='desc'>{esc(getattr(it, 'producto_descripcion', '') or '')}</div>"
+
+        price_cells = ""
+        if show_pu:
+            price_cells += f"<td class='right'>$ {pu_base:,.2f}</td><td class='right'>{descuento:,.2f}%</td>"
+        if show_importe:
+            price_cells += f"<td class='right'>$ {importe:,.2f}</td>"
+
         rows.append(
             f"""
             <tr>
@@ -114,17 +152,23 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
               <td class='center'>{esc(cantidad_str)}</td>
               <td>{esc(getattr(it, 'unidad', '') or '-')}</td>
               <td>
-                <div class='name'>{esc(getattr(it, 'producto_nombre', '') or '-') }</div>
-                <div class='desc'>{esc(getattr(it, 'producto_descripcion', '') or '')}</div>
+                <div class='name'>{esc(nombre)}</div>
+                {desc_html}
               </td>
-              <td class='right'>$ {pu_base:,.2f}</td>
-              <td class='right'>{descuento:,.2f}%</td>
-              <td class='right'>$ {importe:,.2f}</td>
+              {price_cells}
             </tr>
             """
         )
 
-    rows_html = ''.join(rows) or "<tr><td colspan='7' class='muted center' style='padding: 14px;'>Sin conceptos</td></tr>"
+    rows_html = ''.join(rows) or (
+        f"<tr><td colspan='{col_count}' class='muted center' style='padding: 14px;'>Sin conceptos</td></tr>"
+    )
+
+    thead_price_cols = ""
+    if show_pu:
+        thead_price_cols += "<th style='width:90px; text-align:right;'>P. UNIT.</th><th style='width:90px; text-align:right;'>DESC</th>"
+    if show_importe:
+        thead_price_cols += "<th style='width:100px; text-align:right;'>IMPORTE</th>"
 
     subtotal = float(cotizacion.subtotal or 0)
     total_guardado = float(cotizacion.total or 0)
@@ -179,6 +223,32 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
     anticipo_monto = round(total * (ANTICIPO_PCT / 100.0), 2)
     saldo_monto = round(max(0.0, total - anticipo_monto), 2)
 
+    totals_block = ""
+    if show_totales:
+        totals_block = f"""
+    <div class='totals'>
+    <div class='row'><span>Subtotal</span><strong>$ {subtotal_display:,.2f}</strong></div>
+    {discount_rows}
+    <div class='row'><span>IVA (16%)</span><strong>$ {iva_display:,.2f}</strong></div>
+    <div class='row'><span>Total</span><strong>$ {total:,.2f}</strong></div>
+  </div>"""
+
+    deposit_total_cell = ""
+    if show_totales:
+        deposit_total_cell = f"""
+                <div class='kvbox'>
+                  <div class='k'>Total</div>
+                  <div class='totalv'>$ {total:,.2f} {esc(moneda)}</div>
+                </div>"""
+
+    anticipos_block = ""
+    if show_totales:
+        anticipos_block = f"""
+  <div class='totals anticipos-after-deposit'>
+    <div class='row anticipo'><span>Anticipo ({ANTICIPO_PCT}%)</span><strong>$ {anticipo_monto:,.2f}</strong></div>
+    <div class='row anticipo'><span>Saldo al finalizar ({100 - ANTICIPO_PCT}%)</span><strong>$ {saldo_monto:,.2f}</strong></div>
+  </div>"""
+
     html = f"""<!doctype html>
 <html lang='es'>
 <head>
@@ -197,10 +267,12 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
     .company .title {{ font-size: 13px; font-weight: 600; color: #111827; }}
     .box {{ border: 1px solid #e5e7eb; width: 220px; }}
     .box .r {{ padding: 8px 10px; border-top: 1px solid #e5e7eb; text-align: right; }}
-    .box .r:first-child {{ border-top: none; background: #f3f4f6; }}
+    .box .r:first-child {{ border-top: none; background: {EXPORT_BRAND_COLOR}; }}
+    .box .r:first-child .lbl,
+    .box .r:first-child .folio {{ color: #ffffff; }}
     .box .lbl {{ font-size: 13px; font-weight: 600; }}
     .box .val {{ font-size: 13px; font-weight: 500; }}
-    .box .folio {{ font-size: 16px; font-weight: 800; color: #dc2626; }}
+    .box .folio {{ font-size: 16px; font-weight: 800; color: {EXPORT_BRAND_COLOR}; }}
     .hr {{ height: 1px; background: #e5e7eb; margin: 14px 0; }}
     .grid2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }}
     .k {{ font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #9ca3af; font-weight: 600; }}
@@ -210,10 +282,10 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
     .kv .v b {{ font-weight: 500; }}
     .kv .v.muted {{ color: #6b7280; }}
     .note {{ font-size: 11px; color: #374151; }}
-    .auth {{ margin: 10px 0 8px; font-size: 11px; font-weight: 600; color: #111827; padding: 8px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-left: 4px solid #dc2626; }}
+    .auth {{ margin: 10px 0 8px; font-size: 11px; font-weight: 600; color: #111827; padding: 8px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-left: 4px solid {EXPORT_BRAND_COLOR}; }}
     table {{ width: 100%; border-collapse: collapse; }}
     th, td {{ border-top: 1px solid #e5e7eb; padding: 8px 6px; vertical-align: top; }}
-    th {{ border-top: none; background: #f3f4f6; font-size: 11px; text-transform: uppercase; letter-spacing: .02em; }}
+    th {{ border-top: none; background: {EXPORT_BRAND_COLOR}; color: #ffffff; font-size: 11px; text-transform: uppercase; letter-spacing: .02em; }}
     td {{ font-size: 11px; }}
     .center {{ text-align: center; }}
     .right {{ text-align: right; }}
@@ -248,7 +320,7 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
     .deposit-logo img {{ display: block; margin: 0 auto; max-height: 86px; object-fit: contain; }}
 
     .boxx {{ border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; background: #fff; }}
-    .boxx .hd {{ background: #f3f4f6; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .10em; font-weight: 600; color: #374151; }}
+    .boxx .hd {{ background: {EXPORT_BRAND_COLOR}; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .10em; font-weight: 600; color: #ffffff; }}
     .boxx .bd {{ padding: 12px; font-size: 12px; }}
 
     .rs-name {{ margin-top: 6px; font-size: 14px; font-weight: 600; color: #111827; }}
@@ -258,7 +330,7 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
     .bank-logo img {{ display: block; width: 120px; height: auto; max-height: 42px; object-fit: contain; }}
     .bank-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
     .kvbox {{ border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }}
-    .kvbox .k {{ background: #f3f4f6; padding: 8px 10px; font-size: 11px; font-weight: 500; color: #374151; text-transform: uppercase; letter-spacing: .08em; text-align: center; }}
+    .kvbox .k {{ background: {EXPORT_BRAND_COLOR}; padding: 8px 10px; font-size: 11px; font-weight: 500; color: #ffffff; text-transform: uppercase; letter-spacing: .08em; text-align: center; }}
     .kvbox .v {{ padding: 12px 10px; font-size: 16px; font-weight: 500; color: #111827; text-align: center; }}
     .kvbox .v.num {{ font-family: "Courier New", Courier, monospace; font-weight: 400; letter-spacing: .02em; font-size: 14px; line-height: 1.25; }}
     .kvbox .v.small {{ font-size: 14px; }}
@@ -335,9 +407,7 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
       <th style='width:56px; text-align:center;'>CANT</th>
       <th style='width:70px; text-align:left;'>UNIDAD</th>
       <th style='text-align:left;'>DESCRIPCIÓN</th>
-      <th style='width:90px; text-align:right;'>P. UNIT.</th>
-      <th style='width:90px; text-align:right;'>DESC</th>
-      <th style='width:100px; text-align:right;'>IMPORTE</th>
+      {thead_price_cols}
     </tr>
       </thead>
       <tbody>
@@ -346,12 +416,7 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
     </table>
   </div>
 
-    <div class='totals'>
-    <div class='row'><span>Subtotal</span><strong>$ {subtotal_display:,.2f}</strong></div>
-    {discount_rows}
-    <div class='row'><span>IVA (16%)</span><strong>$ {iva_display:,.2f}</strong></div>
-    <div class='row'><span>Total</span><strong>$ {total:,.2f}</strong></div>
-  </div>
+    {totals_block}
 
   <div class='pagebreak'></div>
 
@@ -412,10 +477,7 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
               <div class='k'>Concepto</div>
               <div class='concepto'>Cotizaciones No.{esc(folio)}</div>
             </div>
-            <div class='kvbox'>
-              <div class='k'>Total</div>
-              <div class='totalv'>$ {total:,.2f} {esc(moneda)}</div>
-            </div>
+            {deposit_total_cell}
           </div>
         </div>
       </div>
@@ -424,10 +486,7 @@ def generate_cotizacion_pdf_html(cotizacion) -> str:
     </div>
   </div>
 
-  <div class='totals anticipos-after-deposit'>
-    <div class='row anticipo'><span>Anticipo ({ANTICIPO_PCT}%)</span><strong>$ {anticipo_monto:,.2f}</strong></div>
-    <div class='row anticipo'><span>Saldo al finalizar ({100 - ANTICIPO_PCT}%)</span><strong>$ {saldo_monto:,.2f}</strong></div>
-  </div>
+  {anticipos_block}
 </body>
 </html>"""
 

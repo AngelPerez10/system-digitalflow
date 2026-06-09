@@ -6,12 +6,21 @@ import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
-import { PencilIcon, TrashBinIcon } from "@/icons";
+import { CotizacionConceptosTable, type CotizacionConceptoLine } from "@/pages/Cotizacion/CotizacionConceptosTable";
+import {
+  buildVisualTableRows,
+  categoriasToApiPayload,
+  createCategoria,
+  parseCategoriasFromApi,
+  resolveCategoriaId,
+  type CotizacionCategoria,
+} from "@/pages/Cotizacion/cotizacionCategoriasUtils";
+import { CotizacionPdfOptionsPanel } from "@/pages/Cotizacion/CotizacionPdfOptionsPanel";
+import { defaultPdfOpciones, parsePdfOpcionesFromApi } from "@/pages/Cotizacion/cotizacionPdfTypes";
 import {
   fetchSyscomProductosSugerencia,
   fetchSyscomTipoCambio,
@@ -30,14 +39,27 @@ import type {
 } from "./cotizacionFormTypes";
 import {
   cardShellClass,
-  cardShellMutedClass,
   claudeBodyClass,
   claudeHeroHeadingClass,
+  cloneActionBtnClass,
   cloneModalPanelClass,
   cloneModalSearchInputClass,
+  conceptCountBadgeClass,
+  ghostActionBtnClass,
+  headerStatPillClass,
+  innerFieldPanelClass,
   inputFieldInsetClass,
   inputLikeClassName,
   labelPageClass,
+  primaryActionBtnClass,
+  secondaryActionBtnClass,
+  sectionDividerClass,
+  sectionEyebrowClass,
+  sectionHeadingClass,
+  sectionZoneClass,
+  summaryHeroClass,
+  tableWrapClass,
+  tertiaryActionBtnClass,
   textareaLikeClassName,
 } from "./cotizacionFormStyles";
 import {
@@ -159,6 +181,8 @@ export default function NuevaCotizacionPage() {
   const [editingConceptoId, setEditingConceptoId] = useState<string | null>(null);
 
   const [conceptos, setConceptos] = useState<Concepto[]>([]);
+  const [categorias, setCategorias] = useState<CotizacionCategoria[]>([]);
+  const [categoriaIdParaAgregar, setCategoriaIdParaAgregar] = useState("");
 
   const [textoArribaPrecios, setTextoArribaPrecios] = useState(
     "A continuación cotización solicitada: "
@@ -179,6 +203,9 @@ export default function NuevaCotizacionPage() {
     "- El anticipo o liquidación no es reembolsable en caso de cancelación.\n" +
     "- La aceptación de la cotización implica conformidad con estos términos."
   );
+
+  const [pdfOpciones, setPdfOpciones] = useState(() => defaultPdfOpciones());
+  const [pdfDescripcionCorta, setPdfDescripcionCorta] = useState<Record<string, string>>({});
 
   const todayIso = useMemo(() => {
     const d = new Date();
@@ -252,20 +279,27 @@ export default function NuevaCotizacionPage() {
 
   const conceptosAutosaveKey = useMemo(
     () =>
-      JSON.stringify(
-        conceptos.map((c, i) => ({
-          producto_externo_id: c.producto_externo_id,
-          producto_nombre: c.producto_nombre,
-          producto_descripcion: c.producto_descripcion,
-          unidad: c.unidad,
-          thumbnail_url: c.thumbnail_url,
-          cantidad: c.cantidad,
-          precio_lista: c.precio_lista,
-          descuento_pct: c.descuento_pct,
-          orden: i,
-        }))
-      ),
-    [conceptos]
+      JSON.stringify({
+        categorias: categoriasToApiPayload(categorias),
+        conceptos: buildVisualTableRows(categorias, conceptos).flatMap((row) =>
+          row.kind === "product"
+            ? [
+                {
+                  producto_externo_id: row.line.producto_externo_id,
+                  producto_nombre: row.line.producto_nombre,
+                  producto_descripcion: row.line.producto_descripcion,
+                  unidad: row.line.unidad,
+                  thumbnail_url: row.line.thumbnail_url,
+                  cantidad: row.line.cantidad,
+                  precio_lista: row.line.precio_lista,
+                  descuento_pct: row.line.descuento_pct,
+                  categoria_id: row.line.categoria_id || "",
+                },
+              ]
+            : []
+        ),
+      }),
+    [conceptos, categorias]
   );
 
   const tipoTrabajoDisplay = useMemo(() => {
@@ -430,20 +464,31 @@ export default function NuevaCotizacionPage() {
         if (incoming) setTerminos(incoming);
       }
 
-      const conceptosList: Concepto[] = Array.isArray(data.items)
-        ? data.items.map((it) => ({
-          id: uid(),
-          producto_externo_id: String((it as any).producto_externo_id ?? ""),
-          producto_nombre: String(it.producto_nombre || ""),
-          producto_descripcion: String(it.producto_descripcion || ""),
-          unidad: String(it.unidad || ""),
-          thumbnail_url: it.thumbnail_url || undefined,
-          cantidad: toNumber(it.cantidad, 0),
-          precio_lista: toNumber(it.precio_lista, 0),
-          descuento_pct: clampPct(toNumber(it.descuento_pct, 0)),
-        }))
+      const itemsArr = Array.isArray(data.items)
+        ? [...data.items].sort((a, b) => toNumber(a.orden, 0) - toNumber(b.orden, 0))
         : [];
+      const conceptosList: Concepto[] = itemsArr.map((it) => ({
+        id: uid(),
+        producto_externo_id: String((it as any).producto_externo_id ?? ""),
+        producto_nombre: String(it.producto_nombre || ""),
+        producto_descripcion: String(it.producto_descripcion || ""),
+        unidad: String(it.unidad || ""),
+        thumbnail_url: it.thumbnail_url || undefined,
+        cantidad: toNumber(it.cantidad, 0),
+        precio_lista: toNumber(it.precio_lista, 0),
+        descuento_pct: clampPct(toNumber(it.descuento_pct, 0)),
+        categoria_id: String((it as any).categoria_id || "").trim() || undefined,
+      }));
+      const descCortas: Record<string, string> = {};
+      conceptosList.forEach((c, i) => {
+        const corta = String(itemsArr[i]?.pdf_descripcion_corta || "").trim();
+        if (corta) descCortas[c.id] = corta;
+      });
       setConceptos(conceptosList);
+      setCategorias(parseCategoriasFromApi((data as ApiCotizacion).categorias_productos));
+      setCategoriaIdParaAgregar("");
+      setPdfOpciones(parsePdfOpcionesFromApi(data.pdf_opciones));
+      setPdfDescripcionCorta(descCortas);
       setEditingConceptoId(null);
       setClienteOpen(false);
 
@@ -1095,6 +1140,9 @@ export default function NuevaCotizacionPage() {
     const contacto = String(contactoNombre || "").trim();
     const contactoTelefonoValue = String(contactoTelefono || "").trim();
     const lines = conceptos.map((c) => ({ ...c }));
+    const orderedLines = buildVisualTableRows(categorias, lines).flatMap((row) =>
+      row.kind === "product" ? [row.line] : []
+    );
     const subtotalLineasConIva = lines.reduce((acc, c) => {
       const descuento = clampPct(toNumber(c.descuento_pct, 0));
       const precioBase = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
@@ -1124,15 +1172,19 @@ export default function NuevaCotizacionPage() {
       total,
       texto_arriba_precios: String(textoArribaPrecios || ""),
       terminos: String(terminos || ""),
-      items: lines.map((c, i) => ({
+      pdf_opciones: pdfOpciones,
+      categorias_productos: categoriasToApiPayload(categorias),
+      items: orderedLines.map((c, i) => ({
         producto_externo_id: truncateStr(c.producto_externo_id ?? "", 100),
         producto_nombre: truncateStr(c.producto_nombre, MAX_COTIZ_PRODUCTO_NOMBRE_LEN),
         producto_descripcion: String(c.producto_descripcion ?? ""),
+        pdf_descripcion_corta: truncateStr(String(pdfDescripcionCorta[c.id] || "").trim(), 500),
         unidad: truncateStr(c.unidad, 50),
         thumbnail_url: truncateStr(c.thumbnail_url || "", MAX_COTIZ_THUMB_URL_LEN),
         cantidad: toNumber(c.cantidad, 0),
         precio_lista: toNumber(c.precio_lista, 0),
         descuento_pct: clampPct(toNumber(c.descuento_pct, 0)),
+        categoria_id: truncateStr(resolveCategoriaId(categorias, c.categoria_id), 64),
         orden: i,
       })),
     };
@@ -1147,9 +1199,12 @@ export default function NuevaCotizacionPage() {
     tipoTrabajoIds,
     status,
     conceptos,
+    categorias,
     effectiveDescuentoClientePct,
     textoArribaPrecios,
     terminos,
+    pdfOpciones,
+    pdfDescripcionCorta,
   ]);
 
   const upsertCotizacion = useCallback(async (opts?: {
@@ -1505,6 +1560,7 @@ export default function NuevaCotizacionPage() {
       );
       setEditingConceptoId(null);
     } else {
+      const categoriaAsignada = resolveCategoriaId(categorias, categoriaIdParaAgregar);
       setConceptos((prev) => [
         ...prev,
         {
@@ -1517,6 +1573,7 @@ export default function NuevaCotizacionPage() {
           cantidad: qty,
           precio_lista: precioLinea,
           descuento_pct: desc,
+          categoria_id: categoriaAsignada || undefined,
         },
       ]);
     }
@@ -1540,6 +1597,43 @@ export default function NuevaCotizacionPage() {
     setConceptos((prev) => prev.filter((c) => c.id !== id));
     if (editingConceptoId === id) setEditingConceptoId(null);
   };
+
+  const handleReorderProducts = useCallback((reorderedLines: CotizacionConceptoLine[]) => {
+    setConceptos((prev) => {
+      const byId = new Map(prev.map((c) => [c.id, c]));
+      const next: Concepto[] = [];
+      for (const line of reorderedLines) {
+        const base = byId.get(line.id);
+        if (!base) continue;
+        next.push({
+          ...base,
+          categoria_id: line.categoria_id || undefined,
+        });
+      }
+      if (next.length !== prev.length) return prev;
+      return next;
+    });
+  }, []);
+
+  const handleReorderCategorias = useCallback((next: CotizacionCategoria[]) => {
+    setCategorias(next);
+  }, []);
+
+  const handleAddCategoria = useCallback((nombre: string) => {
+    setCategorias((prev) => [...prev, createCategoria(nombre, prev)]);
+  }, []);
+
+  const handleUpdateCategoria = useCallback((id: string, nombre: string) => {
+    setCategorias((prev) => prev.map((c) => (c.id === id ? { ...c, nombre: nombre.trim() } : c)));
+  }, []);
+
+  const handleRemoveCategoria = useCallback((id: string) => {
+    setCategorias((prev) => prev.filter((c) => c.id !== id));
+    setConceptos((prev) =>
+      prev.map((c) => (c.categoria_id === id ? { ...c, categoria_id: undefined } : c))
+    );
+    setCategoriaIdParaAgregar((prev) => (prev === id ? "" : prev));
+  }, []);
 
   const editConcepto = (id: string) => {
     const c = conceptos.find((x) => x.id === id);
@@ -1645,6 +1739,8 @@ export default function NuevaCotizacionPage() {
     setEditingConceptoId(null);
 
     setConceptos([]);
+    setCategorias([]);
+    setCategoriaIdParaAgregar("");
     setTextoArribaPrecios("A continuación cotización solicitada:");
     setTerminos(
       "TÉRMINOS Y CONDICIONES\n\n" +
@@ -1662,9 +1758,11 @@ export default function NuevaCotizacionPage() {
       "- El anticipo o liquidación no es reembolsable en caso de cancelación.\n" +
       "- La aceptación de la cotización implica conformidad con estos términos."
     );
+    setPdfOpciones(defaultPdfOpciones());
+    setPdfDescripcionCorta({});
   };
 
-  const handlePreviewPdf = async () => {
+  const handleOpenPdf = async () => {
     if (previewLoading || excelLoading) return;
 
     if (!computed.lines.length) {
@@ -1672,7 +1770,7 @@ export default function NuevaCotizacionPage() {
         show: true,
         variant: "warning",
         title: "Faltan conceptos",
-        message: "Agrega al menos un producto o servicio para ver la vista previa.",
+        message: "Agrega al menos un producto o servicio para generar el PDF.",
       });
       return;
     }
@@ -1688,47 +1786,18 @@ export default function NuevaCotizacionPage() {
       return;
     }
 
-    const nowIso = todayIso;
-    const clienteNombre = resolveClienteNombre();
-    const contacto = String(contactoNombre || "").trim();
-    const contactoTelefonoValue = String(contactoTelefono || "").trim();
-
-    const payload: any = {
-      cliente_id: clienteId ? Number(clienteId) : null,
-      cliente: clienteNombre || "",
-      prospecto: !!selectedCliente?.is_prospecto,
-      contacto: contacto || "",
-      contacto_telefono: contactoTelefonoValue || "",
-      medio_contacto: String(medioContacto || ''),
-      tipo_trabajo: tipoTrabajoIds,
-      status: String(status || 'PENDIENTE'),
-      fecha: nowIso,
-      subtotal: round2(toNumber(computed.subtotal, 0)),
-      descuento_cliente_pct: clampPct(toNumber(effectiveDescuentoClientePct, 0)),
-      iva_pct: 0,
-      iva: 0,
-      total: round2(toNumber(computed.total, 0)),
-      texto_arriba_precios: String(textoArribaPrecios || ""),
-      terminos: String(terminos || ""),
-      items: computed.lines.map((c, i) => ({
-        producto_externo_id: c.producto_externo_id || "",
-        producto_nombre: c.producto_nombre,
-        producto_descripcion: c.producto_descripcion,
-        unidad: c.unidad,
-        thumbnail_url: c.thumbnail_url || "",
-        cantidad: toNumber(c.cantidad, 0),
-        precio_lista: toNumber(c.precio_lista, 0),
-        descuento_pct: clampPct(toNumber(c.descuento_pct, 0)),
-        orden: i,
-      })),
-    };
-
     try {
       setPreviewLoading(true);
-      sessionStorage.setItem("cotizacion:pdf-preview-payload", JSON.stringify(payload));
-      navigate(`/cotizacion/PREVIEW/pdf?preview=1&t=${Date.now()}`);
+      const savedId = await upsertCotizacion({
+        navigateAfterSave: false,
+        validateRequired: true,
+        silent: false,
+        autosave: false,
+      });
+      if (!savedId) return;
+      navigate(`/cotizacion/${savedId}/pdf`);
     } catch {
-      setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo preparar la vista previa." });
+      setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo abrir el PDF." });
     } finally {
       setPreviewLoading(false);
     }
@@ -1834,7 +1903,7 @@ export default function NuevaCotizacionPage() {
               </div>
 
               <h3 className="text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">
-                {excelLoading ? "Generando Excel" : "Generando vista previa"}
+                {excelLoading ? "Generando Excel" : "Generando PDF"}
               </h3>
               <p className="mt-1.5 text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">
                 Esto puede tardar unos segundos. No cierres esta ventana.
@@ -2124,7 +2193,7 @@ export default function NuevaCotizacionPage() {
           <>
 
             <nav
-              className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
+              className="mb-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:mb-2 sm:text-[13px]"
               aria-label="Migas de pan"
             >
               <Link
@@ -2180,10 +2249,24 @@ export default function NuevaCotizacionPage() {
                       : "Define el cliente, agrega productos o servicios y revisa el resumen antes de guardar o generar la vista previa. Se guarda automáticamente como borrador."}
                   </p>
                   <CotizacionSaveStatus isAutoSaving={isAutoSaving} lastAutoSavedAt={lastAutoSavedAt} />
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <span className={headerStatPillClass}>
+                      <svg className="h-3.5 w-3.5 text-[#ff801f]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <path d="M4 7h16M4 12h10M4 17h6" strokeLinecap="round" />
+                      </svg>
+                      <span className="tabular-nums">{computed.lines.length}</span>
+                      <span className="text-[#78716c] dark:text-[#8ea0b8]">{computed.lines.length === 1 ? "concepto" : "conceptos"}</span>
+                    </span>
+                    <span className={headerStatPillClass}>
+                      <span className="text-[#78716c] dark:text-[#8ea0b8]">Total</span>
+                      <span className="font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc]">{formatMoney(computed.total)}</span>
+                      <span className="text-[10px] uppercase text-[#a8a29e] dark:text-[#64748b]">MXN</span>
+                    </span>
+                  </div>
                   <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
                 </div>
               </div>
-              <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
+              <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-stretch sm:justify-end sm:pt-1">
                 <button
                   type="button"
                   onClick={() => navigate("/cotizacion")}
@@ -2200,10 +2283,19 @@ export default function NuevaCotizacionPage() {
               </div>
             </header>
 
-            <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-10">
-              <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-9">
+            <div className="grid min-w-0 grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-8 xl:gap-10">
+              <div className="min-w-0 space-y-8 lg:col-span-8 xl:col-span-8">
+                <section aria-labelledby="cotizacion-cliente-heading" className={sectionZoneClass}>
+                  <div className="flex flex-wrap items-end justify-between gap-3 px-0.5">
+                    <div>
+                      <p className={sectionEyebrowClass}>Paso 1</p>
+                      <h2 id="cotizacion-cliente-heading" className={`mt-1 ${sectionHeadingClass}`}>
+                        Datos del cliente
+                      </h2>
+                    </div>
+                  </div>
                 <ComponentCard
-                  title="Datos del cliente"
+                  title="Información de contacto"
                   desc="Busca por nombre o teléfono y completa contacto, descuento y estado."
                   className={`${cardShellClass.replace(/^overflow-hidden\b/, "overflow-visible")} ${
                     clienteOpen || tipoTrabajoOpen ? "relative z-[200]" : ""
@@ -2506,6 +2598,20 @@ export default function NuevaCotizacionPage() {
                     </div>
                   </div>
                 </ComponentCard>
+                </section>
+
+                <section aria-labelledby="cotizacion-productos-heading" className={`${sectionZoneClass} ${sectionDividerClass}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-0.5">
+                    <div>
+                      <p className={sectionEyebrowClass}>Paso 2</p>
+                      <h2 id="cotizacion-productos-heading" className={`mt-1 ${sectionHeadingClass}`}>
+                        Productos y conceptos
+                      </h2>
+                    </div>
+                    <span className={conceptCountBadgeClass}>
+                      {computed.lines.length} {computed.lines.length === 1 ? "línea" : "líneas"}
+                    </span>
+                  </div>
 
                 <ComponentCard
                   title="Agregar productos o servicios"
@@ -2530,8 +2636,16 @@ export default function NuevaCotizacionPage() {
                     </button>
                   }
                 >
-                  <div className="mb-4 rounded-2xl border border-[#fed7aa]/40 bg-gradient-to-r from-[#fff7ed]/80 to-cyan-50/60 px-4 py-2.5 text-[11px] text-[#9a3412] dark:border-[#ff801f]/25 dark:from-[#7c2d12]/20 dark:to-cyan-900/15 dark:text-[#ffa057]">
-                    Sugerencia: selecciona primero el producto para usar precio especial/lista automaticamente, y despues ajusta el concepto si deseas editar el texto final.
+                  <div className="mb-4 flex gap-3 rounded-2xl border border-[#fed7aa]/50 bg-gradient-to-r from-[#fff7ed]/90 to-[#fcfaf6] px-4 py-3 text-[11px] leading-relaxed text-[#9a3412] dark:border-[#ff801f]/25 dark:from-[#7c2d12]/20 dark:to-[#0f172a]/40 dark:text-[#ffa057] sm:text-xs">
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#ff801f]/15 text-[#ea580c] dark:bg-[#ff801f]/20 dark:text-[#ffa057]" aria-hidden>
+                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                        <path d="M12 16v-4M12 8h.01" strokeLinecap="round" />
+                        <circle cx="12" cy="12" r="9" />
+                      </svg>
+                    </span>
+                    <span>
+                      Selecciona primero el producto para aplicar precio de lista automáticamente; después ajusta el concepto si necesitas editar el texto final.
+                    </span>
                   </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-6 lg:grid-cols-12 lg:gap-x-6">
                     <div className="sm:col-span-2 lg:col-span-2">
@@ -2654,30 +2768,43 @@ export default function NuevaCotizacionPage() {
                       />
                     </div>
 
+                    {categorias.length > 0 && (
+                      <div className="sm:col-span-6 lg:col-span-4">
+                        <Label className={labelPageClass}>Categoría</Label>
+                        <select
+                          className={inputLikeClassName}
+                          value={categoriaIdParaAgregar}
+                          onChange={(e) => setCategoriaIdParaAgregar(e.target.value)}
+                        >
+                          <option value="">Sin categoría</option>
+                          {categorias.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
                     <div className="sm:col-span-6 lg:col-span-12">
-                      <div className={`${cardShellMutedClass} px-4 py-3`}>
-                        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+                      <div className={`${innerFieldPanelClass} flex flex-col justify-between gap-4 sm:flex-row sm:items-center`}>
+                        <div className="grid flex-1 grid-cols-2 gap-4">
                           <div>
-                            <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Precio unitario</div>
-                            <div className="mt-1 text-sm font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc]">{formatMoney(preview.puBase)}</div>
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">Precio unitario</div>
+                            <div className="mt-1 text-sm font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-base">{formatMoney(preview.puBase)}</div>
                           </div>
-                          <div className="text-left sm:text-right">
-                            <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Importe de línea</div>
-                            <div className="mt-1 text-base font-semibold tabular-nums tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">{formatMoney(preview.importe)}</div>
+                          <div className="sm:text-right">
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">Importe de línea</div>
+                            <div className="mt-1 text-base font-semibold tabular-nums tracking-tight text-[#ea580c] dark:text-[#ffa057] sm:text-lg">{formatMoney(preview.importe)}</div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="sm:col-span-6 lg:col-span-12 pt-1">
-                      <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:items-center sm:gap-3">
                         <button
                           type="button"
                           onClick={addConcepto}
                           disabled={!canAddConcepto}
-                          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:-translate-y-[1px] hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                          className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-6 py-2.5 text-sm font-semibold text-[#1c1917] shadow-[0_6px_20px_-10px_rgba(255,128,31,0.8)] transition-all hover:bg-[#ff6a00] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
                         >
-                          {editingConceptoId ? "Actualizar" : "Agregar"}
+                          {editingConceptoId ? "Actualizar línea" : "Agregar línea"}
                         </button>
                       </div>
                     </div>
@@ -2685,100 +2812,47 @@ export default function NuevaCotizacionPage() {
                 </ComponentCard>
 
                 <ComponentCard
-                  title="Detalle de conceptos"
-                  desc="Revisa cantidades, precios finales y acciones por línea."
+                  title="Listado de conceptos"
+                  desc="Organiza por categorías, revisa cantidades y precios. Arrastra productos o encabezados para reordenar."
                   className={cardShellClass}
                   compact
                 >
-                  <p className="mb-2 flex items-center gap-1.5 text-[10px] text-[#78716c] dark:text-[#8ea0b8] sm:hidden">
+                  <p className="mb-3 flex items-center gap-1.5 rounded-lg border border-[#e7ded0]/80 bg-[#fcfaf6]/80 px-3 py-2 text-[10px] text-[#78716c] dark:border-[#273244] dark:bg-[#111a2b]/50 dark:text-[#8ea0b8] sm:hidden">
                     <span className="inline-block h-px w-4 bg-[#ff801f]/50" aria-hidden />
                     Desliza horizontalmente para ver todas las columnas
                   </p>
-                  <div className="-mx-3 overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/90 dark:border-[#273244] dark:bg-[#0f172a]/50 sm:mx-0">
-                    <div className="touch-pan-x overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] px-1 pb-1 sm:px-0 sm:pb-0">
-                      <Table className="min-w-[720px]">
-                        <TableHeader className="sticky top-0 z-10 border-b border-gray-200/80 bg-gray-100/90 text-[10px] font-semibold text-gray-700 backdrop-blur-sm dark:border-white/[0.06] dark:bg-[#111827]/90 dark:text-[#e5e7eb] sm:text-[11px]">
-                          <TableRow>
-                            <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Cantidad</TableCell>
-                            <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Unidad</TableCell>
-                            <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Descripcion</TableCell>
-                            <TableCell isHeader className="px-2 py-2 text-left w-3/12 text-gray-700 dark:text-gray-300">Detalle</TableCell>
-                            <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Precio unitario</TableCell>
-                            <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Descuento</TableCell>
-                            <TableCell isHeader className="px-2 py-2 text-left w-1/12 text-gray-700 dark:text-gray-300">Importe total</TableCell>
-                            <TableCell isHeader className="px-2 py-2 text-center w-1/12 text-gray-700 dark:text-gray-300"> </TableCell>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
-                          {computed.lines.map((c) => {
-                            return (
-                              <TableRow key={c.id} className="hover:bg-gray-50 dark:hover:bg-[#1e293b]/60">
-                                <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.cantidad}</TableCell>
-                                <TableCell className="px-2 py-1.5 whitespace-nowrap">{c.unidad || "—"}</TableCell>
-                                <TableCell className="px-2 py-1.5">
-                                  <div className="flex items-center gap-2">
-                                    {c.thumbnail_url ? (
-                                      <img src={c.thumbnail_url} alt={c.producto_nombre} className="w-8 h-8 rounded object-cover border border-gray-200 dark:border-white/10" />
-                                    ) : null}
-                                    <span className="text-[#1c1917] dark:text-[#f8fafc]">{c.producto_nombre}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="px-2 py-1.5">{c.producto_descripcion || "—"}</TableCell>
-                                <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.pu, 0))}</TableCell>
-                                <TableCell className="px-2 py-1.5 whitespace-nowrap">{clampPct(toNumber(c.descuento_pct, 0)).toFixed(2)}%</TableCell>
-                                <TableCell className="px-2 py-1.5 whitespace-nowrap">{formatMoney(toNumber(c.importe, 0))}</TableCell>
-                                <TableCell className="px-2 py-1.5 text-center">
-                                  <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => editConcepto(c.id)}
-                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-[#ffa057] hover:text-[#ff801f] active:scale-[0.97] dark:border-white/10 dark:bg-[#0f172a] dark:hover:border-[#ff801f] sm:h-7 sm:w-7 sm:rounded"
-                                      title="Editar"
-                                    >
-                                      <PencilIcon className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeConcepto(c.id)}
-                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-white/10 dark:bg-[#0f172a] dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
-                                      title="Eliminar"
-                                    >
-                                      <TrashBinIcon className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-
-                          {!computed.lines.length && (
-                            <TableRow>
-                              <TableCell colSpan={8} className="px-4 py-10 text-center">
-                                <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
-                                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400">
-                                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                                      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                                    </svg>
-                                  </span>
-                                  <p className="text-xs font-medium text-gray-700 dark:text-[#e5e7eb] sm:text-sm">Aún no hay conceptos</p>
-                                  <p className="text-[11px] leading-relaxed text-[#78716c] dark:text-[#8ea0b8] sm:text-xs">Usa el formulario de arriba para agregar productos o servicios.</p>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                  <div className={tableWrapClass}>
+                    <div className="p-1 sm:p-2">
+                      <CotizacionConceptosTable
+                        lines={computed.lines}
+                        categorias={categorias}
+                        onReorderProducts={handleReorderProducts}
+                        onReorderCategorias={handleReorderCategorias}
+                        onAddCategoria={handleAddCategoria}
+                        onUpdateCategoria={handleUpdateCategoria}
+                        onRemoveCategoria={handleRemoveCategoria}
+                        onEdit={editConcepto}
+                        onRemove={removeConcepto}
+                      />
                     </div>
                   </div>
                 </ComponentCard>
+                </section>
 
+                <section aria-labelledby="cotizacion-notas-heading" className={`${sectionZoneClass} ${sectionDividerClass}`}>
+                  <div className="px-0.5">
+                    <p className={sectionEyebrowClass}>Paso 3</p>
+                    <h2 id="cotizacion-notas-heading" className={`mt-1 ${sectionHeadingClass}`}>
+                      Notas y condiciones
+                    </h2>
+                  </div>
                 <ComponentCard
-                  title="Notas y condiciones"
+                  title="Textos del documento"
                   desc="Texto opcional que aparecerá en el documento de cotización."
                   className={cardShellClass}
                   compact
                 >
-                  <div className="grid grid-cols-1 gap-5">
+                  <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
                     <div>
                       <div className="flex items-baseline justify-between gap-3">
                         <Label className={labelPageClass}>Texto arriba de los precios</Label>
@@ -2787,13 +2861,10 @@ export default function NuevaCotizacionPage() {
                       <textarea
                         value={textoArribaPrecios}
                         onChange={(e) => setTextoArribaPrecios(e.target.value.slice(0, 5000))}
-                        className={`${textareaLikeClassName} mt-2 rounded-lg`}
+                        className={`${textareaLikeClassName} mt-2 rounded-xl`}
                         rows={6}
                       />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-5">
                     <div>
                       <div className="flex items-baseline justify-between gap-3">
                         <Label className={labelPageClass}>Términos y condiciones</Label>
@@ -2802,42 +2873,44 @@ export default function NuevaCotizacionPage() {
                       <textarea
                         value={terminos}
                         onChange={(e) => setTerminos(e.target.value.slice(0, 8000))}
-                        className={`${textareaLikeClassName} mt-2 rounded-lg`}
-                        rows={15}
+                        className={`${textareaLikeClassName} mt-2 rounded-xl`}
+                        rows={6}
                       />
                     </div>
                   </div>
                 </ComponentCard>
+                </section>
               </div>
 
-              <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-3 lg:sticky lg:top-6 lg:self-start xl:top-8">
+              <aside className="min-w-0 space-y-5 lg:col-span-4 lg:sticky lg:top-6 lg:self-start xl:top-8">
                 <ComponentCard
                   title="Resumen"
-                  desc="Totales y acciones principales."
+                  desc="Totales calculados en tiempo real."
                   className={cardShellClass}
                   compact
                 >
                   <div className="grid grid-cols-1 gap-4">
                     <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e7ded0] bg-[#fcfaf6] px-3 py-2.5 dark:border-[#273244] dark:bg-[#111a2b]/90">
-                      <div className="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-[#e5e7eb] sm:text-sm">
-                        <svg className="h-3.5 w-3.5 shrink-0 text-[#78716c] dark:text-[#8ea0b8] sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <div className="flex items-center gap-2 text-xs font-medium text-[#57534e] dark:text-[#e5e7eb] sm:text-sm">
+                        <svg className="h-3.5 w-3.5 shrink-0 text-[#78716c] dark:text-[#8ea0b8] sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                           <path d="M8 2v3M16 2v3M4 7h16M6 10h12v10H6z" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
-                        <span>Fecha de cotización</span>
+                        <span>Fecha</span>
                       </div>
                       <span className="text-xs font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-sm">{formatDMY(todayIso)}</span>
                     </div>
 
-                    <div className="rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-4 dark:border-[#273244] dark:bg-[#111827]/80">
-                      <div className="flex items-end justify-between gap-3 border-b border-[#f1e8db] dark:border-[#273244] pb-3 dark:border-white/[0.06]">
+                    <div className={summaryHeroClass}>
+                      <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#ff801f]/10 blur-2xl" aria-hidden />
+                      <div className="relative flex items-end justify-between gap-3">
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500 sm:text-[11px]">Total estimado</div>
-                          <div className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-2xl">{formatMoney(computed.total)}</div>
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#9a3412] dark:text-[#fdba74] sm:text-[11px]">Total estimado</div>
+                          <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-[1.75rem]">{formatMoney(computed.total)}</div>
                         </div>
-                        <div className="text-right text-[9px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500 sm:text-[10px]">MXN</div>
+                        <div className="rounded-md border border-[#ff801f]/20 bg-white/60 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#9a3412] dark:border-[#ff801f]/25 dark:bg-[#111827]/50 dark:text-[#fdba74] sm:text-[10px]">MXN</div>
                       </div>
 
-                      <div className="mt-3 grid grid-cols-1 gap-2">
+                      <div className="relative mt-4 grid grid-cols-1 gap-2 border-t border-[#ff801f]/15 pt-4 dark:border-[#ff801f]/20">
                         {!!toNumber(computed.descClientePct, 0) && (
                           <>
                             <div className="flex items-center justify-between">
@@ -2859,8 +2932,8 @@ export default function NuevaCotizacionPage() {
                           <span className="text-[11px] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs">IVA (16%)</span>
                           <span className="text-xs font-medium tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.ivaDesglose)}</span>
                         </div>
-                        <div className="flex items-center justify-between border-t border-[#f1e8db] dark:border-[#273244] pt-2 dark:border-white/[0.06]">
-                          <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 sm:text-xs">Total</span>
+                        <div className="flex items-center justify-between border-t border-[#ff801f]/15 pt-2 dark:border-[#ff801f]/20">
+                          <span className="text-[11px] font-semibold text-[#57534e] dark:text-gray-300 sm:text-xs">Total con IVA</span>
                           <span className="text-sm font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc]">{formatMoney(computed.totalConIva)}</span>
                         </div>
                       </div>
@@ -2877,41 +2950,51 @@ export default function NuevaCotizacionPage() {
                         </ul>
                       </div>
                     )}
+                  </div>
+                </ComponentCard>
 
-                      <div className="grid grid-cols-1 gap-2">
-                      <button
-                        type="button"
-                        disabled={!canGuardarCotizacion}
-                        onClick={() => {
-                          void handleSaveCotizacion(true);
-                        }}
-                        title={!clienteId ? "Selecciona un cliente" : undefined}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-[#ff801f] px-4 py-3 text-xs font-semibold text-[#1c1917] transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
-                      >
-                        {isEditingRoute ? "Actualizar cotización" : "Guardar cotización"}
-                      </button>
+                <ComponentCard
+                  title="Acciones"
+                  desc="Guarda, exporta o reinicia el formulario."
+                  className={cardShellClass}
+                  compact
+                >
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      disabled={!canGuardarCotizacion}
+                      onClick={() => {
+                        void handleSaveCotizacion(true);
+                      }}
+                      title={!clienteId ? "Selecciona un cliente" : undefined}
+                      className={primaryActionBtnClass}
+                    >
+                      {isEditingRoute ? "Actualizar cotización" : "Guardar cotización"}
+                    </button>
+
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                       <button
                         type="button"
                         disabled={!canGuardarCotizacion || exportBusy}
-                        onClick={handlePreviewPdf}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-[#fed7aa] bg-white px-4 py-3 text-xs font-semibold text-[#9a3412] transition-colors hover:bg-[#fff3e8] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#fb923c]/40 dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#fb923c]/10 sm:min-h-0"
+                        onClick={() => void handleOpenPdf()}
+                        className={secondaryActionBtnClass}
                       >
                         {previewLoading ? (
                           <>
-                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                               <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
                             </svg>
                             Generando...
                           </>
                         ) : (
-                          "Vista previa PDF"
+                          "Ver vista PDF"
                         )}
                       </button>
                       <button
                         type="button"
                         disabled={exportBusy || !String(editingCotizacionId || activeCotizacionId || "").trim()}
                         onClick={() => void handleDownloadExcel()}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-emerald-200/90 bg-white px-4 py-3 text-xs font-semibold text-emerald-900 transition-all hover:-translate-y-[1px] hover:bg-emerald-50/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/30 dark:bg-transparent dark:text-emerald-100 dark:hover:bg-emerald-500/[0.08] sm:min-h-0"
+                        className={tertiaryActionBtnClass}
                         title={
                           !String(editingCotizacionId || activeCotizacionId || "").trim()
                             ? "Guarda la cotización para descargar el Excel"
@@ -2920,7 +3003,7 @@ export default function NuevaCotizacionPage() {
                       >
                         {excelLoading ? (
                           <>
-                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                               <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
                             </svg>
                             Generando...
@@ -2929,11 +3012,10 @@ export default function NuevaCotizacionPage() {
                           "Descargar Excel"
                         )}
                       </button>
-                      <button
-                        type="button"
-                        onClick={resetAll}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-gray-200/90 bg-white px-4 py-3 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 active:scale-[0.99] dark:border-white/[0.08] dark:bg-transparent dark:text-[#e5e7eb] dark:hover:bg-white/[0.04] sm:min-h-0"
-                      >
+                    </div>
+
+                    <div className="space-y-2 border-t border-[#e7ded0] pt-3 dark:border-[#273244]">
+                      <button type="button" onClick={resetAll} className={ghostActionBtnClass}>
                         Limpiar formulario
                       </button>
                       {!editingCotizacionId && canCotizacionesCreate && (
@@ -2945,7 +3027,7 @@ export default function NuevaCotizacionPage() {
                             setCloneRows([]);
                             setCloneModalOpen(true);
                           }}
-                          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-[#fed7aa] bg-[#fff3e8] px-4 py-3 text-xs font-semibold text-[#9a3412] transition-colors hover:bg-[#ffe7cc] active:scale-[0.99] dark:border-[#fb923c]/40 dark:bg-[#fb923c]/12 dark:text-[#fdba74] dark:hover:bg-[#fb923c]/20 sm:min-h-0"
+                          className={cloneActionBtnClass}
                         >
                           <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -2957,7 +3039,29 @@ export default function NuevaCotizacionPage() {
                     </div>
                   </div>
                 </ComponentCard>
-              </div>
+
+                <section aria-labelledby="cotizacion-pdf-heading" className={sectionZoneClass}>
+                  <div className="px-0.5 lg:hidden">
+                    <p className={sectionEyebrowClass}>Paso 4</p>
+                    <h2 id="cotizacion-pdf-heading" className={`mt-1 ${sectionHeadingClass}`}>
+                      Opciones del PDF
+                    </h2>
+                  </div>
+                  <CotizacionPdfOptionsPanel
+                    opciones={pdfOpciones}
+                    onOpcionesChange={setPdfOpciones}
+                    descripcionesCortas={pdfDescripcionCorta}
+                    onDescripcionCortaChange={(conceptoId, value) => {
+                      setPdfDescripcionCorta((prev) => ({ ...prev, [conceptoId]: value }));
+                    }}
+                    lines={computed.lines.map((c) => ({
+                      id: c.id,
+                      producto_nombre: c.producto_nombre,
+                      producto_descripcion: c.producto_descripcion,
+                    }))}
+                  />
+                </section>
+              </aside>
             </div>
 
           </>

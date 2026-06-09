@@ -477,7 +477,11 @@ export default function CuentasAntarixPage() {
 
         <ComponentCard
           title="Usuarios Wialon"
-          className={cn("min-w-0 overflow-hidden [&>div:first-child]:hidden", erpCardShellClass)}
+          className={cn(
+            "min-w-0 overflow-hidden [&>div:first-child]:hidden",
+            erpCardShellClass,
+            "border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)]"
+          )}
           compact
         >
           <div className="mb-4 flex flex-col gap-1 border-b border-[#e7ded0]/80 pb-4 dark:border-[#273244] sm:flex-row sm:items-end sm:justify-between">

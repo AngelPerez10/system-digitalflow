@@ -1,4 +1,5 @@
 import type { SyscomProducto } from "@/pages/ProductosYServicios/syscomCatalog";
+import type { CotizacionPdfOpciones } from "./cotizacionPdfTypes";
 
 export type ClienteContacto = {
   id?: number;
@@ -21,6 +22,12 @@ export type Cliente = {
   contactos?: ClienteContacto[];
 };
 
+export type CotizacionCategoria = {
+  id: string;
+  nombre: string;
+  orden: number;
+};
+
 export type Concepto = {
   id: string;
   producto_externo_id: string;
@@ -31,6 +38,7 @@ export type Concepto = {
   cantidad: number;
   precio_lista: number;
   descuento_pct: number;
+  categoria_id?: string;
 };
 
 export type ApiCotizacionItem = {
@@ -38,12 +46,14 @@ export type ApiCotizacionItem = {
   producto_externo_id?: string;
   producto_nombre: string;
   producto_descripcion: string;
+  pdf_descripcion_corta?: string;
   unidad: string;
   thumbnail_url?: string;
   cantidad: number;
   precio_lista: number;
   descuento_pct: number;
   orden?: number;
+  categoria_id?: string;
 };
 
 export type SyscomPopPos = { left: number; width: number; top?: number; bottom?: number; maxHeight: number };
@@ -85,6 +95,8 @@ export type ApiCotizacion = {
   total: number;
   texto_arriba_precios: string;
   terminos: string;
+  pdf_opciones?: CotizacionPdfOpciones;
+  categorias_productos?: CotizacionCategoria[];
   items: ApiCotizacionItem[];
 };
 

@@ -18,6 +18,7 @@ from apps.common.pdf_html import subtotal_iva_display_split as _subtotal_iva_dis
 from apps.common.pdf_images import safe_http_image_bytes as _safe_http_image_bytes
 from apps.users.permissions import ModulePermission, user_module_own_only
 
+from .categorias_productos import categorias_nombres_por_id, normalize_categorias_productos
 from .models import Cotizacion
 from .pdf_render import PdfRenderError, any_provider_configured, render_html_to_pdf
 from .serializers import CotizacionSerializer
@@ -116,6 +117,9 @@ def _status_label(raw: str) -> str:
     return str(raw or "").strip() or "—"
 
 
+COTIZACION_EXPORT_BRAND_HEX = "3160E3"
+
+
 def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     """Genera un .xlsx con encabezado, líneas (con miniatura) y totales."""
     wb = Workbook()
@@ -123,9 +127,9 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     ws.title = "Cotización"
 
     title_font = Font(bold=True, color="FFFFFF", size=13)
-    title_fill = PatternFill("solid", fgColor="374151")
+    title_fill = PatternFill("solid", fgColor=COTIZACION_EXPORT_BRAND_HEX)
     header_font = Font(bold=True, color="FFFFFF", size=10)
-    header_fill = PatternFill("solid", fgColor="4B5563")
+    header_fill = PatternFill("solid", fgColor=COTIZACION_EXPORT_BRAND_HEX)
     label_font = Font(bold=True, color="111827", size=10)
     wrap = Alignment(wrap_text=True, vertical="top")
     center_wrap = Alignment(wrap_text=True, horizontal="center", vertical="center")
@@ -260,8 +264,22 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     else:
         items = []
 
+    cat_names = categorias_nombres_por_id(
+        normalize_categorias_productos(getattr(cotizacion, "categorias_productos", None))
+    )
+    last_cat_id = None
     net_subtotal_con_iva = 0.0
     for it in items:
+        cat_id = str(getattr(it, "categoria_id", "") or "").strip()
+        if cat_id and cat_id in cat_names and cat_id != last_cat_id:
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+            cat_cell = ws.cell(row=r, column=1, value=str(cat_names[cat_id]))
+            cat_cell.font = Font(bold=True, color="3160E3", size=11)
+            cat_cell.alignment = Alignment(vertical="center")
+            ws.row_dimensions[r].height = 22
+            r += 1
+            last_cat_id = cat_id
+
         try:
             cantidad = float(it.cantidad or 0)
             precio_lista = float(it.precio_lista or 0)
@@ -347,11 +365,11 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
 
     r += 1
     ws.cell(row=r, column=7, value="Total").font = Font(bold=True, color="FFFFFF")
-    ws.cell(row=r, column=7).fill = PatternFill("solid", fgColor="374151")
+    ws.cell(row=r, column=7).fill = PatternFill("solid", fgColor=COTIZACION_EXPORT_BRAND_HEX)
     ws.cell(row=r, column=8, value=round(total_con_iva, 2))
     ws.cell(row=r, column=8).number_format = money_fmt
     ws.cell(row=r, column=8).font = Font(bold=True, color="FFFFFF")
-    ws.cell(row=r, column=8).fill = PatternFill("solid", fgColor="374151")
+    ws.cell(row=r, column=8).fill = PatternFill("solid", fgColor=COTIZACION_EXPORT_BRAND_HEX)
 
     for rr in range(totals_rows_start, r + 1):
         ws.cell(row=rr, column=7).border = table_border
@@ -435,10 +453,10 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(Q(creado_por=user) | Q(actualizado_por=user))
         return queryset.order_by('-idx')
 
-    def _generate_pdf_html(self, cotizacion: Cotizacion) -> str:
+    def _generate_pdf_html(self, cotizacion: Cotizacion, pdf_opciones=None) -> str:
         from .pdf_templates import generate_cotizacion_pdf_html
 
-        return generate_cotizacion_pdf_html(cotizacion)
+        return generate_cotizacion_pdf_html(cotizacion, pdf_opciones=pdf_opciones)
 
     @action(
         detail=True,
@@ -446,9 +464,12 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         url_path='pdf',
     )
     def pdf(self, request, pk=None):
-        cotizacion = self.get_object()
+        from .pdf_opciones import parse_pdf_opciones_from_cotizacion
 
-        html = self._generate_pdf_html(cotizacion)
+        cotizacion = self.get_object()
+        pdf_opciones = parse_pdf_opciones_from_cotizacion(cotizacion)
+
+        html = self._generate_pdf_html(cotizacion, pdf_opciones=pdf_opciones)
         if not html:
             return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
 
@@ -494,14 +515,22 @@ class CotizacionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='pdf-preview')
     def pdf_preview(self, request):
+        from .pdf_opciones import parse_pdf_opciones_from_request_data
+
+        pdf_opciones = parse_pdf_opciones_from_request_data(request.data)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
         items_data = data.pop('items', [])
+        raw_items = request.data.get('items') if isinstance(request.data, dict) else []
+        if not isinstance(raw_items, list):
+            raw_items = []
 
         items = []
-        for it in items_data or []:
+        for idx, it in enumerate(items_data or []):
+            raw_it = raw_items[idx] if idx < len(raw_items) and isinstance(raw_items[idx], dict) else {}
             item = SimpleNamespace(
                 producto_externo_id=it.get('producto_externo_id'),
                 cantidad=it.get('cantidad'),
@@ -511,6 +540,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 producto_nombre=it.get('producto_nombre'),
                 producto_descripcion=it.get('producto_descripcion'),
                 thumbnail_url=it.get('thumbnail_url'),
+                pdf_descripcion_corta=raw_it.get('pdf_descripcion_corta', ''),
+                categoria_id=it.get('categoria_id', ''),
             )
             items.append(item)
 
@@ -530,10 +561,11 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             total=data.get('total', 0),
             texto_arriba_precios=data.get('texto_arriba_precios', ''),
             terminos=data.get('terminos', ''),
+            categorias_productos=data.get('categorias_productos', []),
             items=items,
         )
 
-        html = self._generate_pdf_html(preview)
+        html = self._generate_pdf_html(preview, pdf_opciones=pdf_opciones)
         if not html:
             return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
 

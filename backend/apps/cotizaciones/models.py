@@ -69,6 +69,9 @@ class Cotizacion(models.Model):
 
     texto_arriba_precios = models.TextField(blank=True, default='')
     terminos = models.TextField(blank=True, default='')
+    pdf_opciones = models.JSONField(blank=True, default=dict)
+    # [{ "id": "uuid", "nombre": "Categoría", "orden": 0 }, ...]
+    categorias_productos = models.JSONField(blank=True, default=list)
 
     creado_por = models.ForeignKey(
         User,
@@ -117,6 +120,7 @@ class CotizacionItem(models.Model):
 
     producto_nombre = models.CharField(max_length=255, blank=True, default='')
     producto_descripcion = models.TextField(blank=True, default='')
+    pdf_descripcion_corta = models.CharField(max_length=500, blank=True, default='')
     unidad = models.CharField(max_length=50, blank=True, default='')
     # URLs de CDN/Syscom pueden superar 200 caracteres; CharField evita el límite estricto de URLField.
     thumbnail_url = models.CharField(max_length=512, blank=True, default='')
@@ -126,6 +130,7 @@ class CotizacionItem(models.Model):
     descuento_pct = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     orden = models.IntegerField(default=0)
+    categoria_id = models.CharField(max_length=64, blank=True, default='')
 
     def __str__(self):
         return f"Item {self.id} de Cotización #{self.cotizacion_id}"

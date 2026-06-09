@@ -1,10 +1,9 @@
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { PencilIcon } from "@/icons";
-import { erpChipNeutralClass, erpSectionLabelClass, erpTableWrapClass } from "@/layout/erpPageStyles";
+import { erpChipNeutralClass, erpSansStyle } from "@/layout/erpPageStyles";
 import {
   erpRowActionBarClass,
   erpRowActionBtnClass,
-  erpTableRowHoverClass,
 } from "@/pages/Operacion/OrdenesTrabajo/ordenTrabajoStyles";
 import { cn } from "@/lib/utils";
 import type { WialonUserRow } from "./wialonTypes";
@@ -12,13 +11,18 @@ import type { WialonUserRow } from "./wialonTypes";
 const uiBadge =
   "inline-flex shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium leading-none";
 
-const thBase = cn(
-  erpSectionLabelClass,
-  "bg-[#fcfaf6] py-3 text-left dark:bg-[#0f172a]/95"
-);
+const tableWrapClass =
+  "overflow-x-auto rounded-xl border border-[#e7ded0]/90 bg-[#fcfaf6]/60 dark:border-[#273244] dark:bg-[#0f172a]/35";
 
-const tdBase =
-  "py-3 align-middle text-sm font-normal leading-snug text-[#57534e] dark:text-[#cbd5e1]";
+const tableHeaderClass =
+  "sticky top-0 z-10 border-b border-[#e7ded0] bg-[#fffdfa]/95 text-[11px] font-semibold text-[#1c1917] dark:border-[#334155] dark:bg-[#111827]/95 dark:text-[#f8fafc]";
+
+const thCellClass = "px-3 py-2 text-left text-gray-700 dark:text-gray-300";
+
+const tableBodyClass =
+  "divide-y divide-[#f5f5f4] text-[12px] text-[#44403c] dark:divide-[#334155]/80 dark:text-[#e5e7eb]";
+
+const rowHoverClass = "hover:bg-[#fff7ed]/80 dark:hover:bg-[#1e293b]/50";
 
 function blockedLabel(row: WialonUserRow): string {
   return row.status === "Bloqueado" && row.blocked !== "No" ? row.blocked : "No";
@@ -64,8 +68,7 @@ type Props = {
 };
 
 /**
- * Tabla con anchos mínimos en px + columna Nombre flexible.
- * En pantallas anchas el nombre crece; en estrechas hay scroll horizontal suave.
+ * Tabla alineada con ProductosPage: contenedor crema, cabecera sticky y hover naranja suave.
  */
 export default function CuentasAntarixUsersTable({
   rows,
@@ -74,13 +77,11 @@ export default function CuentasAntarixUsersTable({
   onEdit,
 }: Props) {
   return (
-    <div className="min-w-0">
-      <div
-        className={cn(
-          erpTableWrapClass,
-          "touch-pan-x overflow-x-auto overscroll-x-contain rounded-2xl [-webkit-overflow-scrolling:touch]"
-        )}
-      >
+    <div
+      className="min-w-0 text-sm font-normal leading-relaxed text-[#57534e] dark:text-[#b7c1d1]"
+      style={erpSansStyle}
+    >
+      <div className={cn(tableWrapClass, "touch-pan-x overscroll-x-contain [-webkit-overflow-scrolling:touch]")}>
         <Table className="w-full min-w-[72rem] table-fixed xl:min-w-full">
           <colgroup>
             <col style={{ width: "6.5rem" }} />
@@ -93,141 +94,130 @@ export default function CuentasAntarixUsersTable({
             <col style={{ width: "6.5rem" }} />
           </colgroup>
 
-          <TableHeader className="sticky top-0 z-10 border-b border-[#e7ded0] dark:border-[#273244]">
+          <TableHeader className={tableHeaderClass}>
             <TableRow>
-              <TableCell isHeader className={cn(thBase, "px-3")}>
+              <TableCell isHeader className={thCellClass}>
                 ID
               </TableCell>
-              <TableCell isHeader className={cn(thBase, "px-4")}>
+              <TableCell isHeader className={thCellClass}>
                 Nombre
               </TableCell>
-              <TableCell isHeader className={cn(thBase, "px-3")}>
+              <TableCell isHeader className={thCellClass}>
                 Cuenta padre
               </TableCell>
-              <TableCell isHeader className={cn(thBase, "px-2 text-center")}>
+              <TableCell isHeader className={cn(thCellClass, "text-center")}>
                 Distrib.
               </TableCell>
-              <TableCell isHeader className={cn(thBase, "px-2 text-center")}>
+              <TableCell isHeader className={cn(thCellClass, "text-center")}>
                 Unid.
               </TableCell>
-              <TableCell isHeader className={cn(thBase, "px-2 text-center")}>
+              <TableCell isHeader className={cn(thCellClass, "text-center")}>
                 Status
               </TableCell>
-              <TableCell isHeader className={cn(thBase, "pl-3 pr-6")}>
+              <TableCell isHeader className={thCellClass}>
                 Bloq.
               </TableCell>
-              <TableCell isHeader className={cn(thBase, "pl-4 pr-3 text-center")}>
+              <TableCell isHeader className={cn(thCellClass, "text-center")}>
                 Acciones
               </TableCell>
             </TableRow>
           </TableHeader>
 
-          <TableBody className="divide-y divide-[#efe5d7] dark:divide-[#1e293b]">
+          <TableBody className={tableBodyClass}>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="px-4 py-10 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]"
-                >
+                <TableCell colSpan={8} className="px-3 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                   Sin usuarios
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row, idx) => {
+              rows.map((row) => {
                 const matchedUnits = matchedUnitsByUser?.get(Number(row.wialon_id));
                 return (
-                <TableRow
-                  key={row.wialon_id}
-                  className={cn(
-                    erpTableRowHoverClass,
-                    idx % 2 === 1 && "bg-[#fcfaf6]/50 dark:bg-white/[0.02]"
-                  )}
-                >
-                  <TableCell className={cn(tdBase, "px-3 tabular-nums text-[#1c1917] dark:text-[#f8fafc]")}>
-                    <span className="block break-all text-sm font-medium" title={row.user_id || undefined}>
-                      {row.user_id || "—"}
-                    </span>
-                  </TableCell>
+                  <TableRow key={row.wialon_id} className={rowHoverClass}>
+                    <TableCell className="px-3 py-2 align-middle tabular-nums">
+                      <span
+                        className="block break-all text-sm font-medium text-gray-900 dark:text-white"
+                        title={row.user_id || undefined}
+                      >
+                        {row.user_id || "—"}
+                      </span>
+                    </TableCell>
 
-                  <TableCell className={cn(tdBase, "px-4 align-top")}>
-                    <div className="min-w-0 space-y-1.5">
-                      <p
-                        className="text-sm font-medium leading-snug text-[#1c1917] line-clamp-2 dark:text-[#f8fafc]"
-                        title={row.name || undefined}
-                      >
-                        {row.name || "—"}
-                      </p>
-                      <p
-                        className="text-xs font-normal leading-snug text-[#78716c] line-clamp-1 dark:text-[#8ea0b8]"
-                        title={row.creator || undefined}
-                      >
-                        {row.creator || "—"}
-                      </p>
-                      {matchedUnits?.length ? (
+                    <TableCell className="px-3 py-2 align-top">
+                      <div className="min-w-0 space-y-1">
                         <p
-                          className="text-xs font-normal leading-snug text-[#c45f00] line-clamp-2 dark:text-[#ffb366]"
-                          title={matchedUnits.join(" · ")}
+                          className="truncate text-sm font-medium text-gray-900 line-clamp-2 dark:text-white"
+                          title={row.name || undefined}
                         >
-                          Unidad: {matchedUnits.join(" · ")}
+                          {row.name || "—"}
                         </p>
-                      ) : null}
-                    </div>
-                  </TableCell>
-
-                  <TableCell className={cn(tdBase, "px-3")}>
-                    <span
-                      className="block text-sm leading-snug text-[#1c1917] line-clamp-2 dark:text-[#f8fafc]"
-                      title={row.parent_account || undefined}
-                    >
-                      {row.parent_account || "—"}
-                    </span>
-                  </TableCell>
-
-                  <TableCell className={cn(tdBase, "px-2 text-center")}>
-                    <DealerBadge value={row.dealer_rights} />
-                  </TableCell>
-
-                  <TableCell className={cn(tdBase, "px-2 text-center tabular-nums")}>
-                    <span className="inline-flex min-w-[1.75rem] justify-center rounded-lg bg-[#fff3e6] px-2 py-0.5 text-sm font-medium text-[#c45f00] dark:bg-[#ff801f]/15 dark:text-[#ffb366]">
-                      {row.assigned_units}
-                    </span>
-                  </TableCell>
-
-                  <TableCell className={cn(tdBase, "px-2 text-center")}>
-                    <StatusBadge status={row.status} />
-                  </TableCell>
-
-                  <TableCell
-                    className={cn(
-                      tdBase,
-                      "pl-3 pr-6 tabular-nums whitespace-nowrap text-sm text-[#1c1917] dark:text-[#f8fafc]"
-                    )}
-                  >
-                    <span title={blockedLabel(row) !== "No" ? blockedLabel(row) : undefined}>
-                      {blockedLabel(row)}
-                    </span>
-                  </TableCell>
-
-                  <TableCell className={cn(tdBase, "pl-4 pr-3 text-center")}>
-                    <div className={cn(erpRowActionBarClass, "mx-auto w-fit")}>
-                      {canEdit ? (
-                        <button
-                          type="button"
-                          onClick={() => onEdit(row)}
-                          className={cn(
-                            erpRowActionBtnClass,
-                            "hover:border-[#ffa057] hover:text-[#ea580c] dark:hover:border-[#ff801f] dark:hover:text-[#ff801f]"
-                          )}
-                          title="Editar usuario"
-                          aria-label={`Editar ${row.name || row.user_id}`}
+                        <p
+                          className="truncate text-xs text-gray-500 line-clamp-1 dark:text-gray-400"
+                          title={row.creator || undefined}
                         >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
+                          {row.creator || "—"}
+                        </p>
+                        {matchedUnits?.length ? (
+                          <p
+                            className="text-xs text-[#ff801f] line-clamp-2 dark:text-[#ffa057]"
+                            title={matchedUnits.join(" · ")}
+                          >
+                            Unidad: {matchedUnits.join(" · ")}
+                          </p>
+                        ) : null}
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="px-3 py-2 align-middle whitespace-nowrap">
+                      <span
+                        className="block text-sm text-gray-900 line-clamp-2 dark:text-white"
+                        title={row.parent_account || undefined}
+                      >
+                        {row.parent_account || "—"}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="px-3 py-2 text-center align-middle">
+                      <DealerBadge value={row.dealer_rights} />
+                    </TableCell>
+
+                    <TableCell className="px-3 py-2 text-center align-middle tabular-nums">
+                      <span className="inline-flex min-w-[1.75rem] justify-center rounded-lg bg-[#fff3e6] px-2 py-0.5 text-sm font-medium text-[#c45f00] dark:bg-[#ff801f]/15 dark:text-[#ffb366]">
+                        {row.assigned_units}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="px-3 py-2 text-center align-middle">
+                      <StatusBadge status={row.status} />
+                    </TableCell>
+
+                    <TableCell className="px-3 py-2 align-middle tabular-nums whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      <span title={blockedLabel(row) !== "No" ? blockedLabel(row) : undefined}>
+                        {blockedLabel(row)}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="px-3 py-2 text-center align-middle">
+                      <div className={cn(erpRowActionBarClass, "mx-auto w-fit")}>
+                        {canEdit ? (
+                          <button
+                            type="button"
+                            onClick={() => onEdit(row)}
+                            className={cn(
+                              erpRowActionBtnClass,
+                              "hover:border-[#ffa057] hover:text-[#ea580c] dark:hover:border-[#ff801f] dark:hover:text-[#ff801f]"
+                            )}
+                            title="Editar usuario"
+                            aria-label={`Editar ${row.name || row.user_id}`}
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
               })
             )}
           </TableBody>
