@@ -1,5 +1,11 @@
 # AGENTS.md — Guía para agentes de código
 
+## Uso obligatorio
+
+Antes de modificar arquitectura, rutas, autenticación, permisos, performance, seguridad, CI, estructura de carpetas o patrones globales, leer este archivo.
+
+Si un cambio introduce una nueva convención, corrige un problema recurrente o cambia una decisión técnica, actualizar `AGENTS.md` en el mismo ticket.
+
 ## Arquitectura
 
 - **Backend**: Django 5 + DRF en `backend/`. Apps por dominio (`cotizaciones`, `ordenes`, `clientes`, `users`, …).
@@ -113,6 +119,20 @@ Terminal 2: frontend → pnpm dev :5173
 | SSRF imágenes | `backend/apps/common/ssrf.py` |
 | CI | `.github/workflows/ci.yml` |
 | ESLint (frontend) | `frontend/eslint.config.js` |
+| Ventas (pages) | `frontend/src/pages/Ventas/` — ver tabla abajo |
+
+### `pages/Ventas/` (lazy imports)
+
+Las páginas de ventas viven en subcarpetas; el `import()` de `App.tsx` debe coincidir **exactamente** con la ruta del archivo (incluida la subcarpeta y el casing).
+
+| Pantalla | Archivo | Lazy import en `App.tsx` |
+|----------|---------|---------------------------|
+| Cotizaciones | `Ventas/Cotizacion/CotizacionesPage.tsx` | `@/pages/Ventas/Cotizacion/CotizacionesPage` |
+| Nueva / editar cotización | `Ventas/Cotizacion/NuevaCotizacionPage.tsx` | `@/pages/Ventas/Cotizacion/NuevaCotizacionPage` |
+| PDF cotización | `Ventas/Cotizacion/CotizacionPdfPage.tsx` | `@/pages/Ventas/Cotizacion/CotizacionPdfPage` |
+| Facturas CFDI (SICAR) | `Ventas/FacturasCFDI/FacturasCfdiPage.tsx` | `@/pages/Ventas/FacturasCFDI/FacturasCfdiPage` |
+
+Si el import apunta a `@/pages/Ventas/FacturasCfdiPage` (sin `FacturasCFDI/`), Vite devuelve HTML (404 del SPA) y el navegador reporta `MIME type "text/html"`. Windows tolera mayúsculas en disco; CI/Linux no — usar siempre `FacturasCFDI`.
 
 ## Decisiones de seguridad (documentadas)
 

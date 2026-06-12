@@ -37,9 +37,10 @@ const Productos = lazy(() => import("@/pages/ProductosYServicios/ProductosPage")
 const Servicios = lazy(() => import("@/pages/ProductosYServicios/ServiciosPage"));
 const CorreoPage = lazy(() => import("@/pages/MiEscritorio/CorreoPage"));
 const TareasTecnicoPage = lazy(() => import("@/pages/MiEscritorio/Tareas/TareasTecnicoPage"));
-const CotizacionesPage = lazy(() => import("@/pages/Cotizacion/CotizacionesPage"));
-const NuevaCotizacionPage = lazy(() => import("@/pages/Cotizacion/NuevaCotizacionPage"));
-const CotizacionPdfPage = lazy(() => import("@/pages/Cotizacion/CotizacionPdfPage"));
+const CotizacionesPage = lazy(() => import("@/pages/Ventas/Cotizacion/CotizacionesPage"));
+const FacturasCfdiPage = lazy(() => import("@/pages/Ventas/FacturasCFDI/FacturasCfdiPage"));
+const NuevaCotizacionPage = lazy(() => import("@/pages/Ventas/Cotizacion/NuevaCotizacionPage"));
+const CotizacionPdfPage = lazy(() => import("@/pages/Ventas/Cotizacion/CotizacionPdfPage"));
 const IaPage = lazy(() => import("@/pages/IA/iaPage"));
 const ReportesPage = lazy(() => import("@/pages/Operacion/Reportes/ReportesPage"));
 const CuentasAntarixPage = lazy(() => import("@/pages/Operacion/CuentasAntarix/CuentasAntarixPage"));
@@ -95,6 +96,7 @@ export default function App() {
             <Route path="/productos" element={<RequireAdmin><Productos /></RequireAdmin>} />
             <Route path="/servicios" element={<RequireAdmin><Servicios /></RequireAdmin>} />
             <Route path="/cotizacion" element={<RequireCotizacionPermission required="view"><CotizacionesPage /></RequireCotizacionPermission>} />
+            <Route path="/facturas" element={<RequireCotizacionPermission required="view"><FacturasCfdiPage /></RequireCotizacionPermission>}/>
             <Route path="/cotizacion/nueva" element={<RequireCotizacionPermission required="create"><NuevaCotizacionPage /></RequireCotizacionPermission>} />
             <Route path="/cotizacion/:id/editar" element={<RequireCotizacionPermission required="edit"><NuevaCotizacionPage /></RequireCotizacionPermission>} />
             <Route

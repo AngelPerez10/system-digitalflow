@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -10,7 +10,7 @@ import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
-import { CotizacionConceptosTable, type CotizacionConceptoLine } from "@/pages/Cotizacion/CotizacionConceptosTable";
+import { CotizacionConceptosTable, type CotizacionConceptoLine } from "@/pages/Ventas/Cotizacion/CotizacionConceptosTable";
 import {
   buildVisualTableRows,
   categoriasToApiPayload,
@@ -18,9 +18,9 @@ import {
   parseCategoriasFromApi,
   resolveCategoriaId,
   type CotizacionCategoria,
-} from "@/pages/Cotizacion/cotizacionCategoriasUtils";
-import { CotizacionPdfOptionsPanel } from "@/pages/Cotizacion/CotizacionPdfOptionsPanel";
-import { defaultPdfOpciones, parsePdfOpcionesFromApi } from "@/pages/Cotizacion/cotizacionPdfTypes";
+} from "@/pages/Ventas/Cotizacion/cotizacionCategoriasUtils";
+import { CotizacionPdfOptionsPanel } from "@/pages/Ventas/Cotizacion/CotizacionPdfOptionsPanel";
+import { defaultPdfOpciones, parsePdfOpcionesFromApi } from "@/pages/Ventas/Cotizacion/cotizacionPdfTypes";
 import {
   fetchSyscomProductosSugerencia,
   fetchSyscomTipoCambio,
@@ -101,6 +101,8 @@ export default function NuevaCotizacionPage() {
   const [loadingProgress, setLoadingProgress] = useState(8);
 
   const [cloneModalOpen, setCloneModalOpen] = useState(false);
+  const [clearFormModalOpen, setClearFormModalOpen] = useState(false);
+  const clearFormModalTitleId = useId();
   const [cloneSearch, setCloneSearch] = useState("");
   const [cloneSearchDebounced, setCloneSearchDebounced] = useState("");
   const [cloneRows, setCloneRows] = useState<
@@ -2104,6 +2106,54 @@ export default function NuevaCotizacionPage() {
           </div>
         </Modal>
 
+        <Modal
+          isOpen={clearFormModalOpen}
+          onClose={() => setClearFormModalOpen(false)}
+          className="mx-4 w-full max-w-md sm:mx-auto"
+          ariaLabelledBy={clearFormModalTitleId}
+        >
+          <div className="border-b border-gray-100 p-5 dark:border-white/[0.06] sm:p-6">
+            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-error-200/80 bg-error-50/90 dark:border-error-500/25 dark:bg-error-500/[0.12]">
+              <svg className="h-5 w-5 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <h3
+              id={clearFormModalTitleId}
+              className="mb-2 text-center text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg"
+            >
+              ¿Limpiar formulario?
+            </h3>
+            <p className="mb-6 text-center text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
+              Se eliminarán todos los datos capturados. Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => setClearFormModalOpen(false)}
+                className="flex-1 rounded-lg border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:bg-white/[0.04] sm:text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetAll();
+                  setClearFormModalOpen(false);
+                }}
+                className="flex-1 rounded-lg bg-error-600 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/40 sm:text-sm"
+              >
+                Sí, limpiar
+              </button>
+            </div>
+          </div>
+        </Modal>
+
         {showSyscomPanel &&
           syscomPopPos &&
           createPortal(
@@ -2626,7 +2676,9 @@ export default function NuevaCotizacionPage() {
                 <ComponentCard
                   title="Agregar productos o servicios"
                   desc="Integra con catálogo Syscom o captura manualmente cantidad, precio y descuento."
-                  className={cardShellClass}
+                  className={`${cardShellClass.replace(/^overflow-hidden\b/, "overflow-visible")} ${
+                    conceptoOpen ? "relative z-[200]" : ""
+                  }`}
                   compact
                   actions={
                     <button
@@ -2673,7 +2725,7 @@ export default function NuevaCotizacionPage() {
 
                     <div className="sm:col-span-6 lg:col-span-5">
                       <Label className={labelPageClass}>Concepto</Label>
-                      <div className="relative" ref={conceptoRef}>
+                      <div className={`relative ${conceptoOpen ? "z-[100]" : "z-0"}`} ref={conceptoRef}>
                         <input
                           className={`${inputLikeClassName} min-h-[46px] text-sm sm:text-base`}
                           value={conceptoOpen ? conceptoSearch : conceptoNombre}
@@ -3025,7 +3077,7 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div className="space-y-2 border-t border-[#e7ded0] pt-3 dark:border-[#273244]">
-                      <button type="button" onClick={resetAll} className={ghostActionBtnClass}>
+                      <button type="button" onClick={() => setClearFormModalOpen(true)} className={ghostActionBtnClass}>
                         Limpiar formulario
                       </button>
                       {!editingCotizacionId && canCotizacionesCreate && (

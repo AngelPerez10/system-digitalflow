@@ -178,7 +178,10 @@ const AppSidebar: React.FC = () => {
         items.push({
           icon: <PieChartIcon />,
           name: "Ventas",
-          subItems: [{ name: "Cotizaciones", path: "/cotizacion", pro: false }],
+          subItems: [
+            { name: "Cotizaciones", path: "/cotizacion", pro: false },
+            { name: "Facturas CFDI", path: "/facturas", pro: false },
+          ],
         });
       }
 
@@ -259,7 +262,10 @@ const AppSidebar: React.FC = () => {
         items.push({
           icon: <PieChartIcon />,
           name: "Ventas",
-          subItems: [{ name: "Cotizaciones", path: "/cotizacion", pro: false }],
+          subItems: [
+            { name: "Cotizaciones", path: "/cotizacion", pro: false },
+            { name: "Facturas CFDI", path: "/facturas", pro: false },
+          ],
         });
       }
     }
