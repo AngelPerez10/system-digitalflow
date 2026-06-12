@@ -140,7 +140,7 @@ export default function OrdenServicioModal({
 
     const parseCoordsFromDireccion = (): { lat: number; lng: number } | null => {
       const d = (formData.direccion || "").trim();
-      const m = d.match(/q=([\-\d\.]+),([\-\d\.]+)/);
+      const m = d.match(/q=([-\d.]+),([-\d.]+)/);
       if (m) {
         const lat = parseFloat(m[1]);
         const lng = parseFloat(m[2]);
@@ -442,8 +442,8 @@ export default function OrdenServicioModal({
           }
           ctx?.drawImage(img, 0, 0, width, height);
 
-          let minQuality = 0.1;
-          let maxQuality = 0.95;
+          const minQuality = 0.1;
+          const maxQuality = 0.95;
           let attempts = 0;
           const maxAttempts = 8;
 
@@ -1018,6 +1018,7 @@ export default function OrdenServicioModal({
       onClose={handleCloseModal}
       closeOnBackdropClick={false}
       closeOnEscape={!confirmDelete.open}
+      ariaLabel={title}
       className={erpModalShellClass}
     >
       <OrdenFormModalHeader
@@ -1658,6 +1659,7 @@ export default function OrdenServicioModal({
         isOpen={showMapModal}
         onClose={() => setShowMapModal(false)}
         closeOnBackdropClick={false}
+        ariaLabel="Seleccionar ubicación en el mapa"
         className="w-[96vw] sm:w-[90vw] md:w-[80vw] max-w-3xl mx-0 sm:mx-auto"
       >
         <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-3xl">

@@ -1872,7 +1872,7 @@ export default function NuevaCotizacionPage() {
       <div className={erpPageInnerClass}>
         <PageMeta title="Nueva Cotización | Sistema Grupo Intrax GPS" description="Crear nueva cotización" />
 
-        <Modal isOpen={exportBusy} onClose={() => { }} showCloseButton={false} className="max-w-md mx-4 sm:mx-auto">
+        <Modal isOpen={exportBusy} onClose={() => { }} showCloseButton={false} ariaLabel="Exportando documento" className="max-w-md mx-4 sm:mx-auto">
           <div className="p-7 sm:p-8">
             <div className="flex flex-col items-center justify-center text-center">
               <div className="relative mb-6">
@@ -1945,6 +1945,7 @@ export default function NuevaCotizacionPage() {
           }}
           closeOnBackdropClick={clonePickingId == null}
           closeOnEscape={clonePickingId == null}
+          ariaLabel="Clonar cotización"
           className="mx-4 flex max-h-[min(90vh,640px)] w-[min(96vw,30rem)] flex-col overflow-hidden rounded-3xl border border-gray-200/80 p-0 shadow-[0_24px_54px_-20px_rgba(15,23,42,0.35)] dark:border-white/[0.08] dark:bg-[#111827] dark:shadow-[0_24px_54px_-18px_rgba(0,0,0,0.55)] sm:mx-auto sm:max-w-xl"
         >
           <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">

@@ -76,7 +76,8 @@ const AppHeader: React.FC = () => {
           <button
             className="z-99999 h-10 w-10 items-center justify-center rounded-xl border border-[#e2d9ca] text-[#57534e] transition-colors hover:bg-[#f5efe4] hover:text-[#1c1917] dark:border-[#334155] dark:text-[#aeb8c8] dark:hover:bg-[#111a2b] dark:hover:text-[#f8fafc] lg:flex lg:h-11 lg:w-11"
             onClick={handleToggle}
-            aria-label="Toggle Sidebar"
+            aria-label={isMobileOpen ? "Cerrar menú lateral" : "Abrir menú lateral"}
+            aria-expanded={isMobileOpen}
           >
             {isMobileOpen ? (
               <svg
@@ -120,6 +121,7 @@ const AppHeader: React.FC = () => {
 
           <button
             onClick={toggleApplicationMenu}
+            aria-label="Abrir menú de aplicación"
             className="z-99999 flex h-10 w-10 items-center justify-center rounded-xl text-[#57534e] hover:bg-[#f5efe4] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-[#111a2b] dark:hover:text-[#f8fafc] lg:hidden"
           >
             <svg

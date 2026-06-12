@@ -105,7 +105,7 @@ const countOrdenesResueltasPendientes = (ordenes: OrdenResumen[] | undefined) =>
 /** Alineado con backend: Reporte_semanal_{tecnico}_{inicio}_{fin}.pdf */
 function buildReporteSemanalPdfFilename(r: ReporteSemanal): string {
   let slug = (r.tecnico_nombre || "tecnico").trim().replace(/\s+/g, "_");
-  slug = slug.replace(/[^\p{L}\p{N}_\-]/gu, "_");
+  slug = slug.replace(/[^\p{L}\p{N}_-]/gu, "_");
   slug = slug.replace(/_+/g, "_").replace(/^_|_$/g, "") || "tecnico";
   if (slug.length > 80) slug = slug.slice(0, 80);
   const ini = (r.semana_inicio || "").slice(0, 10);

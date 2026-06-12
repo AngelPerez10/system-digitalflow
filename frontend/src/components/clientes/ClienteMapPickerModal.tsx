@@ -176,6 +176,7 @@ export function ClienteMapPickerModal({
       mobileBottomSheet
       isOpen={isOpen}
       onClose={onClose}
+      ariaLabel="Seleccionar ubicación en el mapa"
       className="w-[94vw] max-w-3xl overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"
     >
       <div>

@@ -21,6 +21,81 @@ Los permisos viven en `UserPermissions.permissions` (JSON por módulo: `view`, `
 4. **Seguridad** — `DEBUG` se lee de env (default `false`). Imágenes remotas: `apps/common/ssrf.py`.
 5. **Tests** — Vitest en frontend; `python manage.py test` en backend para smoke de permisos.
 
+## Calidad de código
+
+Antes de cerrar un ticket, ejecutar los mismos checks que CI (ver `.github/workflows/ci.yml`).
+
+### Frontend
+
+```bash
+cd frontend
+pnpm exec tsc -b --noEmit    # 0 errores TypeScript
+pnpm test                    # Vitest
+pnpm exec eslint src         # ver alcance CI abajo
+```
+
+**ESLint en CI** lintea `src` **excepto** `src/pages/**`, `src/context/**` y `src/svg.d.ts`. Eso no significa que `pages/` esté exento de calidad: al tocar una página, corregir en el mismo diff los problemas que ESLint reporte ahí (`pnpm exec eslint src/pages/...`).
+
+| Regla | Política |
+|-------|----------|
+| `@typescript-eslint/no-explicit-any` | Evitar `any` nuevo. Tipar respuestas API en `*Types.ts`. Reducir deuda gradualmente en archivos que se editen. |
+| `no-empty` | Prohibido `catch {}` vacío. Comentar la intención o registrar el error (`console.error` / toast). |
+| `react-hooks/exhaustive-deps` | Corregir al modificar el efecto; no silenciar sin revisar bugs de datos obsoletos. |
+| `prefer-const` | Usar `const` si la variable no se reasigna. |
+
+### Backend
+
+```bash
+cd backend
+ruff check apps              # imports, estilo (auto-fix: ruff check apps --fix)
+python manage.py test apps.users apps.cotizaciones apps.ordenes apps.common apps.clientes apps.escritorio
+```
+
+### Ortografía (UI)
+
+- Textos visibles al usuario en **español de México** con tildes: Cotización, Teléfono, Descripción, Número, etc.
+- Nombres de variables, rutas y claves API sin tilde (`telefono`, `/cotizacion`) — es correcto.
+- Revisar mensajes de toast, `title`, `placeholder`, `label` y textos de PDF al añadir copy nuevo.
+
+### Deuda conocida (auditoría 2026-06)
+
+- ~355 usos de `any` en `frontend/src/pages/**` — priorizar tipado al editar cada módulo.
+- Páginas monolíticas (`OrdenesPage`, `NuevaCotizacionPage`, …) — extraer hooks/componentes al ampliar funcionalidad, no en refactors masivos no solicitados.
+
+## Web Performance
+
+Las rutas de `src/App.tsx` usan **`React.lazy` + `Suspense`** (code splitting por página). Reglas:
+
+1. **Páginas nuevas siempre lazy** — añadir con `const Pagina = lazy(() => import("@/pages/..."))`. Solo quedan eager: `SignIn`, `AppLayout`, guards (`Require*`) y `ScrollToTop`.
+2. **Las páginas lazy deben tener `export default`** (requisito de `React.lazy`).
+3. **Fallback de carga**: `src/components/common/RouteLoadingFallback.tsx` (accesible: `role="status"` + `aria-live="polite"`, compatible claro/oscuro). Reutilizarlo, no crear spinners por ruta.
+4. **Librerías pesadas** (ApexCharts, FullCalendar, Leaflet, markdown, drag & drop) solo deben importarse desde páginas/componentes lazy — nunca desde `main.tsx`, `App.tsx`, layout o guards, porque eso las mete al bundle inicial.
+5. **CSS de librerías** se importa en el componente que la usa (ej. flatpickr en `components/form/date-picker.tsx`), no en `main.tsx`.
+6. Antes de cerrar cambios de performance ejecutar:
+   - `cd frontend && pnpm exec tsc -b --noEmit`
+   - `cd frontend && pnpm test`
+   - `cd frontend && pnpm exec eslint src/App.tsx src/components/common`
+   - `cd frontend && pnpm build` (verificar que la página siga partida en chunks y el entry no crezca)
+
+Deuda pendiente (fase 2): APIs de órdenes/cotizaciones sin paginación (`pagination_class = None`) y listados sin virtualización; chunk de ApexCharts (~570 KB) compartido por dashboard y reportes.
+
+### Dependencias (auditoría 2026-06)
+
+Se eliminaron 15 paquetes sin uso o duplicados: `react-dnd`, `react-dnd-html5-backend`, `animejs`, `swiper`, `react-markdown`, `rehype-raw`, `remark-gfm`, `@tanstack/react-table`, `class-variance-authority`, `leaflet`, `react-simple-maps`, `world-atlas`, `@fullcalendar/list` y los types asociados. Convenciones vigentes:
+
+- **Drag & drop**: solo `@atlaskit/pragmatic-drag-and-drop`. No reintroducir `react-dnd`.
+- **Animaciones**: solo `motion` (`motion/react`). No reintroducir `animejs`.
+- **Mapas**: Leaflet se carga vía CDN en runtime (`window.L`) — no instalar el paquete npm sin migrar también los componentes que usan el global.
+- Antes de añadir una dependencia nueva, verificar que no exista ya una equivalente en `package.json`.
+
+## Accesibilidad y semántica
+
+- **Skip link**: `AppLayout` incluye "Saltar al contenido principal" hacia `#main-content`. No eliminarlo ni cambiar el `id` del `<main>`.
+- **Modales**: `Modal` exige `ariaLabelledBy` (preferido, apuntando al `id` del título visible) o `ariaLabel` descriptivo en español. Sin ninguno, el lector de pantalla anuncia solo "Diálogo" — no dejar modales así.
+- **Botones de icono**: todo `<button>` sin texto visible lleva `aria-label` en español ("Cerrar notificaciones", "Abrir menú lateral", …). Los toggles llevan además `aria-pressed`/`aria-expanded`.
+- **Tablas**: `TableCell isHeader` renderiza `<th scope="col">` por defecto; usar `scope="row"` para encabezados de fila.
+- **Imágenes**: `alt` significativo en imágenes informativas (producto → título del producto). `alt=""` solo para imágenes decorativas.
+
 ## Flujo local (resumen)
 
 ```text
@@ -37,6 +112,7 @@ Terminal 2: frontend → pnpm dev :5173
 | Settings / DEBUG | `backend/config/settings.py` |
 | SSRF imágenes | `backend/apps/common/ssrf.py` |
 | CI | `.github/workflows/ci.yml` |
+| ESLint (frontend) | `frontend/eslint.config.js` |
 
 ## Decisiones de seguridad (documentadas)
 

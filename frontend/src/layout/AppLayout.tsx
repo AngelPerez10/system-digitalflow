@@ -9,6 +9,12 @@ const LayoutContent: React.FC = () => {
 
   return (
     <div className="min-h-screen xl:flex overflow-x-hidden bg-[#f9f7f3] dark:bg-[#0f172a]">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100000] focus:rounded-lg focus:bg-[#ff801f] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-black focus:shadow-lg"
+      >
+        Saltar al contenido principal
+      </a>
       <div>
         <AppSidebar />
         <Backdrop />

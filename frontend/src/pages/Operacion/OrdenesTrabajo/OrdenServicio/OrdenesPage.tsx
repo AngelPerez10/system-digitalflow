@@ -373,8 +373,8 @@ export default function Ordenes() {
           ctx?.drawImage(img, 0, 0, width, height);
 
           // Búsqueda binaria para encontrar la calidad óptima más rápido
-          let minQuality = 0.1;
-          let maxQuality = 0.95;
+          const minQuality = 0.1;
+          const maxQuality = 0.95;
           let attempts = 0;
           const maxAttempts = 8;
 
@@ -598,7 +598,7 @@ export default function Ordenes() {
     if (!showMapModal) {
       // Limpieza al cerrar
       if (mapRef.current) {
-        try { mapRef.current.remove(); } catch { }
+        try { mapRef.current.remove(); } catch { /* mapa Leaflet ya destruido */ }
         mapRef.current = null;
         markerRef.current = null;
       }
@@ -607,7 +607,7 @@ export default function Ordenes() {
 
     const initFromDireccion = () => {
       const d = (formData.direccion || '').trim();
-      const m = d.match(/q=([\-\d\.]+),([\-\d\.]+)/);
+      const m = d.match(/q=([-\d.]+),([-\d.]+)/);
       if (m) {
         const lat = parseFloat(m[1]);
         const lng = parseFloat(m[2]);
@@ -667,7 +667,7 @@ export default function Ordenes() {
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
         map.on('zoomend', () => {
-          try { zoomRef.current = map.getZoom(); } catch { }
+          try { zoomRef.current = map.getZoom(); } catch { /* zoom durante teardown */ }
         });
         map.on('click', (e: any) => {
           const { lat, lng } = e.latlng;
@@ -679,7 +679,7 @@ export default function Ordenes() {
         if (selectedLocation) {
           markerRef.current = L.marker([selectedLocation.lat, selectedLocation.lng]).addTo(map);
         }
-      } catch (err) {
+      } catch {
         setAlert({ show: true, variant: 'error', title: 'Error de mapa', message: 'No se pudo cargar el mapa interactivo.' });
         setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
       }
@@ -2216,6 +2216,7 @@ export default function Ordenes() {
         onClose={handleCloseModal}
         closeOnBackdropClick={false}
         closeOnEscape={!confirmDelete.open && !photoPreview.open}
+        ariaLabel={`${editingOrden ? "Editar" : "Nueva"} orden de ${tipoOrdenLabel}`}
         className={erpModalShellClass}
       >
         <OrdenFormModalHeader
@@ -3106,6 +3107,7 @@ export default function Ordenes() {
         isOpen={showMapModal}
         onClose={() => setShowMapModal(false)}
         closeOnBackdropClick={false}
+        ariaLabel="Seleccionar ubicación en el mapa"
         className="w-[96vw] sm:w-[90vw] md:w-[80vw] max-w-3xl mx-0 sm:mx-auto"
       >
         <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-3xl">

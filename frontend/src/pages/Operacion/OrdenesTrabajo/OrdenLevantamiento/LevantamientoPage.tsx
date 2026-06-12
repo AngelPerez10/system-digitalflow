@@ -195,7 +195,7 @@ export default function LevantamientoPage() {
 
   const filteredLevantamientos = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let list = levantamientos.filter((o) => {
+    const list = levantamientos.filter((o) => {
       const base = (o?.fecha_inicio ?? o?.fecha_creacion ?? "").toString().slice(0, 10);
       if (selectedMonth && !base.startsWith(selectedMonth)) return false;
 

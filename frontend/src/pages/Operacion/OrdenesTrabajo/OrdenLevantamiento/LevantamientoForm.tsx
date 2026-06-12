@@ -2168,7 +2168,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                       {imgUrl && (
                         <img
                           src={imgUrl}
-                          alt=""
+                          alt={p.modelo || p.titulo || "Producto sugerido"}
                           className="h-14 w-14 object-contain rounded border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-800"
                           style={{ filter: 'none', mixBlendMode: 'normal' }}
                         />

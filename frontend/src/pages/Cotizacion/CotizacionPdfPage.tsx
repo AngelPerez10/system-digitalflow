@@ -438,7 +438,7 @@ export default function CotizacionPdfPage() {
       <div className={erpPageInnerClass}>
         <PageMeta title="PDF Cotización | Digitalflow" description="Vista previa y descarga del PDF de cotización" />
 
-        <Modal isOpen={loading} onClose={() => {}} showCloseButton={false} className="mx-4 max-w-md sm:mx-auto">
+        <Modal isOpen={loading} onClose={() => {}} showCloseButton={false} ariaLabel="Generando PDF de cotización" className="mx-4 max-w-md sm:mx-auto">
           <div className="p-7 sm:p-8" aria-busy="true" aria-live="polite">
             <div className="flex flex-col items-center justify-center text-center">
               <div className="relative mb-6">

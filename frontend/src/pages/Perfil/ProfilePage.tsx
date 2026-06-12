@@ -278,7 +278,7 @@ export default function ProfilePage() {
                           {initials(firstName, lastName, me?.username || "")}
                         </div>
                       ) : (
-                        <img src={avatarImgSrc} alt="" className="h-full w-full object-cover" />
+                        <img src={avatarImgSrc} alt="Foto de perfil" className="h-full w-full object-cover" />
                       )}
                       {!loading && (
                         <button

@@ -18,6 +18,7 @@ import {
   getProductoLink,
   mapIntraxProductoToSyscom,
   type IntraxFuente,
+  type IntraxProductosResponse,
   type SyscomCategoria,
   type SyscomMarca,
   type SyscomProducto,
@@ -130,6 +131,102 @@ const manualToSyscomProducto = (m: ManualProduct): SyscomProducto => ({
   precios: { precio_lista: Number.isFinite(m.precio) ? m.precio : 0 },
 });
 
+const GLOBAL_SEARCH_PAGE_SIZE = 50;
+const SEARCH_DEBOUNCE_MS = 400;
+
+const sliceGlobalSearchPage = (
+  manualRows: SyscomProducto[],
+  catalogStream: SyscomProducto[],
+  pagina: number,
+  catalogTotalEstimate: number,
+): { pageRows: SyscomProducto[]; totalRows: number; totalPages: number; safePage: number } => {
+  const manualCount = manualRows.length;
+  const globalStart = (pagina - 1) * GLOBAL_SEARCH_PAGE_SIZE;
+  const globalEnd = globalStart + GLOBAL_SEARCH_PAGE_SIZE;
+
+  let pageRows: SyscomProducto[] = [];
+  if (globalEnd <= manualCount) {
+    pageRows = manualRows.slice(globalStart, globalEnd);
+  } else {
+    const manualPart = globalStart < manualCount ? manualRows.slice(globalStart, manualCount) : [];
+    const catalogOffset = Math.max(0, globalStart - manualCount);
+    const catalogNeeded = GLOBAL_SEARCH_PAGE_SIZE - manualPart.length;
+    const catalogSlice = catalogStream.slice(catalogOffset, catalogOffset + catalogNeeded);
+    pageRows = [...manualPart, ...catalogSlice];
+  }
+
+  const totalRows = manualCount + catalogTotalEstimate;
+  const totalPages = Math.max(1, Math.ceil(totalRows / GLOBAL_SEARCH_PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, pagina), totalPages);
+  return { pageRows, totalRows, totalPages, safePage };
+};
+
+const matchesManualSearch = (m: ManualProduct, needle: string): boolean => {
+  const q = needle.toLowerCase();
+  return (
+    m.producto.toLowerCase().includes(q) ||
+    m.marca.toLowerCase().includes(q) ||
+    m.modelo.toLowerCase().includes(q)
+  );
+};
+
+const dedupeProductosById = (rows: SyscomProducto[]): SyscomProducto[] => {
+  const seen = new Set<string>();
+  const out: SyscomProducto[] = [];
+  for (const p of rows) {
+    const id = p.producto_id?.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(p);
+  }
+  return out;
+};
+
+const fetchGlobalCatalogPage = async (
+  q: string,
+  page: number,
+  categoriaId: string,
+  marcaId: string,
+  orden: NonNullable<SyscomSearchParams["orden"]>,
+): Promise<{ rows: SyscomProducto[]; syscomTotal: number; syscomPages: number; intraxTotal: number; intraxPages: number }> => {
+  const syscomQuery = buildProductosQuery({
+    busqueda: q,
+    categoria: categoriaId || undefined,
+    marca: marcaId || undefined,
+    pagina: page,
+    orden,
+    ...SYSCOM_BUSQUEDA_AMPLIA,
+  });
+  const [syscomRes, intraxData] = await Promise.all([
+    fetchSyscom(`productos/?${syscomQuery}`),
+    fetchIntraxProductos({ fuente: "syscom", buscar: q, pagina: page, por_pagina: GLOBAL_SEARCH_PAGE_SIZE }).catch(
+      (): IntraxProductosResponse => ({ productos: [] }),
+    ),
+  ]);
+
+  let syscomRows: SyscomProducto[] = [];
+  let syscomTotal = 0;
+  let syscomPages = 1;
+  if (syscomRes.ok) {
+    const data: SyscomProductosResponse = await syscomRes.json().catch(() => ({}));
+    syscomRows = (data.productos ?? []).map((p) => ({ ...p, fuente: p.fuente || "syscom" }));
+    syscomTotal = data.cantidad ?? syscomRows.length;
+    syscomPages = data.paginas ?? 1;
+  }
+
+  const intraxRows = (intraxData.productos ?? []).map(mapIntraxProductoToSyscom);
+  const intraxTotal = intraxData.resumen?.total_resultados ?? intraxRows.length;
+  const intraxPages = intraxData.resumen?.total_paginas ?? 1;
+
+  return {
+    rows: dedupeProductosById([...syscomRows, ...intraxRows]),
+    syscomTotal,
+    syscomPages,
+    intraxTotal,
+    intraxPages,
+  };
+};
+
 const toMoney2 = (v: number) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0; };
 
 function mapApiCatalogError(res: Response, data: unknown): string {
@@ -185,6 +282,8 @@ export default function ProductosPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const productosRef = useRef<SyscomProducto[]>([]);
+  const loadGenerationRef = useRef(0);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [manualProducts, setManualProducts] = useState<ManualProduct[]>([]);
   const [manualModalOpen, setManualModalOpen] = useState(false);
@@ -258,14 +357,85 @@ export default function ProductosPage() {
   const loadProductos = useCallback(async () => {
     if (!catalogReady) return;
     if (!hasFiltro && !autoCatalog) return;
+    const generation = ++loadGenerationRef.current;
+    const isStale = () => generation !== loadGenerationRef.current;
+
     setLoading(true);
     setError(null);
     try {
       if (!isCatalogAuthReady()) {
+        if (isStale()) return;
         setError("Debe iniciar sesión para ver el catálogo.");
         setProductos([]);
         return;
       }
+
+      const q = busqueda.trim();
+      if (q) {
+        const manualRows = manualProducts
+          .filter((m) => matchesManualSearch(m, q))
+          .map(manualToSyscomProducto);
+        const manualCount = manualRows.length;
+        const globalStart = (pagina - 1) * GLOBAL_SEARCH_PAGE_SIZE;
+        const globalEnd = globalStart + GLOBAL_SEARCH_PAGE_SIZE;
+
+        const instant = sliceGlobalSearchPage(manualRows, [], pagina, 0);
+        if (!isStale() && instant.pageRows.length > 0) {
+          setProductos(instant.pageRows);
+          setTotal(instant.totalRows);
+          setPaginas(instant.totalPages);
+        }
+
+        if (globalEnd <= manualCount) {
+          if (!isStale()) setLoading(false);
+          void (async () => {
+            const firstCatalog = await fetchGlobalCatalogPage(q, 1, categoriaId, marcaId, orden);
+            if (isStale()) return;
+            const catalogTotalEstimate = firstCatalog.syscomTotal + firstCatalog.intraxTotal;
+            const { totalRows, totalPages, safePage } = sliceGlobalSearchPage(
+              manualRows,
+              [],
+              pagina,
+              catalogTotalEstimate,
+            );
+            setTotal(totalRows);
+            setPaginas(totalPages);
+            if (safePage !== pagina) setPagina(safePage);
+          })();
+          return;
+        }
+
+        const firstCatalog = await fetchGlobalCatalogPage(q, 1, categoriaId, marcaId, orden);
+        if (isStale()) return;
+
+        const catalogTotalEstimate = firstCatalog.syscomTotal + firstCatalog.intraxTotal;
+        const maxCatalogPages = Math.max(firstCatalog.syscomPages, firstCatalog.intraxPages);
+        const catalogNeededEnd = Math.max(0, globalStart + GLOBAL_SEARCH_PAGE_SIZE - manualCount);
+        const endCatalogPage = Math.max(1, Math.floor((catalogNeededEnd - 1) / GLOBAL_SEARCH_PAGE_SIZE) + 1);
+
+        const catalogChunks: SyscomProducto[] = [...firstCatalog.rows];
+        for (let p = 2; p <= Math.min(endCatalogPage, maxCatalogPages); p++) {
+          const chunk = await fetchGlobalCatalogPage(q, p, categoriaId, marcaId, orden);
+          if (isStale()) return;
+          catalogChunks.push(...chunk.rows);
+        }
+
+        const catalogStream = dedupeProductosById(catalogChunks);
+        const { pageRows, totalRows, totalPages, safePage } = sliceGlobalSearchPage(
+          manualRows,
+          catalogStream,
+          pagina,
+          catalogTotalEstimate,
+        );
+
+        if (isStale()) return;
+        setProductos(pageRows);
+        setPaginas(totalPages);
+        setTotal(totalRows);
+        if (safePage !== pagina) setPagina(safePage);
+        return;
+      }
+
       if (fuente === "manual") {
         const q = busqueda.trim().toLowerCase();
         const filtered = manualProducts.filter((m) => { if (!q) return true; return m.producto.toLowerCase().includes(q) || m.marca.toLowerCase().includes(q) || m.modelo.toLowerCase().includes(q); });
@@ -273,18 +443,21 @@ export default function ProductosPage() {
         const safePage = Math.min(Math.max(1, pagina), totalPages);
         const start = (safePage - 1) * pageSize;
         const rows = filtered.slice(start, start + pageSize).map(manualToSyscomProducto);
+        if (isStale()) return;
         setProductos(rows); setPaginas(totalPages); setTotal(totalRows);
         if (safePage !== pagina) setPagina(safePage); return;
       }
       if (fuente) {
         const isAuto = autoCatalog && !busqueda.trim();
         const data = await fetchIntraxProductos({ fuente, buscar: isAuto ? AUTO_DEFAULT_SEARCH : (busqueda.trim() || undefined), pagina, por_pagina: 50 });
+        if (isStale()) return;
         const intraxProductos = (data.productos ?? []).map(mapIntraxProductoToSyscom);
         setProductos(intraxProductos); setPaginas(data.resumen?.total_paginas ?? 1); setTotal(data.resumen?.total_resultados ?? intraxProductos.length); return;
       }
       const isAuto = autoCatalog && !hasFiltro;
       const query = buildProductosQuery(isAuto ? { busqueda: AUTO_DEFAULT_SEARCH, pagina, orden: "topseller", stock: "1" } : { busqueda: busqueda.trim() || undefined, categoria: categoriaId || undefined, marca: marcaId || undefined, pagina, orden, ...SYSCOM_BUSQUEDA_AMPLIA });
       const res = await fetchSyscom(`productos/?${query}`);
+      if (isStale()) return;
       const data: SyscomProductosResponse = await res.json().catch(() => ({}));
       if (!res.ok) {
         setProductos([]);
@@ -294,10 +467,11 @@ export default function ProductosPage() {
       const productosSyscomConFuente = (data.productos ?? []).map((p) => ({ ...p, fuente: p.fuente || "syscom" }));
       setProductos(productosSyscomConFuente); setPaginas(data.paginas ?? 1); setTotal(data.cantidad ?? 0);
     } catch {
+      if (isStale()) return;
       setProductos([]);
       setError("Error de conexión con el catálogo.");
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, [busqueda, categoriaId, marcaId, orden, pagina, hasFiltro, autoCatalog, fuente, manualProducts, catalogReady]);
 
@@ -314,7 +488,12 @@ export default function ProductosPage() {
 
   useEffect(() => {
     if (!detailModalOpen || !selectedProductId) { setDetailProduct(null); return; }
-    if (fuente) { const intraxProduct = productosRef.current.find((p) => p.producto_id === selectedProductId); setDetailProduct((intraxProduct as SyscomProductoDetalle) ?? null); setLoadingDetail(false); return; }
+    const listedProduct = productosRef.current.find((p) => p.producto_id === selectedProductId);
+    if (listedProduct?.fuente === "manual" || fuente) {
+      setDetailProduct((listedProduct as SyscomProductoDetalle) ?? null);
+      setLoadingDetail(false);
+      return;
+    }
     if (!isCatalogAuthReady()) return;
     setLoadingDetail(true);
     setDetailProduct(null);
@@ -324,10 +503,51 @@ export default function ProductosPage() {
   const openDetailModal = (productId: string) => { setSelectedProductId(productId); setDetailModalOpen(true); };
   const closeDetailModal = () => { setDetailModalOpen(false); setSelectedProductId(null); setDetailProduct(null); };
 
-  const handleSearch = (e: React.FormEvent) => { e.preventDefault(); const q = busquedaInput.trim(); setBusqueda(q); setAutoCatalog(!q && !categoriaId && !marcaId && !fuente); setPagina(1); };
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
+
+  const applySearchQuery = useCallback(
+    (raw: string) => {
+      const v = raw.trim();
+      setBusqueda(v);
+      setAutoCatalog(!v && !categoriaId && !marcaId && !fuente);
+      setPagina(1);
+    },
+    [categoriaId, marcaId, fuente],
+  );
+
+  const handleSearchInputChange = useCallback(
+    (raw: string) => {
+      setBusquedaInput(raw);
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = setTimeout(() => {
+        applySearchQuery(raw);
+      }, SEARCH_DEBOUNCE_MS);
+    },
+    [applySearchQuery],
+  );
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    applySearchQuery(busquedaInput);
+  };
   const resetPage = useCallback(() => setPagina(1), []);
 
-  const clearFiltros = () => { setBusquedaInput(""); setBusqueda(""); setCategoriaId(""); setMarcaId(""); setFuente(""); setOrden("relevancia"); setAutoCatalog(true); setPagina(1); };
+  const clearFiltros = () => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    setBusquedaInput("");
+    setBusqueda("");
+    setCategoriaId("");
+    setMarcaId("");
+    setFuente("");
+    setOrden("relevancia");
+    setAutoCatalog(true);
+    setPagina(1);
+  };
 
   const openCreateManual = () => { setEditingManualId(null); setManualFormError(""); setManualForm({ imagen_url: "", producto: "", caracteristicas: "", marca: "", modelo: "", precio: "", stock: "" }); setManualModalOpen(true); };
   const openEditManual = (id: string) => { const p = manualProducts.find((x) => x.id === id); if (!p) return; setEditingManualId(id); setManualFormError(""); setManualForm({ imagen_url: p.imagen_url || "", producto: p.producto || "", caracteristicas: p.caracteristicas || "", marca: p.marca || "", modelo: p.modelo || "", precio: String(p.precio ?? 0), stock: String(p.stock ?? 0) }); setManualModalOpen(true); };
@@ -355,7 +575,15 @@ export default function ProductosPage() {
 
   const confirmDeleteManual = async () => {
     if (!manualDeleteId || !catalogReady) return;
-    try { const res = await fetchApi(`/api/productos-manuales/${manualDeleteId}/`, { method: "DELETE" }); if (!res.ok) return; await fetchManualProducts(); setManualProducts((prev) => prev.filter((x) => x.id !== manualDeleteId)); setManualDeleteId(null); } catch {}
+    try {
+      const res = await fetchApi(`/api/productos-manuales/${manualDeleteId}/`, { method: "DELETE" });
+      if (!res.ok) return;
+      await fetchManualProducts();
+      setManualProducts((prev) => prev.filter((x) => x.id !== manualDeleteId));
+      setManualDeleteId(null);
+    } catch {
+      setManualFormError("Error de conexión al eliminar producto manual.");
+    }
   };
 
   return (
@@ -391,7 +619,7 @@ export default function ProductosPage() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]">
                 <div className="relative">
                   <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b] sm:left-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-                  <input id="search-input" type="text" value={busquedaInput} onChange={(e) => { const q = e.target.value; setBusquedaInput(q); const v = q.trim(); setBusqueda(v); setAutoCatalog(!v && !categoriaId && !marcaId && !fuente); setPagina(1); }} placeholder="Buscar por producto, marca o modelo..." className={`${claudeSearchInput} pr-11`} />
+                  <input id="search-input" type="text" value={busquedaInput} onChange={(e) => handleSearchInputChange(e.target.value)} placeholder="Buscar por producto, marca o modelo..." className={`${claudeSearchInput} pr-11`} />
                 </div>
                 <div className="flex items-end gap-2 md:self-end">
                   <button type="button" onClick={() => openCreateManual()} className={claudePrimaryBtn}>
@@ -475,7 +703,7 @@ export default function ProductosPage() {
                       {productos.map((p) => (
                         <div key={p.producto_id} role="button" tabIndex={0} onClick={() => openDetailModal(p.producto_id)} onKeyDown={(e) => e.key === "Enter" && openDetailModal(p.producto_id)} className="flex cursor-pointer gap-3 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-3 transition hover:border-[#d6d3d1] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#475569]/80">
                           <div className="w-16 h-16 shrink-0 rounded-lg bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center overflow-hidden">
-                            {getProductoImageUrl(p.img_portada) ? (<img src={getProductoImageUrl(p.img_portada)!} alt="" className="w-full h-full object-contain" loading="lazy" />) : (<span className="text-[10px] text-gray-400">—</span>)}
+                            {getProductoImageUrl(p.img_portada) ? (<img src={getProductoImageUrl(p.img_portada)!} alt={p.titulo} className="w-full h-full object-contain" loading="lazy" />) : (<span className="text-[10px] text-gray-400">—</span>)}
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">{p.titulo}</p>
@@ -520,7 +748,7 @@ export default function ProductosPage() {
                             const imgUrl = getProductoImageUrl(p.img_portada); const link = getProductoLink(p);
                             return (
                               <TableRow key={p.producto_id} className="hover:bg-[#fff7ed]/80 dark:hover:bg-[#1e293b]/50">
-                                <TableCell className="px-3 py-2 w-[64px] align-middle"><div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center overflow-hidden shrink-0">{imgUrl ? (<img src={imgUrl} alt="" className="w-full h-full object-contain" loading="lazy" />) : (<span className="text-[10px] text-gray-400">—</span>)}</div></TableCell>
+                                <TableCell className="px-3 py-2 w-[64px] align-middle"><div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center overflow-hidden shrink-0">{imgUrl ? (<img src={imgUrl} alt={p.titulo} className="w-full h-full object-contain" loading="lazy" />) : (<span className="text-[10px] text-gray-400">—</span>)}</div></TableCell>
                                 <TableCell className="px-3 py-2 min-w-[200px] max-w-[280px]"><button type="button" onClick={() => openDetailModal(p.producto_id)} className="block w-full text-left truncate text-gray-900 dark:text-white hover:text-[#ff801f] dark:hover:text-[#ffa057] hover:underline font-medium" title={p.titulo}>{p.titulo}</button></TableCell>
                                 <TableCell className="px-3 py-2 w-[100px] whitespace-nowrap">{p.marca}</TableCell>
                                 <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap">{p.modelo}</TableCell>
@@ -563,7 +791,7 @@ export default function ProductosPage() {
         </div>
       </div>
 
-      <Modal isOpen={detailModalOpen} onClose={closeDetailModal} className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:rounded-2xl">
+      <Modal isOpen={detailModalOpen} onClose={closeDetailModal} ariaLabel="Detalle de producto" className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:rounded-2xl">
         <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 pr-14 dark:border-[#334155] dark:bg-[#111827]">
           <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
           <div className="flex items-start gap-3">
@@ -580,8 +808,8 @@ export default function ProductosPage() {
               {imageUrls.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"><svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>Galería</div>
-                  <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 overflow-hidden"><div className="aspect-square max-h-80 w-full flex items-center justify-center p-4"><img src={mainImage} alt="" className="max-h-full w-full object-contain" /></div>
-                    {imageUrls.length > 1 && (<div className="flex gap-2 p-3 border-t border-gray-100 dark:border-gray-700 overflow-x-auto">{imageUrls.map((url, i) => (<button key={i} type="button" onClick={() => setSelectedImageIndex(i)} className={`shrink-0 w-14 h-14 rounded-lg border-2 overflow-hidden flex items-center justify-center transition ${i === selectedImageIndex ? "border-[#ff801f] dark:border-[#ffa057] ring-2 ring-[#ff801f]/25 dark:ring-[#ff801f]/25" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}><img src={url} alt="" className="w-full h-full object-contain" /></button>))}</div>)}
+                  <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 overflow-hidden"><div className="aspect-square max-h-80 w-full flex items-center justify-center p-4"><img src={mainImage} alt={detailProduct.titulo} className="max-h-full w-full object-contain" /></div>
+                    {imageUrls.length > 1 && (<div className="flex gap-2 p-3 border-t border-gray-100 dark:border-gray-700 overflow-x-auto">{imageUrls.map((url, i) => (<button key={i} type="button" onClick={() => setSelectedImageIndex(i)} className={`shrink-0 w-14 h-14 rounded-lg border-2 overflow-hidden flex items-center justify-center transition ${i === selectedImageIndex ? "border-[#ff801f] dark:border-[#ffa057] ring-2 ring-[#ff801f]/25 dark:ring-[#ff801f]/25" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}><img src={url} alt={`${detailProduct.titulo} — imagen ${i + 1}`} className="w-full h-full object-contain" /></button>))}</div>)}
                   </div>
                 </div>
               )}
@@ -605,7 +833,7 @@ export default function ProductosPage() {
         })()}
       </Modal>
 
-      <Modal isOpen={manualModalOpen} onClose={() => setManualModalOpen(false)} closeOnBackdropClick={false} className="flex max-h-[min(92vh,760px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-[#273244] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:w-[min(96vw,42rem)] sm:rounded-2xl">
+      <Modal isOpen={manualModalOpen} onClose={() => setManualModalOpen(false)} closeOnBackdropClick={false} ariaLabel="Formulario de producto manual" className="flex max-h-[min(92vh,760px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-[#273244] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:w-[min(96vw,42rem)] sm:rounded-2xl">
         <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-[#111827] sm:pr-16">
           <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
           <div className="flex items-start gap-3">
@@ -705,7 +933,7 @@ export default function ProductosPage() {
         </div>
       </Modal>
 
-      <Modal isOpen={!!manualDeleteId} onClose={() => setManualDeleteId(null)} closeOnBackdropClick={false} className="w-full max-w-sm overflow-hidden rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] dark:border-[#273244] dark:bg-[#111a2b] sm:rounded-xl">
+      <Modal isOpen={!!manualDeleteId} onClose={() => setManualDeleteId(null)} closeOnBackdropClick={false} ariaLabel="Confirmar eliminación de producto manual" className="w-full max-w-sm overflow-hidden rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] dark:border-[#273244] dark:bg-[#111a2b] sm:rounded-xl">
         <div className="p-5">
           <div className="mb-4 flex items-start gap-3">
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ff801f] dark:text-[#ffa057]">

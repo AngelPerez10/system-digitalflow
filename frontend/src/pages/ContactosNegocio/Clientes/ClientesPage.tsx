@@ -767,6 +767,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
         isOpen={showModal}
         onClose={handleCloseModal}
         closeOnBackdropClick={false}
+        ariaLabel="Formulario de cliente"
         className="w-full max-w-5xl overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_30px_90px_-45px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111a2b]"
       >
         <div className="bg-[#fffdfa] dark:bg-[#111a2b]">
@@ -861,6 +862,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
               mobileBottomSheet
               isOpen={showDeleteModal}
               onClose={handleCancelDelete}
+              ariaLabel="Confirmar eliminación de cliente"
               className="w-[94vw] max-w-md overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"
             >
               <div>

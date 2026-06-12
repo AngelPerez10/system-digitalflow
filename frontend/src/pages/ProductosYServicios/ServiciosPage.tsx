@@ -173,7 +173,9 @@ const formatApiErrors = (txt: string): string => {
       });
       return parts.join(" | ");
     }
-  } catch { }
+  } catch {
+    // Mantener texto original si el payload no es JSON estructurado
+  }
   return txt;
 };
 
@@ -296,7 +298,9 @@ export default function Servicios() {
     if (listAbortRef.current) {
       try {
         listAbortRef.current.abort();
-      } catch { }
+      } catch {
+        // AbortController puede lanzar si la petición ya terminó
+      }
     }
     const controller = new AbortController();
     listAbortRef.current = controller;
@@ -1134,6 +1138,7 @@ export default function Servicios() {
           isOpen={showModal}
           onClose={handleCloseModal}
           closeOnBackdropClick={false}
+          ariaLabel="Formulario de servicio"
           className="mx-4 w-full max-w-3xl max-h-[92vh] p-0 overflow-hidden rounded-2xl border border-gray-200/75 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:mx-auto"
         >
           <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
@@ -1228,6 +1233,7 @@ export default function Servicios() {
         isOpen={showConceptoModal}
         onClose={handleCloseConceptoModal}
         closeOnBackdropClick={false}
+        ariaLabel="Formulario de concepto"
         className="mx-4 flex max-h-[min(92vh,920px)] w-full max-w-2xl flex-col p-0 overflow-hidden rounded-2xl border border-gray-200/75 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-white/[0.08] dark:bg-gray-900 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:mx-auto"
       >
         <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
@@ -1382,7 +1388,7 @@ export default function Servicios() {
       </Modal>
 
         {servicioToDelete && (
-          <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="w-[94vw] max-w-md p-0 overflow-hidden">
+          <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} ariaLabel="Eliminar servicio" className="w-[94vw] max-w-md p-0 overflow-hidden">
             <div>
               <div className="px-6 pt-6 pb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Eliminar Servicio</h3>
@@ -1414,7 +1420,7 @@ export default function Servicios() {
         )}
 
       {conceptoToDelete && (
-        <Modal isOpen={showDeleteConceptoModal} onClose={handleCancelDeleteConcepto} className="w-[94vw] max-w-md p-0 overflow-hidden">
+        <Modal isOpen={showDeleteConceptoModal} onClose={handleCancelDeleteConcepto} ariaLabel="Eliminar concepto" className="w-[94vw] max-w-md p-0 overflow-hidden">
           <div>
             <div className="px-6 pt-6 pb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Eliminar Concepto</h3>
