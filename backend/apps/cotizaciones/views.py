@@ -1,10 +1,11 @@
 """ViewSets for cotizaciones app."""
 import io
 import logging
+import re
 from types import SimpleNamespace
 
 from django.db import models as django_models
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch, Q, Sum
 from django.http import HttpResponse
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
@@ -12,6 +13,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from PIL import Image as PILImage
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from apps.common.pdf_html import subtotal_iva_display_split as _subtotal_iva_display_split
@@ -27,6 +29,47 @@ logger = logging.getLogger(__name__)
 
 IVA_MX_DISPLAY = 1.16
 ANTICIPO_PCT = 60
+_MONTH_RE = re.compile(r"^(\d{4})-(\d{2})$")
+
+
+def _parse_year_month(value: str) -> tuple[int, int] | None:
+    match = _MONTH_RE.match((value or "").strip())
+    if not match:
+        return None
+    year = int(match.group(1))
+    month = int(match.group(2))
+    if month < 1 or month > 12:
+        return None
+    return year, month
+
+
+def _aggregate_month_stats(queryset):
+    """Totales por status para el mes filtrado (misma regla que el listado en frontend)."""
+    total = float(queryset.aggregate(t=Sum("total"))["t"] or 0)
+    autorizadas = float(
+        queryset.filter(status="AUTORIZADA").aggregate(t=Sum("total"))["t"] or 0
+    )
+    canceladas = float(
+        queryset.filter(status="CANCELADA").aggregate(t=Sum("total"))["t"] or 0
+    )
+    pendientes = float(
+        queryset.filter(
+            Q(status="PENDIENTE") | Q(status="") | Q(status__isnull=True)
+        ).aggregate(t=Sum("total"))["t"]
+        or 0
+    )
+    return {
+        "total": total,
+        "autorizadas": autorizadas,
+        "pendientes": pendientes,
+        "canceladas": canceladas,
+    }
+
+
+class CotizacionPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = "page_size"
+    max_page_size = 500
 
 
 def _cotizacion_item_line_totals(
@@ -438,7 +481,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     queryset = Cotizacion.objects.all()
     serializer_class = CotizacionSerializer
     permission_classes = [CotizacionesPermission]
-    pagination_class = None
+    pagination_class = CotizacionPagination
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
@@ -448,6 +491,9 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         'creado_por__username',
         'creado_por__first_name',
         'creado_por__last_name',
+        'actualizado_por__username',
+        'actualizado_por__first_name',
+        'actualizado_por__last_name',
     ]
     ordering_fields = ['idx', 'fecha', 'medio_contacto', 'status', 'fecha_creacion', 'total']
     ordering = ['-idx']
@@ -473,7 +519,41 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             own_only = user_module_own_only(user, 'cotizaciones')
             if own_only:
                 queryset = queryset.filter(Q(creado_por=user) | Q(actualizado_por=user))
+
+        search = (self.request.query_params.get('search') or '').strip()
+        if not search:
+            parsed = _parse_year_month(self.request.query_params.get('month') or '')
+            if parsed:
+                year, month = parsed
+                queryset = queryset.filter(fecha__year=year, fecha__month=month)
+
         return queryset.order_by('-idx')
+
+    def paginate_queryset(self, queryset):
+        """Paginar solo cuando el cliente pide listado filtrado (mes, búsqueda o página)."""
+        params = self.request.query_params
+        if not any(params.get(key) for key in ('page', 'page_size', 'month', 'search')):
+            return None
+        return super().paginate_queryset(queryset)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        search = (request.query_params.get('search') or '').strip()
+        month = (request.query_params.get('month') or '').strip()
+        month_stats = None
+        if month and not search:
+            month_stats = _aggregate_month_stats(queryset)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            if month_stats is not None:
+                response.data['month_stats'] = month_stats
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def _generate_pdf_html(self, cotizacion: Cotizacion, pdf_opciones=None) -> str:
         from .pdf_templates import generate_cotizacion_pdf_html

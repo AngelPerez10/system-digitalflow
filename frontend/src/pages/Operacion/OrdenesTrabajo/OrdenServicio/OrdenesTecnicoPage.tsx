@@ -1042,8 +1042,13 @@ export default function OrdenesTecnico() {
                   });
                   if (searchRes.ok) {
                     const data = await searchRes.json().catch(() => null);
-                    if (Array.isArray(data) && data.length > 0 && data[0]?.id != null) {
-                      existingCotizacionId = Number(data[0].id);
+                    const searchRows = Array.isArray(data?.results)
+                      ? data.results
+                      : Array.isArray(data)
+                        ? data
+                        : [];
+                    if (searchRows.length > 0 && searchRows[0]?.id != null) {
+                      existingCotizacionId = Number(searchRows[0].id);
                     }
                   }
                 } catch (searchErr) {

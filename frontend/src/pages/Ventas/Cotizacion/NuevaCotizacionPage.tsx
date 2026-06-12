@@ -644,6 +644,7 @@ export default function NuevaCotizacionPage() {
       try {
         const params = new URLSearchParams();
         params.set("search", cloneSearchDebounced);
+        params.set("page_size", "60");
         const res = await fetchApi(`/api/cotizaciones/?${params.toString()}`);
         const data = await res.json().catch(() => null);
         if (cancelled) return;

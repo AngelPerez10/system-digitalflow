@@ -1,5 +1,5 @@
 import PageMeta from "@/components/common/PageMeta";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import { useNavigate } from "react-router-dom";
 import Alert from "@/components/ui/alert/Alert";
@@ -26,8 +26,17 @@ const medioChipClass =
 const monthNavBtnClass =
   "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-[#fffdfa] text-[#57534e] transition-colors hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]";
 
+const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 400;
+
+type MonthStats = {
+  total: number;
+  autorizadas: number;
+  pendientes: number;
+  canceladas: number;
+};
+
 let lastPermissionsFetchAt = 0;
-let lastCotizacionesFetchAt = 0;
 
 const getCurrentYearMonth = () => {
   const d = new Date();
@@ -62,8 +71,17 @@ export default function CotizacionesPage() {
   };
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [monthStats, setMonthStats] = useState<MonthStats | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchSeqRef = useRef(0);
   const navigate = useNavigate();
+
+  const isSearching = Boolean(searchDebounced.trim());
 
   const [rows, setRows] = useState<CotizacionRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -120,19 +138,27 @@ export default function CotizacionesPage() {
     load();
   }, []);
 
-  const fetchCotizaciones = async () => {
+  const fetchCotizaciones = useCallback(async () => {
     if (!canCotizacionesView) {
       setRows([]);
       return;
     }
 
-    const now = Date.now();
-    if (now - lastCotizacionesFetchAt < 2000) return;
-    lastCotizacionesFetchAt = now;
-
+    const fetchId = ++fetchSeqRef.current;
     setLoading(true);
     try {
-      const res = await fetchApi('/api/cotizaciones/', { method: 'GET' });
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("page_size", String(PAGE_SIZE));
+      if (isSearching) {
+        params.set("search", searchDebounced.trim());
+      } else if (selectedMonth) {
+        params.set("month", selectedMonth);
+      }
+
+      const res = await fetchApi(`/api/cotizaciones/?${params.toString()}`, { method: "GET" });
+      if (fetchId !== fetchSeqRef.current) return;
+
       if (res.status === 401) {
         clearSessionAndGoToLogin();
         return;
@@ -142,49 +168,65 @@ export default function CotizacionesPage() {
         setRows([]);
         return;
       }
-      const list = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
-      const mapped: CotizacionRow[] = (list || []).map((x: any) => {
-        const creado = String(x?.creado_por_full_name || x?.creado_por_username || x?.creadaPor || '—');
-        const editado = String(x?.actualizado_por_full_name || x?.actualizado_por_username || x?.editadaPor || '—');
+      const list = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
+      const mapped: CotizacionRow[] = (list || []).map((x: Record<string, unknown>) => {
+        const creado = String(x?.creado_por_full_name || x?.creado_por_username || x?.creadaPor || "—");
+        const editado = String(x?.actualizado_por_full_name || x?.actualizado_por_username || x?.editadaPor || "—");
         return {
           id: Number(x?.id || 0),
           idx: Number(x?.idx || 0),
-          fecha: String(x?.fecha || ''),
-          medioContacto: String(x?.medio_contacto || x?.medioContacto || '—'),
-          status: String(x?.status || '—'),
+          fecha: String(x?.fecha || ""),
+          medioContacto: String(x?.medio_contacto || x?.medioContacto || "—"),
+          status: String(x?.status || "—"),
           creadaPor: creado,
           editadaPor: editado,
-          cliente: String(x?.cliente || x?.cliente_nombre || '—'),
-          clienteTelefono: String(x?.cliente_telefono || '—'),
-          contacto: String(x?.contacto || '—'),
-          tipoTrabajo: String(x?.tipo_trabajo_nombres || '').trim() || '—',
+          cliente: String(x?.cliente || x?.cliente_nombre || "—"),
+          clienteTelefono: String(x?.cliente_telefono || "—"),
+          contacto: String(x?.contacto || "—"),
+          tipoTrabajo: String(x?.tipo_trabajo_nombres || "").trim() || "—",
           monto: formatMoney(Number(x?.total ?? 0)),
           totalAmount: Number(x?.total ?? 0) || 0,
         };
-      }).filter((x: any) => !!x.id);
+      }).filter((x: CotizacionRow) => !!x.id);
+
       setRows(mapped);
+      const count = Number(data?.count ?? mapped.length);
+      setTotalCount(count);
+      setTotalPages(Math.max(1, Math.ceil(count / PAGE_SIZE)));
+
+      if (!isSearching && data?.month_stats && typeof data.month_stats === "object") {
+        const ms = data.month_stats as Record<string, unknown>;
+        setMonthStats({
+          total: Number(ms.total ?? 0) || 0,
+          autorizadas: Number(ms.autorizadas ?? 0) || 0,
+          pendientes: Number(ms.pendientes ?? 0) || 0,
+          canceladas: Number(ms.canceladas ?? 0) || 0,
+        });
+      }
     } catch {
+      if (fetchId !== fetchSeqRef.current) return;
       setRows([]);
     } finally {
-      setLoading(false);
+      if (fetchId === fetchSeqRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [canCotizacionesView, isSearching, page, searchDebounced, selectedMonth]);
 
   useEffect(() => {
-    fetchCotizaciones();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canCotizacionesView]);
+    void fetchCotizaciones();
+  }, [fetchCotizaciones]);
 
   useEffect(() => {
-    const onUpdated = () => {
-      if (!canCotizacionesView) return;
-      fetchCotizaciones();
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchDebounced(searchTerm.trim());
+      setPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
-
-    window.addEventListener("cotizaciones:updated", onUpdated as any);
-    return () => window.removeEventListener("cotizaciones:updated", onUpdated as any);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canCotizacionesView]);
+  }, [searchTerm]);
 
   const deleteCotizacion = async (id: string) => {
     if (!canCotizacionesDelete) {
@@ -207,6 +249,7 @@ export default function CotizacionesPage() {
         return;
       }
       setRows((prev) => prev.filter((r) => String(r.id) !== sid));
+      void fetchCotizaciones();
       setAlert({ show: true, variant: 'success', title: 'Eliminada', message: 'Cotización eliminada.' });
       window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2000);
     } catch {
@@ -278,53 +321,40 @@ export default function CotizacionesPage() {
     return 'border border-amber-200/80 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/[0.08] dark:text-amber-200';
   };
 
-  const shownList = useMemo(() => {
-    const q = (searchTerm || "").trim().toLowerCase();
-    let list = rows;
-    if (q) {
-      list = rows.filter((r) => {
-        return (
-          String(r.idx || '').toLowerCase().includes(q) ||
-          r.cliente.toLowerCase().includes(q) ||
-          r.contacto.toLowerCase().includes(q) ||
-          r.creadaPor.toLowerCase().includes(q) ||
-          r.editadaPor.toLowerCase().includes(q)
-        );
-      });
-    }
-    if (selectedMonth) {
-      list = list.filter((r) => {
-        const fecha = String(r.fecha || '').trim();
-        return fecha.startsWith(selectedMonth);
-      });
-    }
-    return list;
-  }, [rows, searchTerm, selectedMonth]);
+  useEffect(() => {
+    const onUpdated = () => {
+      if (!canCotizacionesView) return;
+      void fetchCotizaciones();
+    };
 
-  const monthRows = useMemo(() => {
-    if (!selectedMonth) return rows;
-    return rows.filter((r) => String(r.fecha || "").trim().startsWith(selectedMonth));
-  }, [rows, selectedMonth]);
+    window.addEventListener("cotizaciones:updated", onUpdated);
+    return () => window.removeEventListener("cotizaciones:updated", onUpdated);
+  }, [canCotizacionesView, fetchCotizaciones]);
+
+  const clearSearch = () => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    setSearchTerm("");
+    setSearchDebounced("");
+    setPage(1);
+  };
 
   const stats = useMemo(() => {
-    const sumAmount = (list: CotizacionRow[]) =>
-      list.reduce((acc, r) => acc + (Number.isFinite(r.totalAmount) ? r.totalAmount : 0), 0);
-
-    const byStatus = (status: string) =>
-      monthRows.filter((r) => String(r.status || "").toUpperCase() === status);
-
-    const pendientesRows = monthRows.filter((r) => {
-      const s = String(r.status || "").toUpperCase();
-      return s === "PENDIENTE" || !String(r.status || "").trim();
-    });
-
+    const fmt = (n: number) => formatMoney(Number.isFinite(n) ? n : 0);
+    if (monthStats) {
+      return {
+        total: fmt(monthStats.total),
+        autorizadas: fmt(monthStats.autorizadas),
+        pendientes: fmt(monthStats.pendientes),
+        canceladas: fmt(monthStats.canceladas),
+      };
+    }
     return {
-      total: formatMoney(sumAmount(monthRows)),
-      autorizadas: formatMoney(sumAmount(byStatus("AUTORIZADA"))),
-      pendientes: formatMoney(sumAmount(pendientesRows)),
-      canceladas: formatMoney(sumAmount(byStatus("CANCELADA"))),
+      total: fmt(0),
+      autorizadas: fmt(0),
+      pendientes: fmt(0),
+      canceladas: fmt(0),
     };
-  }, [monthRows]);
+  }, [monthStats]);
 
   const handleOpenPdf = (id: number) => navigate(`/cotizacion/${id}/pdf`);
 
@@ -493,13 +523,13 @@ export default function CotizacionesPage() {
               <input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Folio, cliente, contacto o usuario…"
+                placeholder="Buscar por folio, cliente, contacto o usuario…"
                 className={searchInputClass}
               />
               {searchTerm && (
                 <button
                   type="button"
-                  onClick={() => setSearchTerm("")}
+                  onClick={clearSearch}
                   aria-label="Limpiar búsqueda"
                   className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-w-[44px] items-center justify-center rounded-lg text-[#78716c] hover:bg-black/[0.04] hover:text-[#1c1917] dark:text-[#8ea0b8] dark:hover:bg-white/[0.06] dark:hover:text-white"
                 >
@@ -535,7 +565,7 @@ export default function CotizacionesPage() {
             compact
           >
             <CotizacionesMobileList
-              rows={shownList}
+              rows={rows}
               loading={loading}
               formatDMY={formatDMY}
               normalizeMedioLabel={normalizeMedioLabel}
@@ -545,7 +575,7 @@ export default function CotizacionesPage() {
               excelLoading={excelLoading}
             />
             <CotizacionesTable
-              rows={shownList}
+              rows={rows}
               loading={loading}
               formatDMY={formatDMY}
               normalizeMedioLabel={normalizeMedioLabel}
@@ -556,11 +586,55 @@ export default function CotizacionesPage() {
             />
           </ComponentCard>
 
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
-              Mostrando <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{shownList.length}</span> cotizaciones
+              {isSearching ? (
+                <>
+                  {totalCount.toLocaleString("es-MX")} resultado{totalCount === 1 ? "" : "s"} para «{searchDebounced}»
+                  {totalPages > 1 ? ` · página ${page} de ${totalPages}` : ""}
+                </>
+              ) : (
+                <>
+                  Mostrando{" "}
+                  <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{rows.length}</span> de{" "}
+                  <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{totalCount}</span> cotizaciones del mes
+                </>
+              )}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {totalPages > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1 || loading}
+                    className={`${monthNavBtnClass} disabled:cursor-not-allowed disabled:opacity-40`}
+                    title="Página anterior"
+                    aria-label="Página anterior"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M15 18l-6-6 6-6" />
+                    </svg>
+                  </button>
+                  <span className="min-w-[72px] text-center text-[11px] tabular-nums text-[#57534e] dark:text-[#cbd5e1]">
+                    {page} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages || loading}
+                    className={`${monthNavBtnClass} disabled:cursor-not-allowed disabled:opacity-40`}
+                    title="Página siguiente"
+                    aria-label="Página siguiente"
+                  >
+                    <svg className="w-4 h-4 rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M15 18l-6-6 6-6" />
+                    </svg>
+                  </button>
+                </>
+              )}
+              {!isSearching && (
+                <>
               <button
                 type="button"
                 onClick={() => {
@@ -569,9 +643,11 @@ export default function CotizacionesPage() {
                   const d = new Date(ym.year, ym.month - 2, 1);
                   const mm = String(d.getMonth() + 1).padStart(2, '0');
                   setSelectedMonth(`${d.getFullYear()}-${mm}`);
+                  setPage(1);
                 }}
                 className={monthNavBtnClass}
                 title="Mes anterior"
+                aria-label="Mes anterior"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M15 18l-6-6 6-6" />
@@ -593,14 +669,18 @@ export default function CotizacionesPage() {
                   dt.setMonth(dt.getMonth() + 1);
                   const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
                   setSelectedMonth(next);
+                  setPage(1);
                 }}
                 className={monthNavBtnClass}
                 title="Mes siguiente"
+                aria-label="Mes siguiente"
               >
                 <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 18l6-6 6 6" />
                 </svg>
               </button>
+                </>
+              )}
             </div>
           </div>
 
