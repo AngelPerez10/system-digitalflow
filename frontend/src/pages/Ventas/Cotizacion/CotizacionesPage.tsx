@@ -26,7 +26,7 @@ const medioChipClass =
 const monthNavBtnClass =
   "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-[#fffdfa] text-[#57534e] transition-colors hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]";
 
-const PAGE_SIZE = 25;
+const LIST_PAGE_SIZE = 500;
 const SEARCH_DEBOUNCE_MS = 400;
 
 type MonthStats = {
@@ -73,9 +73,7 @@ export default function CotizacionesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
-  const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
   const [monthStats, setMonthStats] = useState<MonthStats | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetchSeqRef = useRef(0);
@@ -148,8 +146,8 @@ export default function CotizacionesPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("page_size", String(PAGE_SIZE));
+      params.set("page", "1");
+      params.set("page_size", String(LIST_PAGE_SIZE));
       if (isSearching) {
         params.set("search", searchDebounced.trim());
       } else if (selectedMonth) {
@@ -190,9 +188,7 @@ export default function CotizacionesPage() {
       }).filter((x: CotizacionRow) => !!x.id);
 
       setRows(mapped);
-      const count = Number(data?.count ?? mapped.length);
-      setTotalCount(count);
-      setTotalPages(Math.max(1, Math.ceil(count / PAGE_SIZE)));
+      setTotalCount(Number(data?.count ?? mapped.length));
 
       if (!isSearching && data?.month_stats && typeof data.month_stats === "object") {
         const ms = data.month_stats as Record<string, unknown>;
@@ -211,7 +207,7 @@ export default function CotizacionesPage() {
         setLoading(false);
       }
     }
-  }, [canCotizacionesView, isSearching, page, searchDebounced, selectedMonth]);
+  }, [canCotizacionesView, isSearching, searchDebounced, selectedMonth]);
 
   useEffect(() => {
     void fetchCotizaciones();
@@ -221,7 +217,6 @@ export default function CotizacionesPage() {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       setSearchDebounced(searchTerm.trim());
-      setPage(1);
     }, SEARCH_DEBOUNCE_MS);
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -335,7 +330,6 @@ export default function CotizacionesPage() {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     setSearchTerm("");
     setSearchDebounced("");
-    setPage(1);
   };
 
   const stats = useMemo(() => {
@@ -591,123 +585,60 @@ export default function CotizacionesPage() {
               {isSearching ? (
                 <>
                   {totalCount.toLocaleString("es-MX")} resultado{totalCount === 1 ? "" : "s"} para «{searchDebounced}»
-                  {totalPages > 1 ? ` · página ${page} de ${totalPages}` : ""}
                 </>
               ) : (
                 <>
                   Mostrando{" "}
-                  <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{rows.length}</span> de{" "}
-                  <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{totalCount}</span> cotizaciones del mes
-                  {totalPages > 1 && (
-                    <span className="ml-1.5 inline-flex items-center gap-1 tabular-nums">
-                      <span aria-hidden>·</span>
-                      <button
-                        type="button"
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        disabled={page <= 1 || loading}
-                        className="font-medium text-[#57534e] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#cbd5e1]"
-                      >
-                        Anterior
-                      </button>
-                      <span>
-                        {page}/{totalPages}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={page >= totalPages || loading}
-                        className="font-medium text-[#57534e] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#cbd5e1]"
-                      >
-                        Siguiente
-                      </button>
-                    </span>
-                  )}
+                  <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{totalCount}</span> cotizaciones
                 </>
               )}
             </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {isSearching && totalPages > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page <= 1 || loading}
-                    className={`${monthNavBtnClass} disabled:cursor-not-allowed disabled:opacity-40`}
-                    title="Página anterior"
-                    aria-label="Página anterior"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M15 18l-6-6 6-6" />
-                    </svg>
-                  </button>
-                  <span className="min-w-[72px] text-center text-[11px] tabular-nums text-[#57534e] dark:text-[#cbd5e1]">
-                    {page} / {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page >= totalPages || loading}
-                    className={`${monthNavBtnClass} disabled:cursor-not-allowed disabled:opacity-40`}
-                    title="Página siguiente"
-                    aria-label="Página siguiente"
-                  >
-                    <svg className="w-4 h-4 rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M15 18l-6-6 6-6" />
-                    </svg>
-                  </button>
-                </>
-              )}
-              {!isSearching && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const ym = parseYearMonth(selectedMonth);
-                      if (!ym) return;
-                      const d = new Date(ym.year, ym.month - 2, 1);
-                      const mm = String(d.getMonth() + 1).padStart(2, "0");
-                      setSelectedMonth(`${d.getFullYear()}-${mm}`);
-                      setPage(1);
-                    }}
-                    className={monthNavBtnClass}
-                    title="Mes anterior"
-                    aria-label="Mes anterior"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M15 18l-6-6 6-6" />
-                    </svg>
-                  </button>
-                  <span className="min-w-[130px] text-center text-[11px] text-[#57534e] sm:min-w-[160px] sm:text-[12px] dark:text-[#cbd5e1]">
-                    {(() => {
-                      const ym = parseYearMonth(selectedMonth);
-                      if (!ym) return selectedMonth || "Todos los meses";
-                      return new Date(ym.year, ym.month - 1, 1).toLocaleDateString("es-MX", {
-                        month: "long",
-                        year: "numeric",
-                      });
-                    })()}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const ym = parseYearMonth(selectedMonth);
-                      if (!ym) return;
-                      const dt = new Date(ym.year, ym.month - 1, 1);
-                      dt.setMonth(dt.getMonth() + 1);
-                      const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
-                      setSelectedMonth(next);
-                      setPage(1);
-                    }}
-                    className={monthNavBtnClass}
-                    title="Mes siguiente"
-                    aria-label="Mes siguiente"
-                  >
-                    <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 18l6-6 6 6" />
-                    </svg>
-                  </button>
-                </>
-              )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const ym = parseYearMonth(selectedMonth);
+                  if (!ym) return;
+                  const d = new Date(ym.year, ym.month - 2, 1);
+                  const mm = String(d.getMonth() + 1).padStart(2, "0");
+                  setSelectedMonth(`${d.getFullYear()}-${mm}`);
+                }}
+                className={monthNavBtnClass}
+                title="Mes anterior"
+                aria-label="Mes anterior"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+              <span className="min-w-[130px] text-center text-[11px] text-[#57534e] sm:min-w-[160px] sm:text-[12px] dark:text-[#cbd5e1]">
+                {(() => {
+                  const ym = parseYearMonth(selectedMonth);
+                  if (!ym) return selectedMonth || "Todos los meses";
+                  return new Date(ym.year, ym.month - 1, 1).toLocaleDateString("es-MX", {
+                    month: "long",
+                    year: "numeric",
+                  });
+                })()}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const ym = parseYearMonth(selectedMonth);
+                  if (!ym) return;
+                  const dt = new Date(ym.year, ym.month - 1, 1);
+                  dt.setMonth(dt.getMonth() + 1);
+                  const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+                  setSelectedMonth(next);
+                }}
+                className={monthNavBtnClass}
+                title="Mes siguiente"
+                aria-label="Mes siguiente"
+              >
+                <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 18l6-6 6 6" />
+                </svg>
+              </button>
             </div>
           </div>
 
