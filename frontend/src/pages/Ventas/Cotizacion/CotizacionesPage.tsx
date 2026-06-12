@@ -598,11 +598,35 @@ export default function CotizacionesPage() {
                   Mostrando{" "}
                   <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{rows.length}</span> de{" "}
                   <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{totalCount}</span> cotizaciones del mes
+                  {totalPages > 1 && (
+                    <span className="ml-1.5 inline-flex items-center gap-1 tabular-nums">
+                      <span aria-hidden>·</span>
+                      <button
+                        type="button"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page <= 1 || loading}
+                        className="font-medium text-[#57534e] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#cbd5e1]"
+                      >
+                        Anterior
+                      </button>
+                      <span>
+                        {page}/{totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={page >= totalPages || loading}
+                        className="font-medium text-[#57534e] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#cbd5e1]"
+                      >
+                        Siguiente
+                      </button>
+                    </span>
+                  )}
                 </>
               )}
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              {totalPages > 1 && (
+              {isSearching && totalPages > 1 && (
                 <>
                   <button
                     type="button"
@@ -635,50 +659,53 @@ export default function CotizacionesPage() {
               )}
               {!isSearching && (
                 <>
-              <button
-                type="button"
-                onClick={() => {
-                  const ym = parseYearMonth(selectedMonth);
-                  if (!ym) return;
-                  const d = new Date(ym.year, ym.month - 2, 1);
-                  const mm = String(d.getMonth() + 1).padStart(2, '0');
-                  setSelectedMonth(`${d.getFullYear()}-${mm}`);
-                  setPage(1);
-                }}
-                className={monthNavBtnClass}
-                title="Mes anterior"
-                aria-label="Mes anterior"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
-              </button>
-              <span className="min-w-[130px] text-center text-[11px] text-[#57534e] sm:min-w-[160px] sm:text-[12px] dark:text-[#cbd5e1]">
-                {(() => {
-                  const ym = parseYearMonth(selectedMonth);
-                  if (!ym) return selectedMonth || 'Todos los meses';
-                  return new Date(ym.year, ym.month - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
-                })()}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  const ym = parseYearMonth(selectedMonth);
-                  if (!ym) return;
-                  const dt = new Date(ym.year, ym.month - 1, 1);
-                  dt.setMonth(dt.getMonth() + 1);
-                  const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
-                  setSelectedMonth(next);
-                  setPage(1);
-                }}
-                className={monthNavBtnClass}
-                title="Mes siguiente"
-                aria-label="Mes siguiente"
-              >
-                <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 18l6-6 6 6" />
-                </svg>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ym = parseYearMonth(selectedMonth);
+                      if (!ym) return;
+                      const d = new Date(ym.year, ym.month - 2, 1);
+                      const mm = String(d.getMonth() + 1).padStart(2, "0");
+                      setSelectedMonth(`${d.getFullYear()}-${mm}`);
+                      setPage(1);
+                    }}
+                    className={monthNavBtnClass}
+                    title="Mes anterior"
+                    aria-label="Mes anterior"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M15 18l-6-6 6-6" />
+                    </svg>
+                  </button>
+                  <span className="min-w-[130px] text-center text-[11px] text-[#57534e] sm:min-w-[160px] sm:text-[12px] dark:text-[#cbd5e1]">
+                    {(() => {
+                      const ym = parseYearMonth(selectedMonth);
+                      if (!ym) return selectedMonth || "Todos los meses";
+                      return new Date(ym.year, ym.month - 1, 1).toLocaleDateString("es-MX", {
+                        month: "long",
+                        year: "numeric",
+                      });
+                    })()}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ym = parseYearMonth(selectedMonth);
+                      if (!ym) return;
+                      const dt = new Date(ym.year, ym.month - 1, 1);
+                      dt.setMonth(dt.getMonth() + 1);
+                      const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+                      setSelectedMonth(next);
+                      setPage(1);
+                    }}
+                    className={monthNavBtnClass}
+                    title="Mes siguiente"
+                    aria-label="Mes siguiente"
+                  >
+                    <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 18l6-6 6 6" />
+                    </svg>
+                  </button>
                 </>
               )}
             </div>
