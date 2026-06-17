@@ -154,6 +154,7 @@ En `backend/config/middleware.py`, las peticiones a `/api/*` con cabecera `Autho
 
 - HTML de cotizaciones: `backend/apps/cotizaciones/pdf_templates/cotizacion.py`
 - HTML de órdenes: `backend/apps/ordenes/pdf_templates/orden.py`
+- HTML de facturas CFDI (SICAR): `backend/apps/cotizaciones/sicar_cfdi_pdf.py`
 - Helpers compartidos: `backend/apps/common/pdf_html.py`, `backend/apps/common/pdf_images.py`
 
 ## No hacer

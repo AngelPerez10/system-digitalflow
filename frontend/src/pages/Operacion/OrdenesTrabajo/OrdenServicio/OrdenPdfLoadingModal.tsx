@@ -6,9 +6,18 @@ type OrdenPdfLoadingModalProps = {
   open: boolean;
   /** true = descarga directa (orden resuelta); false = generación + vista previa */
   downloading?: boolean;
+  title?: string;
+  hint?: string;
+  footerHint?: string;
 };
 
-export function OrdenPdfLoadingModal({ open, downloading = false }: OrdenPdfLoadingModalProps) {
+export function OrdenPdfLoadingModal({
+  open,
+  downloading = false,
+  title: titleProp,
+  hint: hintProp,
+  footerHint: footerHintProp,
+}: OrdenPdfLoadingModalProps) {
   const [loadingProgress, setLoadingProgress] = useState(8);
 
   useEffect(() => {
@@ -35,11 +44,13 @@ export function OrdenPdfLoadingModal({ open, downloading = false }: OrdenPdfLoad
 
   const titleId = useId();
   const pct = Math.min(open ? 99 : 100, Math.max(0, Math.round(loadingProgress)));
-  const title = downloading ? "Descargando PDF" : "Generando PDF";
-  const hint = downloading
-    ? "Se descargará el archivo al terminar. No cierre esta ventana."
-    : "Puede incluir fotos y firmas. No cierre esta ventana.";
-  const footerHint = downloading ? "Preparando descarga…" : "Preparando archivo…";
+  const title = titleProp ?? (downloading ? "Descargando PDF" : "Generando PDF");
+  const hint =
+    hintProp ??
+    (downloading
+      ? "Se descargará el archivo al terminar. No cierre esta ventana."
+      : "Puede incluir fotos y firmas. No cierre esta ventana.");
+  const footerHint = footerHintProp ?? (downloading ? "Preparando descarga…" : "Preparando archivo…");
 
   return (
     <Modal

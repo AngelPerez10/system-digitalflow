@@ -1,5 +1,6 @@
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
+import { PdfDocGlyph } from "@/components/icons/PdfDocGlyph";
 import { fetchApi } from "@/config/api";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
@@ -8,12 +9,12 @@ import {
   erpCardShellClass,
   erpCardShellMutedClass,
   erpHeroHeadingClass,
-  erpPrimaryBtnClass,
   erpSansStyle,
   erpSearchInputClass,
   erpTableHeaderClass,
   erpTableWrapClass,
 } from "@/layout/erpPageStyles";
+import { OrdenPdfLoadingModal } from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenPdfLoadingModal";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -136,6 +137,9 @@ type CfdiDownloadKind = "xml" | "pdf";
 const outlineDownloadBtnClass =
   "inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-[#e7ded0] bg-white px-3 py-2 text-sm font-medium text-[#57534e] transition-colors hover:bg-[#fffdf8] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80";
 
+const cfdiActionIconBtnClass =
+  "inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-[#57534e] transition hover:border-[#ff801f] hover:text-[#ea580c] disabled:pointer-events-none disabled:opacity-50 dark:border-white/10 dark:bg-gray-800 dark:text-[#cbd5e1] dark:hover:border-[#ffa057] dark:hover:text-[#ffa057]";
+
 function parseContentDispositionFilename(header: string | null): string | null {
   const match = header?.match(/filename="?([^";]+)"?/i);
   return match?.[1] ? String(match[1]) : null;
@@ -224,6 +228,7 @@ export default function FacturasCfdiPage() {
   const [detailTables, setDetailTables] = useState<SicarDetailTables>({});
   const [downloadingFile, setDownloadingFile] = useState<CfdiDownloadKind | null>(null);
   const [downloadError, setDownloadError] = useState("");
+  const [pdfLoadingOpen, setPdfLoadingOpen] = useState(false);
 
   const isSearching = Boolean(busqueda.trim());
 
@@ -413,6 +418,10 @@ export default function FacturasCfdiPage() {
   };
 
   const handleDownloadCfdi = async (row: SicarFacturaRow, kind: CfdiDownloadKind) => {
+    if (kind === "pdf") {
+      await handleDownloadPdf(row, true);
+      return;
+    }
     setDownloadingFile(kind);
     setDownloadError("");
     const result = await downloadCfdiFile(row.fcf_id, kind, cfdiFallbackFilename(row, kind));
@@ -420,6 +429,21 @@ export default function FacturasCfdiPage() {
       setDownloadError(result.message || `No se pudo descargar el ${kind.toUpperCase()}.`);
     }
     setDownloadingFile(null);
+  };
+
+  const handleDownloadPdf = async (row: SicarFacturaRow, fromDetail = false) => {
+    setPdfLoadingOpen(true);
+    if (fromDetail) setDownloadError("");
+    try {
+      const result = await downloadCfdiFile(row.fcf_id, "pdf", cfdiFallbackFilename(row, "pdf"));
+      if (!result.ok) {
+        const message = result.message || "No se pudo descargar el PDF.";
+        if (fromDetail) setDownloadError(message);
+        else setError(message);
+      }
+    } finally {
+      setPdfLoadingOpen(false);
+    }
   };
 
   const tableNames = useMemo(() => Object.keys(detailTables || {}), [detailTables]);
@@ -615,7 +639,7 @@ export default function FacturasCfdiPage() {
                   <TableCell isHeader className="w-[140px] px-2 py-2 text-left">
                     UUID
                   </TableCell>
-                  <TableCell isHeader className="w-[96px] px-2 py-2 text-center">
+                  <TableCell isHeader className="w-[118px] px-2 py-2 text-center">
                     Acciones
                   </TableCell>
                 </TableRow>
@@ -671,33 +695,42 @@ export default function FacturasCfdiPage() {
                         </span>
                       </TableCell>
                       <TableCell className="px-2 py-2 text-center align-top">
-                        <div className="flex flex-col items-center gap-1.5">
+                        <div className="inline-flex items-center justify-center gap-1 rounded-md bg-gray-100 px-1 py-1 dark:bg-white/10">
                           <button
                             type="button"
-                            onClick={() => void openDetail(r)}
+                            title="Ver detalle"
                             aria-label={`Ver detalle del CFDI ${r.serie_folio || r.fcf_id}`}
-                            className={`${erpPrimaryBtnClass} !min-h-[36px] !w-auto !px-3 !py-1.5 !text-xs`}
+                            onClick={() => void openDetail(r)}
+                            className={cfdiActionIconBtnClass}
                           >
-                            Ver detalle
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" strokeLinecap="round" strokeLinejoin="round" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
                           </button>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => void handleDownloadCfdi(r, "xml")}
-                              aria-label={`Descargar XML ${r.serie_folio || r.fcf_id}`}
-                              className="inline-flex min-h-[32px] items-center rounded-md border border-[#e7ded0] bg-white px-2 py-1 text-[10px] font-medium text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]/80"
-                            >
-                              XML
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleDownloadCfdi(r, "pdf")}
-                              aria-label={`Descargar PDF ${r.serie_folio || r.fcf_id}`}
-                              className="inline-flex min-h-[32px] items-center rounded-md border border-[#e7ded0] bg-white px-2 py-1 text-[10px] font-medium text-[#57534e] hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]/80"
-                            >
-                              PDF
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            title="Descargar XML"
+                            aria-label={`Descargar XML ${r.serie_folio || r.fcf_id}`}
+                            disabled={pdfLoadingOpen}
+                            onClick={() => void handleDownloadCfdi(r, "xml")}
+                            className={cfdiActionIconBtnClass}
+                          >
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                              <path d="M8 3h8l3 3v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" strokeLinejoin="round" />
+                              <path d="M9 13h6M9 17h4M9 9h1" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            title="Descargar PDF"
+                            aria-label={`Descargar PDF ${r.serie_folio || r.fcf_id}`}
+                            disabled={pdfLoadingOpen}
+                            onClick={() => void handleDownloadPdf(r)}
+                            className={`${cfdiActionIconBtnClass} hover:border-red-400 hover:text-red-600 dark:hover:border-red-500`}
+                          >
+                            <PdfDocGlyph className="h-4 w-4" />
+                          </button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1018,6 +1051,14 @@ export default function FacturasCfdiPage() {
             </div>
           ) : null}
         </Modal>
+
+        <OrdenPdfLoadingModal
+          open={pdfLoadingOpen}
+          downloading
+          title="Generando PDF"
+          hint="Preparando la representación impresa del CFDI. No cierre esta ventana."
+          footerHint="Preparando archivo…"
+        />
       </div>
     </div>
   );

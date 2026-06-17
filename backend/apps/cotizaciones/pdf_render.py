@@ -156,7 +156,8 @@ def _try_playwright(html: str, size: str, landscape: bool, timeout: int) -> byte
                 format=fmt,
                 landscape=landscape,
                 print_background=True,
-                margin={"top": "10mm", "right": "10mm", "bottom": "10mm", "left": "10mm"},
+                prefer_css_page_size=True,
+                margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
             )
         finally:
             browser.close()

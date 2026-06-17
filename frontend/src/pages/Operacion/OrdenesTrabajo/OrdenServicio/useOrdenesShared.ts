@@ -103,6 +103,68 @@ export const formatYmdToDMY = (ymd: string | null | undefined): string => {
 export const normalizeStatus = (value: unknown): string =>
   String(value || "").trim().toLowerCase();
 
+type OrdenSearchInput = {
+  idx?: number;
+  folio?: string | null;
+  cliente?: string;
+  nombre_cliente?: string;
+  telefono_cliente?: string;
+  problematica?: string;
+  nombre_encargado?: string;
+  direccion?: string;
+  status?: string;
+  tecnico_asignado?: number | null;
+  tecnico_asignado_full_name?: string;
+  tecnico_asignado_username?: string;
+};
+
+/** Coincide con folio, cliente, técnico, estado y campos ya buscables. */
+export function ordenMatchesSearch(
+  orden: OrdenSearchInput,
+  query: string,
+  usuarios?: Pick<Usuario, "id" | "first_name" | "last_name" | "email" | "username">[],
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  const folio = String(orden.folio ?? "").trim().toLowerCase();
+  const idx = orden.idx != null ? String(orden.idx) : "";
+
+  let tecnicoText = "";
+  const tecId = orden.tecnico_asignado != null ? Number(orden.tecnico_asignado) : null;
+  if (tecId && Array.isArray(usuarios)) {
+    const u = usuarios.find((x) => x.id === tecId);
+    if (u) {
+      tecnicoText = (
+        u.first_name && u.last_name
+          ? `${u.first_name} ${u.last_name}`
+          : (u.username || u.email || "")
+      ).toLowerCase();
+    }
+  }
+  if (!tecnicoText && orden.tecnico_asignado_full_name) {
+    tecnicoText = orden.tecnico_asignado_full_name.toLowerCase();
+  }
+  if (!tecnicoText && orden.tecnico_asignado_username) {
+    tecnicoText = orden.tecnico_asignado_username.toLowerCase();
+  }
+
+  const parts = [
+    folio,
+    idx,
+    orden.cliente,
+    orden.nombre_cliente,
+    orden.telefono_cliente,
+    orden.problematica,
+    orden.nombre_encargado,
+    orden.direccion,
+    normalizeStatus(orden.status),
+    tecnicoText,
+  ];
+
+  return parts.some((p) => p && String(p).toLowerCase().includes(q));
+}
+
 /** Órdenes cerradas: PDF sin vista previa, solo descarga. */
 export const isOrdenPdfDirectDownload = (status: unknown): boolean => {
   const s = normalizeStatus(status);

@@ -163,12 +163,13 @@ def _sicar_config_or_response():
 
 
 def _fetch_factura_archivos(cursor, fcf_id: int) -> dict | None:
-    """Solo lectura: facturacfdi + XML/QR desde xmlcfdi."""
+    """Solo lectura: facturacfdi + XML/QR desde xmlcfdi + diasCredito del cliente."""
     cursor.execute(
         f"""
-        SELECT f.*, x.cfdi AS xml_cfdi, x.cbb AS cbb_png
+        SELECT f.*, x.cfdi AS xml_cfdi, x.cbb AS cbb_png, c.diasCredito AS diasCredito
         FROM {PRIMARY_TABLE} f
         LEFT JOIN xmlcfdi x ON x.xcf_id = f.xcf_id
+        LEFT JOIN cliente c ON c.cli_id = f.cli_id
         WHERE f.{PRIMARY_KEY} = %s
         LIMIT 1
         """,
@@ -419,7 +420,7 @@ class SicarFacturaPdfView(APIView):
                 return response
 
             try:
-                pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)
+                pdf_bytes = render_html_to_pdf(html, size="Letter", landscape=False, timeout=90)
             except PdfRenderError:
                 logger.exception("PDF CFDI render failed fcf_id=%s", fcf_id)
                 return Response({"detail": "No se pudo generar el PDF."}, status=502)

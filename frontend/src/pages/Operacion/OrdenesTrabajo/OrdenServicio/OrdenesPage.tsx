@@ -30,7 +30,7 @@ import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog
 import { PencilIcon, TrashBinIcon, TimeIcon } from "@/icons";
 import { MobileOrderList } from "./MobileOrderCard";
 import { OrdenPdfLoadingModal } from "./OrdenPdfLoadingModal";
-import { downloadOrdenesMesPdf, handleOrdenPdfClick } from "./useOrdenesShared";
+import { downloadOrdenesMesPdf, handleOrdenPdfClick, ordenMatchesSearch } from "./useOrdenesShared";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
@@ -1491,16 +1491,9 @@ export default function Ordenes() {
     if (!Array.isArray(ordenes)) return [];
     const q = (searchTerm || '').trim().toLowerCase();
     const list = ordenes.filter(o => {
-      // filtro por texto
-      const matchText = !q || (
-        o.cliente?.toLowerCase().includes(q) ||
-        o.telefono_cliente?.includes(q) ||
-        o.problematica?.toLowerCase().includes(q) ||
-        o.nombre_encargado?.toLowerCase().includes(q)
-      );
-      if (!matchText) return false;
-      // filtro por mes
-      if (selectedMonth) {
+      if (!ordenMatchesSearch(o, q, usuarios)) return false;
+      // Con búsqueda activa: todas las órdenes; sin búsqueda: filtro por mes
+      if (!q && selectedMonth) {
         const month = selectedMonth; // YYYY-MM
         const fecha = (o.fecha_inicio || o.fecha_creacion || '').toString();
         const matchMonth = fecha.startsWith(month);
@@ -1540,7 +1533,7 @@ export default function Ordenes() {
       const bid = Number((b as any).id || 0);
       return bid - aid;
     });
-  }, [ordenes, searchTerm, selectedMonth, filterStatus, filterServicio, filterDate]);
+  }, [ordenes, searchTerm, selectedMonth, filterStatus, filterServicio, filterDate, usuarios]);
 
   const startIndex = 0;
   const currentOrdenes = shownList;
