@@ -1,0 +1,1806 @@
+﻿{
+  "fcf_id": 3988,
+  "tables": {
+    "facturacfdi": [
+      {
+        "field": "fcf_id",
+        "type": "bigint(20)",
+        "null": "NO",
+        "key": "PRI",
+        "default": null
+      },
+      {
+        "field": "serieFolio",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "UNI",
+        "default": null
+      },
+      {
+        "field": "folio",
+        "type": "bigint(20)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "nombreE",
+        "type": "varchar(1000)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "rfcE",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "domicilioE",
+        "type": "varchar(212)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "localidadE",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "ciudadE",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "estadoE",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "paisE",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "codPosE",
+        "type": "varchar(10)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "telefonoE",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "celularE",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "mailE",
+        "type": "varchar(255)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "cuentaE",
+        "type": "varchar(512)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "coloniaE",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "nombreC",
+        "type": "varchar(1000)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "rfcC",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "domicilioC",
+        "type": "varchar(212)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "localidadC",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "ciudadC",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "estadoC",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "paisC",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "codPosC",
+        "type": "varchar(10)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "telefonoC",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "coloniaC",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "regClaveC",
+        "type": "varchar(5)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "regimenC",
+        "type": "varchar(255)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "fecha",
+        "type": "datetime",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "subtotal0",
+        "type": "decimal(20,2)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "subtotal",
+        "type": "decimal(20,2)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "descuento",
+        "type": "decimal(20,2)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "total",
+        "type": "decimal(20,2)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "letra",
+        "type": "varchar(150)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "subtotalNor",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "descuentoFac",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "monSubtotal0",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "monSubtotal",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "monDescuento",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "monTotal",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "monCambio",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "monLetra",
+        "type": "varchar(150)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "monSubtotalNor",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "monDescuentoFac",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "monAbr",
+        "type": "varchar(5)",
+        "null": "NO",
+        "key": "",
+        "default": "MXN"
+      },
+      {
+        "field": "monTipoCambio",
+        "type": "decimal(20,6)",
+        "null": "NO",
+        "key": "",
+        "default": "1.000000"
+      },
+      {
+        "field": "formaPago",
+        "type": "varchar(100)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "metodoPago",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "efectos",
+        "type": "varchar(70)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "cadenaOriginal",
+        "type": "longtext",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "versionCfdi",
+        "type": "varchar(10)",
+        "null": "NO",
+        "key": "",
+        "default": "3.0"
+      },
+      {
+        "field": "noCertificado",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "regimen",
+        "type": "varchar(261)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "domicilioUbi",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "noExtUbi",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "noIntUbi",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "coloniaUbi",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "localidadUbi",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "ciudadUbi",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "estadoUbi",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "paisUbi",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "codigoPostalUbi",
+        "type": "varchar(10)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "moneda",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": "Peso Mexicano"
+      },
+      {
+        "field": "noSerieCert",
+        "type": "varchar(255)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "fechaCert",
+        "type": "datetime",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "selloDigital",
+        "type": "text",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "selloSat",
+        "type": "text",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "uuid",
+        "type": "varchar(255)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "usoCfdi",
+        "type": "varchar(255)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "comentario",
+        "type": "varchar(255)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "decimales",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "",
+        "default": "2"
+      },
+      {
+        "field": "porPeriodo",
+        "type": "tinyint(1)",
+        "null": "NO",
+        "key": "",
+        "default": "0"
+      },
+      {
+        "field": "consumo",
+        "type": "tinyint(1)",
+        "null": "NO",
+        "key": "",
+        "default": "0"
+      },
+      {
+        "field": "peso",
+        "type": "decimal(20,4)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "totalCompra",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "totalUtilidad",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "subtotalCompra",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "subtotalUtilidad",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "fechaCan",
+        "type": "datetime",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "trasladaImpuestos",
+        "type": "tinyint(1)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "desglosarVentas",
+        "type": "tinyint(1)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "status",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "cli_id",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "MUL",
+        "default": null
+      },
+      {
+        "field": "scf_id",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "MUL",
+        "default": null
+      },
+      {
+        "field": "xcf_id",
+        "type": "bigint(20)",
+        "null": "NO",
+        "key": "MUL",
+        "default": null
+      },
+      {
+        "field": "caj_id",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "MUL",
+        "default": null
+      },
+      {
+        "field": "mon_id",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "MUL",
+        "default": "1"
+      },
+      {
+        "field": "cfdiRel",
+        "type": "bigint(20)",
+        "null": "YES",
+        "key": "MUL",
+        "default": null
+      }
+    ],
+    "facturacfdiimp": [
+      {
+        "field": "fcf_id",
+        "type": "bigint(20)",
+        "null": "NO",
+        "key": "PRI",
+        "default": null
+      },
+      {
+        "field": "imp_id",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "PRI",
+        "default": null
+      },
+      {
+        "field": "total",
+        "type": "decimal(20,2)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "monTotal",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "subtotal",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "monSubtotal",
+        "type": "decimal(20,2)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "tipoFactor",
+        "type": "varchar(15)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "nombreImp",
+        "type": "varchar(20)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "valor",
+        "type": "decimal(20,6)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "tras",
+        "type": "tinyint(1)",
+        "null": "NO",
+        "key": "",
+        "default": "1"
+      },
+      {
+        "field": "orden",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "",
+        "default": "0"
+      },
+      {
+        "field": "aplicaIVA",
+        "type": "tinyint(1)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      }
+    ],
+    "facturacfdiven": [
+      {
+        "field": "fcf_id",
+        "type": "bigint(20)",
+        "null": "NO",
+        "key": "PRI",
+        "default": null
+      },
+      {
+        "field": "ven_id",
+        "type": "bigint(20)",
+        "null": "NO",
+        "key": "PRI",
+        "default": null
+      },
+      {
+        "field": "status",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "",
+        "default": "1"
+      }
+    ],
+    "xmlcfdi": [
+      {
+        "field": "xcf_id",
+        "type": "bigint(20)",
+        "null": "NO",
+        "key": "PRI",
+        "default": null
+      },
+      {
+        "field": "cfdi",
+        "type": "longblob",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "cbb",
+        "type": "longblob",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "ackCan",
+        "type": "longblob",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "ackCfdi",
+        "type": "longblob",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "timbrado",
+        "type": "tinyint(1)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      }
+    ],
+    "cliente": [
+      {
+        "field": "cli_id",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "PRI",
+        "default": null
+      },
+      {
+        "field": "nombre",
+        "type": "varchar(1000)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "representante",
+        "type": "varchar(1000)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "domicilio",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "noExt",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "noInt",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "localidad",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "ciudad",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "estado",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "pais",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "codigoPostal",
+        "type": "varchar(10)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "colonia",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "rfc",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "curp",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "telefono",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "celular",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "mail",
+        "type": "varchar(255)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "comentario",
+        "type": "varchar(255)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "status",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "limite",
+        "type": "decimal(20,2)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "precio",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "diasCredito",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "retener",
+        "type": "tinyint(1)",
+        "null": "NO",
+        "key": "",
+        "default": "0"
+      },
+      {
+        "field": "desglosarIEPS",
+        "type": "tinyint(1)",
+        "null": "NO",
+        "key": "",
+        "default": "0"
+      },
+      {
+        "field": "notificar",
+        "type": "tinyint(1)",
+        "null": "NO",
+        "key": "",
+        "default": "1"
+      },
+      {
+        "field": "clave",
+        "type": "varchar(45)",
+        "null": "YES",
+        "key": "UNI",
+        "default": null
+      },
+      {
+        "field": "foto",
+        "type": "longblob",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "huella",
+        "type": "longblob",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "muestra",
+        "type": "longblob",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "usoCfdi",
+        "type": "varchar(10)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "idCIF",
+        "type": "varchar(20)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "sid",
+        "type": "varchar(15)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "eduNivel",
+        "type": "varchar(128)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "eduClave",
+        "type": "varchar(128)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "eduRfc",
+        "type": "varchar(45)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "eduNombre",
+        "type": "varchar(120)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "grc_id",
+        "type": "int(11)",
+        "null": "YES",
+        "key": "MUL",
+        "default": null
+      },
+      {
+        "field": "rgf_id",
+        "type": "int(11)",
+        "null": "YES",
+        "key": "MUL",
+        "default": null
+      }
+    ],
+    "seriecfdi": [
+      {
+        "field": "scf_id",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "PRI",
+        "default": null
+      },
+      {
+        "field": "serie",
+        "type": "varchar(20)",
+        "null": "NO",
+        "key": "UNI",
+        "default": null
+      },
+      {
+        "field": "folioIni",
+        "type": "bigint(20)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "emp_id",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "MUL",
+        "default": null
+      }
+    ],
+    "empresa": [
+      {
+        "field": "emp_id",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "PRI",
+        "default": null
+      },
+      {
+        "field": "nombre",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "domicilio",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "ciudad",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "estado",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "codigoPostal",
+        "type": "varchar(10)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "telefono",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "celular",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "mail",
+        "type": "varchar(255)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "nombreFiscal",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "domicilioFiscal",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "noExt",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "noInt",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "coloniaFiscal",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "localidad",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "ciudadFiscal",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "estadoFiscal",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "paisFiscal",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "codigoPostalFiscal",
+        "type": "varchar(10)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "domicilioUbi",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "noExtUbi",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "noIntUbi",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "coloniaUbi",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "localidadUbi",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "ciudadUbi",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "estadoUbi",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "paisUbi",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "codigoPostalUbi",
+        "type": "varchar(10)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "regimen",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "cuenta",
+        "type": "varchar(512)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "rfc",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "idCIF",
+        "type": "varchar(20)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "curp",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "usuario",
+        "type": "varchar(100)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "password",
+        "type": "varchar(100)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "claveApi",
+        "type": "varchar(255)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "giro",
+        "type": "varchar(90)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "otroGiro",
+        "type": "varchar(90)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "caCmp",
+        "type": "varchar(255)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "nickName",
+        "type": "varchar(100)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "codDis",
+        "type": "varchar(100)",
+        "null": "NO",
+        "key": "",
+        "default": ""
+      },
+      {
+        "field": "idDis",
+        "type": "bigint(20)",
+        "null": "NO",
+        "key": "",
+        "default": "-1"
+      },
+      {
+        "field": "ciec",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "logo",
+        "type": "longblob",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "eid",
+        "type": "varchar(100)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "uto",
+        "type": "varchar(255)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "sicid",
+        "type": "varchar(255)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "sucsid",
+        "type": "varchar(45)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "ligaCotAuto",
+        "type": "tinyint(1)",
+        "null": "YES",
+        "key": "",
+        "default": "0"
+      },
+      {
+        "field": "ligaVigencia",
+        "type": "int(11)",
+        "null": "YES",
+        "key": "",
+        "default": "7"
+      },
+      {
+        "field": "registroPatronal",
+        "type": "varchar(16)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "eduNivel",
+        "type": "varchar(128)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "eduClave",
+        "type": "varchar(128)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "rgf_id",
+        "type": "int(11)",
+        "null": "YES",
+        "key": "MUL",
+        "default": null
+      }
+    ],
+    "detallesolcfdi": [
+      {
+        "field": "dsc_id",
+        "type": "bigint(20)",
+        "null": "NO",
+        "key": "PRI",
+        "default": null
+      },
+      {
+        "field": "uuid",
+        "type": "varchar(255)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "serieFolio",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "fecha",
+        "type": "datetime",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "rfcEmisor",
+        "type": "varchar(45)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "nombreEmisor",
+        "type": "varchar(120)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "tipoCambio",
+        "type": "decimal(20,6)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "moneda",
+        "type": "varchar(5)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "total",
+        "type": "decimal(20,2)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "status",
+        "type": "int(11)",
+        "null": "NO",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "validacionesFallidas",
+        "type": "varchar(255)",
+        "null": "YES",
+        "key": "",
+        "default": null
+      },
+      {
+        "field": "scm_id",
+        "type": "bigint(20)",
+        "null": "NO",
+        "key": "MUL",
+        "default": null
+      }
+    ]
+  },
+  "samples": {
+    "facturacfdi": {
+      "fcf_id": 3988,
+      "serieFolio": "IMA-5261",
+      "folio": 5261,
+      "nombreE": "INTERPRO DE MANZANILLO",
+      "rfcE": "IMA200110CI4",
+      "domicilioE": "Av.Elias Zamora Verduzco No. 2074 Int. D, Valle de las Garzas. 2074-D",
+      "localidadE": "Manzanillo",
+      "ciudadE": "Manzanillo",
+      "estadoE": "Colima ",
+      "paisE": "M\u00c9XICO",
+      "codPosE": "28219",
+      "telefonoE": "3141130469",
+      "celularE": "3141215830",
+      "mailE": "hola@intrax.mx",
+      "cuentaE": "",
+      "coloniaE": "Valle de las Garzas",
+      "nombreC": "OMG INMOBILIARIA",
+      "rfcC": "OIN140701TS8",
+      "domicilioC": " -",
+      "localidadC": "",
+      "ciudadC": "",
+      "estadoC": "",
+      "paisC": "M\u00c9XICO",
+      "codPosC": "44647",
+      "telefonoC": "",
+      "coloniaC": "",
+      "regClaveC": "601",
+      "regimenC": "General de Ley Personas Morales",
+      "fecha": "2026-06-22 10:24:14",
+      "subtotal0": "0.00",
+      "subtotal": "3288.08",
+      "descuento": "0.00",
+      "total": "3814.17",
+      "letra": "(TRES MIL OCHOCIENTOS CATORCE PESOS 17/100 MN)",
+      "subtotalNor": "1796.70",
+      "descuentoFac": "0.00",
+      "monSubtotal0": null,
+      "monSubtotal": null,
+      "monDescuento": null,
+      "monTotal": null,
+      "monCambio": null,
+      "monLetra": null,
+      "monSubtotalNor": null,
+      "monDescuentoFac": null,
+      "monAbr": "MXN",
+      "monTipoCambio": "1.000000",
+      "formaPago": "99-Por definir",
+      "metodoPago": "PPD-Pago en parcialidades o diferido",
+      "efectos": "Efectos fiscales al pago",
+      "versionCfdi": "4.0",
+      "noCertificado": "00001000000704294828",
+      "regimen": "601-General de Ley Personas Morales",
+      "domicilioUbi": "Av.Elias Zamora Verduzco No.149 Barrio II, Valle de las Garzas.",
+      "noExtUbi": "# 149",
+      "noIntUbi": "",
+      "coloniaUbi": "Valle de las Garzas",
+      "localidadUbi": "Barrio 2",
+      "ciudadUbi": "Manzanillo",
+      "estadoUbi": "colima Estado ",
+      "paisUbi": "M\u00c9XICO",
+      "codigoPostalUbi": "20219",
+      "moneda": "MXN",
+      "noSerieCert": "00001000000705928441",
+      "fechaCert": "2026-06-22 10:24:15",
+      "uuid": "04446CD9-B0D5-49F7-86F8-1200ADA03AAC",
+      "usoCfdi": "G03-Gastos en general",
+      "comentario": "",
+      "decimales": 2,
+      "porPeriodo": 0,
+      "consumo": 0,
+      "peso": "0.0000",
+      "totalCompra": "1247.88",
+      "totalUtilidad": "2566.29",
+      "subtotalCompra": "1075.76",
+      "subtotalUtilidad": "2212.32",
+      "fechaCan": null,
+      "trasladaImpuestos": null,
+      "desglosarVentas": null,
+      "status": 1,
+      "cli_id": 456,
+      "scf_id": 2,
+      "xcf_id": 4480,
+      "caj_id": 1,
+      "mon_id": 1,
+      "cfdiRel": null
+    },
+    "facturacfdiimp": [
+      {
+        "fcf_id": 3988,
+        "imp_id": 1,
+        "total": "526.09",
+        "monTotal": null,
+        "subtotal": "3288.08",
+        "monSubtotal": null,
+        "tipoFactor": "Tasa",
+        "nombreImp": "I.V.A.",
+        "valor": "16.000000",
+        "tras": 1,
+        "orden": 0,
+        "aplicaIVA": 0
+      }
+    ],
+    "facturacfdiven": [
+      {
+        "fcf_id": 3988,
+        "ven_id": 5678,
+        "status": 1
+      }
+    ],
+    "xmlcfdi_meta": {
+      "xcf_id": 4480,
+      "xml_len": 6608,
+      "qr_len": 2091
+    },
+    "seriecfdi": [
+      {
+        "scf_id": 1,
+        "serie": "",
+        "folioIni": 1,
+        "emp_id": 1
+      },
+      {
+        "scf_id": 2,
+        "serie": "IMA",
+        "folioIni": 1603,
+        "emp_id": 1
+      }
+    ],
+    "empresa": [
+      {
+        "emp_id": 1,
+        "nombre": "GRUPO INTRAX SEGURIDAD Y RASTREO",
+        "domicilio": "Av.Elias Zamora Verduzco No. 2074 Int. D, Valle de las Garzas.",
+        "ciudad": "Manzanillo",
+        "estado": "Colima",
+        "codigoPostal": "28219",
+        "telefono": "3141130469",
+        "celular": "3141215830",
+        "mail": "hola@intrax.mx",
+        "nombreFiscal": "INTERPRO DE MANZANILLO",
+        "domicilioFiscal": "Av.Elias Zamora Verduzco No. 2074 Int. D, Valle de las Garzas.",
+        "noExt": "2074",
+        "noInt": "D",
+        "coloniaFiscal": "Valle de las Garzas",
+        "localidad": "Manzanillo",
+        "ciudadFiscal": "Manzanillo",
+        "estadoFiscal": "Colima ",
+        "paisFiscal": "M\u00c9XICO",
+        "codigoPostalFiscal": "28219",
+        "domicilioUbi": "Av.Elias Zamora Verduzco No.149 Barrio II, Valle de las Garzas.",
+        "noExtUbi": "# 149",
+        "noIntUbi": "",
+        "coloniaUbi": "Valle de las Garzas",
+        "localidadUbi": "Barrio 2",
+        "ciudadUbi": "Manzanillo",
+        "estadoUbi": "colima Estado ",
+        "paisUbi": "M\u00c9XICO",
+        "codigoPostalUbi": "20219",
+        "regimen": "",
+        "cuenta": "",
+        "rfc": "IMA200110CI4",
+        "idCIF": "20010251057",
+        "curp": "C.U.R.P.",
+        "usuario": "",
+        "password": "",
+        "claveApi": "UKx0cCNn+u3G6JdGBo0ukvisqahT3yJJet3TbqfCTVsqYOObBWpl7A==",
+        "giro": "OTRO",
+        "otroGiro": "SEGURIDAD, ENERGIA Y RASTREO GPS",
+        "caCmp": null,
+        "nickName": "",
+        "codDis": "PB1Uwlb0+eIM7e8ySibPaw==",
+        "idDis": 8160,
+        "ciec": "",
+        "logo": "<blob 13653>",
+        "eid": "iEz9Gt8L/Zal6TqQDq1ZDA==",
+        "uto": "a58xU6Reuk2w+ABanCZbTv8G01ZnHHl3UoOonL6NF97lgJaJ5TdnS4E9RxkqWweR/9p8spINUI8MvLie0ANrOjRjV9D/bTdvjDTUHaQKF2k3yBWwS2+zKm9/XRH7lBVRlIiOyBIrCq+Y1KWZMcl9CSGlBJ+NghgCqkduEoXTKTn62aDNpZ35E8Td3cWOYdpL",
+        "sicid": "u4J6cmcuMhfWyyafHyAocb71S859q4lc",
+        "sucsid": null,
+        "ligaCotAuto": 0,
+        "ligaVigencia": 7,
+        "registroPatronal": null,
+        "eduNivel": null,
+        "eduClave": null,
+        "rgf_id": 1
+      }
+    ],
+    "detallesolcfdi": []
+  },
+  "related_tables": {
+    "%pac%": [],
+    "%cert%": [],
+    "%folio%": [],
+    "%serie%": [
+      "seriecfdi",
+      "seriecompra",
+      "serienotacredito",
+      "seriepago",
+      "serietraslado",
+      "serieventa"
+    ],
+    "%empresa%": [
+      "empresa"
+    ],
+    "%cfdi%": [
+      "cfdiexp",
+      "detallesolcfdi",
+      "facturacfdi",
+      "facturacfdiimp",
+      "facturacfdiven",
+      "recepcionpagofacturacfdi",
+      "recepcionpagofacturacfdiimp",
+      "recepcionpagofacturacfdiimprestante",
+      "seriecfdi",
+      "solicitudcfdimasiva",
+      "trasladocfdi",
+      "xmlcfdi"
+    ],
+    "%concepto%": [],
+    "%detalle%": [
+      "detallec",
+      "detallecambioprecio",
+      "detallecimp",
+      "detallecom",
+      "detallecomp",
+      "detallecorinvr",
+      "detallecot",
+      "detallecotimpuesto",
+      "detallecotpre",
+      "detallecotpreimpuesto",
+      "detalleelimasart",
+      "detallemerma",
+      "detallen",
+      "detallenimpuesto",
+      "detallenlote",
+      "detallenpro",
+      "detallenproimp",
+      "detallenprolote",
+      "detallep",
+      "detallepaqn",
+      "detallepaqnlote",
+      "detallepaqprod",
+      "detallepaqr",
+      "detallepaqst",
+      "detallepaqt",
+      "detallepaqtlote",
+      "detalleped",
+      "detalleplote",
+      "detalleprod",
+      "detallepromo",
+      "detaller",
+      "detalleremolque",
+      "detallesolcfdi",
+      "detallest",
+      "detallet",
+      "detalletlote",
+      "detalletraslado",
+      "detalletraspasoactivos",
+      "detallev",
+      "detallevimpuesto",
+      "detallevlote",
+      "detallevpromo",
+      "importararticulodetalle"
+    ]
+  }
+}

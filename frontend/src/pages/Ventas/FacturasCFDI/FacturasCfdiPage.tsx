@@ -9,14 +9,20 @@ import {
   erpCardShellClass,
   erpCardShellMutedClass,
   erpHeroHeadingClass,
+  erpPrimaryBtnClass,
   erpSansStyle,
   erpSearchInputClass,
+  erpSecondaryBtnClass,
+  erpSectionLabelClass,
+  erpSubheadingClass,
   erpTableHeaderClass,
   erpTableWrapClass,
 } from "@/layout/erpPageStyles";
 import { OrdenPdfLoadingModal } from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenPdfLoadingModal";
+import { useAuth } from "@/context/AuthContext";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import NuevaFacturaCfdiModal from "./NuevaFacturaCfdiModal";
 
 type SicarFacturaRow = {
   fcf_id: number;
@@ -103,12 +109,6 @@ function mapRow(raw: Record<string, unknown>): SicarFacturaRow {
 
 const DETAIL_MODAL_TITLE_ID = "facturas-cfdi-detalle-title";
 
-const claudeSubheading =
-  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.1rem,1.3vw,1.25rem)] font-medium leading-[1.2] text-gray-900 dark:text-white";
-
-const claudeLabel =
-  "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
-
 const TABLE_LABELS: Record<string, string> = {
   facturacfdi: "Comprobante",
   facturacfdiimp: "Impuestos",
@@ -134,8 +134,20 @@ const formatDetailField = (key: string, value: unknown) => {
 
 type CfdiDownloadKind = "xml" | "pdf";
 
-const outlineDownloadBtnClass =
-  "inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-[#e7ded0] bg-white px-3 py-2 text-sm font-medium text-[#57534e] transition-colors hover:bg-[#fffdf8] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80";
+const detailModalShellClass =
+  "my-3 flex max-h-[min(92dvh,52rem)] w-[calc(100vw-1rem)] max-w-[42rem] min-h-0 flex-col overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_24px_64px_-16px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111a2b] dark:shadow-[0_24px_64px_-16px_rgba(0,0,0,0.55)] sm:my-6 sm:w-[min(94vw,48rem)] sm:max-w-3xl lg:max-w-4xl";
+
+const detailPanelClass =
+  "rounded-2xl border border-[#e7ded0] bg-[#fcfaf6]/80 dark:border-[#334155] dark:bg-[#0f172a]/50";
+
+const detailFieldClass =
+  "rounded-xl border border-[#e7ded0]/90 bg-[#fffdfa] px-3.5 py-3 dark:border-[#334155] dark:bg-[#111827]/60";
+
+const detailLabelClass =
+  "text-[10px] font-semibold uppercase tracking-[0.12em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]";
+
+const detailValueClass =
+  "mt-1.5 break-words text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]";
 
 const cfdiActionIconBtnClass =
   "inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-[#57534e] transition hover:border-[#ff801f] hover:text-[#ea580c] disabled:pointer-events-none disabled:opacity-50 dark:border-white/10 dark:bg-gray-800 dark:text-[#cbd5e1] dark:hover:border-[#ffa057] dark:hover:text-[#ffa057]";
@@ -208,6 +220,8 @@ async function downloadCfdiFile(
 }
 
 export default function FacturasCfdiPage() {
+  const { permissions } = useAuth();
+  const canCreateFactura = permissions?.cotizaciones?.create === true;
   const [rows, setRows] = useState<SicarFacturaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -229,6 +243,7 @@ export default function FacturasCfdiPage() {
   const [downloadingFile, setDownloadingFile] = useState<CfdiDownloadKind | null>(null);
   const [downloadError, setDownloadError] = useState("");
   const [pdfLoadingOpen, setPdfLoadingOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const isSearching = Boolean(busqueda.trim());
 
@@ -487,7 +502,7 @@ export default function FacturasCfdiPage() {
 
         <header className={`relative flex w-full flex-col gap-4 ${erpCardShellClass} p-4 sm:p-6`}>
           <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
-          <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
+          <div className="relative z-[1] flex min-w-0 flex-1 flex-wrap items-start justify-between gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
               <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <path
@@ -552,41 +567,55 @@ export default function FacturasCfdiPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSearch}>
-          <div className="relative">
-            <svg
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b] sm:left-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" />
-            </svg>
-            <input
-              id="cfdi-search-input"
-              type="search"
-              value={busquedaInput}
-              onChange={(e) => handleSearchInputChange(e.target.value)}
-              placeholder="Buscar por folio, cliente, RFC o UUID…"
-              className={`${erpSearchInputClass} pr-11`}
-            />
-            {busquedaInput ? (
-              <button
-                type="button"
-                onClick={clearSearch}
-                aria-label="Limpiar búsqueda"
-                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3">
+          <form onSubmit={handleSearch} className="min-w-0 flex-1">
+            <div className="relative">
+              <svg
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b] sm:left-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden
               >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
-                  <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                </svg>
-              </button>
-            ) : null}
-          </div>
-        </form>
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                id="cfdi-search-input"
+                type="search"
+                value={busquedaInput}
+                onChange={(e) => handleSearchInputChange(e.target.value)}
+                placeholder="Buscar por folio, cliente, RFC o UUID…"
+                className={`${erpSearchInputClass} pr-11`}
+              />
+              {busquedaInput ? (
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  aria-label="Limpiar búsqueda"
+                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
+          </form>
+          {canCreateFactura ? (
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#ff801f] px-4 text-sm font-semibold text-black transition-colors hover:bg-[#ff6a00] sm:h-auto sm:min-h-[44px] sm:w-auto sm:self-stretch sm:px-5"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+              Nueva factura
+            </button>
+          ) : null}
+        </div>
 
         {error ? (
           <div
@@ -595,7 +624,9 @@ export default function FacturasCfdiPage() {
           >
             <p className="text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
             <p className="mt-1 text-xs text-red-700/90 dark:text-red-300/80">
-              Verifica la conexión a SICAR y que el servidor pueda alcanzar la base MySQL.
+              {/tiempo de espera|vpn|red corporativa/i.test(error)
+                ? "Conecta la VPN o la red de la oficina (192.168.10.x) y recarga la página."
+                : "Verifica la conexión a SICAR y que el servidor Django pueda alcanzar la base MySQL."}
             </p>
           </div>
         ) : null}
@@ -839,218 +870,285 @@ export default function FacturasCfdiPage() {
         <Modal
           isOpen={detailOpen}
           onClose={closeDetailModal}
-          ariaLabel="Detalle de CFDI"
-          className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:rounded-2xl"
+          ariaLabelledBy={DETAIL_MODAL_TITLE_ID}
+          className={detailModalShellClass}
         >
-          <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 pr-14 dark:border-[#334155] dark:bg-[#111827]">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-4 py-4 pr-12 dark:border-[#334155] dark:bg-[#111827] sm:px-5 sm:py-5 sm:pr-14">
             <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f] text-black">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" strokeLinejoin="round" />
-                  <path d="M14 2v6h6M8 13h8M8 17h5" strokeLinecap="round" />
-                </svg>
+            <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black shadow-sm sm:h-11 sm:w-11">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" strokeLinejoin="round" />
+                    <path d="M14 2v6h6M8 13h8M8 17h5" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className={erpSectionLabelClass}>Ventas · SICAR · CFDI</p>
+                  <h3 id={DETAIL_MODAL_TITLE_ID} className={`mt-1 ${erpSubheadingClass}`}>
+                    Detalle del comprobante
+                  </h3>
+                  {selectedFactura ? (
+                    <p className="mt-1.5 text-sm leading-snug text-[#57534e] dark:text-[#b7c1d1]">
+                      <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">
+                        {selectedFactura.serie_folio || `Folio #${selectedFactura.fcf_id}`}
+                      </span>
+                      {selectedFactura.nombre_c ? (
+                        <>
+                          <span className="mx-1.5 text-[#d6d3d1] dark:text-[#475569]" aria-hidden>
+                            ·
+                          </span>
+                          <span className="break-words">{selectedFactura.nombre_c}</span>
+                        </>
+                      ) : null}
+                    </p>
+                  ) : (
+                    <p className={`mt-1.5 text-sm ${erpBodyClass}`}>Comprobante fiscal digital timbrado.</p>
+                  )}
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className={claudeLabel}>Ventas · SICAR</p>
-                <h3 id={DETAIL_MODAL_TITLE_ID} className={`mt-1 ${claudeSubheading}`}>
-                  Detalle de CFDI
-                </h3>
-              </div>
+              {selectedFactura ? (
+                <div className="w-full shrink-0 rounded-2xl border border-[#e7ded0] bg-[#fffdfa] px-4 py-3 dark:border-[#334155] dark:bg-[#0f172a]/80 sm:w-auto sm:min-w-[9.5rem] sm:text-right">
+                  <span className={detailLabelClass}>Total timbrado</span>
+                  <span className="mt-1 block text-xl font-semibold tabular-nums text-[#ea580c] dark:text-[#fb923c] sm:text-2xl">
+                    {money(selectedFactura.total)}
+                  </span>
+                  {selectedFactura.subtotal != null ? (
+                    <span className="mt-0.5 block text-xs tabular-nums text-[#78716c] dark:text-[#8ea0b8]">
+                      Subtotal {money(selectedFactura.subtotal)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </header>
 
-          {detailLoading ? (
-            <div className="px-6 py-16 text-center">
-              <div
-                className="inline-flex h-12 w-12 animate-spin rounded-full border-2 border-gray-200 border-t-[#ff801f] dark:border-gray-700 dark:border-t-[#ffa057]"
-                aria-hidden
-              />
-              <p className="mt-4 text-sm text-gray-500 dark:text-gray-400" role="status" aria-live="polite">
-                Cargando detalle…
-              </p>
-            </div>
-          ) : null}
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-[#faf9f5] px-4 py-4 dark:bg-[#0f172a]/40 sm:px-5 sm:py-5">
+            {detailLoading ? (
+              <div className="space-y-4" role="status" aria-live="polite" aria-label="Cargando detalle de CFDI">
+                <div className={`${detailPanelClass} p-5`}>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <div className="h-14 w-14 shrink-0 animate-pulse rounded-2xl bg-[#e7ded0]/80 dark:bg-[#334155]" />
+                    <div className="flex-1 space-y-3">
+                      <div className="h-5 w-2/5 animate-pulse rounded-lg bg-[#e7ded0]/80 dark:bg-[#334155]" />
+                      <div className="h-4 w-3/5 animate-pulse rounded-lg bg-[#e7ded0]/60 dark:bg-[#334155]/80" />
+                    </div>
+                  </div>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="h-16 animate-pulse rounded-xl bg-[#e7ded0]/50 dark:bg-[#334155]/60" />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-center gap-2 py-4 text-sm text-[#78716c] dark:text-[#8ea0b8]">
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                  </svg>
+                  Cargando detalle del CFDI…
+                </div>
+              </div>
+            ) : null}
 
-          {!detailLoading && detailError ? (
-            <div className="p-6">
-              <div className="rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30" role="alert">
-                <p className="text-sm font-medium text-red-800 dark:text-red-300">{detailError}</p>
-                <p className="mt-1 text-xs text-red-700/90 dark:text-red-300/80">
+            {!detailLoading && detailError ? (
+              <div
+                className="rounded-2xl border border-red-200/80 bg-red-50/90 px-5 py-4 dark:border-red-900/40 dark:bg-red-950/30"
+                role="alert"
+              >
+                <p className="text-sm font-semibold text-red-800 dark:text-red-300">{detailError}</p>
+                <p className="mt-1 text-sm text-red-700/90 dark:text-red-300/80">
                   Verifica la conexión a SICAR e intenta de nuevo.
                 </p>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {!detailLoading && !detailError && selectedFactura ? (
-            <div className="space-y-6 p-6">
-              <div className="flex gap-4">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]">
-                  <svg className="h-8 w-8 text-[#ff801f] dark:text-[#ffa057]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                    <path d="M9 12h6m-6 4h6M7 20h10a2 2 0 0 0 2-2V6l-4-4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                    {selectedFactura.serie_folio || `Folio #${selectedFactura.fcf_id}`}
-                  </h4>
-                  <p className="mt-1 truncate text-sm text-gray-600 dark:text-gray-400" title={selectedFactura.nombre_c}>
-                    {selectedFactura.nombre_c || "Sin cliente"}
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span className="inline-flex items-center gap-1.5 text-lg font-semibold tabular-nums text-[#ff801f] dark:text-[#ffa057]">
-                      <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {money(selectedFactura.total)}
-                    </span>
-                    {selectedFactura.subtotal != null ? (
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        Subtotal {money(selectedFactura.subtotal)}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
-                    <div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">RFC receptor</span>
-                      <p className="mt-0.5 font-mono font-medium text-gray-900 dark:text-white">{selectedFactura.rfc_c || "—"}</p>
+            {!detailLoading && !detailError && selectedFactura ? (
+              <div className="min-w-0 space-y-5">
+                <section className={`${detailPanelClass} p-3 sm:p-4`}>
+                  <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4">
+                    <div className={`${detailFieldClass} min-w-0`}>
+                      <span className={detailLabelClass}>RFC receptor</span>
+                      <p className={`${detailValueClass} font-mono text-[13px]`}>{selectedFactura.rfc_c || "—"}</p>
                     </div>
-                    <div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Fecha</span>
-                      <p className="mt-0.5 font-medium text-gray-900 dark:text-white">
+                    <div className={`${detailFieldClass} min-w-0`}>
+                      <span className={detailLabelClass}>Fecha de emisión</span>
+                      <p className={detailValueClass}>
                         {dateOnly(selectedFactura.fecha)}
                         {selectedFactura.fecha ? (
-                          <span className="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400">
+                          <span className="ml-1.5 text-xs font-normal text-[#78716c] dark:text-[#8ea0b8]">
                             {timeOnly(selectedFactura.fecha)}
                           </span>
                         ) : null}
                       </p>
                     </div>
-                    <div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Forma / Método pago</span>
-                      <p className="mt-0.5 font-medium text-gray-900 dark:text-white">
-                        {[selectedFactura.forma_pago, selectedFactura.metodo_pago].filter(Boolean).join(" · ") || "—"}
-                      </p>
+                    <div className={`${detailFieldClass} min-w-0 min-[480px]:col-span-2 xl:col-span-1`}>
+                      <span className={detailLabelClass}>Forma de pago</span>
+                      <p className={`${detailValueClass} text-pretty`}>{selectedFactura.forma_pago || "—"}</p>
                     </div>
-                    <div className="col-span-2 sm:col-span-3">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">UUID</span>
-                      <p className="mt-0.5 break-all font-mono text-xs font-medium text-gray-900 dark:text-white">
-                        {selectedFactura.uuid || "—"}
-                      </p>
+                    <div className={`${detailFieldClass} min-w-0 min-[480px]:col-span-2 xl:col-span-1`}>
+                      <span className={detailLabelClass}>Método de pago</span>
+                      <p className={`${detailValueClass} text-pretty`}>{selectedFactura.metodo_pago || "—"}</p>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#334155] dark:bg-[#0f172a]">
-                <p className="text-xs text-[#57534e] dark:text-[#cbd5e1]">
-                  El <strong>XML</strong> es el comprobante timbrado original de SICAR. El <strong>PDF</strong> se genera
-                  en Digitalflow con los mismos datos (conceptos, totales y código QR).
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={downloadingFile !== null}
-                    onClick={() => selectedFactura && void handleDownloadCfdi(selectedFactura, "xml")}
-                    className={outlineDownloadBtnClass}
-                  >
-                    {downloadingFile === "xml" ? "Descargando XML…" : "Descargar XML"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={downloadingFile !== null}
-                    onClick={() => selectedFactura && void handleDownloadCfdi(selectedFactura, "pdf")}
-                    className={outlineDownloadBtnClass}
-                  >
-                    {downloadingFile === "pdf" ? "Generando PDF…" : "Descargar PDF"}
-                  </button>
-                </div>
-                {downloadError ? (
-                  <p className="mt-2 text-xs text-red-700 dark:text-red-300" role="alert">
-                    {downloadError}
-                  </p>
-                ) : null}
-              </div>
-
-              {mainCfdiRecord ? (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Datos del comprobante</h4>
-                  <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-800/30">
-                    <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                      {Object.entries(mainCfdiRecord).map(([key, value]) => (
-                        <div key={key} className="min-w-0">
-                          <dt className="text-xs text-gray-500 dark:text-gray-400">{key}</dt>
-                          <dd className="mt-0.5 truncate font-medium text-gray-900 dark:text-white" title={formatDetailValue(value)}>
-                            {formatDetailField(key, value)}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
+                  <div className={`${detailFieldClass} mt-3 min-w-0`}>
+                    <span className={detailLabelClass}>UUID (folio fiscal)</span>
+                    <p className="mt-1.5 break-all font-mono text-[11px] leading-relaxed text-[#44403c] dark:text-[#cbd5e1] sm:text-xs">
+                      {selectedFactura.uuid || "—"}
+                    </p>
                   </div>
-                </div>
-              ) : null}
+                </section>
 
-              {tableNames
-                .filter((name) => name !== "facturacfdi")
-                .map((tableName) => {
-                  const items = detailTables[tableName] || [];
-                  const first = items[0] || {};
-                  const columns = Object.keys(first);
-                  const sectionLabel = TABLE_LABELS[tableName] || tableName;
-
-                  return (
-                    <div key={tableName} className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                <section aria-label="Descarga de archivos">
+                  <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <h4 className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">Archivos fiscales</h4>
+                    <span className="text-xs text-[#78716c] dark:text-[#8ea0b8]">XML timbrado y PDF de representación</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      disabled={downloadingFile !== null}
+                      onClick={() => selectedFactura && void handleDownloadCfdi(selectedFactura, "xml")}
+                      className={`${erpSecondaryBtnClass} !min-h-[52px] !w-full !justify-start gap-3 !px-4 !text-left`}
+                    >
+                      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-[#fcfaf6] text-[#57534e] dark:border-[#334155] dark:bg-[#111827] dark:text-[#cbd5e1]">
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                          <path d="M8 3h8l3 3v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" strokeLinejoin="round" />
+                          <path d="M9 13h6M9 17h4M9 9h1" strokeLinecap="round" />
                         </svg>
-                        {sectionLabel}
-                        <span className="rounded-full bg-[#ff801f]/10 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-[#ea580c] dark:text-[#ffa057]">
-                          {items.length} registro{items.length === 1 ? "" : "s"}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                          {downloadingFile === "xml" ? "Descargando…" : "Descargar XML"}
                         </span>
-                      </div>
-                      {items.length === 0 ? (
-                        <div className="rounded-xl border border-gray-100 bg-gray-50/50 px-4 py-6 text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-800/30 dark:text-gray-400">
-                          Sin registros en esta sección.
+                        <span className="mt-0.5 block text-xs font-normal text-[#78716c] dark:text-[#8ea0b8]">
+                          Comprobante original de SICAR
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={downloadingFile !== null}
+                      onClick={() => selectedFactura && void handleDownloadCfdi(selectedFactura, "pdf")}
+                      className={`${erpPrimaryBtnClass} !min-h-[52px] !w-full !justify-start gap-3 !px-4 !text-left`}
+                    >
+                      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/10 text-black">
+                        <PdfDocGlyph className="h-5 w-5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold">
+                          {downloadingFile === "pdf" ? "Generando…" : "Descargar PDF"}
+                        </span>
+                        <span className="mt-0.5 block text-xs font-normal text-black/70">
+                          Representación impresa del CFDI
+                        </span>
+                      </span>
+                    </button>
+                  </div>
+                  {downloadError ? (
+                    <p
+                      className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
+                      role="alert"
+                    >
+                      {downloadError}
+                    </p>
+                  ) : null}
+                </section>
+
+                {mainCfdiRecord ? (
+                  <section className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">Datos del comprobante</h4>
+                      <span className="rounded-full border border-[#e7ded0] bg-[#fffdfa] px-2.5 py-1 text-[11px] font-medium text-[#78716c] dark:border-[#334155] dark:bg-[#111827] dark:text-[#8ea0b8]">
+                        {Object.keys(mainCfdiRecord).length} campos
+                      </span>
+                    </div>
+                    <div className={`${detailPanelClass} min-w-0 p-3 sm:p-4`}>
+                      <dl className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
+                        {Object.entries(mainCfdiRecord).map(([key, value]) => (
+                          <div key={key} className={`${detailFieldClass} min-w-0`}>
+                            <dt className={`${detailLabelClass} break-all`}>{key}</dt>
+                            <dd className={detailValueClass} title={formatDetailValue(value)}>
+                              {formatDetailField(key, value)}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  </section>
+                ) : null}
+
+                {tableNames
+                  .filter((name) => name !== "facturacfdi")
+                  .map((tableName) => {
+                    const items = detailTables[tableName] || [];
+                    const first = items[0] || {};
+                    const columns = Object.keys(first);
+                    const sectionLabel = TABLE_LABELS[tableName] || tableName;
+
+                    return (
+                      <section key={tableName} className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">{sectionLabel}</h4>
+                          <span className="rounded-full bg-[#ff801f]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#ea580c] dark:bg-[#ff801f]/15 dark:text-[#fb923c]">
+                            {items.length} registro{items.length === 1 ? "" : "s"}
+                          </span>
                         </div>
-                      ) : (
-                        <div className={`${erpTableWrapClass} rounded-xl border border-gray-100 dark:border-gray-800`}>
-                          <Table className="min-w-full text-left text-xs">
-                            <TableHeader className={erpTableHeaderClass}>
-                              <TableRow>
-                                {columns.map((c) => (
-                                  <TableCell key={c} isHeader className="whitespace-nowrap px-3 py-2">
-                                    {c}
-                                  </TableCell>
-                                ))}
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody className="divide-y divide-[#f5f0e8] dark:divide-[#334155]/80">
-                              {items.map((row, idx) => (
-                                <TableRow key={`${tableName}-${idx}`} className="hover:bg-[#fffdf8] dark:hover:bg-[#1e293b]/40">
+                        {items.length === 0 ? (
+                          <div className={`${detailPanelClass} px-4 py-8 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]`}>
+                            Sin registros en esta sección.
+                          </div>
+                        ) : (
+                          <>
+                            <p className="mb-2 flex items-center gap-1.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8] sm:hidden">
+                              <span className="inline-block h-px w-4 bg-[#ea580c]/70 dark:bg-[#fb923c]/70" aria-hidden />
+                              Desliza para ver todas las columnas
+                            </p>
+                            <div className={`${erpTableWrapClass} min-w-0 rounded-2xl`}>
+                              <Table className="min-w-[36rem] table-auto text-left text-xs sm:min-w-full">
+                              <TableHeader className={erpTableHeaderClass}>
+                                <TableRow>
                                   {columns.map((c) => (
-                                    <TableCell
-                                      key={`${tableName}-${idx}-${c}`}
-                                      className="max-w-[200px] truncate px-3 py-2 text-[#44403c] dark:text-[#e5e7eb]"
-                                    >
-                                      <span title={formatDetailValue((row as Record<string, unknown>)[c])}>
-                                        {formatDetailField(c, (row as Record<string, unknown>)[c])}
-                                      </span>
+                                    <TableCell key={c} isHeader className="whitespace-nowrap px-3 py-2.5 font-semibold">
+                                      {c}
                                     </TableCell>
                                   ))}
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
-          ) : null}
+                              </TableHeader>
+                              <TableBody className="divide-y divide-[#f5f0e8] dark:divide-[#334155]/80">
+                                {items.map((row, idx) => (
+                                  <TableRow key={`${tableName}-${idx}`} className="hover:bg-[#fffdf8] dark:hover:bg-[#1e293b]/40">
+                                    {columns.map((c) => (
+                                      <TableCell
+                                        key={`${tableName}-${idx}-${c}`}
+                                        className="max-w-[18rem] break-words px-3 py-2.5 align-top text-[#44403c] dark:text-[#e5e7eb]"
+                                      >
+                                        <span title={formatDetailValue((row as Record<string, unknown>)[c])}>
+                                          {formatDetailField(c, (row as Record<string, unknown>)[c])}
+                                        </span>
+                                      </TableCell>
+                                    ))}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                          </>
+                        )}
+                      </section>
+                    );
+                  })}
+              </div>
+            ) : null}
+          </div>
+          </div>
         </Modal>
+
+        <NuevaFacturaCfdiModal
+          isOpen={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => void loadFacturas()}
+        />
 
         <OrdenPdfLoadingModal
           open={pdfLoadingOpen}

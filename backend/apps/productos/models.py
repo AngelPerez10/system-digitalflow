@@ -38,6 +38,7 @@ class Servicio(models.Model):
 class Concepto(models.Model):
     folio = models.CharField(max_length=50, unique=True, db_index=True)
     concepto = models.CharField(max_length=255, blank=False, default='')
+    descripcion = models.TextField(blank=True, default='')
     precio1 = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     imagen_url = models.CharField(max_length=500, blank=True, default='')
 

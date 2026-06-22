@@ -43,6 +43,7 @@ interface Concepto {
   id: number;
   folio: string;
   concepto: string;
+  descripcion?: string;
   precio1: number;
   imagen_url?: string;
 }
@@ -57,6 +58,7 @@ type AlertState = {
 const roundConceptoPrecio = (n: number) => Math.round(Math.max(0, n) * 100) / 100;
 
 const CONCEPTO_IMAGEN_FOLDER = "productos/conceptos";
+const CONCEPTO_DESCRIPCION_MAX = 2000;
 
 const getPublicIdFromUrl = (url: string): string | null => {
   try {
@@ -247,6 +249,7 @@ export default function Servicios() {
   const [conceptoFormData, setConceptoFormData] = useState({
     folio: "",
     concepto: "",
+    descripcion: "",
     precio1: "",
     imagen_url: "",
   });
@@ -365,6 +368,7 @@ export default function Servicios() {
         id: Number(c?.id ?? idx + 1),
         folio: String(c?.folio ?? c?.idx ?? c?.id ?? idx + 1),
         concepto: String(c?.concepto ?? c?.nombre ?? "").trim(),
+        descripcion: String(c?.descripcion ?? "").trim(),
         precio1: Number(c?.precio1 ?? c?.precio ?? 0),
         imagen_url: String(c?.imagen_url ?? "").trim(),
       }));
@@ -387,6 +391,7 @@ export default function Servicios() {
     return conceptos.filter((c) =>
       c.folio.toLowerCase().includes(q) ||
       c.concepto.toLowerCase().includes(q) ||
+      (c.descripcion || "").toLowerCase().includes(q) ||
       String(c.precio1).toLowerCase().includes(q)
     );
   }, [conceptos, debouncedSearch]);
@@ -462,7 +467,7 @@ export default function Servicios() {
     setEditingConcepto(null);
     setConceptoModalError("");
     conceptoInitialImagenRef.current = "";
-    setConceptoFormData({ folio: "", concepto: "", precio1: "", imagen_url: "" });
+    setConceptoFormData({ folio: "", concepto: "", descripcion: "", precio1: "", imagen_url: "" });
     setShowConceptoModal(true);
   };
 
@@ -497,6 +502,7 @@ export default function Servicios() {
     setConceptoFormData({
       folio: c.folio || "",
       concepto: c.concepto || "",
+      descripcion: c.descripcion || "",
       precio1: String(precioBase),
       imagen_url: c.imagen_url || "",
     });
@@ -645,7 +651,7 @@ export default function Servicios() {
     setShowConceptoModal(false);
     setEditingConcepto(null);
     setConceptoModalError("");
-    setConceptoFormData({ folio: "", concepto: "", precio1: "", imagen_url: "" });
+    setConceptoFormData({ folio: "", concepto: "", descripcion: "", precio1: "", imagen_url: "" });
     conceptoInitialImagenRef.current = "";
   };
 
@@ -678,11 +684,17 @@ export default function Servicios() {
       setConceptoModalError("Faltan campos requeridos: Folio y Concepto.");
       return;
     }
+    const descripcion = String(conceptoFormData.descripcion || "").trim();
+    if (descripcion.length > CONCEPTO_DESCRIPCION_MAX) {
+      setConceptoModalError(`La descripción no puede superar ${CONCEPTO_DESCRIPCION_MAX} caracteres.`);
+      return;
+    }
     const basePrecio = Number(conceptoFormData.precio1 || 0);
     const precio1 = roundConceptoPrecio(basePrecio);
     const payload = {
       folio: String(conceptoFormData.folio).trim(),
       concepto: String(conceptoFormData.concepto).trim(),
+      descripcion,
       precio1,
       imagen_url: String(conceptoFormData.imagen_url || "").trim(),
     };
@@ -702,7 +714,7 @@ export default function Servicios() {
       await fetchConceptos();
       setShowConceptoModal(false);
       setEditingConcepto(null);
-      setConceptoFormData({ folio: "", concepto: "", precio1: "", imagen_url: "" });
+      setConceptoFormData({ folio: "", concepto: "", descripcion: "", precio1: "", imagen_url: "" });
       conceptoInitialImagenRef.current = "";
       setAlert({
         show: true,
@@ -923,7 +935,8 @@ export default function Servicios() {
                           <TableRow>
                             <TableCell isHeader className="w-[56px] min-w-[56px] px-3 py-2 text-center text-gray-700 dark:text-gray-300">Img</TableCell>
                             <TableCell isHeader className="w-[140px] min-w-[140px] whitespace-nowrap px-3 py-2 text-left text-gray-700 dark:text-gray-300">Folio</TableCell>
-                            <TableCell isHeader className="min-w-[280px] px-3 py-2 text-left text-gray-700 dark:text-gray-300">Concepto</TableCell>
+                            <TableCell isHeader className="min-w-[200px] px-3 py-2 text-left text-gray-700 dark:text-gray-300">Concepto</TableCell>
+                            <TableCell isHeader className="min-w-[200px] px-3 py-2 text-left text-gray-700 dark:text-gray-300">Descripción</TableCell>
                             <TableCell isHeader className="w-[160px] min-w-[160px] whitespace-nowrap px-3 py-2 text-left text-gray-700 dark:text-gray-300">Precio 1</TableCell>
                             <TableCell isHeader className="w-[112px] min-w-[112px] whitespace-nowrap px-3 py-2 text-center text-gray-700 dark:text-gray-300">Acciones</TableCell>
                           </TableRow>
@@ -994,7 +1007,7 @@ export default function Servicios() {
 
                         {activeView === "conceptos" && loadingConceptos && (
                           <TableRow>
-                            <TableCell className="px-3 py-3" colSpan={5}>Cargando...</TableCell>
+                            <TableCell className="px-3 py-3" colSpan={6}>Cargando...</TableCell>
                           </TableRow>
                         )}
 
@@ -1012,7 +1025,12 @@ export default function Servicios() {
                               )}
                             </TableCell>
                             <TableCell className="px-3 py-2 align-middle">{c.folio}</TableCell>
-                            <TableCell className="px-3 py-2 align-middle">{c.concepto || "-"}</TableCell>
+                            <TableCell className="min-w-0 max-w-[240px] px-3 py-2 align-middle">
+                              <span className="block truncate" title={c.concepto || ""}>{c.concepto || "-"}</span>
+                            </TableCell>
+                            <TableCell className="min-w-[200px] max-w-md px-3 py-2 align-middle">
+                              <span className="block truncate" title={c.descripcion || ""}>{c.descripcion || "-"}</span>
+                            </TableCell>
                             <TableCell className="px-3 py-2 align-middle">{Number(c.precio1 || 0).toFixed(2)}</TableCell>
                             <TableCell className="w-[112px] min-w-[112px] whitespace-nowrap px-3 py-2 text-center align-middle">
                               <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
@@ -1037,7 +1055,7 @@ export default function Servicios() {
 
                         {activeView === "conceptos" && !loadingConceptos && !filteredConceptos.length && (
                           <TableRow>
-                          <TableCell className="px-3 py-2" colSpan={5}>
+                          <TableCell className="px-3 py-2" colSpan={6}>
                               <div className="flex flex-col items-center gap-3 py-12 text-center">
                                 <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#ff801f]/10 text-[#ea580c] dark:text-[#fb923c]">
                                   <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" /><path d="M14 2v6h6" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -1295,8 +1313,26 @@ export default function Servicios() {
                       rows={4}
                       value={conceptoFormData.concepto}
                       onChange={(e) => setConceptoFormData({ ...conceptoFormData, concepto: e.target.value })}
+                      placeholder="Nombre o título del concepto para cotizaciones"
                       className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none resize-none"
                     />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="concepto-field-descripcion" className={modalLabelClass}>
+                      Descripción
+                    </Label>
+                    <textarea
+                      id="concepto-field-descripcion"
+                      rows={3}
+                      maxLength={CONCEPTO_DESCRIPCION_MAX}
+                      value={conceptoFormData.descripcion}
+                      onChange={(e) => setConceptoFormData({ ...conceptoFormData, descripcion: e.target.value })}
+                      placeholder="Detalle adicional del concepto (opcional)"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none resize-none"
+                    />
+                    <p className="mt-1 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+                      Máximo {CONCEPTO_DESCRIPCION_MAX} caracteres.
+                    </p>
                   </div>
                   <div className="md:col-span-2">
                     <Label className={modalLabelClass}>Imagen </Label>

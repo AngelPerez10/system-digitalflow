@@ -11,8 +11,6 @@ import { fetchApi } from '@/config/api';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { EyeCloseIcon, EyeIcon, MoreDotIcon } from '@/icons';
-import { AnimatePresence, motion } from 'motion/react';
-
 type Role = 'admin' | 'tecnico';
 
 type CrudPerms = {
@@ -99,7 +97,7 @@ const cardShellClass =
   "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
 
 const searchInputClass =
-  "min-h-[44px] w-full rounded-2xl border border-[#e2d9ca] bg-[#fffdf8] py-2 pl-10 pr-10 text-sm text-[#1c1917] outline-none transition-all placeholder:text-[#7c7a74] focus:border-[#ff801f]/60 focus:ring-4 focus:ring-[#ff801f]/12 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c]/70 dark:focus:ring-[#fb923c]/20 sm:min-h-[46px] sm:pl-11";
+  "h-10 w-full rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 pl-10 pr-10 text-sm text-[#1c1917] outline-none transition-all placeholder:text-[#78716c] focus:border-[#ff801f]/60 focus:ring-2 focus:ring-[#ff801f]/15 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c]/70 dark:focus:ring-[#fb923c]/20";
 
 const claudeHeroHeadingClass =
   "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.85rem,2.8vw,2.6rem)] font-medium leading-[1.2] tracking-[-0.01em] text-[#1c1917] dark:text-[#f8fafc]";
@@ -114,12 +112,6 @@ const claudeBodyClass = "text-base font-normal leading-[1.6] text-[#57534e] dark
 
 const sectionLabelClass =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
-
-const statLabelClass =
-  "text-[9px] font-semibold uppercase tracking-wide text-[#78716c] dark:text-[#8ea0b8] sm:text-[10px]";
-
-const statValueClass =
-  "mt-0.5 text-base font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-lg";
 
 const bodyMutedClass = "text-sm text-[#57534e] dark:text-[#cbd5e1]";
 
@@ -137,26 +129,8 @@ const permsModuleRowClass =
 
 const claudeSansStyle = { fontFamily: "Outfit, sans-serif" } as const;
 
-const fadeInUp = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const },
-};
-
-const staggerContainer = {
-  animate: {
-    transition: {
-      staggerChildren: 0.06,
-      delayChildren: 0.04,
-    },
-  },
-};
-
-const cardEnter = {
-  initial: { opacity: 0, y: 8 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as const },
-};
+const filterBtnClass =
+  "inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white px-3 py-2.5 text-xs font-semibold text-[#44403c] transition-all hover:border-[#d6d3d1] hover:bg-[#fafaf9] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-white/[0.05]";
 
 const primaryOrangeBtnClass =
   "inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-sm font-semibold text-black shadow-none transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:brightness-95 sm:w-auto sm:min-h-0";
@@ -776,22 +750,17 @@ export default function UserProfiles() {
     <>
       <PageMeta title="Gestión de usuarios | Sistema Grupo Intrax GPS" description="Administración de cuentas, roles, permisos y firma digital" />
       <div className="min-h-[calc(100dvh-5rem)] overflow-x-hidden">
-        <motion.div
-          className="relative mx-auto w-full max-w-[min(100%,88rem)] space-y-6 px-4 pb-10 pt-6 sm:space-y-8 sm:px-6 sm:pb-12 sm:pt-8 lg:px-8 xl:px-10"
+        <div
+          className="mx-auto w-full max-w-[min(100%,1920px)] space-y-6 px-3 pb-10 pt-6 text-sm sm:space-y-7 sm:px-5 sm:pb-12 sm:pt-7 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]"
           style={claudeSansStyle}
-          variants={staggerContainer}
-          initial="initial"
-          animate="animate"
         >
-
-          <motion.nav
-            variants={fadeInUp}
+          <nav
             className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
             aria-label="Migas de pan"
           >
             <Link
               to="/"
-              className="rounded-md px-1.5 py-1 text-[#57534e] transition-all duration-200 hover:bg-black/[0.05] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/[0.06] dark:hover:text-white"
+              className="rounded-md px-1.5 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
             >
               Inicio
             </Link>
@@ -799,166 +768,167 @@ export default function UserProfiles() {
               /
             </span>
             <span className="text-[#44403c] dark:text-[#cbd5e1]">Usuarios</span>
-          </motion.nav>
+          </nav>
 
-          <motion.header variants={fadeInUp} className={`${cardShellClass} dark:bg-[#111827]/80 dark:border-[#273244]`}>
-            <div className="relative overflow-hidden">
-              <div className="absolute inset-x-0 top-0 h-px bg-[#e7ded0] dark:bg-[#334155]" />
-              <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6 sm:p-6 lg:p-8">
-                <div className="flex min-w-0 gap-3.5 sm:gap-4">
-                  <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#e2d9ca] bg-white text-[#1c1917] sm:h-12 sm:w-12 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f8fafc]">
-                    <svg className="h-5 w-5 sm:h-[18px] sm:w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+          <div className="flex flex-col gap-4">
+            <header className={`relative flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
+              <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
+              <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
+                  <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]">
+                    Contactos de negocio
+                  </p>
+                  <h1 className={`mt-0.5 ${claudeHeroHeadingClass}`}>Gestión de usuarios</h1>
+                  <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
+                    Crea cuentas, asigna roles, ajusta permisos por módulo y administra la firma digital del equipo.
+                  </p>
+                  <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
+                </div>
+              </div>
+            </header>
+
+            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
+              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#fb923c] sm:h-10 sm:w-10">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                       <circle cx="9" cy="7" r="4" />
                       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                     </svg>
-                    <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#11ff99] dark:border-black" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={sectionLabelClass}>Contactos de negocio</p>
-                    <h1 className={`mt-1 ${claudeHeroHeadingClass}`}>Gestión de usuarios</h1>
-                    <p className={`mt-2 max-w-xl ${claudeBodyClass}`}>
-                      Crea cuentas, asigna <span className="font-medium text-[#ea580c] dark:text-[#fb923c]">roles</span>, ajusta permisos por módulo y administra la firma digital.
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">
+                      Total usuarios
                     </p>
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">{stats.total}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#fb923c] sm:h-10 sm:w-10">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor">
+                      <path d="M12 3l2.5 6L21 10l-5 4 1.5 7L12 18l-5.5 3 1.5-7-5-4 6.5-1L12 3z" />
+                    </svg>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">
+                      Admins
+                    </p>
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">{stats.admins}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#44403c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1] sm:h-10 sm:w-10">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">
+                      Técnicos
+                    </p>
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">{stats.tecnicos}</p>
                   </div>
                 </div>
               </div>
             </div>
-          </motion.header>
 
-          <AnimatePresence mode="wait">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]">
+              <div className="relative">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b] sm:left-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                  value={query}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+                  placeholder="Buscar por usuario, correo o nombre…"
+                  className={searchInputClass}
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    aria-label="Limpiar búsqueda"
+                    className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-[#7c7a74] hover:bg-[#e7ded0]/60 hover:text-[#57534e] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                      <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-end gap-2 md:self-end">
+                <button type="button" onClick={openCreate} className={primaryOrangeBtnClass}>
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                  </svg>
+                  Nuevo usuario
+                </button>
+              </div>
+            </div>
+
             {error && (
-              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}>
-                <Alert variant="error" title="Error" message={error} showLink={false} />
-              </motion.div>
+              <div className="rounded-2xl border border-red-200/80 bg-red-50/90 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30">
+                <p className="text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
+              </div>
             )}
             {success && (
-              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}>
-                <Alert variant="success" title="Listo" message={success} showLink={false} />
-              </motion.div>
+              <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">{success}</p>
+              </div>
             )}
-          </AnimatePresence>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] dark:hover:border-[#334155] sm:p-4`}>
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0] bg-[#fcfaf6]/80 text-[#ff801f] dark:border-[#334155] dark:bg-[#1e293b]/80 dark:text-[#fb923c] sm:h-10 sm:w-10">
-              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" fill="none" stroke="currentColor" strokeWidth="1.8" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <p className={statLabelClass}>Total usuarios</p>
-              <p className={statValueClass}>{stats.total}</p>
-            </div>
-          </div>
-        </div>
-
-        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] dark:hover:border-[#334155] sm:p-4`}>
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#9a3412]/40 dark:bg-[#7c2d12]/20 dark:text-[#fdba74] sm:h-10 sm:w-10">
-              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor">
-                <path d="M12 3l2.5 6L21 10l-5 4 1.5 7L12 18l-5.5 3 1.5-7-5-4 6.5-1L12 3z" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <p className={statLabelClass}>Admins</p>
-              <p className={statValueClass}>{stats.admins}</p>
-            </div>
-          </div>
-        </div>
-
-        <div data-anim="user-stat" className={`${cardShellClass} p-3 transition-colors hover:border-[#e2d9ca] dark:hover:border-[#334155] sm:p-4`}>
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0]/70 bg-[#f5f0e8] text-[#44403c] dark:border-[#334155] dark:bg-[#1e293b] dark:text-[#cbd5e1] sm:h-10 sm:w-10">
-              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                <circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <p className={statLabelClass}>Técnicos</p>
-              <p className={statValueClass}>{stats.tecnicos}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
-        <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
-          <svg
-            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#7c7a74] sm:left-3 sm:h-4 sm:w-4"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path
-              d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <input
-            value={query}
-            onChange={(e: any) => setQuery(e.target.value)}
-            placeholder="Usuario, correo o nombre…"
-            className={searchInputClass}
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              aria-label="Limpiar búsqueda"
-              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-[#7c7a74] hover:bg-[#e7ded0]/60 hover:text-[#57534e] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={openCreate}
-          className={primaryOrangeBtnClass}
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-          </svg>
-          Nuevo usuario
-        </button>
-      </div>
-
-      <ComponentCard
+            <div className="pt-1">
+              <ComponentCard
         compact
-        title="Listado de usuarios"
-        desc="Filtra por rol con el botón Filtros, busca en tiempo real y abre el menú de cada tarjeta para editar, permisos o firma."
+        title="Resultados"
+        desc={filtered.length > 0 ? `${filtered.length} usuario${filtered.length === 1 ? '' : 's'} encontrado${filtered.length === 1 ? '' : 's'}.` : 'Los usuarios aparecen aquí según tu búsqueda y filtros.'}
         className="!overflow-visible border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)]"
         actions={(
           <div className="relative w-full sm:w-auto" ref={filterRef}>
             <button
               type="button"
               onClick={() => setFilterOpen(v => !v)}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 px-3 py-2 text-xs font-semibold text-[#44403c] transition-colors hover:border-[#e2d9ca] hover:bg-[#fffdfa] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80 sm:w-auto"
+              className={`${filterBtnClass} h-9 w-full sm:w-auto`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none">
-                <path d="M14.6537 5.90414C14.6537 4.48433 13.5027 3.33331 12.0829 3.33331C10.6631 3.33331 9.51206 4.48433 9.51204 5.90415M14.6537 5.90414C14.6537 7.32398 13.5027 8.47498 12.0829 8.47498C10.663 8.47498 9.51204 7.32398 9.51204 5.90415M14.6537 5.90414L17.7087 5.90411M9.51204 5.90415L2.29199 5.90411M5.34694 14.0958C5.34694 12.676 6.49794 11.525 7.91777 11.525C9.33761 11.525 10.4886 12.676 10.4886 14.0958M5.34694 14.0958C5.34694 15.5156 6.49794 16.6666 7.91778 16.6666C9.33761 16.6666 10.4886 15.5156 10.4886 14.0958M5.34694 14.0958L2.29199 14.0958M10.4886 14.0958L17.7087 14.0958" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 7h13" />
+                <path d="M3 12h10" />
+                <path d="M3 17h7" />
+                <path d="M18 7v10" />
+                <path d="M21 10l-3-3-3 3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Filtros
+              Filtrado
             </button>
             {filterOpen && (
-              <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-lg dark:border-[#334155] dark:bg-[#111827] dark:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)]">
+              <div className="absolute right-0 z-[120] mt-2 w-64 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-xl ring-1 ring-black/5 dark:border-[#334155] dark:bg-[#111a2b] dark:ring-white/10">
                 <div className="mb-2">
-                  <label className="mb-2 block text-xs font-medium text-[#44403c] dark:text-[#cbd5e1]">Rol</label>
-                  <div className="inline-flex w-full rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 p-1 dark:border-[#334155] dark:bg-[#0f172a]/90">
+                  <label className="mb-2 block text-xs font-medium text-[#57534e] dark:text-[#cbd5e1]">Rol</label>
+                  <div className="inline-flex w-full rounded-lg border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
                     {[
                       { value: 'all', label: 'Todos' },
                       { value: 'admin', label: 'Admins' },
@@ -971,10 +941,10 @@ export default function UserProfiles() {
                           setRoleFilter(opt.value as 'all' | Role);
                           setFilterOpen(false);
                         }}
-                        className={`h-8 flex-1 rounded-lg text-xs font-semibold transition ${
+                        className={`h-8 flex-1 rounded-md px-3 py-2 text-xs font-semibold transition-all ${
                           roleFilter === opt.value
-                            ? 'border border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#9a3412]/40 dark:bg-[#7c2d12]/20 dark:text-[#fdba74]'
-                            : 'text-[#44403c] hover:bg-[#e7ded0]/80 dark:text-[#cbd5e1] dark:hover:bg-[#334155]/80'
+                            ? 'bg-white text-[#ea580c] shadow-sm dark:bg-[#111a2b] dark:text-[#fb923c]'
+                            : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
                         }`}
                       >
                         {opt.label}
@@ -988,11 +958,18 @@ export default function UserProfiles() {
         )}
       >
 
+        <div className="p-2 pt-0">
         {loading ? (
-          <div className="py-10 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]">Cargando...</div>
+          <div className="rounded-xl border border-[#e7ded0] bg-[#fffdfa]/90 py-14 text-center dark:border-[#334155] dark:bg-[#111a2b]/80">
+            <div className="inline-flex items-center gap-2 text-sm text-[#78716c] dark:text-[#8ea0b8]">
+              <svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+              </svg>
+              Cargando usuarios…
+            </div>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <AnimatePresence mode="popLayout">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
             {filtered.map((u) => {
               const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
               const isAdmin = isAdminUser(u);
@@ -1007,13 +984,9 @@ export default function UserProfiles() {
                 togglingActiveId === u.id || (isProtectedPrincipalUsername(u.username) && isActive);
 
               return (
-                <motion.div
+                <div
                   key={u.id}
-                  variants={cardEnter}
-                  initial="initial"
-                  animate="animate"
-                  layout
-                  className="group relative overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa]/95 p-4 shadow-[0_12px_32px_-28px_rgba(28,25,23,0.2)] transition-all hover:border-[#ff801f]/35 dark:border-[#273244] dark:bg-[#111827]/75 dark:hover:border-[#fb923c]/30"
+                  className="group relative overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 transition hover:border-[#d6d3d1] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#475569]/80"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
@@ -1138,20 +1111,34 @@ export default function UserProfiles() {
                       </button>
                     </div>
                   </div>
-                </motion.div>
+                </div>
               );
             })}
 
-            </AnimatePresence>
-
             {!filtered.length && (
-              <div className="col-span-full py-10 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]">
-                No hay usuarios.
+              <div className="col-span-full rounded-xl border border-[#e7ded0] bg-[#fffdfa]/90 py-14 text-center dark:border-[#334155] dark:bg-[#111a2b]/80">
+                <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
+                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#ff801f]/12 text-[#ea580c] dark:bg-[#fb923c]/12 dark:text-[#fb923c]">
+                    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                  </span>
+                  <p className="text-sm font-semibold text-[#44403c] dark:text-[#e5e7eb]">No hay usuarios para mostrar.</p>
+                  <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Prueba con otra búsqueda o limpia los filtros.</p>
+                </div>
               </div>
             )}
           </div>
         )}
+        </div>
       </ComponentCard>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <Modal mobileBottomSheet isOpen={isCreateOpen} onClose={closeCreate} closeOnBackdropClick={false} className="flex max-h-[min(92vh,780px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl" ariaLabelledBy={createModalTitleId}>
         <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
@@ -1987,8 +1974,6 @@ export default function UserProfiles() {
         </div>
 
       </Modal>
-        </motion.div>
-      </div>
     </>
   );
 }

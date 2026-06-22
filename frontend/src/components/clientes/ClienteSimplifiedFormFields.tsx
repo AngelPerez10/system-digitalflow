@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
+import SearchableSelect from "@/components/form/SearchableSelect";
 import { estadosPorPais, paisOptions } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
 import type { Cliente } from "@/types/cliente";
 import {
@@ -23,6 +24,19 @@ type Props = {
   fixedTipo?: ClienteTipo;
   editingCliente?: Cliente | null;
   onOpenMap: () => void;
+  /** Oculta tipo de contacto, clave y prospecto (p. ej. factura CFDI). */
+  hideContactMeta?: boolean;
+  /** Oculta la barra de pestañas interna (el padre controla las pestañas). */
+  hideTabs?: boolean;
+  /** Reemplaza el campo Representante por un SearchableSelect (p. ej. clientes SICAR). */
+  representanteSelect?: {
+    value: string;
+    options: { value: string; label: string }[];
+    onChange: (value: string) => void;
+    onSearchChange?: (query: string) => void;
+    placeholder?: string;
+    disabled?: boolean;
+  };
 };
 
 export function ClienteSimplifiedFormFields({
@@ -33,6 +47,9 @@ export function ClienteSimplifiedFormFields({
   fixedTipo,
   editingCliente,
   onOpenMap,
+  hideContactMeta = false,
+  hideTabs = false,
+  representanteSelect,
 }: Props) {
   const noClienteLabel = getNoClienteLabelByTipo(fixedTipo || (formData.tipo as ClienteTipo));
   const estadosOptions =
@@ -40,36 +57,38 @@ export function ClienteSimplifiedFormFields({
 
   return (
     <>
-      <div className="inline-flex items-center gap-1 rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
-        <button
-          type="button"
-          onClick={() => setActiveTab("general")}
-          className={`${modalTabBaseClass} border ${
-            activeTab === "general"
-              ? "border-[#ff801f]/30 bg-[#ff801f] text-black shadow-sm"
-              : "border-transparent bg-transparent text-gray-700 hover:bg-white dark:text-[#e5e7eb] dark:hover:bg-white/[0.06]"
-          }`}
-        >
-          Datos Básicos
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("more")}
-          className={`${modalTabBaseClass} border ${
-            activeTab === "more"
-              ? "border-[#ff801f]/30 bg-[#ff801f] text-black shadow-sm"
-              : "border-transparent bg-transparent text-gray-700 hover:bg-white dark:text-[#e5e7eb] dark:hover:bg-white/[0.06]"
-          }`}
-        >
-          Datos Facturación
-        </button>
-      </div>
+      {!hideTabs ? (
+        <div className="inline-flex items-center gap-1 rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
+          <button
+            type="button"
+            onClick={() => setActiveTab("general")}
+            className={`${modalTabBaseClass} border ${
+              activeTab === "general"
+                ? "border-[#ff801f]/30 bg-[#ff801f] text-black shadow-sm"
+                : "border-transparent bg-transparent text-gray-700 hover:bg-white dark:text-[#e5e7eb] dark:hover:bg-white/[0.06]"
+            }`}
+          >
+            Datos Básicos
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("more")}
+            className={`${modalTabBaseClass} border ${
+              activeTab === "more"
+                ? "border-[#ff801f]/30 bg-[#ff801f] text-black shadow-sm"
+                : "border-transparent bg-transparent text-gray-700 hover:bg-white dark:text-[#e5e7eb] dark:hover:bg-white/[0.06]"
+            }`}
+          >
+            Datos Facturación
+          </button>
+        </div>
+      ) : null}
 
       {activeTab === "general" && (
         <div className="space-y-4">
           <div className={`${modalPanelClass} space-y-4`}>
             <p className={modalSectionTitleClass}>Información Comercial</p>
-            {!fixedTipo && (
+            {!hideContactMeta && !fixedTipo && (
               <div className="grid grid-cols-1 gap-3 md:max-w-md">
                 <div>
                   <Label>Tipo de contacto</Label>
@@ -92,6 +111,7 @@ export function ClienteSimplifiedFormFields({
                 </div>
               </div>
             )}
+            {!hideContactMeta ? (
             <div className={`grid grid-cols-1 gap-3 ${editingCliente ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"}`}>
               {editingCliente ? (
                 <div>
@@ -132,14 +152,52 @@ export function ClienteSimplifiedFormFields({
                 </span>
               </div>
             </div>
+            ) : null}
+
+            {hideContactMeta ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div>
+                  <Label>No. de Cliente</Label>
+                  <Input
+                    value={String(formData.no_cliente || "")}
+                    disabled
+                    className="opacity-70"
+                  />
+                  <p className="mt-1 text-[10px] text-[#8b7b69] dark:text-[#8ea0b8]">Identificador en SICAR.</p>
+                </div>
+                <div>
+                  <Label>Clave</Label>
+                  <Input
+                    value={String(formData.clave || "")}
+                    disabled
+                    className="opacity-70"
+                  />
+                </div>
+              </div>
+            ) : null}
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
-                <Label>Representante</Label>
-                <Input
-                  value={String(formData.representante || "")}
-                  onChange={(e) => setFormData({ ...formData, representante: e.target.value })}
-                />
+                {representanteSelect ? (
+                  <SearchableSelect
+                    label="Representante"
+                    value={representanteSelect.value}
+                    onChange={representanteSelect.onChange}
+                    options={representanteSelect.options}
+                    onSearchChange={representanteSelect.onSearchChange}
+                    filterLocally={false}
+                    disabled={representanteSelect.disabled}
+                    placeholder={representanteSelect.placeholder || "Buscar cliente..."}
+                  />
+                ) : (
+                  <>
+                    <Label>Representante</Label>
+                    <Input
+                      value={String(formData.representante || "")}
+                      onChange={(e) => setFormData({ ...formData, representante: e.target.value })}
+                    />
+                  </>
+                )}
               </div>
               <div>
                 <Label>Nombre</Label>

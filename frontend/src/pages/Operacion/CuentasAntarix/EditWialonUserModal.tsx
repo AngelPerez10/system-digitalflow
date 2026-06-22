@@ -1138,8 +1138,8 @@ export default function EditWialonUserModal({
             <div className="min-w-0 flex-1 pt-0.5">
               <p className={wialonUiLabel}>Operación · Wialon Hosting</p>
               <h2 id={titleId} className={cn("mt-1.5 text-balance", erpSubheadingClass)}>
-                {user?.name || "Cuenta"}
-              </h2>
+            {user?.name || "Cuenta"}
+          </h2>
               <p className={cn("mt-1.5 max-w-2xl text-sm", wialonBodyClass)}>
                 Login <span className="font-medium tabular-nums text-[#1c1917] dark:text-[#f8fafc]">{user?.user_id || "—"}</span>
                 {user?.parent_account ? (
@@ -1234,49 +1234,49 @@ export default function EditWialonUserModal({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="sm:col-span-2">
                     <label htmlFor="wialon-edit-name" className={wialonUiLabel}>
-                      Nombre de cuenta
-                    </label>
-                    <input
-                      id="wialon-edit-name"
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className={cn(erpSearchInputClass, "mt-2 w-full")}
-                      required
+              Nombre de cuenta
+            </label>
+            <input
+              id="wialon-edit-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={cn(erpSearchInputClass, "mt-2 w-full")}
+              required
                       disabled={!canEdit || saving}
-                    />
-                  </div>
+            />
+          </div>
 
-                  <div>
+          <div>
                     <label htmlFor="wialon-edit-dealer" className={wialonUiLabel}>
-                      Derechos de distribuidor
-                    </label>
-                    <select
-                      id="wialon-edit-dealer"
-                      value={dealerRights}
-                      onChange={(e) => setDealerRights(e.target.value)}
+              Derechos de distribuidor
+            </label>
+            <select
+              id="wialon-edit-dealer"
+              value={dealerRights}
+              onChange={(e) => setDealerRights(e.target.value)}
                       className={cn(selectLikeClassName, "mt-2")}
                       disabled={!canEdit || saving}
-                    >
-                      <option value="No">No</option>
-                      <option value="Sí">Sí</option>
-                    </select>
-                  </div>
+            >
+              <option value="No">No</option>
+              <option value="Sí">Sí</option>
+            </select>
+          </div>
 
-                  <div>
+          <div>
                     <label htmlFor="wialon-edit-status" className={wialonUiLabel}>
-                      Status de cuenta
-                    </label>
-                    <select
-                      id="wialon-edit-status"
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value)}
+              Status de cuenta
+            </label>
+            <select
+              id="wialon-edit-status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
                       className={cn(selectLikeClassName, "mt-2")}
                       disabled={!canEdit || saving}
-                    >
-                      <option value="Activo">Activo</option>
-                      <option value="Bloqueado">Bloqueado</option>
-                    </select>
+            >
+              <option value="Activo">Activo</option>
+              <option value="Bloqueado">Bloqueado</option>
+            </select>
                   </div>
                 </div>
               </WialonSectionCard>
@@ -1321,8 +1321,8 @@ export default function EditWialonUserModal({
                             </p>
                             <p className="mt-0.5 truncate font-mono text-[11px] text-[#6c6a64] dark:text-[#94a3b8]">
                               {unit.uid !== "—" ? unit.uid : "Sin UID"}
-                            </p>
-                          </div>
+            </p>
+          </div>
                           <WialonSharedBadge
                             sharedWith={unit.shared_with}
                             count={unit.shared_users_count}
@@ -1381,7 +1381,7 @@ export default function EditWialonUserModal({
                     <circle cx="11" cy="11" r="7" />
                     <path d="M20 20l-3-3" />
                   </svg>
-                </div>
+          </div>
 
                 <div
                   className="custom-scrollbar max-h-[min(340px,45dvh)] space-y-1.5 overflow-y-auto lg:max-h-[min(560px,58dvh)]"
@@ -1448,8 +1448,8 @@ export default function EditWialonUserModal({
                             {unit.is_shared && unit.shared_with && unit.shared_with !== "—" ? (
                               <p className={cn("mt-1 truncate", wialonUiCaption)} title={unit.shared_with}>
                                 Con {unit.shared_with}
-                              </p>
-                            ) : null}
+            </p>
+          ) : null}
                           </div>
                         </button>
                       );

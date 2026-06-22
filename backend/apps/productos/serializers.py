@@ -26,6 +26,7 @@ class ConceptoSerializer(serializers.ModelSerializer):
             'id',
             'folio',
             'concepto',
+            'descripcion',
             'precio1',
             'imagen_url',
             'fecha_creacion',

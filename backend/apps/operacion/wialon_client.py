@@ -84,6 +84,32 @@ class WialonError(Exception):
         self.code = code
 
 
+def _wialon_error_message(code: Any, reason: str) -> str:
+    """Mensajes legibles para errores frecuentes de la API Wialon."""
+    try:
+        code_int = int(code)
+    except (TypeError, ValueError):
+        code_int = None
+
+    known = {
+        1: "Sesión Wialon inválida. Intenta de nuevo o reinicia el servidor Django.",
+        4: "Credenciales Wialon incorrectas.",
+        7: "Acceso denegado en Wialon. Verifica permisos del token.",
+        8: (
+            "Token de Wialon inválido o expirado. Genera uno nuevo en Wialon Hosting "
+            "(CMS, token de acceso), actualiza WIALON_ACCESS_TOKEN en backend/.env "
+            "y reinicia el servidor Django."
+        ),
+        9: "Límite de sesiones Wialon alcanzado. Espera unos minutos e intenta de nuevo.",
+    }
+    if code_int in known:
+        return known[code_int]
+    clean = str(reason or "").strip()
+    if clean and clean != "Error de Wialon":
+        return clean
+    return "Error de comunicación con Wialon."
+
+
 def _call(svc: str, params: dict[str, Any], sid: str | None = None) -> dict[str, Any] | list[Any]:
     query: dict[str, str] = {
         "svc": svc,
@@ -104,7 +130,8 @@ def _call(svc: str, params: dict[str, Any], sid: str | None = None) -> dict[str,
     if isinstance(payload, dict) and payload.get("error"):
         code = payload.get("error")
         reason = payload.get("reason") or payload.get("message") or "Error de Wialon"
-        raise WialonError(str(reason), code=int(code) if code is not None else None)
+        code_int = int(code) if code is not None else None
+        raise WialonError(_wialon_error_message(code, str(reason)), code=code_int)
     if isinstance(payload, (dict, list)):
         return payload
     return {}

@@ -22,6 +22,14 @@ import {
 import { CotizacionPdfOptionsPanel } from "@/pages/Ventas/Cotizacion/CotizacionPdfOptionsPanel";
 import { defaultPdfOpciones, parsePdfOpcionesFromApi } from "@/pages/Ventas/Cotizacion/cotizacionPdfTypes";
 import {
+  createCotizacionDraft,
+  fetchCotizacionClienteById,
+  fetchCotizacionClientes,
+  fetchCotizacionDetail,
+} from "@/pages/Ventas/Cotizacion/cotizacionApi";
+import { useCotizacionCatalogos } from "@/pages/Ventas/Cotizacion/useCotizacionCatalogos";
+import { useCotizacionCloneSearch } from "@/pages/Ventas/Cotizacion/useCotizacionCloneSearch";
+import {
   fetchSyscomProductosSugerencia,
   fetchSyscomTipoCambio,
   getProductoImageUrl,
@@ -103,12 +111,14 @@ export default function NuevaCotizacionPage() {
   const [cloneModalOpen, setCloneModalOpen] = useState(false);
   const [clearFormModalOpen, setClearFormModalOpen] = useState(false);
   const clearFormModalTitleId = useId();
-  const [cloneSearch, setCloneSearch] = useState("");
-  const [cloneSearchDebounced, setCloneSearchDebounced] = useState("");
-  const [cloneRows, setCloneRows] = useState<
-    { id: number; idx: number; cliente: string; contacto: string; fecha: string; total: number }[]
-  >([]);
-  const [cloneListLoading, setCloneListLoading] = useState(false);
+  const {
+    cloneListLoading,
+    cloneRows,
+    cloneSearch,
+    cloneSearchDebounced,
+    resetCloneSearch,
+    setCloneSearch,
+  } = useCotizacionCloneSearch({ canSearch: canCotizacionesView, isOpen: cloneModalOpen });
   const [clonePickingId, setClonePickingId] = useState<number | null>(null);
 
   const exportBusy = previewLoading || excelLoading;
@@ -165,11 +175,14 @@ export default function NuevaCotizacionPage() {
   const [selectedManualProducto, setSelectedManualProducto] = useState<ProductoManualCatalogo | null>(null);
   const [conceptoOpen, setConceptoOpen] = useState(false);
   const [conceptoSearch, setConceptoSearch] = useState("");
-  const [catalogoConceptos, setCatalogoConceptos] = useState<CatalogoConcepto[]>([]);
-  const [catalogoManualProductos, setCatalogoManualProductos] = useState<ProductoManualCatalogo[]>([]);
-  const [loadingCatalogoConceptos, setLoadingCatalogoConceptos] = useState(false);
-  const [catalogoConceptosError, setCatalogoConceptosError] = useState("");
-  const [catalogoManualError, setCatalogoManualError] = useState("");
+  const {
+    catalogoConceptos,
+    catalogoManualProductos,
+    catalogoConceptosError,
+    catalogoManualError,
+    loadingCatalogoConceptos,
+    servicios,
+  } = useCotizacionCatalogos(canCotizacionesView);
 
   const syscomInputWrapRef = useRef<HTMLDivElement>(null);
   const syscomPopRef = useRef<HTMLDivElement>(null);
@@ -247,7 +260,6 @@ export default function NuevaCotizacionPage() {
   const [medioContactoTouched, setMedioContactoTouched] = useState(false);
   const [status, setStatus] = useState<string>('PENDIENTE');
 
-  const [servicios, setServicios] = useState<{ id: number; nombre: string }[]>([]);
   const [tipoTrabajo, setTipoTrabajo] = useState<number[]>([]);
   const [tipoTrabajoOpen, setTipoTrabajoOpen] = useState(false);
   const tipoTrabajoRef = useRef<HTMLDivElement>(null);
@@ -377,28 +389,17 @@ export default function NuevaCotizacionPage() {
     return { qty, pl, desc, puBase, importe };
   }, [cantidad, precioLista, descuentoPct, selectedSyscomProducto]);
 
-  const fetchClientes = async (search = "") => {
+  const fetchClientes = useCallback(async (search = "") => {
     if (!canCotizacionesView) return;
     setLoadingClientes(true);
     try {
-      const query = new URLSearchParams({
-        search: search.trim(),
-        page_size: '20',
-      });
-      const res = await fetchApi(`/api/clientes/?${query.toString()}`);
-      const data = await res.json().catch(() => ({ results: [], count: 0 }));
-      if (!res.ok) {
-        setClientes([]);
-        return;
-      }
-      const rows = Array.isArray(data) ? data : (data.results || []);
-      setClientes(rows);
+      setClientes(await fetchCotizacionClientes(search));
     } catch (error) {
       console.error("Error fetching clientes:", error);
     } finally {
       setLoadingClientes(false);
     }
-  };
+  }, [canCotizacionesView]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -409,7 +410,7 @@ export default function NuevaCotizacionPage() {
 
   useEffect(() => {
     fetchClientes(debouncedClienteSearch);
-  }, [debouncedClienteSearch]);
+  }, [debouncedClienteSearch, fetchClientes]);
 
   const contactoPrincipalDeCliente = (cliente: Cliente) => {
     const principal = (cliente.contactos || []).find((x) => x.is_principal);
@@ -428,7 +429,7 @@ export default function NuevaCotizacionPage() {
       setClienteId(cliente.id);
       setClienteSearch(String(cliente.nombre || "").trim());
 
-      const desc = clampPct(toNumber((cliente as any)?.descuento_pct, 0));
+      const desc = clampPct(toNumber(cliente.descuento_pct, 0));
       setDescuentoClientePct(desc);
       setDescuentoClienteTouched(false);
       setContactoNombre(contactoPrincipalDeCliente(cliente));
@@ -461,15 +462,15 @@ export default function NuevaCotizacionPage() {
       const nombreDesdeApi = String(data.cliente_nombre || data.cliente || "").trim();
       setClienteSearch(nombreDesdeApi);
       setContactoNombre(String(data.contacto || ""));
-      setContactoTelefono(String((data as any)?.contacto_telefono || ""));
-      setMedioContacto(String((data as any)?.medio_contacto || ""));
+      setContactoTelefono(String(data.contacto_telefono || ""));
+      setMedioContacto(String(data.medio_contacto || ""));
       setTipoTrabajo(normalizeTipoTrabajoIds(data.tipo_trabajo));
-      setStatus(String((data as any)?.status || "PENDIENTE"));
-      setDescuentoClientePct(clampPct(toNumber((data as any)?.descuento_cliente_pct, 0)));
+      setStatus(String(data.status || "PENDIENTE"));
+      setDescuentoClientePct(clampPct(toNumber(data.descuento_cliente_pct, 0)));
       setDescuentoClienteTouched(true);
       setTextoArribaPrecios(String(data.texto_arriba_precios || ""));
       {
-        const incoming = String((data as any).terminos || "").trim();
+        const incoming = String(data.terminos || "").trim();
         if (incoming) setTerminos(incoming);
       }
 
@@ -478,7 +479,7 @@ export default function NuevaCotizacionPage() {
         : [];
       const conceptosList: Concepto[] = itemsArr.map((it) => ({
         id: uid(),
-        producto_externo_id: String((it as any).producto_externo_id ?? ""),
+        producto_externo_id: String(it.producto_externo_id ?? ""),
         producto_nombre: String(it.producto_nombre || ""),
         producto_descripcion: String(it.producto_descripcion || ""),
         unidad: String(it.unidad || ""),
@@ -486,7 +487,7 @@ export default function NuevaCotizacionPage() {
         cantidad: toNumber(it.cantidad, 0),
         precio_lista: toNumber(it.precio_lista, 0),
         descuento_pct: clampPct(toNumber(it.descuento_pct, 0)),
-        categoria_id: String((it as any).categoria_id || "").trim() || undefined,
+        categoria_id: String(it.categoria_id || "").trim() || undefined,
       }));
       const descCortas: Record<string, string> = {};
       conceptosList.forEach((c, i) => {
@@ -504,9 +505,8 @@ export default function NuevaCotizacionPage() {
       const cid = data.cliente_id ? Number(data.cliente_id) : null;
       if (cid) {
         try {
-          const cr = await fetchApi(`/api/clientes/${cid}/`);
-          const one = (await cr.json().catch(() => null)) as Cliente | null;
-          if (cr.ok && one && typeof one.id === "number") {
+          const one = await fetchCotizacionClienteById(cid);
+          if (one) {
             setClientes((prev) => {
               if (prev.some((c) => c.id === one.id)) {
                 return prev.map((c) => (c.id === one.id ? { ...c, ...one } : c));
@@ -535,33 +535,26 @@ export default function NuevaCotizacionPage() {
     let cancelled = false;
     const createDraft = async () => {
       try {
-        const res = await fetchApi("/api/cotizaciones/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            cliente_id: null,
-            cliente: "",
-            prospecto: false,
-            contacto: "",
-            contacto_telefono: "",
-            medio_contacto: String(medioContacto || ""),
-            tipo_trabajo: [],
-            status: String(status || "PENDIENTE"),
-            fecha: todayIso,
-            subtotal: 0,
-            descuento_cliente_pct: 0,
-            iva_pct: 0,
-            iva: 0,
-            total: 0,
-            texto_arriba_precios: String(textoArribaPrecios || ""),
-            terminos: String(terminos || ""),
-            items: [],
-          }),
+        const data = await createCotizacionDraft({
+          cliente_id: null,
+          cliente: "",
+          prospecto: false,
+          contacto: "",
+          contacto_telefono: "",
+          medio_contacto: String(medioContacto || ""),
+          tipo_trabajo: [],
+          status: String(status || "PENDIENTE"),
+          fecha: todayIso,
+          subtotal: 0,
+          descuento_cliente_pct: 0,
+          iva_pct: 0,
+          iva: 0,
+          total: 0,
+          texto_arriba_precios: String(textoArribaPrecios || ""),
+          terminos: String(terminos || ""),
+          items: [],
         });
-        const data = await res.json().catch(() => null);
-        if (!res.ok || cancelled) return;
+        if (!data || cancelled) return;
         const newId = String(data?.id || "").trim();
         if (newId) {
           setActiveCotizacionId(newId);
@@ -597,9 +590,8 @@ export default function NuevaCotizacionPage() {
 
     const load = async () => {
       try {
-        const res = await fetchApi(`/api/cotizaciones/${editingCotizacionId}/`);
-        const data = (await res.json().catch(() => null)) as ApiCotizacion | null;
-        if (!res.ok || !data) {
+        const data = await fetchCotizacionDetail(editingCotizacionId);
+        if (!data) {
           setEditingCotizacionIdx(null);
           setAlert({
             show: true,
@@ -627,60 +619,12 @@ export default function NuevaCotizacionPage() {
     void load();
   }, [editingCotizacionId, hydrateFormFromCotizacionDetail, navigate]);
 
-  useEffect(() => {
-    const t = window.setTimeout(() => setCloneSearchDebounced(cloneSearch.trim()), 400);
-    return () => clearTimeout(t);
-  }, [cloneSearch]);
-
-  useEffect(() => {
-    if (!cloneModalOpen || !canCotizacionesView) return;
-    if (cloneSearchDebounced.length < 1) {
-      setCloneRows([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      setCloneListLoading(true);
-      try {
-        const params = new URLSearchParams();
-        params.set("search", cloneSearchDebounced);
-        params.set("page_size", "60");
-        const res = await fetchApi(`/api/cotizaciones/?${params.toString()}`);
-        const data = await res.json().catch(() => null);
-        if (cancelled) return;
-        if (!res.ok) {
-          setCloneRows([]);
-          return;
-        }
-        const list = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
-        const mapped = list
-          .map((x: Record<string, unknown>) => ({
-            id: Number(x?.id || 0),
-            idx: Number(x?.idx || 0),
-            cliente: String(x?.cliente_nombre || x?.cliente || "—"),
-            contacto: String(x?.contacto || "—"),
-            fecha: String(x?.fecha || ""),
-            total: Number(x?.total ?? 0),
-          }))
-          .filter((row: { id: number }) => row.id > 0)
-          .slice(0, 60);
-        setCloneRows(mapped);
-      } finally {
-        if (!cancelled) setCloneListLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [cloneModalOpen, cloneSearchDebounced, canCotizacionesView]);
-
   const handleClonePick = async (id: number) => {
     setClonePickingId(id);
     setHydratingFromStorage(true);
     try {
-      const res = await fetchApi(`/api/cotizaciones/${id}/`);
-      const data = (await res.json().catch(() => null)) as ApiCotizacion | null;
-      if (!res.ok || !data) {
+      const data = await fetchCotizacionDetail(id);
+      if (!data) {
         setAlert({
           show: true,
           variant: "error",
@@ -691,9 +635,7 @@ export default function NuevaCotizacionPage() {
       }
       await hydrateFormFromCotizacionDetail(data, { updateIdxBadge: false });
       setCloneModalOpen(false);
-      setCloneSearch("");
-      setCloneSearchDebounced("");
-      setCloneRows([]);
+      resetCloneSearch();
       setAlert({
         show: true,
         variant: "success",
@@ -758,7 +700,7 @@ export default function NuevaCotizacionPage() {
 
     if (descuentoClienteTouched) return;
 
-    const desc = clampPct(toNumber((selectedCliente as any)?.descuento_pct, 0));
+    const desc = clampPct(toNumber(selectedCliente.descuento_pct, 0));
     setDescuentoClientePct(desc);
   }, [selectedCliente, hydratingFromStorage, editingCotizacionId, descuentoClienteTouched]);
 
@@ -827,108 +769,6 @@ export default function NuevaCotizacionPage() {
     };
   }, [productoSearch, selectedSyscomProducto, selectedCatalogoConcepto, selectedManualProducto]);
 
-  useEffect(() => {
-    if (!canCotizacionesView) {
-      setCatalogoConceptos([]);
-      setCatalogoConceptosError("");
-      return;
-    }
-    const loadCatalogoConceptos = async () => {
-      setLoadingCatalogoConceptos(true);
-      setCatalogoConceptosError("");
-      try {
-        const res = await fetchApi("/api/conceptos/?ordering=folio");
-        const data = await res.json().catch(() => ({ results: [] }));
-        if (!res.ok) {
-          setCatalogoConceptos([]);
-          setCatalogoConceptosError("No se pudieron cargar conceptos del catálogo.");
-          return;
-        }
-        const list = Array.isArray((data as any)?.results)
-          ? (data as any).results
-          : Array.isArray(data)
-            ? data
-            : [];
-        const mapped: CatalogoConcepto[] = list.map((c: any, idx: number) => ({
-          id: Number(c?.id ?? idx + 1),
-          folio: String(c?.folio ?? c?.idx ?? c?.id ?? idx + 1),
-          concepto: String(c?.concepto ?? c?.nombre ?? "").trim(),
-          precio1: Number(c?.precio1 ?? c?.precio ?? 0),
-          imagen_url: String(c?.imagen_url ?? "").trim(),
-        }));
-        setCatalogoConceptos(mapped);
-      } catch {
-        setCatalogoConceptos([]);
-        setCatalogoConceptosError("Error al consultar catálogo de conceptos.");
-      } finally {
-        setLoadingCatalogoConceptos(false);
-      }
-    };
-    loadCatalogoConceptos();
-  }, [canCotizacionesView]);
-
-  useEffect(() => {
-    if (!canCotizacionesView) {
-      setCatalogoManualProductos([]);
-      setCatalogoManualError("");
-      return;
-    }
-    const loadManualProductos = async () => {
-      setCatalogoManualError("");
-      try {
-        const res = await fetchApi("/api/productos-manuales/?ordering=-fecha_creacion&page_size=500");
-        const data = await res.json().catch(() => ({ results: [] }));
-        if (!res.ok) {
-          setCatalogoManualProductos([]);
-          setCatalogoManualError("No se pudieron cargar productos manuales.");
-          return;
-        }
-        const list = Array.isArray((data as any)?.results)
-          ? (data as any).results
-          : Array.isArray(data)
-            ? data
-            : [];
-        const mapped: ProductoManualCatalogo[] = list
-          .map((p: any) => ({
-            id: Number(p?.id ?? 0),
-            producto: String(p?.producto ?? "").trim(),
-            marca: String(p?.marca ?? "").trim(),
-            modelo: String(p?.modelo ?? "").trim(),
-            precio: Number(p?.precio ?? 0),
-            stock: Number(p?.stock ?? 0),
-            imagen_url: String(p?.imagen_url ?? "").trim(),
-          }))
-          .filter((p: ProductoManualCatalogo) => p.id > 0 && p.producto);
-        setCatalogoManualProductos(mapped);
-      } catch {
-        setCatalogoManualProductos([]);
-        setCatalogoManualError("Error al consultar productos manuales.");
-      }
-    };
-    loadManualProductos();
-  }, [canCotizacionesView]);
-
-  useEffect(() => {
-    const loadServicios = async () => {
-      try {
-        const res = await fetchApi("/api/servicios/?page_size=500&ordering=idx");
-        const data = await res.json().catch(() => ({ results: [] }));
-        if (!res.ok) return;
-        const list = Array.isArray((data as any)?.results)
-          ? (data as any).results
-          : Array.isArray(data) ? data : [];
-        setServicios(
-          list
-            .filter((s: any) => s.activo !== false)
-            .map((s: any) => ({ id: Number(s.id), nombre: String(s.nombre || "") }))
-        );
-      } catch {
-        // ignore
-      }
-    };
-    loadServicios();
-  }, []);
-
   const selectSyscomProducto = (p: SyscomProducto) => {
     setSelectedSyscomProducto(p);
     setSelectedCatalogoConcepto(null);
@@ -962,13 +802,19 @@ export default function NuevaCotizacionPage() {
       .slice(0, 8);
   }, [catalogoConceptos, productoSearch]);
 
+  const resolveCatalogoDescripcion = (c: CatalogoConcepto) => {
+    const catalogDesc = String(c.descripcion || "").trim();
+    if (catalogDesc) return catalogDesc;
+    return `Folio: ${c.folio}`;
+  };
+
   const selectCatalogoConcepto = (c: CatalogoConcepto) => {
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(c);
     setSelectedManualProducto(null);
     setConceptoNombre(String(c.concepto || ""));
     setProductoSearch(String(c.concepto || ""));
-    setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : `Folio: ${c.folio}`));
+    setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : resolveCatalogoDescripcion(c)));
     setCantidad((q) => (toNumber(q, 0) > 0 ? q : 1));
     setUnidad((u) => (u.trim() ? u : "SERV"));
     setPrecioLista(Math.max(0, toNumber(c.precio1, 0)));
@@ -1299,7 +1145,7 @@ export default function NuevaCotizacionPage() {
       }
     }
 
-    const payload: any = buildCotizacionPayload();
+    const payload = buildCotizacionPayload();
 
     if (
       autosave &&
@@ -1519,6 +1365,7 @@ export default function NuevaCotizacionPage() {
         setPrecioLista(Math.max(0, toNumber(match.precio1, 0)));
       }
       setUnidad((u) => (u.trim() ? u : "SERV"));
+      setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : resolveCatalogoDescripcion(match)));
     } else {
       setSelectedCatalogoConcepto(null);
     }
@@ -3085,9 +2932,7 @@ export default function NuevaCotizacionPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setCloneSearch("");
-                            setCloneSearchDebounced("");
-                            setCloneRows([]);
+                            resetCloneSearch();
                             setCloneModalOpen(true);
                           }}
                           className={cloneActionBtnClass}

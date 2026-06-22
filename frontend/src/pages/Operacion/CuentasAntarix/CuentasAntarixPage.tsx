@@ -154,6 +154,13 @@ export default function CuentasAntarixPage() {
           setError("Sesión expirada o no válida. Vuelve a iniciar sesión.");
         } else if (res.status === 403) {
           setError("No tienes permiso para consultar cuentas de Antarix GPS.");
+        } else if (res.status === 502) {
+          setError(
+            String(
+              data?.detail ||
+                "No se pudo conectar con Wialon. Verifica WIALON_ACCESS_TOKEN en backend/.env y reinicia el servidor."
+            )
+          );
         } else {
           setError(String(data?.detail || `Error HTTP ${res.status}`));
         }

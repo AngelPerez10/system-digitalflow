@@ -19,6 +19,7 @@ export type Cliente = {
   is_prospecto?: boolean;
   telefono?: string;
   direccion?: string;
+  descuento_pct?: number | string | null;
   contactos?: ClienteContacto[];
 };
 
@@ -62,6 +63,7 @@ export type CatalogoConcepto = {
   id: number;
   folio: string;
   concepto: string;
+  descripcion?: string;
   precio1: number;
   imagen_url?: string;
 };
@@ -76,6 +78,17 @@ export type ProductoManualCatalogo = {
   imagen_url?: string;
 };
 
+export type ServicioOption = { id: number; nombre: string };
+
+export type CloneCotizacionRow = {
+  id: number;
+  idx: number;
+  cliente: string;
+  contacto: string;
+  fecha: string;
+  total: number;
+};
+
 export type ApiCotizacion = {
   id: number;
   idx: number;
@@ -88,6 +101,7 @@ export type ApiCotizacion = {
   medio_contacto?: string;
   tipo_trabajo?: number[] | { id: number; nombre?: string }[];
   status?: string;
+  descuento_cliente_pct?: number | string | null;
   fecha: string | null;
   subtotal: number;
   iva_pct: number;

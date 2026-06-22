@@ -3,7 +3,6 @@ import os
 from datetime import date, datetime
 from decimal import Decimal
 
-import pymysql
 from django.http import HttpResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -11,6 +10,19 @@ from rest_framework.views import APIView
 
 from apps.cotizaciones.pdf_render import PdfRenderError, any_provider_configured, render_html_to_pdf
 from apps.cotizaciones.sicar_cfdi_pdf import cfdi_download_filename, generate_cfdi_pdf_html
+from apps.cotizaciones.sicar_db import (
+    _connect_sicar,
+    _sicar_db_config,
+    _sicar_error_detail,
+)
+from apps.cotizaciones.sicar_factura_service import (
+    SicarFacturaError,
+    create_timbrada_factura,
+    get_sicar_cliente,
+    list_sicar_series,
+    search_sicar_clientes,
+)
+from apps.cotizaciones.views import CotizacionesPermission
 
 logger = logging.getLogger(__name__)
 
@@ -41,31 +53,6 @@ LIST_SELECT = """
   formaPago AS forma_pago,
   metodoPago AS metodo_pago
 """
-
-
-def _sicar_db_config() -> dict:
-    return {
-        "host": os.environ.get("SICAR_DB_HOST", "").strip(),
-        "port": int(os.environ.get("SICAR_DB_PORT", "3306") or 3306),
-        "user": os.environ.get("SICAR_DB_USER", "").strip(),
-        "password": os.environ.get("SICAR_DB_PASSWORD", ""),
-        "database": os.environ.get("SICAR_DB_NAME", "sicar").strip(),
-    }
-
-
-def _connect_sicar(cfg: dict, read_timeout: int = 10):
-    return pymysql.connect(
-        host=cfg["host"],
-        port=cfg["port"],
-        user=cfg["user"],
-        password=cfg["password"],
-        database=cfg["database"],
-        charset="utf8mb4",
-        cursorclass=pymysql.cursors.DictCursor,
-        connect_timeout=6,
-        read_timeout=read_timeout,
-        write_timeout=read_timeout,
-    )
 
 
 def _json_value(value):
@@ -194,9 +181,12 @@ def _attachment_response(content: bytes, content_type: str, filename: str, *, in
 
 
 class SicarFacturasListView(APIView):
-    """Lista paginada exclusivamente desde facturacfdi."""
+    """Lista y creación de facturas CFDI en SICAR."""
 
-    permission_classes = [IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated(), CotizacionesPermission()]
+        return [IsAuthenticated()]
 
     def get(self, request):
         try:
@@ -278,12 +268,136 @@ class SicarFacturasListView(APIView):
                     },
                 }
             )
-        except Exception:
+        except Exception as exc:
             logger.exception("Error consultando %s en SICAR", PRIMARY_TABLE)
+            return Response({"detail": _sicar_error_detail(exc, cfg)}, status=502)
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    def post(self, request):
+        cfg = _sicar_db_config()
+        missing = [k for k in ("host", "user", "password", "database") if not cfg.get(k)]
+        if missing:
+            return Response({"detail": f"Faltan variables SICAR en entorno: {', '.join(missing)}"}, status=500)
+        try:
+            result = create_timbrada_factura(request.data if isinstance(request.data, dict) else {})
+            return Response(result, status=201)
+        except SicarFacturaError as exc:
+            logger.warning("Alta factura SICAR rechazada: %s", exc)
+            return Response({"detail": str(exc)}, status=400)
+        except Exception as exc:
+            logger.exception("Error creando factura SICAR")
+            return Response({"detail": _sicar_error_detail(exc, cfg)}, status=502)
+
+
+class SicarFacturaCatalogosView(APIView):
+    """Series CFDI y catálogos mínimos para el formulario."""
+
+    permission_classes = [IsAuthenticated, CotizacionesPermission]
+
+    def get(self, request):
+        cfg, err = _sicar_config_or_response()
+        if err:
+            return err
+        conn = None
+        try:
+            conn = _connect_sicar(cfg)
+            with conn.cursor() as cursor:
+                series = _serialize_rows(list_sicar_series(cursor))
             return Response(
-                {"detail": "No se pudo consultar SICAR. Verifica host/puerto/credenciales/red."},
-                status=502,
+                {
+                    "series": series,
+                    "forma_pago": [
+                        {"clave": "01", "label": "01-Efectivo"},
+                        {"clave": "03", "label": "03-Transferencia electrónica de fondos"},
+                        {"clave": "04", "label": "04-Tarjeta de crédito"},
+                        {"clave": "28", "label": "28-Tarjeta de débito"},
+                        {"clave": "99", "label": "99-Por definir"},
+                    ],
+                    "metodo_pago": [
+                        {"clave": "PUE", "label": "PUE-Pago en una sola exhibición"},
+                        {"clave": "PPD", "label": "PPD-Pago en parcialidades o diferido"},
+                    ],
+                    "uso_cfdi": [
+                        {"clave": "G01", "label": "G01-Adquisición de mercancías"},
+                        {"clave": "G02", "label": "G02-Devoluciones, descuentos o bonificaciones"},
+                        {"clave": "G03", "label": "G03-Gastos en general"},
+                        {"clave": "I01", "label": "I01-Construcciones"},
+                        {"clave": "I04", "label": "I04-Equipo de computo y accesorios"},
+                        {"clave": "I08", "label": "I08-Otra maquinaria y equipo"},
+                        {"clave": "D01", "label": "D01-Honorarios médicos, dentales y gastos hospitalarios"},
+                        {"clave": "P01", "label": "P01-Por definir"},
+                        {"clave": "S01", "label": "S01-Sin efectos fiscales"},
+                        {"clave": "CP01", "label": "CP01-Pagos"},
+                    ],
+                }
             )
+        except Exception as exc:
+            logger.exception("Error cargando catálogos SICAR")
+            return Response({"detail": _sicar_error_detail(exc, cfg)}, status=502)
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+
+class SicarClientesSearchView(APIView):
+    """Búsqueda de clientes en SICAR para facturación."""
+
+    permission_classes = [IsAuthenticated, CotizacionesPermission]
+
+    def get(self, request):
+        cfg, err = _sicar_config_or_response()
+        if err:
+            return err
+        q = (request.query_params.get("q") or "").strip()
+        try:
+            limit = max(1, min(int(request.query_params.get("limit", "25")), 100))
+        except Exception:
+            limit = 25
+        conn = None
+        try:
+            conn = _connect_sicar(cfg)
+            with conn.cursor() as cursor:
+                rows = _serialize_rows(search_sicar_clientes(cursor, q=q, limit=limit))
+            return Response({"items": rows, "q": q or None})
+        except Exception as exc:
+            logger.exception("Error buscando clientes SICAR")
+            return Response({"detail": _sicar_error_detail(exc, cfg)}, status=502)
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+
+class SicarClienteDetailView(APIView):
+    """Detalle de un cliente SICAR para el formulario de factura."""
+
+    permission_classes = [IsAuthenticated, CotizacionesPermission]
+
+    def get(self, request, cli_id: int):
+        cfg, err = _sicar_config_or_response()
+        if err:
+            return err
+        conn = None
+        try:
+            conn = _connect_sicar(cfg)
+            with conn.cursor() as cursor:
+                row = get_sicar_cliente(cursor, cli_id)
+            if not row:
+                return Response({"detail": f"Cliente SICAR cli_id={cli_id} no encontrado."}, status=404)
+            return Response(_serialize_row(row))
+        except Exception as exc:
+            logger.exception("Error cargando cliente SICAR %s", cli_id)
+            return Response({"detail": _sicar_error_detail(exc, cfg)}, status=502)
         finally:
             if conn is not None:
                 try:
@@ -326,9 +440,9 @@ class SicarFacturaDetalleView(APIView):
                     "tables": payload,
                 }
             )
-        except Exception:
+        except Exception as exc:
             logger.exception("Error consultando detalle SICAR fcf_id=%s", fcf_id)
-            return Response({"detail": "No se pudo consultar el detalle en SICAR."}, status=502)
+            return Response({"detail": _sicar_error_detail(exc, cfg)}, status=502)
         finally:
             if conn is not None:
                 try:
@@ -367,9 +481,9 @@ class SicarFacturaXmlView(APIView):
             if isinstance(xml_bytes, str):
                 xml_bytes = xml_bytes.encode("utf-8")
             return _attachment_response(bytes(xml_bytes), "application/xml; charset=utf-8", filename)
-        except Exception:
+        except Exception as exc:
             logger.exception("Error descargando XML SICAR fcf_id=%s", fcf_id)
-            return Response({"detail": "No se pudo obtener el XML desde SICAR."}, status=502)
+            return Response({"detail": _sicar_error_detail(exc, cfg)}, status=502)
         finally:
             if conn is not None:
                 try:
@@ -426,9 +540,9 @@ class SicarFacturaPdfView(APIView):
                 return Response({"detail": "No se pudo generar el PDF."}, status=502)
 
             return _attachment_response(pdf_bytes, "application/pdf", filename, inline=True)
-        except Exception:
+        except Exception as exc:
             logger.exception("Error generando PDF SICAR fcf_id=%s", fcf_id)
-            return Response({"detail": "No se pudo generar el PDF desde SICAR."}, status=502)
+            return Response({"detail": _sicar_error_detail(exc, cfg)}, status=502)
         finally:
             if conn is not None:
                 try:

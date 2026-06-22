@@ -207,7 +207,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   useEffect(() => {
     if (!fixedTipo) return;
     setFormData((prev) => ({ ...prev, tipo: fixedTipo }));
-      
+
   }, [fixedTipo]);
 
   const fetchClientes = async (page = 1, search = "") => {
@@ -408,60 +408,60 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   return (
     <div className="min-h-[calc(100dvh-5rem)] overflow-x-hidden">
       <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]" style={claudeSansStyle}>
-      <PageMeta
-        title={`${viewPlural} | Sistema Grupo Intrax GPS`}
-        description={`Gestión de ${viewPlural.toLowerCase()} para el sistema de administración Grupo Intrax GPS`}
-      />
-
-      {alert.show && (
-        <Alert
-          variant={alert.variant}
-          title={alert.title}
-          message={alert.message}
-          showLink={false}
+        <PageMeta
+          title={`${viewPlural} | Sistema Grupo Intrax GPS`}
+          description={`Gestión de ${viewPlural.toLowerCase()} para el sistema de administración Grupo Intrax GPS`}
         />
-      )}
 
-      {!canClientesView ? (
-        <div className="rounded-3xl border border-[#e7ded0] bg-[#fffdfa] px-4 py-10 text-center text-sm text-[#57534e] shadow-[0_20px_50px_-36px_rgba(28,25,23,0.2)] dark:border-[#273244] dark:bg-[#111827]/80 dark:text-[#b7c1d1] sm:px-6">
-          No tienes permiso para ver {viewPlural}.
-        </div>
-      ) : (
-        <>
-          <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]" aria-label="Migas de pan">
-            <Link to="/" className="rounded-md px-1.5 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white">
-              Inicio
-            </Link>
-            <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
-              /
-            </span>
-            <span className="text-[#44403c] dark:text-[#cbd5e1]">{viewPlural}</span>
-          </nav>
+        {alert.show && (
+          <Alert
+            variant={alert.variant}
+            title={alert.title}
+            message={alert.message}
+            showLink={false}
+          />
+        )}
 
-          <header className={`relative flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
-            <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
-            <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
-                <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path fillRule="evenodd" clipRule="evenodd" d="M6.75 6.5C6.75 3.6005 9.1005 1.25 12 1.25C14.8995 1.25 17.25 3.6005 17.25 6.5C17.25 9.3995 14.8995 11.75 12 11.75C9.1005 11.75 6.75 9.3995 6.75 6.5Z" fill="currentColor" />
-                  <path fillRule="evenodd" clipRule="evenodd" d="M4.25 18.5714C4.25 15.6325 6.63249 13.25 9.57143 13.25H14.4286C17.3675 13.25 19.75 15.6325 19.75 18.5714C19.75 20.8792 17.8792 22.75 15.5714 22.75H8.42857C6.12081 22.75 4.25 20.8792 4.25 18.5714Z" fill="currentColor" />
-                </svg>
+        {!canClientesView ? (
+          <div className="rounded-3xl border border-[#e7ded0] bg-[#fffdfa] px-4 py-10 text-center text-sm text-[#57534e] shadow-[0_20px_50px_-36px_rgba(28,25,23,0.2)] dark:border-[#273244] dark:bg-[#111827]/80 dark:text-[#b7c1d1] sm:px-6">
+            No tienes permiso para ver {viewPlural}.
+          </div>
+        ) : (
+          <>
+            <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]" aria-label="Migas de pan">
+              <Link to="/" className="rounded-md px-1.5 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white">
+                Inicio
+              </Link>
+              <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+                /
+              </span>
+              <span className="text-[#44403c] dark:text-[#cbd5e1]">{viewPlural}</span>
+            </nav>
+
+            <header className={`relative flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
+              <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
+              <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
+                  <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path fillRule="evenodd" clipRule="evenodd" d="M6.75 6.5C6.75 3.6005 9.1005 1.25 12 1.25C14.8995 1.25 17.25 3.6005 17.25 6.5C17.25 9.3995 14.8995 11.75 12 11.75C9.1005 11.75 6.75 9.3995 6.75 6.5Z" fill="currentColor" />
+                    <path fillRule="evenodd" clipRule="evenodd" d="M4.25 18.5714C4.25 15.6325 6.63249 13.25 9.57143 13.25H14.4286C17.3675 13.25 19.75 15.6325 19.75 18.5714C19.75 20.8792 17.8792 22.75 15.5714 22.75H8.42857C6.12081 22.75 4.25 20.8792 4.25 18.5714Z" fill="currentColor" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]">
+                    Contactos de negocio
+                  </p>
+                  <h1 className={`mt-0.5 ${claudeHeroHeadingClass}`}>{viewPlural}</h1>
+                  <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
+                    Consulta, crea y edita registros con{" "}
+                    <span className="font-medium text-[#ea580c] dark:text-[#fb923c]">contactos</span>, dirección y datos fiscales.
+                  </p>
+                  <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]">
-                  Contactos de negocio
-                </p>
-                <h1 className={`mt-0.5 ${claudeHeroHeadingClass}`}>{viewPlural}</h1>
-                <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
-                  Consulta, crea y edita registros con{" "}
-                  <span className="font-medium text-[#ea580c] dark:text-[#fb923c]">contactos</span>, dirección y datos fiscales.
-                </p>
-                <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
-              </div>
-            </div>
-          </header>
+            </header>
 
-          <div className="grid w-full grid-cols-1 gap-2 sm:gap-3 lg:max-w-md">
+            <div className="grid w-full grid-cols-1 gap-2 sm:gap-3 lg:max-w-md">
               <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
                 <div className="flex items-center gap-2.5 sm:gap-3">
                   <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#fb923c] sm:h-10 sm:w-10">
@@ -480,7 +480,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
               </div>
             </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
               <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
                 <svg
                   className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b] sm:left-3.5"
@@ -550,129 +550,129 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                   <div className="touch-pan-x overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] px-1 pb-1 sm:px-0 sm:pb-0">
                     <Table className="w-full min-w-[920px] table-fixed sm:min-w-0 xl:min-w-full">
                       <TableHeader className="sticky top-0 z-10 border-b border-[#e7ded0] bg-[#fcfaf6]/95 text-[11px] font-semibold text-[#1c1917] dark:border-[#334155] dark:bg-[#111a2b]/95 dark:text-[#f8fafc]">
-                      <TableRow>
-                        <TableCell isHeader className="px-1.5 py-1 text-left w-[64px] text-gray-700 dark:text-gray-300">ID</TableCell>
-                        {!fixedTipo && (
-                          <TableCell isHeader className="px-1.5 py-1 text-left w-[110px] text-gray-700 dark:text-gray-300">Tipo</TableCell>
-                        )}
-                        <TableCell isHeader className="px-1.5 py-1 text-left w-[170px] text-gray-700 dark:text-gray-300">{nombreColHeader}</TableCell>
-                        <TableCell isHeader className="px-1.5 py-1 text-left w-[120px] text-gray-700 dark:text-gray-300">Ciudad</TableCell>
-                        <TableCell isHeader className="px-1.5 py-1 text-left w-[120px] text-gray-700 dark:text-gray-300">Teléfono</TableCell>
-                        <TableCell isHeader className="px-1.5 py-1 text-left w-[160px] text-gray-700 dark:text-gray-300">Contacto</TableCell>
-                        <TableCell isHeader className="px-1.5 py-1 text-left w-[210px] text-gray-700 dark:text-gray-300">Dirección</TableCell>
-                        <TableCell isHeader className="px-1.5 py-1 text-center w-[96px] text-gray-700 dark:text-gray-300">Acciones</TableCell>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-[#f5f0e8] text-[12px] text-[#44403c] dark:divide-[#334155]/80 dark:text-[#e5e7eb]">
-                      {loading ? (
                         <TableRow>
-                          <TableCell className="px-1.5 py-3" colSpan={fixedTipo ? 7 : 8}>Cargando...</TableCell>
+                          <TableCell isHeader className="px-1.5 py-1 text-left w-[64px] text-gray-700 dark:text-gray-300">ID</TableCell>
+                          {!fixedTipo && (
+                            <TableCell isHeader className="px-1.5 py-1 text-left w-[110px] text-gray-700 dark:text-gray-300">Tipo</TableCell>
+                          )}
+                          <TableCell isHeader className="px-1.5 py-1 text-left w-[170px] text-gray-700 dark:text-gray-300">{nombreColHeader}</TableCell>
+                          <TableCell isHeader className="px-1.5 py-1 text-left w-[120px] text-gray-700 dark:text-gray-300">Ciudad</TableCell>
+                          <TableCell isHeader className="px-1.5 py-1 text-left w-[120px] text-gray-700 dark:text-gray-300">Teléfono</TableCell>
+                          <TableCell isHeader className="px-1.5 py-1 text-left w-[160px] text-gray-700 dark:text-gray-300">Contacto</TableCell>
+                          <TableCell isHeader className="px-1.5 py-1 text-left w-[210px] text-gray-700 dark:text-gray-300">Dirección</TableCell>
+                          <TableCell isHeader className="px-1.5 py-1 text-center w-[96px] text-gray-700 dark:text-gray-300">Acciones</TableCell>
                         </TableRow>
-                      ) : currentClientes.length === 0 ? (
-                        <TableRow>
-                          <TableCell className="px-1.5 py-2" colSpan={fixedTipo ? 7 : 8}>
-                            <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No hay {viewPlural.toLowerCase()}.</div>
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        currentClientes.map((cliente) => (
-                            <TableRow key={cliente.id} className="transition-colors hover:bg-[#fffdf8] dark:hover:bg-[#1e293b]/50">
-                            <TableCell className="px-1.5 py-1 whitespace-nowrap tabular-nums font-semibold text-gray-900 dark:text-white">{cliente.idx}</TableCell>
-                            {!fixedTipo && (
-                              <TableCell className="px-1.5 py-1 whitespace-nowrap text-[11px] text-[#57534e] dark:text-[#cbd5e1]">
-                                {getTipoLabel(cliente.tipo)}
-                              </TableCell>
-                            )}
-                            <TableCell className="px-1.5 py-1 text-gray-900 dark:text-white truncate">
-                              <span className="block truncate" title={cliente.nombre}>{cliente.nombre}</span>
-                            </TableCell>
-                            <TableCell className="px-1.5 py-1 whitespace-nowrap">
-                              {(() => {
-                                const ciudad = cliente.ciudad || '';
-                                const estado = cliente.estado || '';
-                                if (!ciudad && !estado) return <span className="text-gray-500">-</span>;
-                                return (
-                                  <div className="leading-tight">
-                                    <div className="text-gray-900 dark:text-white truncate" title={ciudad || ''}>{ciudad || '-'}</div>
-                                    <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={estado || ''}>{estado || '-'}</div>
-                                  </div>
-                                );
-                              })()}
-                            </TableCell>
-                            <TableCell className="px-1.5 py-1 whitespace-nowrap">
-                              <a href={`tel:${cliente.telefono}`} className="text-[#ff801f] hover:text-[#ff6a00] dark:text-[#ffa057] dark:hover:text-[#ffb174] hover:underline">
-                                {cliente.telefono}
-                              </a>
-                            </TableCell>
-                            <TableCell className="px-1.5 py-1">
-                              {(() => {
-                                const principal = (cliente.contactos || []).find((c) => c.is_principal) || (cliente.contactos || [])[0];
-                                const nombre =
-                                  String(cliente.representante || "").trim() ||
-                                  String(principal?.nombre_apellido || "").trim();
-                                const correo =
-                                  String(cliente.correo || "").trim() ||
-                                  String(principal?.correo || "").trim();
-                                if (!nombre && !correo) return <span className="text-gray-500">-</span>;
-                                return (
-                                  <div className="leading-tight">
-                                    <div className="text-gray-900 dark:text-white truncate" title={nombre || ''}>{nombre || '-'}</div>
-                                    {correo ? (
-                                      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={correo}>{correo}</div>
-                                    ) : (
-                                      <div className="text-[11px] text-gray-500 dark:text-gray-400">-</div>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-                            </TableCell>
-                            <TableCell className="px-1.5 py-1">
-                              {isGoogleMapsLink(cliente.direccion) ? (
-                                <a
-                                  href={cliente.direccion}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-[#ff801f] dark:text-[#ffa057] hover:underline"
-                                >
-                                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                    <circle cx="12" cy="10" r="3" />
-                                  </svg>
-                                  Ver ubicación
-                                </a>
-                              ) : (
-                                <span className="block truncate" title={cliente.direccion}>{cliente.direccion}</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="px-1.5 py-1 text-center">
-                                <div className="inline-flex items-center gap-1 rounded-lg border border-[#e7ded0]/80 bg-[#fcfaf6] px-1.5 py-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
-                                {canClientesEdit && (
-                                  <button
-                                    onClick={() => handleEdit(cliente)}
-                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-[#ff801f]/50 hover:text-[#ff801f] active:scale-[0.97] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#ff801f]/50 sm:h-7 sm:w-7 sm:rounded"
-                                    title="Editar"
-                                  >
-                                    <PencilIcon className="w-4 h-4" />
-                                  </button>
-                                )}
-                                {canClientesDelete && (
-                                  <button
-                                    onClick={() => handleDeleteClick(cliente)}
-                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
-                                    title="Eliminar"
-                                  >
-                                    <TrashBinIcon className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </div>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-[#f5f0e8] text-[12px] text-[#44403c] dark:divide-[#334155]/80 dark:text-[#e5e7eb]">
+                        {loading ? (
+                          <TableRow>
+                            <TableCell className="px-1.5 py-3" colSpan={fixedTipo ? 7 : 8}>Cargando...</TableCell>
+                          </TableRow>
+                        ) : currentClientes.length === 0 ? (
+                          <TableRow>
+                            <TableCell className="px-1.5 py-2" colSpan={fixedTipo ? 7 : 8}>
+                              <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No hay {viewPlural.toLowerCase()}.</div>
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                        ) : (
+                          currentClientes.map((cliente) => (
+                            <TableRow key={cliente.id} className="transition-colors hover:bg-[#fffdf8] dark:hover:bg-[#1e293b]/50">
+                              <TableCell className="px-1.5 py-1 whitespace-nowrap tabular-nums font-semibold text-gray-900 dark:text-white">{cliente.idx}</TableCell>
+                              {!fixedTipo && (
+                                <TableCell className="px-1.5 py-1 whitespace-nowrap text-[11px] text-[#57534e] dark:text-[#cbd5e1]">
+                                  {getTipoLabel(cliente.tipo)}
+                                </TableCell>
+                              )}
+                              <TableCell className="px-1.5 py-1 text-gray-900 dark:text-white truncate">
+                                <span className="block truncate" title={cliente.nombre}>{cliente.nombre}</span>
+                              </TableCell>
+                              <TableCell className="px-1.5 py-1 whitespace-nowrap">
+                                {(() => {
+                                  const ciudad = cliente.ciudad || '';
+                                  const estado = cliente.estado || '';
+                                  if (!ciudad && !estado) return <span className="text-gray-500">-</span>;
+                                  return (
+                                    <div className="leading-tight">
+                                      <div className="text-gray-900 dark:text-white truncate" title={ciudad || ''}>{ciudad || '-'}</div>
+                                      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={estado || ''}>{estado || '-'}</div>
+                                    </div>
+                                  );
+                                })()}
+                              </TableCell>
+                              <TableCell className="px-1.5 py-1 whitespace-nowrap">
+                                <a href={`tel:${cliente.telefono}`} className="text-[#ff801f] hover:text-[#ff6a00] dark:text-[#ffa057] dark:hover:text-[#ffb174] hover:underline">
+                                  {cliente.telefono}
+                                </a>
+                              </TableCell>
+                              <TableCell className="px-1.5 py-1">
+                                {(() => {
+                                  const principal = (cliente.contactos || []).find((c) => c.is_principal) || (cliente.contactos || [])[0];
+                                  const nombre =
+                                    String(cliente.representante || "").trim() ||
+                                    String(principal?.nombre_apellido || "").trim();
+                                  const correo =
+                                    String(cliente.correo || "").trim() ||
+                                    String(principal?.correo || "").trim();
+                                  if (!nombre && !correo) return <span className="text-gray-500">-</span>;
+                                  return (
+                                    <div className="leading-tight">
+                                      <div className="text-gray-900 dark:text-white truncate" title={nombre || ''}>{nombre || '-'}</div>
+                                      {correo ? (
+                                        <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={correo}>{correo}</div>
+                                      ) : (
+                                        <div className="text-[11px] text-gray-500 dark:text-gray-400">-</div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </TableCell>
+                              <TableCell className="px-1.5 py-1">
+                                {isGoogleMapsLink(cliente.direccion) ? (
+                                  <a
+                                    href={cliente.direccion}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-[#ff801f] dark:text-[#ffa057] hover:underline"
+                                  >
+                                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                      <circle cx="12" cy="10" r="3" />
+                                    </svg>
+                                    Ver ubicación
+                                  </a>
+                                ) : (
+                                  <span className="block truncate" title={cliente.direccion}>{cliente.direccion}</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="px-1.5 py-1 text-center">
+                                <div className="inline-flex items-center gap-1 rounded-lg border border-[#e7ded0]/80 bg-[#fcfaf6] px-1.5 py-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
+                                  {canClientesEdit && (
+                                    <button
+                                      onClick={() => handleEdit(cliente)}
+                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-[#ff801f]/50 hover:text-[#ff801f] active:scale-[0.97] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#ff801f]/50 sm:h-7 sm:w-7 sm:rounded"
+                                      title="Editar"
+                                    >
+                                      <PencilIcon className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {canClientesDelete && (
+                                    <button
+                                      onClick={() => handleDeleteClick(cliente)}
+                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
+                                      title="Eliminar"
+                                    >
+                                      <TrashBinIcon className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
-              </div>
 
                 {/* Paginación */}
                 {!loading && totalCount > 0 && currentClientes.length > 0 && (
@@ -755,107 +755,107 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                     </div>
                   </div>
                 )}
-            </ComponentCard>
-          </div>
-
-        </>
-      )}
-
-      {/* Modal Crear/Editar */}
-      <Modal
-        mobileBottomSheet
-        isOpen={showModal}
-        onClose={handleCloseModal}
-        closeOnBackdropClick={false}
-        ariaLabel="Formulario de cliente"
-        className="w-full max-w-5xl overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_30px_90px_-45px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111a2b]"
-      >
-        <div className="bg-[#fffdfa] dark:bg-[#111a2b]">
-          <header className="relative shrink-0 border-b border-[#e7ded0] bg-gradient-to-r from-[#fcfaf6] via-[#fffaf3] to-[#fffdfa] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-none dark:from-[#111827] dark:via-[#111827] dark:to-[#111827] sm:pr-16">
-            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path fillRule="evenodd" clipRule="evenodd" d="M6.75 6.5C6.75 3.6005 9.1005 1.25 12 1.25C14.8995 1.25 17.25 3.6005 17.25 6.5C17.25 9.3995 14.8995 11.75 12 11.75C9.1005 11.75 6.75 9.3995 6.75 6.5Z" fill="currentColor" />
-                  <path fillRule="evenodd" clipRule="evenodd" d="M4.25 18.5714C4.25 15.6325 6.63249 13.25 9.57143 13.25H14.4286C17.3675 13.25 19.75 15.6325 19.75 18.5714C19.75 20.8792 17.8792 22.75 15.5714 22.75H8.42857C6.12081 22.75 4.25 20.8792 4.25 18.5714Z" fill="currentColor" />
-                </svg>
-              </span>
-              <div className="min-w-0">
-                <p className={sectionLabelClass}>Contactos · {viewPlural}</p>
-                <h3 className={`mt-1 ${claudeSectionHeadingClass}`}>
-                  {editingCliente ? `Editar ${viewSingular}` : `Nuevo ${viewSingular}`}
-                </h3>
-                <p className={claudeCaptionClass}>
-                  Captura y revisa los datos antes de guardar
-                </p>
-              </div>
+              </ComponentCard>
             </div>
-          </header>
 
-          {/* Body */}
-          <form onSubmit={handleSubmit} className="custom-scrollbar max-h-[78vh] space-y-4 overflow-y-auto p-4 sm:p-5">
-            {modalError && (
-              <Alert
-                variant={String(modalError).startsWith('Campos requeridos faltantes:') ? 'warning' : 'error'}
-                title={String(modalError).startsWith('Campos requeridos faltantes:') ? 'Faltan campos' : 'Error'}
-                message={modalError}
-                showLink={false}
+          </>
+        )}
+
+        {/* Modal Crear/Editar */}
+        <Modal
+          mobileBottomSheet
+          isOpen={showModal}
+          onClose={handleCloseModal}
+          closeOnBackdropClick={false}
+          ariaLabel="Formulario de cliente"
+          className="w-full max-w-5xl overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_30px_90px_-45px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111a2b]"
+        >
+          <div className="bg-[#fffdfa] dark:bg-[#111a2b]">
+            <header className="relative shrink-0 border-b border-[#e7ded0] bg-gradient-to-r from-[#fcfaf6] via-[#fffaf3] to-[#fffdfa] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-none dark:from-[#111827] dark:via-[#111827] dark:to-[#111827] sm:pr-16">
+              <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path fillRule="evenodd" clipRule="evenodd" d="M6.75 6.5C6.75 3.6005 9.1005 1.25 12 1.25C14.8995 1.25 17.25 3.6005 17.25 6.5C17.25 9.3995 14.8995 11.75 12 11.75C9.1005 11.75 6.75 9.3995 6.75 6.5Z" fill="currentColor" />
+                    <path fillRule="evenodd" clipRule="evenodd" d="M4.25 18.5714C4.25 15.6325 6.63249 13.25 9.57143 13.25H14.4286C17.3675 13.25 19.75 15.6325 19.75 18.5714C19.75 20.8792 17.8792 22.75 15.5714 22.75H8.42857C6.12081 22.75 4.25 20.8792 4.25 18.5714Z" fill="currentColor" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className={sectionLabelClass}>Contactos · {viewPlural}</p>
+                  <h3 className={`mt-1 ${claudeSectionHeadingClass}`}>
+                    {editingCliente ? `Editar ${viewSingular}` : `Nuevo ${viewSingular}`}
+                  </h3>
+                  <p className={claudeCaptionClass}>
+                    Captura y revisa los datos antes de guardar
+                  </p>
+                </div>
+              </div>
+            </header>
+
+            {/* Body */}
+            <form onSubmit={handleSubmit} className="custom-scrollbar max-h-[78vh] space-y-4 overflow-y-auto p-4 sm:p-5">
+              {modalError && (
+                <Alert
+                  variant={String(modalError).startsWith('Campos requeridos faltantes:') ? 'warning' : 'error'}
+                  title={String(modalError).startsWith('Campos requeridos faltantes:') ? 'Faltan campos' : 'Error'}
+                  message={modalError}
+                  showLink={false}
+                />
+              )}
+
+              <ClienteSimplifiedFormFields
+                formData={formData}
+                setFormData={setFormData}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                fixedTipo={fixedTipo}
+                editingCliente={editingCliente}
+                onOpenMap={() => setShowMapModal(true)}
               />
-            )}
 
-            <ClienteSimplifiedFormFields
-              formData={formData}
-              setFormData={setFormData}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              fixedTipo={fixedTipo}
-              editingCliente={editingCliente}
-              onOpenMap={() => setShowMapModal(true)}
-            />
-
-            {/* Footer Buttons */}
-            <div className="sticky bottom-[-1rem] z-20 -mx-4 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 shadow-[0_-10px_24px_-20px_rgba(28,25,23,0.55)] before:absolute before:-bottom-3 before:left-0 before:h-3 before:w-full before:bg-[#fcfaf6] before:content-[''] dark:border-[#334155] dark:bg-[#0f172a] dark:before:bg-[#0f172a] sm:-mx-5 sm:bottom-[-1.25rem] sm:px-5">
-              <div className="flex flex-col sm:flex-row justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
-                  </svg>
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-[12px] bg-[#ff801f] text-black hover:bg-[#ff6a00] focus:ring-2 focus:ring-[#ff801f]/30"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M5 12l4 4L19 6" strokeLinecap="round" />
-                  </svg>
-                  {editingCliente ? "Actualizar" : "Guardar"}
-                </button>
+              {/* Footer Buttons */}
+              <div className="sticky bottom-[-1rem] z-20 -mx-4 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 shadow-[0_-10px_24px_-20px_rgba(28,25,23,0.55)] before:absolute before:-bottom-3 before:left-0 before:h-3 before:w-full before:bg-[#fcfaf6] before:content-[''] dark:border-[#334155] dark:bg-[#0f172a] dark:before:bg-[#0f172a] sm:-mx-5 sm:bottom-[-1.25rem] sm:px-5">
+                <div className="flex flex-col sm:flex-row justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
+                    </svg>
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-[12px] bg-[#ff801f] text-black hover:bg-[#ff6a00] focus:ring-2 focus:ring-[#ff801f]/30"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M5 12l4 4L19 6" strokeLinecap="round" />
+                    </svg>
+                    {editingCliente ? "Actualizar" : "Guardar"}
+                  </button>
+                </div>
               </div>
-            </div>
-          </form>
-        </div>
-      </Modal>
+            </form>
+          </div>
+        </Modal>
 
-      <ClienteMapPickerModal
-        isOpen={showMapModal}
-        onClose={() => setShowMapModal(false)}
-        mapContainerId={CLIENTES_MAP_CONTAINER_ID}
-        direccion={String(formData.direccion || "")}
-        selectedLocation={selectedLocation}
-        setSelectedLocation={setSelectedLocation}
-        onConfirm={handleConfirmMap}
-        onMapError={(message) => {
-          setAlert({ show: true, variant: "error", title: "Error de mapa", message });
-          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
-        }}
-      />
+        <ClienteMapPickerModal
+          isOpen={showMapModal}
+          onClose={() => setShowMapModal(false)}
+          mapContainerId={CLIENTES_MAP_CONTAINER_ID}
+          direccion={String(formData.direccion || "")}
+          selectedLocation={selectedLocation}
+          setSelectedLocation={setSelectedLocation}
+          onConfirm={handleConfirmMap}
+          onMapError={(message) => {
+            setAlert({ show: true, variant: "error", title: "Error de mapa", message });
+            setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
+          }}
+        />
 
-      {/* Modal de Confirmación de Eliminación */}
+        {/* Modal de Confirmación de Eliminación */}
         {
           clienteToDelete && (
             <Modal

@@ -43,6 +43,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
 
     logo_data_uri = load_public_image_data_uri("images/logo/intrax-logo.png")
     santander_data_uri = load_public_image_data_uri("images/logo/santander.png")
+    default_concept_img = load_public_image_data_uri("images/logo/defect_concept.png")
 
     cliente_obj = getattr(cotizacion, 'cliente_id', None)
     if cliente_obj and not hasattr(cliente_obj, 'nombre'):
@@ -94,6 +95,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
             """
             )
             last_cat_id = cat_id
+        solo_concepto_manual = False
         try:
             cantidad = float(it.cantidad or 0)
             precio_lista = float(it.precio_lista or 0)
@@ -131,9 +133,18 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
             cantidad_str = str(cantidad)
 
         thumb_src = safe_pdf_thumbnail_src(getattr(it, "thumbnail_url", "") or "")
+        if not thumb_src and default_concept_img:
+            thumb_src = default_concept_img
         nombre_base = str(getattr(it, 'producto_nombre', '') or '-').strip() or '-'
         descripcion_larga = str(getattr(it, 'producto_descripcion', '') or '').strip()
-        if opts.simplificar_descripcion:
+        if solo_concepto_manual:
+            nombre = nombre_base
+            desc_html = (
+                f"<div class='desc'>{esc(descripcion_larga)}</div>"
+                if show_detalle and descripcion_larga
+                else ""
+            )
+        elif opts.simplificar_descripcion:
             corta = str(getattr(it, 'pdf_descripcion_corta', '') or '').strip()
             if not corta:
                 corta = (
@@ -164,7 +175,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
             f"""
             <tr>
               <td class='imgcell'>
-                {f"<img class='img' src='{esc(thumb_src)}' />" if thumb_src else "<div class='img ph'></div>"}
+                {f"<img class='img' src='{esc(thumb_src)}' alt='' />" if thumb_src else "<div class='img ph'></div>"}
               </td>
               <td class='center'>{esc(cantidad_str)}</td>
               <td>{esc(getattr(it, 'unidad', '') or '-')}</td>
@@ -309,7 +320,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     .img {{ width: 70px; height: 70px; border-radius: 6px; border: 1px solid #e5e7eb; object-fit: cover; }}
     .img.ph {{ background: #f9fafb; border-style: dashed; }}
     .name {{ font-weight: 600; color: #111827; }}
-    .desc {{ color: #4b5563; }}
+    .desc {{ margin-top: 3px; font-size: 10px; line-height: 1.35; color: #4b5563; }}
     .totals {{ margin-top: 14px; width: 100%; max-width: 340px; margin-left: auto; margin-right: 16px; border-top: 1px solid #e5e7eb; padding-top: 10px; }}
     .totals .row {{ display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }}
     .totals .row strong {{ font-weight: 600; }}

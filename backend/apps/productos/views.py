@@ -61,7 +61,7 @@ class ConceptoViewSet(viewsets.ModelViewSet):
     pagination_class = ServiciosPagination
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['folio', 'concepto']
+    search_fields = ['folio', 'concepto', 'descripcion']
     ordering_fields = ['folio', 'concepto', 'precio1', 'fecha_creacion']
     ordering = ['folio']
 

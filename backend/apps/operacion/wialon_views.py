@@ -18,6 +18,11 @@ from .wialon_client import (
 logger = logging.getLogger(__name__)
 
 
+def _wialon_error_response(exc: WialonError, fallback: str) -> Response:
+    detail = str(exc).strip() or fallback
+    return Response({"detail": detail, "code": exc.code}, status=502)
+
+
 class WialonUsuariosView(APIView):
     """Usuarios de Wialon (Antarix GPS) para la vista de Operación."""
 
@@ -33,7 +38,7 @@ class WialonUsuariosView(APIView):
             units_index = fetch_units_search_index(use_cache=not refresh)
         except WialonError as exc:
             logger.warning("Wialon usuarios: %s", exc)
-            return Response({"detail": "No se pudieron cargar los usuarios de Wialon."}, status=502)
+            return _wialon_error_response(exc, "No se pudieron cargar los usuarios de Wialon.")
         except Exception:
             logger.exception("Error inesperado consultando usuarios Wialon")
             return Response({"detail": "No se pudieron cargar los usuarios de Wialon."}, status=502)

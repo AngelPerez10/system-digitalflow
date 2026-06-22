@@ -12,6 +12,10 @@ type SearchableSelectProps = {
   disabled?: boolean;
   required?: boolean;
   placeholder?: string;
+  /** Búsqueda remota: el padre actualiza `options` según el texto. */
+  onSearchChange?: (query: string) => void;
+  /** Si es false, no filtra localmente (options ya vienen filtradas). Default true. */
+  filterLocally?: boolean;
 };
 
 export default function SearchableSelect({
@@ -22,6 +26,8 @@ export default function SearchableSelect({
   disabled,
   required,
   placeholder,
+  onSearchChange,
+  filterLocally = true,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -30,12 +36,13 @@ export default function SearchableSelect({
   const selected = options.find((o) => o.value === value);
 
   const filtered = useMemo(() => {
+    if (!filterLocally) return options;
     if (!search.trim()) return options;
     const q = search.toLowerCase();
     return options.filter(
       (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)
     );
-  }, [search, options]);
+  }, [search, options, filterLocally]);
 
   useEffect(() => {
     if (!open) return;
@@ -58,6 +65,7 @@ export default function SearchableSelect({
           onChange={(e) => {
             setSearch(e.target.value);
             setOpen(true);
+            onSearchChange?.(e.target.value);
           }}
           onFocus={() => {
             setSearch("");
