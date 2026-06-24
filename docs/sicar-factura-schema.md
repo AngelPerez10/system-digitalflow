@@ -45,8 +45,8 @@ Valores típicos referencia: `status=1`, `caj_id=1`, `mon_id=1`, `versionCfdi=4.
 
 ## PAC / CSD
 
-- **CSD**: tabla `sellodigital` (fila `seleccionado=1`). Contraseña del `.key` en `backend/.env` como `SICAR_CSD_PASSWORD` (SICAR almacena `pwd` cifrado).
-- **PAC**: token en `empresa.claveApi` o `SICAR_PAC_TOKEN`; proveedor por defecto SW (`SICAR_PAC_PROVIDER=sw`).
+- **CSD**: tabla `sellodigital` (fila `seleccionado=1`). Contraseña del `.key` en `pwd` (SICAR puede almacenarla cifrada).
+- **PAC**: token en `empresa.claveApi`; timbrado vía SW (`https://services.sw.com.mx/cfdi/stamp/v4/xml`).
 
 ## Mapeo formulario DigitalFlow → SICAR
 
@@ -66,9 +66,4 @@ SICAR_DB_PORT=3307
 SICAR_DB_USER=
 SICAR_DB_PASSWORD=
 SICAR_DB_NAME=sicar
-SICAR_CSD_PASSWORD=          # contraseña del .key del CSD activo
-SICAR_PAC_TOKEN=             # opcional; si vacío usa empresa.claveApi
-SICAR_PAC_PROVIDER=sw        # sw | finkok
-SICAR_DEFAULT_ART_ID=1300    # artículo genérico para detallev
-SICAR_DEFAULT_VND_ID=3       # vendedor por defecto (venta.vnd_id)
 ```

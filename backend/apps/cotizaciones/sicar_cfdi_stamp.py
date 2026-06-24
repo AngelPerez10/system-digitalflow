@@ -8,7 +8,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from typing import Any
 
-from apps.cotizaciones.sicar_db import sicar_setting_str
+_SW_PAC_URL = "https://services.sw.com.mx/cfdi/stamp/v4/xml"
 
 
 class SicarStampError(Exception):
@@ -51,16 +51,12 @@ def _extract_timbre(stamped_xml: bytes) -> dict[str, str]:
     }
 
 
-def stamp_cfdi_xml(signed_xml: bytes, token: str | None = None) -> tuple[bytes, dict[str, str]]:
-    pac_token = token or sicar_setting_str("SICAR_PAC_TOKEN")
+def stamp_cfdi_xml(signed_xml: bytes, *, token: str) -> tuple[bytes, dict[str, str]]:
+    pac_token = (token or "").strip()
     if not pac_token:
-        raise SicarStampError("Falta SICAR_PAC_TOKEN o empresa.claveApi para timbrar.")
+        raise SicarStampError("Falta empresa.claveApi en SICAR para timbrar.")
 
-    provider = sicar_setting_str("SICAR_PAC_PROVIDER", "sw").lower()
-    if provider != "sw":
-        raise SicarStampError(f"Proveedor PAC no soportado: {provider}")
-
-    url = "https://services.sw.com.mx/cfdi/stamp/v4/xml"
+    url = _SW_PAC_URL
     req = urllib.request.Request(
         url,
         data=signed_xml,

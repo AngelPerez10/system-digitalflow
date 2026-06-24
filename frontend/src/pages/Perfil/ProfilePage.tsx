@@ -1,9 +1,17 @@
 import PageMeta from "@/components/common/PageMeta";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import Button from "@/components/ui/button/Button";
-import Alert from "@/components/ui/alert/Alert";
 import { resolveMediaUrl, fetchApi } from "@/config/api";
+import {
+  erpHeroHeadingClass,
+  erpInputFieldInsetClass,
+  erpPrimaryBtnClass,
+  erpSansStyle,
+  erpSecondaryBtnClass,
+  erpSectionLabelClass,
+  erpSubheadingClass,
+} from "@/layout/erpPageStyles";
+import { useAuth } from "@/context/AuthContext";
 import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -16,6 +24,13 @@ type MePayload = {
   avatar_url?: string;
 };
 
+type AlertState = {
+  show: boolean;
+  variant: "success" | "error";
+  title: string;
+  message: string;
+};
+
 function initials(first: string, last: string, username: string) {
   const a = (first || "").trim().charAt(0).toUpperCase();
   const b = (last || "").trim().charAt(0).toUpperCase();
@@ -25,13 +40,31 @@ function initials(first: string, last: string, username: string) {
   return u.slice(0, 2).toUpperCase();
 }
 
-const cardShellClass =
-  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+function displayName(first: string, last: string, username: string) {
+  const full = [first, last].filter(Boolean).join(" ").trim();
+  return full || username || "Usuario";
+}
 
-const sectionLabelClass =
-  "text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500 sm:text-[11px]";
+const fieldLabelClass =
+  "mb-1.5 block text-xs font-medium text-[#57534e] dark:text-[#cbd5e1] sm:text-sm";
+
+const profilePanelClass =
+  "rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_24px_70px_-44px_rgba(28,25,23,0.34)] dark:border-[#273244] dark:bg-[#111827]/82 dark:shadow-[0_28px_80px_-52px_rgba(0,0,0,0.75)]";
+
+const profileSoftPanelClass =
+  "rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#273244] dark:bg-[#111a2b]/88";
+
+const profileMetaPillClass =
+  "inline-flex min-h-[32px] items-center rounded-full border border-[#e7ded0] bg-[#fffdfa] px-3 py-1 text-xs font-medium text-[#57534e] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1]";
+
+const profileInfoItemClass =
+  "rounded-2xl border border-[#e7ded0] bg-[#fffdfa]/80 px-4 py-3 dark:border-[#334155] dark:bg-[#0f172a]/70";
+
+const profileAvatarRingClass =
+  "relative size-24 overflow-hidden rounded-[2rem] border border-[#e7ded0] bg-[#fcfaf6] shadow-[0_18px_44px_-28px_rgba(28,25,23,0.5)] ring-4 ring-[#fffdfa] dark:border-[#334155] dark:bg-[#0f172a] dark:ring-[#111827] sm:size-28";
 
 export default function ProfilePage() {
+  const { user: authUser, isAdmin } = useAuth();
   const [me, setMe] = useState<MePayload | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -41,12 +74,12 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [alert, setAlert] = useState<{
-    show: boolean;
-    variant: "success" | "error" | "info";
-    title: string;
-    message: string;
-  }>({ show: false, variant: "info", title: "", message: "" });
+  const [alert, setAlert] = useState<AlertState>({
+    show: false,
+    variant: "success",
+    title: "",
+    message: "",
+  });
 
   const loadMe = useCallback(async () => {
     setLoading(true);
@@ -84,7 +117,7 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    loadMe();
+    void loadMe();
   }, [loadMe]);
 
   const hasSavedAvatar = Boolean(me?.avatar_url) && !removePhoto;
@@ -95,6 +128,16 @@ export default function ProfilePage() {
   }, [previewDataUrl, hasSavedAvatar, me?.avatar_url]);
 
   const showInitials = !avatarImgSrc;
+  const avatarInitials = initials(firstName, lastName, me?.username || authUser?.username || "");
+  const profileName = displayName(firstName, lastName, me?.username || authUser?.username || "");
+  const hasPendingChanges =
+    Boolean(me) &&
+    (firstName.trim() !== (me?.first_name || "") ||
+      lastName.trim() !== (me?.last_name || "") ||
+      email.trim().toLowerCase() !== (me?.email || "").toLowerCase() ||
+      Boolean(previewDataUrl) ||
+      removePhoto);
+  const roleLabel = isAdmin ? "Administrador" : "Técnico";
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -195,188 +238,211 @@ export default function ProfilePage() {
   return (
     <>
       <PageMeta title="Mi perfil | Digitalflow" description="Editar datos personales y foto de perfil" />
-      <div className="min-h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
-        <div className="mx-auto w-full max-w-[min(100%,90rem)] space-y-5 px-4 pb-10 pt-5 text-sm sm:space-y-6 sm:px-6 sm:pb-12 sm:pt-6 sm:text-base lg:px-8 xl:px-10">
+      <div className="w-full min-w-0 overflow-x-hidden">
+        <div
+          className="mx-auto w-full max-w-7xl space-y-5 px-0 pb-8 pt-0 text-sm sm:px-2 sm:pb-10 sm:text-base lg:px-4"
+          style={erpSansStyle}
+        >
           <nav
-            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-500 sm:text-[13px]"
+            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 px-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
             aria-label="Migas de pan"
           >
             <Link
               to="/"
-              className="rounded-md px-1 py-0.5 transition-colors hover:bg-gray-200/60 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
+              className="rounded-md px-1.5 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
             >
               Inicio
             </Link>
-            <span className="text-gray-300 dark:text-gray-600" aria-hidden>
+            <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
               /
             </span>
-            <span className="font-medium text-gray-700 dark:text-gray-300">Mi perfil</span>
+            <span className="text-[#44403c] dark:text-[#cbd5e1]">Mi perfil</span>
           </nav>
 
-          <header className={`${cardShellClass} p-4 sm:p-6 lg:px-8`}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-              <div className="flex min-w-0 gap-3 sm:gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
-                  <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={sectionLabelClass}>Cuenta</p>
-                  <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl md:text-2xl">
-                    Mi perfil
-                  </h1>
-                  <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-2 sm:text-sm">
-                    Datos visibles en la aplicación y en el menú de usuario. Guarde para aplicar los cambios.
-                  </p>
-                </div>
-              </div>
-              {!loading && me && (
-                <div className="shrink-0 rounded-xl border border-gray-100 bg-gray-50/90 px-4 py-3 text-right dark:border-white/[0.06] dark:bg-gray-950/50 sm:min-w-[200px]">
-                  <p className="text-[11px] text-gray-500 dark:text-gray-500">Sesión</p>
-                  <p className="mt-0.5 truncate text-sm font-medium text-gray-900 dark:text-white">
-                    {[firstName, lastName].filter(Boolean).join(" ") || me.username}
-                  </p>
-                  <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">{me.email}</p>
-                </div>
-              )}
-            </div>
-          </header>
-
-          {alert.show && (
-            <div>
-              <Alert variant={alert.variant} title={alert.title} message={alert.message} />
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className={`${cardShellClass}`}>
-            <div className="border-b border-gray-100 px-4 py-4 dark:border-white/[0.06] sm:px-6 sm:py-5 lg:px-8">
-              <p className={sectionLabelClass}>Ajustes</p>
-              <h2 className="mt-1 text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg">
-                Foto y datos personales
-              </h2>
-              <p className="mt-1 max-w-3xl text-xs leading-relaxed text-gray-500 dark:text-gray-400 sm:text-sm">
-                Foto de perfil y datos de contacto. Se reflejan en la barra superior y en el menú de usuario.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12">
-              {/* Columna izquierda: foto — alineada al inicio, no centrada en el viewport */}
-              <div className="border-b border-gray-100 px-4 py-6 dark:border-white/[0.06] sm:px-6 sm:py-8 lg:col-span-5 lg:border-b-0 lg:border-r lg:px-8 xl:col-span-4">
-                <p className={sectionLabelClass}>Perfil</p>
-                <h3 className="mt-1 text-sm font-semibold text-gray-900 dark:text-white sm:text-base">Foto de perfil</h3>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
-                  Visible en toda la aplicación.
-                </p>
-
-                <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-                  <div className="relative shrink-0">
-                    <div className="relative h-32 w-32 overflow-hidden rounded-full border-2 border-gray-200/90 bg-gray-50/80 shadow-sm ring-4 ring-gray-100/80 dark:border-white/[0.08] dark:bg-gray-950/40 dark:ring-white/[0.04] sm:h-36 sm:w-36">
-                      {showInitials ? (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-500/[0.12] to-brand-600/[0.08] text-3xl font-semibold tracking-tight text-brand-800 dark:from-brand-400/15 dark:to-brand-500/10 dark:text-brand-200">
-                          {initials(firstName, lastName, me?.username || "")}
-                        </div>
-                      ) : (
-                        <img src={avatarImgSrc} alt="Foto de perfil" className="h-full w-full object-cover" />
-                      )}
-                      {!loading && (
-                        <button
-                          type="button"
-                          onClick={() => fileRef.current?.click()}
-                          disabled={saving}
-                          className="absolute inset-0 flex items-center justify-center rounded-full bg-gray-900/0 opacity-0 transition-all hover:bg-gray-900/45 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/40 max-sm:opacity-100 max-sm:bg-gray-900/35"
-                          aria-label="Elegir otra foto"
-                        >
-                          <span className="rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white">
-                            Cambiar
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="min-w-0 flex-1 space-y-4 text-left">
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      className="hidden"
-                      onChange={onFile}
-                    />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button type="button" size="sm" onClick={() => fileRef.current?.click()} disabled={loading || saving}>
-                        Subir imagen
-                      </Button>
-                      {(Boolean(me?.avatar_url) || previewDataUrl) && !removePhoto && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setPreviewDataUrl(null);
-                            setRemovePhoto(true);
-                          }}
-                          disabled={loading || saving}
-                        >
-                          Quitar foto
-                        </Button>
-                      )}
-                      {removePhoto && !previewDataUrl && (
-                        <Button type="button" size="sm" variant="outline" onClick={() => setRemovePhoto(false)} disabled={loading || saving}>
-                          Deshacer
-                        </Button>
-                      )}
-                    </div>
-                    <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400 sm:text-sm">
-                      Sin foto se muestran sus iniciales. Pulse <span className="font-medium text-gray-700 dark:text-gray-300">Guardar cambios</span>{" "}
-                      al final para persistir.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Columna derecha: datos — ancho completo de la columna */}
-              <div className="px-4 py-6 sm:px-6 sm:py-8 lg:col-span-7 lg:px-8 xl:col-span-8">
-                <p className={sectionLabelClass}>Contacto</p>
-                <h3 className="mt-1 text-sm font-semibold text-gray-900 dark:text-white sm:text-base">Datos personales</h3>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
-                  El nombre de usuario solo lo modifica un administrador.
-                </p>
-
-                <div className="mt-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <section className={`${profilePanelClass} relative overflow-hidden`} aria-labelledby="profile-page-title">
+              <div className="pointer-events-none absolute right-0 top-0 size-40 rounded-full bg-[#ff801f]/10 blur-3xl dark:bg-[#fb923c]/10" aria-hidden />
+              <div className="relative grid gap-6 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:p-6">
+                <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center">
                   {loading ? (
-                    <div className="flex items-center gap-3 py-4">
-                      <span className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-brand-500 dark:border-gray-700 dark:border-t-brand-400" />
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Cargando datos…</p>
+                    <div className="flex items-center gap-5" role="status" aria-label="Cargando perfil">
+                      <div className="size-24 shrink-0 animate-pulse rounded-[2rem] bg-[#e7ded0]/80 dark:bg-[#334155] sm:size-28" />
+                      <div className="min-w-0 flex-1 space-y-3">
+                        <div className="h-4 w-28 animate-pulse rounded bg-[#e7ded0]/70 dark:bg-[#334155]/80" />
+                        <div className="h-8 w-56 max-w-full animate-pulse rounded bg-[#e7ded0]/60 dark:bg-[#334155]/70" />
+                        <div className="h-4 w-72 max-w-full animate-pulse rounded bg-[#e7ded0]/50 dark:bg-[#334155]/60" />
+                      </div>
                     </div>
                   ) : (
-                    <div className="space-y-5">
-                      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="profile-first">Nombre</Label>
-                          <Input
-                            id="profile-first"
-                            name="first_name"
-                            value={firstName}
-                            onChange={(e) => setFirstName(e.target.value)}
-                            placeholder="Nombre"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="profile-last">Apellidos</Label>
-                          <Input
-                            id="profile-last"
-                            name="last_name"
-                            value={lastName}
-                            onChange={(e) => setLastName(e.target.value)}
-                            placeholder="Apellidos"
-                          />
+                    <>
+                      <div className="relative mx-auto shrink-0 sm:mx-0">
+                        <div className={profileAvatarRingClass} aria-hidden={showInitials ? undefined : true}>
+                          {showInitials ? (
+                            <div
+                              className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_30%_20%,rgba(255,128,31,0.28),transparent_45%),linear-gradient(135deg,#fff7ed,#fcfaf6)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(251,146,60,0.26),transparent_45%),linear-gradient(135deg,#1e293b,#0f172a)]"
+                              aria-label={`Avatar con iniciales ${avatarInitials}`}
+                            >
+                              <span className="[font-family:Georgia,'Times_New_Roman',serif] text-3xl font-medium text-[#c2410c] dark:text-[#fb923c]">
+                                {avatarInitials}
+                              </span>
+                            </div>
+                          ) : (
+                            <img src={avatarImgSrc} alt="Foto de perfil" className="h-full w-full object-cover" />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => fileRef.current?.click()}
+                            disabled={saving}
+                            className="absolute inset-0 flex items-center justify-center rounded-[2rem] bg-[#1c1917]/0 opacity-0 transition-all hover:bg-[#1c1917]/45 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff801f]/60 max-sm:opacity-100 max-sm:bg-[#1c1917]/30"
+                            aria-label="Cambiar foto de perfil"
+                          >
+                            <span className="rounded-full bg-[#fffdfa] px-3 py-1 text-xs font-semibold text-[#1c1917] shadow-sm dark:bg-[#111827] dark:text-[#f8fafc]">
+                              Cambiar
+                            </span>
+                          </button>
                         </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="profile-email">Correo electrónico</Label>
+
+                      <div className="min-w-0 text-center sm:text-left">
+                        <p className={erpSectionLabelClass}>Cuenta Digitalflow</p>
+                        <h1 id="profile-page-title" className={`mt-1 text-balance ${erpHeroHeadingClass}`}>
+                          {profileName}
+                        </h1>
+                        <p className="mt-2 break-words text-sm leading-relaxed text-[#57534e] dark:text-[#b7c1d1] sm:text-base">
+                          Administra tus datos visibles en el sistema, foto de perfil y correo de contacto.
+                        </p>
+                        <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+                          <span className={profileMetaPillClass}>@{me?.username}</span>
+                          <span className="inline-flex min-h-[32px] items-center rounded-full border border-[#ff801f]/25 bg-[#ff801f]/10 px-3 py-1 text-xs font-semibold text-[#c2410c] dark:border-[#fb923c]/30 dark:bg-[#ff801f]/15 dark:text-[#fb923c]">
+                            {roleLabel}
+                          </span>
+                          <span
+                            className={
+                              hasPendingChanges
+                                ? "inline-flex min-h-[32px] items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+                                : profileMetaPillClass
+                            }
+                          >
+                            {hasPendingChanges ? "Cambios sin guardar" : "Perfil sincronizado"}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <aside className={`${profileSoftPanelClass} p-4`} aria-label="Resumen de cuenta">
+                  <p className={erpSectionLabelClass}>Resumen</p>
+                  <div className="mt-4 space-y-3">
+                    <div className={profileInfoItemClass}>
+                      <p className="text-xs font-medium text-[#78716c] dark:text-[#8ea0b8]">Correo</p>
+                      <p className="mt-1 break-words text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">{email || me?.email || "—"}</p>
+                    </div>
+                    <div className={profileInfoItemClass}>
+                      <p className="text-xs font-medium text-[#78716c] dark:text-[#8ea0b8]">Tipo de acceso</p>
+                      <p className="mt-1 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">{roleLabel}</p>
+                    </div>
+                    <div className={profileInfoItemClass}>
+                      <p className="text-xs font-medium text-[#78716c] dark:text-[#8ea0b8]">Estado</p>
+                      <p className="mt-1 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                        {loading ? "Cargando..." : hasPendingChanges ? "Pendiente de guardar" : "Actualizado"}
+                      </p>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </section>
+
+            <div
+              aria-live="polite"
+              aria-atomic="true"
+              className={alert.show ? "block" : "hidden"}
+            >
+              {alert.show ? (
+                <div
+                  role="alert"
+                  className={
+                    alert.variant === "success"
+                      ? "rounded-2xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/30"
+                      : "rounded-2xl border border-red-200/80 bg-red-50/90 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30"
+                  }
+                >
+                  <p
+                    className={
+                      alert.variant === "success"
+                        ? "text-sm font-semibold text-emerald-800 dark:text-emerald-300"
+                        : "text-sm font-semibold text-red-800 dark:text-red-300"
+                    }
+                  >
+                    {alert.title}
+                  </p>
+                  <p
+                    className={
+                      alert.variant === "success"
+                        ? "mt-0.5 text-sm text-emerald-700/90 dark:text-emerald-300/80"
+                        : "mt-0.5 text-sm text-red-700/90 dark:text-red-300/80"
+                    }
+                  >
+                    {alert.message}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+              <section className={profilePanelClass} aria-labelledby="profile-data-heading">
+                <div className="border-b border-[#e7ded0] px-4 py-4 dark:border-[#334155] sm:px-5 lg:px-6">
+                  <p className={erpSectionLabelClass}>Información personal</p>
+                  <h2 id="profile-data-heading" className={`mt-1 ${erpSubheadingClass}`}>
+                    Datos editables
+                  </h2>
+                  <p className="mt-1 text-sm text-[#57534e] dark:text-[#8ea0b8]">
+                    Mantén tu nombre y correo listos para documentos, asignaciones y notificaciones internas.
+                  </p>
+                </div>
+
+                <div className="p-4 sm:p-5 lg:p-6">
+                  {loading ? (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2" role="status" aria-label="Cargando datos del perfil">
+                      <div className="h-20 animate-pulse rounded-2xl bg-[#e7ded0]/60 dark:bg-[#334155]/80" />
+                      <div className="h-20 animate-pulse rounded-2xl bg-[#e7ded0]/60 dark:bg-[#334155]/80" />
+                      <div className="h-20 animate-pulse rounded-2xl bg-[#e7ded0]/50 dark:bg-[#334155]/70 sm:col-span-2" />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="min-w-0">
+                        <Label htmlFor="profile-first" className={fieldLabelClass}>
+                          Nombre
+                        </Label>
+                        <Input
+                          id="profile-first"
+                          name="first_name"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          placeholder="Nombre"
+                          className={erpInputFieldInsetClass}
+                          required
+                          disabled={saving}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <Label htmlFor="profile-last" className={fieldLabelClass}>
+                          Apellidos
+                        </Label>
+                        <Input
+                          id="profile-last"
+                          name="last_name"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          placeholder="Apellidos"
+                          className={erpInputFieldInsetClass}
+                          disabled={saving}
+                        />
+                      </div>
+                      <div className="min-w-0 sm:col-span-2">
+                        <Label htmlFor="profile-email" className={fieldLabelClass}>
+                          Correo electrónico
+                        </Label>
                         <Input
                           id="profile-email"
                           name="email"
@@ -384,28 +450,126 @@ export default function ProfilePage() {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="correo@empresa.com"
+                          className={erpInputFieldInsetClass}
                           required
+                          disabled={saving}
                         />
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-gray-200/90 bg-gray-50/80 px-4 py-3 text-sm dark:border-white/[0.08] dark:bg-gray-950/50">
-                        <span className="text-gray-500 dark:text-gray-400">Usuario</span>
-                        <code className="rounded-md bg-white px-2 py-0.5 text-sm font-medium text-gray-900 shadow-sm dark:bg-gray-900 dark:text-gray-100">
+                      <div className="min-w-0 rounded-2xl border border-[#e7ded0] bg-[#fcfaf6]/80 px-4 py-3 dark:border-[#334155] dark:bg-[#0f172a]/55 sm:col-span-2">
+                        <p className={erpSectionLabelClass}>Usuario de acceso</p>
+                        <p className="mt-1 font-mono text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
                           {me?.username ?? "—"}
-                        </code>
+                        </p>
+                        <p className="mt-1 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                          Solo un administrador puede modificar el usuario.
+                        </p>
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
+              </section>
+
+              <aside className="space-y-5">
+                <section className={`${profilePanelClass} p-4 sm:p-5`} aria-labelledby="profile-photo-heading">
+                  <p className={erpSectionLabelClass}>Foto de perfil</p>
+                  <h2 id="profile-photo-heading" className={`mt-1 ${erpSubheadingClass}`}>
+                    Imagen visible
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-[#57534e] dark:text-[#8ea0b8]">
+                    Usa una foto clara. Se refleja en el menú superior y vistas internas.
+                  </p>
+
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="sr-only"
+                    onChange={onFile}
+                    aria-label="Seleccionar imagen de perfil"
+                  />
+                  <div className="mt-4 grid gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={loading || saving}
+                      className={`${erpSecondaryBtnClass} !w-full`}
+                    >
+                      Subir imagen
+                    </button>
+                    {(Boolean(me?.avatar_url) || previewDataUrl) && !removePhoto ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPreviewDataUrl(null);
+                          setRemovePhoto(true);
+                        }}
+                        disabled={loading || saving}
+                        className={`${erpSecondaryBtnClass} !w-full`}
+                      >
+                        Quitar foto
+                      </button>
+                    ) : null}
+                    {removePhoto && !previewDataUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => setRemovePhoto(false)}
+                        disabled={loading || saving}
+                        className={`${erpSecondaryBtnClass} !w-full`}
+                      >
+                        Deshacer quitar foto
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                    JPG, PNG o WEBP · máximo 5 MB.
+                  </p>
+                </section>
+
+                <section className={`${profileSoftPanelClass} p-4`} aria-labelledby="profile-help-heading">
+                  <h2 id="profile-help-heading" className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                    Antes de guardar
+                  </h2>
+                  <ul className="mt-3 space-y-2 text-sm leading-relaxed text-[#57534e] dark:text-[#8ea0b8]">
+                    <li>Verifica que el correo sea correcto.</li>
+                    <li>La imagen se actualiza al guardar cambios.</li>
+                    <li>El usuario de acceso no se edita aquí.</li>
+                  </ul>
+                </section>
+              </aside>
             </div>
 
-            <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/70 px-4 py-4 dark:border-white/[0.06] dark:bg-gray-950/40 sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6 lg:px-8">
-              <Button type="button" variant="outline" onClick={() => loadMe()} disabled={loading || saving}>
-                Descartar cambios
-              </Button>
-              <Button type="submit" disabled={loading || saving}>
-                {saving ? "Guardando…" : "Guardar cambios"}
-              </Button>
+            <div className={`${profilePanelClass} flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-6`}>
+              <p className="text-sm text-[#57534e] dark:text-[#8ea0b8]">
+                {hasPendingChanges ? "Tiene cambios pendientes por guardar." : "Sin cambios pendientes."}
+              </p>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => void loadMe()}
+                  disabled={loading || saving || !hasPendingChanges}
+                  className={`${erpSecondaryBtnClass} !w-full sm:!w-auto`}
+                >
+                  Descartar cambios
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || saving || !hasPendingChanges}
+                  aria-busy={saving}
+                  className={`${erpPrimaryBtnClass} !w-full sm:!w-auto`}
+                >
+                  {saving ? (
+                    <>
+                      <span
+                        className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-black/20 border-t-black"
+                        aria-hidden
+                      />
+                      Guardando...
+                    </>
+                  ) : (
+                    "Guardar cambios"
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         </div>

@@ -14,13 +14,16 @@ from apps.cotizaciones.sicar_db import (
     _connect_sicar,
     _sicar_db_config,
     _sicar_error_detail,
+    release_sicar_connection,
 )
 from apps.cotizaciones.sicar_factura_service import (
     SicarFacturaError,
     create_timbrada_factura,
     get_sicar_cliente,
+    get_sicar_cotizacion,
     list_sicar_series,
     search_sicar_clientes,
+    search_sicar_cotizaciones,
 )
 from apps.cotizaciones.views import CotizacionesPermission
 
@@ -58,8 +61,10 @@ LIST_SELECT = """
 def _json_value(value):
     if isinstance(value, Decimal):
         return float(value)
-    if isinstance(value, (datetime, date)):
+    if isinstance(value, datetime):
         return value.isoformat(sep=" ", timespec="seconds")
+    if isinstance(value, date):
+        return value.isoformat()
     if isinstance(value, (bytes, bytearray)):
         return value.decode("utf-8", errors="replace")
     return value
@@ -274,7 +279,7 @@ class SicarFacturasListView(APIView):
         finally:
             if conn is not None:
                 try:
-                    conn.close()
+                    release_sicar_connection(conn)
                 except Exception:
                     pass
 
@@ -342,7 +347,7 @@ class SicarFacturaCatalogosView(APIView):
         finally:
             if conn is not None:
                 try:
-                    conn.close()
+                    release_sicar_connection(conn)
                 except Exception:
                     pass
 
@@ -373,7 +378,7 @@ class SicarClientesSearchView(APIView):
         finally:
             if conn is not None:
                 try:
-                    conn.close()
+                    release_sicar_connection(conn)
                 except Exception:
                     pass
 
@@ -401,7 +406,75 @@ class SicarClienteDetailView(APIView):
         finally:
             if conn is not None:
                 try:
-                    conn.close()
+                    release_sicar_connection(conn)
+                except Exception:
+                    pass
+
+
+class SicarCotizacionesSearchView(APIView):
+    """Busca cotizaciones en SICAR para importar a factura CFDI."""
+
+    permission_classes = [IsAuthenticated, CotizacionesPermission]
+
+    def get(self, request):
+        cfg, err = _sicar_config_or_response()
+        if err:
+            return err
+        q = (request.query_params.get("q") or "").strip()
+        try:
+            limit = min(int(request.query_params.get("limit", 25)), 50)
+        except (TypeError, ValueError):
+            limit = 25
+        cli_id_raw = request.query_params.get("cli_id")
+        cli_id = None
+        if cli_id_raw:
+            try:
+                cli_id = int(cli_id_raw)
+            except (TypeError, ValueError):
+                return Response({"detail": "cli_id inválido."}, status=400)
+
+        conn = None
+        try:
+            conn = _connect_sicar(cfg)
+            with conn.cursor() as cursor:
+                rows = search_sicar_cotizaciones(cursor, q=q, cli_id=cli_id, limit=limit)
+            return Response([_serialize_row(r) for r in rows])
+        except Exception as exc:
+            logger.exception("Error buscando cotizaciones SICAR")
+            return Response({"detail": _sicar_error_detail(exc, cfg)}, status=502)
+        finally:
+            if conn is not None:
+                try:
+                    release_sicar_connection(conn)
+                except Exception:
+                    pass
+
+
+class SicarCotizacionDetailView(APIView):
+    """Detalle de cotización SICAR con líneas (detallecot)."""
+
+    permission_classes = [IsAuthenticated, CotizacionesPermission]
+
+    def get(self, request, cot_id: int):
+        cfg, err = _sicar_config_or_response()
+        if err:
+            return err
+        conn = None
+        try:
+            conn = _connect_sicar(cfg)
+            with conn.cursor() as cursor:
+                row = get_sicar_cotizacion(cursor, cot_id)
+            if not row:
+                return Response({"detail": f"Cotización SICAR cot_id={cot_id} no encontrada."}, status=404)
+            items = [_serialize_row(i) for i in row.pop("items", [])]
+            return Response({**_serialize_row(row), "items": items})
+        except Exception as exc:
+            logger.exception("Error cargando cotización SICAR %s", cot_id)
+            return Response({"detail": _sicar_error_detail(exc, cfg)}, status=502)
+        finally:
+            if conn is not None:
+                try:
+                    release_sicar_connection(conn)
                 except Exception:
                     pass
 
@@ -446,7 +519,7 @@ class SicarFacturaDetalleView(APIView):
         finally:
             if conn is not None:
                 try:
-                    conn.close()
+                    release_sicar_connection(conn)
                 except Exception:
                     pass
 
@@ -487,7 +560,7 @@ class SicarFacturaXmlView(APIView):
         finally:
             if conn is not None:
                 try:
-                    conn.close()
+                    release_sicar_connection(conn)
                 except Exception:
                     pass
 
@@ -546,6 +619,6 @@ class SicarFacturaPdfView(APIView):
         finally:
             if conn is not None:
                 try:
-                    conn.close()
+                    release_sicar_connection(conn)
                 except Exception:
                     pass

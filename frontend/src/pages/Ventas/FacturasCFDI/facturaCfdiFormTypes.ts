@@ -1,11 +1,13 @@
 import { emptyFormData } from "@/components/clientes/clienteFormShared";
 import { estadosMX, paisOptions } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
+import type { ApiCotizacionItem } from "@/pages/Ventas/Cotizacion/cotizacionFormTypes";
 
 export type SicarSerieOption = {
   scf_id: number;
   serie: string;
   folioIni: number;
   emp_id: number;
+  next_folio?: number;
 };
 
 export type CatalogOption = { clave: string; label: string };
@@ -40,6 +42,19 @@ export type SicarClienteOption = {
   regimenDescripcion?: string;
 };
 
+export type FacturaConceptoForm = {
+  clave?: string;
+  descripcion: string;
+  cantidad: number;
+  unidad?: string;
+  clave_prod_serv?: string;
+  clave_unidad?: string;
+  precio_sin: number;
+  tasa_iva?: number;
+};
+
+export type CotizacionOrigen = "digitalflow" | "sicar";
+
 export type NuevaFacturaCfdiPayload = {
   cli_id: number;
   scf_id: number;
@@ -55,16 +70,7 @@ export type NuevaFacturaCfdiPayload = {
   estado_c?: string;
   telefono_c?: string;
   regimen_c?: string;
-  conceptos: Array<{
-    clave?: string;
-    descripcion: string;
-    cantidad: number;
-    unidad?: string;
-    clave_prod_serv?: string;
-    clave_unidad?: string;
-    precio_sin: number;
-    tasa_iva?: number;
-  }>;
+  conceptos: FacturaConceptoForm[];
 };
 
 const USO_CFDI_FALLBACK: Record<string, string> = {
@@ -259,4 +265,69 @@ export function payloadFromFacturaForm(formData: Record<string, unknown>) {
     telefono_c: telefono,
     regimen_c: trim(formData.regimen_fiscal) || "601-General de Ley Personas Morales",
   };
+}
+
+const roundMoney = (n: number) => Math.round(n * 100) / 100;
+
+/** Convierte líneas de cotización DigitalFlow a conceptos CFDI (precio sin IVA). */
+export function conceptosFromDigitalFlowItems(
+  items: ApiCotizacionItem[],
+  ivaPct = 16
+): FacturaConceptoForm[] {
+  const ivaFactor = 1 + ivaPct / 100;
+  return items
+    .map((it) => {
+      const cantidad = Number(it.cantidad) || 0;
+      if (cantidad <= 0) return null;
+      const descPct = Number(it.descuento_pct) || 0;
+      const factor = 1 - descPct / 100;
+      const hasProducto = Boolean(String(it.producto_externo_id || "").trim());
+      const lista = Number(it.precio_lista) || 0;
+      const precioSin = roundMoney(
+        hasProducto ? (lista / ivaFactor) * factor : lista * factor
+      );
+      const nombre = trim(it.producto_nombre);
+      const desc = trim(it.producto_descripcion) || nombre;
+      if (!desc) return null;
+      return {
+        clave: trim(it.producto_externo_id) || (it.id ? String(it.id) : undefined),
+        descripcion: desc,
+        cantidad,
+        unidad: trim(it.unidad) || "E48",
+        precio_sin: precioSin,
+        tasa_iva: ivaPct / 100,
+      };
+    })
+    .filter((row): row is FacturaConceptoForm => row != null);
+}
+
+/** Convierte detallecot SICAR a conceptos CFDI. */
+export function conceptosFromSicarDetalle(
+  lines: Array<Record<string, unknown>>,
+  tasaIva = 0.16
+): FacturaConceptoForm[] {
+  return lines
+    .map((line) => {
+      const cantidad = Number(line.cantidad) || 0;
+      if (cantidad <= 0) return null;
+      const descripcion = trim(line.descripcion);
+      if (!descripcion) return null;
+      return {
+        clave: trim(line.clave) || undefined,
+        descripcion,
+        cantidad,
+        unidad: trim(line.unidad) || trim(line.unidadVenta) || "E48",
+        clave_prod_serv: trim(line.claveProdServ) || undefined,
+        clave_unidad: trim(line.unidadVenta) || trim(line.unidad) || undefined,
+        precio_sin: roundMoney(Number(line.precioSin) || 0),
+        tasa_iva: tasaIva,
+      };
+    })
+    .filter((row): row is FacturaConceptoForm => row != null);
+}
+
+export function sumConceptosSubtotal(conceptos: FacturaConceptoForm[]): number {
+  return roundMoney(
+    conceptos.reduce((acc, c) => acc + c.cantidad * c.precio_sin, 0)
+  );
 }

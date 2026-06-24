@@ -4,6 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .sicar_views import (
     SicarClienteDetailView,
     SicarClientesSearchView,
+    SicarCotizacionDetailView,
+    SicarCotizacionesSearchView,
     SicarFacturaCatalogosView,
     SicarFacturaDetalleView,
     SicarFacturaPdfView,
@@ -24,6 +26,16 @@ urlpatterns = [
         'cotizaciones-sicar/clientes/<int:cli_id>/',
         SicarClienteDetailView.as_view(),
         name='cotizaciones-sicar-cliente-detalle',
+    ),
+    path(
+        'cotizaciones-sicar/cotizaciones/',
+        SicarCotizacionesSearchView.as_view(),
+        name='cotizaciones-sicar-cotizaciones',
+    ),
+    path(
+        'cotizaciones-sicar/cotizaciones/<int:cot_id>/',
+        SicarCotizacionDetailView.as_view(),
+        name='cotizaciones-sicar-cotizacion-detalle',
     ),
     path(
         'cotizaciones-sicar/facturas/<int:fcf_id>/detalle/',

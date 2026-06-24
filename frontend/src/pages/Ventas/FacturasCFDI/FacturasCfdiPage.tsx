@@ -2,6 +2,7 @@ import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import { PdfDocGlyph } from "@/components/icons/PdfDocGlyph";
 import { fetchApi } from "@/config/api";
+import { fetchSicarApi } from "./sicarApi";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
 import {
@@ -44,7 +45,7 @@ type SicarDetailTables = Record<string, Record<string, unknown>[]>;
 type MonthBucket = { month_key: string; total: number };
 
 const SEARCH_DEBOUNCE_MS = 400;
-const MONTH_PAGE_SIZE = 500;
+const MONTH_PAGE_SIZE = 100;
 const SEARCH_PAGE_SIZE = 25;
 
 const money = (value: number | null) =>
@@ -170,7 +171,7 @@ async function downloadCfdiFile(
   fallbackName: string
 ): Promise<{ ok: boolean; message?: string }> {
   try {
-    const res = await fetchApi(`/api/cotizaciones-sicar/facturas/${fcfId}/${kind}/`, {
+    const res = await fetchSicarApi(`/api/cotizaciones-sicar/facturas/${fcfId}/${kind}/`, {
       method: "GET",
       cache: "no-store" as RequestCache,
     });
@@ -265,7 +266,7 @@ export default function FacturasCfdiPage() {
         params.set("page_size", String(MONTH_PAGE_SIZE));
       }
 
-      const res = await fetchApi(`/api/cotizaciones-sicar/facturas/?${params.toString()}`, {
+      const res = await fetchSicarApi(`/api/cotizaciones-sicar/facturas/?${params.toString()}`, {
         method: "GET",
         cache: "no-store" as RequestCache,
       });
@@ -406,7 +407,7 @@ export default function FacturasCfdiPage() {
     setDetailError("");
     setDetailTables({});
     try {
-      const res = await fetchApi(`/api/cotizaciones-sicar/facturas/${row.fcf_id}/detalle/`, {
+      const res = await fetchSicarApi(`/api/cotizaciones-sicar/facturas/${row.fcf_id}/detalle/`, {
         method: "GET",
         cache: "no-store" as RequestCache,
       });

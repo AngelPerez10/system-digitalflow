@@ -1,15 +1,22 @@
 import { ClienteSimplifiedFormFields } from "@/components/clientes/ClienteSimplifiedFormFields";
 import { ClienteMapPickerModal } from "@/components/clientes/ClienteMapPickerModal";
-import { emptyFormData, modalPanelClass, modalSectionTitleClass, modalTabBaseClass, selectLikeClassName } from "@/components/clientes/clienteFormShared";
-import Label from "@/components/form/Label";
+import { emptyFormData } from "@/components/clientes/clienteFormShared";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
+import { fetchSicarApi } from "./sicarApi";
+import { fetchCotizacionDetail, searchCotizacionesLite } from "@/pages/Ventas/Cotizacion/cotizacionApi";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ComprobanteFiscalTab from "./ComprobanteFiscalTab";
+import CotizacionFacturaTab from "./CotizacionFacturaTab";
 import {
   type CatalogOption,
+  type CotizacionOrigen,
+  type FacturaConceptoForm,
   type NuevaFacturaCfdiPayload,
   type SicarClienteOption,
   type SicarSerieOption,
+  conceptosFromDigitalFlowItems,
+  conceptosFromSicarDetalle,
   formDataFromSicarCliente,
   mapSicarClienteRow,
   payloadFromFacturaForm,
@@ -18,14 +25,26 @@ import {
 const MODAL_TITLE_ID = "nueva-factura-cfdi-title";
 const MAP_CONTAINER_ID = "nueva-factura-cfdi-leaflet-map";
 const CLIENTE_SEARCH_DEBOUNCE_MS = 300;
+const CLIENTE_SEARCH_MIN_CHARS = 2;
+const COTIZACION_SEARCH_DEBOUNCE_MS = 300;
 
-type FacturaModalTab = "general" | "more" | "comprobante";
+type FacturaModalTab = "general" | "more" | "cotizacion" | "comprobante";
 
-const FACTURA_TABS: { id: FacturaModalTab; label: string }[] = [
-  { id: "general", label: "Datos Básicos" },
-  { id: "more", label: "Datos Facturación" },
-  { id: "comprobante", label: "Comprobante" },
+const FACTURA_TABS: { id: FacturaModalTab; label: string; shortLabel: string }[] = [
+  { id: "general", label: "Datos Básicos", shortLabel: "Básicos" },
+  { id: "more", label: "Datos Facturación", shortLabel: "Facturación" },
+  { id: "cotizacion", label: "Cotización", shortLabel: "Cotización" },
+  { id: "comprobante", label: "Comprobante", shortLabel: "CFDI" },
 ];
+
+const facturaTabBtnClass =
+  "flex min-h-[44px] w-full items-center justify-center rounded-xl border px-2 py-2 text-center text-xs font-medium leading-snug transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff801f]/50 sm:px-3 sm:py-2.5 sm:text-sm";
+
+const facturaTabActiveClass = "border-[#ff801f]/30 bg-[#ff801f] text-black shadow-sm";
+const facturaTabIdleClass =
+  "border-transparent bg-transparent text-[#57534e] hover:bg-white dark:text-[#e5e7eb] dark:hover:bg-white/[0.06]";
+
+const SICAR_SERIE_FIJA = "IMA";
 
 const actionButtonClass =
   "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:min-w-[8.5rem] sm:w-auto";
@@ -37,7 +56,7 @@ type Props = {
 };
 
 export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Props) {
-  const [loading, setLoading] = useState(false);
+  const [loadingCatalogos, setLoadingCatalogos] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [series, setSeries] = useState<SicarSerieOption[]>([]);
@@ -54,6 +73,14 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
   const [activeTab, setActiveTab] = useState<FacturaModalTab>("general");
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [cotizacionOrigen, setCotizacionOrigen] = useState<CotizacionOrigen>("digitalflow");
+  const [cotizacionSearchQuery, setCotizacionSearchQuery] = useState("");
+  const [cotizacionOptions, setCotizacionOptions] = useState<{ value: string; label: string }[]>([]);
+  const [selectedCotizacionKey, setSelectedCotizacionKey] = useState("");
+  const [cotizacionLabel, setCotizacionLabel] = useState<string | null>(null);
+  const [conceptos, setConceptos] = useState<FacturaConceptoForm[]>([]);
+  const [loadingCotizaciones, setLoadingCotizaciones] = useState(false);
+  const [loadingCotizacionDetail, setLoadingCotizacionDetail] = useState(false);
 
   const resetForm = useCallback(() => {
     setError("");
@@ -67,6 +94,14 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
     setActiveTab("general");
     setShowMapModal(false);
     setSelectedLocation(null);
+    setCotizacionOrigen("digitalflow");
+    setCotizacionSearchQuery("");
+    setCotizacionOptions([]);
+    setSelectedCotizacionKey("");
+    setCotizacionLabel(null);
+    setConceptos([]);
+    setLoadingCotizaciones(false);
+    setLoadingCotizacionDetail(false);
   }, []);
 
   const handleConfirmMap = () => {
@@ -83,10 +118,10 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
   };
 
   const loadCatalogos = useCallback(async () => {
-    setLoading(true);
+    setLoadingCatalogos(true);
     setError("");
     try {
-      const res = await fetchApi("/api/cotizaciones-sicar/catalogos/", { method: "GET" });
+      const res = await fetchSicarApi("/api/cotizaciones-sicar/catalogos/", { method: "GET" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setError(String(data?.detail || `Error HTTP ${res.status}`));
@@ -96,21 +131,31 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
       setFormaPagoOpts(Array.isArray(data?.forma_pago) ? data.forma_pago : []);
       setMetodoPagoOpts(Array.isArray(data?.metodo_pago) ? data.metodo_pago : []);
       setUsoCfdiOpts(Array.isArray(data?.uso_cfdi) ? data.uso_cfdi : []);
-      if (Array.isArray(data?.series) && data.series.length > 0) {
-        setScfId(Number(data.series[0].scf_id) || 2);
+      const seriesList: SicarSerieOption[] = Array.isArray(data?.series) ? data.series : [];
+      const imaSerie = seriesList.find(
+        (s) => String(s.serie || "").trim().toUpperCase() === SICAR_SERIE_FIJA
+      );
+      if (imaSerie) {
+        setScfId(Number(imaSerie.scf_id));
       }
     } catch {
       setError("No se pudieron cargar los catálogos SICAR.");
     } finally {
-      setLoading(false);
+      setLoadingCatalogos(false);
     }
   }, []);
 
   const searchClientes = useCallback(async (q: string) => {
+    const term = q.trim();
+    if (term.length < CLIENTE_SEARCH_MIN_CHARS) {
+      setClientes([]);
+      return;
+    }
     try {
       const params = new URLSearchParams();
-      if (q.trim()) params.set("q", q.trim());
-      const res = await fetchApi(`/api/cotizaciones-sicar/clientes/?${params.toString()}`, { method: "GET" });
+      params.set("q", term);
+      params.set("limit", "15");
+      const res = await fetchSicarApi(`/api/cotizaciones-sicar/clientes/?${params.toString()}`, { method: "GET" });
       const data = await res.json().catch(() => null);
       if (!res.ok) return;
       const items = Array.isArray(data?.items) ? data.items : [];
@@ -131,6 +176,109 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
     const t = setTimeout(() => void searchClientes(clienteSearchQuery), CLIENTE_SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [clienteSearchQuery, isOpen, searchClientes]);
+
+  const searchCotizaciones = useCallback(
+    async (q: string, origen: CotizacionOrigen) => {
+      setLoadingCotizaciones(true);
+      try {
+        if (origen === "digitalflow") {
+          if (!q.trim() && !selectedCliente) {
+            setCotizacionOptions([]);
+            return;
+          }
+          const rows = await searchCotizacionesLite(q, 20);
+          setCotizacionOptions(
+            rows.map((row) => ({
+              value: `df-${row.id}`,
+              label: `#${row.idx || row.id} · ${row.cliente} · ${row.fecha || "—"} · $${row.total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+            }))
+          );
+          return;
+        }
+        const params = new URLSearchParams();
+        if (q.trim()) params.set("q", q.trim());
+        if (selectedCliente?.cli_id) params.set("cli_id", String(selectedCliente.cli_id));
+        params.set("limit", "20");
+        const res = await fetchSicarApi(`/api/cotizaciones-sicar/cotizaciones/?${params.toString()}`, {
+          method: "GET",
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) {
+          setCotizacionOptions([]);
+          return;
+        }
+        setCotizacionOptions(
+          data.map((row: Record<string, unknown>) => {
+            const cotId = Number(row.cot_id);
+            const cliente = String(row.cliente_nombre || "—");
+            const fecha = String(row.fecha || "").slice(0, 10);
+            const total = Number(row.total ?? 0);
+            return {
+              value: `sicar-${cotId}`,
+              label: `#${cotId} · ${cliente} · ${fecha || "—"} · $${total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+            };
+          })
+        );
+      } catch {
+        setCotizacionOptions([]);
+      } finally {
+        setLoadingCotizaciones(false);
+      }
+    },
+    [selectedCliente?.cli_id]
+  );
+
+  useEffect(() => {
+    if (!isOpen || activeTab !== "cotizacion") return;
+    const t = setTimeout(
+      () => void searchCotizaciones(cotizacionSearchQuery, cotizacionOrigen),
+      COTIZACION_SEARCH_DEBOUNCE_MS
+    );
+    return () => clearTimeout(t);
+  }, [cotizacionSearchQuery, cotizacionOrigen, activeTab, isOpen, searchCotizaciones]);
+
+  const clearCotizacionSelection = useCallback(() => {
+    setSelectedCotizacionKey("");
+    setCotizacionLabel(null);
+    setConceptos([]);
+  }, []);
+
+  const handleCotizacionOrigenChange = (origen: CotizacionOrigen) => {
+    setCotizacionOrigen(origen);
+    setCotizacionSearchQuery("");
+    clearCotizacionSelection();
+    setCotizacionOptions([]);
+  };
+
+  const loadDigitalFlowCotizacion = useCallback(
+    async (id: number, label: string) => {
+      setLoadingCotizacionDetail(true);
+      setError("");
+      try {
+        const detail = await fetchCotizacionDetail(id);
+        if (!detail?.items?.length) {
+          setError("La cotización no tiene conceptos para importar.");
+          clearCotizacionSelection();
+          return;
+        }
+        const mapped = conceptosFromDigitalFlowItems(detail.items, Number(detail.iva_pct) || 16);
+        if (!mapped.length) {
+          setError("No se pudieron mapear conceptos de la cotización.");
+          clearCotizacionSelection();
+          return;
+        }
+        setSelectedCotizacionKey(`df-${id}`);
+        setCotizacionLabel(label);
+        setConceptos(mapped);
+      } catch {
+        setError("No se pudo cargar la cotización de DigitalFlow.");
+        clearCotizacionSelection();
+      } finally {
+        setLoadingCotizacionDetail(false);
+      }
+    },
+    [clearCotizacionSelection]
+  );
 
   const clienteOptions = useMemo(
     () =>
@@ -153,7 +301,7 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
     async (cliId: string): Promise<SicarClienteOption | null> => {
       if (!cliId) return null;
       try {
-        const res = await fetchApi(`/api/cotizaciones-sicar/clientes/${cliId}/`, { method: "GET" });
+        const res = await fetchSicarApi(`/api/cotizaciones-sicar/clientes/${cliId}/`, { method: "GET" });
         const data = await res.json().catch(() => null);
         if (!res.ok || !data) return null;
         return mapSicarClienteRow(data as Record<string, unknown>);
@@ -186,9 +334,83 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
     })();
   };
 
+  const loadSicarCotizacion = useCallback(
+    async (cotId: number, label: string) => {
+      setLoadingCotizacionDetail(true);
+      setError("");
+      try {
+        const res = await fetchSicarApi(`/api/cotizaciones-sicar/cotizaciones/${cotId}/`, { method: "GET" });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data) {
+          setError(String(data?.detail || "No se pudo cargar la cotización SICAR."));
+          clearCotizacionSelection();
+          return;
+        }
+        const items = Array.isArray(data.items) ? data.items : [];
+        const mapped = conceptosFromSicarDetalle(items);
+        if (!mapped.length) {
+          setError("La cotización SICAR no tiene conceptos para importar.");
+          clearCotizacionSelection();
+          return;
+        }
+        setSelectedCotizacionKey(`sicar-${cotId}`);
+        setCotizacionLabel(label);
+        setConceptos(mapped);
+
+        const cliId = Number(data.cli_id);
+        if (cliId > 0) {
+          const detail = await loadClienteDetail(String(cliId));
+          if (detail) applyCliente(detail);
+        }
+      } catch {
+        setError("No se pudo cargar la cotización SICAR.");
+        clearCotizacionSelection();
+      } finally {
+        setLoadingCotizacionDetail(false);
+      }
+    },
+    [applyCliente, clearCotizacionSelection, loadClienteDetail]
+  );
+
+  const handleCotizacionSelect = (value: string) => {
+    if (!value) {
+      clearCotizacionSelection();
+      return;
+    }
+    const option = cotizacionOptions.find((o) => o.value === value);
+    const label = option?.label || value;
+    if (value.startsWith("df-")) {
+      const id = Number(value.slice(3));
+      if (id > 0) void loadDigitalFlowCotizacion(id, label);
+      return;
+    }
+    if (value.startsWith("sicar-")) {
+      const cotId = Number(value.slice(6));
+      if (cotId > 0) void loadSicarCotizacion(cotId, label);
+    }
+  };
+
   const selectedSerie = useMemo(
-    () => series.find((s) => s.scf_id === scfId) ?? null,
+    () =>
+      series.find((s) => String(s.serie || "").trim().toUpperCase() === SICAR_SERIE_FIJA) ??
+      series.find((s) => s.scf_id === scfId) ??
+      null,
     [series, scfId]
+  );
+
+  const proximoFolioLabel = useMemo(() => {
+    const next = selectedSerie?.next_folio;
+    if (next == null || Number.isNaN(Number(next))) return null;
+    return `${SICAR_SERIE_FIJA}-${Number(next)}`;
+  }, [selectedSerie]);
+
+  const formaPagoClave = useMemo(
+    () => formaPago.split("-")[0]?.trim() || formaPago,
+    [formaPago]
+  );
+  const metodoPagoClave = useMemo(
+    () => metodoPago.split("-")[0]?.trim() || metodoPago,
+    [metodoPago]
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -197,15 +419,24 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
       setError("Selecciona un cliente de SICAR.");
       return;
     }
+    if (!selectedSerie?.scf_id) {
+      setError(`No se encontró la serie ${SICAR_SERIE_FIJA} en SICAR.`);
+      return;
+    }
+    if (!conceptos.length) {
+      setError("Selecciona una cotización con conceptos en la pestaña Cotización.");
+      setActiveTab("cotizacion");
+      return;
+    }
     setSaving(true);
     setError("");
     const payload: NuevaFacturaCfdiPayload = {
       cli_id: selectedCliente.cli_id,
-      scf_id: scfId,
+      scf_id: selectedSerie.scf_id,
       forma_pago: formaPago,
       metodo_pago: metodoPago,
       ...payloadFromFacturaForm(formData),
-      conceptos: [],
+      conceptos,
     };
     try {
       const res = await fetchApi("/api/cotizaciones-sicar/facturas/", {
@@ -237,180 +468,123 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
         isOpen={isOpen}
         onClose={onClose}
         ariaLabelledBy={MODAL_TITLE_ID}
-        className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:rounded-2xl"
+        className="flex max-h-[min(92dvh,100%)] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-h-[92vh] sm:rounded-2xl"
       >
-        <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 pr-14 dark:border-[#334155] dark:bg-[#111827]">
+        <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 pr-12 dark:border-[#334155] dark:bg-[#111827] sm:px-5 sm:py-4 sm:pr-14">
           <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c]">
             Ventas · SICAR
           </p>
-          <h2 id={MODAL_TITLE_ID} className="mt-1 text-lg font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+          <h2
+            id={MODAL_TITLE_ID}
+            className="mt-1 text-base font-semibold text-[#1c1917] dark:text-[#f8fafc] sm:text-lg"
+          >
             Nueva factura CFDI
           </h2>
-          <p className="mt-1 text-sm text-[#57534e] dark:text-[#94a3b8]">
+          <p className="mt-1 text-xs text-[#57534e] dark:text-[#94a3b8] sm:text-sm">
             Captura el receptor y datos del comprobante para timbrar en SICAR.
           </p>
         </header>
 
-        <div className="space-y-4 p-4 sm:p-5">
+        <div className="flex min-h-0 flex-1 flex-col">
           {error ? (
-            <div
-              className="rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
-              role="alert"
-            >
-              {error}
+            <div className="shrink-0 px-4 pt-4 sm:px-5">
+              <div
+                className="rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
+                role="alert"
+              >
+                {error}
+              </div>
             </div>
           ) : null}
 
-          {loading ? (
-            <p className="py-8 text-center text-sm text-[#57534e] dark:text-[#cbd5e1]" role="status">
-              Cargando catálogos…
-            </p>
-          ) : (
-            <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-              <div
-                className="inline-grid grid-cols-3 gap-1 rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80"
-                role="tablist"
-                aria-label="Secciones de la factura"
-              >
-                {FACTURA_TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeTab === tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`${modalTabBaseClass} border whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? "border-[#ff801f]/30 bg-[#ff801f] text-black shadow-sm"
-                        : "border-transparent bg-transparent text-gray-700 hover:bg-white dark:text-[#e5e7eb] dark:hover:bg-white/[0.06]"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+          <form onSubmit={(e) => void handleSubmit(e)} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">
+                {loadingCatalogos ? (
+                  <p className="text-xs text-[#78716c] dark:text-[#94a3b8]" role="status">
+                    Conectando con SICAR…
+                  </p>
+                ) : null}
+                <div
+                  className="grid w-full grid-cols-2 gap-1 rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80 min-[560px]:grid-cols-4"
+                  role="tablist"
+                  aria-label="Secciones de la factura"
+                >
+                  {FACTURA_TABS.map((tab) => {
+                    const selected = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        id={`factura-tab-${tab.id}`}
+                        aria-selected={selected}
+                        aria-controls={`factura-panel-${tab.id}`}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`${facturaTabBtnClass} ${selected ? facturaTabActiveClass : facturaTabIdleClass}`}
+                      >
+                        <span className="min-[560px]:hidden">{tab.shortLabel}</span>
+                        <span className="hidden min-[560px]:inline">{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div
+                  id={`factura-panel-${activeTab}`}
+                  role="tabpanel"
+                  aria-labelledby={`factura-tab-${activeTab}`}
+                  className="min-w-0"
+                >
+                  {activeTab === "comprobante" ? (
+                    <ComprobanteFiscalTab
+                      proximoFolioLabel={proximoFolioLabel}
+                      formaPago={formaPago}
+                      metodoPago={metodoPago}
+                      formaPagoClave={formaPagoClave}
+                      metodoPagoClave={metodoPagoClave}
+                      formaPagoOpts={formaPagoOpts}
+                      metodoPagoOpts={metodoPagoOpts}
+                      onFormaPagoChange={setFormaPago}
+                      onMetodoPagoChange={setMetodoPago}
+                    />
+                  ) : activeTab === "cotizacion" ? (
+                    <CotizacionFacturaTab
+                      origen={cotizacionOrigen}
+                      onOrigenChange={handleCotizacionOrigenChange}
+                      selectedKey={selectedCotizacionKey}
+                      options={cotizacionOptions}
+                      onSearchChange={setCotizacionSearchQuery}
+                      onSelect={handleCotizacionSelect}
+                      loading={loadingCotizaciones}
+                      loadingDetail={loadingCotizacionDetail}
+                      cotizacionLabel={cotizacionLabel}
+                      conceptos={conceptos}
+                      disabled={saving}
+                    />
+                  ) : (
+                    <ClienteSimplifiedFormFields
+                      formData={formData}
+                      setFormData={setFormData}
+                      activeTab={activeTab}
+                      setActiveTab={(tab) => setActiveTab(tab)}
+                      hideContactMeta
+                      hideTabs
+                      onOpenMap={() => setShowMapModal(true)}
+                      representanteSelect={{
+                        value: selectedCliente ? String(selectedCliente.cli_id) : "",
+                        options: clienteOptions,
+                        onChange: handleClienteSelect,
+                        onSearchChange: setClienteSearchQuery,
+                        placeholder: "Escribe al menos 2 caracteres (nombre o RFC)…",
+                        disabled: saving,
+                      }}
+                    />
+                  )}
+                </div>
               </div>
 
-              {activeTab === "comprobante" ? (
-                <div className="space-y-4">
-                  <div className="overflow-hidden rounded-2xl border border-[#ecdcc8] bg-gradient-to-br from-[#fff8f1] via-[#fffdfa] to-[#f5efe6] p-4 dark:border-[#334155] dark:from-[#1a2332] dark:via-[#111a2b] dark:to-[#0f172a] sm:p-5">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ea580c] dark:text-[#fb923c]">
-                          Resumen
-                        </p>
-                        <p className="mt-1 text-lg font-semibold text-[#1c1917] dark:text-[#f8fafc]">
-                          {selectedSerie?.serie || "Sin serie"}
-                        </p>
-                        <p className="mt-0.5 text-xs text-[#78716c] dark:text-[#94a3b8]">
-                          Folio inicial SICAR: {selectedSerie?.folioIni ?? "—"}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="inline-flex max-w-full items-center rounded-full border border-[#ff801f]/25 bg-white/80 px-3 py-1 text-xs font-medium text-[#9a3412] dark:border-[#fb923c]/30 dark:bg-[#0f172a]/60 dark:text-[#fdba74]">
-                          {formaPago.split("-")[0]?.trim() || formaPago}
-                        </span>
-                        <span className="inline-flex max-w-full items-center rounded-full border border-[#e7ded0] bg-white/80 px-3 py-1 text-xs font-medium text-[#57534e] dark:border-[#334155] dark:bg-[#0f172a]/60 dark:text-[#cbd5e1]">
-                          {metodoPago.split("-")[0]?.trim() || metodoPago}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={`${modalPanelClass} space-y-5`}>
-                    <p className={modalSectionTitleClass}>Serie y foliado</p>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                      <div>
-                        <Label>Serie CFDI</Label>
-                        <select
-                          className={selectLikeClassName}
-                          value={scfId}
-                          onChange={(e) => setScfId(Number(e.target.value))}
-                        >
-                          {series.map((s) => (
-                            <option key={s.scf_id} value={s.scf_id}>
-                              {s.serie ? `${s.serie} · folio ${s.folioIni}` : `(serie #${s.scf_id})`}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="mt-1.5 text-[11px] leading-relaxed text-[#78716c] dark:text-[#94a3b8]">
-                          La serie determina el prefijo del folio fiscal (ej. IMA-5199).
-                        </p>
-                      </div>
-                      {selectedSerie?.serie ? (
-                        <div className="rounded-xl border border-dashed border-[#ecdcc8] bg-[#fcfaf6] px-4 py-3 text-center dark:border-[#334155] dark:bg-[#0f172a]/50">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8b7b69] dark:text-[#8ea0b8]">
-                            Próximo folio
-                          </p>
-                          <p className="mt-1 font-mono text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
-                            {selectedSerie.serie}-…
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className={`${modalPanelClass} space-y-5`}>
-                    <p className={modalSectionTitleClass}>Condiciones de pago</p>
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <div className="rounded-xl border border-[#ecdcc8]/80 bg-[#fcfaf6]/80 p-4 dark:border-[#334155] dark:bg-[#111827]/40">
-                        <Label>Forma de pago</Label>
-                        <select
-                          className={`${selectLikeClassName} mt-1.5`}
-                          value={formaPago}
-                          onChange={(e) => setFormaPago(e.target.value)}
-                        >
-                          {formaPagoOpts.map((o) => (
-                            <option key={o.clave} value={o.label}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="mt-2 text-[11px] leading-relaxed text-[#78716c] dark:text-[#94a3b8]">
-                          Medio con el que se liquida el comprobante (catálogo SAT c_FormaPago).
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-[#ecdcc8]/80 bg-[#fcfaf6]/80 p-4 dark:border-[#334155] dark:bg-[#111827]/40">
-                        <Label>Método de pago</Label>
-                        <select
-                          className={`${selectLikeClassName} mt-1.5`}
-                          value={metodoPago}
-                          onChange={(e) => setMetodoPago(e.target.value)}
-                        >
-                          {metodoPagoOpts.map((o) => (
-                            <option key={o.clave} value={o.label}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="mt-2 text-[11px] leading-relaxed text-[#78716c] dark:text-[#94a3b8]">
-                          PUE = pago en una sola exhibición · PPD = parcialidades o diferido.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <ClienteSimplifiedFormFields
-                  formData={formData}
-                  setFormData={setFormData}
-                  activeTab={activeTab}
-                  setActiveTab={(tab) => setActiveTab(tab)}
-                  hideContactMeta
-                  hideTabs
-                  onOpenMap={() => setShowMapModal(true)}
-                  representanteSelect={{
-                    value: selectedCliente ? String(selectedCliente.cli_id) : "",
-                    options: clienteOptions,
-                    onChange: handleClienteSelect,
-                    onSearchChange: setClienteSearchQuery,
-                    placeholder: "Buscar cliente por nombre o RFC...",
-                    disabled: saving,
-                  }}
-                />
-              )}
-
-              <footer className="sticky bottom-0 z-20 -mx-4 mt-1 border-t border-[#e7ded0] bg-[#fcfaf6]/95 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(28,25,23,0.18)] backdrop-blur-sm dark:border-[#334155] dark:bg-[#0f172a]/95 sm:-mx-5 sm:px-5 sm:py-4">
+              <footer className="shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6]/95 px-4 py-3 dark:border-[#334155] dark:bg-[#0f172a]/95 sm:px-5 sm:py-4">
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
                   <button
                     type="button"
@@ -425,7 +599,7 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
                   </button>
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || loadingCatalogos}
                     className={`${actionButtonClass} bg-[#ff801f] font-semibold text-black hover:bg-[#ff6a00] focus-visible:outline-[#ff801f] disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[11rem]`}
                   >
                     {saving ? (
@@ -449,7 +623,6 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
                 </div>
               </footer>
             </form>
-          )}
         </div>
       </Modal>
 

@@ -13,15 +13,18 @@ from apps.cotizaciones.sicar_cfdi_builder import build_cfdi_xml
 from apps.cotizaciones.sicar_cfdi_sign import sign_cfdi_xml
 from apps.cotizaciones.sicar_cfdi_stamp import SicarStampError, build_qr_png, stamp_cfdi_xml
 from apps.cotizaciones.sicar_db import (
-    _connect_sicar,
     _sicar_db_config,
+    close_sicar_connection,
+    connect_sicar_exclusive,
     execute,
     fetch_all,
     fetch_one,
     last_insert_id,
-    sicar_setting_int,
-    sicar_setting_str,
 )
+
+# Valores por defecto en SICAR para venta/detallev cuando el concepto no trae artículo.
+_DEFAULT_ART_ID = 1300
+_DEFAULT_VND_ID = 3
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +68,9 @@ def _load_csd(cursor) -> dict[str, Any]:
     )
     if not row:
         raise SicarFacturaError("No hay CSD seleccionado en sellodigital.")
-    password = sicar_setting_str("SICAR_CSD_PASSWORD")
+    password = str(row.get("pwd") or "")
     if not password:
-        password = str(row.get("pwd") or "")
-    if not password:
-        raise SicarFacturaError("Configure SICAR_CSD_PASSWORD en backend/.env.")
+        raise SicarFacturaError("El CSD activo en sellodigital no tiene contraseña (pwd).")
     row["_password"] = password
     return row
 
@@ -420,10 +421,10 @@ def create_timbrada_factura(payload: dict[str, Any]) -> dict[str, Any]:
     uso_cfdi = str(payload.get("uso_cfdi") or "G03-Gastos en general")
 
     cfg = _sicar_db_config()
-    art_id = sicar_setting_int("SICAR_DEFAULT_ART_ID", 1300)
-    vnd_id = sicar_setting_int("SICAR_DEFAULT_VND_ID", 3)
+    art_id = _DEFAULT_ART_ID
+    vnd_id = _DEFAULT_VND_ID
 
-    conn = _connect_sicar(cfg, read_timeout=60)
+    conn = connect_sicar_exclusive(cfg, read_timeout=60)
     try:
         conn.begin()
         cursor = conn.cursor()
@@ -449,16 +450,19 @@ def create_timbrada_factura(payload: dict[str, Any]) -> dict[str, Any]:
             folio=folio,
         )
 
-        signed_xml, sign_meta = sign_cfdi_xml(
-            xml_unsigned,
-            bytes(csd["fCer"]),
-            bytes(csd["fKey"]),
-            str(csd["_password"]),
-        )
-
-        pac_token = sicar_setting_str("SICAR_PAC_TOKEN") or str(empresa.get("claveApi") or "")
         try:
-            stamped_xml, stamp_meta = stamp_cfdi_xml(signed_xml, token=pac_token or None)
+            signed_xml, sign_meta = sign_cfdi_xml(
+                xml_unsigned,
+                bytes(csd["fCer"]),
+                bytes(csd["fKey"]),
+                str(csd["_password"]),
+            )
+        except ValueError as exc:
+            raise SicarFacturaError(str(exc)) from exc
+
+        pac_token = str(empresa.get("claveApi") or "")
+        try:
+            stamped_xml, stamp_meta = stamp_cfdi_xml(signed_xml, token=pac_token)
         except SicarStampError as exc:
             raise SicarFacturaError(str(exc)) from exc
 
@@ -526,11 +530,21 @@ def create_timbrada_factura(payload: dict[str, Any]) -> dict[str, Any]:
         logger.exception("Error creando factura SICAR")
         raise SicarFacturaError(f"No se pudo crear la factura: {exc}") from exc
     finally:
-        conn.close()
+        close_sicar_connection(conn)
 
 
 def list_sicar_series(cursor) -> list[dict[str, Any]]:
-    return fetch_all(cursor, "SELECT scf_id, serie, folioIni, emp_id FROM seriecfdi ORDER BY scf_id")
+    return fetch_all(
+        cursor,
+        """
+        SELECT s.scf_id, s.serie, s.folioIni, s.emp_id,
+               COALESCE((
+                   SELECT MAX(f.folio) FROM facturacfdi f WHERE f.scf_id = s.scf_id
+               ), 0) + 1 AS next_folio
+        FROM seriecfdi s
+        ORDER BY s.scf_id
+        """,
+    )
 
 
 _SICAR_CLIENTE_FORM_SQL = """
@@ -569,14 +583,17 @@ def get_sicar_cliente(cursor, cli_id: int) -> dict[str, Any] | None:
 
 
 def search_sicar_clientes(cursor, q: str = "", limit: int = 25) -> list[dict[str, Any]]:
+    """Listado rápido para el buscador; el detalle completo va en get_sicar_cliente."""
     q = (q or "").strip()
+    limit = max(1, min(limit, 50))
     if q:
         like = f"%{q}%"
         return fetch_all(
             cursor,
-            f"""
-            SELECT {_SICAR_CLIENTE_FORM_SQL}
-            {_SICAR_CLIENTE_FROM}
+            """
+            SELECT c.cli_id, c.clave, c.nombre, c.representante, c.rfc,
+                   c.codigoPostal, c.usoCfdi
+            FROM cliente c
             WHERE c.status = 1 AND (c.nombre LIKE %s OR c.rfc LIKE %s OR c.clave LIKE %s)
             ORDER BY c.nombre
             LIMIT %s
@@ -585,12 +602,72 @@ def search_sicar_clientes(cursor, q: str = "", limit: int = 25) -> list[dict[str
         )
     return fetch_all(
         cursor,
-        f"""
-        SELECT {_SICAR_CLIENTE_FORM_SQL}
-        {_SICAR_CLIENTE_FROM}
+        """
+        SELECT c.cli_id, c.clave, c.nombre, c.representante, c.rfc,
+               c.codigoPostal, c.usoCfdi
+        FROM cliente c
         WHERE c.status = 1
         ORDER BY c.nombre
         LIMIT %s
         """,
         (limit,),
     )
+
+
+def search_sicar_cotizaciones(
+    cursor, q: str = "", cli_id: int | None = None, limit: int = 25
+) -> list[dict[str, Any]]:
+    q = (q or "").strip()
+    where = ["c.status = 1"]
+    params: list[Any] = []
+    if cli_id:
+        where.append("c.cli_id = %s")
+        params.append(cli_id)
+    if q:
+        like = f"%{q}%"
+        where.append("(CAST(c.cot_id AS CHAR) LIKE %s OR cl.nombre LIKE %s OR cl.rfc LIKE %s)")
+        params.extend([like, like, like])
+    params.append(limit)
+    return fetch_all(
+        cursor,
+        f"""
+        SELECT c.cot_id, c.fecha, c.cli_id, c.subtotal, c.total, c.status,
+               cl.nombre AS cliente_nombre, cl.rfc AS cliente_rfc
+        FROM cotizacion c
+        LEFT JOIN cliente cl ON cl.cli_id = c.cli_id
+        WHERE {' AND '.join(where)}
+        ORDER BY c.cot_id DESC
+        LIMIT %s
+        """,
+        tuple(params),
+    )
+
+
+def get_sicar_cotizacion(cursor, cot_id: int) -> dict[str, Any] | None:
+    header = fetch_one(
+        cursor,
+        """
+        SELECT c.cot_id, c.fecha, c.cli_id, c.subtotal, c.total, c.status,
+               cl.nombre AS cliente_nombre, cl.rfc AS cliente_rfc
+        FROM cotizacion c
+        LEFT JOIN cliente cl ON cl.cli_id = c.cli_id
+        WHERE c.cot_id = %s AND c.status = 1
+        LIMIT 1
+        """,
+        (cot_id,),
+    )
+    if not header:
+        return None
+    items = fetch_all(
+        cursor,
+        """
+        SELECT d.clave, d.descripcion, d.cantidad, d.unidad, d.precioSin, d.importeSin, d.orden,
+               a.claveProdServ, a.unidadVenta
+        FROM detallecot d
+        LEFT JOIN articulo a ON a.art_id = d.art_id
+        WHERE d.cot_id = %s
+        ORDER BY d.orden, d.art_id
+        """,
+        (cot_id,),
+    )
+    return {**header, "items": items}
