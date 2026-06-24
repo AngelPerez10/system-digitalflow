@@ -155,15 +155,16 @@ if DEBUG:
     ]
     CSRF_TRUSTED_ORIGINS = list(CORS_ALLOWED_ORIGINS)
 else:
+    _PROD_CORS_DEFAULTS = (
+        'https://sistema-grupo-atr.onrender.com',
+        'https://system-digitalflow.onrender.com',
+        'https://system-digitalflow-frontend.onrender.com',
+    )
+    _cors_origins = list(_PROD_CORS_DEFAULTS)
     _cors_env = os.environ.get('CORS_ALLOWED_ORIGINS', '').strip()
     if _cors_env:
-        CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(',') if o.strip()]
-    else:
-        CORS_ALLOWED_ORIGINS = [
-            'https://sistema-grupo-atr.onrender.com',
-            'https://system-digitalflow.onrender.com',
-            'https://system-digitalflow-frontend.onrender.com',
-        ]
+        _cors_origins.extend(o.strip() for o in _cors_env.split(',') if o.strip())
+    CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_cors_origins))
     _csrf_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
     if _csrf_env:
         CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(',') if o.strip()]

@@ -48,10 +48,43 @@ def _clear_thread_sicar_connection() -> None:
             pass
 
 
+def _is_production_runtime() -> bool:
+    raw = os.environ.get("DEBUG", "").strip().lower()
+    return raw not in ("true", "1", "yes", "on")
+
+
+def _is_private_db_host(host: str) -> bool:
+    h = (host or "").strip().lower()
+    if h in ("localhost", "127.0.0.1"):
+        return True
+    if h.startswith("192.168.") or h.startswith("10."):
+        return True
+    if h.startswith("172."):
+        try:
+            second = int(h.split(".")[1])
+            return 16 <= second <= 31
+        except (IndexError, ValueError):
+            return False
+    return False
+
+
+def _sicar_connect_policy() -> tuple[int, int, int]:
+    """(connect_timeout_s, max_attempts, retry_delay_ms). En producción falla rápido (< timeout Gunicorn)."""
+    if _is_production_runtime():
+        return (
+            sicar_setting_int("SICAR_DB_CONNECT_TIMEOUT", 5),
+            max(1, sicar_setting_int("SICAR_DB_CONNECT_RETRIES", 1)),
+            max(0, sicar_setting_int("SICAR_DB_CONNECT_RETRY_DELAY_MS", 0)),
+        )
+    return (
+        sicar_setting_int("SICAR_DB_CONNECT_TIMEOUT", 12),
+        max(1, sicar_setting_int("SICAR_DB_CONNECT_RETRIES", 3)),
+        max(0, sicar_setting_int("SICAR_DB_CONNECT_RETRY_DELAY_MS", 500)),
+    )
+
+
 def _open_sicar_connection(cfg: dict, read_timeout: int = 10):
-    connect_timeout = sicar_setting_int("SICAR_DB_CONNECT_TIMEOUT", 12)
-    max_attempts = max(1, sicar_setting_int("SICAR_DB_CONNECT_RETRIES", 3))
-    retry_delay_ms = max(0, sicar_setting_int("SICAR_DB_CONNECT_RETRY_DELAY_MS", 500))
+    connect_timeout, max_attempts, retry_delay_ms = _sicar_connect_policy()
 
     last_exc: Exception | None = None
     for attempt in range(1, max_attempts + 1):
@@ -138,9 +171,19 @@ def close_sicar_connection(conn) -> None:
         pass
 
 
+def _render_private_host_hint(host: str) -> str:
+    if not os.environ.get("RENDER") or not _is_private_db_host(host):
+        return ""
+    return (
+        " En Render el backend no alcanza IPs privadas (192.168.x / 10.x): "
+        "necesitas túnel (Tailscale, Cloudflare Tunnel) o MySQL con IP pública y firewall."
+    )
+
+
 def _sicar_error_detail(exc: Exception, cfg: dict | None = None) -> str:
     host = str((cfg or {}).get("host") or "SICAR")
     port = int((cfg or {}).get("port") or 3306)
+    render_hint = _render_private_host_hint(host)
 
     if isinstance(exc, pymysql.err.OperationalError) and exc.args:
         code = exc.args[0]
@@ -150,11 +193,11 @@ def _sicar_error_detail(exc: Exception, cfg: dict | None = None) -> str:
                 return (
                     f"No se alcanza el servidor MySQL de SICAR ({host}:{port}): tiempo de espera agotado. "
                     "Comprueba VPN o red corporativa, que MySQL esté activo, reglas de firewall "
-                    "y las variables SICAR_DB_* en backend/.env."
+                    f"y las variables SICAR_DB_* en el entorno del backend.{render_hint}"
                 )
             return (
                 f"No se puede conectar a SICAR en {host}:{port}. "
-                "Verifica host, puerto, firewall y SICAR_DB_* en backend/.env."
+                f"Verifica host, puerto, firewall y SICAR_DB_* en el entorno del backend.{render_hint}"
             )
         if code == 1045:
             return "Credenciales SICAR incorrectas (SICAR_DB_USER / SICAR_DB_PASSWORD)."

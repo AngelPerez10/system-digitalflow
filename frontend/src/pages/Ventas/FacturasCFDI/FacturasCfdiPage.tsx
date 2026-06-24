@@ -306,7 +306,10 @@ export default function FacturasCfdiPage() {
     } catch {
       if (fetchId !== fetchSeqRef.current) return;
       setRows([]);
-      setError("No se pudo conectar al endpoint de SICAR.");
+      setError(
+        "No se pudo consultar SICAR. Si en la consola aparece CORS, suele ser timeout del backend " +
+          "al intentar MySQL (red privada o VPN). Revisa SICAR_DB_* en Render y conectividad."
+      );
     } finally {
       if (fetchId === fetchSeqRef.current) {
         setLoading(false);
