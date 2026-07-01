@@ -316,6 +316,11 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     )
     last_cat_id = None
     net_subtotal_con_iva = 0.0
+    from apps.productos.manual_producto import manual_producto_descripcion_map, resolve_item_descripcion
+
+    manual_desc_map = manual_producto_descripcion_map(
+        [str(getattr(it, "producto_externo_id", "") or "") for it in items]
+    )
     for it in items:
         cat_id = str(getattr(it, "categoria_id", "") or "").strip()
         if cat_id and cat_id in cat_names and cat_id != last_cat_id:
@@ -348,7 +353,11 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
         ws.cell(row=r, column=2, value=cantidad)
         ws.cell(row=r, column=3, value=str(getattr(it, "unidad", "") or ""))
         nombre_base = str(getattr(it, "producto_nombre", "") or "")
-        descripcion_larga = str(getattr(it, "producto_descripcion", "") or "")
+        descripcion_larga = resolve_item_descripcion(
+            str(getattr(it, "producto_externo_id", "") or ""),
+            str(getattr(it, "producto_descripcion", "") or ""),
+            manual_desc_map,
+        ).strip()
         if pdf_opciones.simplificar_descripcion:
             corta = str(getattr(it, "pdf_descripcion_corta", "") or "").strip()
             if not corta:

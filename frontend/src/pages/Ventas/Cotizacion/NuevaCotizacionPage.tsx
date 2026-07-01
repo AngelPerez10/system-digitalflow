@@ -80,6 +80,7 @@ import {
   MAX_COTIZ_PRODUCTO_NOMBRE_LEN,
   MAX_COTIZ_THUMB_URL_LEN,
   normalizeTipoTrabajoIds,
+  resolveConceptoDescripcion,
   round2,
   IVA_MX,
   toNumber,
@@ -529,6 +530,24 @@ export default function NuevaCotizacionPage() {
     },
     []
   );
+
+  useEffect(() => {
+    if (!catalogoManualProductos.length) return;
+    setConceptos((prev) => {
+      if (!prev.length) return prev;
+      let changed = false;
+      const next = prev.map((c) => {
+        const resolved = resolveConceptoDescripcion(c, catalogoManualProductos);
+        const stored = String(c.producto_descripcion || "").trim();
+        if (resolved && resolved !== stored) {
+          changed = true;
+          return { ...c, producto_descripcion: resolved };
+        }
+        return c;
+      });
+      return changed ? next : prev;
+    });
+  }, [catalogoManualProductos]);
 
   useEffect(() => {
     setActiveCotizacionId(editingCotizacionId || "");
@@ -1035,7 +1054,7 @@ export default function NuevaCotizacionPage() {
       items: orderedLines.map((c, i) => ({
         producto_externo_id: truncateStr(c.producto_externo_id ?? "", 100),
         producto_nombre: truncateStr(c.producto_nombre, MAX_COTIZ_PRODUCTO_NOMBRE_LEN),
-        producto_descripcion: String(c.producto_descripcion ?? ""),
+        producto_descripcion: resolveConceptoDescripcion(c, catalogoManualProductos),
         pdf_descripcion_corta: truncateStr(String(pdfDescripcionCorta[c.id] || "").trim(), 500),
         unidad: truncateStr(c.unidad, 50),
         thumbnail_url: truncateStr(c.thumbnail_url || "", MAX_COTIZ_THUMB_URL_LEN),
@@ -1063,6 +1082,7 @@ export default function NuevaCotizacionPage() {
     terminos,
     pdfOpciones,
     pdfDescripcionCorta,
+    catalogoManualProductos,
   ]);
 
   const upsertCotizacion = useCallback(async (opts?: {
@@ -1417,7 +1437,9 @@ export default function NuevaCotizacionPage() {
     const precioLinea = pl > 0 ? pl : precioCatalogo;
     const desc = clampPct(toNumber(descuentoPct, 0));
     const nombre = nombreConceptoResuelto;
-    const descripcion = String(conceptoDescripcion || "").trim();
+    const descripcion = selectedManualProducto
+      ? buildManualProductoDescripcion(selectedManualProducto)
+      : String(conceptoDescripcion || "").trim();
     const productoExternoId = selectedSyscomProducto?.producto_id || (selectedManualProducto ? `manual:${selectedManualProducto.id}` : "");
     const catalogThumb = selectedCatalogoConcepto?.imagen_url?.trim();
     const manualThumb = selectedManualProducto?.imagen_url?.trim();
@@ -1538,6 +1560,14 @@ export default function NuevaCotizacionPage() {
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(null);
+    if (productoExternoId.toLowerCase().startsWith("manual:")) {
+      const manualId = Number(productoExternoId.split(":")[1]);
+      const manual = catalogoManualProductos.find((p) => p.id === manualId);
+      if (manual) {
+        setSelectedManualProducto(manual);
+        setConceptoDescripcion(buildManualProductoDescripcion(manual));
+      }
+    }
     setSyscomError("");
     setSyscomOpen(false);
   };

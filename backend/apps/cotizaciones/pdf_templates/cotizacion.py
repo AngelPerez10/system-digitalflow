@@ -76,13 +76,20 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     )
     last_cat_id = None
 
+    item_list = iter_items(cotizacion)
+    from apps.productos.manual_producto import manual_producto_descripcion_map, resolve_item_descripcion
+
+    manual_desc_map = manual_producto_descripcion_map(
+        [str(getattr(it, "producto_externo_id", "") or "") for it in item_list]
+    )
+
     rows = []
     net_subtotal_sin_iva = 0.0
     gross_subtotal_sin_iva = 0.0
     net_subtotal_con_iva = 0.0
     has_manual_concept_lines = False
     has_product_lines = False
-    for it in iter_items(cotizacion):
+    for it in item_list:
         cat_id = str(getattr(it, 'categoria_id', '') or '').strip()
         if cat_id and cat_id in cat_names and cat_id != last_cat_id:
             rows.append(
@@ -136,7 +143,11 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
         if not thumb_src and default_concept_img:
             thumb_src = default_concept_img
         nombre_base = str(getattr(it, 'producto_nombre', '') or '-').strip() or '-'
-        descripcion_larga = str(getattr(it, 'producto_descripcion', '') or '').strip()
+        descripcion_larga = resolve_item_descripcion(
+            str(getattr(it, "producto_externo_id", "") or ""),
+            str(getattr(it, 'producto_descripcion', '') or ""),
+            manual_desc_map,
+        ).strip()
         if solo_concepto_manual:
             nombre = nombre_base
             desc_html = (

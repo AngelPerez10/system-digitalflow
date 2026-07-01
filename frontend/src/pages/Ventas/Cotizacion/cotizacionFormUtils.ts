@@ -87,6 +87,19 @@ export const buildManualProductoDescripcion = (producto: {
   return parts.join("\n\n");
 };
 
+export const resolveConceptoDescripcion = (
+  concepto: { producto_externo_id?: string; producto_descripcion?: string },
+  catalogoManual: Array<{ id: number; marca?: string; modelo?: string; caracteristicas?: string }>
+): string => {
+  const extId = String(concepto.producto_externo_id || "").trim().toLowerCase();
+  if (extId.startsWith("manual:")) {
+    const manualId = Number(extId.split(":")[1]);
+    const manual = catalogoManual.find((p) => p.id === manualId);
+    if (manual) return buildManualProductoDescripcion(manual);
+  }
+  return String(concepto.producto_descripcion ?? "").trim();
+};
+
 export const toFinite = (v: unknown): number | null => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
