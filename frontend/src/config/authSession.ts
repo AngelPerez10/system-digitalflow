@@ -3,50 +3,13 @@
  *
  * Prioridad de seguridad:
  * 1. Cookies HttpOnly (access_token / refresh_token) — preferidas.
- * 2. Bearer en memoria (solo access, vida del tab).
- * 3. sessionStorage del access — solo si API y front son orígenes distintos
- *    (cookies de terceros bloqueadas). Nunca se persiste el refresh token.
+ * 2. Bearer en memoria (solo access, vida del tab) para compatibilidad cross-origin.
+ *
+ * Nunca persistir access/refresh token en Web Storage: ante XSS, sessionStorage y
+ * localStorage son legibles por cualquier script del mismo origen.
  */
-import { API_BASE, isViteDevServer, shouldUseDevProxy } from "./apiBase";
-
-const ACCESS_PERSIST_KEY = "auth_access_persist";
 
 let accessTokenMemory: string | null = null;
-
-/** True cuando el front llama al API en otro origen (p. ej. Render estático + backend aparte). */
-export function isApiCrossOrigin(): boolean {
-  if (typeof window === "undefined") return false;
-  if (shouldUseDevProxy() || isViteDevServer()) return false;
-  try {
-    const apiOrigin = new URL(API_BASE, window.location.href).origin;
-    return apiOrigin !== window.location.origin;
-  } catch {
-    return false;
-  }
-}
-
-function readPersistedAccess(): string {
-  if (!isApiCrossOrigin()) return "";
-  try {
-    const raw = sessionStorage.getItem(ACCESS_PERSIST_KEY) || "";
-    return isAccessTokenUsable(raw) ? raw : "";
-  } catch {
-    return "";
-  }
-}
-
-function writePersistedAccess(token: string | null) {
-  if (!isApiCrossOrigin()) return;
-  try {
-    if (token && isAccessTokenUsable(token)) {
-      sessionStorage.setItem(ACCESS_PERSIST_KEY, token);
-    } else {
-      sessionStorage.removeItem(ACCESS_PERSIST_KEY);
-    }
-  } catch {
-    /* ignore */
-  }
-}
 
 /** Decodifica `exp` del JWT solo para UX (no sustituye validación del servidor). */
 export function jwtExpiresAtMs(token: string): number | null {
@@ -76,7 +39,6 @@ export function setAccessTokenFromLogin(access: unknown) {
     return;
   }
   accessTokenMemory = token;
-  writePersistedAccess(token);
 }
 
 export function getAccessToken(): string {
@@ -84,11 +46,6 @@ export function getAccessToken(): string {
     return accessTokenMemory;
   }
   accessTokenMemory = null;
-  const persisted = readPersistedAccess();
-  if (persisted) {
-    accessTokenMemory = persisted;
-    return persisted;
-  }
   return "";
 }
 
@@ -99,8 +56,8 @@ export function hasBearerFallback(): boolean {
 export function clearAccessToken() {
   accessTokenMemory = null;
   try {
-    sessionStorage.removeItem(ACCESS_PERSIST_KEY);
-    // Limpieza de claves legacy (migración)
+    // Limpieza de claves legacy (migración hacia cookie-only).
+    sessionStorage.removeItem("auth_access_persist");
     sessionStorage.removeItem("auth_access_fallback");
     sessionStorage.removeItem("auth_refresh_fallback");
   } catch {

@@ -41,6 +41,7 @@ describe("setAccessTokenFromLogin", () => {
     setAccessTokenFromLogin(token);
     expect(getAccessToken()).toBe(token);
     expect(hasBearerFallback()).toBe(true);
+    expect(sessionStorage.getItem("auth_access_persist")).toBeNull();
   });
 
   it("clears invalid tokens", () => {
@@ -49,8 +50,12 @@ describe("setAccessTokenFromLogin", () => {
   });
 
   it("removes legacy refresh key on clear", () => {
+    sessionStorage.setItem("auth_access_persist", "legacy");
+    sessionStorage.setItem("auth_access_fallback", "legacy");
     sessionStorage.setItem("auth_refresh_fallback", "legacy");
     clearAccessToken();
+    expect(sessionStorage.getItem("auth_access_persist")).toBeNull();
+    expect(sessionStorage.getItem("auth_access_fallback")).toBeNull();
     expect(sessionStorage.getItem("auth_refresh_fallback")).toBeNull();
   });
 });

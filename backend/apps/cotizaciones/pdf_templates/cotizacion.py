@@ -320,7 +320,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     .img {{ width: 70px; height: 70px; border-radius: 6px; border: 1px solid #e5e7eb; object-fit: cover; }}
     .img.ph {{ background: #f9fafb; border-style: dashed; }}
     .name {{ font-weight: 600; color: #111827; }}
-    .desc {{ margin-top: 3px; font-size: 10px; line-height: 1.35; color: #4b5563; }}
+    .desc {{ margin-top: 3px; font-size: 10px; line-height: 1.35; color: #4b5563; white-space: pre-line; }}
     .totals {{ margin-top: 14px; width: 100%; max-width: 340px; margin-left: auto; margin-right: 16px; border-top: 1px solid #e5e7eb; padding-top: 10px; }}
     .totals .row {{ display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }}
     .totals .row strong {{ font-weight: 600; }}

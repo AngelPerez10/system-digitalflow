@@ -27,7 +27,6 @@ vi.mock('@/config/loginErrors', () => ({
 }));
 
 vi.mock('@/config/api', () => ({
-  AUTH_CACHE_KEY: 'auth_state',
   fetchApi: vi.fn(),
   ensureCsrfCookie: vi.fn().mockResolvedValue(undefined),
   hasAuthSessionFlag: vi.fn().mockReturnValue(true),
@@ -39,11 +38,13 @@ vi.mock('@/config/api', () => ({
   clearAuthSession: vi.fn(),
 }));
 
-import { fetchApi, hasAuthSessionFlag, clearAuthSession } from '@/config/api';
+import { clearAuthSession, fetchApi, hasAuthSessionFlag, markAuthSession, setAccessTokenFromLogin } from '@/config/api';
 
 const mockFetchApi = vi.mocked(fetchApi);
 const mockHasSession = vi.mocked(hasAuthSessionFlag);
 const mockClearSession = vi.mocked(clearAuthSession);
+const mockMarkSession = vi.mocked(markAuthSession);
+const mockSetAccessToken = vi.mocked(setAccessTokenFromLogin);
 
 function createMockUser(overrides: Partial<AuthUser> = {}): AuthUser {
   return {
@@ -296,9 +297,35 @@ describe('AuthProvider', () => {
     expect(mockClearSession).toHaveBeenCalled();
   });
 
-  it('skips fetch when no session and no cache', async () => {
+  it('revives cookie session when no local session flag exists', async () => {
     mockHasSession.mockReturnValue(false);
     sessionStorage.clear();
+    mockFetchApi.mockImplementation(async (path: string) => {
+      if (path === '/api/token/refresh/') return createOkResponse({ access: 'new-access-token' });
+      if (path === '/api/me/') return createOkResponse(createMockUser({ username: 'cookie-user' }));
+      if (path === '/api/me/permissions/') return createOkResponse({ permissions: { ventas: { view: true } } });
+      return createOkResponse({});
+    });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(mockFetchApi).toHaveBeenCalledWith('/api/token/refresh/', { method: 'POST' });
+    expect(mockSetAccessToken).toHaveBeenCalledWith('new-access-token');
+    expect(mockMarkSession).toHaveBeenCalled();
+    expect(result.current.user?.username).toBe('cookie-user');
+  });
+
+  it('stays unauthenticated when cookie session cannot be revived', async () => {
+    mockHasSession.mockReturnValue(false);
+    sessionStorage.clear();
+    mockFetchApi.mockImplementation(async (path: string) => {
+      if (path === '/api/token/refresh/') return createUnauthorizedResponse();
+      return createOkResponse({});
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -307,6 +334,7 @@ describe('AuthProvider', () => {
     });
 
     expect(result.current.user).toBeNull();
+    expect(mockFetchApi).toHaveBeenCalledWith('/api/token/refresh/', { method: 'POST' });
     expect(mockFetchApi).not.toHaveBeenCalledWith('/api/me/');
   });
 });

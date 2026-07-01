@@ -63,6 +63,7 @@ class ProductoManual(models.Model):
     producto = models.CharField(max_length=255, blank=False, default='')
     marca = models.CharField(max_length=120, blank=False, default='')
     modelo = models.CharField(max_length=120, blank=False, default='')
+    caracteristicas = models.TextField(blank=True, default='')
     imagen_url = models.CharField(max_length=500, blank=True, default='')
     fuente = models.CharField(max_length=20, blank=False, default='manual')
     precio = models.DecimalField(max_digits=12, decimal_places=2, default=0)

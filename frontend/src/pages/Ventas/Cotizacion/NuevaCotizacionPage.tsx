@@ -71,6 +71,7 @@ import {
   textareaLikeClassName,
 } from "./cotizacionFormStyles";
 import {
+  buildManualProductoDescripcion,
   clampPct,
   formatCotizacionApiError,
   formatMoney,
@@ -264,6 +265,9 @@ export default function NuevaCotizacionPage() {
   const [tipoTrabajoOpen, setTipoTrabajoOpen] = useState(false);
   const tipoTrabajoRef = useRef<HTMLDivElement>(null);
   const lastAutosaveSnapshotRef = useRef<string | null>(null);
+  const draftInitStartedRef = useRef(false);
+  const draftInitPromiseRef = useRef<Promise<string | null> | null>(null);
+  const upsertInFlightRef = useRef(false);
   const upsertCotizacionRef = useRef<
     (opts?: {
       navigateAfterSave?: boolean;
@@ -532,8 +536,11 @@ export default function NuevaCotizacionPage() {
 
   useEffect(() => {
     if (editingCotizacionId || activeCotizacionId || !canCotizacionesCreate) return;
+    if (draftInitStartedRef.current) return;
+    draftInitStartedRef.current = true;
+
     let cancelled = false;
-    const createDraft = async () => {
+    const createDraft = async (): Promise<string | null> => {
       try {
         const data = await createCotizacionDraft({
           cliente_id: null,
@@ -541,20 +548,20 @@ export default function NuevaCotizacionPage() {
           prospecto: false,
           contacto: "",
           contacto_telefono: "",
-          medio_contacto: String(medioContacto || ""),
+          medio_contacto: "",
           tipo_trabajo: [],
-          status: String(status || "PENDIENTE"),
+          status: "PENDIENTE",
           fecha: todayIso,
           subtotal: 0,
           descuento_cliente_pct: 0,
           iva_pct: 0,
           iva: 0,
           total: 0,
-          texto_arriba_precios: String(textoArribaPrecios || ""),
-          terminos: String(terminos || ""),
+          texto_arriba_precios: "",
+          terminos: "",
           items: [],
         });
-        if (!data || cancelled) return;
+        if (!data || cancelled) return null;
         const newId = String(data?.id || "").trim();
         if (newId) {
           setActiveCotizacionId(newId);
@@ -562,25 +569,18 @@ export default function NuevaCotizacionPage() {
             data?.idx != null && Number.isFinite(Number(data.idx)) ? Number(data.idx) : null
           );
         }
+        return newId || null;
       } catch {
-        // ignore: user can continue and save manually
+        draftInitStartedRef.current = false;
+        return null;
       }
     };
 
-    void createDraft();
+    draftInitPromiseRef.current = createDraft();
     return () => {
       cancelled = true;
     };
-  }, [
-    editingCotizacionId,
-    activeCotizacionId,
-    canCotizacionesCreate,
-    medioContacto,
-    status,
-    todayIso,
-    textoArribaPrecios,
-    terminos,
-  ]);
+  }, [editingCotizacionId, activeCotizacionId, canCotizacionesCreate, todayIso]);
 
   useEffect(() => {
     if (!editingCotizacionId) {
@@ -840,7 +840,9 @@ export default function NuevaCotizacionPage() {
     setSelectedManualProducto(p);
     setConceptoNombre("");
     setProductoSearch(String(p.producto || ""));
-    setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : [p.marca, p.modelo].filter(Boolean).join(" · ")));
+    setConceptoDescripcion((prev) =>
+      String(prev || "").trim() ? prev : buildManualProductoDescripcion(p)
+    );
     setCantidad((q) => (toNumber(q, 0) > 0 ? q : 1));
     setUnidad((u) => (u.trim() ? u : "PZA"));
     setPrecioLista(Math.max(0, toNumber(p.precio, 0)));
@@ -1076,9 +1078,28 @@ export default function NuevaCotizacionPage() {
     const canView = permissions?.cotizaciones?.view === true;
     const canCreate = permissions?.cotizaciones?.create === true;
     const canEdit = permissions?.cotizaciones?.edit === true;
-    const targetId = (editingCotizacionId || activeCotizacionId || "").trim();
+    let targetId = (editingCotizacionId || activeCotizacionId || "").trim();
+
+    if (!targetId && draftInitPromiseRef.current) {
+      const draftId = await draftInitPromiseRef.current.catch(() => null);
+      if (draftId) targetId = draftId;
+    }
+
+    if (upsertInFlightRef.current) {
+      if (!silent) {
+        setAlert({
+          show: true,
+          variant: "warning",
+          title: "Guardando",
+          message: "Espera a que termine el guardado anterior.",
+        });
+      }
+      return targetId || null;
+    }
+    upsertInFlightRef.current = true;
 
     if (!canView) {
+      upsertInFlightRef.current = false;
       if (!silent) {
         setAlert({
           show: true,
@@ -1092,6 +1113,7 @@ export default function NuevaCotizacionPage() {
 
     if (targetId) {
       if (!canEdit) {
+        upsertInFlightRef.current = false;
         if (!silent) {
           setAlert({
             show: true,
@@ -1104,6 +1126,7 @@ export default function NuevaCotizacionPage() {
       }
     } else {
       if (!canCreate) {
+        upsertInFlightRef.current = false;
         if (!silent) {
           setAlert({
             show: true,
@@ -1130,6 +1153,7 @@ export default function NuevaCotizacionPage() {
             message: `Completa: ${v.missing.join(", ")}.`,
           });
         }
+        upsertInFlightRef.current = false;
         return null;
       }
       if (!conceptos.length) {
@@ -1141,6 +1165,7 @@ export default function NuevaCotizacionPage() {
             message: "Agrega al menos un producto o servicio para guardar la cotización.",
           });
         }
+        upsertInFlightRef.current = false;
         return null;
       }
     }
@@ -1153,6 +1178,7 @@ export default function NuevaCotizacionPage() {
       String(contactoNombre || "").trim() &&
       !String(medioContacto || "").trim()
     ) {
+      upsertInFlightRef.current = false;
       return null;
     }
 
@@ -1162,6 +1188,7 @@ export default function NuevaCotizacionPage() {
         tipo_trabajo: [...(payload.tipo_trabajo || [])].sort((a: number, b: number) => a - b),
       });
       if (lastAutosaveSnapshotRef.current === snapshot) {
+        upsertInFlightRef.current = false;
         return targetId || null;
       }
       lastAutosaveSnapshotRef.current = snapshot;
@@ -1220,6 +1247,7 @@ export default function NuevaCotizacionPage() {
       }
       return null;
     } finally {
+      upsertInFlightRef.current = false;
       if (autosave) setIsAutoSaving(false);
     }
   }, [

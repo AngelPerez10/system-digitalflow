@@ -73,6 +73,20 @@ export const formatMoney = (n: number) => {
 
 export const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+/** Detalle de línea para productos del catálogo manual (marca/modelo + características). */
+export const buildManualProductoDescripcion = (producto: {
+  marca?: string;
+  modelo?: string;
+  caracteristicas?: string;
+}): string => {
+  const parts: string[] = [];
+  const meta = [String(producto.marca || "").trim(), String(producto.modelo || "").trim()].filter(Boolean).join(" · ");
+  if (meta) parts.push(meta);
+  const caracteristicas = String(producto.caracteristicas || "").trim();
+  if (caracteristicas) parts.push(caracteristicas);
+  return parts.join("\n\n");
+};
+
 export const toFinite = (v: unknown): number | null => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;

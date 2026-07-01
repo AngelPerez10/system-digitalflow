@@ -8,8 +8,9 @@ import {
   hasAuthSessionFlag,
   getAuthHeaders,
   AUTH_SESSION_FLAG,
-  AUTH_CACHE_KEY,
 } from './api';
+
+const LEGACY_AUTH_CACHE_KEY = 'auth_state';
 
 const originalFetch = global.fetch;
 
@@ -51,7 +52,10 @@ describe('markAuthSession', () => {
 describe('clearAuthSession', () => {
   it('removes all auth keys from sessionStorage', () => {
     sessionStorage.setItem(AUTH_SESSION_FLAG, '1');
-    sessionStorage.setItem(AUTH_CACHE_KEY, '{"user":{}}');
+    sessionStorage.setItem(LEGACY_AUTH_CACHE_KEY, '{"user":{}}');
+    sessionStorage.setItem('auth_access_persist', 'x');
+    sessionStorage.setItem('auth_access_fallback', 'x');
+    sessionStorage.setItem('auth_refresh_fallback', 'x');
     sessionStorage.setItem('auth_user', 'x');
     sessionStorage.setItem('user', 'x');
     sessionStorage.setItem('permissions', 'x');
@@ -59,7 +63,10 @@ describe('clearAuthSession', () => {
     clearAuthSession();
 
     expect(sessionStorage.getItem(AUTH_SESSION_FLAG)).toBeNull();
-    expect(sessionStorage.getItem(AUTH_CACHE_KEY)).toBeNull();
+    expect(sessionStorage.getItem(LEGACY_AUTH_CACHE_KEY)).toBeNull();
+    expect(sessionStorage.getItem('auth_access_persist')).toBeNull();
+    expect(sessionStorage.getItem('auth_access_fallback')).toBeNull();
+    expect(sessionStorage.getItem('auth_refresh_fallback')).toBeNull();
     expect(sessionStorage.getItem('auth_user')).toBeNull();
     expect(sessionStorage.getItem('user')).toBeNull();
     expect(sessionStorage.getItem('permissions')).toBeNull();

@@ -1,6 +1,5 @@
 import { createContext, useState, useContext, useEffect, useCallback, type ReactNode } from "react";
 import {
-  AUTH_CACHE_KEY,
   clearAuthSession,
   ensureCsrfCookie,
   fetchApi,
@@ -8,7 +7,6 @@ import {
   markAuthSession,
   setAccessTokenFromLogin,
 } from "@/config/api";
-import { hasBearerFallback } from "@/config/authSession";
 import { userFromLoginPayload, type LoginSuccessPayload } from "@/config/loginErrors";
 import type { AuthUser, Permissions } from "@/context/authTypes";
 
@@ -28,27 +26,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function readCache(): { user: AuthUser | null; permissions: Permissions } | null {
-  try {
-    const raw = sessionStorage.getItem(AUTH_CACHE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
-function writeCache(user: AuthUser | null, permissions: Permissions) {
-  try {
-    if (user?.username) {
-      sessionStorage.setItem(AUTH_CACHE_KEY, JSON.stringify({ user, permissions }));
-      markAuthSession();
-    } else {
-      sessionStorage.removeItem(AUTH_CACHE_KEY);
-    }
-  } catch {
-    /* ignore */
-  }
+async function reviveCookieSession(): Promise<boolean> {
+  const res = await fetchApi("/api/token/refresh/", { method: "POST" });
+  if (!res.ok) return false;
+  const data = await res.json().catch(() => null);
+  setAccessTokenFromLogin((data as { access?: unknown } | null)?.access);
+  markAuthSession();
+  return true;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -62,7 +46,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const nextPerms = (data.permissions as Permissions) ?? {};
     setUser(nextUser);
     setPermissions(nextPerms);
-    writeCache(nextUser, nextPerms);
     markAuthSession();
     setAccessTokenFromLogin(data.access);
   }, []);
@@ -72,8 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await ensureCsrfCookie();
 
-      const hadSession = hasAuthSessionFlag() || !!readCache()?.user?.username;
-      if (!hadSession) {
+      const hasSession = hasAuthSessionFlag() || (await reviveCookieSession());
+      if (!hasSession) {
         setUser(null);
         setPermissions({});
         return;
@@ -99,16 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         nextPerms = permsData.permissions ?? {};
       }
 
-      const sessionRejected =
-        userRes.status === 401 || permsRes.status === 401;
-
       if (!nextUser) {
-        const cached = readCache();
-        if (cached?.user?.username && hasBearerFallback() && !sessionRejected) {
-          setUser(cached.user);
-          setPermissions(cached.permissions ?? {});
-          return;
-        }
         clearAuthSession();
         setUser(null);
         setPermissions({});
@@ -117,7 +91,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(nextUser);
       setPermissions(nextPerms);
-      writeCache(nextUser, nextPerms);
     } catch {
       clearAuthSession();
       setUser(null);

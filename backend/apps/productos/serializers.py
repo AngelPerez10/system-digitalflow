@@ -43,6 +43,7 @@ class ProductoManualSerializer(serializers.ModelSerializer):
             'producto',
             'marca',
             'modelo',
+            'caracteristicas',
             'imagen_url',
             'fuente',
             'precio',

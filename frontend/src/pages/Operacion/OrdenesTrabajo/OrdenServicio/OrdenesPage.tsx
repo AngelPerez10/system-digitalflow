@@ -31,6 +31,15 @@ import { PencilIcon, TrashBinIcon, TimeIcon } from "@/icons";
 import { MobileOrderList } from "./MobileOrderCard";
 import { OrdenPdfLoadingModal } from "./OrdenPdfLoadingModal";
 import { downloadOrdenesMesPdf, handleOrdenPdfClick, ordenMatchesSearch } from "./useOrdenesShared";
+import {
+  formatYmdToDMY,
+  getNowHHMM,
+  getPublicIdFromUrl,
+  isGoogleMapsUrl,
+  normalizeStatus,
+  parseYearMonth,
+  round2,
+} from "./ordenesPageUtils";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
@@ -179,45 +188,6 @@ export default function Ordenes() {
     load();
   }, [authLoading, isAuthenticated]);
 
-  const formatYmdToDMY = (ymd: string | null | undefined) => {
-    if (!ymd) return '-';
-    const s = ymd.toString().slice(0, 10);
-    const [y, m, d] = s.split('-').map(Number);
-    if (!y || !m || !d) return '-';
-    const dt = new Date(y, m - 1, d);
-    const dd = String(dt.getDate()).padStart(2, '0');
-    const mm = String(dt.getMonth() + 1).padStart(2, '0');
-    const yy = dt.getFullYear();
-    return `${dd}/${mm}/${yy}`;
-  };
-
-  const normalizeStatus = (value: unknown) => String(value || "").trim().toLowerCase();
-  const parseYearMonth = (value: string) => {
-    const m = /^(\d{4})-(\d{2})$/.exec((value || "").trim());
-    if (!m) return null;
-    const year = Number(m[1]);
-    const month = Number(m[2]);
-    if (!Number.isFinite(year) || month < 1 || month > 12) return null;
-    return { year, month };
-  };
-
-  const isGoogleMapsUrl = (value: string | null | undefined) => {
-    if (!value) return false;
-    const s = String(value).trim();
-    if (!s) return false;
-    if (!(s.startsWith('http://') || s.startsWith('https://'))) return false;
-    try {
-      const u = new URL(s);
-      const host = (u.hostname || '').toLowerCase();
-      const href = u.href.toLowerCase();
-      if (host === 'maps.app.goo.gl') return true;
-      if (host.endsWith('google.com') && href.includes('/maps')) return true;
-      return false;
-    } catch {
-      return false;
-    }
-  };
-
   // Cerrar dropdown de filtros al hacer click fuera
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -259,27 +229,6 @@ export default function Ordenes() {
     fetchUsuarios();
     fetchClientes("");
   }, [authLoading, isAuthenticated]);
-
-  const getPublicIdFromUrl = (url: string): string | null => {
-    try {
-      // Example: https://res.cloudinary.com/<cloud>/image/upload/v1234567/ordenes/fotos/abc123.jpg
-      const u = new URL(url);
-      const parts = u.pathname.split('/');
-      const uploadIdx = parts.findIndex(p => p === 'upload');
-      if (uploadIdx === -1) return null;
-      const after = parts.slice(uploadIdx + 1); // [v123456, ordenes, fotos, abc123.jpg]
-      // Drop version if present (starts with 'v' followed by digits)
-      const startIdx = after.length && /^v\d+$/i.test(after[0]) ? 1 : 0;
-      const pathParts = after.slice(startIdx);
-      if (!pathParts.length) return null;
-      const last = pathParts[pathParts.length - 1];
-      const dot = last.lastIndexOf('.');
-      pathParts[pathParts.length - 1] = dot > 0 ? last.substring(0, dot) : last;
-      return pathParts.join('/');
-    } catch {
-      return null;
-    }
-  };
 
   const handleDeletePhoto = async (index: number, url: string) => {
     const nonce = formNonceRef.current;
@@ -327,19 +276,6 @@ export default function Ordenes() {
       setConfirmDelete({ open: false, index: null, url: null });
       setDeletingPhoto(false);
     }
-  };
-
-  const getNowHHMM = () => {
-    const d = new Date();
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-  };
-
-  const round2 = (v: number) => {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return 0;
-    return Math.round(n * 100) / 100;
   };
 
   const compressImage = async (

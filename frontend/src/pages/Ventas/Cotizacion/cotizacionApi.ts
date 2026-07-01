@@ -122,6 +122,7 @@ export async function fetchProductosManualesCatalogo(): Promise<ProductoManualCa
         producto: String(p.producto ?? "").trim(),
         marca: String(p.marca ?? "").trim(),
         modelo: String(p.modelo ?? "").trim(),
+        caracteristicas: String(p.caracteristicas ?? "").trim(),
         precio: Number(p.precio ?? 0),
         stock: Number(p.stock ?? 0),
         imagen_url: String(p.imagen_url ?? "").trim(),

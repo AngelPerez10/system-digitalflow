@@ -6,11 +6,18 @@ Antes de modificar arquitectura, rutas, autenticación, permisos, performance, s
 
 Si un cambio introduce una nueva convención, corrige un problema recurrente o cambia una decisión técnica, actualizar `AGENTS.md` en el mismo ticket.
 
+## Context7 MCP
+
+Usar siempre Context7 MCP antes de responder o modificar código cuando el trabajo involucre librerías, frameworks, SDKs, APIs, CLI tools o servicios cloud. Esto incluye React, Vite, Django, DRF, pnpm, GitHub Actions y dependencias del proyecto.
+
+Flujo obligatorio: resolver primero el library ID con Context7 y luego consultar la documentación relevante. Si el MCP no está disponible, intentar habilitarlo con `npx ctx7 setup --codex --mcp --project --yes` y documentar el bloqueo antes de continuar.
+
 ## Arquitectura
 
 - **Backend**: Django 5 + DRF en `backend/`. Apps por dominio (`cotizaciones`, `ordenes`, `clientes`, `users`, …).
 - **Frontend**: React 19 + TypeScript + Vite en `frontend/`. Rutas en `src/App.tsx`, layout en `src/layout/`.
 - **Auth**: cookies HttpOnly + CSRF. Usar siempre `fetchApi` de `src/config/api.ts` — no `localStorage.getItem("token")` ni `fetch` crudo para API autenticada.
+- **API**: las rutas nuevas deben preferir `/api/v1/`. El prefijo legado `/api/` se mantiene por compatibilidad; no eliminarlo sin plan de migración frontend/clientes.
 
 ## Permisos
 
@@ -26,6 +33,7 @@ Los permisos viven en `UserPermissions.permissions` (JSON por módulo: `view`, `
 3. **Modales** — componente `Modal` exige `ariaLabelledBy` o `ariaLabel`; incluye focus trap.
 4. **Seguridad** — `DEBUG` se lee de env (default `false`). Imágenes remotas: `apps/common/ssrf.py`.
 5. **Tests** — Vitest en frontend; `python manage.py test` en backend para smoke de permisos.
+6. **Componentes compartidos** — evitar duplicados con APIs parecidas. `SearchableSelect` canónico vive en `frontend/src/components/form/SearchableSelect.tsx`; no crear variantes en `components/ui/select` sin migrar usos y documentar la nueva frontera.
 
 ## Calidad de código
 
@@ -144,11 +152,11 @@ En `backend/config/middleware.py`, las peticiones a `/api/*` con cabecera `Autho
 
 **Antes de endurecer:** acordar con producto/seguridad — opciones: eliminar bypass en producción, restringirlo a rutas concretas, o retirar el access token del body de login/refresh.
 
-### PII en `sessionStorage`
+### Auth cookie-only y `sessionStorage`
 
-`frontend/src/config/authSession.ts` y varias páginas legacy guardan permisos y, como fallback, el access token en `sessionStorage`. Eso expone datos a cualquier script en el mismo origen.
+`frontend/src/config/authSession.ts` mantiene el access token solo en memoria del tab y limpia claves legacy de tokens en `sessionStorage`. No volver a persistir access/refresh token en Web Storage.
 
-**Estado actual:** `AuthContext` es la fuente preferida; `sessionStorage` es caché/fallback. **No eliminar sin plan de migración** — afecta recargas y pestañas múltiples.
+`AuthContext` no debe cachear usuario/permisos en `sessionStorage`; en recargas o pestañas nuevas debe reconstruir sesión con cookies HttpOnly usando `/api/token/refresh/` y después `/api/me/`.
 
 ## PDF / plantillas
 

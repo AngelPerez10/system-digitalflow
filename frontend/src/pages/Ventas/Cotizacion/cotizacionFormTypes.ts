@@ -73,6 +73,7 @@ export type ProductoManualCatalogo = {
   producto: string;
   marca: string;
   modelo: string;
+  caracteristicas?: string;
   precio: number;
   stock: number;
   imagen_url?: string;
