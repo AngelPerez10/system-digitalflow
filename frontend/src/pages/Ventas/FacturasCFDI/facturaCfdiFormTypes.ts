@@ -276,7 +276,7 @@ export function conceptosFromDigitalFlowItems(
 ): FacturaConceptoForm[] {
   const ivaFactor = 1 + ivaPct / 100;
   return items
-    .map((it) => {
+    .map((it): FacturaConceptoForm | null => {
       const cantidad = Number(it.cantidad) || 0;
       if (cantidad <= 0) return null;
       const descPct = Number(it.descuento_pct) || 0;
@@ -307,7 +307,7 @@ export function conceptosFromSicarDetalle(
   tasaIva = 0.16
 ): FacturaConceptoForm[] {
   return lines
-    .map((line) => {
+    .map((line): FacturaConceptoForm | null => {
       const cantidad = Number(line.cantidad) || 0;
       if (cantidad <= 0) return null;
       const descripcion = trim(line.descripcion);
