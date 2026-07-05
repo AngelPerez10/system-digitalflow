@@ -6,6 +6,7 @@ import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { useDropzone } from "react-dropzone";
 import { fetchApi } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 import { MobileTareaList } from "../MobileTareaCard";
 import { PencilIcon, TrashBinIcon } from "../../../icons";
 import { draggable, dropTargetForElements, monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
@@ -26,8 +27,16 @@ const modalRequiredMark = "ml-0.5 text-gray-400 dark:text-gray-500";
 const orangeBtn = "inline-flex items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-sm font-semibold text-black shadow-none transition-colors hover:bg-[#ff6a00] active:brightness-95";
 const orangeBtnOutline = "inline-flex items-center justify-center gap-2 rounded-xl border border-[#e2d9ca] bg-white px-5 py-2.5 text-sm font-semibold text-[#44403c] transition-colors hover:bg-[#fafaf9] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-white/[0.05]";
 
-let tareasFlight: Promise<any> | null = null;
+let tareasFlight: Promise<void> | null = null;
 interface Tarea { id: number; usuario_asignado: number | null; usuario_asignado_username?: string; usuario_asignado_full_name?: string; estado?: "BACKLOG" | "TODO" | "EN_PROGRESO" | "HECHO"; orden?: number; descripcion: string; fotos_urls: string[]; fecha_creacion: string; fecha_actualizacion: string; creado_por?: number; creado_por_username?: string; }
+function rowsFromResponse<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  if (data && typeof data === "object") {
+    const maybeResults = (data as { results?: unknown }).results;
+    return Array.isArray(maybeResults) ? (maybeResults as T[]) : [];
+  }
+  return [];
+}
 
 export default function TareasTecnicoPage() {
   const taskFormTitleId = useId();
@@ -35,14 +44,15 @@ export default function TareasTecnicoPage() {
   const fotosModalTitleId = useId();
   const deleteModalTitleId = useId();
   const deletePhotoModalTitleId = useId();
-  const [perms] = useState<any>({});
-  const V = perms?.tareas?.view === true; const C = !!perms?.tareas?.create; const E = !!perms?.tareas?.edit; const D = !!perms?.tareas?.delete;
-  const didLoadRef = useRef(false); const lastIdRef = useRef<number | null>(null);
+  const { permissions, user } = useAuth();
+  const tareasPerms = permissions?.tareas ?? {};
+  const V = tareasPerms?.view === true; const C = tareasPerms?.create === true; const E = tareasPerms?.edit === true; const D = tareasPerms?.delete === true;
+  const lastIdRef = useRef<number | null>(null);
   const [tareas, setTareas] = useState<Tarea[]>([]); const [loading, setLoading] = useState(true); const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false); const [delM, setDelM] = useState(false); const [delTarget, setDelTarget] = useState<Tarea | null>(null);
   const [editing, setEditing] = useState<Tarea | null>(null);
   const [confirmDel, setConfirmDel] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
-  const [me, setMe] = useState<any>(() => { try { const r = sessionStorage.getItem("auth_user"); return r ? JSON.parse(r) : null; } catch { return null; } });
+  const me = user;
   const [alert, setAlert] = useState<{ show: boolean; variant: "success" | "error" | "warning" | "info"; title: string; message: string }>({ show: false, variant: "success", title: "", message: "" });
   const [mAlert, setMAlert] = useState<{ show: boolean; variant: "success" | "error" | "warning" | "info"; title: string; message: string }>({ show: false, variant: "success", title: "", message: "" });
   const [descM, setDescM] = useState<{ open: boolean; content: string }>({ open: false, content: "" }); const [fotosM, setFotosM] = useState<{ open: boolean; urls: string[] }>({ open: false, urls: [] });
@@ -64,13 +74,12 @@ export default function TareasTecnicoPage() {
   const closeModal = () => { setShowModal(false); setEditing(null); setForm({ usuario_asignado: myId, descripcion: "", fotos_urls: [] }); };
   const submit = async (e: React.FormEvent) => { e.preventDefault(); const isE = !!editing; if (isE && !E) { setMAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para editar." }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } if (!isE && !C) { setMAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para crear." }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } if (!myId) return; const { ok, missing } = validate(); if (!ok) { setMAlert({ show: true, variant: "warning", title: "Campos requeridos", message: `Faltan: ${missing.join(", ")}` }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } try { const u = editing ? `/api/tareas/${editing.id}/` : "/api/tareas/"; const r = await fetchApi(u, { method: isE ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuario_asignado: myId, descripcion: form.descripcion, fotos_urls: form.fotos_urls ?? [] }) }); if (r.ok) { await fetchTareas(); setShowModal(false); setEditing(null); setForm({ usuario_asignado: myId, descripcion: "", fotos_urls: [] }); setAlert({ show: true, variant: "success", title: isE ? "Actualizada" : "Creada", message: isE ? "Tarea actualizada." : "Tarea creada." }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 2500); } else { let em = "Error al guardar"; try { const ed = await r.json(); em = ed?.detail || JSON.stringify(ed) || em; } catch { em = await r.text(); } setAlert({ show: true, variant: "error", title: "Error", message: em }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 4500); } } catch (er) { setAlert({ show: true, variant: "error", title: "Error", message: String(er) }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3000); } };
 
-  useEffect(() => { if (me?.id || didLoadRef.current) return; didLoadRef.current = true; (async () => { try { const r = await fetchApi("/api/me/", { cache: "no-store" as RequestCache }); const d = await r.json().catch(() => null); if (!r.ok) return; setMe(d); try { sessionStorage.setItem("auth_user", JSON.stringify(d)); } catch { /* ignorar error de red */ } } catch { /* ignorar error de red */ } })(); }, [me?.id]);
   const myId = useMemo(() => (me?.id ? Number(me.id) : null), [me?.id]);
   const myName = useMemo(() => { if (!me) return "Su usuario"; const fn = [me.first_name, me.last_name].filter(Boolean).join(" ").trim(); return fn || me.username || me.email || "Su usuario"; }, [me]);
   const isOwn = (t: Tarea | null | undefined) => !!(t && myId && Number(t.usuario_asignado) === myId);
 
-  const fetchTareas = async () => { try { if (!V) { setTareas([]); setLoading(false); return; } if (tareasFlight) { await tareasFlight; return; } tareasFlight = (async () => { const r = await fetchApi("/api/tareas/", { headers: { "Content-Type": "application/json" } }); if (r.ok) { const d = await r.json(); const rows = Array.isArray(d) ? d : []; setTareas(myId ? rows.filter((x: any) => Number(x.usuario_asignado) === myId) : []); } else setTareas([]); })(); await tareasFlight; } catch { setTareas([]); } finally { tareasFlight = null; setLoading(false); } };
-  useEffect(() => { if (!myId || lastIdRef.current === myId) return; lastIdRef.current = myId; fetchTareas(); }, [myId]);
+  const fetchTareas = async () => { try { if (!V) { setTareas([]); setLoading(false); return; } if (tareasFlight) { await tareasFlight; return; } tareasFlight = (async () => { const r = await fetchApi("/api/tareas/", { headers: { "Content-Type": "application/json" } }); if (r.ok) { const d = await r.json(); const rows = rowsFromResponse<Tarea>(d); setTareas(myId ? rows.filter((x) => Number(x.usuario_asignado) === myId) : []); } else setTareas([]); })(); await tareasFlight; } catch { setTareas([]); } finally { tareasFlight = null; setLoading(false); } };
+  useEffect(() => { if (!V) { lastIdRef.current = null; setTareas([]); setLoading(false); return; } if (!myId || lastIdRef.current === myId) return; lastIdRef.current = myId; fetchTareas(); }, [myId, V]);
 
   const shown = useMemo(() => { if (!Array.isArray(tareas)) return []; const q = (search || "").trim().toLowerCase(); return tareas.filter(t => !q || String(t.descripcion || "").toLowerCase().includes(q) || String(t.usuario_asignado_full_name || "").toLowerCase().includes(q) || String(t.usuario_asignado_username || "").toLowerCase().includes(q)); }, [tareas, search]);
   const fmtDate = (d: string | null | undefined) => { if (!d) return "-"; try { return new Date(d).toLocaleDateString("es-MX", { year: "numeric", month: "short", day: "numeric" }); } catch { return "-"; } };
@@ -96,7 +105,7 @@ export default function TareasTecnicoPage() {
   const move = (all: Tarea[], sid: number, d: { estado: (typeof COLS)[number]["key"]; index: number }) => { const list = [...all]; const si = list.findIndex(t => t.id === sid); if (si < 0) return list; const task = { ...list[si] }; const from = getE(task); list.splice(si, 1); task.estado = d.estado; const dl = list.filter(t => getE(t) === d.estado).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); dl.splice(Math.max(0, Math.min(d.index, dl.length)), 0, task); dl.forEach((t, i) => (t.orden = i)); const fl = from === d.estado ? [] : list.filter(t => getE(t) === from).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); fl.forEach((t, i) => (t.orden = i)); const moved = new Set([...dl, ...fl].map(t => t.id)); return [...list.filter(t => !moved.has(t.id)), ...fl, ...dl]; };
 
   const rootRef = useRef<HTMLDivElement | null>(null); const cm = useRef(new WeakMap<Element, () => void>());
-  useEffect(() => { const root = rootRef.current; if (!root) return; return monitorForElements({ onDrop: async ({ source, location }) => { const sd: any = source?.data; if (!sd || sd.type !== "tarea") return; const sid = Number(sd.id); if (!sid) return; if (!isOwn(tareas.find(t => t.id === sid))) return; const dd: any = location.current.dropTargets?.[0]?.data; if (!dd) return; let de: (typeof COLS)[number]["key"] | null = null; let di: number | null = null; if (dd.kind === "card") { de = dd.estado; di = Number(dd.index); } else if (dd.kind === "column") { de = dd.estado; di = Number(dd.index); } if (!de || di === null || Number.isNaN(di)) return; const prev = tareas; const next = move(prev, sid, { estado: de, index: di }); setTareas(next); try { const dl = next.filter(t => getE(t) === de).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); const ft = prev.find(t => t.id === sid); const fe = ft ? getE(ft) : "TODO"; const fl = fe === de ? [] : next.filter(t => getE(t) === fe).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); await Promise.all([persist(de, dl, prev), fe !== de ? persist(fe, fl, prev) : Promise.resolve()]); } catch { setTareas(prev); await fetchTareas(); } }, }); }, [tareas, myId]);
+  useEffect(() => { const root = rootRef.current; if (!root) return; return monitorForElements({ onDrop: async ({ source, location }) => { const sd = source?.data as { type?: string; id?: unknown } | undefined; if (!sd || sd.type !== "tarea") return; const sid = Number(sd.id); if (!sid) return; if (!isOwn(tareas.find(t => t.id === sid))) return; const dd = location.current.dropTargets?.[0]?.data as { kind?: string; estado?: (typeof COLS)[number]["key"]; index?: unknown } | undefined; if (!dd) return; let de: (typeof COLS)[number]["key"] | null = null; let di: number | null = null; if (dd.kind === "card") { de = dd.estado ?? null; di = Number(dd.index); } else if (dd.kind === "column") { de = dd.estado ?? null; di = Number(dd.index); } if (!de || di === null || Number.isNaN(di)) return; const prev = tareas; const next = move(prev, sid, { estado: de, index: di }); setTareas(next); try { const dl = next.filter(t => getE(t) === de).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); const ft = prev.find(t => t.id === sid); const fe = ft ? getE(ft) : "TODO"; const fl = fe === de ? [] : next.filter(t => getE(t) === fe).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); await Promise.all([persist(de, dl, prev), fe !== de ? persist(fe, fl, prev) : Promise.resolve()]); } catch { setTareas(prev); await fetchTareas(); } }, }); }, [tareas, myId]);
 
   return (
     <>
@@ -138,7 +147,7 @@ export default function TareasTecnicoPage() {
               : loading ? (<div className="flex items-center justify-center py-12"><div className="flex items-center gap-2.5 text-sm text-gray-400 dark:text-gray-500"><svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>Cargando tareas...</div></div>)
               : shown.length === 0 ? (<div className="flex flex-col items-center justify-center gap-4 py-14 text-center"><span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ff801f]/10 text-[#ea580c]"><svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" strokeLinejoin="round" /><path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" strokeLinejoin="round" /><path d="M9 11h6" strokeLinecap="round" /><path d="M9 15h3" strokeLinecap="round" /></svg></span><div><div className="text-sm font-semibold text-gray-700 dark:text-gray-300">No hay tareas</div><div className="mt-1 text-xs text-gray-400 dark:text-gray-500">Cree una nueva tarea para empezar.</div></div>{C && <button type="button" onClick={openCreate} className={orangeBtn}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>Crear tarea</button>}</div>)
               : (<>
-                <MobileTareaList tareas={shown} startIndex={0} loading={loading} formatDate={(d: string) => fmtDate(d)} onDescripcion={(t: any) => openDesc(t)} onFotos={(t: any) => openFotos(t)} onEdit={E ? (t: any) => edit(t) : undefined} onDelete={D ? (t: any) => delClick(t) : undefined} canEdit={E} canDelete={D} />
+                <MobileTareaList tareas={shown} startIndex={0} loading={loading} formatDate={(d: string) => fmtDate(d)} onDescripcion={openDesc} onFotos={openFotos} onEdit={E ? edit : undefined} onDelete={D ? delClick : undefined} canEdit={E} canDelete={D} />
                 <div ref={rootRef} className="hidden md:block"><div className="-mx-1 overflow-x-auto px-1 md:overflow-visible">
                   <table className="erp-tasks-table w-full min-w-[720px] table-fixed border-collapse" aria-label="Sus tareas por estado en tres columnas">
                     <caption className="sr-only">Tres columnas: por hacer, en proceso y hecho. Arrastre tarjetas para cambiar estado.</caption>

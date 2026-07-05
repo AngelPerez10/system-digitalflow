@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import Alert from "@/components/ui/alert/Alert";
 import { useDropzone } from "react-dropzone";
 import { fetchApi } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 import { PencilIcon, TrashBinIcon } from "../../../icons";
 import { MobileTareaList } from "../MobileTareaCard";
 import { draggable, dropTargetForElements, monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
@@ -42,14 +43,21 @@ const orangeBtn =
 const orangeBtnOutline =
   "inline-flex items-center justify-center gap-2 rounded-xl border border-[#e2d9ca] bg-white px-5 py-2.5 text-sm font-semibold text-[#44403c] transition-colors hover:bg-[#fafaf9] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-white/[0.05]";
 
-let permsFlight: Promise<any> | null = null;
-let permsLast = 0;
-const PERMS_TTL = 2 * 60 * 1000;
-let usuariosFlight: Promise<any> | null = null;
-let tareasFlight: Promise<any> | null = null;
+let usuariosFlight: Promise<void> | null = null;
+let tareasFlight: Promise<void> | null = null;
 
 interface Tarea { id: number; usuario_asignado: number | null; usuario_asignado_username?: string; usuario_asignado_full_name?: string; estado?: "BACKLOG" | "TODO" | "EN_PROGRESO" | "HECHO"; orden?: number; descripcion: string; fotos_urls: string[]; fecha_creacion: string; fecha_actualizacion: string; creado_por?: number; creado_por_username?: string; }
 interface Usuario { id: number; username?: string; email: string; first_name: string; last_name: string; }
+type TareaFormPayload = { usuario_asignado: number | null; descripcion: string | null; fotos_urls: string[] };
+
+function rowsFromResponse<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  if (data && typeof data === "object") {
+    const maybeResults = (data as { results?: unknown }).results;
+    return Array.isArray(maybeResults) ? (maybeResults as T[]) : [];
+  }
+  return [];
+}
 
 function userLabel(t: Tarea, list: Usuario[]) {
   if (!t.usuario_asignado) return "";
@@ -64,11 +72,12 @@ export default function TareasPage() {
   const fotosModalTitleId = useId();
   const deleteModalTitleId = useId();
   const deletePhotoModalTitleId = useId();
-  const [perms, setPerms] = useState<any>({});
-  const V = perms?.tareas?.view === true;
-  const C = !!perms?.tareas?.create;
-  const E = !!perms?.tareas?.edit;
-  const D = !!perms?.tareas?.delete;
+  const { permissions } = useAuth();
+  const tareasPerms = permissions?.tareas ?? {};
+  const V = tareasPerms?.view === true;
+  const C = tareasPerms?.create === true;
+  const E = tareasPerms?.edit === true;
+  const D = tareasPerms?.delete === true;
 
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -87,14 +96,8 @@ export default function TareasPage() {
   const [uOpen, setUOpen] = useState(false);
   const [uSearch, setUSearch] = useState("");
 
-  useEffect(() => { fetchTareas(); fetchUsuarios(); }, []);
-  useEffect(() => {
-    const now = Date.now();
-    if (now - permsLast < PERMS_TTL) return;
-    (async () => {
-      try { if (permsFlight) { await permsFlight; return; } permsLast = Date.now(); permsFlight = (async () => { const r = await fetchApi("/api/me/permissions/", { cache: "no-store" as RequestCache }); const d = await r.json().catch(() => null); if (!r.ok) return d; setPerms(d?.permissions || {}); window.dispatchEvent(new Event("permissions:updated")); return d; })(); await permsFlight; } catch { /* ignorar error de red */ } finally { permsFlight = null; }
-    })();
-  }, []);
+  useEffect(() => { fetchUsuarios(); }, []);
+  useEffect(() => { fetchTareas(); }, [V]);
 
   const compress = async (f: File, maxKB: number): Promise<string> => new Promise((res, rej) => { const fr = new FileReader(); fr.readAsDataURL(f); fr.onload = e => { const img = new Image(); img.src = e.target?.result as string; img.onload = () => { const c = document.createElement("canvas"); let w = img.width, h = img.height; if (w > 1400 || h > 1400) { if (w > h) { h = (h / w) * 1400; w = 1400; } else { w = (w / h) * 1400; h = 1400; } } c.width = w; c.height = h; c.getContext("2d")?.drawImage(img, 0, 0, w, h); let q = 0.9; const comp = () => c.toBlob(b => { if (!b) { rej(new Error("err")); return; } if (b.size / 1024 <= maxKB || q <= 0.1) { const r2 = new FileReader(); r2.readAsDataURL(b); r2.onloadend = () => res(r2.result as string); } else { q -= 0.1; comp(); } }, "image/jpeg", q); comp(); }; img.onerror = () => rej(new Error("err")); }; fr.onerror = () => rej(new Error("err")); });
 
@@ -106,11 +109,11 @@ export default function TareasPage() {
   const openDesc = (t: Tarea) => setDescM({ open: true, content: t.descripcion || "-" });
   const openFotos = (t: Tarea) => setFotosM({ open: true, urls: Array.isArray(t.fotos_urls) ? t.fotos_urls : [] });
 
-  const fetchUsuarios = async () => { try { if (usuariosFlight) { await usuariosFlight; return; } usuariosFlight = (async () => { const r = await fetchApi("/api/users/accounts/", { headers: { "Content-Type": "application/json" } }); if (r.ok) { const d = await r.json(); setUsuarios(Array.isArray(d) ? d : Array.isArray((d as any)?.results) ? (d as any).results : []); } })(); await usuariosFlight; } catch (e) { console.error(e); } finally { usuariosFlight = null; } };
-  const fetchTareas = async () => { try { if (!V) { setTareas([]); setLoading(false); return; } if (tareasFlight) { await tareasFlight; return; } tareasFlight = (async () => { const r = await fetchApi("/api/tareas/", { headers: { "Content-Type": "application/json" } }); if (r.ok) { const data = await r.json(); setTareas(Array.isArray(data) ? data : []); } else setTareas([]); })(); await tareasFlight; } catch (e) { console.error(e); setTareas([]); } finally { tareasFlight = null; setLoading(false); } };
+  const fetchUsuarios = async () => { try { if (usuariosFlight) { await usuariosFlight; return; } usuariosFlight = (async () => { const r = await fetchApi("/api/users/accounts/", { headers: { "Content-Type": "application/json" } }); if (r.ok) { const d = await r.json(); setUsuarios(rowsFromResponse<Usuario>(d)); } })(); await usuariosFlight; } catch (e) { console.error(e); } finally { usuariosFlight = null; } };
+  const fetchTareas = async () => { try { if (!V) { setTareas([]); setLoading(false); return; } if (tareasFlight) { await tareasFlight; return; } tareasFlight = (async () => { const r = await fetchApi("/api/tareas/", { headers: { "Content-Type": "application/json" } }); if (r.ok) { const data = await r.json(); setTareas(rowsFromResponse<Tarea>(data)); } else setTareas([]); })(); await tareasFlight; } catch (e) { console.error(e); setTareas([]); } finally { tareasFlight = null; setLoading(false); } };
 
   const validate = () => { const m: string[] = []; if (!form.usuario_asignado) m.push("Usuario Asignado"); if (!form.descripcion?.trim()) m.push("Descripción"); return { ok: m.length === 0, missing: m }; };
-  const submit = async (e: React.FormEvent) => { e.preventDefault(); const isE = !!editing; if (isE && !E) { setMAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para editar." }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } if (!isE && !C) { setMAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para crear." }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } const { ok, missing } = validate(); if (!ok) { setMAlert({ show: true, variant: "warning", title: "Campos requeridos", message: `Faltan: ${missing.join(", ")}` }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } try { const u = editing ? `/api/tareas/${editing.id}/` : "/api/tareas/"; const pl: any = { ...form }; pl.descripcion = pl.descripcion?.trim() || null; const r = await fetchApi(u, { method: isE ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(pl) }); if (r.ok) { await fetchTareas(); setShowModal(false); setForm({ usuario_asignado: null, descripcion: "", fotos_urls: [] }); setEditing(null); setAlert({ show: true, variant: "success", title: isE ? "Tarea actualizada" : "Tarea creada", message: isE ? "Actualizada exitosamente." : "Creada exitosamente." }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3000); } else { let em = "Error al guardar"; try { const ed = await r.json(); em = ed?.detail || JSON.stringify(ed) || em; } catch { em = await r.text(); } setAlert({ show: true, variant: "error", title: "Error", message: em }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 5000); } } catch (er) { setAlert({ show: true, variant: "error", title: "Error", message: String(er) }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3000); } };
+  const submit = async (e: React.FormEvent) => { e.preventDefault(); const isE = !!editing; if (isE && !E) { setMAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para editar." }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } if (!isE && !C) { setMAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para crear." }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } const { ok, missing } = validate(); if (!ok) { setMAlert({ show: true, variant: "warning", title: "Campos requeridos", message: `Faltan: ${missing.join(", ")}` }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } try { const u = editing ? `/api/tareas/${editing.id}/` : "/api/tareas/"; const pl: TareaFormPayload = { ...form, descripcion: form.descripcion?.trim() || null }; const r = await fetchApi(u, { method: isE ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(pl) }); if (r.ok) { await fetchTareas(); setShowModal(false); setForm({ usuario_asignado: null, descripcion: "", fotos_urls: [] }); setEditing(null); setAlert({ show: true, variant: "success", title: isE ? "Tarea actualizada" : "Tarea creada", message: isE ? "Actualizada exitosamente." : "Creada exitosamente." }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3000); } else { let em = "Error al guardar"; try { const ed = await r.json(); em = ed?.detail || JSON.stringify(ed) || em; } catch { em = await r.text(); } setAlert({ show: true, variant: "error", title: "Error", message: em }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 5000); } } catch (er) { setAlert({ show: true, variant: "error", title: "Error", message: String(er) }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3000); } };
 
   const delClick = (t: Tarea) => { if (!D) { setAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para eliminar." }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3500); return; } setDelTarget(t); setDelM(true); };
   const delConfirm = async () => { if (!delTarget || !D) return; try { const r = await fetchApi(`/api/tareas/${delTarget.id}/`, { method: "DELETE" }); if (r.ok) { await fetchTareas(); setDelM(false); setAlert({ show: true, variant: "success", title: "Eliminada", message: "Tarea eliminada." }); setDelTarget(null); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3000); } } catch { /* ignorar error de red */ } };
@@ -151,7 +154,7 @@ export default function TareasPage() {
   const move = (all: Tarea[], sid: number, d: { estado: (typeof COLS)[number]["key"]; index: number }) => { const list = [...all]; const si = list.findIndex(t => t.id === sid); if (si < 0) return list; const task = { ...list[si] }; const from = getE(task); list.splice(si, 1); task.estado = d.estado; const dl = list.filter(t => getE(t) === d.estado).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); dl.splice(Math.max(0, Math.min(d.index, dl.length)), 0, task); dl.forEach((t, i) => (t.orden = i)); const fl = from === d.estado ? [] : list.filter(t => getE(t) === from).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); fl.forEach((t, i) => (t.orden = i)); const moved = new Set([...dl, ...fl].map(t => t.id)); return [...list.filter(t => !moved.has(t.id)), ...fl, ...dl];  };
 
   const rootRef = useRef<HTMLDivElement | null>(null); const cm = useRef(new WeakMap<Element, () => void>());
-  useEffect(() => { const root = rootRef.current; if (!root) return; return monitorForElements({ onDrop: async ({ source, location }) => { const sd: any = source?.data; if (!sd || sd.type !== "tarea") return; const sid = Number(sd.id); if (!sid) return; const dd: any = location.current.dropTargets?.[0]?.data; if (!dd) return; let de: (typeof COLS)[number]["key"] | null = null; let di: number | null = null; if (dd.kind === "card") { de = dd.estado; di = Number(dd.index); } else if (dd.kind === "column") { de = dd.estado; di = Number(dd.index); } if (!de || di === null || Number.isNaN(di)) return; const prev = tareas; const next = move(prev, sid, { estado: de, index: di }); setTareas(next); try { const dl = next.filter(t => getE(t) === de).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); const ft = prev.find(t => t.id === sid); const fe = ft ? getE(ft) : "TODO"; const fl = fe === de ? [] : next.filter(t => getE(t) === fe).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); await Promise.all([persist(de, dl, prev), fe !== de ? persist(fe, fl, prev) : Promise.resolve()]); } catch { setTareas(prev); await fetchTareas(); } }, }); }, [tareas]);
+  useEffect(() => { const root = rootRef.current; if (!root) return; return monitorForElements({ onDrop: async ({ source, location }) => { const sd = source?.data as { type?: string; id?: unknown } | undefined; if (!sd || sd.type !== "tarea") return; const sid = Number(sd.id); if (!sid) return; const dd = location.current.dropTargets?.[0]?.data as { kind?: string; estado?: (typeof COLS)[number]["key"]; index?: unknown } | undefined; if (!dd) return; let de: (typeof COLS)[number]["key"] | null = null; let di: number | null = null; if (dd.kind === "card") { de = dd.estado ?? null; di = Number(dd.index); } else if (dd.kind === "column") { de = dd.estado ?? null; di = Number(dd.index); } if (!de || di === null || Number.isNaN(di)) return; const prev = tareas; const next = move(prev, sid, { estado: de, index: di }); setTareas(next); try { const dl = next.filter(t => getE(t) === de).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); const ft = prev.find(t => t.id === sid); const fe = ft ? getE(ft) : "TODO"; const fl = fe === de ? [] : next.filter(t => getE(t) === fe).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); await Promise.all([persist(de, dl, prev), fe !== de ? persist(fe, fl, prev) : Promise.resolve()]); } catch { setTareas(prev); await fetchTareas(); } }, }); }, [tareas]);
 
   return (
     <>
@@ -208,7 +211,7 @@ export default function TareasPage() {
                 <div className="flex flex-col items-center justify-center gap-4 py-14 text-center"><span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ff801f]/10 text-[#ea580c]"><svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" strokeLinejoin="round" /><path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" strokeLinejoin="round" /><path d="M9 11h6" strokeLinecap="round" /><path d="M9 15h3" strokeLinecap="round" /></svg></span><div><div className="text-sm font-semibold text-gray-700 dark:text-gray-300">No hay tareas</div><div className="mt-1 text-xs text-gray-400 dark:text-gray-500">Crea una nueva tarea para empezar.</div></div>{C && <button type="button" onClick={() => { setEditing(null); setShowModal(true); }} className={orangeBtn}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>Crear tarea</button>}</div>
               ) : (
                 <>
-                  <MobileTareaList tareas={shown} startIndex={0} loading={loading} formatDate={(d: string) => fmtDate(d)} onDescripcion={(t: any) => openDesc(t)} onFotos={(t: any) => openFotos(t)} onEdit={E ? (t: any) => edit(t) : undefined} onDelete={D ? (t: any) => delClick(t) : undefined} canEdit={E} canDelete={D} />
+                  <MobileTareaList tareas={shown} startIndex={0} loading={loading} formatDate={(d: string) => fmtDate(d)} onDescripcion={openDesc} onFotos={openFotos} onEdit={E ? edit : undefined} onDelete={D ? delClick : undefined} canEdit={E} canDelete={D} />
                   <div ref={rootRef} className="hidden md:block">
                     <div className="-mx-1 overflow-x-auto px-1 md:overflow-visible">
                       <table className="erp-tasks-table w-full min-w-[720px] table-fixed border-collapse" aria-label="Tareas por estado en tres columnas">
