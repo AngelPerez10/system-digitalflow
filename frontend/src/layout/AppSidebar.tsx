@@ -156,7 +156,7 @@ const AppSidebar: React.FC = () => {
         { name: "Personas", path: "/personas", pro: false },
         { name: "Proveedores", path: "/proveedores", pro: false },
       ];
-      if (permissions?.usuarios?.view === true) {
+      if (isAdmin || permissions?.usuarios?.view === true) {
         contactosSub.push({ name: "Gestión de Usuarios", path: "/usuarios", pro: false });
       }
       items.push({

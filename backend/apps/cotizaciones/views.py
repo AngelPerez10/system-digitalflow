@@ -337,17 +337,18 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
             precio_lista = float(it.precio_lista or 0)
             descuento = float(it.descuento_pct or 0)
             producto_externo_id = str(getattr(it, "producto_externo_id", "") or "").strip()
-            pu, importe, _importe_sin_iva = _cotizacion_item_line_totals(
+            _pu_con_iva, importe_con_iva, importe_sin_iva = _cotizacion_item_line_totals(
                 cantidad, precio_lista, descuento, producto_externo_id
             )
-            net_subtotal_con_iva += importe
+            net_subtotal_con_iva += importe_con_iva
+            pu_sin_iva = (importe_sin_iva / cantidad) if cantidad else 0.0
         except Exception:
             logger.exception("Failed to parse cotizacion item values for Excel")
             cantidad = 0.0
             precio_lista = 0.0
             descuento = 0.0
-            pu = 0.0
-            importe = 0.0
+            pu_sin_iva = 0.0
+            importe_sin_iva = 0.0
 
         ws.row_dimensions[r].height = 64
         ws.cell(row=r, column=2, value=cantidad)
@@ -374,9 +375,9 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
             detalle_val = descripcion_larga if show_detalle else ""
         ws.cell(row=r, column=4, value=producto_val).alignment = wrap
         ws.cell(row=r, column=5, value=detalle_val).alignment = wrap
-        ws.cell(row=r, column=6, value=round(pu, 2))
+        ws.cell(row=r, column=6, value=round(pu_sin_iva, 2))
         ws.cell(row=r, column=7, value=round(descuento, 2))
-        ws.cell(row=r, column=8, value=round(importe, 2))
+        ws.cell(row=r, column=8, value=round(importe_sin_iva, 2))
         if (r - first_data_row) % 2 == 1:
             for cidx in range(1, 9):
                 ws.cell(row=r, column=cidx).fill = zebra_fill

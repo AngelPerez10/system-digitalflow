@@ -131,7 +131,7 @@ type ClientesPageProps = {
 };
 
 const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
-  const { permissions } = useAuth();
+  const { permissions, isAdmin } = useAuth();
   const viewPlural = fixedTipo === 'EMPRESA'
     ? 'Empresas'
     : fixedTipo === 'PROVEEDOR'
@@ -156,10 +156,10 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
         ? 'Persona'
         : 'Empresa';
 
-  const canClientesView = permissions?.clientes?.view === true;
-  const canClientesCreate = permissions?.clientes?.create === true;
-  const canClientesEdit = permissions?.clientes?.edit === true;
-  const canClientesDelete = permissions?.clientes?.delete === true;
+  const canClientesView = isAdmin || permissions?.clientes?.view === true;
+  const canClientesCreate = isAdmin || permissions?.clientes?.create === true;
+  const canClientesEdit = isAdmin || permissions?.clientes?.edit === true;
+  const canClientesDelete = isAdmin || permissions?.clientes?.delete === true;
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [totalCount, setTotalCount] = useState(0);
