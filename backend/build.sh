@@ -6,8 +6,16 @@ set -o errexit
 cd "$(dirname "$0")"
 
 # Install dependencies
+# Reintentos / timeout: en Render a veces PyPI corta la descarga
+# (OSError IncompleteRead) y tumba el build.
+export PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-100}"
+export PIP_RETRIES="${PIP_RETRIES:-10}"
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install \
+  --retries "$PIP_RETRIES" \
+  --timeout "$PIP_DEFAULT_TIMEOUT" \
+  --prefer-binary \
+  -r requirements.txt
 
 # Chromium. Dependencias de sistema (apt): opcional. En algunos builders (p. ej. Render)
 # apt puede fallar con "Read-only file system" — no debe tumbar el build; Chromium
