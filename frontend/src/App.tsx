@@ -29,6 +29,7 @@ const Ordenes = lazy(() => import("@/pages/Operacion/OrdenesTrabajo/OrdenServici
 const OrdenPdfPage = lazy(() => import("@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenPdfPage"));
 const OrdenesTecnico = lazy(() => import("@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenesTecnicoPage"));
 const LevantamientoPage = lazy(() => import("@/pages/Operacion/OrdenesTrabajo/OrdenLevantamiento/LevantamientoPage"));
+const ProyectosPage = lazy(() => import("@/pages/Operacion/Proyectos/ProyectosPage"));
 const Clientes = lazy(() => import("@/pages/ContactosNegocio/Clientes/ClientesPage"));
 const EmpresaPage = lazy(() => import("@/pages/ContactosNegocio/Clientes/EmpresaPage"));
 const PersonasPage = lazy(() => import("@/pages/ContactosNegocio/Clientes/PersonasPage"));
@@ -89,6 +90,7 @@ export default function App() {
               }
             />
             <Route path="/levantamiento" element={<RequireOrdenesPermission required="view"><LevantamientoPage /></RequireOrdenesPermission>} />
+            <Route path="/proyectos" element={<RequireOrdenesPermission required="view"><ProyectosPage /></RequireOrdenesPermission>} />
             <Route path="/clientes" element={<RequireClientePermission required="view"><Clientes /></RequireClientePermission>} />
             <Route path="/empresas" element={<RequireClientePermission required="view"><EmpresaPage /></RequireClientePermission>} />
             <Route path="/personas" element={<RequireClientePermission required="view"><PersonasPage /></RequireClientePermission>} />

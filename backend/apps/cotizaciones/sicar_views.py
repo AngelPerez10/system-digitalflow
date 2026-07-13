@@ -188,10 +188,7 @@ def _attachment_response(content: bytes, content_type: str, filename: str, *, in
 class SicarFacturasListView(APIView):
     """Lista y creación de facturas CFDI en SICAR."""
 
-    def get_permissions(self):
-        if self.request.method == "POST":
-            return [IsAuthenticated(), CotizacionesPermission()]
-        return [IsAuthenticated()]
+    permission_classes = [IsAuthenticated, CotizacionesPermission]
 
     def get(self, request):
         try:
@@ -482,7 +479,7 @@ class SicarCotizacionDetailView(APIView):
 class SicarFacturaDetalleView(APIView):
     """Detalle CFDI: facturacfdi + imp + ven."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CotizacionesPermission]
 
     def get(self, request, fcf_id: int):
         cfg = _sicar_db_config()
@@ -527,7 +524,7 @@ class SicarFacturaDetalleView(APIView):
 class SicarFacturaXmlView(APIView):
     """Descarga el XML timbrado original desde xmlcfdi (solo lectura)."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CotizacionesPermission]
 
     def get(self, request, fcf_id: int):
         cfg, err = _sicar_config_or_response()
@@ -568,7 +565,7 @@ class SicarFacturaXmlView(APIView):
 class SicarFacturaPdfView(APIView):
     """Genera PDF imprimible a partir del XML/datos SICAR (solo lectura)."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CotizacionesPermission]
 
     def get(self, request, fcf_id: int):
         cfg, err = _sicar_config_or_response()

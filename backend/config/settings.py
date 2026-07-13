@@ -38,7 +38,7 @@ def _load_dotenv_file() -> None:
             k, v = line.split('=', 1)
             k = k.strip()
             v = v.strip().strip('"').strip("'")
-            if k and k not in os.environ:
+            if k and (k not in os.environ or not str(os.environ.get(k, "")).strip()):
                 os.environ[k] = v
     except Exception:
         pass

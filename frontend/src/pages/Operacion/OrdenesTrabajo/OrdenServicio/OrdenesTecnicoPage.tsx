@@ -2207,7 +2207,7 @@ export default function OrdenesTecnico() {
                     >
                       <option value="servicio_tecnico">Servicio Técnico</option>
                       <option value="levantamiento">Levantamiento</option>
-                      <option value="instalaciones">Instalaciones</option>
+                      <option value="instalaciones">Proyecto</option>
                       <option value="mantenimiento">Mantenimiento</option>
                     </select>
                   </div>

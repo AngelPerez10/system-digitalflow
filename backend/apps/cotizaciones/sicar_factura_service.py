@@ -10,7 +10,7 @@ from typing import Any
 from num2words import num2words
 
 from apps.cotizaciones.sicar_cfdi_builder import build_cfdi_xml
-from apps.cotizaciones.sicar_cfdi_sign import sign_cfdi_xml
+from apps.cotizaciones.sicar_cfdi_sign import csd_row_label, normalize_csd_blob, normalize_csd_password, sign_cfdi_xml
 from apps.cotizaciones.sicar_cfdi_stamp import SicarStampError, build_qr_png, stamp_cfdi_xml
 from apps.cotizaciones.sicar_db import (
     _sicar_db_config,
@@ -68,10 +68,12 @@ def _load_csd(cursor) -> dict[str, Any]:
     )
     if not row:
         raise SicarFacturaError("No hay CSD seleccionado en sellodigital.")
-    password = str(row.get("pwd") or "")
+    password = normalize_csd_password(str(row.get("pwd") or ""))
     if not password:
         raise SicarFacturaError("El CSD activo en sellodigital no tiene contraseña (pwd).")
     row["_password"] = password
+    row["fCer"] = normalize_csd_blob(row.get("fCer"))
+    row["fKey"] = normalize_csd_blob(row.get("fKey"))
     return row
 
 
@@ -458,7 +460,8 @@ def create_timbrada_factura(payload: dict[str, Any]) -> dict[str, Any]:
                 str(csd["_password"]),
             )
         except ValueError as exc:
-            raise SicarFacturaError(str(exc)) from exc
+            label = csd_row_label(csd)
+            raise SicarFacturaError(f"{exc} ({label})") from exc
 
         pac_token = str(empresa.get("claveApi") or "")
         try:

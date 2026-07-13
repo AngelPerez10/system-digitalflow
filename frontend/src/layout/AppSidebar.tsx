@@ -174,16 +174,14 @@ const AppSidebar: React.FC = () => {
         ],
       });
 
-      if (permissions?.cotizaciones?.view === true) {
-        items.push({
-          icon: <PieChartIcon />,
-          name: "Ventas",
-          subItems: [
-            { name: "Cotizaciones", path: "/cotizacion", pro: false },
-            { name: "Facturas CFDI", path: "/facturas", pro: false },
-          ],
-        });
-      }
+      items.push({
+        icon: <PieChartIcon />,
+        name: "Ventas",
+        subItems: [
+          { name: "Cotizaciones", path: "/cotizacion", pro: false },
+          { name: "Facturas CFDI", path: "/facturas", pro: false },
+        ],
+      });
 
       const operacionSub: SidebarSubItem[] = [
           ...(SIDEBAR_FUTURE.operacionAgenda
@@ -191,6 +189,9 @@ const AppSidebar: React.FC = () => {
             : []),
           ...(permissions?.ordenes?.view === true
             ? [{ name: "Órdenes de Trabajo", path: "/ordenes", pro: false } as const]
+            : []),
+          ...(permissions?.ordenes?.view === true || isAdmin
+            ? [{ name: "Proyectos", path: "/proyectos", pro: false } as const]
             : []),
           ...(permissions?.cuentas_antarix?.view === true || isAdmin
             ? [{ name: "Antarix GPS", path: "/cuentas", pro: false } as const]
@@ -220,6 +221,10 @@ const AppSidebar: React.FC = () => {
       
       if (permissions?.ordenes?.view === true) {
         subItems.push({ name: "Órdenes de Servicios", path: "/ordenes-tecnico", pro: false });
+      }
+
+      if (permissions?.ordenes?.view === true) {
+        subItems.push({ name: "Proyectos", path: "/proyectos", pro: false });
       }
 
       if (
@@ -258,16 +263,6 @@ const AppSidebar: React.FC = () => {
         });
       }
 
-      if (permissions?.cotizaciones?.view === true) {
-        items.push({
-          icon: <PieChartIcon />,
-          name: "Ventas",
-          subItems: [
-            { name: "Cotizaciones", path: "/cotizacion", pro: false },
-            { name: "Facturas CFDI", path: "/facturas", pro: false },
-          ],
-        });
-      }
     }
 
     return items;
