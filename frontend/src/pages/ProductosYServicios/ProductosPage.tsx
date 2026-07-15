@@ -298,12 +298,35 @@ export default function ProductosPage() {
     try {
       const res = await fetchApi("/api/productos-manuales/?page_size=500&ordering=-fecha_creacion", { method: "GET" });
       const data = await res.json().catch(() => ({ results: [] }));
-      if (!res.ok) return;
-      const list = Array.isArray((data as any)?.results) ? (data as any).results : Array.isArray(data) ? data : [];
-      const mapped: ManualProduct[] = list.filter((x: any) => x && typeof x === "object").map((x: any): ManualProduct => ({ id: String(x.id), imagen_url: String(x.imagen_url || ""), producto: String(x.producto || ""), caracteristicas: String(x.caracteristicas || ""), marca: String(x.marca || ""), modelo: String(x.modelo || ""), fuente: "manual", precio: toMoney2(Number(x.precio || 0)), stock: Number.isFinite(Number(x.stock)) ? Number(x.stock) : 0 })).filter((x: ManualProduct) => x.producto.trim());
+      if (!res.ok) {
+        setManualProducts([]);
+        console.error("No se pudieron cargar productos manuales:", res.status, data);
+        return;
+      }
+      const payload = data as { results?: unknown } | unknown[];
+      const list: unknown[] = Array.isArray(payload)
+        ? payload
+        : Array.isArray((payload as { results?: unknown }).results)
+          ? ((payload as { results: unknown[] }).results)
+          : [];
+      const mapped: ManualProduct[] = list
+        .filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === "object")
+        .map((x): ManualProduct => ({
+          id: String(x.id ?? ""),
+          imagen_url: String(x.imagen_url || ""),
+          producto: String(x.producto || ""),
+          caracteristicas: String(x.caracteristicas || ""),
+          marca: String(x.marca || ""),
+          modelo: String(x.modelo || ""),
+          fuente: "manual",
+          precio: toMoney2(Number(x.precio || 0)),
+          stock: Number.isFinite(Number(x.stock)) ? Number(x.stock) : 0,
+        }))
+        .filter((x) => x.producto.trim());
       setManualProducts(mapped);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      setManualProducts([]);
+      console.error("Error al cargar productos manuales:", err);
     }
   }, [catalogReady]);
 
@@ -436,23 +459,55 @@ export default function ProductosPage() {
         return;
       }
 
-      if (fuente === "manual") {
-        const q = busqueda.trim().toLowerCase();
-        const filtered = manualProducts.filter((m) => { if (!q) return true; return m.producto.toLowerCase().includes(q) || m.marca.toLowerCase().includes(q) || m.modelo.toLowerCase().includes(q); });
-        const pageSize = 50; const totalRows = filtered.length; const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+      const applyManualCatalogPage = (needle: string, softError: string | null) => {
+        const qLower = needle.trim().toLowerCase();
+        const filtered = manualProducts.filter((m) => {
+          if (!qLower) return true;
+          return (
+            m.producto.toLowerCase().includes(qLower) ||
+            m.marca.toLowerCase().includes(qLower) ||
+            m.modelo.toLowerCase().includes(qLower)
+          );
+        });
+        const pageSize = 50;
+        const totalRows = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / pageSize) || 1);
         const safePage = Math.min(Math.max(1, pagina), totalPages);
         const start = (safePage - 1) * pageSize;
         const rows = filtered.slice(start, start + pageSize).map(manualToSyscomProducto);
+        setProductos(rows);
+        setPaginas(totalPages);
+        setTotal(totalRows);
+        setError(softError);
+        if (safePage !== pagina) setPagina(safePage);
+      };
+
+      if (fuente === "manual") {
         if (isStale()) return;
-        setProductos(rows); setPaginas(totalPages); setTotal(totalRows);
-        if (safePage !== pagina) setPagina(safePage); return;
+        applyManualCatalogPage(busqueda, null);
+        return;
       }
       if (fuente) {
         const isAuto = autoCatalog && !busqueda.trim();
-        const data = await fetchIntraxProductos({ fuente, buscar: isAuto ? AUTO_DEFAULT_SEARCH : (busqueda.trim() || undefined), pagina, por_pagina: 50 });
-        if (isStale()) return;
-        const intraxProductos = (data.productos ?? []).map(mapIntraxProductoToSyscom);
-        setProductos(intraxProductos); setPaginas(data.resumen?.total_paginas ?? 1); setTotal(data.resumen?.total_resultados ?? intraxProductos.length); return;
+        try {
+          const data = await fetchIntraxProductos({ fuente, buscar: isAuto ? AUTO_DEFAULT_SEARCH : (busqueda.trim() || undefined), pagina, por_pagina: 50 });
+          if (isStale()) return;
+          const intraxProductos = (data.productos ?? []).map(mapIntraxProductoToSyscom);
+          if (intraxProductos.length === 0 && manualProducts.length > 0 && fuente === "syscom") {
+            applyManualCatalogPage(busqueda, "Catálogo externo sin resultados. Mostrando productos manuales.");
+            return;
+          }
+          setProductos(intraxProductos); setPaginas(data.resumen?.total_paginas ?? 1); setTotal(data.resumen?.total_resultados ?? intraxProductos.length); return;
+        } catch {
+          if (isStale()) return;
+          if (manualProducts.length > 0) {
+            applyManualCatalogPage(busqueda, "No se pudo consultar el catálogo externo. Mostrando productos manuales.");
+            return;
+          }
+          setProductos([]);
+          setError("Error de conexión con el catálogo.");
+          return;
+        }
       }
       const isAuto = autoCatalog && !hasFiltro;
       const query = buildProductosQuery(isAuto ? { busqueda: AUTO_DEFAULT_SEARCH, pagina, orden: "topseller", stock: "1" } : { busqueda: busqueda.trim() || undefined, categoria: categoriaId || undefined, marca: marcaId || undefined, pagina, orden, ...SYSCOM_BUSQUEDA_AMPLIA });
@@ -460,14 +515,52 @@ export default function ProductosPage() {
       if (isStale()) return;
       const data: SyscomProductosResponse = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (manualProducts.length > 0) {
+          applyManualCatalogPage(
+            busqueda,
+            `${mapApiCatalogError(res, data)} Mostrando productos manuales.`,
+          );
+          return;
+        }
         setProductos([]);
         setError(mapApiCatalogError(res, data));
         return;
       }
       const productosSyscomConFuente = (data.productos ?? []).map((p) => ({ ...p, fuente: p.fuente || "syscom" }));
+      // En catálogo automático / sin filtro de fuente, anteponer manuales en la 1.ª página.
+      if ((!fuente || fuente === "") && pagina === 1 && manualProducts.length > 0) {
+        const manualHead = manualProducts.slice(0, 20).map(manualToSyscomProducto);
+        const merged = dedupeProductosById([...manualHead, ...productosSyscomConFuente]).slice(0, 50);
+        setProductos(merged);
+        setPaginas(data.paginas ?? 1);
+        setTotal((data.cantidad ?? 0) + manualProducts.length);
+        return;
+      }
       setProductos(productosSyscomConFuente); setPaginas(data.paginas ?? 1); setTotal(data.cantidad ?? 0);
     } catch {
       if (isStale()) return;
+      if (manualProducts.length > 0) {
+        const qLower = busqueda.trim().toLowerCase();
+        const filtered = manualProducts.filter((m) => {
+          if (!qLower) return true;
+          return (
+            m.producto.toLowerCase().includes(qLower) ||
+            m.marca.toLowerCase().includes(qLower) ||
+            m.modelo.toLowerCase().includes(qLower)
+          );
+        });
+        const pageSize = 50;
+        const totalRows = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / pageSize) || 1);
+        const safePage = Math.min(Math.max(1, pagina), totalPages);
+        const start = (safePage - 1) * pageSize;
+        setProductos(filtered.slice(start, start + pageSize).map(manualToSyscomProducto));
+        setPaginas(totalPages);
+        setTotal(totalRows);
+        setError("Error de conexión con el catálogo externo. Mostrando productos manuales.");
+        if (safePage !== pagina) setPagina(safePage);
+        return;
+      }
       setProductos([]);
       setError("Error de conexión con el catálogo.");
     } finally {
@@ -568,7 +661,11 @@ export default function ProductosPage() {
       const endpoint = isEdit ? `/api/productos-manuales/${editingManualId}/` : "/api/productos-manuales/";
       const res = await fetchApi(endpoint, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { const detail = (data as any)?.detail; setManualFormError(typeof detail === "string" && detail.trim() ? detail : "No se pudo guardar el producto."); return; }
+      if (!res.ok) {
+        const detail = data && typeof data === "object" && "detail" in data ? (data as { detail?: unknown }).detail : undefined;
+        setManualFormError(typeof detail === "string" && detail.trim() ? detail : "No se pudo guardar el producto.");
+        return;
+      }
       await fetchManualProducts(); setManualModalOpen(false);
     } catch { setManualFormError("Error de conexión al guardar producto manual."); }
   };
@@ -631,9 +728,13 @@ export default function ProductosPage() {
             </form>
 
             {error && (
-              <div className="rounded-2xl border border-red-200/80 bg-red-50/90 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30">
-                <p className="text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
-                <p className="mt-1 text-xs text-red-700/90 dark:text-red-300/80">No pudimos conectar con el catálogo de productos. Intenta más tarde o contacta a soporte.</p>
+              <div className={`rounded-2xl px-4 py-3 ${productos.length > 0 ? "border border-amber-200/80 bg-amber-50/90 dark:border-amber-900/40 dark:bg-amber-950/30" : "border border-red-200/80 bg-red-50/90 dark:border-red-900/40 dark:bg-red-950/30"}`}>
+                <p className={`text-sm font-medium ${productos.length > 0 ? "text-amber-900 dark:text-amber-200" : "text-red-800 dark:text-red-300"}`}>{error}</p>
+                {productos.length === 0 && (
+                  <p className="mt-1 text-xs text-red-700/90 dark:text-red-300/80">
+                    No pudimos conectar con el catálogo de productos. Usa el filtro «Manual» si ya cargaste productos propios, o contacta a soporte.
+                  </p>
+                )}
               </div>
             )}
 

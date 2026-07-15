@@ -25,6 +25,7 @@ Los permisos viven en `UserPermissions.permissions` (JSON por módulo: `view`, `
 
 - Backend: subclases de `ModulePermission` en `apps/users/permissions.py` (`OrdenesPermission`, `TareasPermission`, …).
 - Frontend: guards `Require*Permission` con comprobación estricta `=== true` para `view`. Admin (`isAdmin`) bypass en guards.
+- **Catálogos en cotización**: GET a `/api/productos/syscom/*` y `/api/productos-manuales/` permiten usuarios con acceso a `cotizaciones` (aunque no tengan módulo `productos`). Altas/edición/baja de manuales siguen exigiendo `productos`.
 
 ## Convenciones
 

@@ -2,7 +2,11 @@
 from rest_framework import filters, viewsets
 from rest_framework.pagination import PageNumberPagination
 
-from apps.users.permissions import ModulePermission, user_has_any_ordenes_access
+from apps.users.permissions import (
+    ModulePermission,
+    user_has_any_cotizaciones_access,
+    user_has_any_ordenes_access,
+)
 
 from .models import Concepto, ProductoManual, Servicio
 from .serializers import ConceptoSerializer, ProductoManualSerializer, ServicioSerializer
@@ -30,6 +34,31 @@ class ServiciosPermission(ModulePermission):
 
 class ProductosPermission(ModulePermission):
     module_key = 'productos'
+
+
+class ProductoManualPermission(ModulePermission):
+    """
+    Catálogo de productos manuales: lectura desde Productos y Cotizaciones.
+
+    GET permite módulo `productos` o cualquier acceso a `cotizaciones` (misma idea
+    que el proxy SYSCOM). Altas/edición/baja siguen exigiendo `productos`.
+    """
+
+    module_key = 'productos'
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        method = (request.method or '').upper()
+        if method in ('GET', 'HEAD', 'OPTIONS'):
+            perms_obj = getattr(user, 'permissions_profile', None)
+            permissions = getattr(perms_obj, 'permissions', None) or {}
+            if user_has_any_cotizaciones_access(permissions):
+                return True
+        return super().has_permission(request, view)
 
 
 class ServiciosPagination(PageNumberPagination):
@@ -87,7 +116,7 @@ class ConceptoViewSet(viewsets.ModelViewSet):
 class ProductoManualViewSet(viewsets.ModelViewSet):
     queryset = ProductoManual.objects.all()
     serializer_class = ProductoManualSerializer
-    permission_classes = [ProductosPermission]
+    permission_classes = [ProductoManualPermission]
     pagination_class = ServiciosPagination
 
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]

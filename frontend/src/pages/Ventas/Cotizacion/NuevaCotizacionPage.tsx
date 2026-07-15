@@ -2105,12 +2105,14 @@ export default function NuevaCotizacionPage() {
                   </div>
                 )}
                 {!loadingSyscom && !!syscomError && (
-                  <div className="rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">{syscomError}</div>
+                  <div className="mb-1 rounded-lg bg-amber-50 px-3 py-2.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                    {syscomError}
+                    {combinedConceptoOptions.length > 0
+                      ? " Puedes seguir eligiendo conceptos o productos manuales."
+                      : ""}
+                  </div>
                 )}
-                {!loadingSyscom &&
-                  !loadingCatalogoConceptos &&
-                  !syscomError &&
-                  !catalogoConceptosError &&
+                {!loadingCatalogoConceptos &&
                   combinedConceptoOptions.map((opt) => (
                     <button
                       key={opt.key}
@@ -2137,7 +2139,11 @@ export default function NuevaCotizacionPage() {
                       </div>
                     </button>
                   ))}
-                {!loadingSyscom && !loadingCatalogoConceptos && !syscomError && !catalogoConceptosError && !catalogoManualError && combinedConceptoOptions.length === 0 && productoSearch.trim().length >= 2 && (
+                {!loadingSyscom &&
+                  !loadingCatalogoConceptos &&
+                  !catalogoManualError &&
+                  combinedConceptoOptions.length === 0 &&
+                  productoSearch.trim().length >= 2 && (
                   <div className="rounded-lg px-3 py-4 text-center text-xs text-[#78716c] dark:text-[#8ea0b8]">Sin resultados en catálogos</div>
                 )}
               </div>
