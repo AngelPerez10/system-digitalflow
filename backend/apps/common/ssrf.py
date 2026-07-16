@@ -35,6 +35,12 @@ def is_intrax_image_host(host: str) -> bool:
     return host == 'intrax.mx' or host.endswith('.intrax.mx')
 
 
+def is_tvc_image_host(host: str) -> bool:
+    """Imágenes de productos TVC (cdn.tvc.mx, api.tvc.mx)."""
+    host = (host or '').lower()
+    return host == 'tvc.mx' or host.endswith('.tvc.mx')
+
+
 def _is_private_or_local_host(host: str) -> bool:
     """Block localhost, loopback, link-local, and private/reserved IPs."""
     if not host:
@@ -81,4 +87,5 @@ def is_embed_url_allowed(url: str) -> bool:
         or is_cloudinary_host(host)
         or is_syscom_image_host(host)
         or is_intrax_image_host(host)
+        or is_tvc_image_host(host)
     )

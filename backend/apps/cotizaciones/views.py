@@ -84,6 +84,7 @@ def _cotizacion_item_line_totals(
     """
     producto_externo_id = str(producto_externo_id or "").strip()
     es_manual = producto_externo_id == ""
+    # Catálogos externos (SYSCOM id numérico, TVC `tvc:{id}`, manual:{id}): precio_lista incluye IVA.
     descuento_pct = float(descuento_pct or 0)
     if descuento_pct < 0:
         descuento_pct = 0.0

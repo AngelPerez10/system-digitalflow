@@ -47,6 +47,24 @@ def _load_dotenv_file() -> None:
 _load_dotenv_file()
 
 
+def get_env_from_dotenv(key: str) -> str:
+    """Lee una clave de backend/.env (útil si runserver arrancó antes de editar el archivo)."""
+    env_path = BASE_DIR / '.env'
+    if not env_path.exists():
+        return ''
+    try:
+        for raw_line in env_path.read_text(encoding='utf-8', errors='ignore').splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            k, v = line.split('=', 1)
+            if k.strip() == key:
+                return v.strip().strip('"').strip("'")
+    except Exception:
+        return ''
+    return ''
+
+
 def _parse_debug_env() -> bool:
     """Read DEBUG from environment; default False for production safety."""
     raw = os.environ.get('DEBUG', '').strip().lower()
@@ -332,3 +350,8 @@ SYSCOM_API_BASE = os.environ.get('SYSCOM_API_BASE', 'https://developers.syscom.m
 SYSCOM_OAUTH_URL = os.environ.get('SYSCOM_OAUTH_URL', 'https://developers.syscom.mx/oauth/token')
 SYSCOM_CLIENT_ID = os.environ.get('SYSCOM_CLIENT_ID', '')
 SYSCOM_CLIENT_SECRET = os.environ.get('SYSCOM_CLIENT_SECRET', '')
+
+# TVC API (proveedor mayorista tvc.mx) — token JWT Bearer (~1 año de vigencia)
+TVC_API_BASE = os.environ.get('TVC_API_BASE', 'https://api.tvc.mx')
+TVC_API_TOKEN = os.environ.get('TVC_API_TOKEN', '')
+TVC_MEDIA_BASE = os.environ.get('TVC_MEDIA_BASE', 'https://cdn.tvc.mx')

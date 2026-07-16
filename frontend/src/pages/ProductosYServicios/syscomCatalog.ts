@@ -56,7 +56,8 @@ export type SyscomSearchParams = {
 };
 
 export type SyscomPriceKind = "lista" | "especial" | "descuento" | "auto";
-export type IntraxFuente = "syscom" | "manual";
+export type IntraxFuente = "syscom" | "manual" | "tvc";
+export type CatalogFuente = IntraxFuente | "tvc" | "";
 
 /**
  * Sesión lista para llamar al API (cookies HttpOnly y/o Bearer de respaldo).
@@ -468,4 +469,162 @@ export async function fetchSyscomProductosSugerencia(
   }
 
   return { ok: anyOk, productos: merged.slice(0, 24) };
+};
+
+export const TVC_SITE_URL = "https://www.tvcenlinea.com";
+
+/** Reintenta una vez ante 502 (token TVC inválido o TVC caído). */
+export const fetchTvc = async (path: string, init?: Pick<RequestInit, "signal">) => {
+  const cleanPath = path.replace(/^\//, "");
+  const url = `/api/productos/tvc/${cleanPath}`;
+  const opts: RequestInit = { method: "GET", signal: init?.signal };
+  let last: Response | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetchApi(url, opts);
+    if (res.ok || res.status !== 502 || attempt === 1) return res;
+    last = res;
+    await sleep(500 * (attempt + 1));
+  }
+  return last!;
+};
+
+export type TvcSearchParams = {
+  busqueda?: string;
+  categoria?: string;
+  marca?: string;
+  pagina?: number;
+  por_pagina?: number;
+};
+
+export const buildTvcProductosQuery = (params: TvcSearchParams) => {
+  const sp = new URLSearchParams();
+  if (params.busqueda) {
+    const b = clipBusquedaSyscom(params.busqueda).trim();
+    if (b) sp.set("busqueda", b);
+  }
+  if (params.categoria) sp.set("categoria", params.categoria);
+  if (params.marca) sp.set("marca", params.marca);
+  if (params.pagina) sp.set("pagina", String(params.pagina));
+  if (params.por_pagina) sp.set("por_pagina", String(params.por_pagina));
+  return sp.toString();
+};
+
+export async function fetchTvcTipoCambio(): Promise<number | null> {
+  const res = await fetchTvc("tipocambio/");
+  if (!res.ok) return null;
+  const data: unknown = await res.json().catch(() => null);
+  const direct = asNumber(data);
+  if (direct) return direct;
+  if (data && typeof data === "object") {
+    const rec = data as Record<string, unknown>;
+    for (const key of ["tipo_cambio", "tipoCambio", "exchange_rate", "rate", "valor", "data"]) {
+      const n = asNumber(rec[key]);
+      if (n) return n;
+    }
+    const fallback = findNumberInObject(data);
+    if (fallback) return fallback;
+  }
+  return null;
 }
+
+export async function fetchTvcProductoDetalle(
+  productId: string,
+  init?: Pick<RequestInit, "signal">
+): Promise<SyscomProductoDetalle | null> {
+  const tid = String(productId).trim();
+  if (!tid) return null;
+  const pathId = tid.toLowerCase().startsWith("tvc:") ? tid.slice(4) : tid;
+  const res = await fetchTvc(`productos/${encodeURIComponent(pathId)}/`, init);
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  return data as SyscomProductoDetalle;
+}
+
+export async function fetchTvcProductos(
+  params: TvcSearchParams,
+  init?: Pick<RequestInit, "signal">
+): Promise<SyscomProductosResponse> {
+  const query = buildTvcProductosQuery(params);
+  const res = await fetchTvc(query ? `productos/?${query}` : "productos/", init);
+  const data: SyscomProductosResponse = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error("No se pudo consultar el catálogo TVC.");
+  }
+  const productos = (data.productos ?? []).map((p) => ({ ...p, fuente: p.fuente || "tvc" }));
+  return { ...data, productos };
+}
+
+/** Búsqueda TVC para sugerencias (cotización / autocomplete). */
+export async function fetchTvcProductosSugerencia(
+  busqueda: string,
+  init?: Pick<RequestInit, "signal">
+): Promise<{ ok: boolean; productos: SyscomProducto[] }> {
+  const raw = busqueda.trim();
+  if (raw.length < 2) return { ok: true, productos: [] };
+
+  const variants: string[] = [];
+  const seen = new Set<string>();
+  const add = (v: string) => {
+    const t = v.trim();
+    if (t.length < 2 || seen.has(t)) return;
+    seen.add(t);
+    variants.push(t);
+  };
+  add(raw);
+  if (raw.includes("/")) {
+    add(raw.replace(/\//g, " ").trim());
+    add(raw.split("/")[0]?.trim() ?? "");
+  }
+  if (raw.includes(" ")) add(raw.split(/\s+/)[0] ?? "");
+
+  const merged: SyscomProducto[] = [];
+  const seenIds = new Set<string>();
+  let anyOk = false;
+
+  for (const v of variants.slice(0, 6)) {
+    try {
+      const data = await fetchTvcProductos({ busqueda: v, pagina: 1, por_pagina: 24 }, init);
+      anyOk = true;
+      for (const p of data.productos ?? []) {
+        const id = String(p.producto_id ?? "");
+        if (!id || seenIds.has(id)) continue;
+        seenIds.add(id);
+        merged.push(p);
+        if (merged.length >= 16) break;
+      }
+      if (merged.length >= 16) break;
+    } catch {
+      // intentar siguiente variante
+    }
+  }
+
+  if (!merged.length) {
+    try {
+      const data = await fetchTvcProductos({ busqueda: raw, pagina: 1, por_pagina: 24 }, init);
+      anyOk = true;
+      for (const p of data.productos ?? []) {
+        const id = String(p.producto_id ?? "");
+        if (!id || seenIds.has(id)) continue;
+        seenIds.add(id);
+        merged.push(p);
+      }
+    } catch {
+      return { ok: false, productos: [] };
+    }
+  }
+
+  return { ok: anyOk, productos: merged.slice(0, 16) };
+}
+
+export const getTvcProductoImageUrl = (imgPortada?: string) => {
+  const s = (imgPortada || "").trim();
+  if (!s) return null;
+  if (s.startsWith("http://") || s.startsWith("https://")) return s;
+  if (s.startsWith("/")) return `https://cdn.tvc.mx${s}`;
+  return `https://cdn.tvc.mx/${s}`;
+};
+
+export const getCatalogProductoImageUrl = (p: Pick<SyscomProducto, "img_portada" | "fuente">) => {
+  if (p.fuente === "tvc") return getTvcProductoImageUrl(p.img_portada);
+  return getProductoImageUrl(p.img_portada);
+};

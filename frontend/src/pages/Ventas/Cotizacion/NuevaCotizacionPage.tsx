@@ -32,7 +32,9 @@ import { useCotizacionCloneSearch } from "@/pages/Ventas/Cotizacion/useCotizacio
 import {
   fetchSyscomProductosSugerencia,
   fetchSyscomTipoCambio,
-  getProductoImageUrl,
+  fetchTvcProductosSugerencia,
+  fetchTvcTipoCambio,
+  getCatalogProductoImageUrl,
   type SyscomProducto,
 } from "@/pages/ProductosYServicios/syscomCatalog";
 import { CotizacionSaveStatus } from "@/components/cotizacion/CotizacionSaveStatus";
@@ -733,8 +735,8 @@ export default function NuevaCotizacionPage() {
   }, [productoSearch]);
 
   useEffect(() => {
-    fetchSyscomTipoCambio()
-      .then((tc) => setSyscomTipoCambio(tc))
+    Promise.all([fetchSyscomTipoCambio(), fetchTvcTipoCambio()])
+      .then(([tcSyscom, tcTvc]) => setSyscomTipoCambio(tcSyscom ?? tcTvc))
       .catch(() => {
         // ignore
       });
@@ -754,7 +756,7 @@ export default function NuevaCotizacionPage() {
       if (!q) setSyscomOpen(false);
       return;
     }
-    // Abrir panel por búsqueda local (catálogo) aunque falle/no exista token de SYSCOM.
+    // Abrir panel por búsqueda local (catálogo) aunque falle Syscom o TVC.
     setSyscomOpen(true);
     const runGen = ++syscomSearchGenRef.current;
     const ac = new AbortController();
@@ -762,15 +764,27 @@ export default function NuevaCotizacionPage() {
       setLoadingSyscom(true);
       setSyscomError("");
       try {
-        // Incluye variantes de búsqueda si el modelo trae `/` (p. ej. ICOM IC-M424G/41).
-        const { ok, productos } = await fetchSyscomProductosSugerencia(q, { signal: ac.signal });
+        const [syscomRes, tvcRes] = await Promise.all([
+          fetchSyscomProductosSugerencia(q, { signal: ac.signal }),
+          fetchTvcProductosSugerencia(q, { signal: ac.signal }),
+        ]);
         if (runGen !== syscomSearchGenRef.current) return;
-        if (!ok && productos.length === 0) {
+
+        const merged: SyscomProducto[] = [];
+        const seen = new Set<string>();
+        for (const p of [...tvcRes.productos, ...syscomRes.productos]) {
+          const id = String(p.producto_id ?? "");
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          merged.push(p);
+        }
+
+        if (!syscomRes.ok && !tvcRes.ok && merged.length === 0) {
           setSyscomProductos([]);
-          setSyscomError("No se pudo consultar SYSCOM en este momento.");
+          setSyscomError("No se pudo consultar Syscom ni TVC en este momento.");
           return;
         }
-        setSyscomProductos(productos);
+        setSyscomProductos(merged);
       } catch (e) {
         if (runGen !== syscomSearchGenRef.current) return;
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -913,8 +927,8 @@ export default function NuevaCotizacionPage() {
         onSelect: () => selectManualProducto(p),
       })),
       ...syscomProductos.map((p) => ({
-        key: `syscom-${p.fuente || "syscom"}-${p.producto_id}`,
-        source: "syscom" as const,
+        key: `${p.fuente || "syscom"}-${p.producto_id}`,
+        source: p.fuente === "tvc" ? ("tvc" as const) : ("syscom" as const),
         title: String(p.titulo || p.modelo || "-"),
         subtitle: [p.marca, p.modelo].filter(Boolean).join(" · "),
         price: round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio)),
@@ -1444,7 +1458,7 @@ export default function NuevaCotizacionPage() {
     const catalogThumb = selectedCatalogoConcepto?.imagen_url?.trim();
     const manualThumb = selectedManualProducto?.imagen_url?.trim();
     const thumbnail = selectedSyscomProducto?.img_portada
-      ? getProductoImageUrl(selectedSyscomProducto.img_portada) || undefined
+      ? getCatalogProductoImageUrl(selectedSyscomProducto) || undefined
       : manualThumb || catalogThumb || undefined;
 
     if (qty <= 0 || !nombre) return;
@@ -2079,7 +2093,7 @@ export default function NuevaCotizacionPage() {
             >
               <div className="shrink-0 border-b border-[#f1e8db] dark:border-[#273244]/90 bg-gradient-to-r from-[#fff7ed]/95 to-transparent px-3 py-2 dark:border-white/[0.06] dark:from-[#7c2d12]/50 dark:to-transparent">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-[#9a3412] dark:text-[#ffa057]">Resultados combinados</p>
-                <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Conceptos internos, productos manuales y Syscom</p>
+                <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Conceptos internos, manuales, Syscom y TVC</p>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-1.5 custom-scrollbar">
                 {loadingCatalogoConceptos && (
@@ -2101,7 +2115,7 @@ export default function NuevaCotizacionPage() {
                 {loadingSyscom && (
                   <div className="flex items-center gap-2 rounded-lg px-3 py-3 text-xs text-[#78716c] dark:text-[#8ea0b8]">
                     <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[#ff801f] border-t-transparent" aria-hidden />
-                    Buscando en Syscom…
+                    Buscando en catálogos externos…
                   </div>
                 )}
                 {!loadingSyscom && !!syscomError && (
@@ -2128,7 +2142,13 @@ export default function NuevaCotizacionPage() {
                           </p>
                           <p className="mt-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
                             <span className="mr-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-white/[0.08]">
-                              {opt.source === "catalogo" ? "Concepto" : opt.source === "manual" ? "Manual" : "Syscom"}
+                              {opt.source === "catalogo"
+                                ? "Concepto"
+                                : opt.source === "manual"
+                                  ? "Manual"
+                                  : opt.source === "tvc"
+                                    ? "TVC"
+                                    : "Syscom"}
                             </span>
                             {opt.subtitle || "Sin detalle"}
                           </p>

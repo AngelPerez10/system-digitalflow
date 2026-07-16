@@ -13,7 +13,6 @@ import {
   fetchSyscomProductoDetalle,
   fetchIntraxProductos,
   isCatalogAuthReady,
-  getProductoImageUrl,
   getProductoImagenesUrls,
   getProductoLink,
   mapIntraxProductoToSyscom,
@@ -26,6 +25,11 @@ import {
   type SyscomProductosResponse,
   type SyscomSearchParams,
   fetchSyscom,
+  fetchTvc,
+  fetchTvcProductos,
+  fetchTvcProductoDetalle,
+  fetchTvcTipoCambio,
+  getCatalogProductoImageUrl,
 } from "./syscomCatalog";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi, resolveMediaUrl } from "@/config/api";
@@ -182,13 +186,23 @@ const dedupeProductosById = (rows: SyscomProducto[]): SyscomProducto[] => {
   return out;
 };
 
+type CatalogFuente = IntraxFuente | "";
+
 const fetchGlobalCatalogPage = async (
   q: string,
   page: number,
   categoriaId: string,
   marcaId: string,
   orden: NonNullable<SyscomSearchParams["orden"]>,
-): Promise<{ rows: SyscomProducto[]; syscomTotal: number; syscomPages: number; intraxTotal: number; intraxPages: number }> => {
+): Promise<{
+  rows: SyscomProducto[];
+  syscomTotal: number;
+  syscomPages: number;
+  intraxTotal: number;
+  intraxPages: number;
+  tvcTotal: number;
+  tvcPages: number;
+}> => {
   const syscomQuery = buildProductosQuery({
     busqueda: q,
     categoria: categoriaId || undefined,
@@ -197,11 +211,18 @@ const fetchGlobalCatalogPage = async (
     orden,
     ...SYSCOM_BUSQUEDA_AMPLIA,
   });
-  const [syscomRes, intraxData] = await Promise.all([
+  const [syscomRes, intraxData, tvcData] = await Promise.all([
     fetchSyscom(`productos/?${syscomQuery}`),
     fetchIntraxProductos({ fuente: "syscom", buscar: q, pagina: page, por_pagina: GLOBAL_SEARCH_PAGE_SIZE }).catch(
       (): IntraxProductosResponse => ({ productos: [] }),
     ),
+    fetchTvcProductos({
+      busqueda: q,
+      pagina: page,
+      por_pagina: GLOBAL_SEARCH_PAGE_SIZE,
+      categoria: categoriaId || undefined,
+      marca: marcaId || undefined,
+    }).catch((): SyscomProductosResponse => ({ productos: [] })),
   ]);
 
   let syscomRows: SyscomProducto[] = [];
@@ -218,12 +239,18 @@ const fetchGlobalCatalogPage = async (
   const intraxTotal = intraxData.resumen?.total_resultados ?? intraxRows.length;
   const intraxPages = intraxData.resumen?.total_paginas ?? 1;
 
+  const tvcRows = (tvcData.productos ?? []).map((p) => ({ ...p, fuente: p.fuente || "tvc" }));
+  const tvcTotal = tvcData.cantidad ?? tvcRows.length;
+  const tvcPages = tvcData.paginas ?? 1;
+
   return {
-    rows: dedupeProductosById([...syscomRows, ...intraxRows]),
+    rows: dedupeProductosById([...syscomRows, ...intraxRows, ...tvcRows]),
     syscomTotal,
     syscomPages,
     intraxTotal,
     intraxPages,
+    tvcTotal,
+    tvcPages,
   };
 };
 
@@ -242,6 +269,9 @@ function mapApiCatalogError(res: Response, data: unknown): string {
   }
   if (res.status === 502 && /SYSCOM_CLIENT|SYSCOM/i.test(detail)) {
     return "El catálogo SYSCOM no está configurado en el servidor. Contacta al administrador.";
+  }
+  if (res.status === 502 && /TVC_API_TOKEN|TVC/i.test(detail)) {
+    return "El catálogo TVC no está configurado en el servidor. Contacta al administrador.";
   }
   if (detail) return detail;
   return "Error al cargar productos.";
@@ -263,7 +293,7 @@ export default function ProductosPage() {
   const [categoriaId, setCategoriaId] = useState("");
   const [marcaId, setMarcaId] = useState("");
   const [orden, setOrden] = useState<NonNullable<SyscomSearchParams["orden"]>>("relevancia");
-  const [fuente, setFuente] = useState<"" | IntraxFuente>("");
+  const [fuente, setFuente] = useState<CatalogFuente>("");
 
   const [categorias, setCategorias] = useState<SyscomCategoria[]>([]);
   const [marcas, setMarcas] = useState<SyscomMarca[]>([]);
@@ -366,16 +396,21 @@ export default function ProductosPage() {
     if (!catalogReady) return;
     setLoadingCatalogos(true);
     try {
-      const [tc, catRes, marRes] = await Promise.all([fetchSyscomTipoCambio().catch(() => null), fetchSyscom("categorias/"), fetchSyscom("marcas/")]);
+      const [tcSyscom, tcTvc, catRes, marRes] = await Promise.all([
+        fetchSyscomTipoCambio().catch(() => null),
+        fetchTvcTipoCambio().catch(() => null),
+        fuente === "tvc" ? fetchTvc("categorias/") : fetchSyscom("categorias/"),
+        fuente === "tvc" ? fetchTvc("marcas/") : fetchSyscom("marcas/"),
+      ]);
       if (catRes.ok) { const data = await catRes.json().catch(() => []); setCategorias(Array.isArray(data) ? data : []); }
       if (marRes.ok) { const data = await marRes.json().catch(() => []); setMarcas(Array.isArray(data) ? data : []); }
-      setTipoCambio(tc);
+      setTipoCambio(tcSyscom ?? tcTvc);
     } catch {
       /* ignore */
     } finally {
       setLoadingCatalogos(false);
     }
-  }, [catalogReady]);
+  }, [catalogReady, fuente]);
 
   const loadProductos = useCallback(async () => {
     if (!catalogReady) return;
@@ -414,7 +449,7 @@ export default function ProductosPage() {
           void (async () => {
             const firstCatalog = await fetchGlobalCatalogPage(q, 1, categoriaId, marcaId, orden);
             if (isStale()) return;
-            const catalogTotalEstimate = firstCatalog.syscomTotal + firstCatalog.intraxTotal;
+            const catalogTotalEstimate = firstCatalog.syscomTotal + firstCatalog.intraxTotal + firstCatalog.tvcTotal;
             const { totalRows, totalPages, safePage } = sliceGlobalSearchPage(
               manualRows,
               [],
@@ -431,8 +466,8 @@ export default function ProductosPage() {
         const firstCatalog = await fetchGlobalCatalogPage(q, 1, categoriaId, marcaId, orden);
         if (isStale()) return;
 
-        const catalogTotalEstimate = firstCatalog.syscomTotal + firstCatalog.intraxTotal;
-        const maxCatalogPages = Math.max(firstCatalog.syscomPages, firstCatalog.intraxPages);
+        const catalogTotalEstimate = firstCatalog.syscomTotal + firstCatalog.intraxTotal + firstCatalog.tvcTotal;
+        const maxCatalogPages = Math.max(firstCatalog.syscomPages, firstCatalog.intraxPages, firstCatalog.tvcPages);
         const catalogNeededEnd = Math.max(0, globalStart + GLOBAL_SEARCH_PAGE_SIZE - manualCount);
         const endCatalogPage = Math.max(1, Math.floor((catalogNeededEnd - 1) / GLOBAL_SEARCH_PAGE_SIZE) + 1);
 
@@ -487,7 +522,37 @@ export default function ProductosPage() {
         applyManualCatalogPage(busqueda, null);
         return;
       }
-      if (fuente) {
+      if (fuente === "tvc") {
+        try {
+          const data = await fetchTvcProductos({
+            busqueda: busqueda.trim() || undefined,
+            categoria: categoriaId || undefined,
+            marca: marcaId || undefined,
+            pagina,
+            por_pagina: 50,
+          });
+          if (isStale()) return;
+          const tvcProductos = (data.productos ?? []).map((p) => ({ ...p, fuente: p.fuente || "tvc" }));
+          if (tvcProductos.length === 0 && manualProducts.length > 0) {
+            applyManualCatalogPage(busqueda, "Catálogo TVC sin resultados. Mostrando productos manuales.");
+            return;
+          }
+          setProductos(tvcProductos);
+          setPaginas(data.paginas ?? 1);
+          setTotal(data.cantidad ?? tvcProductos.length);
+          return;
+        } catch {
+          if (isStale()) return;
+          if (manualProducts.length > 0) {
+            applyManualCatalogPage(busqueda, "No se pudo consultar TVC. Mostrando productos manuales.");
+            return;
+          }
+          setProductos([]);
+          setError("Error de conexión con el catálogo TVC.");
+          return;
+        }
+      }
+      if (fuente === "syscom") {
         const isAuto = autoCatalog && !busqueda.trim();
         try {
           const data = await fetchIntraxProductos({ fuente, buscar: isAuto ? AUTO_DEFAULT_SEARCH : (busqueda.trim() || undefined), pagina, por_pagina: 50 });
@@ -582,7 +647,21 @@ export default function ProductosPage() {
   useEffect(() => {
     if (!detailModalOpen || !selectedProductId) { setDetailProduct(null); return; }
     const listedProduct = productosRef.current.find((p) => p.producto_id === selectedProductId);
-    if (listedProduct?.fuente === "manual" || fuente) {
+    if (listedProduct?.fuente === "manual") {
+      setDetailProduct((listedProduct as SyscomProductoDetalle) ?? null);
+      setLoadingDetail(false);
+      return;
+    }
+    if (listedProduct?.fuente === "tvc" || selectedProductId.toLowerCase().startsWith("tvc:")) {
+      if (!isCatalogAuthReady()) return;
+      setLoadingDetail(true);
+      setDetailProduct(null);
+      fetchTvcProductoDetalle(selectedProductId)
+        .then((data) => { setDetailProduct(data ?? listedProduct ?? null); setSelectedImageIndex(0); })
+        .finally(() => setLoadingDetail(false));
+      return;
+    }
+    if (fuente === "manual" || fuente === "tvc") {
       setDetailProduct((listedProduct as SyscomProductoDetalle) ?? null);
       setLoadingDetail(false);
       return;
@@ -766,9 +845,9 @@ export default function ProductosPage() {
                           <div className="mb-4">
                             <label className="mb-2 block text-xs font-medium text-[#57534e] dark:text-[#cbd5e1]">Fuente de datos</label>
                             <div className="inline-flex w-full rounded-lg border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
-                              {[{ value: "", label: "Todas" }, { value: "syscom", label: "Syscom" }, { value: "manual", label: "Manual" }].map((option) => {
+                              {[{ value: "", label: "Todas" }, { value: "syscom", label: "Syscom" }, { value: "tvc", label: "TVC" }, { value: "manual", label: "Manual" }].map((option) => {
                                 const active = fuente === option.value;
-                                return (<button key={option.label} type="button" onClick={() => { setFuente(option.value as "" | IntraxFuente); setAutoCatalog(false); resetPage(); }} className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold transition-all ${active ? "bg-white text-[#ea580c] shadow-sm dark:bg-[#111a2b] dark:text-[#fb923c]" : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"}`}>{option.label}</button>);
+                                return (<button key={option.label} type="button" onClick={() => { setFuente(option.value as CatalogFuente); setAutoCatalog(false); resetPage(); }} className={`flex-1 rounded-md px-2 py-2 text-xs font-semibold transition-all ${active ? "bg-white text-[#ea580c] shadow-sm dark:bg-[#111a2b] dark:text-[#fb923c]" : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"}`}>{option.label}</button>);
                               })}
                             </div>
                           </div>
@@ -804,7 +883,7 @@ export default function ProductosPage() {
                       {productos.map((p) => (
                         <div key={p.producto_id} role="button" tabIndex={0} onClick={() => openDetailModal(p.producto_id)} onKeyDown={(e) => e.key === "Enter" && openDetailModal(p.producto_id)} className="flex cursor-pointer gap-3 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-3 transition hover:border-[#d6d3d1] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#475569]/80">
                           <div className="w-16 h-16 shrink-0 rounded-lg bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center overflow-hidden">
-                            {getProductoImageUrl(p.img_portada) ? (<img src={getProductoImageUrl(p.img_portada)!} alt={p.titulo} className="w-full h-full object-contain" loading="lazy" />) : (<span className="text-[10px] text-gray-400">—</span>)}
+                            {getCatalogProductoImageUrl(p) ? (<img src={getCatalogProductoImageUrl(p)!} alt={p.titulo} className="w-full h-full object-contain" loading="lazy" />) : (<span className="text-[10px] text-gray-400">—</span>)}
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">{p.titulo}</p>
@@ -846,7 +925,7 @@ export default function ProductosPage() {
                           {loading && (<TableRow><TableCell colSpan={8} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400"><div className="inline-flex items-center gap-2 text-sm"><svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>Cargando productos...</div></TableCell></TableRow>)}
                           {!loading && productos.length === 0 && !error && (<TableRow><TableCell colSpan={8} className="px-3 py-10 text-center text-sm text-gray-500 dark:text-gray-400">{autoCatalog ? "No hay productos para mostrar." : "No encontramos resultados con los filtros actuales."}</TableCell></TableRow>)}
                           {!loading && productos.length > 0 && productos.map((p) => {
-                            const imgUrl = getProductoImageUrl(p.img_portada); const link = getProductoLink(p);
+                            const imgUrl = getCatalogProductoImageUrl(p); const link = getProductoLink(p);
                             return (
                               <TableRow key={p.producto_id} className="hover:bg-[#fff7ed]/80 dark:hover:bg-[#1e293b]/50">
                                 <TableCell className="px-3 py-2 w-[64px] align-middle"><div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center overflow-hidden shrink-0">{imgUrl ? (<img src={imgUrl} alt={p.titulo} className="w-full h-full object-contain" loading="lazy" />) : (<span className="text-[10px] text-gray-400">—</span>)}</div></TableCell>

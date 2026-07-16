@@ -8,6 +8,13 @@ from .syscom_views import (
     SyscomProductosSearchView,
     SyscomTipoCambioView,
 )
+from .tvc_views import (
+    TvcCategoriasView,
+    TvcMarcasView,
+    TvcProductoDetalleView,
+    TvcProductosSearchView,
+    TvcTipoCambioView,
+)
 from .views import ConceptoViewSet, ProductoManualViewSet, ServicioViewSet
 
 router = DefaultRouter()
@@ -22,4 +29,9 @@ urlpatterns = [
     path('productos/syscom/categorias/', SyscomCategoriasView.as_view()),
     path('productos/syscom/marcas/', SyscomMarcasView.as_view()),
     path('productos/syscom/tipocambio/', SyscomTipoCambioView.as_view()),
+    path('productos/tvc/productos/', TvcProductosSearchView.as_view()),
+    path('productos/tvc/productos/<str:product_id>/', TvcProductoDetalleView.as_view()),
+    path('productos/tvc/categorias/', TvcCategoriasView.as_view()),
+    path('productos/tvc/marcas/', TvcMarcasView.as_view()),
+    path('productos/tvc/tipocambio/', TvcTipoCambioView.as_view()),
 ]
