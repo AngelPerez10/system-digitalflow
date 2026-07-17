@@ -5,9 +5,9 @@ Uso:
 """
 from __future__ import annotations
 
+import requests
 from django.conf import settings
 from django.core.management.base import BaseCommand
-import requests
 
 
 class Command(BaseCommand):

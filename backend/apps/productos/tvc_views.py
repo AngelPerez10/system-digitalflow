@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
+import time
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from django.conf import settings
@@ -93,6 +96,47 @@ def _as_number(value) -> float | None:
     return n if n == n else None  # NaN guard
 
 
+IVA_MX = 1.16
+
+# Cache en memoria del tipo de cambio TVC (para calcular precio_mxn).
+_TVC_RATE_TTL_SECONDS = 15 * 60
+_tvc_rate_lock = threading.Lock()
+_tvc_rate_cache: dict = {'rate': None, 'ts': 0.0}
+
+
+def _extract_rate(body) -> float | None:
+    if isinstance(body, (int, float)):
+        return float(body)
+    if isinstance(body, dict):
+        for key in ('tipo_cambio', 'exchange_rate', 'rate', 'valor', 'data', 'value'):
+            n = _as_number(body.get(key))
+            if n:
+                return n
+        for v in body.values():
+            n = _as_number(v)
+            if n:
+                return n
+    return None
+
+
+def _get_tvc_exchange_rate(token: str) -> float | None:
+    now = time.monotonic()
+    with _tvc_rate_lock:
+        cached = _tvc_rate_cache['rate']
+        if cached and now - _tvc_rate_cache['ts'] < _TVC_RATE_TTL_SECONDS:
+            return cached
+        try:
+            r = _tvc_get('exchange-rates', token, timeout_seconds=10)
+            rate = _extract_rate(r.json())
+        except requests.RequestException:
+            logger.warning('TVC exchange rate request failed; usando cache previo')
+            return cached
+        if rate:
+            _tvc_rate_cache['rate'] = rate
+            _tvc_rate_cache['ts'] = now
+        return rate or cached
+
+
 def _abs_media_url(path: str) -> str:
     s = (path or '').strip()
     if not s:
@@ -103,7 +147,7 @@ def _abs_media_url(path: str) -> str:
     return f'{base}/{s.lstrip("/")}'
 
 
-def _map_tvc_product(raw: dict) -> dict:
+def _map_tvc_product(raw: dict, exchange_rate: float | None = None) -> dict:
     """Normaliza un producto TVC al shape SyscomProducto usado en el frontend."""
     tvc_id = raw.get('tvc_id')
     tvc_model = str(raw.get('tvc_model') or '').strip()
@@ -113,6 +157,9 @@ def _map_tvc_product(raw: dict) -> dict:
     media = raw.get('media') if isinstance(raw.get('media'), dict) else {}
     main_image = _abs_media_url(str(media.get('main_image') or ''))
 
+    # TVC entrega precios en USD: list_price (precio de lista) y
+    # distributor_price (precio de distribuidor). El frontend convierte
+    # precio_lista USD -> MXN con tipo de cambio TVC + IVA.
     distributor = _as_number(raw.get('distributor_price'))
     list_price = _as_number(raw.get('list_price'))
 
@@ -125,11 +172,12 @@ def _map_tvc_product(raw: dict) -> dict:
     producto_id = f'{_TVC_ID_PREFIX}{tvc_id}' if tvc_id is not None else ''
     estado_inv = 'con_existencia' if stock > 0 else 'sin_existencia'
 
+    # Precio de lista en MXN con IVA (list_price USD × TC TVC × 1.16).
+    # Si no hay precio de lista, usar el de distribuidor como respaldo.
     precio_mxn = None
-    precio_lista_usd = distributor
-    if distributor is None and list_price is not None and list_price > 100:
-        precio_mxn = list_price
-        precio_lista_usd = None
+    usd_base = list_price if list_price is not None else distributor
+    if usd_base is not None and exchange_rate:
+        precio_mxn = round(usd_base * exchange_rate * IVA_MX, 2)
 
     link_model = tvc_model or provider_model
     link = f'https://www.tvcenlinea.com/buscar?q={urllib.parse.quote(link_model)}' if link_model else 'https://www.tvcenlinea.com/'
@@ -149,9 +197,9 @@ def _map_tvc_product(raw: dict) -> dict:
         'img_portada': main_image,
         'link': link,
         'precios': {
-            'precio_lista': precio_lista_usd,
+            'precio_lista': list_price,
             'precio_especial': None,
-            'precio_descuento': None,
+            'precio_descuento': distributor,
         },
         'tvc_id': tvc_id,
         'tvc_model': tvc_model,
@@ -162,23 +210,135 @@ def _map_tvc_product(raw: dict) -> dict:
     }
 
 
-def _parse_tvc_list_payload(body) -> tuple[list[dict], dict]:
+def _parse_tvc_list_payload(body, exchange_rate: float | None = None) -> tuple[list[dict], dict]:
     if isinstance(body, list):
-        return [_map_tvc_product(x) for x in body if isinstance(x, dict)], {}
+        return [_map_tvc_product(x, exchange_rate) for x in body if isinstance(x, dict)], {}
     if not isinstance(body, dict):
         return [], {}
     data = body.get('data')
-    rows = [_map_tvc_product(x) for x in data] if isinstance(data, list) else []
+    rows = [_map_tvc_product(x, exchange_rate) for x in data] if isinstance(data, list) else []
     meta = body.get('meta') if isinstance(body.get('meta'), dict) else {}
     return rows, meta
 
 
-def _parse_tvc_detail_payload(body) -> dict | None:
+def _parse_tvc_detail_payload(body, exchange_rate: float | None = None) -> dict | None:
     if isinstance(body, dict) and body.get('data') and isinstance(body['data'], dict):
-        return _map_tvc_product(body['data'])
+        return _map_tvc_product(body['data'], exchange_rate)
     if isinstance(body, dict) and body.get('tvc_id') is not None:
-        return _map_tvc_product(body)
+        return _map_tvc_product(body, exchange_rate)
     return None
+
+
+# ---------------------------------------------------------------------------
+# Índice en memoria del catálogo TVC.
+# La API de TVC solo permite buscar por clave TVC exacta (tvcModels[]) o id
+# (tvcIds[]); no hay búsqueda por texto ni por modelo del fabricante
+# (provider_model, p. ej. "DH-IPC-B1E40"). Para soportar esas búsquedas se
+# descarga el catálogo completo (~5k productos, ligero: sin precios/medios)
+# y se cachea en memoria con TTL.
+# ---------------------------------------------------------------------------
+_TVC_INDEX_TTL_SECONDS = 15 * 60
+_tvc_index_lock = threading.Lock()
+_tvc_index: dict = {'rows': [], 'ts': 0.0}
+
+_INDEX_FIELDS = (
+    'tvc_id',
+    'tvc_model',
+    'provider_model',
+    'name',
+    'brand',
+    'brand_id',
+    'category_id',
+    'hash_tags',
+)
+
+
+def _fetch_index_page(token: str, page: int) -> tuple[list[dict], dict]:
+    r = _tvc_get('products', token, [('perPage', '100'), ('page', str(page))])
+    body = r.json()
+    data = body.get('data') if isinstance(body, dict) else body
+    meta = body.get('meta') if isinstance(body, dict) and isinstance(body.get('meta'), dict) else {}
+    rows = []
+    for item in data or []:
+        if isinstance(item, dict) and item.get('tvc_id') is not None:
+            rows.append({k: item.get(k) for k in _INDEX_FIELDS})
+    return rows, meta
+
+
+def _get_tvc_index(token: str) -> list[dict]:
+    """Regresa el índice cacheado; lo (re)construye si expiró."""
+    now = time.monotonic()
+    with _tvc_index_lock:
+        if _tvc_index['rows'] and now - _tvc_index['ts'] < _TVC_INDEX_TTL_SECONDS:
+            return _tvc_index['rows']
+
+        first_rows, meta = _fetch_index_page(token, 1)
+        last_page = int(meta.get('last_page') or 1)
+        all_rows = list(first_rows)
+        if last_page > 1:
+            with ThreadPoolExecutor(max_workers=8) as ex:
+                for rows, _m in ex.map(
+                    lambda p: _fetch_index_page(token, p), range(2, last_page + 1)
+                ):
+                    all_rows.extend(rows)
+        _tvc_index['rows'] = all_rows
+        _tvc_index['ts'] = time.monotonic()
+        return all_rows
+
+
+_NORM_RE = re.compile(r'[^a-z0-9]+')
+
+
+def _norm_key(s: str) -> str:
+    return _NORM_RE.sub('', str(s or '').lower())
+
+
+def _index_row_score(row: dict, needle: str, needle_key: str) -> int:
+    """Puntaje de relevancia: 0 = sin match; mayor = mejor."""
+    provider = _norm_key(row.get('provider_model'))
+    tvc_model = _norm_key(row.get('tvc_model'))
+    name = str(row.get('name') or '').lower()
+    brand = str(row.get('brand') or '').lower()
+    tags = ' '.join(str(t) for t in (row.get('hash_tags') or [])).lower()
+
+    if needle_key and (provider == needle_key or tvc_model == needle_key):
+        return 100
+    if needle_key and (provider.startswith(needle_key) or tvc_model.startswith(needle_key)):
+        return 80
+    if needle_key and (needle_key in provider or needle_key in tvc_model):
+        return 60
+    if needle and needle in name:
+        return 40
+    if needle_key and needle_key in _norm_key(name):
+        return 30
+    if needle and (needle in brand or needle in tags):
+        return 20
+    return 0
+
+
+def _search_tvc_index(
+    token: str, busqueda: str, categoria_id: str, marca_id: str, limit: int = 100
+) -> list[int]:
+    """Busca en el índice y regresa tvc_ids ordenados por relevancia."""
+    needle = ' '.join(busqueda.strip().lower().split())
+    needle_key = _norm_key(busqueda)
+    if not needle and not categoria_id and not marca_id:
+        return []
+    scored: list[tuple[int, int]] = []
+    for row in _get_tvc_index(token):
+        if categoria_id and str(row.get('category_id') or '') != str(categoria_id):
+            continue
+        if marca_id and str(row.get('brand_id') or '') != str(marca_id):
+            continue
+        if needle:
+            score = _index_row_score(row, needle, needle_key)
+            if score <= 0:
+                continue
+        else:
+            score = 1
+        scored.append((score, int(row['tvc_id'])))
+    scored.sort(key=lambda t: -t[0])
+    return [tid for _s, tid in scored[:limit]]
 
 
 def _busqueda_variants(busqueda: str) -> list[str]:
@@ -250,7 +410,7 @@ def _fetch_tvc_products(
             params.append(('tvcModels[]', m))
 
     r = _tvc_get('products', token, params)
-    return _parse_tvc_list_payload(r.json())
+    return _parse_tvc_list_payload(r.json(), _get_tvc_exchange_rate(token))
 
 
 def _search_tvc_catalog(
@@ -261,8 +421,7 @@ def _search_tvc_catalog(
     categoria_id: str,
     marca_id: str,
 ) -> tuple[list[dict], int, int, int]:
-    """Busca por modelo exacto y, si hace falta, filtra por texto en páginas recientes."""
-    variants = _busqueda_variants(busqueda)
+    """Busca en el índice local (modelo TVC, modelo fabricante, texto) y trae precios por tvcIds."""
     merged: list[dict] = []
     seen_ids: set[str] = set()
 
@@ -271,46 +430,41 @@ def _search_tvc_catalog(
             pid = str(row.get('producto_id') or '')
             if not pid or pid in seen_ids:
                 continue
-            if not _product_matches_filter(row, busqueda, categoria_id, marca_id):
-                continue
             seen_ids.add(pid)
             merged.append(row)
 
+    matched_ids: list[int] = []
+    try:
+        matched_ids = _search_tvc_index(token, busqueda, categoria_id, marca_id)
+    except requests.RequestException:
+        logger.exception('TVC index build error')
+
+    if matched_ids:
+        # Traer detalle (precio/inventario/medios) solo de los que se van a mostrar.
+        total = len(matched_ids)
+        start = (max(1, page) - 1) * per_page
+        page_ids = matched_ids[start : start + per_page]
+        if page_ids:
+            try:
+                rows, _meta = _fetch_tvc_products(
+                    token, page=1, per_page=100, tvc_ids=page_ids
+                )
+                by_id = {str(r.get('tvc_id')): r for r in rows}
+                ordered = [by_id[str(tid)] for tid in page_ids if str(tid) in by_id]
+                ingest(ordered)
+            except requests.RequestException:
+                logger.exception('TVC products by ids request error')
+        last_page = max(1, -(-total // per_page))
+        return merged, total, page, last_page
+
+    # Fallback sin índice: intento directo por clave TVC exacta.
+    variants = _busqueda_variants(busqueda)
     if variants:
         try:
             by_model, _meta = _fetch_tvc_products(token, page=1, per_page=100, tvc_models=variants)
-            ingest(by_model)
+            ingest([r for r in by_model if _product_matches_filter(r, '', categoria_id, marca_id)])
         except requests.RequestException:
             logger.exception('TVC products by model request error')
-
-        if busqueda.strip().isdigit():
-            try:
-                by_id, _meta = _fetch_tvc_products(
-                    token, page=1, per_page=100, tvc_ids=[int(busqueda.strip())]
-                )
-                ingest(by_id)
-            except (requests.RequestException, ValueError):
-                logger.exception('TVC products by id request error')
-
-    if not merged:
-        try:
-            rows, meta = _fetch_tvc_products(token, page=page, per_page=per_page)
-            needle = busqueda.strip().lower()
-            filtered = [r for r in rows if _product_matches_filter(r, needle, categoria_id, marca_id)]
-            if needle and not filtered and rows:
-                max_scan = min(5, int(meta.get('last_page') or 1))
-                for p in range(2, max_scan + 1):
-                    extra, _ = _fetch_tvc_products(token, page=p, per_page=per_page)
-                    rows.extend(extra)
-                filtered = [r for r in rows if _product_matches_filter(r, needle, categoria_id, marca_id)]
-            ingest(filtered if needle else rows)
-            total = len(merged) if needle else int(meta.get('total') or len(merged))
-            last_page = max(1, -(-total // per_page)) if needle else int(meta.get('last_page') or 1)
-            current = page if not needle else 1
-            return merged, total, current, last_page
-        except requests.RequestException as e:
-            logger.exception('TVC products list request error')
-            raise e
 
     total = len(merged)
     start = (max(1, page) - 1) * per_page
@@ -427,7 +581,7 @@ class TvcProductoDetalleView(APIView):
         path = f'products/{urllib.parse.quote(raw_id, safe="")}'
         try:
             r = _tvc_get(path, token, params)
-            mapped = _parse_tvc_detail_payload(r.json())
+            mapped = _parse_tvc_detail_payload(r.json(), _get_tvc_exchange_rate(token))
             if not mapped:
                 return Response({'detail': 'Producto TVC no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
             return Response(mapped)
@@ -507,33 +661,10 @@ class TvcTipoCambioView(APIView):
         token, err = _get_tvc_token()
         if err:
             return Response({'detail': f'Error TVC: {err}'}, status=status.HTTP_502_BAD_GATEWAY)
-        try:
-            r = _tvc_get('exchange-rates', token)
-            body = r.json()
-            rate = None
-            if isinstance(body, (int, float)):
-                rate = float(body)
-            elif isinstance(body, dict):
-                for key in ('tipo_cambio', 'exchange_rate', 'rate', 'valor', 'data', 'value'):
-                    n = _as_number(body.get(key))
-                    if n:
-                        rate = n
-                        break
-                if rate is None:
-                    for v in body.values():
-                        n = _as_number(v)
-                        if n:
-                            rate = n
-                            break
-            if rate is None:
-                return Response({'detail': 'Tipo de cambio TVC no disponible.'}, status=status.HTTP_502_BAD_GATEWAY)
-            return Response({'tipo_cambio': rate})
-        except requests.RequestException as e:
-            logger.exception('TVC tipocambio request error')
-            return Response(
-                {'detail': _safe_error_text(e, 'No se pudo consultar tipo de cambio en TVC')},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+        rate = _get_tvc_exchange_rate(token)
+        if rate is None:
+            return Response({'detail': 'Tipo de cambio TVC no disponible.'}, status=status.HTTP_502_BAD_GATEWAY)
+        return Response({'tipo_cambio': rate})
 
 
 def tvc_producto_externo_id(tvc_id: int | str) -> str:

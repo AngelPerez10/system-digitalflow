@@ -338,29 +338,30 @@ export const getPrecioPublicoUsd = (p: SyscomProducto): number | null => {
 export async function fetchSyscomTipoCambio(): Promise<number | null> {
   const res = await fetchSyscom("tipocambio/");
   if (!res.ok) return null;
-  const data: any = await res.json().catch(() => null);
+  const data: unknown = await res.json().catch(() => null);
   const direct = asNumber(data);
   if (direct) return direct;
+  const rec = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+  const inner = (rec.data && typeof rec.data === "object" ? rec.data : {}) as Record<string, unknown>;
   const candidates = [
-    data?.tipo_cambio,
-    data?.tipoCambio,
-    data?.tipocambio,
-    data?.tc,
-    data?.exchange_rate,
-    data?.exchangeRate,
-    data?.rate,
-    data?.valor,
-    data?.data?.tipo_cambio,
-    data?.data?.tipoCambio,
-    data?.data?.tipocambio,
-    data?.data?.tc,
+    rec.tipo_cambio,
+    rec.tipoCambio,
+    rec.tipocambio,
+    rec.tc,
+    rec.exchange_rate,
+    rec.exchangeRate,
+    rec.rate,
+    rec.valor,
+    inner.tipo_cambio,
+    inner.tipoCambio,
+    inner.tipocambio,
+    inner.tc,
   ];
   for (const c of candidates) {
     const n = asNumber(c);
     if (n) return n;
   }
-  const fallback = findNumberInObject(data);
-  return fallback;
+  return findNumberInObject(data);
 }
 
 export const formatPrecioSyscomMxnByKind = (p: SyscomProducto, tipoCambio: number | null, kind: SyscomPriceKind) => {
@@ -554,66 +555,23 @@ export async function fetchTvcProductos(
   return { ...data, productos };
 }
 
-/** Búsqueda TVC para sugerencias (cotización / autocomplete). */
+/**
+ * Búsqueda TVC para sugerencias (cotización / autocomplete).
+ * El backend busca en su índice por clave TVC, modelo del fabricante
+ * (p. ej. "DH-IPC-B1E40") o texto del título, así que basta una petición.
+ */
 export async function fetchTvcProductosSugerencia(
   busqueda: string,
   init?: Pick<RequestInit, "signal">
 ): Promise<{ ok: boolean; productos: SyscomProducto[] }> {
   const raw = busqueda.trim();
   if (raw.length < 2) return { ok: true, productos: [] };
-
-  const variants: string[] = [];
-  const seen = new Set<string>();
-  const add = (v: string) => {
-    const t = v.trim();
-    if (t.length < 2 || seen.has(t)) return;
-    seen.add(t);
-    variants.push(t);
-  };
-  add(raw);
-  if (raw.includes("/")) {
-    add(raw.replace(/\//g, " ").trim());
-    add(raw.split("/")[0]?.trim() ?? "");
+  try {
+    const data = await fetchTvcProductos({ busqueda: raw, pagina: 1, por_pagina: 24 }, init);
+    return { ok: true, productos: (data.productos ?? []).slice(0, 16) };
+  } catch {
+    return { ok: false, productos: [] };
   }
-  if (raw.includes(" ")) add(raw.split(/\s+/)[0] ?? "");
-
-  const merged: SyscomProducto[] = [];
-  const seenIds = new Set<string>();
-  let anyOk = false;
-
-  for (const v of variants.slice(0, 6)) {
-    try {
-      const data = await fetchTvcProductos({ busqueda: v, pagina: 1, por_pagina: 24 }, init);
-      anyOk = true;
-      for (const p of data.productos ?? []) {
-        const id = String(p.producto_id ?? "");
-        if (!id || seenIds.has(id)) continue;
-        seenIds.add(id);
-        merged.push(p);
-        if (merged.length >= 16) break;
-      }
-      if (merged.length >= 16) break;
-    } catch {
-      // intentar siguiente variante
-    }
-  }
-
-  if (!merged.length) {
-    try {
-      const data = await fetchTvcProductos({ busqueda: raw, pagina: 1, por_pagina: 24 }, init);
-      anyOk = true;
-      for (const p of data.productos ?? []) {
-        const id = String(p.producto_id ?? "");
-        if (!id || seenIds.has(id)) continue;
-        seenIds.add(id);
-        merged.push(p);
-      }
-    } catch {
-      return { ok: false, productos: [] };
-    }
-  }
-
-  return { ok: anyOk, productos: merged.slice(0, 16) };
 }
 
 export const getTvcProductoImageUrl = (imgPortada?: string) => {
