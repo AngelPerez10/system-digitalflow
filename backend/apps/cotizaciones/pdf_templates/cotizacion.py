@@ -95,7 +95,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
             rows.append(
                 f"""
             <tr class='cat-row'>
-              <td colspan='{col_count}' style='padding:10px 8px 6px; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:{EXPORT_BRAND_COLOR}; border-bottom:none;'>
+              <td colspan='{col_count}' style='padding:3px 8px; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:#ffffff; background:#6b7280; text-align:center; border-bottom:none;'>
                 {esc(cat_names[cat_id])}
               </td>
             </tr>
