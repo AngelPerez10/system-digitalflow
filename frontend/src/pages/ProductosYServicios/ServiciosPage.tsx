@@ -354,24 +354,42 @@ export default function Servicios() {
     }
     setLoadingConceptos(true);
     try {
-      const res = await fetchApi("/api/conceptos/?ordering=folio", {
-        method: "GET",
-        cache: "no-store" as RequestCache,
-      });
-      const data = await res.json().catch(() => ({ results: [] }));
-      if (!res.ok) {
-        setConceptos([]);
-        return;
+      const mapped: Concepto[] = [];
+      let page = 1;
+      let totalPages = 1;
+      while (page <= totalPages && page <= 20) {
+        const res = await fetchApi(`/api/conceptos/?ordering=folio&page_size=200&page=${page}`, {
+          method: "GET",
+          cache: "no-store" as RequestCache,
+        });
+        const data = await res.json().catch(() => ({ results: [] }));
+        if (!res.ok) {
+          setConceptos([]);
+          return;
+        }
+        const list = Array.isArray((data as { results?: unknown })?.results)
+          ? ((data as { results: unknown[] }).results)
+          : Array.isArray(data)
+            ? data
+            : [];
+        const count = typeof (data as { count?: unknown })?.count === "number"
+          ? (data as { count: number }).count
+          : list.length;
+        totalPages = Math.max(1, Math.ceil(count / 200));
+        for (let idx = 0; idx < list.length; idx++) {
+          const c = list[idx] as Record<string, unknown>;
+          mapped.push({
+            id: Number(c?.id ?? mapped.length + 1),
+            folio: String(c?.folio ?? c?.idx ?? c?.id ?? mapped.length + 1),
+            concepto: String(c?.concepto ?? c?.nombre ?? "").trim(),
+            descripcion: String(c?.descripcion ?? "").trim(),
+            precio1: Number(c?.precio1 ?? c?.precio ?? 0),
+            imagen_url: String(c?.imagen_url ?? "").trim(),
+          });
+        }
+        if (list.length === 0) break;
+        page += 1;
       }
-      const list = Array.isArray((data as any)?.results) ? (data as any).results : Array.isArray(data) ? data : [];
-      const mapped: Concepto[] = list.map((c: any, idx: number) => ({
-        id: Number(c?.id ?? idx + 1),
-        folio: String(c?.folio ?? c?.idx ?? c?.id ?? idx + 1),
-        concepto: String(c?.concepto ?? c?.nombre ?? "").trim(),
-        descripcion: String(c?.descripcion ?? "").trim(),
-        precio1: Number(c?.precio1 ?? c?.precio ?? 0),
-        imagen_url: String(c?.imagen_url ?? "").trim(),
-      }));
       setConceptos(mapped);
     } catch {
       setConceptos([]);
@@ -684,6 +702,17 @@ export default function Servicios() {
       setConceptoModalError("Faltan campos requeridos: Folio y Concepto.");
       return;
     }
+    const folio = String(conceptoFormData.folio).trim();
+    const folioKey = folio.toLowerCase();
+    const folioDuplicado = conceptos.some(
+      (c) =>
+        c.folio.trim().toLowerCase() === folioKey &&
+        String(c.id) !== String(editingConcepto?.id ?? "")
+    );
+    if (folioDuplicado) {
+      setConceptoModalError(`Ya existe un concepto con el folio "${folio}". No se puede agregar duplicado.`);
+      return;
+    }
     const descripcion = String(conceptoFormData.descripcion || "").trim();
     if (descripcion.length > CONCEPTO_DESCRIPCION_MAX) {
       setConceptoModalError(`La descripción no puede superar ${CONCEPTO_DESCRIPCION_MAX} caracteres.`);
@@ -692,7 +721,7 @@ export default function Servicios() {
     const basePrecio = Number(conceptoFormData.precio1 || 0);
     const precio1 = roundConceptoPrecio(basePrecio);
     const payload = {
-      folio: String(conceptoFormData.folio).trim(),
+      folio,
       concepto: String(conceptoFormData.concepto).trim(),
       descripcion,
       precio1,
@@ -1280,7 +1309,14 @@ export default function Servicios() {
             className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-gray-50/40 dark:bg-gray-950/20"
           >
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-5 py-5 pb-6 custom-scrollbar sm:px-6">
-              {conceptoModalError && <Alert variant="error" title="Error" message={conceptoModalError} showLink={false} />}
+              {conceptoModalError && (
+                <Alert
+                  variant={/ya existe/i.test(conceptoModalError) ? "warning" : "error"}
+                  title={/ya existe/i.test(conceptoModalError) ? "Advertencia" : "Error"}
+                  message={conceptoModalError}
+                  showLink={false}
+                />
+              )}
 
               <section className={modalPanelClass}>
                 <div className="mb-3 border-b border-gray-100/90 pb-3 dark:border-white/[0.06]">
@@ -1288,8 +1324,16 @@ export default function Servicios() {
                 </div>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
-                    <Label className={modalLabelClass}>Folio *</Label>
-                    <Input value={conceptoFormData.folio} onChange={(e) => setConceptoFormData({ ...conceptoFormData, folio: e.target.value })} />
+                    <Label htmlFor="concepto-field-folio" className={modalLabelClass}>Folio *</Label>
+                    <Input
+                      id="concepto-field-folio"
+                      value={conceptoFormData.folio}
+                      onChange={(e) => {
+                        setConceptoModalError("");
+                        setConceptoFormData({ ...conceptoFormData, folio: e.target.value });
+                      }}
+                      error={Boolean(conceptoModalError && /folio/i.test(conceptoModalError))}
+                    />
                   </div>
                   <div>
                     <Label className={modalLabelClass}>Precio base (sin IVA)</Label>

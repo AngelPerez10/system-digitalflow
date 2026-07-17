@@ -34,6 +34,19 @@ class ConceptoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
 
+    def validate_folio(self, value):
+        folio = ' '.join(str(value or '').strip().split())
+        if not folio:
+            raise serializers.ValidationError('El folio es requerido.')
+        qs = Concepto.objects.filter(folio__iexact=folio)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(
+                f'Ya existe un concepto con el folio "{folio}".'
+            )
+        return folio
+
 
 class ProductoManualSerializer(serializers.ModelSerializer):
     class Meta:
@@ -53,6 +66,19 @@ class ProductoManualSerializer(serializers.ModelSerializer):
             'fecha_actualizacion',
         ]
         read_only_fields = ['id', 'fuente', 'fecha_creacion', 'fecha_actualizacion']
+
+    def validate_modelo(self, value):
+        modelo = ' '.join(str(value or '').strip().split())
+        if not modelo:
+            raise serializers.ValidationError('El modelo es requerido.')
+        qs = ProductoManual.objects.filter(modelo__iexact=modelo)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(
+                f'Ya existe un producto manual con el modelo "{modelo}".'
+            )
+        return modelo
 
     def validate_stock(self, value):
         if value < 0:

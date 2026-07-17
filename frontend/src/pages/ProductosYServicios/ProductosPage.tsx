@@ -326,33 +326,51 @@ export default function ProductosPage() {
   const fetchManualProducts = useCallback(async () => {
     if (!catalogReady) return;
     try {
-      const res = await fetchApi("/api/productos-manuales/?page_size=500&ordering=-fecha_creacion", { method: "GET" });
-      const data = await res.json().catch(() => ({ results: [] }));
-      if (!res.ok) {
-        setManualProducts([]);
-        console.error("No se pudieron cargar productos manuales:", res.status, data);
-        return;
+      const mapped: ManualProduct[] = [];
+      let page = 1;
+      let totalPages = 1;
+      while (page <= totalPages && page <= 20) {
+        const res = await fetchApi(
+          `/api/productos-manuales/?page_size=200&page=${page}&ordering=-fecha_creacion`,
+          { method: "GET" }
+        );
+        const data = await res.json().catch(() => ({ results: [] }));
+        if (!res.ok) {
+          setManualProducts([]);
+          console.error("No se pudieron cargar productos manuales:", res.status, data);
+          return;
+        }
+        const payload = data as { results?: unknown; count?: number } | unknown[];
+        const list: unknown[] = Array.isArray(payload)
+          ? payload
+          : Array.isArray((payload as { results?: unknown }).results)
+            ? ((payload as { results: unknown[] }).results)
+            : [];
+        const count =
+          !Array.isArray(payload) && typeof (payload as { count?: unknown }).count === "number"
+            ? (payload as { count: number }).count
+            : list.length;
+        totalPages = Math.max(1, Math.ceil(count / 200));
+        for (const x of list) {
+          if (!x || typeof x !== "object") continue;
+          const row = x as Record<string, unknown>;
+          const producto = String(row.producto || "").trim();
+          if (!producto) continue;
+          mapped.push({
+            id: String(row.id ?? ""),
+            imagen_url: String(row.imagen_url || ""),
+            producto,
+            caracteristicas: String(row.caracteristicas || ""),
+            marca: String(row.marca || ""),
+            modelo: String(row.modelo || ""),
+            fuente: "manual",
+            precio: toMoney2(Number(row.precio || 0)),
+            stock: Number.isFinite(Number(row.stock)) ? Number(row.stock) : 0,
+          });
+        }
+        if (list.length === 0) break;
+        page += 1;
       }
-      const payload = data as { results?: unknown } | unknown[];
-      const list: unknown[] = Array.isArray(payload)
-        ? payload
-        : Array.isArray((payload as { results?: unknown }).results)
-          ? ((payload as { results: unknown[] }).results)
-          : [];
-      const mapped: ManualProduct[] = list
-        .filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === "object")
-        .map((x): ManualProduct => ({
-          id: String(x.id ?? ""),
-          imagen_url: String(x.imagen_url || ""),
-          producto: String(x.producto || ""),
-          caracteristicas: String(x.caracteristicas || ""),
-          marca: String(x.marca || ""),
-          modelo: String(x.modelo || ""),
-          fuente: "manual",
-          precio: toMoney2(Number(x.precio || 0)),
-          stock: Number.isFinite(Number(x.stock)) ? Number(x.stock) : 0,
-        }))
-        .filter((x) => x.producto.trim());
       setManualProducts(mapped);
     } catch (err) {
       setManualProducts([]);
@@ -734,6 +752,16 @@ export default function ProductosPage() {
       setManualFormError("Debes iniciar sesión para guardar productos.");
       return;
     }
+    const modeloKey = modelo.toLowerCase();
+    const modeloDuplicado = manualProducts.some(
+      (p) =>
+        p.modelo.trim().toLowerCase() === modeloKey &&
+        String(p.id) !== String(editingManualId || "")
+    );
+    if (modeloDuplicado) {
+      setManualFormError(`Ya existe un producto manual con el modelo "${modelo}". No se puede agregar duplicado.`);
+      return;
+    }
     const body = { imagen_url: manualForm.imagen_url.trim(), producto, caracteristicas: manualForm.caracteristicas.trim(), marca, modelo, precio: toMoney2(precio), stock: Math.round(stock), activo: true };
     try {
       const isEdit = Boolean(editingManualId);
@@ -741,7 +769,13 @@ export default function ProductosPage() {
       const res = await fetchApi(endpoint, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const detail = data && typeof data === "object" && "detail" in data ? (data as { detail?: unknown }).detail : undefined;
+        const record = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+        const modeloErr = record.modelo;
+        if (Array.isArray(modeloErr) && typeof modeloErr[0] === "string") {
+          setManualFormError(modeloErr[0]);
+          return;
+        }
+        const detail = "detail" in record ? record.detail : undefined;
         setManualFormError(typeof detail === "string" && detail.trim() ? detail : "No se pudo guardar el producto.");
         return;
       }
@@ -1032,7 +1066,12 @@ export default function ProductosPage() {
 
         <div className="custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-[#fffdfa] px-5 py-5 pb-6 dark:bg-[#111a2b] sm:px-6">
           {manualFormError && (
-            <div className="rounded-xl border border-red-200/80 bg-red-50/90 px-3.5 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+            <div
+              id="manual-form-error"
+              role="alert"
+              aria-live="assertive"
+              className="rounded-xl border border-amber-300/90 bg-amber-50/95 px-3.5 py-2.5 text-sm text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-200"
+            >
               {manualFormError}
             </div>
           )}
@@ -1044,22 +1083,33 @@ export default function ProductosPage() {
 
             <div className="space-y-4">
               <div>
-                <label className={claudeFieldLabel}>Producto *</label>
-                <input value={manualForm.producto} onChange={(e) => setManualForm((p) => ({ ...p, producto: e.target.value }))} placeholder="Nombre del producto" className={claudeInput} />
+                <label className={claudeFieldLabel} htmlFor="manual-producto">Producto *</label>
+                <input id="manual-producto" value={manualForm.producto} onChange={(e) => setManualForm((p) => ({ ...p, producto: e.target.value }))} placeholder="Nombre del producto" className={claudeInput} />
               </div>
               <div>
-                <label className={claudeFieldLabel}>Características</label>
-                <textarea value={manualForm.caracteristicas} onChange={(e) => setManualForm((p) => ({ ...p, caracteristicas: e.target.value }))} placeholder="Escribe una característica por línea" rows={4} className="min-h-[110px] w-full rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 py-2 text-sm text-[#1c1917] outline-none transition-colors placeholder:text-[#78716c] focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20" />
+                <label className={claudeFieldLabel} htmlFor="manual-caracteristicas">Características</label>
+                <textarea id="manual-caracteristicas" value={manualForm.caracteristicas} onChange={(e) => setManualForm((p) => ({ ...p, caracteristicas: e.target.value }))} placeholder="Escribe una característica por línea" rows={4} className="min-h-[110px] w-full rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 py-2 text-sm text-[#1c1917] outline-none transition-colors placeholder:text-[#78716c] focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20" />
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className={claudeFieldLabel}>Marca *</label>
-                  <input value={manualForm.marca} onChange={(e) => setManualForm((p) => ({ ...p, marca: e.target.value }))} placeholder="Marca" className={claudeInput} />
+                  <label className={claudeFieldLabel} htmlFor="manual-marca">Marca *</label>
+                  <input id="manual-marca" value={manualForm.marca} onChange={(e) => setManualForm((p) => ({ ...p, marca: e.target.value }))} placeholder="Marca" className={claudeInput} />
                 </div>
                 <div>
-                  <label className={claudeFieldLabel}>Modelo *</label>
-                  <input value={manualForm.modelo} onChange={(e) => setManualForm((p) => ({ ...p, modelo: e.target.value }))} placeholder="Modelo" className={claudeInput} />
+                  <label className={claudeFieldLabel} htmlFor="manual-modelo">Modelo *</label>
+                  <input
+                    id="manual-modelo"
+                    value={manualForm.modelo}
+                    onChange={(e) => {
+                      setManualFormError("");
+                      setManualForm((p) => ({ ...p, modelo: e.target.value }));
+                    }}
+                    placeholder="Modelo"
+                    className={claudeInput}
+                    aria-invalid={Boolean(manualFormError && /modelo/i.test(manualFormError))}
+                    aria-describedby={manualFormError ? "manual-form-error" : undefined}
+                  />
                 </div>
               </div>
 
