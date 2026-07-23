@@ -1,2 +1,21 @@
 packages:
   - "frontend"
+
+# pnpm 11: declare which packages may run install scripts.
+# https://pnpm.io/settings#allowbuilds
+allowBuilds:
+  esbuild: true
+
+# Fresh React patch releases can be younger than the default release-age gate.
+minimumReleaseAgeExclude:
+  - react
+  - react-dom
+  - "@types/react"
+  - "@types/react-dom"
+
+# Settings moved out of package.json#pnpm (ignored since pnpm 10.33 / required in v11).
+# https://pnpm.io/settings
+overrides:
+  "react-helmet-async>react": "^19.2.8"
+  "@types/react": "^19.2.17"
+  "@types/react-dom": "^19.2.3"

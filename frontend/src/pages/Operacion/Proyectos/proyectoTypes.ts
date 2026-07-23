@@ -17,6 +17,11 @@ export type PresupuestoLinea = {
   unidad: string;
   categoria?: string;
   esEquipo: boolean;
+  /** Miniatura resuelta (Syscom / TVC / manual / Cloudinary). */
+  imagenUrl?: string;
+  /** ID de catálogo cuando viene de Syscom/TVC o `manual:<id>`. */
+  productoId?: string;
+  fuenteProducto?: "syscom" | "tvc" | "manual";
 };
 
 export type EquipoEstadoInstalacion = "pendiente" | "entregado" | "no_instalado" | "instalado";
@@ -25,9 +30,12 @@ export type ProyectoEquipoLinea = {
   lineaId: string;
   modelo: string;
   modeloOriginal: string;
-  /** ID Syscom cuando el modelo se eligió del catálogo. */
+  /** ID Syscom/TVC/manual cuando el modelo se eligió del catálogo. */
   productoId?: string;
   marca?: string;
+  /** Miniatura del producto (misma fuente que cotización / catálogo). */
+  imagenUrl?: string;
+  fuenteProducto?: "syscom" | "tvc" | "manual";
   estadoInstalacion: EquipoEstadoInstalacion;
   equipoEntregado: boolean;
 };

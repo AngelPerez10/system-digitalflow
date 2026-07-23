@@ -13,7 +13,7 @@ services:
     name: system-digitalflow-frontend
     runtime: static
     rootDir: .
-    buildCommand: corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm install --frozen-lockfile && pnpm run frontend:build
+    buildCommand: corepack enable && corepack prepare pnpm@11.15.1 --activate && pnpm install --frozen-lockfile && pnpm run frontend:build
     staticPublishPath: frontend/dist
     envVars:
       - key: SKIP_INSTALL_DEPS

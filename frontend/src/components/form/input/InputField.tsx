@@ -1,6 +1,6 @@
 import type React from "react";
 import { useId } from "react";
-import type { FC } from "react";
+import type { FC, FocusEventHandler, MouseEventHandler } from "react";
 
 interface InputProps {
   type?: "text" | "number" | "email" | "password" | "date" | "time" | string;
@@ -9,6 +9,8 @@ interface InputProps {
   placeholder?: string;
   value?: string | number;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClick?: MouseEventHandler<HTMLInputElement>;
+  onFocus?: FocusEventHandler<HTMLInputElement>;
   className?: string;
   min?: string;
   max?: string;
@@ -18,6 +20,8 @@ interface InputProps {
   success?: boolean;
   error?: boolean;
   hint?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean | "true" | "false";
 }
 
 const Input: FC<InputProps> = ({
@@ -27,6 +31,8 @@ const Input: FC<InputProps> = ({
   placeholder,
   value,
   onChange,
+  onClick,
+  onFocus,
   className = "",
   min,
   max,
@@ -36,10 +42,13 @@ const Input: FC<InputProps> = ({
   success = false,
   error = false,
   hint,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
 }) => {
   const generatedId = useId();
   const inputId = id || `input-${name || generatedId}`;
   const hintId = hint ? `${inputId}-hint` : undefined;
+  const describedBy = [ariaDescribedBy, hintId].filter(Boolean).join(" ") || undefined;
 
   let inputClasses = ` h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3  dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${className}`;
 
@@ -62,14 +71,16 @@ const Input: FC<InputProps> = ({
         placeholder={placeholder}
         value={value}
         onChange={onChange}
+        onClick={onClick}
+        onFocus={onFocus}
         min={min}
         max={max}
         step={step}
         disabled={disabled}
         required={required}
         className={inputClasses}
-        aria-invalid={error || undefined}
-        aria-describedby={hintId}
+        aria-invalid={ariaInvalid ?? (error || undefined)}
+        aria-describedby={describedBy}
       />
 
       {hint && (

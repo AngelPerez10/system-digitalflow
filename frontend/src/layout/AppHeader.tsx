@@ -5,7 +5,7 @@ import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import UserDropdown from "../components/header/UserDropdown";
 
-const AppHeader: React.FC = () => {
+export default function AppHeader() {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const navigate = useNavigate();
@@ -208,6 +208,4 @@ const AppHeader: React.FC = () => {
       </div>
     </header>
   );
-};
-
-export default AppHeader;
+}

@@ -10,6 +10,7 @@ import {
 } from "@/layout/erpPageStyles";
 import {
   fetchSyscomProductosSugerencia,
+  getCatalogProductoImageUrl,
   getProductoImageUrl,
   type SyscomProducto,
 } from "@/pages/ProductosYServicios/syscomCatalog";
@@ -25,6 +26,8 @@ export type SyscomModeloSeleccionado = {
   productoId: string;
   marca: string;
   titulo: string;
+  imagenUrl?: string;
+  fuenteProducto?: "syscom" | "tvc" | "manual";
 };
 
 type Props = {
@@ -111,11 +114,15 @@ export function ProyectoSyscomModeloPicker({
   }, [open, search]);
 
   const handleSelect = (p: SyscomProducto) => {
+    const fuente =
+      p.fuente === "tvc" || p.fuente === "manual" || p.fuente === "syscom" ? p.fuente : "syscom";
     onSelect({
       modelo: formatModeloLabel(p),
       productoId: String(p.producto_id || ""),
       marca: String(p.marca || "").trim(),
       titulo: String(p.titulo || "").trim(),
+      imagenUrl: getCatalogProductoImageUrl(p) || undefined,
+      fuenteProducto: fuente,
     });
   };
 
@@ -189,7 +196,7 @@ export function ProyectoSyscomModeloPicker({
           ) : null}
 
           {productos.map((p) => {
-            const img = getProductoImageUrl(p.img_portada);
+            const img = getCatalogProductoImageUrl(p) || getProductoImageUrl(p.img_portada);
             const label = formatModeloLabel(p);
             return (
               <li key={p.producto_id}>

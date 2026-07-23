@@ -62,6 +62,9 @@ export function buildEquiposFromPresupuesto(lineas: PresupuestoLinea[]): Proyect
         lineaId: qty > 1 ? `${linea.id}-${i + 1}` : linea.id,
         modelo: linea.descripcion,
         modeloOriginal: linea.descripcion,
+        productoId: linea.productoId,
+        imagenUrl: linea.imagenUrl,
+        fuenteProducto: linea.fuenteProducto,
         estadoInstalacion: "pendiente",
         equipoEntregado: false,
       });
@@ -97,6 +100,13 @@ export function estadoProyectoLabel(estado: ProyectoEstado): string {
 export function clampPorcentajeAvance(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+/** Hora local del dispositivo en formato `HH:mm` (input type="time"). */
+export function getDeviceTimeHHMM(date: Date = new Date()): string {
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
 }
 
 export function proyectoRowFromDraft(draft: ProyectoDraft, existing?: ProyectoRow): ProyectoRow {

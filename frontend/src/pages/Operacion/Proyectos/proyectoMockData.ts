@@ -49,6 +49,9 @@ export const MOCK_PRESUPUESTO_BY_COTIZACION: Record<string, PresupuestoLinea[]> 
       cantidad: 1,
       unidad: "PZA",
       esEquipo: true,
+      productoId: "dsc-neo-kit",
+      fuenteProducto: "syscom",
+      imagenUrl: "https://placehold.co/120x120/f5f0e8/57534e?text=DSC",
     },
     {
       id: "l2",
@@ -57,6 +60,9 @@ export const MOCK_PRESUPUESTO_BY_COTIZACION: Record<string, PresupuestoLinea[]> 
       cantidad: 1,
       unidad: "PZA",
       esEquipo: true,
+      productoId: "dsc-ipgprs",
+      fuenteProducto: "syscom",
+      imagenUrl: "https://placehold.co/120x120/efe9de/57534e?text=IP",
     },
     {
       id: "l3",
@@ -65,6 +71,9 @@ export const MOCK_PRESUPUESTO_BY_COTIZACION: Record<string, PresupuestoLinea[]> 
       cantidad: 1,
       unidad: "PZA",
       esEquipo: true,
+      fuenteProducto: "manual",
+      productoId: "manual:sim-m2m",
+      imagenUrl: "https://placehold.co/120x120/e8e0d2/57534e?text=SIM",
     },
     {
       id: "l4",
@@ -84,6 +93,9 @@ export const MOCK_PRESUPUESTO_BY_COTIZACION: Record<string, PresupuestoLinea[]> 
       cantidad: 3,
       unidad: "PZA",
       esEquipo: true,
+      productoId: "kitgpsdt16",
+      fuenteProducto: "tvc",
+      imagenUrl: "https://placehold.co/120x120/dbeafe/1e40af?text=GPS",
     },
     {
       id: "l2",
@@ -102,6 +114,9 @@ export const MOCK_PRESUPUESTO_BY_COTIZACION: Record<string, PresupuestoLinea[]> 
       cantidad: 8,
       unidad: "PZA",
       esEquipo: true,
+      productoId: "hik-4mp",
+      fuenteProducto: "syscom",
+      imagenUrl: "https://placehold.co/120x120/ecfccb/365314?text=CAM",
     },
     {
       id: "l2",
@@ -110,6 +125,9 @@ export const MOCK_PRESUPUESTO_BY_COTIZACION: Record<string, PresupuestoLinea[]> 
       cantidad: 1,
       unidad: "PZA",
       esEquipo: true,
+      productoId: "nvr-16",
+      fuenteProducto: "syscom",
+      imagenUrl: "https://placehold.co/120x120/e0e7ff/312e81?text=NVR",
     },
   ],
   "sic-901": [
@@ -120,6 +138,9 @@ export const MOCK_PRESUPUESTO_BY_COTIZACION: Record<string, PresupuestoLinea[]> 
       cantidad: 5,
       unidad: "PZA",
       esEquipo: true,
+      productoId: "fmc920",
+      fuenteProducto: "tvc",
+      imagenUrl: "https://placehold.co/120x120/ffedd5/9a3412?text=FMC",
     },
   ],
 };

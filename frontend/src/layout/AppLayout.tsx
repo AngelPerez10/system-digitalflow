@@ -4,7 +4,7 @@ import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 
-const LayoutContent: React.FC = () => {
+function LayoutContent() {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   return (
@@ -32,14 +32,12 @@ const LayoutContent: React.FC = () => {
       </main>
     </div>
   );
-};
+}
 
-const AppLayout: React.FC = () => {
+export default function AppLayout() {
   return (
     <SidebarProvider>
       <LayoutContent />
     </SidebarProvider>
   );
-};
-
-export default AppLayout;
+}

@@ -1,6 +1,6 @@
 import { useSidebar } from "../context/SidebarContext";
 
-const Backdrop: React.FC = () => {
+export default function Backdrop() {
   const { isMobileOpen, toggleMobileSidebar } = useSidebar();
 
   if (!isMobileOpen) return null;
@@ -13,6 +13,4 @@ const Backdrop: React.FC = () => {
       onClick={toggleMobileSidebar}
     />
   );
-};
-
-export default Backdrop;
+}

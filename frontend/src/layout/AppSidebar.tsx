@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 // Assume these icons are imported from an icon library
@@ -41,7 +41,7 @@ const SIDEBAR_FUTURE = {
 
 type NavItem = {
   name: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   path?: string;
   subItems?: SidebarSubItem[];
 };
@@ -50,7 +50,7 @@ type SidebarSubItem =
   | { name: string; path: string; pro?: boolean; new?: boolean }
   | { name: string; subItems: { name: string; path: string; pro?: boolean; new?: boolean }[] };
 
-const AppSidebar: React.FC = () => {
+export default function AppSidebar() {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
   const { isAdmin, permissions: authPermissions } = useAuth();
@@ -603,6 +603,4 @@ const AppSidebar: React.FC = () => {
       </div>
     </aside>
   );
-};
-
-export default AppSidebar;
+}

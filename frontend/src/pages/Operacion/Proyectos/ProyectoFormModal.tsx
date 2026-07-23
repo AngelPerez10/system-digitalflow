@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { Modal } from "@/components/ui/modal";
+import DatePicker from "@/components/form/date-picker";
 import Label from "@/components/form/Label";
+import Input from "@/components/form/input/InputField";
 import SearchableSelect from "@/components/form/SearchableSelect";
 import SignaturePad from "@/components/ui/signature/SignaturePad";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
+import { TimeIcon } from "@/icons";
 import {
   erpBodyClass,
   erpChipNeutralClass,
@@ -12,7 +15,6 @@ import {
   erpPrimaryBtnClass,
   erpSecondaryBtnClass,
   erpSectionLabelClass,
-  erpSelectFieldClass,
   erpSubheadingClass,
   erpTableHeaderClass,
   erpTableWrapClass,
@@ -23,19 +25,15 @@ import {
   OrdenModalPrimaryButton,
 } from "../OrdenesTrabajo/OrdenTrabajoModals";
 import {
-  erpDangerBtnClass,
   erpModalBodyClass,
   erpModalFooterClass,
   erpModalFormScrollClass,
-  erpModalInnerPanelClass,
-  erpModalPanelClass,
-  erpModalSectionRowClass,
-  erpModalSectionTitleClass,
   erpModalShellClass,
   erpModalTabClass,
 } from "../OrdenesTrabajo/ordenTrabajoStyles";
 import { canCerrarProyecto, proyectoRequiereCotizacionAdicional } from "./proyectoCloseValidation";
 import { ProyectoEvidenciasField } from "./ProyectoEvidenciasField";
+import { ProyectoFormSection, proyectoSectionIconClass } from "./ProyectoFormSection";
 import {
   buildEquiposFromPresupuesto,
   clampPorcentajeAvance,
@@ -43,6 +41,7 @@ import {
   emptyPersona,
   estadoBadgeClass,
   estadoInstalacionLabel,
+  getDeviceTimeHHMM,
 } from "./proyectoFormUtils";
 import {
   MOCK_COTIZACIONES_DIGITALFLOW,
@@ -50,17 +49,27 @@ import {
   MOCK_PRESUPUESTO_BY_COTIZACION,
 } from "./proyectoMockData";
 import {
+  formatProyectoFecha,
+  proyectoAddDayBtnClass,
+  proyectoAvanceRangeClass,
+  proyectoAvanceValueClass,
   proyectoCotizacionOptionClass,
   proyectoEmptyPanelClass,
   proyectoEquipoCardClass,
   proyectoFieldLabelClass,
+  proyectoGhostIconBtnClass,
+  proyectoNotaCardClass,
+  proyectoNotaDayBadgeClass,
+  proyectoNotaMetaClass,
+  proyectoNotaTextareaClass,
   proyectoOrigenBadgeClass,
   proyectoPickerModalBodyClass,
   proyectoPickerModalClass,
   proyectoPickerModalHeaderClass,
   proyectoSectionHintClass,
-  proyectoStepBadgeClass,
+  proyectoStatusChipClass,
 } from "./proyectoPageStyles";
+import { ProyectoProductoThumb } from "./ProyectoProductoThumb";
 import {
   ProyectoSyscomModeloPicker,
   type SyscomModeloSeleccionado,
@@ -88,11 +97,19 @@ type ProyectoFormModalProps = {
   onSave: (draft: ProyectoDraft) => void;
 };
 
-const STATUS_OPTIONS: { value: ProyectoEstado; label: string }[] = [
-  { value: "en_proceso", label: "En proceso" },
-  { value: "pausado", label: "Pausado" },
-  { value: "cerrado", label: "Cerrado" },
+const STATUS_OPTIONS: { value: ProyectoEstado; label: string; tone: "proceso" | "pausado" | "cerrado" }[] = [
+  { value: "en_proceso", label: "En proceso", tone: "proceso" },
+  { value: "pausado", label: "Pausado", tone: "pausado" },
+  { value: "cerrado", label: "Cerrado", tone: "cerrado" },
 ];
+
+const FORM_TABS: { id: ProyectoFormTab; label: string; step: string }[] = [
+  { id: "cliente", label: "Cliente", step: "Paso 1" },
+  { id: "operacion", label: "Operación", step: "Paso 2" },
+  { id: "presupuesto", label: "Presupuesto", step: "Paso 3" },
+];
+
+const TAB_ORDER: ProyectoFormTab[] = ["cliente", "operacion", "presupuesto"];
 
 function personaNombreFromUser(u: {
   id: number;
@@ -121,8 +138,17 @@ export default function ProyectoFormModal({
   const operacionPanelId = useId();
   const presupuestoPanelId = useId();
   const motivoId = useId();
+  const notasLiveId = useId();
+  const focusNotaIdRef = useRef<string | null>(null);
+  const formScrollRef = useRef<HTMLDivElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [notasLiveMessage, setNotasLiveMessage] = useState("");
+  const [clienteStepError, setClienteStepError] = useState("");
+  const [horaSalidaError, setHoraSalidaError] = useState("");
 
   const [activeTab, setActiveTab] = useState<ProyectoFormTab>("cliente");
+  const activeTabRef = useRef<ProyectoFormTab>(activeTab);
+  activeTabRef.current = activeTab;
   const [cliente, setCliente] = useState(initialDraft.cliente);
   const [clienteId, setClienteId] = useState(initialDraft.clienteId);
   const [cotizacion, setCotizacion] = useState(initialDraft.cotizacion);
@@ -145,6 +171,9 @@ export default function ProyectoFormModal({
     initialDraft.notasPorDia?.length ? initialDraft.notasPorDia : [createEmptyNotaDia()]
   );
   const [porcentajeAvance, setPorcentajeAvance] = useState(initialDraft.porcentajeAvance);
+  const [porcentajeExacto, setPorcentajeExacto] = useState(() =>
+    String(clampPorcentajeAvance(initialDraft.porcentajeAvance))
+  );
   const [incidencias, setIncidencias] = useState(initialDraft.incidencias);
   const [requerimientosAdicionales, setRequerimientosAdicionales] = useState(
     initialDraft.requerimientosAdicionales
@@ -216,6 +245,7 @@ export default function ProyectoFormModal({
       initialDraft.notasPorDia?.length ? initialDraft.notasPorDia : [createEmptyNotaDia()]
     );
     setPorcentajeAvance(initialDraft.porcentajeAvance);
+    setPorcentajeExacto(String(clampPorcentajeAvance(initialDraft.porcentajeAvance)));
     setIncidencias(initialDraft.incidencias);
     setRequerimientosAdicionales(initialDraft.requerimientosAdicionales);
     setRequierePresupuestoAdicional(initialDraft.requierePresupuestoAdicional);
@@ -224,6 +254,8 @@ export default function ProyectoFormModal({
     setFirmaClienteUrl(initialDraft.firmaClienteUrl);
     setFirmaTecnicoUrl(initialDraft.firmaTecnicoUrl);
     setCloseBlockedMessage("");
+    setClienteStepError("");
+    setHoraSalidaError("");
     setPickerOpen(false);
     setPickerTarget("principal");
     setPickerSearch("");
@@ -389,15 +421,22 @@ export default function ProyectoFormModal({
       modelo: producto.modelo,
       productoId: producto.productoId,
       marca: producto.marca,
+      imagenUrl: producto.imagenUrl,
+      fuenteProducto: producto.fuenteProducto ?? "syscom",
     });
     setModeloPickerLineaId(null);
   };
 
   const handleRestaurarModeloOriginal = (eq: ProyectoEquipoLinea) => {
+    const lineaOrigen = presupuesto.find(
+      (l) => eq.lineaId === l.id || eq.lineaId.startsWith(`${l.id}-`)
+    );
     updateEquipo(eq.lineaId, {
       modelo: eq.modeloOriginal,
-      productoId: undefined,
+      productoId: lineaOrigen?.productoId,
       marca: undefined,
+      imagenUrl: lineaOrigen?.imagenUrl,
+      fuenteProducto: lineaOrigen?.fuenteProducto,
     });
   };
 
@@ -432,18 +471,55 @@ export default function ProyectoFormModal({
   };
 
   const addNotaDia = () => {
-    setNotasPorDia((prev) => [...prev, createEmptyNotaDia()]);
+    const next = createEmptyNotaDia();
+    focusNotaIdRef.current = next.id;
+    const nextCount = notasPorDia.length + 1;
+    setNotasPorDia((prev) => [...prev, next]);
+    setNotasLiveMessage(`Día ${nextCount} agregado a la bitácora`);
   };
 
   const removeNotaDia = (index: number) => {
-    setNotasPorDia((prev) => {
-      if (prev.length <= 1) return [{ ...prev[0], nota: "" }];
-      return prev.filter((_, i) => i !== index);
-    });
+    if (notasPorDia.length <= 1) {
+      setNotasPorDia([{ ...notasPorDia[0], nota: "" }]);
+      setNotasLiveMessage("Nota del día 1 vaciada");
+      return;
+    }
+    const remaining = notasPorDia.length - 1;
+    setNotasPorDia((prev) => prev.filter((_, i) => i !== index));
+    setNotasLiveMessage(`Día ${index + 1} eliminado. Quedan ${remaining} jornadas`);
   };
 
   const updateNotaDia = (index: number, nota: string) => {
     setNotasPorDia((prev) => prev.map((n, i) => (i === index ? { ...n, nota } : n)));
+  };
+
+  useEffect(() => {
+    const id = focusNotaIdRef.current;
+    if (!id) return;
+    focusNotaIdRef.current = null;
+    const el = document.getElementById(`proyecto-nota-dia-${id}`) as HTMLTextAreaElement | null;
+    el?.focus();
+  }, [notasPorDia]);
+
+  const setPorcentajeAvanceSafe = (value: number) => {
+    const next = clampPorcentajeAvance(value);
+    setPorcentajeAvance(next);
+    setPorcentajeExacto(String(next));
+  };
+
+  const handlePorcentajeExactoChange = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 3);
+    if (digits === "") {
+      setPorcentajeExacto("");
+      setPorcentajeAvance(0);
+      return;
+    }
+    // Evita "012": quita ceros a la izquierda (deja un solo "0").
+    const cleaned = digits.replace(/^0+(?=\d)/, "");
+    const parsed = Number(cleaned);
+    const next = clampPorcentajeAvance(parsed);
+    setPorcentajeAvance(next);
+    setPorcentajeExacto(parsed > 100 ? String(next) : cleaned);
   };
 
   const handleStatusChange = (next: ProyectoEstado) => {
@@ -466,7 +542,19 @@ export default function ProyectoFormModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cliente.trim()) return;
+    // Enter en un campo no debe guardar si aún no estamos en la última pestaña.
+    if (activeTabRef.current !== "presupuesto") {
+      goToNextTab(true);
+      return;
+    }
+    if (!cliente.trim()) {
+      setActiveTab("cliente");
+      setClienteStepError("Escribe el nombre del cliente para continuar.");
+      requestAnimationFrame(() => {
+        document.getElementById("proyecto-modal-cliente")?.focus();
+      });
+      return;
+    }
     if (status === "pausado" && !motivoPausa.trim()) {
       setActiveTab("operacion");
       return;
@@ -483,6 +571,188 @@ export default function ProyectoFormModal({
     onSave(draft);
   };
 
+  const tabIds: Record<ProyectoFormTab, string> = {
+    cliente: clienteTabId,
+    operacion: operacionTabId,
+    presupuesto: presupuestoTabId,
+  };
+
+  const panelIds: Record<ProyectoFormTab, string> = {
+    cliente: clientePanelId,
+    operacion: operacionPanelId,
+    presupuesto: presupuestoPanelId,
+  };
+
+  const handleTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, current: ProyectoFormTab) => {
+    const idx = TAB_ORDER.indexOf(current);
+    if (idx < 0) return;
+    let nextIdx = idx;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      nextIdx = (idx + 1) % TAB_ORDER.length;
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      nextIdx = (idx - 1 + TAB_ORDER.length) % TAB_ORDER.length;
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      nextIdx = 0;
+    } else if (e.key === "End") {
+      e.preventDefault();
+      nextIdx = TAB_ORDER.length - 1;
+    } else {
+      return;
+    }
+    const next = TAB_ORDER[nextIdx];
+    setActiveTab(next);
+    requestAnimationFrame(() => {
+      document.getElementById(tabIds[next])?.focus();
+    });
+  };
+
+  const goToNextTab = (fromPointer?: boolean) => {
+    const current = activeTabRef.current;
+    const idx = TAB_ORDER.indexOf(current);
+    if (idx < 0 || idx >= TAB_ORDER.length - 1) return;
+
+    if (current === "cliente" && !cliente.trim()) {
+      setClienteStepError("Escribe el nombre del cliente para continuar.");
+      requestAnimationFrame(() => {
+        document.getElementById("proyecto-modal-cliente")?.focus();
+      });
+      return;
+    }
+
+    setClienteStepError("");
+    const apply = () => {
+      const next = TAB_ORDER[idx + 1];
+      setActiveTab(next);
+      activeTabRef.current = next;
+      requestAnimationFrame(() => {
+        formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    };
+
+    if (fromPointer) window.setTimeout(apply, 0);
+    else apply();
+  };
+
+  const goToPrevTab = () => {
+    const idx = TAB_ORDER.indexOf(activeTabRef.current);
+    if (idx <= 0) return;
+    const prev = TAB_ORDER[idx - 1];
+    setActiveTab(prev);
+    activeTabRef.current = prev;
+    setClienteStepError("");
+    requestAnimationFrame(() => {
+      formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  };
+
+  const stampHoraLlegada = () => {
+    setHoraLlegada(getDeviceTimeHHMM());
+    setHoraSalidaError("");
+  };
+
+  const stampHoraSalida = () => {
+    if (!horaLlegada.trim()) {
+      setHoraSalidaError("Primero registra la hora de llegada.");
+      requestAnimationFrame(() => {
+        document.getElementById("proyecto-hora-llegada")?.focus();
+      });
+      return;
+    }
+    setHoraSalidaError("");
+    setHoraSalida(getDeviceTimeHHMM());
+  };
+
+  const iconUser = (
+    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  const iconDoc = (
+    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  const iconClock = (
+    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+
+  const iconTeam = (
+    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  const iconNotes = (
+    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  const iconChart = (
+    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+
+  const iconAlert = (
+    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  const iconStatus = (
+    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+
+  const iconBox = (
+    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  const iconPen = (
+    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
   return (
     <>
       <Modal
@@ -498,45 +768,32 @@ export default function ProyectoFormModal({
           editing={editing}
           contextLabel="Operación · Proyectos"
           title={`${editing ? "Editar" : "Nuevo"} proyecto`}
-          subtitle="Asigna equipo, fechas y seguimiento operativo del proyecto"
+          subtitle="Captura y revisa los datos antes de guardar"
         />
 
-        <form onSubmit={handleSubmit} className={erpModalBodyClass}>
-          <div className={erpModalFormScrollClass}>
+        <div className={erpModalBodyClass}>
+          <form ref={formRef} onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div ref={formScrollRef} className={erpModalFormScrollClass}>
             <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Secciones del proyecto">
-              <button
-                type="button"
-                id={clienteTabId}
-                role="tab"
-                aria-selected={activeTab === "cliente"}
-                aria-controls={clientePanelId}
-                onClick={() => setActiveTab("cliente")}
-                className={erpModalTabClass(activeTab === "cliente")}
-              >
-                Cliente y cotización
-              </button>
-              <button
-                type="button"
-                id={operacionTabId}
-                role="tab"
-                aria-selected={activeTab === "operacion"}
-                aria-controls={operacionPanelId}
-                onClick={() => setActiveTab("operacion")}
-                className={erpModalTabClass(activeTab === "operacion")}
-              >
-                Operación
-              </button>
-              <button
-                type="button"
-                id={presupuestoTabId}
-                role="tab"
-                aria-selected={activeTab === "presupuesto"}
-                aria-controls={presupuestoPanelId}
-                onClick={() => setActiveTab("presupuesto")}
-                className={erpModalTabClass(activeTab === "presupuesto")}
-              >
-                Presupuesto y equipos
-              </button>
+              {FORM_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  id={tabIds[tab.id]}
+                  role="tab"
+                  tabIndex={activeTab === tab.id ? 0 : -1}
+                  aria-selected={activeTab === tab.id}
+                  aria-controls={panelIds[tab.id]}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setClienteStepError("");
+                  }}
+                  onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
+                  className={erpModalTabClass(activeTab === tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
             {activeTab === "cliente" && (
@@ -544,78 +801,104 @@ export default function ProyectoFormModal({
                 id={clientePanelId}
                 role="tabpanel"
                 aria-labelledby={clienteTabId}
-                className={erpModalPanelClass}
+                className="space-y-5"
               >
-                <div className={erpModalSectionRowClass}>
-                  <h3 className={erpModalSectionTitleClass}>Identificación</h3>
-                </div>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label htmlFor="proyecto-modal-cliente" className={proyectoFieldLabelClass}>
-                      Cliente
-                    </label>
-                    <input
-                      id="proyecto-modal-cliente"
-                      type="text"
-                      value={cliente}
-                      onChange={(e) => setCliente(e.target.value)}
-                      placeholder="Nombre o razón social"
-                      className={erpInputLikeClass}
-                      autoComplete="organization"
-                      required
-                    />
+                <ProyectoFormSection
+                  titleId="proyecto-sec-cliente"
+                  eyebrow="Paso 1"
+                  title="Identificación"
+                  hint="Cliente del proyecto y referencia interna."
+                  icon={iconUser}
+                >
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="proyecto-modal-cliente" className={proyectoFieldLabelClass}>
+                        Cliente
+                      </label>
+                      <input
+                        id="proyecto-modal-cliente"
+                        type="text"
+                        value={cliente}
+                        onChange={(e) => {
+                          setCliente(e.target.value);
+                          if (clienteStepError) setClienteStepError("");
+                        }}
+                        placeholder="Nombre o razón social"
+                        className={erpInputLikeClass}
+                        autoComplete="organization"
+                        aria-invalid={Boolean(clienteStepError)}
+                        aria-describedby={clienteStepError ? "proyecto-cliente-step-error" : undefined}
+                      />
+                      {clienteStepError ? (
+                        <p
+                          id="proyecto-cliente-step-error"
+                          className="mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400"
+                          role="alert"
+                        >
+                          {clienteStepError}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div>
+                      <label htmlFor="proyecto-modal-cliente-id" className={proyectoFieldLabelClass}>
+                        ID cliente
+                      </label>
+                      <input
+                        id="proyecto-modal-cliente-id"
+                        type="text"
+                        value={clienteId}
+                        onChange={(e) => setClienteId(e.target.value)}
+                        placeholder="Referencia interna"
+                        className={erpInputLikeClass}
+                        readOnly={Boolean(cotizacion)}
+                        aria-readonly={Boolean(cotizacion)}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label htmlFor="proyecto-modal-cliente-id" className={proyectoFieldLabelClass}>
-                      ID cliente
-                    </label>
-                    <input
-                      id="proyecto-modal-cliente-id"
-                      type="text"
-                      value={clienteId}
-                      onChange={(e) => setClienteId(e.target.value)}
-                      placeholder="Referencia interna"
-                      className={erpInputLikeClass}
-                      readOnly={Boolean(cotizacion)}
-                      aria-readonly={Boolean(cotizacion)}
-                    />
-                  </div>
-                </div>
+                </ProyectoFormSection>
 
-                <div className="mt-6">
-                  <p className={erpSectionLabelClass}>Origen del presupuesto</p>
+                <ProyectoFormSection
+                  titleId="proyecto-sec-cotizacion"
+                  eyebrow="Presupuesto"
+                  title="Origen del presupuesto"
+                  hint="Cotización DigitalFlow o SICAR — sin importes, solo partidas."
+                  icon={iconDoc}
+                  card={Boolean(cotizacion)}
+                >
                   {cotizacion ? (
-                    <div className={`${erpModalInnerPanelClass} mt-3`}>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <span className={proyectoOrigenBadgeClass(cotizacion.origen)}>
-                            {cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
-                          </span>
-                          <p className="mt-2 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
-                            Cotización #{cotizacion.folio}
-                          </p>
-                          <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
-                            {cotizacion.fecha}
-                            {cotizacion.contacto ? ` · ${cotizacion.contacto}` : ""}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button type="button" className={erpSecondaryBtnClass} onClick={() => openCotizacionPicker("principal")}>
-                            Cambiar
-                          </button>
-                          <button
-                            type="button"
-                            className={`${erpDangerBtnClass} !flex-none !px-3 !py-2 !text-xs`}
-                            onClick={handleLimpiarPresupuesto}
-                          >
-                            Quitar
-                          </button>
-                        </div>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <span className={proyectoOrigenBadgeClass(cotizacion.origen)}>
+                          {cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
+                        </span>
+                        <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
+                          Cotización #{cotizacion.folio}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {formatProyectoFecha(cotizacion.fecha)}
+                          {cotizacion.contacto ? ` · ${cotizacion.contacto}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className={erpSecondaryBtnClass}
+                          onClick={() => openCotizacionPicker("principal")}
+                        >
+                          Cambiar
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
+                          onClick={handleLimpiarPresupuesto}
+                        >
+                          Quitar
+                        </button>
                       </div>
                     </div>
                   ) : (
-                    <div className={`${proyectoEmptyPanelClass} mt-3`}>
-                      <p className="text-sm text-[#57534e] dark:text-[#b7c1d1]">
+                    <div className={`${proyectoEmptyPanelClass} mt-0`}>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
                         Vincula una cotización para traer el presupuesto sin importes.
                       </p>
                       <button
@@ -623,11 +906,21 @@ export default function ProyectoFormModal({
                         className={`${erpPrimaryBtnClass} mt-4`}
                         onClick={() => openCotizacionPicker("principal")}
                       >
+                        <svg
+                          className="h-4 w-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          aria-hidden
+                        >
+                          <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                        </svg>
                         Cargar cotización
                       </button>
                     </div>
                   )}
-                </div>
+                </ProyectoFormSection>
               </div>
             )}
 
@@ -636,7 +929,7 @@ export default function ProyectoFormModal({
                 id={operacionPanelId}
                 role="tabpanel"
                 aria-labelledby={operacionTabId}
-                className="space-y-4"
+                className="space-y-5"
               >
                 {catalogError ? (
                   <p
@@ -647,23 +940,13 @@ export default function ProyectoFormModal({
                   </p>
                 ) : null}
 
-                {/* 1 · Estado */}
-                <section className={erpModalPanelClass} aria-labelledby="proyecto-sec-estado">
-                  <div className="flex items-start gap-3">
-                    <span className={proyectoStepBadgeClass} aria-hidden>
-                      1
-                    </span>
-                    <div className="min-w-0">
-                      <h3 id="proyecto-sec-estado" className={erpModalSectionTitleClass}>
-                        Estado del proyecto
-                      </h3>
-                      <p className={proyectoSectionHintClass}>
-                        Define el tipo de trabajo y el status actual.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 space-y-4">
+                <ProyectoFormSection
+                  titleId="proyecto-sec-estado"
+                  eyebrow="Paso 2"
+                  title="Estado del proyecto"
+                  hint="Define el tipo de trabajo y el status actual."
+                  icon={iconStatus}
+                >
                     <div>
                       <SearchableSelect
                         label="Tipo de trabajo"
@@ -682,34 +965,38 @@ export default function ProyectoFormModal({
                         placeholder="Buscar servicio…"
                       />
                       {tipoTrabajoNombre && tipoTrabajoId == null ? (
-                        <p className="mt-1 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                           Actual: {tipoTrabajoNombre}
                         </p>
                       ) : null}
                     </div>
 
                     <div>
-                      <label htmlFor="proyecto-status" className={proyectoFieldLabelClass}>
+                      <p id="proyecto-status-label" className={proyectoFieldLabelClass}>
                         Status
-                      </label>
-                      <select
-                        id="proyecto-status"
-                        value={status}
-                        onChange={(e) => handleStatusChange(e.target.value as ProyectoEstado)}
-                        className={erpSelectFieldClass}
+                      </p>
+                      <div
+                        className="flex flex-wrap gap-2"
+                        role="radiogroup"
+                        aria-labelledby="proyecto-status-label"
                       >
                         {STATUS_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
+                          <button
+                            key={opt.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={status === opt.value}
+                            onClick={() => handleStatusChange(opt.value)}
+                            className={proyectoStatusChipClass(status === opt.value, opt.tone)}
+                          >
                             {opt.label}
-                          </option>
+                          </button>
                         ))}
-                      </select>
+                      </div>
                     </div>
 
                     {status === "pausado" ? (
-                      <div
-                        className={`${erpModalInnerPanelClass} border-amber-200/80 bg-amber-50/40 dark:border-amber-500/25 dark:bg-amber-500/5`}
-                      >
+                      <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-3 dark:border-amber-500/25 dark:bg-amber-500/5">
                         <label htmlFor={motivoId} className={proyectoFieldLabelClass}>
                           Motivo de la pausa <span className="text-rose-600">*</span>
                         </label>
@@ -726,124 +1013,337 @@ export default function ProyectoFormModal({
                         />
                       </div>
                     ) : null}
-                  </div>
-                </section>
+                </ProyectoFormSection>
 
-                {/* 2 · Agenda */}
-                <section className={erpModalPanelClass} aria-labelledby="proyecto-sec-agenda">
-                  <div className="flex items-start gap-3">
-                    <span className={proyectoStepBadgeClass} aria-hidden>
-                      2
-                    </span>
-                    <div className="min-w-0">
-                      <h3 id="proyecto-sec-agenda" className={erpModalSectionTitleClass}>
-                        Agenda
-                      </h3>
-                      <p className={proyectoSectionHintClass}>
-                        Autorización, llegada y días de inicio en campo.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                    <div>
-                      <label htmlFor="proyecto-fecha-autorizacion" className={proyectoFieldLabelClass}>
-                        Fecha de autorización
-                      </label>
-                      <input
-                        id="proyecto-fecha-autorizacion"
-                        type="date"
-                        value={fechaAutorizacion}
-                        onChange={(e) => setFechaAutorizacion(e.target.value)}
-                        className={erpInputLikeClass}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="proyecto-hora-llegada" className={proyectoFieldLabelClass}>
-                        Hora de llegada
-                      </label>
-                      <input
-                        id="proyecto-hora-llegada"
-                        type="time"
-                        value={horaLlegada}
-                        onChange={(e) => setHoraLlegada(e.target.value)}
-                        className={erpInputLikeClass}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="proyecto-hora-salida" className={proyectoFieldLabelClass}>
-                        Horario de salida
-                      </label>
-                      <input
-                        id="proyecto-hora-salida"
-                        type="time"
-                        value={horaSalida}
-                        onChange={(e) => setHoraSalida(e.target.value)}
-                        className={erpInputLikeClass}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-5 border-t border-[#e7ded0]/90 pt-4 dark:border-[#334155]">
-                    <div className="flex flex-wrap items-end justify-between gap-2">
+                <ProyectoFormSection
+                  titleId="proyecto-sec-agenda"
+                  title="Agenda"
+                  hint="Autorización, llegada y días de inicio en campo."
+                  icon={iconClock}
+                >
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       <div>
-                        <p className={proyectoFieldLabelClass}>Fechas de inicio</p>
-                        <p className={`${proyectoSectionHintClass} !mt-0`}>
-                          Una fecha por jornada. Puedes agregar más días.
+                        <DatePicker
+                          key={`proyecto-fecha-autorizacion-${editing ? "edit" : "new"}`}
+                          id="proyecto-fecha-autorizacion"
+                          label="Fecha de autorización"
+                          placeholder="Seleccionar fecha"
+                          defaultDate={fechaAutorizacion || undefined}
+                          onChange={(_dates, currentDateString) => {
+                            setFechaAutorizacion(currentDateString || "");
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="proyecto-hora-llegada">Hora de llegada</Label>
+                        <div className="relative">
+                          <Input
+                            type="time"
+                            id="proyecto-hora-llegada"
+                            name="proyecto-hora-llegada"
+                            value={horaLlegada}
+                            onChange={(e) => {
+                              setHoraLlegada(e.target.value);
+                              if (e.target.value.trim()) setHoraSalidaError("");
+                            }}
+                            onClick={stampHoraLlegada}
+                            className="pr-11"
+                            aria-describedby="proyecto-hora-llegada-hint"
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition hover:bg-[#fff4eb] hover:text-[#9a3412] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 dark:text-gray-400 dark:hover:bg-[#ff801f]/15 dark:hover:text-[#fdba74]"
+                            onClick={stampHoraLlegada}
+                            aria-label="Usar hora actual del dispositivo para llegada"
+                            title="Usar hora actual"
+                          >
+                            <TimeIcon className="size-5" />
+                          </button>
+                        </div>
+                        <p id="proyecto-hora-llegada-hint" className={`${proyectoSectionHintClass} !mt-1.5`}>
+                          Clic para capturar la hora del dispositivo.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        className={`${erpSecondaryBtnClass} !px-3 !py-1.5 !text-xs`}
-                        onClick={addFechaInicio}
-                      >
-                        + Agregar día
-                      </button>
+                      <div>
+                        <Label htmlFor="proyecto-hora-salida">Horario de salida</Label>
+                        <div className="relative">
+                          <Input
+                            type="time"
+                            id="proyecto-hora-salida"
+                            name="proyecto-hora-salida"
+                            value={horaSalida}
+                            onChange={(e) => {
+                              setHoraSalida(e.target.value);
+                              if (horaSalidaError) setHoraSalidaError("");
+                            }}
+                            onClick={stampHoraSalida}
+                            className="pr-11"
+                            error={Boolean(horaSalidaError)}
+                            aria-invalid={Boolean(horaSalidaError)}
+                            aria-describedby={
+                              horaSalidaError
+                                ? "proyecto-hora-salida-error proyecto-hora-salida-hint"
+                                : "proyecto-hora-salida-hint"
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition hover:bg-[#fff4eb] hover:text-[#9a3412] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-[#ff801f]/15 dark:hover:text-[#fdba74]"
+                            onClick={stampHoraSalida}
+                            aria-label="Usar hora actual del dispositivo para salida"
+                            title={
+                              horaLlegada.trim()
+                                ? "Usar hora actual"
+                                : "Requiere hora de llegada"
+                            }
+                          >
+                            <TimeIcon className="size-5" />
+                          </button>
+                        </div>
+                        {horaSalidaError ? (
+                          <p
+                            id="proyecto-hora-salida-error"
+                            className="mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400"
+                            role="alert"
+                          >
+                            {horaSalidaError}
+                          </p>
+                        ) : null}
+                        <p id="proyecto-hora-salida-hint" className={`${proyectoSectionHintClass} !mt-1.5`}>
+                          Requiere hora de llegada. Clic para capturar la hora actual.
+                        </p>
+                      </div>
                     </div>
 
-                    <ol className="mt-3 space-y-0" aria-label="Fechas de inicio del proyecto">
-                      {fechasInicio.map((fecha, index) => (
-                        <li
-                          key={`fecha-inicio-${index}`}
-                          className="group relative flex gap-3 pb-3 last:pb-0"
+                    <div className="border-t border-gray-200 pt-4 dark:border-gray-700">
+                      <div className="flex flex-wrap items-end justify-between gap-2">
+                        <div>
+                          <p className={proyectoFieldLabelClass}>Fechas de inicio</p>
+                          <p className={`${proyectoSectionHintClass} !mt-0`}>
+                            Una fecha por jornada. Puedes agregar más días.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className={proyectoAddDayBtnClass}
+                          onClick={addFechaInicio}
                         >
-                          {/* Rail vertical */}
-                          {index < fechasInicio.length - 1 ? (
+                          <svg
+                            className="h-3.5 w-3.5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            aria-hidden
+                          >
+                            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                          </svg>
+                          Agregar día
+                        </button>
+                      </div>
+
+                      <ol className="mt-3 space-y-0" aria-label="Fechas de inicio del proyecto">
+                        {fechasInicio.map((fecha, index) => (
+                          <li
+                            key={`fecha-inicio-row-${index}`}
+                            className="group relative flex gap-3 pb-3 last:pb-0"
+                          >
+                            {index < fechasInicio.length - 1 ? (
+                              <span
+                                className="absolute bottom-0 left-[13px] top-8 w-px bg-gray-200 dark:bg-gray-700"
+                                aria-hidden
+                              />
+                            ) : null}
+
                             <span
-                              className="absolute left-[13px] top-8 bottom-0 w-px bg-[#e7ded0] dark:bg-[#334155]"
+                              className="relative z-[1] mt-1.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#ff801f]/35 bg-[#fff4eb] text-[11px] font-bold tabular-nums text-[#9a3412] dark:border-[#ff801f]/40 dark:bg-[#ff801f]/15 dark:text-[#fdba74]"
+                              aria-hidden
+                            >
+                              {index + 1}
+                            </span>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <DatePicker
+                                    key={`proyecto-fecha-inicio-${index}-${editing ? "e" : "n"}`}
+                                    id={`proyecto-fecha-inicio-${index}`}
+                                    label={`Día ${index + 1}`}
+                                    placeholder="Seleccionar fecha"
+                                    defaultDate={fecha || undefined}
+                                    onChange={(_dates, currentDateString) => {
+                                      updateFechaInicio(index, currentDateString || "");
+                                    }}
+                                  />
+                                </div>
+                                {fechasInicio.length > 1 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeFechaInicio(index)}
+                                    aria-label={`Quitar día ${index + 1}`}
+                                    title={`Quitar día ${index + 1}`}
+                                    className={`${proyectoGhostIconBtnClass} mt-7`}
+                                  >
+                                    <svg
+                                      className="h-4 w-4"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                      aria-hidden
+                                    >
+                                      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+                                    </svg>
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                </ProyectoFormSection>
+
+                <ProyectoFormSection
+                  titleId="proyecto-sec-equipo"
+                  title="Equipo de campo"
+                  hint="Quién va, en qué unidad y con qué herramientas."
+                  icon={iconTeam}
+                >
+                    <div className="grid gap-4 lg:grid-cols-3">
+                      <SearchableSelect
+                        label="Técnico"
+                        value={tecnico.id != null ? String(tecnico.id) : ""}
+                        onChange={(v) => setPersonaFromId(v, setTecnico)}
+                        options={tecnicoOptions}
+                        placeholder="Buscar técnico…"
+                      />
+                      <SearchableSelect
+                        label="Auxiliar"
+                        value={auxiliar.id != null ? String(auxiliar.id) : ""}
+                        onChange={(v) => setPersonaFromId(v, setAuxiliar)}
+                        options={tecnicoOptions}
+                        placeholder="Buscar auxiliar…"
+                      />
+                      <div>
+                        <label htmlFor="proyecto-vehiculo" className={proyectoFieldLabelClass}>
+                          Vehículo asignado
+                        </label>
+                        <input
+                          id="proyecto-vehiculo"
+                          type="text"
+                          value={vehiculoAsignado}
+                          onChange={(e) => setVehiculoAsignado(e.target.value)}
+                          placeholder="Placas o unidad"
+                          className={erpInputLikeClass}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="proyecto-herramientas" className={proyectoFieldLabelClass}>
+                        Herramientas generales
+                      </label>
+                      <textarea
+                        id="proyecto-herramientas"
+                        value={herramientasGenerales}
+                        onChange={(e) => setHerramientasGenerales(e.target.value)}
+                        rows={3}
+                        placeholder="Lista de herramientas o equipo general del proyecto"
+                        className={`${erpInputLikeClass} min-h-[4.5rem] resize-y`}
+                      />
+                    </div>
+                </ProyectoFormSection>
+
+                <ProyectoFormSection
+                  titleId="proyecto-sec-notas"
+                  title="Bitácora por jornada"
+                  hint="Una entrada por día de trabajo. Se alinea con las fechas de inicio cuando existan."
+                  icon={iconNotes}
+                  actions={
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <span
+                        className="rounded-full border border-[#e7ded0] bg-[#fcfaf6] px-2.5 py-1 text-[11px] font-semibold tabular-nums text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
+                        aria-hidden
+                      >
+                        {notasPorDia.length} {notasPorDia.length === 1 ? "día" : "días"}
+                      </span>
+                      <button
+                        type="button"
+                        className={proyectoAddDayBtnClass}
+                        onClick={addNotaDia}
+                        aria-describedby={notasLiveId}
+                      >
+                        <svg
+                          className="h-3.5 w-3.5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          aria-hidden
+                        >
+                          <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                        </svg>
+                        Agregar día
+                      </button>
+                    </div>
+                  }
+                >
+                  <p id={notasLiveId} className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                    {notasLiveMessage}
+                  </p>
+
+                  <ol className="space-y-0" aria-label="Notas por día de trabajo">
+                    {notasPorDia.map((item, index) => {
+                      const fechaJornada = fechasInicio[index] || "";
+                      const fechaLabel = fechaJornada ? formatProyectoFecha(fechaJornada) : null;
+                      const charCount = item.nota.trim().length;
+                      const hintId = `proyecto-nota-hint-${item.id}`;
+
+                      return (
+                        <li
+                          key={item.id}
+                          className="group relative flex gap-3 pb-4 last:pb-0"
+                        >
+                          {index < notasPorDia.length - 1 ? (
+                            <span
+                              className="absolute bottom-0 left-[15px] top-10 w-px bg-gradient-to-b from-[#ff801f]/45 via-[#e7ded0] to-[#e7ded0] dark:from-[#ff801f]/40 dark:via-[#334155] dark:to-[#334155]"
                               aria-hidden
                             />
                           ) : null}
 
-                          <span
-                            className="relative z-[1] mt-1.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#ff801f]/35 bg-[#fff4eb] text-[11px] font-bold tabular-nums text-[#9a3412] dark:border-[#ff801f]/40 dark:bg-[#ff801f]/15 dark:text-[#fdba74]"
-                            aria-hidden
-                          >
+                          <span className={proyectoNotaDayBadgeClass} aria-hidden>
                             {index + 1}
                           </span>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <label
-                                htmlFor={`proyecto-fecha-inicio-${index}`}
-                                className="sr-only"
-                              >
-                                Fecha de inicio, día {index + 1}
-                              </label>
-                              <input
-                                id={`proyecto-fecha-inicio-${index}`}
-                                type="date"
-                                value={fecha}
-                                onChange={(e) => updateFechaInicio(index, e.target.value)}
-                                className={erpInputLikeClass}
-                              />
-                              {fechasInicio.length > 1 ? (
+                          <article className={proyectoNotaCardClass} aria-labelledby={`proyecto-nota-title-${item.id}`}>
+                            <div className="flex items-start justify-between gap-2 border-b border-[#f0e8dc] bg-gradient-to-r from-[#fff8f1]/90 to-transparent px-3 py-2.5 dark:border-[#273244] dark:from-[#ff801f]/10 dark:to-transparent">
+                              <div className="min-w-0">
+                                <h5
+                                  id={`proyecto-nota-title-${item.id}`}
+                                  className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]"
+                                >
+                                  Día {index + 1}
+                                  {fechaLabel ? (
+                                    <span className="font-medium text-[#78716c] dark:text-[#8ea0b8]">
+                                      {" "}
+                                      · {fechaLabel}
+                                    </span>
+                                  ) : null}
+                                </h5>
+                                <p className={`${proyectoNotaMetaClass} mt-0.5`}>
+                                  {fechaLabel
+                                    ? "Jornada vinculada a fecha de inicio"
+                                    : "Sin fecha de inicio asociada aún"}
+                                </p>
+                              </div>
+                              {notasPorDia.length > 1 ? (
                                 <button
                                   type="button"
-                                  onClick={() => removeFechaInicio(index)}
-                                  aria-label={`Quitar día ${index + 1}`}
+                                  className={proyectoGhostIconBtnClass}
+                                  onClick={() => removeNotaDia(index)}
+                                  aria-label={`Quitar nota del día ${index + 1}`}
                                   title={`Quitar día ${index + 1}`}
-                                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-transparent text-[#a8a29e] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:text-[#64748b] dark:hover:border-rose-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
                                 >
                                   <svg
                                     className="h-4 w-4"
@@ -858,222 +1358,132 @@ export default function ProyectoFormModal({
                                 </button>
                               ) : null}
                             </div>
-                            <p className="mt-1 text-[11px] font-medium text-[#a8a29e] dark:text-[#64748b]">
-                              Día {index + 1}
-                            </p>
-                          </div>
+
+                            <div className="p-3">
+                              <label htmlFor={`proyecto-nota-dia-${item.id}`} className="sr-only">
+                                Nota del día {index + 1}
+                                {fechaLabel ? `, ${fechaLabel}` : ""}
+                              </label>
+                              <textarea
+                                id={`proyecto-nota-dia-${item.id}`}
+                                value={item.nota}
+                                onChange={(e) => updateNotaDia(index, e.target.value)}
+                                rows={3}
+                                placeholder={`Avances, pendientes o hallazgos del día ${index + 1}…`}
+                                className={proyectoNotaTextareaClass}
+                                aria-describedby={hintId}
+                              />
+                              <div
+                                id={hintId}
+                                className="mt-1.5 flex flex-wrap items-center justify-between gap-2"
+                              >
+                                <p className={proyectoNotaMetaClass}>
+                                  {charCount === 0
+                                    ? "Sin nota todavía"
+                                    : `${charCount} ${charCount === 1 ? "carácter" : "caracteres"}`}
+                                </p>
+                                {index === 0 && notasPorDia.length === 1 ? (
+                                  <p className={proyectoNotaMetaClass}>Usa «Agregar día» para más jornadas</p>
+                                ) : null}
+                              </div>
+                            </div>
+                          </article>
                         </li>
-                      ))}
-                    </ol>
-                  </div>
-                </section>
-
-                {/* 3 · Equipo de campo */}
-                <section className={erpModalPanelClass} aria-labelledby="proyecto-sec-equipo">
-                  <div className="flex items-start gap-3">
-                    <span className={proyectoStepBadgeClass} aria-hidden>
-                      3
-                    </span>
-                    <div className="min-w-0">
-                      <h3 id="proyecto-sec-equipo" className={erpModalSectionTitleClass}>
-                        Equipo de campo
-                      </h3>
-                      <p className={proyectoSectionHintClass}>
-                        Quién va, en qué unidad y con qué herramientas.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                    <SearchableSelect
-                      label="Técnico"
-                      value={tecnico.id != null ? String(tecnico.id) : ""}
-                      onChange={(v) => setPersonaFromId(v, setTecnico)}
-                      options={tecnicoOptions}
-                      placeholder="Buscar técnico…"
-                    />
-                    <SearchableSelect
-                      label="Auxiliar"
-                      value={auxiliar.id != null ? String(auxiliar.id) : ""}
-                      onChange={(v) => setPersonaFromId(v, setAuxiliar)}
-                      options={tecnicoOptions}
-                      placeholder="Buscar auxiliar…"
-                    />
-                    <div>
-                      <label htmlFor="proyecto-vehiculo" className={proyectoFieldLabelClass}>
-                        Vehículo asignado
-                      </label>
-                      <input
-                        id="proyecto-vehiculo"
-                        type="text"
-                        value={vehiculoAsignado}
-                        onChange={(e) => setVehiculoAsignado(e.target.value)}
-                        placeholder="Placas o unidad"
-                        className={erpInputLikeClass}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <label htmlFor="proyecto-herramientas" className={proyectoFieldLabelClass}>
-                      Herramientas generales
-                    </label>
-                    <textarea
-                      id="proyecto-herramientas"
-                      value={herramientasGenerales}
-                      onChange={(e) => setHerramientasGenerales(e.target.value)}
-                      rows={3}
-                      placeholder="Lista de herramientas o equipo general del proyecto"
-                      className={`${erpInputLikeClass} min-h-[4.5rem] resize-y`}
-                    />
-                  </div>
-                </section>
-
-                {/* 4 · Notas por día + avance */}
-                <section className={erpModalPanelClass} aria-labelledby="proyecto-sec-notas">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <span className={proyectoStepBadgeClass} aria-hidden>
-                        4
-                      </span>
-                      <div className="min-w-0">
-                        <h3 id="proyecto-sec-notas" className={erpModalSectionTitleClass}>
-                          Notas por día
-                        </h3>
-                        <p className={proyectoSectionHintClass}>
-                          Una nota por jornada. Agrega tantos días como necesites.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div
-                        className="inline-flex min-w-[7rem] flex-col items-end rounded-xl border border-[#e7ded0] bg-[#fff8f1] px-3 py-2 dark:border-[#334155] dark:bg-[#ff801f]/10"
-                        aria-hidden
-                      >
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#78716c] dark:text-[#8ea0b8]">
-                          Avance
-                        </span>
-                        <span className="text-lg font-semibold tabular-nums text-[#9a3412] dark:text-[#fdba74]">
-                          {porcentajeAvance}%
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className={`${erpSecondaryBtnClass} !px-3 !py-1.5 !text-xs`}
-                        onClick={addNotaDia}
-                      >
-                        + Agregar día
-                      </button>
-                    </div>
-                  </div>
-
-                  <ol className="mt-4 space-y-3" aria-label="Notas por día">
-                    {notasPorDia.map((item, index) => (
-                      <li
-                        key={item.id}
-                        className="rounded-xl border border-[#e7ded0]/90 bg-[#fffdfa] p-3 dark:border-[#334155] dark:bg-[#0f172a]/40"
-                      >
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <label
-                            htmlFor={`proyecto-nota-dia-${item.id}`}
-                            className="inline-flex items-center gap-2 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]"
-                          >
-                            <span
-                              className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#ff801f]/35 bg-[#fff4eb] text-[11px] font-bold tabular-nums text-[#9a3412] dark:border-[#ff801f]/40 dark:bg-[#ff801f]/15 dark:text-[#fdba74]"
-                              aria-hidden
-                            >
-                              {index + 1}
-                            </span>
-                            Día {index + 1}
-                          </label>
-                          {notasPorDia.length > 1 ? (
-                            <button
-                              type="button"
-                              className={`${erpDangerBtnClass} !px-2.5 !py-1.5 !text-xs`}
-                              onClick={() => removeNotaDia(index)}
-                              aria-label={`Quitar nota del día ${index + 1}`}
-                            >
-                              Quitar
-                            </button>
-                          ) : null}
-                        </div>
-                        <textarea
-                          id={`proyecto-nota-dia-${item.id}`}
-                          value={item.nota}
-                          onChange={(e) => updateNotaDia(index, e.target.value)}
-                          rows={3}
-                          placeholder={`Nota del día ${index + 1}…`}
-                          className={`${erpInputLikeClass} min-h-[4.5rem] resize-y`}
-                        />
-                      </li>
-                    ))}
+                      );
+                    })}
                   </ol>
+                </ProyectoFormSection>
 
-                  <div className="mt-4 max-w-xs">
-                    <label htmlFor="proyecto-porcentaje" className={proyectoFieldLabelClass}>
-                      Porcentaje de avance %
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="proyecto-porcentaje"
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={1}
-                        value={porcentajeAvance}
-                        onChange={(e) =>
-                          setPorcentajeAvance(clampPorcentajeAvance(Number(e.target.value)))
-                        }
-                        className={`${erpInputLikeClass} pr-10`}
-                        aria-describedby="proyecto-porcentaje-bar"
-                      />
-                      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[#78716c] dark:text-[#8ea0b8]">
-                        %
-                      </span>
-                    </div>
-                    <div
-                      id="proyecto-porcentaje-bar"
-                      className="mt-3 h-2.5 overflow-hidden rounded-full bg-[#f1e8db] dark:bg-[#1e293b]"
-                      role="progressbar"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={porcentajeAvance}
-                      aria-label="Porcentaje de avance del proyecto"
-                    >
-                      <div
-                        className="h-full rounded-full bg-[#ff801f] transition-[width] duration-300 motion-reduce:transition-none"
-                        style={{ width: `${porcentajeAvance}%` }}
-                      />
-                    </div>
-                  </div>
-                </section>
+                <ProyectoFormSection
+                  titleId="proyecto-sec-avance"
+                  title="Avance del proyecto"
+                  hint="Arrastra el control o escribe el porcentaje exacto."
+                  icon={iconChart}
+                  actions={
+                    <p className={proyectoAvanceValueClass} aria-live="polite">
+                      {porcentajeAvance}
+                      <span className="ml-0.5 text-base font-medium opacity-70">%</span>
+                    </p>
+                  }
+                >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+                      <div className="min-w-0 flex-1">
+                        <label htmlFor="proyecto-avance-slider" className="sr-only">
+                          Avance del proyecto, de 0 a 100 por ciento
+                        </label>
+                        <input
+                          id="proyecto-avance-slider"
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={porcentajeAvance}
+                          onChange={(e) => setPorcentajeAvanceSafe(Number(e.target.value))}
+                          className={proyectoAvanceRangeClass}
+                          style={
+                            {
+                              "--proyecto-avance": `${porcentajeAvance}%`,
+                            } as CSSProperties
+                          }
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={porcentajeAvance}
+                          aria-valuetext={`${porcentajeAvance} por ciento`}
+                        />
+                        <div className="mt-1.5 flex justify-between text-[10px] font-medium uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500">
+                          <span>0%</span>
+                          <span>100%</span>
+                        </div>
+                      </div>
 
-                {/* 5 · Incidencias y requerimientos */}
-                <section className={erpModalPanelClass} aria-labelledby="proyecto-sec-incidencias">
-                  <div className="flex items-start gap-3">
-                    <span className={proyectoStepBadgeClass} aria-hidden>
-                      5
-                    </span>
-                    <div className="min-w-0">
-                      <h3 id="proyecto-sec-incidencias" className={erpModalSectionTitleClass}>
-                        Incidencias y requerimientos
-                      </h3>
-                      <p className={proyectoSectionHintClass}>
-                        Si hay requerimientos o presupuesto adicional, el proyecto no podrá cerrarse sin cotización vinculada.
-                      </p>
+                      <div className="sm:w-[7.5rem]">
+                        <label htmlFor="proyecto-porcentaje" className={proyectoFieldLabelClass}>
+                          Exacto
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="proyecto-porcentaje"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            autoComplete="off"
+                            maxLength={3}
+                            value={porcentajeExacto}
+                            onChange={(e) => handlePorcentajeExactoChange(e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onBlur={() => setPorcentajeExacto(String(porcentajeAvance))}
+                            className={`${erpInputLikeClass} pr-9 text-center tabular-nums`}
+                            aria-describedby="proyecto-avance-hint"
+                          />
+                          <span
+                            className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-500 dark:text-gray-400"
+                            aria-hidden
+                          >
+                            %
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                    <p id="proyecto-avance-hint" className="sr-only">
+                      Valor entre 0 y 100. El control deslizante y el campo numérico van sincronizados.
+                    </p>
+                </ProyectoFormSection>
 
+                <ProyectoFormSection
+                  titleId="proyecto-sec-incidencias"
+                  title="Incidencias y requerimientos"
+                  hint="Si hay requerimientos o presupuesto adicional, el proyecto no podrá cerrarse sin cotización vinculada."
+                  icon={iconAlert}
+                >
                   {closeBlockedMessage ? (
                     <p
-                      className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200"
+                      className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200"
                       role="alert"
                     >
                       {closeBlockedMessage}
                     </p>
                   ) : null}
 
-                  <div className="mt-4 space-y-4">
                     <div>
                       <label htmlFor="proyecto-incidencias" className={proyectoFieldLabelClass}>
                         Incidencias
@@ -1133,8 +1543,8 @@ export default function ProyectoFormModal({
                       requierePresupuestoAdicional,
                       requerimientosAdicionales,
                     }) ? (
-                      <div className={`${erpModalInnerPanelClass}`}>
-                        <p className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                      <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 dark:border-white/10 dark:bg-gray-950/30">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
                           Cotización adicional vinculada
                         </p>
                         {cotizacionAdicional ? (
@@ -1157,7 +1567,7 @@ export default function ProyectoFormModal({
                               </button>
                               <button
                                 type="button"
-                                className={`${erpDangerBtnClass} !flex-none !px-3 !py-2 !text-xs`}
+                                className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
                                 onClick={() => setCotizacionAdicional(null)}
                               >
                                 Quitar
@@ -1180,45 +1590,24 @@ export default function ProyectoFormModal({
                         )}
                       </div>
                     ) : null}
-                  </div>
-                </section>
+                </ProyectoFormSection>
 
-                {/* 6 · Evidencia */}
-                <section className={erpModalPanelClass} aria-labelledby="proyecto-sec-evidencia">
-                  <div className="flex items-start gap-3">
-                    <span className={proyectoStepBadgeClass} aria-hidden>
-                      6
-                    </span>
-                    <div className="min-w-0">
-                      <h3 id="proyecto-sec-evidencia" className={erpModalSectionTitleClass}>
-                        Evidencia fotográfica
-                      </h3>
-                      <p className={proyectoSectionHintClass}>
-                        Misma experiencia de carga que Órdenes de servicio.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <ProyectoEvidenciasField urls={evidenciasUrls} onChange={setEvidenciasUrls} />
-                  </div>
-                </section>
+                <ProyectoFormSection
+                  titleId="proyecto-sec-evidencia"
+                  title="Evidencia fotográfica"
+                  hint="Misma experiencia de carga que Órdenes de servicio."
+                  icon={iconBox}
+                >
+                  <ProyectoEvidenciasField urls={evidenciasUrls} onChange={setEvidenciasUrls} />
+                </ProyectoFormSection>
 
-                {/* 7 · Firmas */}
-                <section className={erpModalPanelClass} aria-labelledby="proyecto-sec-firmas">
-                  <div className="flex items-start gap-3">
-                    <span className={proyectoStepBadgeClass} aria-hidden>
-                      7
-                    </span>
-                    <div className="min-w-0">
-                      <h3 id="proyecto-sec-firmas" className={erpModalSectionTitleClass}>
-                        Firmas
-                      </h3>
-                      <p className={proyectoSectionHintClass}>
-                        Reutiliza el componente SignaturePad de Órdenes.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <ProyectoFormSection
+                  titleId="proyecto-sec-firmas"
+                  title="Firmas"
+                  hint="Firma del técnico y del cliente al cierre."
+                  icon={iconPen}
+                >
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <SignaturePad
                       label="Firma del técnico"
                       value={firmaTecnicoUrl}
@@ -1234,7 +1623,7 @@ export default function ProyectoFormModal({
                       height={220}
                     />
                   </div>
-                </section>
+                </ProyectoFormSection>
               </div>
             )}
 
@@ -1245,25 +1634,28 @@ export default function ProyectoFormModal({
                 aria-labelledby={presupuestoTabId}
                 className="space-y-5"
               >
-                <section className={erpModalPanelClass} aria-describedby={presupuestoHintId}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className={erpModalSectionRowClass}>
-                      <h3 className={erpModalSectionTitleClass}>Presupuesto</h3>
-                    </div>
+                <ProyectoFormSection
+                  titleId="proyecto-sec-presupuesto"
+                  eyebrow="Paso 3"
+                  title="Presupuesto"
+                  hint="Solo descripción, cantidad y unidad — sin precios."
+                  icon={iconDoc}
+                  actions={
                     <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${erpChipNeutralClass}`}>
                       Sin precios
                     </span>
-                  </div>
-                  <p id={presupuestoHintId} className={`${erpBodyClass} mt-2 text-sm`}>
+                  }
+                >
+                  <p id={presupuestoHintId} className="sr-only">
                     Solo descripción, cantidad y unidad.
                   </p>
 
                   {!presupuestoCargado ? (
-                    <div className={`${proyectoEmptyPanelClass} mt-4`} role="status">
-                      Carga una cotización en la pestaña «Cliente y cotización».
+                    <div className={proyectoEmptyPanelClass} role="status">
+                      Carga una cotización en la pestaña «Cliente».
                     </div>
                   ) : (
-                    <div className={`${erpTableWrapClass} mt-4`}>
+                    <div className={erpTableWrapClass}>
                       <table className="min-w-full text-left text-sm">
                         <thead className={erpTableHeaderClass}>
                           <tr>
@@ -1278,18 +1670,33 @@ export default function ProyectoFormModal({
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#e7ded0] dark:divide-[#273244]">
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                           {presupuesto.map((linea) => (
-                            <tr key={linea.id} className="transition-colors hover:bg-[#fff8f1]/60 dark:hover:bg-[#1e293b]/30">
+                            <tr key={linea.id} className="transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03]">
                               <td className="px-3 py-2.5">
-                                {linea.categoria ? (
-                                  <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#ff801f]">
-                                    {linea.categoria}
-                                  </span>
-                                ) : null}
-                                <span className="font-medium text-[#1c1917] dark:text-[#f1f5f9]">
-                                  {linea.descripcion}
-                                </span>
+                                <div className="flex items-start gap-2.5">
+                                  <ProyectoProductoThumb
+                                    src={linea.imagenUrl}
+                                    alt={linea.descripcion}
+                                    size="sm"
+                                    className="mt-0.5 border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]"
+                                  />
+                                  <div className="min-w-0">
+                                    {linea.categoria ? (
+                                      <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#ff801f]">
+                                        {linea.categoria}
+                                      </span>
+                                    ) : null}
+                                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                                      {linea.descripcion}
+                                    </span>
+                                    {linea.detalle ? (
+                                      <p className="mt-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                                        {linea.detalle}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </div>
                               </td>
                               <td className="px-2 py-2.5 text-center tabular-nums">{linea.cantidad}</td>
                               <td className="px-2 py-2.5 text-center text-xs uppercase">{linea.unidad}</td>
@@ -1299,22 +1706,23 @@ export default function ProyectoFormModal({
                       </table>
                     </div>
                   )}
-                </section>
+                </ProyectoFormSection>
 
-                <section className={erpModalPanelClass}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className={erpModalSectionRowClass}>
-                      <h3 className={erpModalSectionTitleClass}>Equipos del proyecto</h3>
-                    </div>
-                    {!presupuestoCargado && (
-                      <span className="text-xs text-[#78716c] dark:text-[#8ea0b8]" role="status">
+                <ProyectoFormSection
+                  titleId="proyecto-sec-equipos-presupuesto"
+                  title="Equipos del proyecto"
+                  hint="Seguimiento de entrega e instalación por unidad."
+                  icon={iconBox}
+                  actions={
+                    !presupuestoCargado ? (
+                      <span className="text-xs text-gray-500 dark:text-gray-400" role="status">
                         Disponible al cargar presupuesto
                       </span>
-                    )}
-                  </div>
-
+                    ) : null
+                  }
+                >
                   <fieldset
-                    className="mt-4 space-y-3 border-0 p-0"
+                    className="space-y-3 border-0 p-0"
                     disabled={!presupuestoCargado}
                     aria-disabled={!presupuestoCargado}
                   >
@@ -1329,13 +1737,21 @@ export default function ProyectoFormModal({
                     {equipos.map((eq) => (
                       <article key={eq.lineaId} className={proyectoEquipoCardClass}>
                         <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <span className={estadoBadgeClass(eq.estadoInstalacion)}>
-                              {estadoInstalacionLabel(eq.estadoInstalacion)}
-                            </span>
-                            <p className="mt-1.5 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
-                              {eq.modelo}
-                            </p>
+                          <div className="flex min-w-0 items-start gap-3">
+                            <ProyectoProductoThumb
+                              src={eq.imagenUrl}
+                              alt={eq.modelo}
+                              size="lg"
+                              className="border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]"
+                            />
+                            <div className="min-w-0">
+                              <span className={estadoBadgeClass(eq.estadoInstalacion)}>
+                                {estadoInstalacionLabel(eq.estadoInstalacion)}
+                              </span>
+                              <p className="mt-1.5 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                                {eq.modelo}
+                              </p>
+                            </div>
                           </div>
                           <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#e2d9ca] bg-white px-2.5 py-1.5 text-xs font-medium has-[:disabled]:opacity-50 dark:border-[#334155] dark:bg-[#111a2b]">
                             <input
@@ -1372,7 +1788,12 @@ export default function ProyectoFormModal({
                               )}
                               {eq.productoId ? (
                                 <p className="mt-0.5 text-[10px] tabular-nums text-[#a8a29e] dark:text-[#64748b]">
-                                  Syscom ID {eq.productoId}
+                                  {eq.fuenteProducto === "tvc"
+                                    ? "TVC"
+                                    : eq.fuenteProducto === "manual"
+                                      ? "Manual"
+                                      : "Syscom"}{" "}
+                                  ID {eq.productoId}
                                 </p>
                               ) : null}
                             </div>
@@ -1442,24 +1863,66 @@ export default function ProyectoFormModal({
                       </article>
                     ))}
                   </fieldset>
-                </section>
+                </ProyectoFormSection>
               </div>
             )}
           </div>
+          </form>
 
           <footer className={erpModalFooterClass}>
             <OrdenModalFooterActions
-              onCancel={onClose}
+              onCancel={activeTab === "cliente" ? onClose : goToPrevTab}
+              cancelLabel={activeTab === "cliente" ? "Cancelar" : "Anterior"}
               primary={
-                <OrdenModalPrimaryButton type="submit" disabled={!cliente.trim()}>
-                  {editing ? "Guardar cambios" : "Crear proyecto"}
-                </OrdenModalPrimaryButton>
+                activeTab !== "presupuesto" ? (
+                  <OrdenModalPrimaryButton
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      goToNextTab(true);
+                    }}
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      aria-hidden
+                    >
+                      <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Siguiente
+                  </OrdenModalPrimaryButton>
+                ) : (
+                  <OrdenModalPrimaryButton
+                    type="button"
+                    disabled={!cliente.trim()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      formRef.current?.requestSubmit();
+                    }}
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      aria-hidden
+                    >
+                      <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    {editing ? "Guardar cambios" : "Crear proyecto"}
+                  </OrdenModalPrimaryButton>
+                )
               }
             />
           </footer>
-        </form>
+        </div>
       </Modal>
-
       <Modal
         isOpen={pickerOpen}
         onClose={() => setPickerOpen(false)}
