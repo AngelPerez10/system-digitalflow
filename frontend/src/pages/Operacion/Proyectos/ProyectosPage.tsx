@@ -305,7 +305,16 @@ export default function ProyectosPage() {
                               <span className={proyectoOrigenBadgeClass(row.cotizacionOrigen)}>
                                 {row.cotizacionOrigen === "digitalflow" ? "DigitalFlow" : "SICAR"}
                               </span>
-                              <div className="mt-1 tabular-nums text-gray-900 dark:text-white">#{row.cotizacionFolio}</div>
+                              <div className="mt-1 tabular-nums text-gray-900 dark:text-white">
+                                {row.cotizacionesCount > 1
+                                  ? row.cotizacionFolio
+                                  : `#${row.cotizacionFolio}`}
+                              </div>
+                              {row.cotizacionesCount > 1 ? (
+                                <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                                  {row.cotizacionesCount} vinculadas
+                                </div>
+                              ) : null}
                             </div>
                           )}
                         </TableCell>

@@ -24,6 +24,19 @@ export type PresupuestoLinea = {
   fuenteProducto?: "syscom" | "tvc" | "manual";
 };
 
+/**
+ * Cotización vinculada al proyecto con sus partidas.
+ * Permite varias instalaciones sin mezclar productos.
+ */
+export type ProyectoCotizacionBloque = {
+  /** Id interno del vínculo en el proyecto (no el id de la cotización API). */
+  vinculoId: string;
+  /** 1-based: Cotización 1, Cotización 2, … */
+  orden: number;
+  cotizacion: CotizacionResumen;
+  lineas: PresupuestoLinea[];
+};
+
 export type EquipoEstadoInstalacion = "pendiente" | "entregado" | "no_instalado" | "instalado";
 
 export type ProyectoEquipoLinea = {
@@ -38,6 +51,10 @@ export type ProyectoEquipoLinea = {
   fuenteProducto?: "syscom" | "tvc" | "manual";
   estadoInstalacion: EquipoEstadoInstalacion;
   equipoEntregado: boolean;
+  /** Vínculo a la cotización de origen en el proyecto. */
+  cotizacionVinculoId?: string;
+  cotizacionOrden?: number;
+  cotizacionFolio?: string;
 };
 
 /** Status operativo del proyecto (formulario). */
@@ -51,12 +68,21 @@ export type ProyectoPersonaAsignada = {
 export type ProyectoNotaDia = {
   id: string;
   nota: string;
+  /** Hasta 2 fotos de la jornada (Cloudinary). */
+  imagenesUrls: string[];
 };
 
 export type ProyectoDraft = {
   cliente: string;
   clienteId: string;
+  /**
+   * Cotizaciones de presupuesto (1..n).
+   * Fuente de verdad de partidas; `cotizacion` / `presupuesto` se sincronizan por compatibilidad.
+   */
+  cotizaciones: ProyectoCotizacionBloque[];
+  /** Primera cotización (compat listado / filas). */
   cotizacion: CotizacionResumen | null;
+  /** Líneas aplanadas de todas las cotizaciones (compat). */
   presupuesto: PresupuestoLinea[];
   equipos: ProyectoEquipoLinea[];
   tipoTrabajoId: number | null;
@@ -91,6 +117,7 @@ export type ProyectoRow = {
   cliente: string;
   cotizacionFolio: string;
   cotizacionOrigen: CotizacionOrigen;
+  cotizacionesCount: number;
   equiposTotal: number;
   equiposEntregados: number;
   equiposInstalados: number;

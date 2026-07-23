@@ -1,6 +1,8 @@
 import type {
+  CotizacionResumen,
   EquipoEstadoInstalacion,
   PresupuestoLinea,
+  ProyectoCotizacionBloque,
   ProyectoDraft,
   ProyectoEquipoLinea,
   ProyectoEstado,
@@ -18,13 +20,86 @@ export function createEmptyNotaDia(): ProyectoNotaDia {
   return {
     id: `nota-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     nota: "",
+    imagenesUrls: [],
   };
+}
+
+/** Normaliza notas legacy sin `imagenesUrls`. */
+export function normalizeNotasPorDia(notas?: ProyectoNotaDia[] | null): ProyectoNotaDia[] {
+  if (!notas?.length) return [createEmptyNotaDia()];
+  return notas.map((n) => ({
+    id: n.id || createEmptyNotaDia().id,
+    nota: typeof n.nota === "string" ? n.nota : "",
+    imagenesUrls: Array.isArray(n.imagenesUrls)
+      ? n.imagenesUrls.filter((u): u is string => typeof u === "string" && u.trim().length > 0).slice(0, 2)
+      : [],
+  }));
+}
+
+export function createVinculoId(): string {
+  return `vin-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/** Prefija ids de línea para que no choquen entre cotizaciones. */
+export function prefixPresupuestoLineas(
+  cotizacionId: string,
+  lineas: PresupuestoLinea[]
+): PresupuestoLinea[] {
+  return lineas.map((l) => ({
+    ...l,
+    id: l.id.includes(":") ? l.id : `${cotizacionId}:${l.id}`,
+  }));
+}
+
+export function createCotizacionBloque(
+  cotizacion: CotizacionResumen,
+  lineas: PresupuestoLinea[],
+  orden: number,
+  vinculoId = createVinculoId()
+): ProyectoCotizacionBloque {
+  return {
+    vinculoId,
+    orden,
+    cotizacion,
+    lineas: prefixPresupuestoLineas(cotizacion.id, lineas),
+  };
+}
+
+export function reindexCotizacionBloques(
+  bloques: ProyectoCotizacionBloque[]
+): ProyectoCotizacionBloque[] {
+  return bloques.map((b, i) => ({ ...b, orden: i + 1 }));
+}
+
+export function flattenPresupuesto(bloques: ProyectoCotizacionBloque[]): PresupuestoLinea[] {
+  return bloques.flatMap((b) => b.lineas);
+}
+
+/**
+ * Normaliza drafts legados (solo `cotizacion` + `presupuesto`) a `cotizaciones[]`.
+ */
+export function normalizeDraftCotizaciones(draft: ProyectoDraft): ProyectoCotizacionBloque[] {
+  if (draft.cotizaciones?.length) {
+    return reindexCotizacionBloques(draft.cotizaciones);
+  }
+  if (draft.cotizacion) {
+    return [
+      createCotizacionBloque(
+        draft.cotizacion,
+        draft.presupuesto ?? [],
+        1,
+        `vin-legacy-${draft.cotizacion.id}`
+      ),
+    ];
+  }
+  return [];
 }
 
 export function createEmptyProyectoDraft(): ProyectoDraft {
   return {
     cliente: "",
     clienteId: "",
+    cotizaciones: [],
     cotizacion: null,
     presupuesto: [],
     equipos: [],
@@ -52,14 +127,22 @@ export function createEmptyProyectoDraft(): ProyectoDraft {
   };
 }
 
-export function buildEquiposFromPresupuesto(lineas: PresupuestoLinea[]): ProyectoEquipoLinea[] {
+export function buildEquiposFromPresupuesto(
+  lineas: PresupuestoLinea[],
+  meta?: {
+    cotizacionVinculoId: string;
+    cotizacionOrden: number;
+    cotizacionFolio: string;
+  }
+): ProyectoEquipoLinea[] {
   const equipos: ProyectoEquipoLinea[] = [];
   for (const linea of lineas) {
     if (!linea.esEquipo) continue;
     const qty = Math.max(1, Math.floor(linea.cantidad));
     for (let i = 0; i < qty; i++) {
+      const baseId = qty > 1 ? `${linea.id}-${i + 1}` : linea.id;
       equipos.push({
-        lineaId: qty > 1 ? `${linea.id}-${i + 1}` : linea.id,
+        lineaId: meta ? `${meta.cotizacionVinculoId}:${baseId}` : baseId,
         modelo: linea.descripcion,
         modeloOriginal: linea.descripcion,
         productoId: linea.productoId,
@@ -67,10 +150,46 @@ export function buildEquiposFromPresupuesto(lineas: PresupuestoLinea[]): Proyect
         fuenteProducto: linea.fuenteProducto,
         estadoInstalacion: "pendiente",
         equipoEntregado: false,
+        cotizacionVinculoId: meta?.cotizacionVinculoId,
+        cotizacionOrden: meta?.cotizacionOrden,
+        cotizacionFolio: meta?.cotizacionFolio,
       });
     }
   }
   return equipos;
+}
+
+export function buildEquiposFromCotizaciones(
+  bloques: ProyectoCotizacionBloque[],
+  previous?: ProyectoEquipoLinea[]
+): ProyectoEquipoLinea[] {
+  const prevById = new Map((previous ?? []).map((e) => [e.lineaId, e]));
+  const next: ProyectoEquipoLinea[] = [];
+  for (const bloque of bloques) {
+    const built = buildEquiposFromPresupuesto(bloque.lineas, {
+      cotizacionVinculoId: bloque.vinculoId,
+      cotizacionOrden: bloque.orden,
+      cotizacionFolio: bloque.cotizacion.folio,
+    });
+    for (const eq of built) {
+      const prev = prevById.get(eq.lineaId);
+      next.push(
+        prev
+          ? {
+              ...eq,
+              modelo: prev.modelo,
+              productoId: prev.productoId,
+              marca: prev.marca,
+              imagenUrl: prev.imagenUrl ?? eq.imagenUrl,
+              fuenteProducto: prev.fuenteProducto ?? eq.fuenteProducto,
+              estadoInstalacion: prev.estadoInstalacion,
+              equipoEntregado: prev.equipoEntregado,
+            }
+          : eq
+      );
+    }
+  }
+  return next;
 }
 
 export function estadoInstalacionLabel(estado: EquipoEstadoInstalacion): string {
@@ -109,23 +228,37 @@ export function getDeviceTimeHHMM(date: Date = new Date()): string {
   return `${hh}:${mm}`;
 }
 
+export function formatCotizacionesFolioLabel(bloques: ProyectoCotizacionBloque[]): string {
+  if (!bloques.length) return "—";
+  if (bloques.length === 1) return bloques[0].cotizacion.folio;
+  return `${bloques.length} cotiz.`;
+}
+
 export function proyectoRowFromDraft(draft: ProyectoDraft, existing?: ProyectoRow): ProyectoRow {
+  const cotizaciones = normalizeDraftCotizaciones(draft);
   const equipos = draft.equipos;
   const entregados = equipos.filter((e) => e.equipoEntregado).length;
   const instalados = equipos.filter((e) => e.estadoInstalacion === "instalado").length;
+  const primary = cotizaciones[0]?.cotizacion;
 
   return {
     id: existing?.id ?? `prj-${Date.now()}`,
     folio: existing?.folio ?? `PRJ-${String(Date.now()).slice(-4)}`,
     cliente: draft.cliente.trim() || "Sin cliente",
-    cotizacionFolio: draft.cotizacion?.folio ?? "—",
-    cotizacionOrigen: draft.cotizacion?.origen ?? "digitalflow",
+    cotizacionFolio: formatCotizacionesFolioLabel(cotizaciones),
+    cotizacionOrigen: primary?.origen ?? "digitalflow",
+    cotizacionesCount: cotizaciones.length,
     equiposTotal: equipos.length,
     equiposEntregados: entregados,
     equiposInstalados: instalados,
     estado: draft.status,
     fecha: existing?.fecha ?? new Date().toISOString().slice(0, 10),
-    draft,
+    draft: {
+      ...draft,
+      cotizaciones,
+      cotizacion: primary ?? null,
+      presupuesto: flattenPresupuesto(cotizaciones),
+    },
   };
 }
 

@@ -25,6 +25,9 @@ import {
   OrdenModalPrimaryButton,
 } from "../OrdenesTrabajo/OrdenTrabajoModals";
 import {
+  erpDangerBtnClass,
+  erpDeleteModalClass,
+  erpDeleteModalPanelClass,
   erpModalBodyClass,
   erpModalFooterClass,
   erpModalFormScrollClass,
@@ -32,16 +35,21 @@ import {
   erpModalTabClass,
 } from "../OrdenesTrabajo/ordenTrabajoStyles";
 import { canCerrarProyecto, proyectoRequiereCotizacionAdicional } from "./proyectoCloseValidation";
+import { ProyectoEquiposSection } from "./ProyectoEquiposSection";
 import { ProyectoEvidenciasField } from "./ProyectoEvidenciasField";
 import { ProyectoFormSection, proyectoSectionIconClass } from "./ProyectoFormSection";
+import { ProyectoNotaDiaFotosField } from "./ProyectoNotaDiaFotosField";
 import {
-  buildEquiposFromPresupuesto,
+  buildEquiposFromCotizaciones,
   clampPorcentajeAvance,
+  createCotizacionBloque,
   createEmptyNotaDia,
   emptyPersona,
-  estadoBadgeClass,
-  estadoInstalacionLabel,
+  flattenPresupuesto,
   getDeviceTimeHHMM,
+  normalizeDraftCotizaciones,
+  normalizeNotasPorDia,
+  reindexCotizacionBloques,
 } from "./proyectoFormUtils";
 import {
   MOCK_COTIZACIONES_DIGITALFLOW,
@@ -55,7 +63,6 @@ import {
   proyectoAvanceValueClass,
   proyectoCotizacionOptionClass,
   proyectoEmptyPanelClass,
-  proyectoEquipoCardClass,
   proyectoFieldLabelClass,
   proyectoGhostIconBtnClass,
   proyectoNotaCardClass,
@@ -77,6 +84,7 @@ import {
 import type {
   CotizacionOrigen,
   CotizacionResumen,
+  ProyectoCotizacionBloque,
   ProyectoDraft,
   ProyectoEquipoLinea,
   ProyectoEstado,
@@ -151,8 +159,9 @@ export default function ProyectoFormModal({
   activeTabRef.current = activeTab;
   const [cliente, setCliente] = useState(initialDraft.cliente);
   const [clienteId, setClienteId] = useState(initialDraft.clienteId);
-  const [cotizacion, setCotizacion] = useState(initialDraft.cotizacion);
-  const [presupuesto, setPresupuesto] = useState(initialDraft.presupuesto);
+  const [cotizaciones, setCotizaciones] = useState<ProyectoCotizacionBloque[]>(() =>
+    normalizeDraftCotizaciones(initialDraft)
+  );
   const [equipos, setEquipos] = useState(initialDraft.equipos);
 
   const [tipoTrabajoId, setTipoTrabajoId] = useState(initialDraft.tipoTrabajoId);
@@ -168,7 +177,7 @@ export default function ProyectoFormModal({
   const [vehiculoAsignado, setVehiculoAsignado] = useState(initialDraft.vehiculoAsignado);
   const [herramientasGenerales, setHerramientasGenerales] = useState(initialDraft.herramientasGenerales);
   const [notasPorDia, setNotasPorDia] = useState<ProyectoNotaDia[]>(
-    initialDraft.notasPorDia?.length ? initialDraft.notasPorDia : [createEmptyNotaDia()]
+    () => normalizeNotasPorDia(initialDraft.notasPorDia)
   );
   const [porcentajeAvance, setPorcentajeAvance] = useState(initialDraft.porcentajeAvance);
   const [porcentajeExacto, setPorcentajeExacto] = useState(() =>
@@ -192,12 +201,36 @@ export default function ProyectoFormModal({
   const [catalogError, setCatalogError] = useState("");
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [confirmClearCotizaciones, setConfirmClearCotizaciones] = useState(false);
+  const clearCotizacionesTitleId = useId();
   const [pickerTarget, setPickerTarget] = useState<CotizacionPickerTarget>("principal");
   const [pickerTab, setPickerTab] = useState<CotizacionOrigen>("digitalflow");
   const [pickerSearch, setPickerSearch] = useState("");
   const [modeloPickerLineaId, setModeloPickerLineaId] = useState<string | null>(null);
 
-  const presupuestoCargado = presupuesto.length > 0;
+  const presupuesto = useMemo(() => flattenPresupuesto(cotizaciones), [cotizaciones]);
+  const presupuestoCargado = cotizaciones.length > 0;
+  const cotizacionIdsVinculados = useMemo(
+    () => new Set(cotizaciones.map((c) => c.cotizacion.id)),
+    [cotizaciones]
+  );
+
+  const equiposPorCotizacion = useMemo(() => {
+    const map = new Map<string, ProyectoEquipoLinea[]>();
+    for (const bloque of cotizaciones) {
+      map.set(
+        bloque.vinculoId,
+        equipos.filter((e) => e.cotizacionVinculoId === bloque.vinculoId)
+      );
+    }
+    // Equipos sin vínculo (legado) al final de la primera sección si existe
+    const huerfanos = equipos.filter((e) => !e.cotizacionVinculoId);
+    if (huerfanos.length && cotizaciones[0]) {
+      const first = map.get(cotizaciones[0].vinculoId) ?? [];
+      map.set(cotizaciones[0].vinculoId, [...first, ...huerfanos]);
+    }
+    return map;
+  }, [cotizaciones, equipos]);
 
   const servicioOptions = useMemo(
     () => servicios.map((s) => ({ value: String(s.id), label: s.nombre })),
@@ -213,22 +246,28 @@ export default function ProyectoFormModal({
     const pool =
       pickerTab === "digitalflow" ? MOCK_COTIZACIONES_DIGITALFLOW : MOCK_COTIZACIONES_SICAR;
     const q = pickerSearch.trim().toLowerCase();
-    if (!q) return pool;
-    return pool.filter(
-      (c) =>
+    return pool.filter((c) => {
+      if (pickerTarget === "principal" && cotizacionIdsVinculados.has(c.id)) return false;
+      if (!q) return true;
+      return (
         c.folio.toLowerCase().includes(q) ||
         c.cliente.toLowerCase().includes(q) ||
         (c.contacto || "").toLowerCase().includes(q)
-    );
-  }, [pickerTab, pickerSearch]);
+      );
+    });
+  }, [pickerTab, pickerSearch, pickerTarget, cotizacionIdsVinculados]);
 
   const resetFromInitial = useCallback(() => {
     setActiveTab("cliente");
     setCliente(initialDraft.cliente);
     setClienteId(initialDraft.clienteId);
-    setCotizacion(initialDraft.cotizacion);
-    setPresupuesto(initialDraft.presupuesto);
-    setEquipos(initialDraft.equipos);
+    const bloques = normalizeDraftCotizaciones(initialDraft);
+    setCotizaciones(bloques);
+    setEquipos(
+      initialDraft.equipos?.length
+        ? initialDraft.equipos
+        : buildEquiposFromCotizaciones(bloques)
+    );
     setTipoTrabajoId(initialDraft.tipoTrabajoId);
     setTipoTrabajoNombre(initialDraft.tipoTrabajoNombre);
     setStatus(initialDraft.status);
@@ -241,9 +280,7 @@ export default function ProyectoFormModal({
     setAuxiliar(initialDraft.auxiliar);
     setVehiculoAsignado(initialDraft.vehiculoAsignado);
     setHerramientasGenerales(initialDraft.herramientasGenerales);
-    setNotasPorDia(
-      initialDraft.notasPorDia?.length ? initialDraft.notasPorDia : [createEmptyNotaDia()]
-    );
+    setNotasPorDia(normalizeNotasPorDia(initialDraft.notasPorDia));
     setPorcentajeAvance(initialDraft.porcentajeAvance);
     setPorcentajeExacto(String(clampPorcentajeAvance(initialDraft.porcentajeAvance)));
     setIncidencias(initialDraft.incidencias);
@@ -257,6 +294,7 @@ export default function ProyectoFormModal({
     setClienteStepError("");
     setHoraSalidaError("");
     setPickerOpen(false);
+    setConfirmClearCotizaciones(false);
     setPickerTarget("principal");
     setPickerSearch("");
     setModeloPickerLineaId(null);
@@ -344,12 +382,22 @@ export default function ProyectoFormModal({
       setPickerTarget("principal");
       return;
     }
+    if (cotizacionIdsVinculados.has(item.id)) {
+      setPickerOpen(false);
+      setPickerSearch("");
+      return;
+    }
     const lineas = MOCK_PRESUPUESTO_BY_COTIZACION[item.id] ?? [];
-    setCotizacion(item);
-    setCliente(item.cliente);
-    setClienteId(item.origen === "digitalflow" ? `df-cli-${item.id}` : `sic-cli-${item.id}`);
-    setPresupuesto(lineas);
-    setEquipos(buildEquiposFromPresupuesto(lineas));
+    const next = reindexCotizacionBloques([
+      ...cotizaciones,
+      createCotizacionBloque(item, lineas, cotizaciones.length + 1),
+    ]);
+    setCotizaciones(next);
+    setEquipos((prevEq) => buildEquiposFromCotizaciones(next, prevEq));
+    if (!cliente.trim()) {
+      setCliente(item.cliente);
+      setClienteId(item.origen === "digitalflow" ? `df-cli-${item.id}` : `sic-cli-${item.id}`);
+    }
     setPickerOpen(false);
     setPickerSearch("");
   };
@@ -360,41 +408,52 @@ export default function ProyectoFormModal({
     setPickerOpen(true);
   };
 
-  const buildCurrentDraft = (): ProyectoDraft => ({
-    cliente: cliente.trim(),
-    clienteId: clienteId.trim(),
-    cotizacion,
-    presupuesto,
-    equipos,
-    tipoTrabajoId,
-    tipoTrabajoNombre: tipoTrabajoNombre.trim(),
-    status,
-    motivoPausa: status === "pausado" ? motivoPausa.trim() : "",
-    fechaAutorizacion,
-    fechasInicio: fechasInicio.length ? fechasInicio : [""],
-    horaLlegada,
-    horaSalida,
-    tecnico,
-    auxiliar,
-    vehiculoAsignado: vehiculoAsignado.trim(),
-    herramientasGenerales: herramientasGenerales.trim(),
-    notasPorDia: notasPorDia.length ? notasPorDia : [createEmptyNotaDia()],
-    porcentajeAvance: clampPorcentajeAvance(porcentajeAvance),
-    incidencias: incidencias.trim(),
-    requerimientosAdicionales: requerimientosAdicionales.trim(),
-    requierePresupuestoAdicional,
-    cotizacionAdicional,
-    evidenciasUrls,
-    firmaClienteUrl,
-    firmaTecnicoUrl,
-  });
+  const buildCurrentDraft = (): ProyectoDraft => {
+    const bloques = reindexCotizacionBloques(cotizaciones);
+    return {
+      cliente: cliente.trim(),
+      clienteId: clienteId.trim(),
+      cotizaciones: bloques,
+      cotizacion: bloques[0]?.cotizacion ?? null,
+      presupuesto: flattenPresupuesto(bloques),
+      equipos,
+      tipoTrabajoId,
+      tipoTrabajoNombre: tipoTrabajoNombre.trim(),
+      status,
+      motivoPausa: status === "pausado" ? motivoPausa.trim() : "",
+      fechaAutorizacion,
+      fechasInicio: fechasInicio.length ? fechasInicio : [""],
+      horaLlegada,
+      horaSalida,
+      tecnico,
+      auxiliar,
+      vehiculoAsignado: vehiculoAsignado.trim(),
+      herramientasGenerales: herramientasGenerales.trim(),
+      notasPorDia: notasPorDia.length ? notasPorDia : [createEmptyNotaDia()],
+      porcentajeAvance: clampPorcentajeAvance(porcentajeAvance),
+      incidencias: incidencias.trim(),
+      requerimientosAdicionales: requerimientosAdicionales.trim(),
+      requierePresupuestoAdicional,
+      cotizacionAdicional,
+      evidenciasUrls,
+      firmaClienteUrl,
+      firmaTecnicoUrl,
+    };
+  };
+
+  const handleQuitarCotizacion = (vinculoId: string) => {
+    const next = reindexCotizacionBloques(cotizaciones.filter((b) => b.vinculoId !== vinculoId));
+    setCotizaciones(next);
+    setEquipos((prevEq) => buildEquiposFromCotizaciones(next, prevEq));
+    if (next.length === 0) {
+      setClienteId("");
+    }
+  };
 
   const handleLimpiarPresupuesto = () => {
-    setCotizacion(null);
-    setPresupuesto([]);
+    setCotizaciones([]);
     setEquipos([]);
-    setCliente("");
-    setClienteId("");
+    setConfirmClearCotizaciones(false);
   };
 
   const updateEquipo = (lineaId: string, patch: Partial<ProyectoEquipoLinea>) => {
@@ -422,14 +481,17 @@ export default function ProyectoFormModal({
       productoId: producto.productoId,
       marca: producto.marca,
       imagenUrl: producto.imagenUrl,
-      fuenteProducto: producto.fuenteProducto ?? "syscom",
+      fuenteProducto: producto.fuenteProducto,
     });
     setModeloPickerLineaId(null);
   };
 
   const handleRestaurarModeloOriginal = (eq: ProyectoEquipoLinea) => {
     const lineaOrigen = presupuesto.find(
-      (l) => eq.lineaId === l.id || eq.lineaId.startsWith(`${l.id}-`)
+      (l) =>
+        eq.lineaId === l.id ||
+        eq.lineaId.endsWith(`:${l.id}`) ||
+        eq.lineaId.includes(`:${l.id}-`)
     );
     updateEquipo(eq.lineaId, {
       modelo: eq.modeloOriginal,
@@ -480,7 +542,7 @@ export default function ProyectoFormModal({
 
   const removeNotaDia = (index: number) => {
     if (notasPorDia.length <= 1) {
-      setNotasPorDia([{ ...notasPorDia[0], nota: "" }]);
+      setNotasPorDia([createEmptyNotaDia()]);
       setNotasLiveMessage("Nota del día 1 vaciada");
       return;
     }
@@ -491,6 +553,12 @@ export default function ProyectoFormModal({
 
   const updateNotaDia = (index: number, nota: string) => {
     setNotasPorDia((prev) => prev.map((n, i) => (i === index ? { ...n, nota } : n)));
+  };
+
+  const updateNotaDiaImagenes = (index: number, imagenesUrls: string[]) => {
+    setNotasPorDia((prev) =>
+      prev.map((n, i) => (i === index ? { ...n, imagenesUrls: imagenesUrls.slice(0, 2) } : n))
+    );
   };
 
   useEffect(() => {
@@ -760,7 +828,7 @@ export default function ProyectoFormModal({
         isOpen={open}
         onClose={onClose}
         closeOnBackdropClick={false}
-        closeOnEscape={!pickerOpen && !modeloPickerLineaId}
+        closeOnEscape={!pickerOpen && !modeloPickerLineaId && !confirmClearCotizaciones}
         ariaLabel={`${editing ? "Editar" : "Nuevo"} proyecto`}
         className={erpModalShellClass}
       >
@@ -850,8 +918,8 @@ export default function ProyectoFormModal({
                         onChange={(e) => setClienteId(e.target.value)}
                         placeholder="Referencia interna"
                         className={erpInputLikeClass}
-                        readOnly={Boolean(cotizacion)}
-                        aria-readonly={Boolean(cotizacion)}
+                        readOnly={presupuestoCargado}
+                        aria-readonly={presupuestoCargado}
                       />
                     </div>
                   </div>
@@ -860,46 +928,94 @@ export default function ProyectoFormModal({
                 <ProyectoFormSection
                   titleId="proyecto-sec-cotizacion"
                   eyebrow="Presupuesto"
-                  title="Origen del presupuesto"
-                  hint="Cotización DigitalFlow o SICAR — sin importes, solo partidas."
+                  title="Cotizaciones del proyecto"
+                  hint="Puedes vincular varias cotizaciones sin duplicar el formulario."
                   icon={iconDoc}
-                  card={Boolean(cotizacion)}
-                >
-                  {cotizacion ? (
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <span className={proyectoOrigenBadgeClass(cotizacion.origen)}>
-                          {cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
-                        </span>
-                        <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
-                          Cotización #{cotizacion.folio}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatProyectoFecha(cotizacion.fecha)}
-                          {cotizacion.contacto ? ` · ${cotizacion.contacto}` : ""}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
+                  card={presupuestoCargado}
+                  actions={
+                    presupuestoCargado ? (
+                      <div className="flex flex-wrap items-center justify-end gap-2">
                         <button
                           type="button"
-                          className={erpSecondaryBtnClass}
+                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-rose-300 bg-rose-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50 dark:border-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500"
+                          onClick={() => setConfirmClearCotizaciones(true)}
+                          aria-haspopup="dialog"
+                        >
+                          <svg
+                            className="h-3.5 w-3.5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            aria-hidden
+                          >
+                            <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          Quitar todas
+                        </button>
+                        <button
+                          type="button"
+                          className={proyectoAddDayBtnClass}
                           onClick={() => openCotizacionPicker("principal")}
                         >
-                          Cambiar
-                        </button>
-                        <button
-                          type="button"
-                          className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
-                          onClick={handleLimpiarPresupuesto}
-                        >
-                          Quitar
+                          <svg
+                            className="h-3.5 w-3.5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            aria-hidden
+                          >
+                            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                          </svg>
+                          Agregar cotización
                         </button>
                       </div>
-                    </div>
+                    ) : null
+                  }
+                >
+                  {presupuestoCargado ? (
+                    <ul className="space-y-3" aria-label="Cotizaciones vinculadas">
+                      {cotizaciones.map((bloque) => (
+                        <li
+                          key={bloque.vinculoId}
+                          className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-3.5 dark:border-[#334155] dark:bg-[#0f172a]/50"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#ff801f]/15 px-2 text-[11px] font-bold tabular-nums text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]">
+                                {bloque.orden}
+                              </span>
+                              <span className={proyectoOrigenBadgeClass(bloque.cotizacion.origen)}>
+                                {bloque.cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
+                              </span>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                Cotización {bloque.orden} · #{bloque.cotizacion.folio}
+                              </p>
+                            </div>
+                            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                              {formatProyectoFecha(bloque.cotizacion.fecha)}
+                              {bloque.cotizacion.contacto ? ` · ${bloque.cotizacion.contacto}` : ""}
+                              {" · "}
+                              {bloque.lineas.length}{" "}
+                              {bloque.lineas.length === 1 ? "partida" : "partidas"}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
+                            onClick={() => handleQuitarCotizacion(bloque.vinculoId)}
+                            aria-label={`Quitar cotización ${bloque.orden}, folio ${bloque.cotizacion.folio}`}
+                          >
+                            Quitar
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   ) : (
                     <div className={`${proyectoEmptyPanelClass} mt-0`}>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Vincula una cotización para traer el presupuesto sin importes.
+                        Vincula una o más cotizaciones para traer el presupuesto sin importes.
                       </p>
                       <button
                         type="button"
@@ -1258,7 +1374,7 @@ export default function ProyectoFormModal({
                 <ProyectoFormSection
                   titleId="proyecto-sec-notas"
                   title="Bitácora por jornada"
-                  hint="Una entrada por día de trabajo. Se alinea con las fechas de inicio cuando existan."
+                  hint="Una entrada por día de trabajo, con hasta 2 fotos. Se alinea con las fechas de inicio cuando existan."
                   icon={iconNotes}
                   actions={
                     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1359,32 +1475,44 @@ export default function ProyectoFormModal({
                               ) : null}
                             </div>
 
-                            <div className="p-3">
-                              <label htmlFor={`proyecto-nota-dia-${item.id}`} className="sr-only">
-                                Nota del día {index + 1}
-                                {fechaLabel ? `, ${fechaLabel}` : ""}
-                              </label>
-                              <textarea
-                                id={`proyecto-nota-dia-${item.id}`}
-                                value={item.nota}
-                                onChange={(e) => updateNotaDia(index, e.target.value)}
-                                rows={3}
-                                placeholder={`Avances, pendientes o hallazgos del día ${index + 1}…`}
-                                className={proyectoNotaTextareaClass}
-                                aria-describedby={hintId}
-                              />
-                              <div
-                                id={hintId}
-                                className="mt-1.5 flex flex-wrap items-center justify-between gap-2"
-                              >
-                                <p className={proyectoNotaMetaClass}>
-                                  {charCount === 0
-                                    ? "Sin nota todavía"
-                                    : `${charCount} ${charCount === 1 ? "carácter" : "caracteres"}`}
-                                </p>
-                                {index === 0 && notasPorDia.length === 1 ? (
-                                  <p className={proyectoNotaMetaClass}>Usa «Agregar día» para más jornadas</p>
-                                ) : null}
+                            <div className="space-y-2 p-3">
+                              <div>
+                                <label htmlFor={`proyecto-nota-dia-${item.id}`} className="sr-only">
+                                  Nota del día {index + 1}
+                                  {fechaLabel ? `, ${fechaLabel}` : ""}
+                                </label>
+                                <textarea
+                                  id={`proyecto-nota-dia-${item.id}`}
+                                  value={item.nota}
+                                  onChange={(e) => updateNotaDia(index, e.target.value)}
+                                  rows={3}
+                                  placeholder={`Avances, pendientes o hallazgos del día ${index + 1}…`}
+                                  className={proyectoNotaTextareaClass}
+                                  aria-describedby={hintId}
+                                />
+                                <div
+                                  id={hintId}
+                                  className="mt-1.5 flex flex-wrap items-center justify-between gap-2"
+                                >
+                                  <p className={proyectoNotaMetaClass}>
+                                    {charCount === 0
+                                      ? "Sin nota todavía"
+                                      : `${charCount} ${charCount === 1 ? "carácter" : "caracteres"}`}
+                                  </p>
+                                  {index === 0 && notasPorDia.length === 1 ? (
+                                    <p className={proyectoNotaMetaClass}>
+                                      Usa «Agregar día» para más jornadas
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </div>
+
+                              <div className="border-t border-[#f0e8dc]/80 pt-2 dark:border-[#273244]/80">
+                                <ProyectoNotaDiaFotosField
+                                  urls={item.imagenesUrls ?? []}
+                                  onChange={(urls) => updateNotaDiaImagenes(index, urls)}
+                                  diaLabel={`día ${index + 1}`}
+                                />
                               </div>
                             </div>
                           </article>
@@ -1637,233 +1765,133 @@ export default function ProyectoFormModal({
                 <ProyectoFormSection
                   titleId="proyecto-sec-presupuesto"
                   eyebrow="Paso 3"
-                  title="Presupuesto"
-                  hint="Solo descripción, cantidad y unidad — sin precios."
+                  title="Presupuesto por cotización"
+                  hint="Cada cotización mantiene sus partidas por separado — sin precios."
                   icon={iconDoc}
                   actions={
                     <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${erpChipNeutralClass}`}>
-                      Sin precios
+                      {cotizaciones.length
+                        ? `${cotizaciones.length} ${cotizaciones.length === 1 ? "sección" : "secciones"}`
+                        : "Sin precios"}
                     </span>
                   }
                 >
                   <p id={presupuestoHintId} className="sr-only">
-                    Solo descripción, cantidad y unidad.
+                    Solo descripción, cantidad y unidad, agrupadas por cotización.
                   </p>
 
                   {!presupuestoCargado ? (
                     <div className={proyectoEmptyPanelClass} role="status">
-                      Carga una cotización en la pestaña «Cliente».
+                      Carga una o más cotizaciones en la pestaña «Cliente».
                     </div>
                   ) : (
-                    <div className={erpTableWrapClass}>
-                      <table className="min-w-full text-left text-sm">
-                        <thead className={erpTableHeaderClass}>
-                          <tr>
-                            <th scope="col" className="px-3 py-2.5 font-semibold">
-                              Descripción
-                            </th>
-                            <th scope="col" className="w-16 px-2 py-2.5 text-center font-semibold">
-                              Cant.
-                            </th>
-                            <th scope="col" className="w-14 px-2 py-2.5 text-center font-semibold">
-                              Ud.
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {presupuesto.map((linea) => (
-                            <tr key={linea.id} className="transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03]">
-                              <td className="px-3 py-2.5">
-                                <div className="flex items-start gap-2.5">
-                                  <ProyectoProductoThumb
-                                    src={linea.imagenUrl}
-                                    alt={linea.descripcion}
-                                    size="sm"
-                                    className="mt-0.5 border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]"
-                                  />
-                                  <div className="min-w-0">
-                                    {linea.categoria ? (
-                                      <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#ff801f]">
-                                        {linea.categoria}
-                                      </span>
-                                    ) : null}
-                                    <span className="font-medium text-gray-900 dark:text-gray-100">
-                                      {linea.descripcion}
-                                    </span>
-                                    {linea.detalle ? (
-                                      <p className="mt-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
-                                        {linea.detalle}
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-2 py-2.5 text-center tabular-nums">{linea.cantidad}</td>
-                              <td className="px-2 py-2.5 text-center text-xs uppercase">{linea.unidad}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="space-y-5">
+                      {cotizaciones.map((bloque) => (
+                        <section
+                          key={bloque.vinculoId}
+                          className="overflow-hidden rounded-xl border border-[#e7ded0] dark:border-[#334155]"
+                          aria-labelledby={`proyecto-presupuesto-cot-${bloque.vinculoId}`}
+                        >
+                          <header className="flex flex-wrap items-center gap-2 border-b border-[#e7ded0] bg-gradient-to-r from-[#fff8f1] to-[#fffdfa] px-3 py-2.5 dark:border-[#334155] dark:from-[#ff801f]/10 dark:to-[#0f172a]">
+                            <span
+                              className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#ff801f]/15 px-2 text-[11px] font-bold tabular-nums text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]"
+                              aria-hidden
+                            >
+                              {bloque.orden}
+                            </span>
+                            <h5
+                              id={`proyecto-presupuesto-cot-${bloque.vinculoId}`}
+                              className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]"
+                            >
+                              Cotización {bloque.orden}
+                            </h5>
+                            <span className={proyectoOrigenBadgeClass(bloque.cotizacion.origen)}>
+                              {bloque.cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
+                            </span>
+                            <span className="text-xs font-medium tabular-nums text-[#78716c] dark:text-[#8ea0b8]">
+                              #{bloque.cotizacion.folio}
+                            </span>
+                          </header>
+                          {bloque.lineas.length === 0 ? (
+                            <p className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400" role="status">
+                              Esta cotización no tiene partidas.
+                            </p>
+                          ) : (
+                            <div className={`${erpTableWrapClass} !rounded-none !border-0 !shadow-none`}>
+                              <table className="min-w-full text-left text-sm">
+                                <thead className={erpTableHeaderClass}>
+                                  <tr>
+                                    <th scope="col" className="px-3 py-2.5 font-semibold">
+                                      Descripción
+                                    </th>
+                                    <th scope="col" className="w-16 px-2 py-2.5 text-center font-semibold">
+                                      Cant.
+                                    </th>
+                                    <th scope="col" className="w-14 px-2 py-2.5 text-center font-semibold">
+                                      Ud.
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                  {bloque.lineas.map((linea) => (
+                                    <tr
+                                      key={linea.id}
+                                      className="transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03]"
+                                    >
+                                      <td className="px-3 py-2.5">
+                                        <div className="flex items-start gap-2.5">
+                                          <ProyectoProductoThumb
+                                            src={linea.imagenUrl}
+                                            alt={linea.descripcion}
+                                            size="sm"
+                                            className="mt-0.5 border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]"
+                                          />
+                                          <div className="min-w-0">
+                                            {linea.categoria ? (
+                                              <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#ff801f]">
+                                                {linea.categoria}
+                                              </span>
+                                            ) : null}
+                                            <span className="font-medium text-gray-900 dark:text-gray-100">
+                                              {linea.descripcion}
+                                            </span>
+                                            {linea.detalle ? (
+                                              <p className="mt-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                                                {linea.detalle}
+                                              </p>
+                                            ) : null}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-2 py-2.5 text-center tabular-nums">
+                                        {linea.cantidad}
+                                      </td>
+                                      <td className="px-2 py-2.5 text-center text-xs uppercase">
+                                        {linea.unidad}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </section>
+                      ))}
                     </div>
                   )}
                 </ProyectoFormSection>
 
-                <ProyectoFormSection
-                  titleId="proyecto-sec-equipos-presupuesto"
-                  title="Equipos del proyecto"
-                  hint="Seguimiento de entrega e instalación por unidad."
+                <ProyectoEquiposSection
                   icon={iconBox}
-                  actions={
-                    !presupuestoCargado ? (
-                      <span className="text-xs text-gray-500 dark:text-gray-400" role="status">
-                        Disponible al cargar presupuesto
-                      </span>
-                    ) : null
-                  }
-                >
-                  <fieldset
-                    className="space-y-3 border-0 p-0"
-                    disabled={!presupuestoCargado}
-                    aria-disabled={!presupuestoCargado}
-                  >
-                    <legend className="sr-only">Seguimiento de equipos</legend>
-
-                    {equipos.length === 0 && presupuestoCargado ? (
-                      <div className={proyectoEmptyPanelClass} role="status">
-                        El presupuesto no incluye líneas marcadas como equipo.
-                      </div>
-                    ) : null}
-
-                    {equipos.map((eq) => (
-                      <article key={eq.lineaId} className={proyectoEquipoCardClass}>
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div className="flex min-w-0 items-start gap-3">
-                            <ProyectoProductoThumb
-                              src={eq.imagenUrl}
-                              alt={eq.modelo}
-                              size="lg"
-                              className="border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]"
-                            />
-                            <div className="min-w-0">
-                              <span className={estadoBadgeClass(eq.estadoInstalacion)}>
-                                {estadoInstalacionLabel(eq.estadoInstalacion)}
-                              </span>
-                              <p className="mt-1.5 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
-                                {eq.modelo}
-                              </p>
-                            </div>
-                          </div>
-                          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#e2d9ca] bg-white px-2.5 py-1.5 text-xs font-medium has-[:disabled]:opacity-50 dark:border-[#334155] dark:bg-[#111a2b]">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-[#d6d3d1] text-[#ff801f] focus:ring-[#ff801f]/30"
-                              checked={eq.equipoEntregado}
-                              disabled={!presupuestoCargado}
-                              onChange={(e) =>
-                                updateEquipo(eq.lineaId, { equipoEntregado: e.target.checked })
-                              }
-                              aria-label={`Equipo entregado: ${eq.modelo}`}
-                            />
-                            Equipo entregado
-                          </label>
-                        </div>
-
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <span className={proyectoFieldLabelClass}>
-                              Modelo {!isAdmin && "(solo admin)"}
-                            </span>
-                            <div className="rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/80 px-3 py-2.5 dark:border-[#334155] dark:bg-[#0f172a]/50">
-                              <p className="text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
-                                {eq.modelo}
-                              </p>
-                              {eq.modelo !== eq.modeloOriginal ? (
-                                <p className="mt-1 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
-                                  Original: {eq.modeloOriginal}
-                                </p>
-                              ) : (
-                                <p className="mt-1 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
-                                  Del presupuesto
-                                </p>
-                              )}
-                              {eq.productoId ? (
-                                <p className="mt-0.5 text-[10px] tabular-nums text-[#a8a29e] dark:text-[#64748b]">
-                                  {eq.fuenteProducto === "tvc"
-                                    ? "TVC"
-                                    : eq.fuenteProducto === "manual"
-                                      ? "Manual"
-                                      : "Syscom"}{" "}
-                                  ID {eq.productoId}
-                                </p>
-                              ) : null}
-                            </div>
-                            {isAdmin ? (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  disabled={!presupuestoCargado}
-                                  className={`${erpSecondaryBtnClass} !px-3 !py-1.5 !text-xs`}
-                                  onClick={() => setModeloPickerLineaId(eq.lineaId)}
-                                  aria-label={`Cambiar modelo Syscom de ${eq.modelo}`}
-                                >
-                                  Cambiar en Syscom
-                                </button>
-                                {eq.modelo !== eq.modeloOriginal ? (
-                                  <button
-                                    type="button"
-                                    disabled={!presupuestoCargado}
-                                    className="rounded-lg border border-[#e2d9ca] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#57534e] transition hover:border-[#ff801f]/40 focus:outline-none focus:ring-2 focus:ring-[#ff801f]/25 disabled:opacity-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
-                                    onClick={() => handleRestaurarModeloOriginal(eq)}
-                                    aria-label={`Restaurar modelo original de ${eq.modeloOriginal}`}
-                                  >
-                                    Restaurar original
-                                  </button>
-                                ) : null}
-                              </div>
-                            ) : (
-                              <p className="mt-1.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
-                                Solo un administrador puede cambiar el modelo desde Syscom.
-                              </p>
-                            )}
-                          </div>
-                          <div>
-                            <span className={proyectoFieldLabelClass}>Instalación</span>
-                            <div className="flex flex-wrap gap-2" role="group" aria-label={`Instalación de ${eq.modelo}`}>
-                              <button
-                                type="button"
-                                disabled={!presupuestoCargado}
-                                aria-pressed={eq.estadoInstalacion === "instalado"}
-                                onClick={() => updateEquipo(eq.lineaId, { estadoInstalacion: "instalado" })}
-                                className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#ff801f]/25 disabled:opacity-50 ${
-                                  eq.estadoInstalacion === "instalado"
-                                    ? "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-700 dark:bg-sky-950/40"
-                                    : "border-[#e2d9ca] bg-white dark:border-[#334155] dark:bg-[#111a2b]"
-                                }`}
-                              >
-                                Instalado
-                              </button>
-                              <button
-                                type="button"
-                                disabled={!presupuestoCargado}
-                                aria-pressed={eq.estadoInstalacion === "no_instalado"}
-                                onClick={() =>
-                                  updateEquipo(eq.lineaId, { estadoInstalacion: "no_instalado" })
-                                }
-                                className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-rose-300/40 disabled:opacity-50 ${
-                                  eq.estadoInstalacion === "no_instalado"
-                                    ? "border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/40"
-                                    : "border-[#e2d9ca] bg-white dark:border-[#334155] dark:bg-[#111a2b]"
-                                }`}
-                              >
-                                No instalado
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </fieldset>
-                </ProyectoFormSection>
+                  presupuestoCargado={presupuestoCargado}
+                  isAdmin={isAdmin}
+                  cotizaciones={cotizaciones}
+                  equipos={equipos}
+                  equiposPorCotizacion={equiposPorCotizacion}
+                  onUpdateEquipo={updateEquipo}
+                  onCambiarModelo={setModeloPickerLineaId}
+                  onRestaurarModelo={handleRestaurarModeloOriginal}
+                />
               </div>
             )}
           </div>
@@ -1946,7 +1974,7 @@ export default function ProyectoFormModal({
               <p className={`${erpBodyClass} mt-1 text-sm`}>
                 {pickerTarget === "adicional"
                   ? "Selecciona la cotización que cubre el presupuesto o requerimientos adicionales."
-                  : "DigitalFlow o SICAR — el cliente y presupuesto se completan automáticamente."}
+                  : "Puedes vincular varias cotizaciones DigitalFlow o SICAR — el cliente se completa con la primera."}
               </p>
             </div>
           </div>
@@ -2024,10 +2052,61 @@ export default function ProyectoFormModal({
         </div>
       </Modal>
 
+      <Modal
+        isOpen={confirmClearCotizaciones}
+        onClose={() => setConfirmClearCotizaciones(false)}
+        closeOnBackdropClick={false}
+        closeOnEscape
+        ariaLabelledBy={clearCotizacionesTitleId}
+        className={`${erpDeleteModalClass} z-[100000]`}
+      >
+        <div className={erpDeleteModalPanelClass}>
+          <div className="mb-4 flex flex-col items-center text-center">
+            <span
+              className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"
+              aria-hidden
+            >
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path
+                  d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <h3 id={clearCotizacionesTitleId} className={erpSubheadingClass}>
+              Quitar todas las cotizaciones
+            </h3>
+            <p className={`mt-2 text-sm ${erpBodyClass}`}>
+              Se eliminarán {cotizaciones.length}{" "}
+              {cotizaciones.length === 1 ? "cotización" : "cotizaciones"} del proyecto, junto con su
+              presupuesto y el seguimiento de equipos. Esta acción no se puede deshacer.
+            </p>
+          </div>
+          <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-center sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirmClearCotizaciones(false)}
+              className={`${erpSecondaryBtnClass} sm:min-w-[7rem]`}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleLimpiarPresupuesto}
+              className={`${erpDangerBtnClass} sm:min-w-[7rem] sm:flex-none`}
+            >
+              Sí, quitar todas
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       <ProyectoSyscomModeloPicker
         open={Boolean(equipoParaModeloPicker)}
         equipoLabel={equipoParaModeloPicker?.modelo ?? ""}
         modeloActual={equipoParaModeloPicker?.modelo ?? ""}
+        fuentePreferida={equipoParaModeloPicker?.fuenteProducto}
         onClose={() => setModeloPickerLineaId(null)}
         onSelect={handleSelectModeloSyscom}
       />

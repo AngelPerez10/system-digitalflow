@@ -71,7 +71,9 @@ export function ProyectosMobileList({ rows, hasSearch, canEdit, onEdit }: Props)
                       <span className={proyectoOrigenBadgeClass(row.cotizacionOrigen)}>
                         {row.cotizacionOrigen === "digitalflow" ? "DF" : "SICAR"}
                       </span>
-                      <span className="ml-1 tabular-nums">#{row.cotizacionFolio}</span>
+                      <span className="ml-1 tabular-nums">
+                        {row.cotizacionesCount > 1 ? row.cotizacionFolio : `#${row.cotizacionFolio}`}
+                      </span>
                     </>
                   )}
                 </dd>

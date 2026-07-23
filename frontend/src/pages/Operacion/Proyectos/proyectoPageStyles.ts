@@ -11,9 +11,69 @@ export const proyectoPickerModalBodyClass = "custom-scrollbar max-h-[min(70vh,28
 export const proyectoEmptyPanelClass =
   "rounded-xl border border-dashed border-[#e2d9ca] bg-[#fffdf8]/80 px-4 py-8 text-center dark:border-[#334155] dark:bg-[#0f172a]/40";
 
-export const proyectoEquipoCardClass =
-  "rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-3.5 shadow-sm dark:border-[#334155] dark:bg-[#0f172a]/50 sm:p-4";
+/** Grupo de equipos por cotización (estación de campo). */
+export const proyectoEquipoGroupClass =
+  "overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] shadow-[0_1px_0_rgba(28,25,23,0.04)] dark:border-[#334155] dark:bg-[#0f172a]/40 dark:shadow-none";
 
+/** Fila de equipo: riel de estado + contenido. */
+export const proyectoEquipoCardClass =
+  "relative flex overflow-hidden bg-[#fffdfa] transition-colors hover:bg-[#fffaf3]/70 dark:bg-transparent dark:hover:bg-[#111a2b]/55";
+
+export const proyectoEquipoAccentClass = (estado: string) => {
+  const base = "w-1 shrink-0 self-stretch";
+  switch (estado) {
+    case "instalado":
+      return `${base} bg-sky-500`;
+    case "no_instalado":
+      return `${base} bg-rose-500`;
+    case "entregado":
+      return `${base} bg-emerald-500`;
+    default:
+      return `${base} bg-[#d6d3d1] dark:bg-[#475569]`;
+  }
+};
+
+export const proyectoEquipoMetaClass =
+  "mt-1 text-[11px] leading-snug text-[#78716c] dark:text-[#8ea0b8]";
+
+export const proyectoEquipoProgressBarClass =
+  "h-1.5 w-full overflow-hidden rounded-full bg-[#efe9de] dark:bg-[#1e293b]";
+
+export const proyectoEquipoSummaryChipClass = (tone: "neutral" | "entrega" | "instalacion") => {
+  const base =
+    "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums";
+  switch (tone) {
+    case "entrega":
+      return `${base} border-[#ff801f]/30 bg-[#fff4eb] text-[#9a3412] dark:border-[#ff801f]/40 dark:bg-[#ff801f]/15 dark:text-[#fdba74]`;
+    case "instalacion":
+      return `${base} border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-700/50 dark:bg-sky-950/40 dark:text-sky-300`;
+    default:
+      return `${base} border-[#e2d9ca] bg-white text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]`;
+  }
+};
+
+export const proyectoEquipoDeliveredClass = (delivered: boolean) =>
+  [
+    "inline-flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50",
+    "focus-within:outline-none focus-within:ring-2 focus-within:ring-[#ff801f]/30",
+    delivered
+      ? "border-emerald-300 bg-emerald-50 dark:border-emerald-600/50 dark:bg-emerald-950/35"
+      : "border-[#e2d9ca] bg-white dark:border-[#334155] dark:bg-[#111a2b]",
+  ].join(" ");
+
+export const proyectoEquipoInstallBtnClass = (
+  active: boolean,
+  value: "instalado" | "no_instalado"
+) => {
+  const base =
+    "min-h-9 min-w-[6.5rem] flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 disabled:opacity-50 sm:flex-none";
+  if (!active) {
+    return `${base} text-[#57534e] hover:bg-white dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]/60`;
+  }
+  return value === "instalado"
+    ? `${base} bg-sky-100 text-sky-900 shadow-sm dark:bg-sky-950/55 dark:text-sky-200`
+    : `${base} bg-rose-100 text-rose-900 shadow-sm dark:bg-rose-950/45 dark:text-rose-200`;
+};
 export const proyectoOrigenBadgeClass = (origen: "digitalflow" | "sicar") =>
   origen === "digitalflow"
     ? "inline-flex rounded-full border border-[#ff801f]/25 bg-[#ff801f]/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#9a3412] dark:text-[#fdba74]"

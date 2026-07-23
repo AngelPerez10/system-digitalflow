@@ -591,7 +591,7 @@ a[href]:not([tabindex="-1"]) {
   @apply w-full;
 }
 .flatpickr-calendar {
-  @apply mt-2 !bg-white !rounded-xl !p-5 !border !border-gray-200 !text-gray-500 dark:!bg-[#000000] dark:!border-[#d6ebfd]/20 dark:!text-gray-300 dark:!shadow-theme-xl 2xsm:!w-auto;
+  @apply !m-0 !bg-white !rounded-xl !px-3 !py-3 !border !border-gray-200 !text-gray-500 dark:!bg-[#000000] dark:!border-[#d6ebfd]/20 dark:!text-gray-300 dark:!shadow-theme-xl 2xsm:!w-auto;
 }
 
 .flatpickr-months .flatpickr-prev-month:hover svg,
@@ -603,21 +603,29 @@ a[href]:not([tabindex="-1"]) {
   @apply hidden;
 }
 
+.flatpickr-months {
+  @apply !relative !h-9;
+}
+
+.flatpickr-months .flatpickr-month {
+  @apply !h-9 !overflow-hidden;
+}
+
 .flatpickr-current-month {
-  @apply !p-0;
+  @apply !p-0 !h-9 !flex !items-center !justify-center;
 }
 .flatpickr-current-month .cur-month,
 .flatpickr-current-month input.cur-year {
-  @apply !h-auto !pt-0 !text-lg !font-medium !text-gray-800 dark:!text-white/90;
+  @apply !h-auto !pt-0 !text-base !font-medium !text-gray-800 dark:!text-white/90;
 }
 
 .flatpickr-prev-month,
 .flatpickr-next-month {
-  @apply !p-0;
+  @apply !p-2;
 }
 
 .flatpickr-weekdays {
-  @apply h-auto mt-6 mb-4 !bg-transparent;
+  @apply !h-7 !mt-0 !mb-1 !bg-transparent;
 }
 
 .flatpickr-weekday {
@@ -647,17 +655,18 @@ a[href]:not([tabindex="-1"]) {
   outline: none !important;
   border: 0 !important;
 }
+/* Flechas alineadas al header (top distinto de 0 deja un hueco grande antes de los días). */
 .flatpickr-months .flatpickr-prev-month,
 .flatpickr-months .flatpickr-next-month {
-  @apply !top-7 dark:!fill-white dark:!text-white !bg-transparent;
+  @apply !top-0 !h-9 dark:!fill-white dark:!text-white !bg-transparent;
 }
 .flatpickr-months .flatpickr-prev-month.flatpickr-prev-month,
 .flatpickr-months .flatpickr-next-month.flatpickr-prev-month {
-  @apply !left-7;
+  @apply !left-1;
 }
 .flatpickr-months .flatpickr-prev-month.flatpickr-next-month,
 .flatpickr-months .flatpickr-next-month.flatpickr-next-month {
-  @apply !right-7;
+  @apply !right-1;
 }
 .flatpickr-days {
   @apply !border-0;
