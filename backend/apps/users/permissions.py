@@ -261,6 +261,45 @@ class OrdenesPermission(ModulePermission):
     module_key = 'ordenes'
 
 
+class ProyectosPermission(ModulePermission):
+    """Permisos JSON para el módulo Proyectos (Operación)."""
+
+    module_key = 'proyectos'
+
+
+class OrdenesSendPdfPermission(BasePermission):
+    """
+    Enviar PDF de orden por correo: basta con `view` en órdenes
+    (admin y técnico con acceso al listado).
+    """
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, 'ordenes')
+        return _as_bool_value(module_perms.get('view'), False)
+
+
+class CotizacionesSendPdfPermission(BasePermission):
+    """Enviar PDF de cotización por correo: basta con `view` en cotizaciones."""
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, 'cotizaciones')
+        return _as_bool_value(module_perms.get('view'), False)
+
+
 class TareasPermission(ModulePermission):
     """Permisos JSON para el módulo Mi Escritorio / Tareas."""
 

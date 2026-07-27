@@ -1,6 +1,7 @@
 """HTML template for cotizacion PDF."""
 import logging
 
+from apps.common.document_folio import FOLIO_SERIE_COT, format_document_folio
 from apps.common.pdf_html import (
     esc,
     load_public_image_data_uri,
@@ -66,7 +67,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
 
     deposit_razon_social = 'INTERPRO MANZANILLO'
 
-    folio = cotizacion.idx or cotizacion.id
+    folio = format_document_folio(FOLIO_SERIE_COT, cotizacion.idx or cotizacion.id)
     fecha = cotizacion.fecha.strftime('%d/%m/%Y') if cotizacion.fecha else '-'
     moneda = 'MXN'
 

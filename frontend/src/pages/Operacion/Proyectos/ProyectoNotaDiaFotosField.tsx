@@ -1,12 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
+import { compressImage, getPublicIdFromUrl } from "../OrdenesTrabajo/OrdenServicio/useOrdenesShared";
 import {
-  compressImage,
-  deleteImageFromCloudinary,
-  getPublicIdFromUrl,
-  uploadImageToCloudinary,
-} from "../OrdenesTrabajo/OrdenServicio/useOrdenesShared";
+  deleteProyectoImageFromCloudinary,
+  uploadProyectoImageToCloudinary,
+} from "./proyectoImageApi";
 
 export const PROYECTO_NOTA_MAX_FOTOS = 2;
 const PROYECTO_NOTA_FOTOS_FOLDER = "proyectos/bitacora";
@@ -58,7 +57,7 @@ export function ProyectoNotaDiaFotosField({
         for (const file of files) {
           try {
             const compressed = await compressImage(file, 80, 1400, 1400);
-            const url = await uploadImageToCloudinary(compressed, PROYECTO_NOTA_FOTOS_FOLDER);
+            const url = await uploadProyectoImageToCloudinary(compressed, PROYECTO_NOTA_FOTOS_FOLDER);
             if (url) uploaded.push(url);
           } catch (err) {
             console.error("Error al subir foto de bitácora:", err);
@@ -97,7 +96,7 @@ export function ProyectoNotaDiaFotosField({
     try {
       const publicId = getPublicIdFromUrl(url);
       if (publicId) {
-        await deleteImageFromCloudinary(publicId);
+        await deleteProyectoImageFromCloudinary(publicId);
       }
     } catch (err) {
       console.error("Error al eliminar foto de bitácora:", err);

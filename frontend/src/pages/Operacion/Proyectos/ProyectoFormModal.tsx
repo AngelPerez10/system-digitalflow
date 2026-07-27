@@ -35,6 +35,7 @@ import {
   erpModalTabClass,
 } from "../OrdenesTrabajo/ordenTrabajoStyles";
 import { canCerrarProyecto, proyectoRequiereCotizacionAdicional } from "./proyectoCloseValidation";
+import { loadProyectoCotizacionDetalle, searchProyectoCotizaciones } from "./proyectoCotizacionSearch";
 import { ProyectoEquiposSection } from "./ProyectoEquiposSection";
 import { ProyectoEvidenciasField } from "./ProyectoEvidenciasField";
 import { ProyectoFormSection, proyectoSectionIconClass } from "./ProyectoFormSection";
@@ -44,6 +45,7 @@ import {
   clampPorcentajeAvance,
   createCotizacionBloque,
   createEmptyNotaDia,
+  displayCotizacionFolio,
   emptyPersona,
   flattenPresupuesto,
   getDeviceTimeHHMM,
@@ -51,11 +53,6 @@ import {
   normalizeNotasPorDia,
   reindexCotizacionBloques,
 } from "./proyectoFormUtils";
-import {
-  MOCK_COTIZACIONES_DIGITALFLOW,
-  MOCK_COTIZACIONES_SICAR,
-  MOCK_PRESUPUESTO_BY_COTIZACION,
-} from "./proyectoMockData";
 import {
   formatProyectoFecha,
   proyectoAddDayBtnClass,
@@ -102,7 +99,7 @@ type ProyectoFormModalProps = {
   editing: boolean;
   initialDraft: ProyectoDraft;
   onClose: () => void;
-  onSave: (draft: ProyectoDraft) => void;
+  onSave: (draft: ProyectoDraft) => void | Promise<void>;
 };
 
 const STATUS_OPTIONS: { value: ProyectoEstado; label: string; tone: "proceso" | "pausado" | "cerrado" }[] = [
@@ -194,6 +191,8 @@ export default function ProyectoFormModal({
   const [evidenciasUrls, setEvidenciasUrls] = useState(initialDraft.evidenciasUrls);
   const [firmaClienteUrl, setFirmaClienteUrl] = useState(initialDraft.firmaClienteUrl);
   const [firmaTecnicoUrl, setFirmaTecnicoUrl] = useState(initialDraft.firmaTecnicoUrl);
+  const [tecnicoSignatureUrl, setTecnicoSignatureUrl] = useState("");
+  const tecnicoSignatureCacheRef = useRef<Record<number, string>>({});
   const [closeBlockedMessage, setCloseBlockedMessage] = useState("");
 
   const [servicios, setServicios] = useState<ServicioOpcion[]>([]);
@@ -206,6 +205,10 @@ export default function ProyectoFormModal({
   const [pickerTarget, setPickerTarget] = useState<CotizacionPickerTarget>("principal");
   const [pickerTab, setPickerTab] = useState<CotizacionOrigen>("digitalflow");
   const [pickerSearch, setPickerSearch] = useState("");
+  const [pickerResults, setPickerResults] = useState<CotizacionResumen[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerError, setPickerError] = useState("");
+  const [pickerLoadingId, setPickerLoadingId] = useState<string | null>(null);
   const [modeloPickerLineaId, setModeloPickerLineaId] = useState<string | null>(null);
 
   const presupuesto = useMemo(() => flattenPresupuesto(cotizaciones), [cotizaciones]);
@@ -243,19 +246,11 @@ export default function ProyectoFormModal({
   );
 
   const cotizacionesFiltradas = useMemo(() => {
-    const pool =
-      pickerTab === "digitalflow" ? MOCK_COTIZACIONES_DIGITALFLOW : MOCK_COTIZACIONES_SICAR;
-    const q = pickerSearch.trim().toLowerCase();
-    return pool.filter((c) => {
+    return pickerResults.filter((c) => {
       if (pickerTarget === "principal" && cotizacionIdsVinculados.has(c.id)) return false;
-      if (!q) return true;
-      return (
-        c.folio.toLowerCase().includes(q) ||
-        c.cliente.toLowerCase().includes(q) ||
-        (c.contacto || "").toLowerCase().includes(q)
-      );
+      return true;
     });
-  }, [pickerTab, pickerSearch, pickerTarget, cotizacionIdsVinculados]);
+  }, [pickerResults, pickerTarget, cotizacionIdsVinculados]);
 
   const resetFromInitial = useCallback(() => {
     setActiveTab("cliente");
@@ -290,6 +285,7 @@ export default function ProyectoFormModal({
     setEvidenciasUrls(initialDraft.evidenciasUrls ?? []);
     setFirmaClienteUrl(initialDraft.firmaClienteUrl);
     setFirmaTecnicoUrl(initialDraft.firmaTecnicoUrl);
+    setTecnicoSignatureUrl("");
     setCloseBlockedMessage("");
     setClienteStepError("");
     setHoraSalidaError("");
@@ -297,6 +293,10 @@ export default function ProyectoFormModal({
     setConfirmClearCotizaciones(false);
     setPickerTarget("principal");
     setPickerSearch("");
+    setPickerResults([]);
+    setPickerLoading(false);
+    setPickerError("");
+    setPickerLoadingId(null);
     setModeloPickerLineaId(null);
     setCatalogError("");
   }, [initialDraft]);
@@ -369,42 +369,124 @@ export default function ProyectoFormModal({
     };
   }, [open]);
 
+  /** Igual que Órdenes: jalar firma registrada del técnico asignado (solo lectura). */
+  useEffect(() => {
+    if (!open) return;
+    const tecnicoId = tecnico.id != null ? Number(tecnico.id) : null;
+    if (!tecnicoId) {
+      setTecnicoSignatureUrl("");
+      return;
+    }
+
+    const cached = tecnicoSignatureCacheRef.current[tecnicoId];
+    if (typeof cached === "string") {
+      setTecnicoSignatureUrl(cached);
+      if (cached) setFirmaTecnicoUrl(cached);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetchApi(`/api/users/accounts/${tecnicoId}/signature/`, {
+          cache: "no-store" as RequestCache,
+        });
+        const data = (await res.json().catch(() => null)) as { url?: string } | null;
+        if (cancelled || !res.ok) return;
+        const url = String(data?.url || "");
+        tecnicoSignatureCacheRef.current[tecnicoId] = url;
+        setTecnicoSignatureUrl(url);
+        if (url) setFirmaTecnicoUrl(url);
+      } catch {
+        if (!cancelled) setTecnicoSignatureUrl("");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, tecnico.id]);
+
+  useEffect(() => {
+    if (!open || !pickerOpen) return;
+    let cancelled = false;
+    setPickerLoading(true);
+    setPickerError("");
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const { rows, error } = await searchProyectoCotizaciones(pickerTab, pickerSearch);
+        if (cancelled) return;
+        setPickerResults(rows);
+        setPickerError(error?.message || "");
+        setPickerLoading(false);
+      })();
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, pickerOpen, pickerTab, pickerSearch]);
+
   const equipoParaModeloPicker = modeloPickerLineaId
     ? equipos.find((eq) => eq.lineaId === modeloPickerLineaId) ?? null
     : null;
 
-  const handleCargarCotizacion = (item: CotizacionResumen) => {
+  const handleCargarCotizacion = async (item: CotizacionResumen) => {
+    if (pickerLoadingId) return;
+
     if (pickerTarget === "adicional") {
-      setCotizacionAdicional(item);
+      setPickerLoadingId(item.id);
+      setPickerError("");
+      const { result, error } = await loadProyectoCotizacionDetalle(item);
+      setPickerLoadingId(null);
+      if (!result) {
+        setPickerError(error || "No se pudo cargar la cotización.");
+        return;
+      }
+      setCotizacionAdicional(result.resumen);
       setCloseBlockedMessage("");
       setPickerOpen(false);
       setPickerSearch("");
+      setPickerResults([]);
       setPickerTarget("principal");
       return;
     }
+
     if (cotizacionIdsVinculados.has(item.id)) {
       setPickerOpen(false);
       setPickerSearch("");
       return;
     }
-    const lineas = MOCK_PRESUPUESTO_BY_COTIZACION[item.id] ?? [];
+
+    setPickerLoadingId(item.id);
+    setPickerError("");
+    const { result, error } = await loadProyectoCotizacionDetalle(item);
+    setPickerLoadingId(null);
+    if (!result) {
+      setPickerError(error || "No se pudo cargar la cotización.");
+      return;
+    }
+
     const next = reindexCotizacionBloques([
       ...cotizaciones,
-      createCotizacionBloque(item, lineas, cotizaciones.length + 1),
+      createCotizacionBloque(result.resumen, result.lineas, cotizaciones.length + 1),
     ]);
     setCotizaciones(next);
     setEquipos((prevEq) => buildEquiposFromCotizaciones(next, prevEq));
     if (!cliente.trim()) {
-      setCliente(item.cliente);
-      setClienteId(item.origen === "digitalflow" ? `df-cli-${item.id}` : `sic-cli-${item.id}`);
+      setCliente(result.clienteNombre);
+      setClienteId(result.clienteId);
     }
     setPickerOpen(false);
     setPickerSearch("");
+    setPickerResults([]);
   };
 
   const openCotizacionPicker = (target: CotizacionPickerTarget) => {
     setPickerTarget(target);
     setPickerSearch("");
+    setPickerResults([]);
+    setPickerError("");
     setPickerOpen(true);
   };
 
@@ -608,7 +690,7 @@ export default function ProyectoFormModal({
     if (next !== "pausado") setMotivoPausa("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Enter en un campo no debe guardar si aún no estamos en la última pestaña.
     if (activeTabRef.current !== "presupuesto") {
@@ -636,7 +718,11 @@ export default function ProyectoFormModal({
         return;
       }
     }
-    onSave(draft);
+    try {
+      await onSave(draft);
+    } catch {
+      // El padre muestra el toast; el modal permanece abierto.
+    }
   };
 
   const tabIds: Record<ProyectoFormTab, string> = {
@@ -990,7 +1076,7 @@ export default function ProyectoFormModal({
                                 {bloque.cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
                               </span>
                               <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                Cotización {bloque.orden} · #{bloque.cotizacion.folio}
+                                Cotización {bloque.orden} · {displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}
                               </p>
                             </div>
                             <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -1005,7 +1091,7 @@ export default function ProyectoFormModal({
                             type="button"
                             className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
                             onClick={() => handleQuitarCotizacion(bloque.vinculoId)}
-                            aria-label={`Quitar cotización ${bloque.orden}, folio ${bloque.cotizacion.folio}`}
+                            aria-label={`Quitar cotización ${bloque.orden}, folio ${displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}`}
                           >
                             Quitar
                           </button>
@@ -1682,7 +1768,7 @@ export default function ProyectoFormModal({
                                 {cotizacionAdicional.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
                               </span>
                               <p className="mt-2 text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
-                                #{cotizacionAdicional.folio} — {cotizacionAdicional.cliente}
+                                {displayCotizacionFolio(cotizacionAdicional.folio, cotizacionAdicional.origen)} — {cotizacionAdicional.cliente}
                               </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -1732,14 +1818,17 @@ export default function ProyectoFormModal({
                 <ProyectoFormSection
                   titleId="proyecto-sec-firmas"
                   title="Firmas"
-                  hint="Firma del técnico y del cliente al cierre."
+                  hint="La firma del técnico se toma de su perfil. El cliente firma aquí al cierre."
                   icon={iconPen}
                 >
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <SignaturePad
                       label="Firma del técnico"
-                      value={firmaTecnicoUrl}
-                      onChange={setFirmaTecnicoUrl}
+                      value={tecnicoSignatureUrl || firmaTecnicoUrl}
+                      disabled
+                      onChange={() => {
+                        /* Solo lectura: se carga del perfil del técnico asignado */
+                      }}
                       width={400}
                       height={220}
                     />
@@ -1809,7 +1898,7 @@ export default function ProyectoFormModal({
                               {bloque.cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
                             </span>
                             <span className="text-xs font-medium tabular-nums text-[#78716c] dark:text-[#8ea0b8]">
-                              #{bloque.cotizacion.folio}
+                              {displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}
                             </span>
                           </header>
                           {bloque.lineas.length === 0 ? (
@@ -1997,7 +2086,12 @@ export default function ProyectoFormModal({
                 type="button"
                 role="tab"
                 aria-selected={pickerTab === tab.id}
-                onClick={() => setPickerTab(tab.id)}
+                onClick={() => {
+                  setPickerTab(tab.id);
+                  setPickerSearch("");
+                  setPickerResults([]);
+                  setPickerError("");
+                }}
                 className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#ff801f]/25 ${
                   pickerTab === tab.id
                     ? "bg-white text-[#1c1917] shadow-sm dark:bg-[#1e293b] dark:text-[#f8fafc]"
@@ -2024,29 +2118,45 @@ export default function ProyectoFormModal({
           </div>
 
           <ul className="mt-4 space-y-2" role="listbox" aria-label="Cotizaciones">
-            {cotizacionesFiltradas.length === 0 ? (
+            {pickerLoading ? (
               <li className={`${proyectoEmptyPanelClass} py-6`} role="status">
-                Sin resultados para la búsqueda.
+                Buscando cotizaciones…
+              </li>
+            ) : pickerError ? (
+              <li className={`${proyectoEmptyPanelClass} py-6 text-rose-700 dark:text-rose-300`} role="alert">
+                {pickerError}
+              </li>
+            ) : cotizacionesFiltradas.length === 0 ? (
+              <li className={`${proyectoEmptyPanelClass} py-6`} role="status">
+                {pickerSearch.trim()
+                  ? "Sin resultados para la búsqueda."
+                  : "Escribe folio o cliente para buscar, o espera el listado reciente."}
               </li>
             ) : (
-              cotizacionesFiltradas.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    role="option"
-                    className={proyectoCotizacionOptionClass}
-                    onClick={() => handleCargarCotizacion(item)}
-                  >
-                    <span className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
-                      #{item.folio} — {item.cliente}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-[#78716c] dark:text-[#8ea0b8]">
-                      {item.fecha}
-                      {item.contacto ? ` · ${item.contacto}` : ""}
-                    </span>
-                  </button>
-                </li>
-              ))
+              cotizacionesFiltradas.map((item) => {
+                const busy = pickerLoadingId === item.id;
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      disabled={Boolean(pickerLoadingId)}
+                      aria-busy={busy}
+                      className={proyectoCotizacionOptionClass}
+                      onClick={() => void handleCargarCotizacion(item)}
+                    >
+                      <span className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                        {displayCotizacionFolio(item.folio, item.origen)} — {item.cliente}
+                        {busy ? " · Cargando…" : ""}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                        {item.fecha}
+                        {item.contacto ? ` · ${item.contacto}` : ""}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })
             )}
           </ul>
         </div>

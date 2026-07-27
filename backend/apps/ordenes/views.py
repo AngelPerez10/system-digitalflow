@@ -19,11 +19,22 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.common.document_folio import FOLIO_SERIE_ODT, resolve_document_folio
 from apps.common.ssrf import is_cloudinary_host
 from apps.cotizaciones.pdf_render import (
     PdfRenderError,
     any_provider_configured,
     render_html_to_pdf,
+)
+from apps.ordenes.email_pdf import (
+    build_orden_email_body,
+    build_orden_email_subject,
+    is_valid_email,
+    maybe_save_cliente_correo,
+    normalize_email,
+    resolve_cliente_correo,
+    send_orden_pdf_email,
+    smtp_configured,
 )
 from apps.ordenes.edit_scope import (
     filter_limited_orden_update as _filter_limited_orden_update,
@@ -46,6 +57,7 @@ from apps.users.permissions import (
     OrdenesAnyAccessPermission,
     OrdenesAttachmentPermission,
     OrdenesPermission,
+    OrdenesSendPdfPermission,
     user_has_any_ordenes_access,
     user_module_own_only,
 )
@@ -405,6 +417,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), OrdenesAnyAccessPermission()]
         if self.action in ('upload_image', 'delete_image'):
             return [IsAuthenticated(), OrdenesAttachmentPermission()]
+        if self.action in ('enviar_pdf', 'correo_sugerido'):
+            return [IsAuthenticated(), OrdenesSendPdfPermission()]
         return super().get_permissions()
 
     def get_queryset(self):
@@ -716,7 +730,12 @@ class OrdenViewSet(viewsets.ModelViewSet):
         for o in ordenes:
             if not isinstance(o, dict):
                 continue
-            folio = o.get('folio') or o.get('idx') or o.get('id') or '-'
+            folio = resolve_document_folio(
+                FOLIO_SERIE_ODT,
+                o.get('folio'),
+                o.get('idx') or o.get('id'),
+                empty='-',
+            )
             cliente = o.get('cliente') or '-'
             st = o.get('status') or ''
             st_l = str(st).lower().strip()
@@ -936,7 +955,12 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
         rows = []
         for o in ordenes:
-            folio = (o.folio or '').strip() or str(o.idx or o.pk)
+            folio = resolve_document_folio(
+                FOLIO_SERIE_ODT,
+                o.folio,
+                o.idx or o.pk,
+                empty='-',
+            )
             rows.append(
                 f"""
                 <tr>
@@ -1453,6 +1477,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
             'ordenes/levantamiento/dibujos',
             'productos/conceptos',
             'productos/manuales',
+            'proyectos/evidencias',
+            'proyectos/bitacora',
+            'proyectos/firmas',
         }
         if not isinstance(folder, str) or folder not in allowed_folders:
             return Response({"detail": "folder inválido"}, status=400)
@@ -1488,6 +1515,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
             'ordenes/levantamiento/dibujos/',
             'productos/conceptos/',
             'productos/manuales/',
+            'proyectos/evidencias/',
+            'proyectos/bitacora/',
+            'proyectos/firmas/',
         )
         if not any(public_id.startswith(p) for p in allowed_prefixes):
             return Response({"detail": "public_id fuera de alcance"}, status=400)
@@ -1543,3 +1573,113 @@ class OrdenViewSet(viewsets.ModelViewSet):
         html = self._generate_pdf_html(orden)
         filename = f"Ordenes_Servicio_{orden.id}.pdf"
         return _pdf_response_from_html(html, filename)
+
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='correo-sugerido',
+    )
+    def correo_sugerido(self, request, pk=None):
+        """Correo precargable: cliente.correo o contacto principal."""
+        orden = self.get_object()
+        cliente = getattr(orden, 'cliente_id', None)
+        correo = resolve_cliente_correo(cliente)
+        return Response(
+            {
+                'correo': correo,
+                'cliente_id': getattr(cliente, 'pk', None),
+                'cliente_tiene_correo': bool(
+                    cliente and normalize_email(getattr(cliente, 'correo', None))
+                ),
+                'orden_status': orden.status,
+            }
+        )
+
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='enviar-pdf',
+    )
+    def enviar_pdf(self, request, pk=None):
+        """Genera el PDF de la orden resuelta y lo envía por SMTP al correo indicado."""
+        orden = self.get_object()
+        status_norm = (orden.status or '').strip().lower()
+        if status_norm not in ('resuelto', 'completado', 'completada'):
+            return Response(
+                {'detail': 'Solo se puede enviar el PDF de órdenes resueltas.'},
+                status=400,
+            )
+
+        body = request.data if isinstance(request.data, dict) else {}
+        correo = normalize_email(
+            body.get('correo') or body.get('email') or body.get('to')
+        )
+        if not correo:
+            correo = resolve_cliente_correo(getattr(orden, 'cliente_id', None))
+        if not is_valid_email(correo):
+            return Response(
+                {'detail': 'Indique un correo electrónico válido.'},
+                status=400,
+            )
+
+        if not smtp_configured():
+            return Response(
+                {
+                    'detail': (
+                        'El correo de salida no está configurado en el servidor. '
+                        'Contacte al administrador.'
+                    )
+                },
+                status=503,
+            )
+
+        if not any_provider_configured():
+            return Response(
+                {'detail': 'No hay motor de PDF disponible en el servidor.'},
+                status=503,
+            )
+
+        html = self._generate_pdf_html(orden)
+        if not html:
+            return Response({'detail': 'No se pudo generar el HTML del PDF.'}, status=500)
+
+        filename = f"Ordenes_Servicio_{orden.id}.pdf"
+        try:
+            pdf_bytes = render_html_to_pdf(html, size='A4', landscape=False, timeout=90)
+        except PdfRenderError as e:
+            logger.exception('PDF render failed for email: %s', e.detail)
+            return Response({'detail': 'No se pudo generar el PDF.'}, status=502)
+
+        try:
+            send_orden_pdf_email(
+                to_email=correo,
+                subject=build_orden_email_subject(orden),
+                body=build_orden_email_body(orden),
+                pdf_bytes=pdf_bytes,
+                filename=filename,
+            )
+        except Exception as e:
+            logger.exception('Failed to send orden PDF email')
+            return Response(
+                {
+                    'detail': (
+                        f'No se pudo enviar el correo: {type(e).__name__}. '
+                        'Verifique la configuración SMTP o intente más tarde.'
+                    )
+                },
+                status=502,
+            )
+
+        correo_guardado = maybe_save_cliente_correo(
+            getattr(orden, 'cliente_id', None),
+            correo,
+        )
+        return Response(
+            {
+                'ok': True,
+                'correo': correo,
+                'correo_guardado_en_cliente': correo_guardado,
+                'detail': f'PDF enviado a {correo}.',
+            },
+            status=200,
+        )

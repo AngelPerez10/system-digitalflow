@@ -1,4 +1,5 @@
 import { useRef, useEffect, useId } from "react";
+import { createPortal } from "react-dom";
 
 interface ModalBaseProps {
   isOpen: boolean;
@@ -127,8 +128,9 @@ export const Modal: React.FC<ModalProps> = ({
     ? "w-full h-full"
     : "relative flex min-h-0 w-full flex-col rounded-3xl bg-white dark:bg-gray-900";
 
-  return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-y-auto modal z-99999">
+  // Portal a body: fuera de `.app-ui-scale { zoom }`, coords de canvas/pointer 1:1.
+  return createPortal(
+    <div className="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto modal">
       {!isFullscreen && (
         <div
           className="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
@@ -176,6 +178,7 @@ export const Modal: React.FC<ModalProps> = ({
         )}
         <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -13,6 +13,7 @@ import {
   type CotizacionRow,
 } from "@/components/cotizacion/CotizacionesViewParts";
 import { erpPageCanvasClass, erpPageInnerClass } from "@/layout/erpPageStyles";
+import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 
 const cardShellClass =
   "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
@@ -55,7 +56,9 @@ const parseYearMonth = (value: string) => {
 export default function CotizacionesPage() {
   const excelLoadingTitleId = useId();
   const deleteModalTitleId = useId();
-  const [permissions, setPermissions] = useState<any>({});
+  const [permissions, setPermissions] = useState<
+    Record<string, { view?: boolean; create?: boolean; edit?: boolean; delete?: boolean }>
+  >({});
 
   const canCotizacionesView = permissions?.cotizaciones?.view === true;
   const canCotizacionesCreate = permissions?.cotizaciones?.create === true;
@@ -401,7 +404,9 @@ export default function CotizacionesPage() {
 
       const dispo = resp.headers.get("content-disposition") || "";
       const m = dispo.match(/filename="?([^";]+)"?/i);
-      const fallbackIdx = r.idx ? String(r.idx) : sid;
+      const fallbackIdx = r.idx
+        ? formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx)
+        : sid;
       const filename = m?.[1] ? String(m[1]) : `Cotizacion_${fallbackIdx}.xlsx`;
 
       const blob = await resp.blob();

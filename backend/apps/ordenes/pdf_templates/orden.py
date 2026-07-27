@@ -1,6 +1,7 @@
 """HTML template for orden de servicio PDF."""
 import logging
 
+from apps.common.document_folio import FOLIO_SERIE_ODT, resolve_document_folio
 from apps.common.pdf_html import esc, load_public_image_data_uri
 from apps.common.pdf_images import img_url_to_data_uri
 from apps.ordenes.pdf_limits import orden_max_fotos
@@ -33,7 +34,12 @@ def generate_orden_pdf_html(orden) -> str:
     status_border = "#86efac" if orden.status == "resuelto" else "#fcd34d"
     status_fg = "#166534" if orden.status == "resuelto" else "#92400e"
 
-    folio_display = getattr(orden, 'folio', None) or getattr(orden, 'idx', None) or '-'
+    folio_display = resolve_document_folio(
+        FOLIO_SERIE_ODT,
+        getattr(orden, 'folio', None),
+        getattr(orden, 'idx', None) or getattr(orden, 'id', None),
+        empty='-',
+    )
 
     servicios_pills_html = "".join(
         f"<span class='service-pill'>{esc(s)}</span>" for s in servicios if s

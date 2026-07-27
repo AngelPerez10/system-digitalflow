@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { erpSecondaryBtnClass } from "@/layout/erpPageStyles";
 import { ProyectoFormSection } from "./ProyectoFormSection";
-import { estadoBadgeClass, estadoInstalacionLabel } from "./proyectoFormUtils";
+import { displayCotizacionFolio, estadoBadgeClass, estadoInstalacionLabel } from "./proyectoFormUtils";
 import {
   proyectoEmptyPanelClass,
   proyectoEquipoAccentClass,
@@ -137,7 +137,7 @@ export function ProyectoEquiposSection({
                       id={headingId}
                       className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]"
                     >
-                      Cotización {bloque.orden} · #{bloque.cotizacion.folio}
+                      Cotización {bloque.orden} · {displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}
                     </h5>
                   </div>
                 </div>

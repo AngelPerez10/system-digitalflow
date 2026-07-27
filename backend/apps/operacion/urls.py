@@ -1,5 +1,7 @@
 from django.urls import path
+from rest_framework.routers import DefaultRouter
 
+from .views import ProyectoViewSet
 from .wialon_unit_views import (
     WialonAccessUsersView,
     WialonUnitAccessRevokeView,
@@ -13,6 +15,9 @@ from .wialon_views import (
     WialonUsuariosView,
     WialonUsuarioUnidadesView,
 )
+
+router = DefaultRouter()
+router.register(r"proyectos", ProyectoViewSet, basename="proyecto")
 
 urlpatterns = [
     path("wialon/usuarios/", WialonUsuariosView.as_view(), name="wialon-usuarios"),
@@ -56,4 +61,4 @@ urlpatterns = [
         WialonUnitAccessRevokeView.as_view(),
         name="wialon-unit-access-revoke",
     ),
-]
+] + router.urls

@@ -3,10 +3,12 @@ import { useDropzone } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
 import {
   compressImage,
-  deleteImageFromCloudinary,
   getPublicIdFromUrl,
-  uploadImageToCloudinary,
 } from "../OrdenesTrabajo/OrdenServicio/useOrdenesShared";
+import {
+  deleteProyectoImageFromCloudinary,
+  uploadProyectoImageToCloudinary,
+} from "./proyectoImageApi";
 import { proyectoSectionHintClass } from "./proyectoPageStyles";
 
 const PROYECTO_MAX_FOTOS = 10;
@@ -19,8 +21,7 @@ type Props = {
 };
 
 /**
- * Evidencia fotográfica reutilizando upload/delete de Órdenes
- * (`compressImage`, `uploadImageToCloudinary`, `deleteImageFromCloudinary`).
+ * Evidencia fotográfica vía `/api/proyectos/upload-image/`.
  */
 export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Props) {
   const [uploading, setUploading] = useState(false);
@@ -52,7 +53,7 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
         for (const file of files) {
           try {
             const compressed = await compressImage(file, 80, 1400, 1400);
-            const url = await uploadImageToCloudinary(compressed, PROYECTO_FOTOS_FOLDER);
+            const url = await uploadProyectoImageToCloudinary(compressed, PROYECTO_FOTOS_FOLDER);
             if (url) uploaded.push(url);
           } catch (err) {
             console.error("Error al subir evidencia de proyecto:", err);
@@ -89,7 +90,7 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
     try {
       const publicId = getPublicIdFromUrl(url);
       if (publicId) {
-        await deleteImageFromCloudinary(publicId);
+        await deleteProyectoImageFromCloudinary(publicId);
       }
     } catch (err) {
       console.error("Error al eliminar evidencia de proyecto:", err);

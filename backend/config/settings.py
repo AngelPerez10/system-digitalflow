@@ -355,3 +355,24 @@ SYSCOM_CLIENT_SECRET = os.environ.get('SYSCOM_CLIENT_SECRET', '')
 TVC_API_BASE = os.environ.get('TVC_API_BASE', 'https://api.tvc.mx')
 TVC_API_TOKEN = os.environ.get('TVC_API_TOKEN', '')
 TVC_MEDIA_BASE = os.environ.get('TVC_MEDIA_BASE', 'https://cdn.tvc.mx')
+
+# --- Email (SMTP) — envío PDF de órdenes de servicio ---
+# Ejemplo Intrax: mail.intrax.mx puerto 465 SSL, usuario soporte@intrax.mx
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.smtp.EmailBackend',
+)
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '').strip()
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '465') or '465')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '').strip()
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').strip()
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'true').strip().lower() in (
+    '1', 'true', 'yes', 'on',
+)
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'false').strip().lower() in (
+    '1', 'true', 'yes', 'on',
+)
+DEFAULT_FROM_EMAIL = os.environ.get(
+    'DEFAULT_FROM_EMAIL',
+    EMAIL_HOST_USER or 'webmaster@localhost',
+).strip()

@@ -12,7 +12,7 @@ import { formatMonthLabelEs, getCurrentMonthKey } from "@/utils/statsMonthKey";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { MobileOrderList } from "../OrdenServicio/MobileOrderCard";
 import { OrdenPdfLoadingModal } from "../OrdenServicio/OrdenPdfLoadingModal";
-import { handleOrdenPdfClick } from "../OrdenServicio/useOrdenesShared";
+import { handleOrdenPdfClick, displayOrdenFolio } from "../OrdenServicio/useOrdenesShared";
 import {
   claudeBodyClass,
   erpBreadcrumbLinkClass,
@@ -611,7 +611,7 @@ export default function LevantamientoPage() {
                     const fecha = orden.fecha_inicio || orden.fecha_creacion || "";
                     const fechaFmt = fecha ? formatYmdToDMY(fecha) : "-";
                     const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : "-";
-                    const folioDisplay = (orden?.folio ?? "").toString().trim() || (orden.idx ?? startIndex + idx + 1);
+                    const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
                     const tecnicoNombre =
                       (orden as any).tecnico_asignado_full_name || (orden as any).nombre_encargado || "-";
                     return (

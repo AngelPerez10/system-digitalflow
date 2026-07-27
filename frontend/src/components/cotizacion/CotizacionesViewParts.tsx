@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 
 /** LibreICONS / Diemen Design (MIT) — icono de hoja Excel */
 function CotizacionExcelIcon({ className }: { className?: string }) {
@@ -28,7 +29,7 @@ const normalizePhoneForWhatsapp = (raw?: string) => {
 };
 
 const buildWhatsappMessage = (row: CotizacionRow) => {
-  const numero = row.idx || row.id || "—";
+  const numero = formatDocumentFolio(FOLIO_SERIE.cotizacion, row.idx || row.id);
   const tipo = String(row.tipoTrabajo || "Sin tipo").trim();
   return `Hola estimado(a), espero se encuentre muy bien.
 
@@ -250,7 +251,7 @@ export function CotizacionesMobileList({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white">
-                    #{r.idx || "—"}
+                    {formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx)}
                   </span>
                   <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${statusChipClass(r.status)}`}>
                     {statusUpper === "PENDIENTE"
@@ -292,6 +293,28 @@ export function CotizacionesMobileList({
               <button
                 type="button"
                 disabled={excelLoading}
+                onClick={() => actions.onEdit(r)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-[#ff801f] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
+                title="Editar"
+                aria-label="Editar"
+              >
+                <PencilIcon className="h-4 w-4" />
+              </button>
+              {actions.onDownloadExcel && (
+                <button
+                  type="button"
+                  disabled={excelLoading}
+                  onClick={() => actions.onDownloadExcel!(r)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
+                  title="Excel"
+                  aria-label="Descargar Excel"
+                >
+                  <CotizacionExcelIcon className="h-4 w-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={excelLoading}
                 onClick={() => actions.onOpenPdf(r.id)}
                 className="inline-flex min-h-[40px] flex-1 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-xs font-medium text-[#57534e] hover:border-[#ff801f] hover:text-[#ea580c] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]"
               >
@@ -300,18 +323,10 @@ export function CotizacionesMobileList({
               <button
                 type="button"
                 disabled={excelLoading}
-                onClick={() => actions.onEdit(r)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-[#ff801f] dark:border-[#334155] dark:bg-[#0f172a]"
-                title="Editar"
-              >
-                <PencilIcon className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                disabled={excelLoading}
                 onClick={() => actions.onDelete(r)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-rose-400 hover:text-rose-600 dark:border-[#334155] dark:bg-[#0f172a]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-rose-400 hover:text-rose-600 disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
                 title="Eliminar"
+                aria-label="Eliminar"
               >
                 <TrashBinIcon className="h-4 w-4" />
               </button>
@@ -348,7 +363,7 @@ export function CotizacionesTable({
               <TableCell isHeader className="min-w-[160px] px-2 py-2 text-left sm:px-3">Cliente</TableCell>
               <TableCell isHeader className="min-w-[160px] max-w-[220px] px-2 py-2 text-left sm:px-3">Tipo de trabajo</TableCell>
               <TableCell isHeader className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-right sm:px-3">Monto</TableCell>
-              <TableCell isHeader className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-center sm:px-3">Acciones</TableCell>
+              <TableCell isHeader className="w-[160px] min-w-[160px] whitespace-nowrap px-2 py-2 text-center sm:px-3">Acciones</TableCell>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
@@ -371,7 +386,7 @@ export function CotizacionesTable({
                   <TableRow key={r.id} className="align-top transition-colors hover:bg-[#fff8f1]/80 dark:hover:bg-[#1e293b]/40">
                     <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
                       <span className="inline-flex items-center justify-center rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white sm:text-[11px]">
-                        {r.idx ? r.idx : "—"}
+                        {formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx)}
                       </span>
                     </TableCell>
                     <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">{formatDMY(r.fecha)}</TableCell>
@@ -438,19 +453,17 @@ export function CotizacionesTable({
                         {r.monto}
                       </span>
                     </TableCell>
-                    <TableCell className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-center align-middle sm:px-3">
+                    <TableCell className="w-[160px] min-w-[160px] whitespace-nowrap px-2 py-2 text-center align-middle sm:px-3">
                       <div className="inline-flex items-center gap-1 rounded-md bg-[#f5f0e8] px-1.5 py-1 dark:bg-white/10">
                         <button
                           type="button"
                           disabled={excelLoading}
-                          onClick={() => actions.onOpenPdf(r.id)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-[#ffa057] hover:text-[#ff801f] disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b] dark:hover:border-[#ff801f]"
-                          title="PDF"
+                          onClick={() => actions.onEdit(r)}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-[#ffa057] hover:text-[#ff801f] disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b]"
+                          title="Editar"
+                          aria-label="Editar"
                         >
-                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <path d="M14 2v6h6" />
-                          </svg>
+                          <PencilIcon className="h-4 w-4" />
                         </button>
                         {actions.onDownloadExcel && (
                           <button
@@ -459,6 +472,7 @@ export function CotizacionesTable({
                             onClick={() => actions.onDownloadExcel!(r)}
                             className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b] dark:hover:border-emerald-500"
                             title="Excel"
+                            aria-label="Descargar Excel"
                           >
                             <CotizacionExcelIcon className="h-4 w-4" />
                           </button>
@@ -466,11 +480,15 @@ export function CotizacionesTable({
                         <button
                           type="button"
                           disabled={excelLoading}
-                          onClick={() => actions.onEdit(r)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-[#ffa057] hover:text-[#ff801f] disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b]"
-                          title="Editar"
+                          onClick={() => actions.onOpenPdf(r.id)}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-[#ffa057] hover:text-[#ff801f] disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b] dark:hover:border-[#ff801f]"
+                          title="PDF"
+                          aria-label="Ver PDF"
                         >
-                          <PencilIcon className="h-4 w-4" />
+                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <path d="M14 2v6h6" />
+                          </svg>
                         </button>
                         <button
                           type="button"
@@ -478,6 +496,7 @@ export function CotizacionesTable({
                           onClick={() => actions.onDelete(r)}
                           className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-rose-400 hover:text-rose-600 disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b]"
                           title="Eliminar"
+                          aria-label="Eliminar"
                         >
                           <TrashBinIcon className="h-4 w-4" />
                         </button>

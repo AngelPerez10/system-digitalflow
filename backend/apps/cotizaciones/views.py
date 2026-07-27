@@ -14,13 +14,24 @@ from PIL import Image as PILImage
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.common.document_folio import FOLIO_SERIE_COT, format_document_folio
 from apps.common.pdf_html import subtotal_iva_display_split as _subtotal_iva_display_split
 from apps.common.pdf_images import safe_http_image_bytes as _safe_http_image_bytes
-from apps.users.permissions import ModulePermission, user_module_own_only
+from apps.ordenes.email_pdf import (
+    is_valid_email,
+    maybe_save_cliente_correo,
+    normalize_email,
+    resolve_cliente_correo,
+    send_pdf_email,
+    smtp_configured,
+)
+from apps.users.permissions import CotizacionesSendPdfPermission, ModulePermission, user_module_own_only
 
 from .categorias_productos import categorias_nombres_por_id, normalize_categorias_productos
+from .email_pdf import build_cotizacion_email_body, build_cotizacion_email_subject
 from .models import Cotizacion
 from .pdf_render import PdfRenderError, any_provider_configured, render_html_to_pdf
 from .serializers import CotizacionSerializer
@@ -198,7 +209,7 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
             cliente_obj = None
 
     cliente_nombre = (getattr(cliente_obj, "nombre", None) or cotizacion.cliente or "").strip() or "—"
-    folio = getattr(cotizacion, "idx", None) or cotizacion.id
+    folio = format_document_folio(FOLIO_SERIE_COT, getattr(cotizacion, "idx", None) or cotizacion.id)
     fecha = cotizacion.fecha.strftime("%d/%m/%Y") if cotizacion.fecha else "—"
 
     r = 1
@@ -509,6 +520,11 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     ordering_fields = ['idx', 'fecha', 'medio_contacto', 'status', 'fecha_creacion', 'total']
     ordering = ['-idx']
 
+    def get_permissions(self):
+        if self.action in ('enviar_pdf', 'correo_sugerido'):
+            return [IsAuthenticated(), CotizacionesSendPdfPermission()]
+        return super().get_permissions()
+
     def get_queryset(self):
         """
         Get optimized queryset with prefetched items and related objects.
@@ -586,7 +602,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         if not html:
             return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
 
-        idx = getattr(cotizacion, "idx", None) or cotizacion.id
+        idx = format_document_folio(FOLIO_SERIE_COT, getattr(cotizacion, "idx", None) or cotizacion.id)
         filename = f"Cotizacion_{idx}.pdf"
 
         # Allow clients to explicitly ask for HTML as a printable fallback
@@ -608,6 +624,124 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
 
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='correo-sugerido',
+    )
+    def correo_sugerido(self, request, pk=None):
+        """Correo precargable: cliente.correo o contacto principal."""
+        cotizacion = self.get_object()
+        cliente = getattr(cotizacion, 'cliente_id', None)
+        correo = resolve_cliente_correo(cliente)
+        return Response(
+            {
+                'correo': correo,
+                'cliente_id': getattr(cliente, 'pk', None),
+                'cliente_tiene_correo': bool(
+                    cliente and normalize_email(getattr(cliente, 'correo', None))
+                ),
+                'status': cotizacion.status,
+            }
+        )
+
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='enviar-pdf',
+    )
+    def enviar_pdf(self, request, pk=None):
+        """Genera el PDF y lo envía por SMTP (PENDIENTE o AUTORIZADA)."""
+        from .pdf_opciones import parse_pdf_opciones_from_cotizacion
+
+        cotizacion = self.get_object()
+        status_norm = (cotizacion.status or '').strip().upper()
+        if status_norm not in ('PENDIENTE', 'AUTORIZADA'):
+            return Response(
+                {
+                    'detail': (
+                        'Solo se puede enviar el PDF de cotizaciones pendientes o autorizadas.'
+                    )
+                },
+                status=400,
+            )
+
+        body = request.data if isinstance(request.data, dict) else {}
+        correo = normalize_email(
+            body.get('correo') or body.get('email') or body.get('to')
+        )
+        if not correo:
+            correo = resolve_cliente_correo(getattr(cotizacion, 'cliente_id', None))
+        if not is_valid_email(correo):
+            return Response(
+                {'detail': 'Indique un correo electrónico válido.'},
+                status=400,
+            )
+
+        if not smtp_configured():
+            return Response(
+                {
+                    'detail': (
+                        'El correo de salida no está configurado en el servidor. '
+                        'Contacte al administrador.'
+                    )
+                },
+                status=503,
+            )
+
+        if not any_provider_configured():
+            return Response(
+                {'detail': 'No hay motor de PDF disponible en el servidor.'},
+                status=503,
+            )
+
+        pdf_opciones = parse_pdf_opciones_from_cotizacion(cotizacion)
+        html = self._generate_pdf_html(cotizacion, pdf_opciones=pdf_opciones)
+        if not html:
+            return Response({'detail': 'No se pudo generar el HTML del PDF.'}, status=500)
+
+        idx = format_document_folio(FOLIO_SERIE_COT, getattr(cotizacion, 'idx', None) or cotizacion.id)
+        filename = f'Cotizacion_{idx}.pdf'
+        try:
+            pdf_bytes = render_html_to_pdf(html, size='A4', landscape=False, timeout=90)
+        except PdfRenderError as e:
+            logger.exception('PDF render failed for cotizacion email %s: %s', pk, e.detail)
+            return Response({'detail': 'No se pudo generar el PDF.'}, status=502)
+
+        try:
+            send_pdf_email(
+                to_email=correo,
+                subject=build_cotizacion_email_subject(cotizacion),
+                body=build_cotizacion_email_body(cotizacion),
+                pdf_bytes=pdf_bytes,
+                filename=filename,
+            )
+        except Exception as e:
+            logger.exception('Failed to send cotizacion PDF email')
+            return Response(
+                {
+                    'detail': (
+                        f'No se pudo enviar el correo: {type(e).__name__}. '
+                        'Verifique la configuración SMTP o intente más tarde.'
+                    )
+                },
+                status=502,
+            )
+
+        correo_guardado = maybe_save_cliente_correo(
+            getattr(cotizacion, 'cliente_id', None),
+            correo,
+        )
+        return Response(
+            {
+                'ok': True,
+                'correo': correo,
+                'correo_guardado_en_cliente': correo_guardado,
+                'detail': f'PDF enviado a {correo}.',
+            },
+            status=200,
+        )
+
     @action(detail=True, methods=['get'], url_path='excel')
     def excel(self, request, pk=None):
         cotizacion = self.get_object()
@@ -617,7 +751,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             logger.exception("Excel generation failed for cotizacion %s", getattr(cotizacion, 'pk', '?'))
             return Response({"detail": "No se pudo generar el Excel."}, status=500)
 
-        idx = getattr(cotizacion, "idx", None) or cotizacion.id
+        idx = format_document_folio(FOLIO_SERIE_COT, getattr(cotizacion, "idx", None) or cotizacion.id)
         filename = f"Cotizacion_{idx}.xlsx"
         response = HttpResponse(
             xlsx_bytes,

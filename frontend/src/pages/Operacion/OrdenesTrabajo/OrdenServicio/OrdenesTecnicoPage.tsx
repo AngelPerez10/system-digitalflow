@@ -18,10 +18,18 @@ import { useOrdenFormModalState } from "./useOrdenFormModalState";
 import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
-import { PencilIcon, TrashBinIcon, TimeIcon } from "@/icons";
+import { PencilIcon, TrashBinIcon, TimeIcon, MailIcon } from "@/icons";
 import { MobileOrderList } from "./MobileOrderCard";
 import { OrdenPdfLoadingModal } from "./OrdenPdfLoadingModal";
-import { handleOrdenPdfClick, ordenMatchesSearch } from "./useOrdenesShared";
+import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./OrdenEnviarPdfModal";
+import {
+  handleOrdenPdfClick,
+  isOrdenResuelta,
+  isOrdenServicioTecnico,
+  displayOrdenFolio,
+  ordenMatchesSearch,
+  resolveClienteCorreoSugerido,
+} from "./useOrdenesShared";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
@@ -507,6 +515,22 @@ export default function OrdenesTecnico() {
   }>({ show: false, variant: "success", title: "", message: "" });
 
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [enviarPdfOrden, setEnviarPdfOrden] = useState<OrdenEnviarPdfTarget | null>(null);
+  const [enviarPdfInitialCorreo, setEnviarPdfInitialCorreo] = useState("");
+
+  const openEnviarPdfModal = (orden: Orden | OrdenEnviarPdfTarget) => {
+    const cid = orden.cliente_id != null ? Number(orden.cliente_id) : null;
+    const cliente = cid != null ? clientes.find((c) => c.id === cid) : null;
+    setEnviarPdfInitialCorreo(resolveClienteCorreoSugerido(cliente));
+    setEnviarPdfOrden({
+      id: orden.id,
+      folio: orden.folio,
+      idx: "idx" in orden ? (orden as Orden).idx : undefined,
+      cliente: orden.cliente,
+      cliente_id: orden.cliente_id ?? null,
+      status: orden.status,
+    });
+  };
 
   const handleOrdenPdf = (orden: Orden) => {
     handleOrdenPdfClick(orden, navigate, location.pathname, {
@@ -1204,6 +1228,11 @@ export default function OrdenesTecnico() {
         // Refresh from backend to avoid any stale client state/caching.
         await fetchOrdenes();
 
+        const becameResuelto =
+          isOrdenResuelta(savedOrden?.status) && !isOrdenResuelta(editingOrden?.status);
+        const tipoGuardado =
+          (savedOrden as { tipo_orden?: string } | null)?.tipo_orden || tipoOrden;
+
         setShowModal(false);
         setActiveTab("cliente");
         setFormData({
@@ -1243,6 +1272,14 @@ export default function OrdenesTecnico() {
             : `La orden para "${ordenCliente}" ha sido creada exitosamente.`
         });
         setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
+
+        if (
+          becameResuelto &&
+          savedOrden?.id &&
+          isOrdenServicioTecnico(tipoGuardado)
+        ) {
+          openEnviarPdfModal(savedOrden as Orden);
+        }
       } else {
         // Mostrar error detallado
         let errorMsg = 'Error al guardar la orden';
@@ -1675,6 +1712,25 @@ export default function OrdenesTecnico() {
       </nav>
 
       <OrdenPdfLoadingModal open={pdfDownloading} downloading />
+      <OrdenEnviarPdfModal
+        open={enviarPdfOrden != null}
+        orden={enviarPdfOrden}
+        initialCorreo={enviarPdfInitialCorreo}
+        onClose={() => setEnviarPdfOrden(null)}
+        onSent={(correo) => {
+          setAlert({
+            show: true,
+            variant: "success",
+            title: "Correo enviado",
+            message: `El PDF se envió a ${correo}.`,
+          });
+          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
+        }}
+        onError={(message) => {
+          setAlert({ show: true, variant: "error", title: "Correo", message });
+          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 5000);
+        }}
+      />
 
       {alert.show && (
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
@@ -1858,6 +1914,7 @@ export default function OrdenesTecnico() {
             loading={loading}
             formatDate={formatYmdToDMY}
             onPdf={handleOrdenPdf}
+            onEnviarPdf={openEnviarPdfModal}
             onEdit={canOrdenesEdit ? handleEdit : undefined}
             onDelete={canOrdenesDelete ? handleDeleteClick : undefined}
             canEdit={canOrdenesEdit}
@@ -1874,7 +1931,7 @@ export default function OrdenesTecnico() {
                   <TableCell isHeader className="px-2 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">Fechas</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-gray-700 dark:text-gray-300">Técnico</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Estado</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-center w-[120px] min-w-[120px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
+                  <TableCell isHeader className="px-2 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
@@ -1882,7 +1939,7 @@ export default function OrdenesTecnico() {
                   const fecha = orden.fecha_inicio || orden.fecha_creacion || '';
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
-                  const folioDisplay = (orden?.folio ?? '').toString().trim() || (orden.idx ?? (startIndex + idx + 1));
+                  const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
                   const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
                   let tecnicoNombre = '-';
                   if (tecnico) {
@@ -1955,13 +2012,14 @@ export default function OrdenesTecnico() {
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pendiente</span>
                         )}
                       </TableCell>
-                      <TableCell className="px-2 py-2 text-center w-[120px] min-w-[120px]">
+                      <TableCell className="px-2 py-2 text-center w-[150px] min-w-[150px]">
                         <div className={erpRowActionBarClass}>
                           <button
                             type="button"
                             onClick={() => handleOrdenPdf(orden)}
                             className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 transition"
                             title={orden.status === "resuelto" ? "Descargar PDF" : "Ver PDF"}
+                            aria-label={orden.status === "resuelto" ? "Descargar PDF" : "Ver PDF"}
                           >
                             <svg className="w-4 h-4" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
                               <g>
@@ -1972,6 +2030,17 @@ export default function OrdenesTecnico() {
                               </g>
                             </svg>
                           </button>
+                          {isOrdenResuelta(orden.status) && isOrdenServicioTecnico(orden.tipo_orden) && (
+                            <button
+                              type="button"
+                              onClick={() => openEnviarPdfModal(orden)}
+                              className={erpRowActionBtnClass + " hover:border-sky-400 hover:text-sky-600"}
+                              title="Enviar PDF por correo"
+                              aria-label="Enviar PDF por correo"
+                            >
+                              <MailIcon className="w-4 h-4" />
+                            </button>
+                          )}
                           {canOrdenesEdit && (
                             <button
                               onClick={() => handleEdit(orden)}

@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils import timezone
 
+from apps.common.document_folio import FOLIO_SERIE_ODT, format_document_folio
+
 User = get_user_model()
 
 STATUS_CHOICES = [
@@ -105,10 +107,22 @@ class Orden(models.Model):
                 idx += 1
 
             self.idx = idx
+
+        # Folio de negocio ODT-{idx} si no hay uno capturado.
+        if self.idx and not (self.folio or "").strip():
+            candidate = format_document_folio(FOLIO_SERIE_ODT, self.idx, empty="")
+            if candidate:
+                # Evitar colisión unique si ya existe el mismo folio en otra fila.
+                clash = Orden.objects.filter(folio=candidate)
+                if self.pk:
+                    clash = clash.exclude(pk=self.pk)
+                if not clash.exists():
+                    self.folio = candidate
+
         super().save(*args, **kwargs)
 
     def __str__(self):
-        display = self.folio or self.idx
+        display = (self.folio or "").strip() or self.idx
         return f"Orden #{display} - {self.cliente or 'Sin cliente'}"
 
     class Meta:

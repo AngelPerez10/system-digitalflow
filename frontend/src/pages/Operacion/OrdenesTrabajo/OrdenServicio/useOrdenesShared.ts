@@ -1,10 +1,23 @@
 import { fetchApi } from "@/config/api";
+import { FOLIO_SERIE, matchesDocumentFolio, resolveDocumentFolio } from "@/utils/documentFolio";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 export const ORDEN_BASE_MAX_FOTOS = 5;
 export const FOTOS_EXTRA_OPTIONS = [0, 2, 3, 4, 5] as const;
 export const ORDENES_PAGE_INIT_THROTTLE_MS = 800;
 export type FotosExtraMax = (typeof FOTOS_EXTRA_OPTIONS)[number];
+
+/** Folio visible de orden: respeta SERIE-n existente o formatea ODT-{idx}. */
+export function displayOrdenFolio(
+  orden: { folio?: string | null; idx?: number | string | null; id?: number | string | null },
+  fallbackIndex?: number
+): string {
+  return resolveDocumentFolio(
+    FOLIO_SERIE.orden,
+    orden?.folio,
+    orden?.idx ?? orden?.id ?? fallbackIndex,
+  );
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export interface ServicioCatalogo {
@@ -129,6 +142,7 @@ export function ordenMatchesSearch(
 
   const folio = String(orden.folio ?? "").trim().toLowerCase();
   const idx = orden.idx != null ? String(orden.idx) : "";
+  const folioLabel = displayOrdenFolio(orden).toLowerCase();
 
   let tecnicoText = "";
   const tecId = orden.tecnico_asignado != null ? Number(orden.tecnico_asignado) : null;
@@ -149,9 +163,14 @@ export function ordenMatchesSearch(
     tecnicoText = orden.tecnico_asignado_username.toLowerCase();
   }
 
+  if (matchesDocumentFolio(folioLabel, q) || matchesDocumentFolio(folio, q) || matchesDocumentFolio(idx, q)) {
+    return true;
+  }
+
   const parts = [
     folio,
     idx,
+    folioLabel,
     orden.cliente,
     orden.nombre_cliente,
     orden.telefono_cliente,
@@ -283,6 +302,30 @@ export function handleOrdenPdfClick(
     return;
   }
   navigate(`/ordenes/${orden.id}/pdf`, { state: { from: returnPath } });
+}
+
+/** Correo precargable: cliente.correo, si vacío el del contacto principal. */
+export function resolveClienteCorreoSugerido(cliente: {
+  correo?: string | null;
+  contactos?: Array<{ correo?: string | null; is_principal?: boolean }>;
+} | null | undefined): string {
+  if (!cliente) return "";
+  const propio = String(cliente.correo || "").trim();
+  if (propio) return propio;
+  const contactos = Array.isArray(cliente.contactos) ? cliente.contactos : [];
+  const principal = contactos.find((c) => c.is_principal) || contactos[0];
+  return String(principal?.correo || "").trim();
+}
+
+export function isOrdenResuelta(status: unknown): boolean {
+  const s = String(status ?? "").trim().toLowerCase();
+  return s === "resuelto" || s === "completado" || s === "completada";
+}
+
+/** Solo órdenes de servicio técnico (no levantamiento / instalación). */
+export function isOrdenServicioTecnico(tipo: unknown): boolean {
+  const t = String(tipo ?? "").trim().toLowerCase();
+  return !t || t === "servicio_tecnico" || t === "servicio";
 }
 
 export const parseYearMonth = (value: string): { year: number; month: number } | null => {

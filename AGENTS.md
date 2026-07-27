@@ -23,9 +23,10 @@ Flujo obligatorio: resolver primero el library ID con Context7 y luego consultar
 
 Los permisos viven en `UserPermissions.permissions` (JSON por módulo: `view`, `create`, `edit`, `delete`).
 
-- Backend: subclases de `ModulePermission` en `apps/users/permissions.py` (`OrdenesPermission`, `TareasPermission`, …).
+- Backend: subclases de `ModulePermission` en `apps/users/permissions.py` (`OrdenesPermission`, `ProyectosPermission`, `TareasPermission`, …).
 - Frontend: guards `Require*Permission` con comprobación estricta `=== true` para `view`. Admin (`isAdmin`) bypass en guards.
 - **Catálogos en cotización**: GET a `/api/productos/syscom/*`, `/api/productos/tvc/*` y `/api/productos-manuales/` permiten usuarios con acceso a `cotizaciones` (aunque no tengan módulo `productos`). Altas/edición/baja de manuales siguen exigiendo `productos`.
+- **Proyectos**: módulo propio `proyectos` (independiente de `ordenes`). Sidebar y ruta `/proyectos` requieren `proyectos.view`.
 
 ## Convenciones
 
@@ -63,7 +64,7 @@ pnpm exec eslint src         # ver alcance CI abajo
 ```bash
 cd backend
 ruff check apps              # imports, estilo (auto-fix: ruff check apps --fix)
-python manage.py test apps.users apps.cotizaciones apps.ordenes apps.common apps.clientes apps.escritorio
+python manage.py test apps.users apps.cotizaciones apps.ordenes apps.operacion apps.common apps.clientes apps.escritorio
 ```
 
 ### Ortografía (UI)
@@ -165,6 +166,9 @@ En `backend/config/middleware.py`, las peticiones a `/api/*` con cabecera `Autho
 - HTML de órdenes: `backend/apps/ordenes/pdf_templates/orden.py`
 - HTML de facturas CFDI (SICAR): `backend/apps/cotizaciones/sicar_cfdi_pdf.py`
 - Helpers compartidos: `backend/apps/common/pdf_html.py`, `backend/apps/common/pdf_images.py`
+- **Proyectos CRUD** (`apps/operacion`): `GET/POST /api/proyectos/`, `GET/PATCH/DELETE /api/proyectos/{id}/`, `POST /api/proyectos/upload-image/` y `delete-image/`. Permisos del módulo **`proyectos`** (`ProyectosPermission`). Folio `PRJ-{idx}`. Carpetas Cloudinary: `proyectos/evidencias`, `proyectos/bitacora`, `proyectos/firmas`.
+- **Enviar PDF de orden por correo** (solo servicio técnico resuelto): `POST /api/ordenes/{id}/enviar-pdf/` + SMTP vía `EMAIL_HOST` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_PORT=465` / `EMAIL_USE_SSL=true` (ver `backend/.env.example`). Lógica en `backend/apps/ordenes/email_pdf.py`.
+- **Enviar PDF de cotización por correo** (PENDIENTE o AUTORIZADA): `POST /api/cotizaciones/{id}/enviar-pdf/` — mismo SMTP; asunto/cuerpo en `backend/apps/cotizaciones/email_pdf.py`.
 
 ## No hacer
 

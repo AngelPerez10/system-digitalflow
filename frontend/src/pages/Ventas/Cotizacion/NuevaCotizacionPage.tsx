@@ -38,6 +38,11 @@ import {
   type SyscomProducto,
 } from "@/pages/ProductosYServicios/syscomCatalog";
 import { CotizacionSaveStatus } from "@/components/cotizacion/CotizacionSaveStatus";
+import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
+import CotizacionEnviarPdfModal, {
+  type CotizacionEnviarPdfTarget,
+} from "@/pages/Ventas/Cotizacion/CotizacionEnviarPdfModal";
+import { MailIcon } from "@/icons";
 import { erpPageCanvasClass, erpPageInnerClass } from "@/layout/erpPageStyles";
 import type {
   ApiCotizacion,
@@ -55,6 +60,7 @@ import {
   cloneModalPanelClass,
   cloneModalSearchInputClass,
   conceptCountBadgeClass,
+  correoActionBtnClass,
   ghostActionBtnClass,
   headerStatPillClass,
   innerFieldPanelClass,
@@ -111,6 +117,8 @@ export default function NuevaCotizacionPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [excelLoading, setExcelLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(8);
+  const [enviarCorreoSaving, setEnviarCorreoSaving] = useState(false);
+  const [enviarPdfTarget, setEnviarPdfTarget] = useState<CotizacionEnviarPdfTarget | null>(null);
 
   const [cloneModalOpen, setCloneModalOpen] = useState(false);
   const [clearFormModalOpen, setClearFormModalOpen] = useState(false);
@@ -661,7 +669,7 @@ export default function NuevaCotizacionPage() {
         show: true,
         variant: "success",
         title: "Cotización clonada",
-        message: `Se copiaron los datos del folio #${data.idx}. Revisa la información y guarda como cotización nueva.`,
+        message: `Se copiaron los datos del folio ${formatDocumentFolio(FOLIO_SERIE.cotizacion, data.idx)}. Revisa la información y guarda como cotización nueva.`,
       });
     } catch {
       setAlert({
@@ -1265,7 +1273,7 @@ export default function NuevaCotizacionPage() {
           show: true,
           variant: "success",
           title: isEdit ? "Cotización actualizada" : "Cotización guardada",
-          message: `Folio #${data?.idx || data?.id || ""} guardado correctamente.`,
+          message: `Folio ${formatDocumentFolio(FOLIO_SERIE.cotizacion, data?.idx || data?.id)} guardado correctamente.`,
         });
       }
       if (navigateAfterSave) {
@@ -1734,6 +1742,55 @@ export default function NuevaCotizacionPage() {
     }
   };
 
+  const canEnviarPorCorreo = ["PENDIENTE", "AUTORIZADA"].includes(String(status || "").trim().toUpperCase());
+
+  const handleEnviarPorCorreo = async () => {
+    if (previewLoading || excelLoading || enviarCorreoSaving) return;
+
+    if (!computed.lines.length) {
+      setAlert({
+        show: true,
+        variant: "warning",
+        title: "Faltan conceptos",
+        message: "Agrega al menos un producto o servicio para enviar la cotización por correo.",
+      });
+      return;
+    }
+
+    const v = validateClienteContacto();
+    if (!v.ok) {
+      setAlert({
+        show: true,
+        variant: "warning",
+        title: "Faltan datos",
+        message: `Completa: ${v.missing.join(", ")}.`,
+      });
+      return;
+    }
+
+    try {
+      setEnviarCorreoSaving(true);
+      const savedId = await upsertCotizacion({
+        navigateAfterSave: false,
+        validateRequired: true,
+        silent: false,
+        autosave: false,
+      });
+      if (!savedId) return;
+      if (savedId !== activeCotizacionId) setActiveCotizacionId(savedId);
+      setEnviarPdfTarget({
+        id: Number(savedId),
+        idx: editingCotizacionIdx ?? undefined,
+        cliente: resolveClienteNombre() || undefined,
+        status,
+      });
+    } catch {
+      setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo preparar el envío por correo." });
+    } finally {
+      setEnviarCorreoSaving(false);
+    }
+  };
+
   const handleDownloadExcel = async () => {
     if (previewLoading || excelLoading) return;
 
@@ -1858,6 +1915,24 @@ export default function NuevaCotizacionPage() {
             </div>
           </div>
         </Modal>
+
+        <CotizacionEnviarPdfModal
+          open={enviarPdfTarget != null}
+          cotizacion={enviarPdfTarget}
+          onClose={() => setEnviarPdfTarget(null)}
+          onSent={(correo) => {
+            setEnviarPdfTarget(null);
+            setAlert({
+              show: true,
+              variant: "success",
+              title: "Correo enviado",
+              message: `El PDF se envió a ${correo}.`,
+            });
+          }}
+          onError={(message) => {
+            setAlert({ show: true, variant: "error", title: "Correo", message });
+          }}
+        />
 
         <Modal
           isOpen={cloneModalOpen}
@@ -1990,8 +2065,8 @@ export default function NuevaCotizacionPage() {
                               className="flex w-full flex-col gap-2 rounded-2xl border border-gray-200/80 bg-gradient-to-br from-white to-gray-50/60 p-3.5 text-left shadow-sm transition-all hover:-translate-y-[1px] hover:border-[#ff801f]/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:from-gray-900/70 dark:to-gray-900/40 dark:hover:border-[#ff801f]/30 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                             >
                               <div className="flex min-w-0 flex-1 items-start gap-3">
-                                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#ff801f]/20 bg-[#fff7ed]/80 text-sm font-bold tabular-nums text-[#9a3412] dark:border-[#ff801f]/25 dark:bg-[#ff801f]/15 dark:text-[#ffa057]">
-                                  #{row.idx}
+                                <span className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center rounded-xl border border-[#ff801f]/20 bg-[#fff7ed]/80 px-1.5 text-[11px] font-bold tabular-nums text-[#9a3412] dark:border-[#ff801f]/25 dark:bg-[#ff801f]/15 dark:text-[#ffa057]">
+                                  {formatDocumentFolio(FOLIO_SERIE.cotizacion, row.idx)}
                                 </span>
                                 <div className="min-w-0 flex-1">
                                   <p className="truncate text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">{row.cliente}</p>
@@ -2230,8 +2305,10 @@ export default function NuevaCotizacionPage() {
                     </h1>
                     {!!(isEditingRoute || activeCotizacionId) && (
                       <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/[0.12] dark:text-amber-200">
-                        {isEditingRoute ? "Edición" : "Borrador"} · #
-                        {editingCotizacionIdx != null ? editingCotizacionIdx : (activeCotizacionId || editingCotizacionId)}
+                        {isEditingRoute ? "Edición" : "Borrador"} ·{" "}
+                        {editingCotizacionIdx != null
+                          ? formatDocumentFolio(FOLIO_SERIE.cotizacion, editingCotizacionIdx)
+                          : activeCotizacionId || editingCotizacionId}
                       </span>
                     )}
                   </div>
@@ -2949,7 +3026,7 @@ export default function NuevaCotizacionPage() {
 
                 <ComponentCard
                   title="Acciones"
-                  desc="Guarda, exporta o reinicia el formulario."
+                  desc="Guarda, exporta, envía por correo o reinicia el formulario."
                   className={cardShellClass}
                   compact
                 >
@@ -3007,6 +3084,34 @@ export default function NuevaCotizacionPage() {
                         )}
                       </button>
                     </div>
+
+                    <button
+                      type="button"
+                      disabled={!canGuardarCotizacion || exportBusy || enviarCorreoSaving || !canEnviarPorCorreo}
+                      onClick={() => void handleEnviarPorCorreo()}
+                      className={correoActionBtnClass}
+                      title={
+                        !canEnviarPorCorreo
+                          ? "Solo se puede enviar en estado Pendiente o Autorizada"
+                          : !canGuardarCotizacion
+                            ? "Completa cliente, contacto y conceptos para enviar"
+                            : undefined
+                      }
+                    >
+                      {enviarCorreoSaving ? (
+                        <>
+                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                            <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                          </svg>
+                          Preparando...
+                        </>
+                      ) : (
+                        <>
+                          <MailIcon className="h-4 w-4 shrink-0" />
+                          Enviar PDF por correo
+                        </>
+                      )}
+                    </button>
 
                     <div className="space-y-2 border-t border-[#e7ded0] pt-3 dark:border-[#273244]">
                       <button type="button" onClick={() => setClearFormModalOpen(true)} className={ghostActionBtnClass}>

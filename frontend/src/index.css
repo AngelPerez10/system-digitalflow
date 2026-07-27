@@ -379,7 +379,16 @@ a[href]:not([tabindex="-1"]) {
 
   /* Shell autenticado: escala UI heredada del antiguo html { zoom: 0.9 } */
   .app-ui-scale {
-    zoom: 0.9;
+    --app-ui-zoom: 0.9;
+    zoom: var(--app-ui-zoom);
+  }
+
+  /*
+   * Respaldo: si un overlay `.modal` queda dentro del shell (sin portal),
+   * neutraliza el zoom para coords 1:1. Los Modal canónicos ya van a document.body.
+   */
+  .app-ui-scale .modal {
+    zoom: calc(1 / var(--app-ui-zoom));
   }
 
   /* -------------------------------------------------------------------------

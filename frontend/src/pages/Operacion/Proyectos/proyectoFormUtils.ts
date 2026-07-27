@@ -1,4 +1,5 @@
 import type {
+  CotizacionOrigen,
   CotizacionResumen,
   EquipoEstadoInstalacion,
   PresupuestoLinea,
@@ -11,6 +12,30 @@ import type {
   ProyectoRow,
   ProyectoStats,
 } from "./proyectoTypes";
+import { FOLIO_SERIE, formatDocumentFolio, resolveDocumentFolio } from "@/utils/documentFolio";
+
+/** Folio visible: COT-{n} en DigitalFlow; SICAR se muestra sin prefijo COT. */
+export function displayCotizacionFolio(
+  folio: string | number | null | undefined,
+  origen?: CotizacionOrigen | null
+): string {
+  if (origen === "sicar") {
+    const raw = String(folio ?? "").trim();
+    return raw || "—";
+  }
+  return resolveDocumentFolio(FOLIO_SERIE.cotizacion, String(folio ?? ""), folio);
+}
+
+export function displayProyectoFolio(folio: string | number | null | undefined): string {
+  return resolveDocumentFolio(FOLIO_SERIE.proyecto, String(folio ?? ""), folio);
+}
+
+let proyectoFolioSeq = 2000;
+
+export function nextProyectoFolio(): string {
+  proyectoFolioSeq += 1;
+  return formatDocumentFolio(FOLIO_SERIE.proyecto, proyectoFolioSeq);
+}
 
 export function emptyPersona(): ProyectoPersonaAsignada {
   return { id: null, nombre: "" };
@@ -230,7 +255,7 @@ export function getDeviceTimeHHMM(date: Date = new Date()): string {
 
 export function formatCotizacionesFolioLabel(bloques: ProyectoCotizacionBloque[]): string {
   if (!bloques.length) return "—";
-  if (bloques.length === 1) return bloques[0].cotizacion.folio;
+  if (bloques.length === 1) return displayCotizacionFolio(bloques[0].cotizacion.folio, bloques[0].cotizacion.origen);
   return `${bloques.length} cotiz.`;
 }
 
@@ -243,7 +268,9 @@ export function proyectoRowFromDraft(draft: ProyectoDraft, existing?: ProyectoRo
 
   return {
     id: existing?.id ?? `prj-${Date.now()}`,
-    folio: existing?.folio ?? `PRJ-${String(Date.now()).slice(-4)}`,
+    folio: existing?.folio
+      ? displayProyectoFolio(existing.folio)
+      : nextProyectoFolio(),
     cliente: draft.cliente.trim() || "Sin cliente",
     cotizacionFolio: formatCotizacionesFolioLabel(cotizaciones),
     cotizacionOrigen: primary?.origen ?? "digitalflow",

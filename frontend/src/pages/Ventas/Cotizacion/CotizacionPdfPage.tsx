@@ -4,6 +4,7 @@ import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi, hasAuthSessionFlag } from "@/config/api";
+import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 import {
   erpCardShellClass as cardShellClass,
   erpCardShellMutedClass,
@@ -193,8 +194,14 @@ export default function CotizacionPdfPage() {
   const [alert, setAlert] = useState<AlertState>({ show: false, variant: "error", title: "", message: "" });
   const [reloadKey, setReloadKey] = useState(0);
 
-  /** Folio visible (idx), no el id interno de la URL */
+  /** Folio visible (idx → COT-n), no el id interno de la URL */
   const [cotizacionIdx, setCotizacionIdx] = useState<number | string | null>(null);
+  const cotizacionFolio =
+    cotizacionIdx === "PREVIEW"
+      ? "PREVIEW"
+      : cotizacionIdx != null
+        ? formatDocumentFolio(FOLIO_SERIE.cotizacion, cotizacionIdx)
+        : null;
 
   /** Mantenemos el último objectURL para revocarlo cuando se reemplace. */
   const lastObjectUrlRef = useRef<string | null>(null);
@@ -416,7 +423,7 @@ export default function CotizacionPdfPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Cotizacion_${cotizacionIdx ?? cotizacionId}.html`;
+      a.download = `Cotizacion_${cotizacionFolio ?? cotizacionId}.html`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -429,7 +436,7 @@ export default function CotizacionPdfPage() {
         message: "No se pudo descargar el HTML. Revisa tu conexión y reintenta.",
       });
     }
-  }, [cotizacionId, cotizacionIdx, isPreviewMode]);
+  }, [cotizacionId, cotizacionFolio, isPreviewMode]);
 
   const pct = Math.min(99, Math.max(0, Math.round(loadingProgress)));
 
@@ -532,9 +539,9 @@ export default function CotizacionPdfPage() {
               <p className={sectionLabelOrangeClass}>{isPreviewMode ? "Vista previa" : "Cotización"}</p>
               <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
                 <h1 className={erpHeroHeadingClass}>Vista PDF</h1>
-                {cotizacionIdx != null && (
+                {cotizacionFolio != null && (
                   <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/[0.12] dark:text-amber-200">
-                    #{cotizacionIdx}
+                    {cotizacionFolio}
                   </span>
                 )}
               </div>
@@ -591,7 +598,7 @@ export default function CotizacionPdfPage() {
                   <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#273244] dark:bg-[#0f172a]">
                     <iframe
                       title="Vista previa del PDF"
-                      aria-label={`Vista previa del PDF de la cotización${cotizacionIdx != null ? ` ${cotizacionIdx}` : ""}`}
+                      aria-label={`Vista previa del PDF de la cotización${cotizacionFolio != null ? ` ${cotizacionFolio}` : ""}`}
                       src={pdfObjectUrl}
                       loading="lazy"
                       className={viewerFrameClass}

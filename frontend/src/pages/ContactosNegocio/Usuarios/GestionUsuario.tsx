@@ -30,6 +30,7 @@ type UserSignaturePayload = {
 
 type PermissionsPayload = {
   ordenes?: Partial<CrudPerms>;
+  proyectos?: Partial<CrudPerms>;
   clientes?: Partial<CrudPerms>;
   productos?: Partial<CrudPerms>;
   servicios?: Partial<CrudPerms>;
@@ -150,6 +151,7 @@ const isProtectedPrincipalUsername = (username: string): boolean =>
 const seedAdminPerms = async (userId: number) => {
   const full: Required<PermissionsPayload> = {
     ordenes: { view: true, create: true, edit: true, delete: true, own_only: false },
+    proyectos: { view: true, create: true, edit: true, delete: true, own_only: false },
     clientes: { view: true, create: true, edit: true, delete: true },
     productos: { view: true, create: true, edit: true, delete: true },
     servicios: { view: true, create: true, edit: true, delete: true },
@@ -279,6 +281,7 @@ export default function UserProfiles() {
     const isAdmin = !!options?.isAdmin;
     const base: Required<PermissionsPayload> = {
       ordenes: { view: true, create: false, edit: false, delete: false, own_only: isAdmin ? false : true },
+      proyectos: { view: false, create: false, edit: false, delete: false, own_only: isAdmin ? false : true },
       clientes: { view: true, create: false, edit: false, delete: false },
       productos: { view: true, create: false, edit: false, delete: false },
       servicios: { view: true, create: false, edit: false, delete: false },
@@ -301,6 +304,7 @@ export default function UserProfiles() {
     };
     return {
       ordenes: mergeCrud(base.ordenes, p?.ordenes),
+      proyectos: mergeCrud(base.proyectos, p?.proyectos),
       clientes: mergeCrud(base.clientes, p?.clientes),
       productos: mergeCrud(base.productos, p?.productos),
       servicios: mergeCrud(base.servicios, p?.servicios),
@@ -1379,6 +1383,13 @@ export default function UserProfiles() {
                         </svg>
                       );
                     }
+                    if (key === 'proyectos') {
+                      return (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                        </svg>
+                      );
+                    }
                     if (key === 'clientes') {
                       return (
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1478,6 +1489,7 @@ export default function UserProfiles() {
                           label: 'Operaciones',
                           modules: [
                             { key: 'ordenes' as const, label: 'Órdenes de Servicios' },
+                            { key: 'proyectos' as const, label: 'Proyectos' },
                             { key: 'reportes' as const, label: 'Reportes semanales' },
                             { key: 'cuentas_antarix' as const, label: 'Cuentas Antarix GPS' },
                           ],
@@ -1494,6 +1506,7 @@ export default function UserProfiles() {
                           label: 'Operaciones',
                           modules: [
                             { key: 'ordenes' as const, label: 'Órdenes de Servicios' },
+                            { key: 'proyectos' as const, label: 'Proyectos' },
                             { key: 'reportes' as const, label: 'Reportes semanales' },
                             { key: 'cuentas_antarix' as const, label: 'Cuentas Antarix GPS' },
                           ],
@@ -1555,15 +1568,29 @@ export default function UserProfiles() {
                                     <div className="space-y-2">
                                       {sec.modules.map((m) => {
                                         const cur = normalizePerms(permsForm, { isAdmin: !!(permsUser?.is_superuser || permsUser?.is_staff) })[m.key] as CrudPerms;
-                                        const supportsOwnScope = m.key === 'cotizaciones' || m.key === 'ordenes';
+                                        const supportsOwnScope =
+                                          m.key === 'cotizaciones' || m.key === 'ordenes' || m.key === 'proyectos';
                                         const isOrdenes = m.key === 'ordenes';
+                                        const isProyectos = m.key === 'proyectos';
                                         const ownScopeActive = supportsOwnScope
-                                          ? (isOrdenes ? !cur.own_only : !!cur.own_only)
+                                          ? isOrdenes || isProyectos
+                                            ? !cur.own_only
+                                            : !!cur.own_only
                                           : false;
-                                        const ownScopeText = isOrdenes ? 'Ver todas las órdenes' : 'Solo propios';
-                                        const ownScopeAria = isOrdenes
-                                          ? (ownScopeActive ? 'Ver todas las órdenes: activo' : 'Ver todas las órdenes: inactivo')
-                                          : (ownScopeActive ? 'Solo propios: activo' : 'Solo propios: inactivo');
+                                        const ownScopeText =
+                                          isOrdenes
+                                            ? 'Ver todas las órdenes'
+                                            : isProyectos
+                                              ? 'Ver todos los proyectos'
+                                              : 'Solo propios';
+                                        const ownScopeAria =
+                                          isOrdenes || isProyectos
+                                            ? ownScopeActive
+                                              ? `${ownScopeText}: activo`
+                                              : `${ownScopeText}: inactivo`
+                                            : ownScopeActive
+                                              ? 'Solo propios: activo'
+                                              : 'Solo propios: inactivo';
 
                                         const PermSwitch = ({
                                           checked,

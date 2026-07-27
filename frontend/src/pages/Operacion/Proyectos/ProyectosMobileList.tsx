@@ -1,6 +1,8 @@
-import { PencilIcon } from "@/icons";
+import { PencilIcon, TrashBinIcon } from "@/icons";
 import { erpMobileCardClass } from "../OrdenesTrabajo/ordenTrabajoStyles";
 import {
+  displayCotizacionFolio,
+  displayProyectoFolio,
   estadoProyectoBadgeClass,
   estadoProyectoLabel,
 } from "./proyectoFormUtils";
@@ -14,10 +16,19 @@ type Props = {
   rows: ProyectoRow[];
   hasSearch: boolean;
   canEdit: boolean;
+  canDelete: boolean;
   onEdit: (row: ProyectoRow) => void;
+  onDelete: (row: ProyectoRow) => void;
 };
 
-export function ProyectosMobileList({ rows, hasSearch, canEdit, onEdit }: Props) {
+export function ProyectosMobileList({
+  rows,
+  hasSearch,
+  canEdit,
+  canDelete,
+  onEdit,
+  onDelete,
+}: Props) {
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/50 px-4 py-10 text-center text-sm text-[#78716c] dark:border-[#334155] dark:bg-[#0f172a]/30 dark:text-[#8ea0b8] md:hidden">
@@ -37,7 +48,7 @@ export function ProyectosMobileList({ rows, hasSearch, canEdit, onEdit }: Props)
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white">
-                    {row.folio}
+                    {displayProyectoFolio(row.folio)}
                   </span>
                   <span className={estadoProyectoBadgeClass(row.estado)}>
                     {estadoProyectoLabel(row.estado)}
@@ -47,16 +58,31 @@ export function ProyectosMobileList({ rows, hasSearch, canEdit, onEdit }: Props)
                   {row.cliente}
                 </p>
               </div>
-              {canEdit ? (
-                <button
-                  type="button"
-                  className={mobileActionBtnClass}
-                  onClick={() => onEdit(row)}
-                  aria-label={`Editar proyecto ${row.folio}`}
-                  title="Editar"
-                >
-                  <PencilIcon className="h-4 w-4" />
-                </button>
+              {canEdit || canDelete ? (
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className={mobileActionBtnClass}
+                      onClick={() => onEdit(row)}
+                      aria-label={`Editar proyecto ${row.folio}`}
+                      title="Editar"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                  {canDelete ? (
+                    <button
+                      type="button"
+                      className={mobileActionBtnClass}
+                      onClick={() => onDelete(row)}
+                      aria-label={`Eliminar proyecto ${row.folio}`}
+                      title="Eliminar"
+                    >
+                      <TrashBinIcon className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
             </div>
 
@@ -72,7 +98,9 @@ export function ProyectosMobileList({ rows, hasSearch, canEdit, onEdit }: Props)
                         {row.cotizacionOrigen === "digitalflow" ? "DF" : "SICAR"}
                       </span>
                       <span className="ml-1 tabular-nums">
-                        {row.cotizacionesCount > 1 ? row.cotizacionFolio : `#${row.cotizacionFolio}`}
+                        {row.cotizacionesCount > 1
+                          ? row.cotizacionFolio
+                          : displayCotizacionFolio(row.cotizacionFolio, row.cotizacionOrigen)}
                       </span>
                     </>
                   )}

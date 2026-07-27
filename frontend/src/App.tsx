@@ -12,6 +12,7 @@ import RequireUsuariosView from "@/components/auth/RequireUsuariosView";
 import RequireCotizacionPermission from "@/components/auth/RequireCotizacionPermission";
 import RequireClientePermission from "@/components/auth/RequireClientePermission";
 import RequireOrdenesPermission from "@/components/auth/RequireOrdenesPermission";
+import RequireProyectosPermission from "@/components/auth/RequireProyectosPermission";
 import RequireReportesPermission from "@/components/auth/RequireReportesPermission";
 import RequireTareasPermission from "@/components/auth/RequireTareasPermission";
 
@@ -90,7 +91,7 @@ export default function App() {
               }
             />
             <Route path="/levantamiento" element={<RequireOrdenesPermission required="view"><LevantamientoPage /></RequireOrdenesPermission>} />
-            <Route path="/proyectos" element={<RequireOrdenesPermission required="view"><ProyectosPage /></RequireOrdenesPermission>} />
+            <Route path="/proyectos" element={<RequireProyectosPermission required="view"><ProyectosPage /></RequireProyectosPermission>} />
             <Route path="/clientes" element={<RequireClientePermission required="view"><Clientes /></RequireClientePermission>} />
             <Route path="/empresas" element={<RequireClientePermission required="view"><EmpresaPage /></RequireClientePermission>} />
             <Route path="/personas" element={<RequireClientePermission required="view"><PersonasPage /></RequireClientePermission>} />

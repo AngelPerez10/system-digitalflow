@@ -247,3 +247,97 @@ class OrdenesLimitedEditTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class OrdenesEnviarPdfTests(APITestCase):
+    def setUp(self):
+        from apps.clientes.models import Cliente, ClienteContacto
+
+        self.user = User.objects.create_user(username="envio_pdf", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=self.user,
+            permissions={
+                "ordenes": {"view": True, "create": True, "edit": True, "delete": False},
+            },
+        )
+        self.client.force_authenticate(user=self.user)
+        self.cliente = Cliente.objects.create(nombre="Cliente correo", correo="")
+        ClienteContacto.objects.create(
+            cliente=self.cliente,
+            nombre_apellido="Contacto Principal",
+            correo="contacto@example.com",
+            is_principal=True,
+        )
+        self.orden = Orden.objects.create(
+            cliente="Cliente correo",
+            cliente_id=self.cliente,
+            status="resuelto",
+            servicios_realizados=["Servicio"],
+            fecha_inicio="2026-07-01",
+            creado_por=self.user,
+            tecnico_asignado=self.user,
+        )
+        self.orden_pendiente = Orden.objects.create(
+            cliente="Pendiente",
+            status="pendiente",
+            servicios_realizados=["Servicio"],
+            fecha_inicio="2026-07-02",
+            creado_por=self.user,
+            tecnico_asignado=self.user,
+        )
+
+    def test_correo_sugerido_usa_contacto_si_cliente_vacio(self):
+        response = self.client.get(f"/api/ordenes/{self.orden.id}/correo-sugerido/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data.get("correo"), "contacto@example.com")
+        self.assertFalse(response.data.get("cliente_tiene_correo"))
+
+    def test_enviar_pdf_rechaza_pendiente(self):
+        response = self.client.post(
+            f"/api/ordenes/{self.orden_pendiente.id}/enviar-pdf/",
+            {"correo": "alguien@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_enviar_pdf_requiere_correo_valido(self):
+        response = self.client.post(
+            f"/api/ordenes/{self.orden.id}/enviar-pdf/",
+            {"correo": "no-es-correo"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_enviar_pdf_ok_guarda_correo_y_envia(self):
+        from unittest.mock import patch
+
+        from django.core import mail
+        from django.test import override_settings
+
+        with override_settings(
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            EMAIL_HOST="mail.example.com",
+            EMAIL_HOST_USER="soporte@example.com",
+            EMAIL_HOST_PASSWORD="secret",
+            DEFAULT_FROM_EMAIL="soporte@example.com",
+        ):
+            with patch(
+                "apps.ordenes.views.render_html_to_pdf",
+                return_value=b"%PDF-1.4 test",
+            ), patch(
+                "apps.ordenes.views.any_provider_configured",
+                return_value=True,
+            ):
+                response = self.client.post(
+                    f"/api/ordenes/{self.orden.id}/enviar-pdf/",
+                    {"correo": "nuevo@example.com"},
+                    format="json",
+                )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data.get("ok"))
+        self.assertTrue(response.data.get("correo_guardado_en_cliente"))
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.correo, "nuevo@example.com")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["nuevo@example.com"])
+        self.assertEqual(len(mail.outbox[0].attachments), 1)

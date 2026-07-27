@@ -190,7 +190,7 @@ export default function AppSidebar() {
           ...(permissions?.ordenes?.view === true
             ? [{ name: "Órdenes de Trabajo", path: "/ordenes", pro: false } as const]
             : []),
-          ...(permissions?.ordenes?.view === true || isAdmin
+          ...(permissions?.proyectos?.view === true || isAdmin
             ? [{ name: "Proyectos", path: "/proyectos", pro: false } as const]
             : []),
           ...(permissions?.cuentas_antarix?.view === true || isAdmin
@@ -223,7 +223,7 @@ export default function AppSidebar() {
         subItems.push({ name: "Órdenes de Servicios", path: "/ordenes-tecnico", pro: false });
       }
 
-      if (permissions?.ordenes?.view === true) {
+      if (permissions?.proyectos?.view === true) {
         subItems.push({ name: "Proyectos", path: "/proyectos", pro: false });
       }
 

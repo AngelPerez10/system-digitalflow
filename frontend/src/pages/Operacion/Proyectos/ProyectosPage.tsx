@@ -1,15 +1,19 @@
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
-import { PencilIcon } from "@/icons";
+import { Modal } from "@/components/ui/modal";
+import { PencilIcon, TrashBinIcon } from "@/icons";
 import { erpSansStyle } from "@/layout/erpPageStyles";
 import {
   claudeBodyClass,
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
+  erpDangerBtnClass,
+  erpDeleteModalClass,
+  erpDeleteModalPanelClass,
   erpHeroBlurClass,
   erpHeroGradientClass,
   erpHeroHeadingClass,
@@ -19,6 +23,7 @@ import {
   erpPrimaryBtnClass,
   erpRowActionBarClass,
   erpRowActionBtnClass,
+  erpSecondaryBtnClass,
   erpTableHeaderClass,
   erpTableRowHoverClass,
   erpTableWrapClass,
@@ -26,43 +31,59 @@ import {
   pageSearchInputClass,
   sectionLabelOrangeClass,
 } from "../OrdenesTrabajo/ordenTrabajoStyles";
-import { useOrdenesPagePermissions } from "../OrdenesTrabajo/OrdenServicio/useOrdenesPagePermissions";
 import ProyectoFormModal from "./ProyectoFormModal";
 import { ProyectosMobileList } from "./ProyectosMobileList";
 import { ProyectosPageStats } from "./ProyectosPageStats";
 import {
+  createProyecto,
+  deleteProyecto,
+  listProyectos,
+  updateProyecto,
+  type ProyectoApiError,
+} from "./proyectoApi";
+import {
   computeProyectoStats,
   createEmptyProyectoDraft,
+  displayCotizacionFolio,
+  displayProyectoFolio,
   estadoProyectoBadgeClass,
   estadoProyectoLabel,
-  proyectoRowFromDraft,
 } from "./proyectoFormUtils";
 import { formatProyectoFecha, proyectoOrigenBadgeClass } from "./proyectoPageStyles";
-import { MOCK_PROYECTOS_ROWS } from "./proyectoMockData";
+import { matchesDocumentFolio } from "@/utils/documentFolio";
+import { useProyectosPagePermissions } from "./useProyectosPagePermissions";
 import type { ProyectoDraft, ProyectoRow } from "./proyectoTypes";
 
 function proyectoMatchesSearch(row: ProyectoRow, q: string): boolean {
   const term = q.trim().toLowerCase();
   if (!term) return true;
   return (
-    row.folio.toLowerCase().includes(term) ||
+    matchesDocumentFolio(row.folio, term) ||
+    matchesDocumentFolio(row.cotizacionFolio, term) ||
     row.cliente.toLowerCase().includes(term) ||
-    row.cotizacionFolio.toLowerCase().includes(term) ||
     estadoProyectoLabel(row.estado).toLowerCase().includes(term)
   );
 }
 
-export default function ProyectosPage() {
-  const { canOrdenesCreate, canOrdenesEdit } = useOrdenesPagePermissions();
-  const emptyDraft = useMemo(() => createEmptyProyectoDraft(), []);
+function isProyectoApiError(err: unknown): err is ProyectoApiError {
+  return Boolean(err && typeof err === "object" && "message" in err && "status" in err);
+}
 
-  const [rows, setRows] = useState<ProyectoRow[]>(MOCK_PROYECTOS_ROWS);
+export default function ProyectosPage() {
+  const { canProyectosCreate, canProyectosEdit, canProyectosDelete } = useProyectosPagePermissions();
+  const emptyDraft = useMemo(() => createEmptyProyectoDraft(), []);
+  const deleteTitleId = useId();
+
+  const [rows, setRows] = useState<ProyectoRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingRow, setEditingRow] = useState<ProyectoRow | null>(null);
+  const [deletingRow, setDeletingRow] = useState<ProyectoRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [alert, setAlert] = useState<{
     show: boolean;
-    variant: "success" | "warning";
+    variant: "success" | "warning" | "error";
     title: string;
     message: string;
   }>({ show: false, variant: "warning", title: "", message: "" });
@@ -76,13 +97,48 @@ export default function ProyectosPage() {
 
   const modalDraft = editingRow?.draft ?? emptyDraft;
 
-  const showPermissionWarning = (message: string) => {
-    setAlert({ show: true, variant: "warning", title: "Sin permiso", message });
-    setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
+  const showAlert = (
+    variant: "success" | "warning" | "error",
+    title: string,
+    message: string,
+    ms = 3000
+  ) => {
+    setAlert({ show: true, variant, title, message });
+    setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), ms);
   };
 
+  const showPermissionWarning = (message: string) => {
+    showAlert("warning", "Sin permiso", message, 2500);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await listProyectos();
+        if (!cancelled) setRows(data);
+      } catch (err) {
+        console.error("Error al cargar proyectos:", err);
+        if (!cancelled) {
+          showAlert(
+            "error",
+            "Error al cargar",
+            isProyectoApiError(err) ? err.message : "No se pudo cargar el listado de proyectos.",
+            4000
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const openNew = () => {
-    if (!canOrdenesCreate) {
+    if (!canProyectosCreate) {
       showPermissionWarning("No tienes permiso para crear proyectos.");
       return;
     }
@@ -91,7 +147,7 @@ export default function ProyectosPage() {
   };
 
   const openEdit = (row: ProyectoRow) => {
-    if (!canOrdenesEdit) {
+    if (!canProyectosEdit) {
       showPermissionWarning("No tienes permiso para editar proyectos.");
       return;
     }
@@ -99,30 +155,74 @@ export default function ProyectosPage() {
     setShowModal(true);
   };
 
+  const openDelete = (row: ProyectoRow) => {
+    if (!canProyectosDelete) {
+      showPermissionWarning("No tienes permiso para eliminar proyectos.");
+      return;
+    }
+    setDeletingRow(row);
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setEditingRow(null);
   };
 
-  const handleSave = (draft: ProyectoDraft) => {
-    const wasEditing = Boolean(editingRow);
-    if (editingRow) {
-      setRows((prev) =>
-        prev.map((r) => (r.id === editingRow.id ? proyectoRowFromDraft(draft, editingRow) : r))
+  const confirmDelete = async () => {
+    if (!deletingRow) return;
+    setDeleting(true);
+    try {
+      await deleteProyecto(deletingRow.id);
+      setRows((prev) => prev.filter((r) => r.id !== deletingRow.id));
+      showAlert(
+        "success",
+        "Proyecto eliminado",
+        `Se eliminó ${displayProyectoFolio(deletingRow.folio)} (${deletingRow.cliente}).`
       );
-    } else {
-      setRows((prev) => [proyectoRowFromDraft(draft), ...prev]);
+      setDeletingRow(null);
+    } catch (err) {
+      console.error("Error al eliminar proyecto:", err);
+      showAlert(
+        "error",
+        "No se pudo eliminar",
+        isProyectoApiError(err) ? err.message : "Ocurrió un error al eliminar el proyecto.",
+        4500
+      );
+    } finally {
+      setDeleting(false);
     }
-    closeModal();
-    setAlert({
-      show: true,
-      variant: "success",
-      title: wasEditing ? "Proyecto actualizado" : "Proyecto creado",
-      message: wasEditing
-        ? `Los cambios de "${draft.cliente}" se guardaron correctamente.`
-        : `El proyecto de "${draft.cliente}" se registró en el listado.`,
-    });
-    setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
+  };
+
+  const handleSave = async (draft: ProyectoDraft) => {
+    const wasEditing = Boolean(editingRow);
+    try {
+      const saved = wasEditing && editingRow
+        ? await updateProyecto(editingRow.id, draft)
+        : await createProyecto(draft);
+      setRows((prev) => {
+        if (wasEditing) {
+          return prev.map((r) => (r.id === saved.id ? saved : r));
+        }
+        return [saved, ...prev];
+      });
+      closeModal();
+      showAlert(
+        "success",
+        wasEditing ? "Proyecto actualizado" : "Proyecto creado",
+        wasEditing
+          ? `Los cambios de "${draft.cliente}" se guardaron correctamente.`
+          : `El proyecto ${saved.folio} de "${draft.cliente}" se registró correctamente.`
+      );
+    } catch (err) {
+      console.error("Error al guardar proyecto:", err);
+      showAlert(
+        "error",
+        "No se pudo guardar",
+        isProyectoApiError(err) ? err.message : "Ocurrió un error al guardar el proyecto.",
+        4500
+      );
+      throw err;
+    }
   };
 
   return (
@@ -169,9 +269,6 @@ export default function ProyectosPage() {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <p className={sectionLabelOrangeClass}>Operación</p>
-                <span className="rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">
-                  Vista diseño
-                </span>
               </div>
               <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Proyectos</h1>
               <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
@@ -239,139 +336,166 @@ export default function ProyectosPage() {
           className={`overflow-visible ${pageCardShellClass}`}
         >
           <div className="p-2 pt-0">
-            <ProyectosMobileList
-              rows={filteredRows}
-              hasSearch={Boolean(searchTerm.trim())}
-              canEdit={canOrdenesEdit}
-              onEdit={openEdit}
-            />
+            {loading ? (
+              <div
+                className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400"
+                role="status"
+                aria-live="polite"
+              >
+                Cargando proyectos…
+              </div>
+            ) : (
+              <>
+                <ProyectosMobileList
+                  rows={filteredRows}
+                  hasSearch={Boolean(searchTerm.trim())}
+                  canEdit={canProyectosEdit}
+                  canDelete={canProyectosDelete}
+                  onEdit={openEdit}
+                  onDelete={openDelete}
+                />
 
-            <div className={"hidden md:block " + erpTableWrapClass}>
-              <Table className="w-full min-w-[960px] table-fixed sm:min-w-0 xl:min-w-full">
-                <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
-                  <TableRow>
-                    <TableCell isHeader scope="col" className="w-[96px] min-w-[88px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                      Folio
-                    </TableCell>
-                    <TableCell isHeader scope="col" className="w-2/5 min-w-[200px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                      Cliente
-                    </TableCell>
-                    <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                      Cotización
-                    </TableCell>
-                    <TableCell isHeader scope="col" className="w-[150px] min-w-[140px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                      Equipos
-                    </TableCell>
-                    <TableCell isHeader scope="col" className="w-[110px] min-w-[100px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300">
-                      Estado
-                    </TableCell>
-                    <TableCell isHeader scope="col" className="w-[100px] min-w-[96px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                      Fecha
-                    </TableCell>
-                    <TableCell isHeader scope="col" className="w-[120px] min-w-[110px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300">
-                      Acciones
-                    </TableCell>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
-                  {filteredRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="px-2 py-10">
-                        <div className="text-center text-sm text-gray-500 dark:text-gray-400">
-                          {searchTerm
-                            ? "No hay proyectos que coincidan con la búsqueda."
-                            : "Aún no hay proyectos registrados."}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredRows.map((row) => (
-                      <TableRow key={row.id} className={erpTableRowHoverClass}>
-                        <TableCell className="whitespace-nowrap px-2 py-2 align-middle">
-                          <span className="inline-flex items-center rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white sm:text-[11px]">
-                            {row.folio}
-                          </span>
+                <div className={"hidden md:block " + erpTableWrapClass}>
+                  <Table className="w-full min-w-[960px] table-fixed sm:min-w-0 xl:min-w-full">
+                    <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
+                      <TableRow>
+                        <TableCell isHeader scope="col" className="w-[96px] min-w-[88px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                          Folio
                         </TableCell>
-                        <TableCell className="px-2 py-2 align-top">
-                          <span className="block truncate font-medium text-gray-900 dark:text-white sm:text-[12px]" title={row.cliente}>
-                            {row.cliente}
-                          </span>
+                        <TableCell isHeader scope="col" className="w-2/5 min-w-[200px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                          Cliente
                         </TableCell>
-                        <TableCell className="px-2 py-2 align-top">
-                          {row.cotizacionFolio === "—" ? (
-                            <span className="text-gray-500 dark:text-gray-400">—</span>
-                          ) : (
-                            <div className="leading-tight">
-                              <span className={proyectoOrigenBadgeClass(row.cotizacionOrigen)}>
-                                {row.cotizacionOrigen === "digitalflow" ? "DigitalFlow" : "SICAR"}
-                              </span>
-                              <div className="mt-1 tabular-nums text-gray-900 dark:text-white">
-                                {row.cotizacionesCount > 1
-                                  ? row.cotizacionFolio
-                                  : `#${row.cotizacionFolio}`}
-                              </div>
-                              {row.cotizacionesCount > 1 ? (
-                                <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                                  {row.cotizacionesCount} vinculadas
-                                </div>
-                              ) : null}
-                            </div>
-                          )}
+                        <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                          Cotización
                         </TableCell>
-                        <TableCell className="px-2 py-2 align-top">
-                          {row.equiposTotal === 0 ? (
-                            <span className="text-gray-500 dark:text-gray-400">—</span>
-                          ) : (
-                            <div className="leading-tight">
-                              <div className="tabular-nums text-gray-900 dark:text-white">
-                                {row.equiposEntregados}/{row.equiposTotal} entregados
-                              </div>
-                              <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                                {row.equiposInstalados} instalados
-                              </div>
-                            </div>
-                          )}
+                        <TableCell isHeader scope="col" className="w-[150px] min-w-[140px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                          Equipos
                         </TableCell>
-                        <TableCell className="px-2 py-2 text-center align-middle">
-                          <span className={estadoProyectoBadgeClass(row.estado)}>
-                            {estadoProyectoLabel(row.estado)}
-                          </span>
+                        <TableCell isHeader scope="col" className="w-[110px] min-w-[100px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300">
+                          Estado
                         </TableCell>
-                        <TableCell className="whitespace-nowrap px-2 py-2 align-middle tabular-nums text-gray-700 dark:text-gray-300">
-                          {formatProyectoFecha(row.fecha)}
+                        <TableCell isHeader scope="col" className="w-[100px] min-w-[96px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                          Fecha
                         </TableCell>
-                        <TableCell className="px-2 py-2 text-center align-middle">
-                          {canOrdenesEdit ? (
-                            <div className={erpRowActionBarClass}>
-                              <button
-                                type="button"
-                                className={erpRowActionBtnClass}
-                                onClick={() => openEdit(row)}
-                                aria-label={`Editar proyecto ${row.folio}`}
-                                title="Editar"
-                              >
-                                <PencilIcon className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-[11px] text-gray-400 dark:text-gray-500">—</span>
-                          )}
+                        <TableCell isHeader scope="col" className="w-[120px] min-w-[110px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300">
+                          Acciones
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
+                      {filteredRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="px-2 py-10">
+                            <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                              {searchTerm
+                                ? "No hay proyectos que coincidan con la búsqueda."
+                                : "Aún no hay proyectos registrados."}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredRows.map((row) => (
+                          <TableRow key={row.id} className={erpTableRowHoverClass}>
+                            <TableCell className="whitespace-nowrap px-2 py-2 align-middle">
+                              <span className="inline-flex items-center rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white sm:text-[11px]">
+                                {displayProyectoFolio(row.folio)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="px-2 py-2 align-top">
+                              <span className="block truncate font-medium text-gray-900 dark:text-white sm:text-[12px]" title={row.cliente}>
+                                {row.cliente}
+                              </span>
+                            </TableCell>
+                            <TableCell className="px-2 py-2 align-top">
+                              {row.cotizacionFolio === "—" ? (
+                                <span className="text-gray-500 dark:text-gray-400">—</span>
+                              ) : (
+                                <div className="leading-tight">
+                                  <span className={proyectoOrigenBadgeClass(row.cotizacionOrigen)}>
+                                    {row.cotizacionOrigen === "digitalflow" ? "DigitalFlow" : "SICAR"}
+                                  </span>
+                                  <div className="mt-1 tabular-nums text-gray-900 dark:text-white">
+                                    {row.cotizacionesCount > 1
+                                      ? row.cotizacionFolio
+                                      : displayCotizacionFolio(row.cotizacionFolio, row.cotizacionOrigen)}
+                                  </div>
+                                  {row.cotizacionesCount > 1 ? (
+                                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                                      {row.cotizacionesCount} vinculadas
+                                    </div>
+                                  ) : null}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="px-2 py-2 align-top">
+                              {row.equiposTotal === 0 ? (
+                                <span className="text-gray-500 dark:text-gray-400">—</span>
+                              ) : (
+                                <div className="leading-tight">
+                                  <div className="tabular-nums text-gray-900 dark:text-white">
+                                    {row.equiposEntregados}/{row.equiposTotal} entregados
+                                  </div>
+                                  <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                                    {row.equiposInstalados} instalados
+                                  </div>
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="px-2 py-2 text-center align-middle">
+                              <span className={estadoProyectoBadgeClass(row.estado)}>
+                                {estadoProyectoLabel(row.estado)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap px-2 py-2 align-middle tabular-nums text-gray-700 dark:text-gray-300">
+                              {formatProyectoFecha(row.fecha)}
+                            </TableCell>
+                            <TableCell className="px-2 py-2 text-center align-middle">
+                              {canProyectosEdit || canProyectosDelete ? (
+                                <div className={erpRowActionBarClass}>
+                                  {canProyectosEdit ? (
+                                    <button
+                                      type="button"
+                                      className={erpRowActionBtnClass}
+                                      onClick={() => openEdit(row)}
+                                      aria-label={`Editar proyecto ${displayProyectoFolio(row.folio)}`}
+                                      title="Editar"
+                                    >
+                                      <PencilIcon className="h-4 w-4" />
+                                    </button>
+                                  ) : null}
+                                  {canProyectosDelete ? (
+                                    <button
+                                      type="button"
+                                      className={erpRowActionBtnClass}
+                                      onClick={() => openDelete(row)}
+                                      aria-label={`Eliminar proyecto ${displayProyectoFolio(row.folio)}`}
+                                      title="Eliminar"
+                                    >
+                                      <TrashBinIcon className="h-4 w-4" />
+                                    </button>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-gray-400 dark:text-gray-500">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
 
-            <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-800 sm:px-5 sm:py-4">
-              <p className="text-xs text-gray-600 dark:text-gray-400 sm:text-sm">
-                Mostrando{" "}
-                <span className="font-medium text-gray-900 dark:text-white">{filteredRows.length}</span> de{" "}
-                <span className="font-medium text-gray-900 dark:text-white">{rows.length}</span> proyectos
-                {searchTerm ? " (filtrados)" : ""}
-              </p>
-            </div>
+                <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-800 sm:px-5 sm:py-4">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 sm:text-sm">
+                    Mostrando{" "}
+                    <span className="font-medium text-gray-900 dark:text-white">{filteredRows.length}</span> de{" "}
+                    <span className="font-medium text-gray-900 dark:text-white">{rows.length}</span> proyectos
+                    {searchTerm ? " (filtrados)" : ""}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </ComponentCard>
 
@@ -383,6 +507,53 @@ export default function ProyectosPage() {
           onClose={closeModal}
           onSave={handleSave}
         />
+
+        <Modal
+          isOpen={Boolean(deletingRow)}
+          onClose={() => {
+            if (!deleting) setDeletingRow(null);
+          }}
+          closeOnBackdropClick={!deleting}
+          closeOnEscape={!deleting}
+          ariaLabelledBy={deleteTitleId}
+          className={`${erpDeleteModalClass} z-[100000]`}
+        >
+          <div className={erpDeleteModalPanelClass}>
+            <div className="mb-4 flex flex-col items-center text-center">
+              <span
+                className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"
+                aria-hidden
+              >
+                <TrashBinIcon className="h-6 w-6" />
+              </span>
+              <h3 id={deleteTitleId} className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                Eliminar proyecto
+              </h3>
+              <p className="mt-2 text-sm text-[#57534e] dark:text-[#94a3b8]">
+                ¿Eliminar {deletingRow ? displayProyectoFolio(deletingRow.folio) : "este proyecto"}
+                {deletingRow?.cliente ? ` de «${deletingRow.cliente}»` : ""}? Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                className={erpSecondaryBtnClass}
+                disabled={deleting}
+                onClick={() => setDeletingRow(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={erpDangerBtnClass}
+                disabled={deleting}
+                onClick={() => void confirmDelete()}
+              >
+                {deleting ? "Eliminando…" : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </Modal>
       </div>
     </div>
   );

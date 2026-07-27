@@ -26,6 +26,9 @@ ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES = (
     "ordenes/firmas/",
     "ordenes/levantamiento/dibujos/",
     "productos/conceptos/",
+    "proyectos/evidencias/",
+    "proyectos/bitacora/",
+    "proyectos/firmas/",
 )
 
 try:

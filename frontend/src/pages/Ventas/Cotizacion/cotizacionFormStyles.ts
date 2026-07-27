@@ -53,6 +53,9 @@ export const primaryActionBtnClass =
 export const secondaryActionBtnClass =
   "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-[#fed7aa] bg-white px-3 py-2.5 text-xs font-semibold text-[#9a3412] transition-colors hover:bg-[#fff3e8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#fb923c]/40 dark:bg-[#111a2b]/60 dark:text-[#fdba74] dark:hover:bg-[#fb923c]/10";
 
+export const correoActionBtnClass =
+  "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-sky-200/90 bg-white px-3 py-2.5 text-xs font-semibold text-sky-900 transition-colors hover:bg-sky-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-500/30 dark:bg-transparent dark:text-sky-100 dark:hover:bg-sky-500/[0.08]";
+
 export const tertiaryActionBtnClass =
   "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-emerald-200/90 bg-white px-3 py-2.5 text-xs font-semibold text-emerald-900 transition-colors hover:bg-emerald-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/30 dark:bg-transparent dark:text-emerald-100 dark:hover:bg-emerald-500/[0.08]";
 

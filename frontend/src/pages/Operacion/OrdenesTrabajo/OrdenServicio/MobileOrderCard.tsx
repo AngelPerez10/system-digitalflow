@@ -1,7 +1,9 @@
 import { OrdenViewModal } from "../OrdenTrabajoModals";
 import { useState } from "react";
 import { PencilIcon, TrashBinIcon } from "../../../../icons";
+import { MailIcon } from "@/icons";
 import { erpMobileCardClass } from "../ordenTrabajoStyles";
+import { displayOrdenFolio, isOrdenResuelta, isOrdenServicioTecnico } from "./useOrdenesShared";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;
@@ -29,6 +31,7 @@ interface MobileOrderCardProps {
   startIndex: number;
   formatDate: (date: string) => string;
   onPdf: (orden: any) => void;
+  onEnviarPdf?: (orden: any) => void;
   onEdit?: (orden: any) => void;
   onDelete?: (orden: any) => void;
   canEdit?: boolean;
@@ -44,6 +47,7 @@ export function MobileOrderCard({
   startIndex,
   formatDate,
   onPdf,
+  onEnviarPdf,
   onEdit,
   onDelete,
   canEdit,
@@ -57,7 +61,7 @@ export function MobileOrderCard({
   const fechaInicioFmt = fechaInicio ? formatDate(fechaInicio) : '-';
   const fechaFinFmt = orden.fecha_finalizacion ? formatDate(orden.fecha_finalizacion) : '-';
 
-  const folioDisplay = (orden?.folio ?? '').toString().trim() || (orden?.idx ?? (startIndex + idx + 1));
+  const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
 
   return (
     <div className={erpMobileCardClass}>
@@ -72,9 +76,20 @@ export function MobileOrderCard({
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button type="button" onClick={() => onPdf(orden)} className={mobileActionBtnClass} title="PDF">
+          <button type="button" onClick={() => onPdf(orden)} className={mobileActionBtnClass} title="PDF" aria-label="PDF">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
           </button>
+          {isOrdenResuelta(orden.status) && isOrdenServicioTecnico(orden.tipo_orden) && onEnviarPdf && (
+            <button
+              type="button"
+              onClick={() => onEnviarPdf(orden)}
+              className={mobileActionBtnClass}
+              title="Enviar PDF por correo"
+              aria-label="Enviar PDF por correo"
+            >
+              <MailIcon className="w-4 h-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowProblematicaModal(true)}
@@ -174,6 +189,7 @@ interface MobileOrderListProps {
   loading: boolean;
   formatDate: (date: string) => string;
   onPdf: (orden: any) => void;
+  onEnviarPdf?: (orden: any) => void;
   onEdit?: (orden: any) => void;
   onDelete?: (orden: any) => void;
   canEdit?: boolean;
@@ -189,6 +205,7 @@ export function MobileOrderList({
   loading,
   formatDate,
   onPdf,
+  onEnviarPdf,
   onEdit,
   onDelete,
   canEdit,
@@ -220,6 +237,7 @@ export function MobileOrderList({
           startIndex={startIndex}
           formatDate={formatDate}
           onPdf={onPdf}
+          onEnviarPdf={onEnviarPdf}
           onEdit={onEdit}
           onDelete={onDelete}
           canEdit={canEdit}

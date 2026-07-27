@@ -94,3 +94,115 @@ class CotizacionesSmokeTests(APITestCase):
         response = self.client.post("/api/cotizaciones/", payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn("id", response.data)
+
+
+class CotizacionesEnviarPdfTests(APITestCase):
+    def setUp(self):
+        from apps.clientes.models import Cliente, ClienteContacto
+        from apps.cotizaciones.models import Cotizacion
+
+        self.user = User.objects.create_user(username="cot_mail", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=self.user,
+            permissions={
+                "cotizaciones": {"view": True, "create": True, "edit": True, "delete": False},
+            },
+        )
+        self.client.force_authenticate(user=self.user)
+        self.cliente = Cliente.objects.create(nombre="Cliente cot", correo="")
+        ClienteContacto.objects.create(
+            cliente=self.cliente,
+            nombre_apellido="Contacto",
+            correo="contacto.cot@example.com",
+            is_principal=True,
+        )
+        self.cot_pendiente = Cotizacion.objects.create(
+            cliente="Cliente cot",
+            cliente_id=self.cliente,
+            status="PENDIENTE",
+            fecha="2026-07-01",
+            creado_por=self.user,
+        )
+        self.cot_autorizada = Cotizacion.objects.create(
+            cliente="Cliente cot",
+            cliente_id=self.cliente,
+            status="AUTORIZADA",
+            fecha="2026-07-02",
+            creado_por=self.user,
+        )
+        self.cot_cancelada = Cotizacion.objects.create(
+            cliente="Cancelada",
+            status="CANCELADA",
+            fecha="2026-07-03",
+            creado_por=self.user,
+        )
+
+    def test_correo_sugerido(self):
+        response = self.client.get(f"/api/cotizaciones/{self.cot_pendiente.id}/correo-sugerido/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data.get("correo"), "contacto.cot@example.com")
+
+    def test_enviar_pdf_rechaza_cancelada(self):
+        response = self.client.post(
+            f"/api/cotizaciones/{self.cot_cancelada.id}/enviar-pdf/",
+            {"correo": "alguien@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_enviar_pdf_pendiente_ok(self):
+        from unittest.mock import patch
+
+        from django.core import mail
+        from django.test import override_settings
+
+        with override_settings(
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            EMAIL_HOST="mail.example.com",
+            EMAIL_HOST_USER="soporte@example.com",
+            EMAIL_HOST_PASSWORD="secret",
+            DEFAULT_FROM_EMAIL="soporte@example.com",
+        ):
+            with patch(
+                "apps.cotizaciones.views.render_html_to_pdf",
+                return_value=b"%PDF-1.4 test",
+            ), patch(
+                "apps.cotizaciones.views.any_provider_configured",
+                return_value=True,
+            ):
+                response = self.client.post(
+                    f"/api/cotizaciones/{self.cot_pendiente.id}/enviar-pdf/",
+                    {"correo": "nuevo.cot@example.com"},
+                    format="json",
+                )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data.get("ok"))
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.correo, "nuevo.cot@example.com")
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_enviar_pdf_autorizada_ok(self):
+        from unittest.mock import patch
+
+        from django.test import override_settings
+
+        with override_settings(
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            EMAIL_HOST="mail.example.com",
+            EMAIL_HOST_USER="soporte@example.com",
+            EMAIL_HOST_PASSWORD="secret",
+            DEFAULT_FROM_EMAIL="soporte@example.com",
+        ):
+            with patch(
+                "apps.cotizaciones.views.render_html_to_pdf",
+                return_value=b"%PDF-1.4 test",
+            ), patch(
+                "apps.cotizaciones.views.any_provider_configured",
+                return_value=True,
+            ):
+                response = self.client.post(
+                    f"/api/cotizaciones/{self.cot_autorizada.id}/enviar-pdf/",
+                    {"correo": "auth@example.com"},
+                    format="json",
+                )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
