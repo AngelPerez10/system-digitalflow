@@ -122,7 +122,7 @@ export const erpDeleteModalPanelClass =
   "rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-6 shadow-[0_24px_48px_-12px_rgba(28,25,23,0.18)] dark:border-[#273244] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]";
 
 export const erpDangerBtnClass =
-  "inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-red-500 px-5 py-2.5 text-sm font-semibold text-white shadow-none transition-colors hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffdfa] disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:ring-offset-[#111a2b] sm:w-auto sm:min-h-0";
 
 /** Modal vista (problemática, servicios, comentario) */
 export const erpViewModalClass = "max-w-2xl w-[92vw]";

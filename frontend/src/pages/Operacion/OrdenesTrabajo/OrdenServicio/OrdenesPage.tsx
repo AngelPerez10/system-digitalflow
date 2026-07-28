@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useId, useMemo, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
@@ -13,6 +13,8 @@ import DatePicker from "@/components/form/date-picker";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { OrdenesPageStats } from "./OrdenesPageStats";
+import OrdenAdminCotizacionesField from "./OrdenAdminCotizacionesField";
+import OrdenLocationMapModal from "./OrdenLocationMapModal";
 import {
   computeOrdenStats,
   getCurrentYearMonth,
@@ -23,6 +25,7 @@ import {
   type ServicioCatalogo,
   type Usuario,
 } from "./ordenesPageTypes";
+import type { CotizacionResumen } from "@/pages/Operacion/Proyectos/proyectoTypes";
 import { useOrdenFormModalState } from "./useOrdenFormModalState";
 import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
@@ -485,6 +488,22 @@ export default function Ordenes() {
     fotos_urls: [] as string[],
     fotos_extra_max: 0 as FotosExtraMax
   });
+
+  /** Solo UI (admin): aún no persiste en API. */
+  type StatusAdministrativo = "pendiente" | "en_revision" | "enviado" | "cerrado";
+  const [statusAdministrativo, setStatusAdministrativo] = useState<StatusAdministrativo>("pendiente");
+  const [fechaEnvioAdmin, setFechaEnvioAdmin] = useState("");
+  const [cotizacionesAdmin, setCotizacionesAdmin] = useState<CotizacionResumen[]>([]);
+  const statusTecnicoId = useId().replace(/:/g, "");
+  const statusAdminId = useId().replace(/:/g, "");
+  const fechaEnvioAdminId = useId().replace(/:/g, "");
+
+  const resetAdminSeguimientoUi = () => {
+    setStatusAdministrativo("pendiente");
+    setFechaEnvioAdmin("");
+    setCotizacionesAdmin([]);
+  };
+
   const maxPhotosAllowed = ORDEN_BASE_MAX_FOTOS + formData.fotos_extra_max;
 
   const onDropPhotos = async (acceptedFiles: File[]) => {
@@ -548,118 +567,6 @@ export default function Ordenes() {
 
   // Estado para modal de mapa
   const [showMapModal, setShowMapModal] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lng: number } | null>(null);
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-  const zoomRef = useRef<number>(15);
-  const mapContainerId = 'leaflet-map';
-
-  // Cargar Leaflet en demanda e inicializar mapa al abrir modal
-  useEffect(() => {
-    if (!showMapModal) {
-      // Limpieza al cerrar
-      if (mapRef.current) {
-        try { mapRef.current.remove(); } catch { /* mapa Leaflet ya destruido */ }
-        mapRef.current = null;
-        markerRef.current = null;
-      }
-      return;
-    }
-
-    const initFromDireccion = () => {
-      const d = (formData.direccion || '').trim();
-      const m = d.match(/q=([-\d.]+),([-\d.]+)/);
-      if (m) {
-        const lat = parseFloat(m[1]);
-        const lng = parseFloat(m[2]);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          setSelectedLocation({ lat, lng });
-          return true;
-        }
-      }
-      return false;
-    };
-
-    const ensureLeaflet = async () => {
-      const w: any = window as any;
-      if (w.L) return w.L;
-      // CSS
-      if (!document.getElementById('leaflet-css')) {
-        const link = document.createElement('link');
-        link.id = 'leaflet-css';
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
-        link.crossOrigin = '';
-        document.head.appendChild(link);
-      }
-      // JS
-      await new Promise<void>((resolve, reject) => {
-        if (document.getElementById('leaflet-js')) return resolve();
-        const script = document.createElement('script');
-        script.id = 'leaflet-js';
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
-        script.crossOrigin = '';
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Leaflet load error'));
-        document.body.appendChild(script);
-      });
-      return (window as any).L;
-    };
-
-    (async () => {
-      try {
-        const L = await ensureLeaflet();
-
-        // Inicializar selectedLocation
-        const had = initFromDireccion();
-        if (!had && !selectedLocation) {
-          setSelectedLocation({ lat: 19.0653, lng: -104.2831 });
-        }
-
-        // Crear mapa
-        const container = document.getElementById(mapContainerId);
-        if (!container) return;
-        const center = selectedLocation || { lat: 19.0653, lng: -104.2831 };
-        const map = L.map(container).setView([center.lat, center.lng], zoomRef.current || 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
-        map.on('zoomend', () => {
-          try { zoomRef.current = map.getZoom(); } catch { /* zoom durante teardown */ }
-        });
-        map.on('click', (e: any) => {
-          const { lat, lng } = e.latlng;
-          setSelectedLocation({ lat, lng });
-        });
-        mapRef.current = map;
-
-        // Colocar marker inicial si hay selectedLocation
-        if (selectedLocation) {
-          markerRef.current = L.marker([selectedLocation.lat, selectedLocation.lng]).addTo(map);
-        }
-      } catch {
-        setAlert({ show: true, variant: 'error', title: 'Error de mapa', message: 'No se pudo cargar el mapa interactivo.' });
-        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
-      }
-    })();
-  }, [showMapModal]);
-
-  // Sincronizar marker y vista cuando cambia selectedLocation
-  useEffect(() => {
-    const L: any = (window as any).L;
-    if (!mapRef.current || !selectedLocation || !L) return;
-    const map = mapRef.current;
-    const currentZoom = typeof zoomRef.current === 'number' ? zoomRef.current : map.getZoom?.() || 15;
-    map.setView([selectedLocation.lat, selectedLocation.lng], currentZoom);
-    if (markerRef.current) {
-      markerRef.current.setLatLng([selectedLocation.lat, selectedLocation.lng]);
-    } else {
-      markerRef.current = L.marker([selectedLocation.lat, selectedLocation.lng]).addTo(map);
-    }
-  }, [selectedLocation]);
 
   // Estados para dropdowns personalizados
   const [clienteSearch, setClienteSearch] = useState('');
@@ -1207,6 +1114,7 @@ export default function Ordenes() {
           fotos_urls: [],
           fotos_extra_max: 0 as FotosExtraMax
         });
+        resetAdminSeguimientoUi();
         setEditingOrden(null);
 
         setAlert({
@@ -1373,6 +1281,7 @@ export default function Ordenes() {
       fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : [],
       fotos_extra_max: normalizeFotosExtraFromOrden(orden)
     });
+    resetAdminSeguimientoUi();
     setShowModal(true);
   };
 
@@ -1453,6 +1362,7 @@ export default function Ordenes() {
       fotos_urls: [],
       fotos_extra_max: 0 as FotosExtraMax
     });
+    resetAdminSeguimientoUi();
     // Limpiar estados de búsqueda de dropdowns
     setClienteSearch('');
     setTecnicoSearch('');
@@ -2781,19 +2691,108 @@ export default function Ordenes() {
                       />
                     </div>
 
-                    {/* Estado del Problema */}
+                    {/* Status del técnico */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Estado del Problema</label>
+                      <label
+                        htmlFor={statusTecnicoId}
+                        className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300"
+                      >
+                        Status del técnico
+                      </label>
                       <select
+                        id={statusTecnicoId}
                         value={formData.status}
-                        disabled={ro('status')}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value as 'pendiente' | 'resuelto' })}
-                        className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('status')}`}
+                        disabled={ro("status")}
+                        onChange={(e) =>
+                          setFormData({ ...formData, status: e.target.value as "pendiente" | "resuelto" })
+                        }
+                        className={`h-10 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${inputLockedClass("status")}`}
                       >
                         <option value="pendiente">No, pendiente</option>
                         <option value="resuelto">Sí, problema resuelto</option>
                       </select>
                     </div>
+
+                    {/* Seguimiento administrativo — solo diseño (admins) */}
+                    {isAdmin ? (
+                      <div className="relative overflow-hidden rounded-xl border border-[#e7ded0] bg-gradient-to-br from-[#fffdf8] via-white to-[#fff3e8]/70 p-4 dark:border-[#334155] dark:from-[#111a2b] dark:via-[#0f172a] dark:to-[#1a1510]">
+                        <div
+                          className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#ff801f]/10 blur-2xl dark:bg-[#ff801f]/15"
+                          aria-hidden
+                        />
+                        <div className="relative mb-3 flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c2410c] dark:border-[#fb923c]/35 dark:bg-[#fb923c]/10 dark:text-[#fdba74]">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#ff801f]" aria-hidden />
+                            Admin
+                          </span>
+                          <h5 className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                            Seguimiento administrativo
+                          </h5>
+                        </div>
+                        <p className="relative mb-4 text-xs leading-relaxed text-[#78716c] dark:text-[#94a3b8]">
+                          Puedes adjuntar cotizaciones DigitalFlow o SICAR; la fecha de envío se registra al marcar como enviado.
+                        </p>
+                        <div className="relative grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+                          <div className={statusAdministrativo === "enviado" ? "" : "sm:col-span-2"}>
+                            <label
+                              htmlFor={statusAdminId}
+                              className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300"
+                            >
+                              Status administrativo
+                            </label>
+                            <select
+                              id={statusAdminId}
+                              value={statusAdministrativo}
+                              disabled={isReadOnly || isLimitedEdit}
+                              onChange={(e) => {
+                                const next = e.target.value as StatusAdministrativo;
+                                setStatusAdministrativo(next);
+                                if (next === "enviado") {
+                                  setFechaEnvioAdmin((prev) => prev || new Date().toISOString().slice(0, 10));
+                                }
+                              }}
+                              className={`h-10 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${
+                                isReadOnly || isLimitedEdit
+                                  ? "cursor-not-allowed bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400"
+                                  : "bg-white text-gray-800 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:bg-gray-800 dark:text-gray-200 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20"
+                              }`}
+                            >
+                              <option value="pendiente">Pendiente</option>
+                              <option value="en_revision">En revisión</option>
+                              <option value="enviado">Enviado</option>
+                              <option value="cerrado">Cerrado</option>
+                            </select>
+                          </div>
+                          {statusAdministrativo === "enviado" ? (
+                            <div>
+                              <label
+                                htmlFor={fechaEnvioAdminId}
+                                className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300"
+                              >
+                                Fecha en que se envió
+                              </label>
+                              <div className="[&_input]:!h-10 [&_input]:!py-2 [&_input]:!text-sm">
+                                <DatePicker
+                                  key={`fecha-envio-admin-${editingOrden?.id ?? "new"}-${formNonceRef.current}-${statusAdministrativo}`}
+                                  id={fechaEnvioAdminId}
+                                  placeholder="Seleccionar fecha"
+                                  disabled={isReadOnly || isLimitedEdit}
+                                  defaultDate={fechaEnvioAdmin || undefined}
+                                  onChange={(_dates, currentDateString) => {
+                                    setFechaEnvioAdmin(currentDateString || "");
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                        <OrdenAdminCotizacionesField
+                          value={cotizacionesAdmin}
+                          onChange={setCotizacionesAdmin}
+                          disabled={isReadOnly || isLimitedEdit}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </>
@@ -3106,156 +3105,18 @@ export default function Ordenes() {
         />
       )}
 
-      {/* Modal Mapa Interactivo */}
-      <Modal
-        isOpen={showMapModal}
+      <OrdenLocationMapModal
+        open={showMapModal}
         onClose={() => setShowMapModal(false)}
-        closeOnBackdropClick={false}
-        ariaLabel="Seleccionar ubicación en el mapa"
-        className="w-[96vw] sm:w-[90vw] md:w-[80vw] max-w-3xl mx-0 sm:mx-auto"
-      >
-        <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-3xl">
-          {/* Header */}
-          <div className="px-4 sm:px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30">
-                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div>
-                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-                  Seleccionar Ubicación
-                </h5>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  Haz clic en el mapa para seleccionar la ubicación
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Body - Mapa */}
-          <div className="p-4 sm:p-5 flex-1 overflow-auto">
-            <div className="space-y-4">
-              {/* Mapa interactivo (Leaflet) */}
-              <div className="relative w-full h-[50vh] sm:h-[55vh] md:h-[60vh] rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                <div id="leaflet-map" className="absolute inset-0" />
-              </div>
-
-              {/* Input manual de coordenadas */}
-              <div className="space-y-2">
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">
-                  O ingresa las coordenadas manualmente
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <input
-                      type="text"
-                      placeholder="Latitud (ej: 19.0653)"
-                      value={selectedLocation?.lat || ''}
-                      onChange={(e) => {
-                        const lat = parseFloat(e.target.value);
-                        if (!isNaN(lat)) {
-                          setSelectedLocation({
-                            lat,
-                            lng: selectedLocation?.lng || -104.2831
-                          });
-                        }
-                      }}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      placeholder="Longitud (ej: -104.2831)"
-                      value={selectedLocation?.lng || ''}
-                      onChange={(e) => {
-                        const lng = parseFloat(e.target.value);
-                        if (!isNaN(lng)) {
-                          setSelectedLocation({
-                            lat: selectedLocation?.lat || 19.0653,
-                            lng
-                          });
-                        }
-                      }}
-                      className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 shadow-theme-xs text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 outline-none"
-                    />
-                  </div>
-                </div>
-                {selectedLocation && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    URL: https://www.google.com/maps?q={selectedLocation.lat},{selectedLocation.lng}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="px-4 sm:px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowMapModal(false)}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (!navigator.geolocation) {
-                  setAlert({ show: true, variant: 'warning', title: 'Geolocalización no disponible', message: 'Tu navegador no soporta geolocalización.' });
-                  setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-                  return;
-                }
-                if (!window.isSecureContext) {
-                  setAlert({ show: true, variant: 'warning', title: 'Se requiere conexión segura', message: 'La geolocalización requiere HTTPS (o localhost). Abre el sistema con HTTPS o en localhost e inténtalo de nuevo.' });
-                  setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3200);
-                  return;
-                }
-                navigator.geolocation.getCurrentPosition(
-                  (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    setSelectedLocation({ lat: latitude, lng: longitude });
-                    const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
-                    setFormData((prev) => ({ ...prev, direccion: url }));
-                    setShowMapModal(false);
-                    setSelectedLocation(null);
-                  },
-                  () => {
-                    setAlert({ show: true, variant: 'warning', title: 'No se pudo obtener ubicación', message: 'Activa permisos de ubicación e inténtalo de nuevo.' });
-                    setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-                  },
-                  { enableHighAccuracy: true, timeout: 8000 }
-                );
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 focus:ring-2 focus:ring-blue-300/40 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7z" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Usar mi ubicación
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const loc = selectedLocation || { lat: 19.0653, lng: -104.2831 };
-                const url = `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
-                setFormData({ ...formData, direccion: url });
-                setShowMapModal(false);
-                setSelectedLocation(null);
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-[#ff801f] text-white hover:bg-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/30"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Usar esta ubicación
-            </button>
-          </div>
-        </div>
-      </Modal>
+        direccion={formData.direccion}
+        onConfirm={(url) => {
+          setFormData((prev) => ({ ...prev, direccion: url }));
+        }}
+        onNotify={({ variant, title, message }) => {
+          setAlert({ show: true, variant, title, message });
+          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3200);
+        }}
+      />
 
       <ClienteFormModal
         isOpen={showClienteModal}

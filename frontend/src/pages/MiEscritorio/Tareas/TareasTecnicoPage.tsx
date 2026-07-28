@@ -50,6 +50,7 @@ export default function TareasTecnicoPage() {
   const lastIdRef = useRef<number | null>(null);
   const [tareas, setTareas] = useState<Tarea[]>([]); const [loading, setLoading] = useState(true); const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false); const [delM, setDelM] = useState(false); const [delTarget, setDelTarget] = useState<Tarea | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState<Tarea | null>(null);
   const [confirmDel, setConfirmDel] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
   const me = user;
@@ -69,8 +70,39 @@ export default function TareasTecnicoPage() {
 
   const openCreate = () => { if (!C) { setAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para crear." }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3000); return; } if (!myId) return; setEditing(null); setForm({ usuario_asignado: myId, descripcion: "", fotos_urls: [] }); setShowModal(true); };
   const edit = (t: Tarea) => { if (!E) { setAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para editar." }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3500); return; } if (!isOwn(t)) return; setEditing(t); setForm({ usuario_asignado: t.usuario_asignado || myId, descripcion: t.descripcion || "", fotos_urls: Array.isArray(t.fotos_urls) ? t.fotos_urls : [] }); setShowModal(true); };
-  const delClick = (t: Tarea) => { if (!D) { setAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para eliminar." }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3500); return; } if (!isOwn(t)) return; setDelTarget(t); setDelM(true); }; const delCancel = () => { setDelM(false); setDelTarget(null); };
-  const delConfirm = async () => { if (!delTarget || !D || !isOwn(delTarget)) return; try { const r = await fetchApi(`/api/tareas/${delTarget.id}/`, { method: "DELETE" }); if (r.ok) { await fetchTareas(); setDelM(false); setDelTarget(null); setAlert({ show: true, variant: "success", title: "Eliminada", message: "Tarea eliminada." }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 2500); } } catch { /* ignorar error de red */ } };
+  const delClick = (t: Tarea) => { if (!D) { setAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para eliminar." }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3500); return; } if (!isOwn(t)) return; setDelTarget(t); setDelM(true); };
+  const delCancel = () => { if (deleting) return; setDelM(false); setDelTarget(null); };
+  const delConfirm = async () => {
+    if (!delTarget || !D || !isOwn(delTarget) || deleting) return;
+    const id = delTarget.id;
+    setDeleting(true);
+    try {
+      const r = await fetchApi(`/api/tareas/${id}/`, { method: "DELETE" });
+      if (r.ok || r.status === 404) {
+        setTareas((prev) => prev.filter((t) => t.id !== id));
+        setDelM(false);
+        setDelTarget(null);
+        setAlert({ show: true, variant: "success", title: "Eliminada", message: "Tarea eliminada." });
+        setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
+        void fetchTareas({ force: true });
+      } else {
+        let em = "No se pudo eliminar la tarea.";
+        try {
+          const ed = await r.json();
+          em = (ed?.detail as string) || em;
+        } catch {
+          /* cuerpo no JSON */
+        }
+        setAlert({ show: true, variant: "error", title: "Error", message: em });
+        setTimeout(() => setAlert((p) => ({ ...p, show: false })), 4000);
+      }
+    } catch {
+      setAlert({ show: true, variant: "error", title: "Error", message: "Error de red al eliminar." });
+      setTimeout(() => setAlert((p) => ({ ...p, show: false })), 4000);
+    } finally {
+      setDeleting(false);
+    }
+  };
   const closeModal = () => { setShowModal(false); setEditing(null); setForm({ usuario_asignado: myId, descripcion: "", fotos_urls: [] }); };
   const submit = async (e: React.FormEvent) => { e.preventDefault(); const isE = !!editing; if (isE && !E) { setMAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para editar." }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } if (!isE && !C) { setMAlert({ show: true, variant: "error", title: "Sin permiso", message: "No tienes permisos para crear." }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } if (!myId) return; const { ok, missing } = validate(); if (!ok) { setMAlert({ show: true, variant: "warning", title: "Campos requeridos", message: `Faltan: ${missing.join(", ")}` }); setTimeout(() => setMAlert(p => ({ ...p, show: false })), 3500); return; } try { const u = editing ? `/api/tareas/${editing.id}/` : "/api/tareas/"; const r = await fetchApi(u, { method: isE ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuario_asignado: myId, descripcion: form.descripcion, fotos_urls: form.fotos_urls ?? [] }) }); if (r.ok) { await fetchTareas(); setShowModal(false); setEditing(null); setForm({ usuario_asignado: myId, descripcion: "", fotos_urls: [] }); setAlert({ show: true, variant: "success", title: isE ? "Actualizada" : "Creada", message: isE ? "Tarea actualizada." : "Tarea creada." }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 2500); } else { let em = "Error al guardar"; try { const ed = await r.json(); em = ed?.detail || JSON.stringify(ed) || em; } catch { em = await r.text(); } setAlert({ show: true, variant: "error", title: "Error", message: em }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 4500); } } catch (er) { setAlert({ show: true, variant: "error", title: "Error", message: String(er) }); setTimeout(() => setAlert(p => ({ ...p, show: false })), 3000); } };
 
@@ -78,7 +110,29 @@ export default function TareasTecnicoPage() {
   const myName = useMemo(() => { if (!me) return "Su usuario"; const fn = [me.first_name, me.last_name].filter(Boolean).join(" ").trim(); return fn || me.username || me.email || "Su usuario"; }, [me]);
   const isOwn = (t: Tarea | null | undefined) => !!(t && myId && Number(t.usuario_asignado) === myId);
 
-  const fetchTareas = async () => { try { if (!V) { setTareas([]); setLoading(false); return; } if (tareasFlight) { await tareasFlight; return; } tareasFlight = (async () => { const r = await fetchApi("/api/tareas/", { headers: { "Content-Type": "application/json" } }); if (r.ok) { const d = await r.json(); const rows = rowsFromResponse<Tarea>(d); setTareas(myId ? rows.filter((x) => Number(x.usuario_asignado) === myId) : []); } else setTareas([]); })(); await tareasFlight; } catch { setTareas([]); } finally { tareasFlight = null; setLoading(false); } };
+  const fetchTareas = async (opts?: { force?: boolean }) => {
+    try {
+      if (!V) { setTareas([]); setLoading(false); return; }
+      if (tareasFlight) {
+        await tareasFlight;
+        if (!opts?.force) return;
+      }
+      tareasFlight = (async () => {
+        const r = await fetchApi("/api/tareas/", { headers: { "Content-Type": "application/json" } });
+        if (r.ok) {
+          const d = await r.json();
+          const rows = rowsFromResponse<Tarea>(d);
+          setTareas(myId ? rows.filter((x) => Number(x.usuario_asignado) === myId) : []);
+        } else setTareas([]);
+      })();
+      await tareasFlight;
+    } catch {
+      setTareas([]);
+    } finally {
+      tareasFlight = null;
+      setLoading(false);
+    }
+  };
   useEffect(() => { if (!V) { lastIdRef.current = null; setTareas([]); setLoading(false); return; } if (!myId || lastIdRef.current === myId) return; lastIdRef.current = myId; fetchTareas(); }, [myId, V]);
 
   const shown = useMemo(() => { if (!Array.isArray(tareas)) return []; const q = (search || "").trim().toLowerCase(); return tareas.filter(t => !q || String(t.descripcion || "").toLowerCase().includes(q) || String(t.usuario_asignado_full_name || "").toLowerCase().includes(q) || String(t.usuario_asignado_username || "").toLowerCase().includes(q)); }, [tareas, search]);
@@ -105,7 +159,41 @@ export default function TareasTecnicoPage() {
   const move = (all: Tarea[], sid: number, d: { estado: (typeof COLS)[number]["key"]; index: number }) => { const list = [...all]; const si = list.findIndex(t => t.id === sid); if (si < 0) return list; const task = { ...list[si] }; const from = getE(task); list.splice(si, 1); task.estado = d.estado; const dl = list.filter(t => getE(t) === d.estado).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); dl.splice(Math.max(0, Math.min(d.index, dl.length)), 0, task); dl.forEach((t, i) => (t.orden = i)); const fl = from === d.estado ? [] : list.filter(t => getE(t) === from).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); fl.forEach((t, i) => (t.orden = i)); const moved = new Set([...dl, ...fl].map(t => t.id)); return [...list.filter(t => !moved.has(t.id)), ...fl, ...dl]; };
 
   const rootRef = useRef<HTMLDivElement | null>(null); const cm = useRef(new WeakMap<Element, () => void>());
-  useEffect(() => { const root = rootRef.current; if (!root) return; return monitorForElements({ onDrop: async ({ source, location }) => { const sd = source?.data as { type?: string; id?: unknown } | undefined; if (!sd || sd.type !== "tarea") return; const sid = Number(sd.id); if (!sid) return; if (!isOwn(tareas.find(t => t.id === sid))) return; const dd = location.current.dropTargets?.[0]?.data as { kind?: string; estado?: (typeof COLS)[number]["key"]; index?: unknown } | undefined; if (!dd) return; let de: (typeof COLS)[number]["key"] | null = null; let di: number | null = null; if (dd.kind === "card") { de = dd.estado ?? null; di = Number(dd.index); } else if (dd.kind === "column") { de = dd.estado ?? null; di = Number(dd.index); } if (!de || di === null || Number.isNaN(di)) return; const prev = tareas; const next = move(prev, sid, { estado: de, index: di }); setTareas(next); try { const dl = next.filter(t => getE(t) === de).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); const ft = prev.find(t => t.id === sid); const fe = ft ? getE(ft) : "TODO"; const fl = fe === de ? [] : next.filter(t => getE(t) === fe).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)); await Promise.all([persist(de, dl, prev), fe !== de ? persist(fe, fl, prev) : Promise.resolve()]); } catch { setTareas(prev); await fetchTareas(); } }, }); }, [tareas, myId]);
+  const tareasRef = useRef(tareas);
+  tareasRef.current = tareas;
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    return monitorForElements({
+      onDrop: async ({ source, location }) => {
+        const sd = source?.data as { type?: string; id?: unknown } | undefined;
+        if (!sd || sd.type !== "tarea") return;
+        const sid = Number(sd.id);
+        if (!sid) return;
+        const prev = tareasRef.current;
+        if (!isOwn(prev.find((t) => t.id === sid))) return;
+        const dd = location.current.dropTargets?.[0]?.data as { kind?: string; estado?: (typeof COLS)[number]["key"]; index?: unknown } | undefined;
+        if (!dd) return;
+        let de: (typeof COLS)[number]["key"] | null = null;
+        let di: number | null = null;
+        if (dd.kind === "card") { de = dd.estado ?? null; di = Number(dd.index); }
+        else if (dd.kind === "column") { de = dd.estado ?? null; di = Number(dd.index); }
+        if (!de || di === null || Number.isNaN(di)) return;
+        if (!prev.some((t) => t.id === sid)) return;
+        const next = move(prev, sid, { estado: de, index: di });
+        setTareas(next);
+        try {
+          const dl = next.filter((t) => getE(t) === de).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+          const ft = prev.find((t) => t.id === sid);
+          const fe = ft ? getE(ft) : "TODO";
+          const fl = fe === de ? [] : next.filter((t) => getE(t) === fe).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+          await Promise.all([persist(de, dl, prev), fe !== de ? persist(fe, fl, prev) : Promise.resolve()]);
+        } catch {
+          await fetchTareas({ force: true });
+        }
+      },
+    });
+  }, [loading, tareas.length, myId]);
 
   return (
     <>
@@ -179,7 +267,7 @@ export default function TareasTecnicoPage() {
 
       <Modal isOpen={fotosM.open} onClose={() => setFotosM({ open: false, urls: [] })} closeOnBackdropClick={false} className="max-w-3xl w-[92vw]" ariaLabelledBy={fotosModalTitleId}><div className="overflow-hidden rounded-2xl border border-[#e7ded0] bg-white dark:border-[#273244] dark:bg-[#111a2b]"><div className="flex items-center gap-3 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 dark:border-[#334155] dark:bg-[#111827]"><span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ea580c] dark:bg-[#ff801f]/15 dark:text-[#fb923c]"><svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" /><circle cx="12" cy="13" r="3" /></svg></span><div className="min-w-0"><h3 id={fotosModalTitleId} className={`${claudeSubheading}`}>Fotos</h3><p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Imágenes adjuntas a la tarea</p></div></div><div className="p-4 text-sm max-h-[70vh] overflow-y-auto custom-scrollbar">{Array.isArray(fotosM.urls) && fotosM.urls.length > 0 ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{fotosM.urls.map((url, idx) => (<a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer" className="group relative block overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111827]/50"><img src={url} alt={`Foto ${idx + 1}`} className="h-44 w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]" /><div className="absolute inset-x-0 bottom-0 p-2 bg-linear-to-t from-black/40 to-transparent"><div className="text-[11px] text-white/95">Ver en tamaño completo</div></div></a>))}</div> : <div className="rounded-lg border border-dashed border-[#e7ded0] p-4 text-center text-[#78716c] dark:border-[#334155] dark:text-[#8ea0b8]">Sin fotos adjuntas</div>}</div><div className="border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 text-right dark:border-[#334155] dark:bg-[#111827]"><button type="button" onClick={() => setFotosM({ open: false, urls: [] })} className={orangeBtnOutline}>Cerrar</button></div></div></Modal>
 
-      <Modal isOpen={delM} onClose={delCancel} closeOnBackdropClick={false} className="w-full max-w-md" ariaLabelledBy={deleteModalTitleId}><div className="rounded-2xl border border-[#e7ded0] bg-white p-6 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"><div className="flex items-center gap-3 mb-4"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18" strokeLinecap="round" /><path d="M8 6V4h8v2" strokeLinecap="round" /><path d="M6 6l1 16h10l1-16" strokeLinejoin="round" /><path d="M10 11v6M14 11v6" strokeLinecap="round" /></svg></span><div><h3 id={deleteModalTitleId} className={`${claudeSubheading}`}>Confirmar eliminación</h3><p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Esta acción no se puede deshacer.</p></div></div><p className={`${claudeBody} text-sm mb-6`}>¿Estás seguro de que deseas eliminar esta tarea?</p><div className="flex justify-end gap-3"><button onClick={delCancel} className={orangeBtnOutline}>Cancelar</button><button onClick={delConfirm} className="inline-flex items-center justify-center rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-theme-xs hover:bg-red-600">Eliminar</button></div></div></Modal>
+      <Modal isOpen={delM} onClose={delCancel} closeOnBackdropClick={false} className="w-full max-w-md" ariaLabelledBy={deleteModalTitleId}><div className="rounded-2xl border border-[#e7ded0] bg-white p-6 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"><div className="flex items-center gap-3 mb-4"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18" strokeLinecap="round" /><path d="M8 6V4h8v2" strokeLinecap="round" /><path d="M6 6l1 16h10l1-16" strokeLinejoin="round" /><path d="M10 11v6M14 11v6" strokeLinecap="round" /></svg></span><div><h3 id={deleteModalTitleId} className={`${claudeSubheading}`}>Confirmar eliminación</h3><p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Esta acción no se puede deshacer.</p></div></div><p className={`${claudeBody} text-sm mb-6`}>¿Estás seguro de que deseas eliminar esta tarea?</p><div className="flex justify-end gap-3"><button type="button" onClick={delCancel} disabled={deleting} className={orangeBtnOutline}>Cancelar</button><button type="button" onClick={delConfirm} disabled={deleting} className="inline-flex items-center justify-center rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-theme-xs hover:bg-red-600 disabled:opacity-60">{deleting ? "Eliminando…" : "Eliminar"}</button></div></div></Modal>
 
       <Modal isOpen={confirmDel.open} onClose={() => setConfirmDel({ open: false, index: null, url: null })} closeOnBackdropClick={false} className="w-full max-w-md" ariaLabelledBy={deletePhotoModalTitleId}><div className="rounded-2xl border border-[#e7ded0] bg-white p-6 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"><div className="flex items-center gap-3 mb-4"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18" strokeLinecap="round" /><path d="M8 6V4h8v2" strokeLinecap="round" /><path d="M6 6l1 16h10l1-16" strokeLinejoin="round" /><path d="M10 11v6M14 11v6" strokeLinecap="round" /></svg></span><div><h3 id={deletePhotoModalTitleId} className={`${claudeSubheading}`}>Eliminar foto</h3><p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Se eliminará permanentemente.</p></div></div><p className={`${claudeBody} text-sm mb-6`}>¿Estás seguro de que deseas eliminar esta foto?</p><div className="flex justify-end gap-3"><button onClick={() => setConfirmDel({ open: false, index: null, url: null })} className={orangeBtnOutline}>Cancelar</button><button onClick={() => { if (confirmDel.index !== null && confirmDel.url) deletePhoto(confirmDel.index, confirmDel.url); }} className="inline-flex items-center justify-center rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-theme-xs hover:bg-red-600">Eliminar</button></div></div></Modal>
     </>

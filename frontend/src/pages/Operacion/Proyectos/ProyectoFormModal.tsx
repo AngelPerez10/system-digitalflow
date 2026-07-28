@@ -45,8 +45,10 @@ import {
   clampPorcentajeAvance,
   createCotizacionBloque,
   createEmptyNotaDia,
+  dateRangeFromFechasInicio,
   displayCotizacionFolio,
   emptyPersona,
+  expandFechasInicioRange,
   flattenPresupuesto,
   getDeviceTimeHHMM,
   normalizeDraftCotizaciones,
@@ -167,6 +169,9 @@ export default function ProyectoFormModal({
   const [motivoPausa, setMotivoPausa] = useState(initialDraft.motivoPausa);
   const [fechaAutorizacion, setFechaAutorizacion] = useState(initialDraft.fechaAutorizacion);
   const [fechasInicio, setFechasInicio] = useState(initialDraft.fechasInicio);
+  const initialFechaRango = dateRangeFromFechasInicio(initialDraft.fechasInicio);
+  const [fechaDesde, setFechaDesde] = useState(initialFechaRango.start);
+  const [fechaHasta, setFechaHasta] = useState(initialFechaRango.end);
   const [horaLlegada, setHoraLlegada] = useState(initialDraft.horaLlegada);
   const [horaSalida, setHoraSalida] = useState(initialDraft.horaSalida);
   const [tecnico, setTecnico] = useState(initialDraft.tecnico);
@@ -269,6 +274,13 @@ export default function ProyectoFormModal({
     setMotivoPausa(initialDraft.motivoPausa);
     setFechaAutorizacion(initialDraft.fechaAutorizacion);
     setFechasInicio(initialDraft.fechasInicio.length ? initialDraft.fechasInicio : [""]);
+    {
+      const rango = dateRangeFromFechasInicio(
+        initialDraft.fechasInicio.length ? initialDraft.fechasInicio : [""]
+      );
+      setFechaDesde(rango.start);
+      setFechaHasta(rango.end);
+    }
     setHoraLlegada(initialDraft.horaLlegada);
     setHoraSalida(initialDraft.horaSalida);
     setTecnico(initialDraft.tecnico);
@@ -599,19 +611,18 @@ export default function ProyectoFormModal({
     });
   };
 
-  const updateFechaInicio = (index: number, value: string) => {
-    setFechasInicio((prev) => prev.map((f, i) => (i === index ? value : f)));
+  const diasRangoCount = fechasInicio.filter((d) => String(d || "").trim()).length;
+
+  const setFechaRangoStart = (value: string) => {
+    const next = String(value || "").trim().slice(0, 10);
+    setFechaDesde(next);
+    setFechasInicio(expandFechasInicioRange(next, fechaHasta));
   };
 
-  const addFechaInicio = () => {
-    setFechasInicio((prev) => [...prev, ""]);
-  };
-
-  const removeFechaInicio = (index: number) => {
-    setFechasInicio((prev) => {
-      if (prev.length <= 1) return [""];
-      return prev.filter((_, i) => i !== index);
-    });
+  const setFechaRangoEnd = (value: string) => {
+    const next = String(value || "").trim().slice(0, 10);
+    setFechaHasta(next);
+    setFechasInicio(expandFechasInicioRange(fechaDesde, next));
   };
 
   const addNotaDia = () => {
@@ -1320,89 +1331,49 @@ export default function ProyectoFormModal({
                     <div className="border-t border-gray-200 pt-4 dark:border-gray-700">
                       <div className="flex flex-wrap items-end justify-between gap-2">
                         <div>
-                          <p className={proyectoFieldLabelClass}>Fechas de inicio</p>
+                          <p className={proyectoFieldLabelClass}>Periodo de trabajo</p>
                           <p className={`${proyectoSectionHintClass} !mt-0`}>
-                            Una fecha por jornada. Puedes agregar más días.
+                            Define el rango de fechas. Se generan las jornadas día por día para la bitácora.
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          className={proyectoAddDayBtnClass}
-                          onClick={addFechaInicio}
-                        >
-                          <svg
-                            className="h-3.5 w-3.5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            aria-hidden
-                          >
-                            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                          </svg>
-                          Agregar día
-                        </button>
+                        {diasRangoCount > 0 ? (
+                          <span className="rounded-full border border-[#e7ded0] bg-[#fcfaf6] px-2.5 py-1 text-[11px] font-semibold tabular-nums text-[#57534e] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#aeb8c8]">
+                            {diasRangoCount} {diasRangoCount === 1 ? "día" : "días"}
+                          </span>
+                        ) : null}
                       </div>
 
-                      <ol className="mt-3 space-y-0" aria-label="Fechas de inicio del proyecto">
-                        {fechasInicio.map((fecha, index) => (
-                          <li
-                            key={`fecha-inicio-row-${index}`}
-                            className="group relative flex gap-3 pb-3 last:pb-0"
-                          >
-                            {index < fechasInicio.length - 1 ? (
-                              <span
-                                className="absolute bottom-0 left-[13px] top-8 w-px bg-gray-200 dark:bg-gray-700"
-                                aria-hidden
-                              />
-                            ) : null}
-
-                            <span
-                              className="relative z-[1] mt-1.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#ff801f]/35 bg-[#fff4eb] text-[11px] font-bold tabular-nums text-[#9a3412] dark:border-[#ff801f]/40 dark:bg-[#ff801f]/15 dark:text-[#fdba74]"
-                              aria-hidden
-                            >
-                              {index + 1}
-                            </span>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start gap-2">
-                                <div className="min-w-0 flex-1">
-                                  <DatePicker
-                                    key={`proyecto-fecha-inicio-${index}-${editing ? "e" : "n"}`}
-                                    id={`proyecto-fecha-inicio-${index}`}
-                                    label={`Día ${index + 1}`}
-                                    placeholder="Seleccionar fecha"
-                                    defaultDate={fecha || undefined}
-                                    onChange={(_dates, currentDateString) => {
-                                      updateFechaInicio(index, currentDateString || "");
-                                    }}
-                                  />
-                                </div>
-                                {fechasInicio.length > 1 ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => removeFechaInicio(index)}
-                                    aria-label={`Quitar día ${index + 1}`}
-                                    title={`Quitar día ${index + 1}`}
-                                    className={`${proyectoGhostIconBtnClass} mt-7`}
-                                  >
-                                    <svg
-                                      className="h-4 w-4"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      aria-hidden
-                                    >
-                                      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-                                    </svg>
-                                  </button>
-                                ) : null}
-                              </div>
-                            </div>
-                          </li>
-                        ))}
-                      </ol>
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
+                        <div>
+                          <DatePicker
+                            key={`proyecto-fecha-desde-${editing ? "e" : "n"}-${fechaDesde || "x"}`}
+                            id="proyecto-fecha-inicio-desde"
+                            label="Desde"
+                            placeholder="Fecha de inicio"
+                            defaultDate={fechaDesde || undefined}
+                            onChange={(_dates, currentDateString) => {
+                              setFechaRangoStart(currentDateString || "");
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <DatePicker
+                            key={`proyecto-fecha-hasta-${editing ? "e" : "n"}-${fechaHasta || "x"}`}
+                            id="proyecto-fecha-inicio-hasta"
+                            label="Hasta"
+                            placeholder="Fecha de fin"
+                            defaultDate={fechaHasta || undefined}
+                            onChange={(_dates, currentDateString) => {
+                              setFechaRangoEnd(currentDateString || "");
+                            }}
+                          />
+                        </div>
+                      </div>
+                      {fechaDesde && fechaHasta && fechaDesde !== fechaHasta ? (
+                        <p className="mt-2 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                          Del {formatProyectoFecha(fechaDesde)} al {formatProyectoFecha(fechaHasta)}
+                        </p>
+                      ) : null}
                     </div>
                 </ProyectoFormSection>
 

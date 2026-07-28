@@ -515,29 +515,54 @@ export default function ProyectosPage() {
           }}
           closeOnBackdropClick={!deleting}
           closeOnEscape={!deleting}
+          showCloseButton={!deleting}
           ariaLabelledBy={deleteTitleId}
           className={`${erpDeleteModalClass} z-[100000]`}
         >
           <div className={erpDeleteModalPanelClass}>
-            <div className="mb-4 flex flex-col items-center text-center">
+            <div className="mb-5 flex flex-col items-center text-center">
               <span
-                className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"
+                className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 ring-1 ring-rose-100 dark:bg-rose-500/15 dark:text-rose-400 dark:ring-rose-500/20"
                 aria-hidden
               >
-                <TrashBinIcon className="h-6 w-6" />
+                {deleting ? (
+                  <span
+                    className="h-6 w-6 animate-spin rounded-full border-2 border-rose-200 border-t-rose-600 dark:border-rose-900 dark:border-t-rose-400"
+                    aria-hidden
+                  />
+                ) : (
+                  <TrashBinIcon className="h-6 w-6" />
+                )}
               </span>
               <h3 id={deleteTitleId} className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]">
                 Eliminar proyecto
               </h3>
-              <p className="mt-2 text-sm text-[#57534e] dark:text-[#94a3b8]">
-                ¿Eliminar {deletingRow ? displayProyectoFolio(deletingRow.folio) : "este proyecto"}
-                {deletingRow?.cliente ? ` de «${deletingRow.cliente}»` : ""}? Esta acción no se puede deshacer.
+              <p className="mt-2 max-w-[22rem] text-sm leading-relaxed text-[#57534e] dark:text-[#94a3b8]">
+                {deleting ? (
+                  "Por favor espera; esto puede tardar unos segundos."
+                ) : (
+                  <>
+                    ¿Eliminar{" "}
+                    <span className="font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                      {deletingRow ? displayProyectoFolio(deletingRow.folio) : "este proyecto"}
+                    </span>
+                    {deletingRow?.cliente ? (
+                      <>
+                        {" "}
+                        de «{deletingRow.cliente}»?
+                      </>
+                    ) : (
+                      "?"
+                    )}{" "}
+                    Esta acción no se puede deshacer.
+                  </>
+                )}
               </p>
             </div>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-center sm:gap-3">
               <button
                 type="button"
-                className={erpSecondaryBtnClass}
+                className={`${erpSecondaryBtnClass} sm:min-w-[8rem]`}
                 disabled={deleting}
                 onClick={() => setDeletingRow(null)}
               >
@@ -545,8 +570,9 @@ export default function ProyectosPage() {
               </button>
               <button
                 type="button"
-                className={erpDangerBtnClass}
+                className={`${erpDangerBtnClass} sm:min-w-[8rem]`}
                 disabled={deleting}
+                aria-busy={deleting || undefined}
                 onClick={() => void confirmDelete()}
               >
                 {deleting ? "Eliminando…" : "Eliminar"}

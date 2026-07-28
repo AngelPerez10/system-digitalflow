@@ -152,6 +152,57 @@ export function createEmptyProyectoDraft(): ProyectoDraft {
   };
 }
 
+/** Fechas ISO `YYYY-MM-DD` no vacías, ordenadas. */
+export function filledFechasInicio(fechas: string[]): string[] {
+  return fechas.map((d) => String(d || "").trim().slice(0, 10)).filter(Boolean).sort();
+}
+
+/** Extremos del rango a partir de la lista persistida. */
+export function dateRangeFromFechasInicio(fechas: string[]): { start: string; end: string } {
+  const filled = filledFechasInicio(fechas);
+  if (filled.length === 0) return { start: "", end: "" };
+  return { start: filled[0], end: filled[filled.length - 1] };
+}
+
+/**
+ * Expande un rango inclusivo día a día (`YYYY-MM-DD`).
+ * Si solo hay inicio, devuelve `[start]`. Si fin < inicio, intercambia.
+ */
+export function expandFechasInicioRange(startRaw: string, endRaw: string): string[] {
+  const start = String(startRaw || "").trim().slice(0, 10);
+  const end = String(endRaw || "").trim().slice(0, 10);
+  if (!start && !end) return [""];
+  if (start && !end) return [start];
+  if (!start && end) return [end];
+
+  let a = start;
+  let b = end;
+  if (a > b) {
+    const t = a;
+    a = b;
+    b = t;
+  }
+
+  const out: string[] = [];
+  const cursor = new Date(`${a}T12:00:00`);
+  const last = new Date(`${b}T12:00:00`);
+  if (Number.isNaN(cursor.getTime()) || Number.isNaN(last.getTime())) {
+    return [a];
+  }
+
+  const guard = 3660; // ~10 años
+  let n = 0;
+  while (cursor <= last && n < guard) {
+    const y = cursor.getFullYear();
+    const m = String(cursor.getMonth() + 1).padStart(2, "0");
+    const d = String(cursor.getDate()).padStart(2, "0");
+    out.push(`${y}-${m}-${d}`);
+    cursor.setDate(cursor.getDate() + 1);
+    n += 1;
+  }
+  return out.length ? out : [""];
+}
+
 export function buildEquiposFromPresupuesto(
   lineas: PresupuestoLinea[],
   meta?: {
