@@ -18,10 +18,14 @@ import OrdenLocationMapModal from "./OrdenLocationMapModal";
 import {
   computeOrdenStats,
   getCurrentYearMonth,
+  normalizeCotizacionesAdjuntas,
   normalizeFotosExtraFromOrden,
+  normalizeStatusAdministrativo,
   ORDEN_BASE_MAX_FOTOS,
   type FotosExtraMax,
   type Orden,
+  type OrdenCotizacionAdjunta,
+  type OrdenStatusAdministrativo,
   type ServicioCatalogo,
   type Usuario,
 } from "./ordenesPageTypes";
@@ -489,8 +493,8 @@ export default function Ordenes() {
     fotos_extra_max: 0 as FotosExtraMax
   });
 
-  /** Solo UI (admin): aún no persiste en API. */
-  type StatusAdministrativo = "pendiente" | "en_revision" | "enviado" | "cerrado";
+  /** Seguimiento administrativo (persistido en API). */
+  type StatusAdministrativo = OrdenStatusAdministrativo;
   const [statusAdministrativo, setStatusAdministrativo] = useState<StatusAdministrativo>("pendiente");
   const [fechaEnvioAdmin, setFechaEnvioAdmin] = useState("");
   const [cotizacionesAdmin, setCotizacionesAdmin] = useState<CotizacionResumen[]>([]);
@@ -502,6 +506,13 @@ export default function Ordenes() {
     setStatusAdministrativo("pendiente");
     setFechaEnvioAdmin("");
     setCotizacionesAdmin([]);
+  };
+
+  const loadAdminSeguimientoFromOrden = (orden: Orden) => {
+    setStatusAdministrativo(normalizeStatusAdministrativo(orden.status_administrativo));
+    setFechaEnvioAdmin(String(orden.fecha_envio || "").slice(0, 10));
+    const rows = normalizeCotizacionesAdjuntas(orden.cotizaciones_adjuntas);
+    setCotizacionesAdmin(rows as CotizacionResumen[]);
   };
 
   const maxPhotosAllowed = ORDEN_BASE_MAX_FOTOS + formData.fotos_extra_max;
@@ -822,6 +833,26 @@ export default function Ordenes() {
       payload.firma_cliente_url = toNullIfEmpty(payload.firma_cliente_url);
       // Asegurar arreglo para servicios_realizados
       if (!Array.isArray(payload.servicios_realizados)) payload.servicios_realizados = [];
+
+      if (isAdmin) {
+        payload.status_administrativo = statusAdministrativo;
+        payload.fecha_envio = fechaEnvioAdmin.trim() ? fechaEnvioAdmin.trim().slice(0, 10) : null;
+        payload.cotizaciones_adjuntas = cotizacionesAdmin.map((c) => {
+          const row: OrdenCotizacionAdjunta = {
+            id: c.id,
+            origen: c.origen,
+            folio: c.folio,
+            cliente: c.cliente,
+            fecha: String(c.fecha || "").slice(0, 10),
+          };
+          if (c.contacto) row.contacto = c.contacto;
+          return row;
+        });
+      } else {
+        delete payload.status_administrativo;
+        delete payload.fecha_envio;
+        delete payload.cotizaciones_adjuntas;
+      }
 
       const response = await fetchApi(path, {
         method,
@@ -1281,7 +1312,7 @@ export default function Ordenes() {
       fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : [],
       fotos_extra_max: normalizeFotosExtraFromOrden(orden)
     });
-    resetAdminSeguimientoUi();
+    loadAdminSeguimientoFromOrden(orden);
     setShowModal(true);
   };
 
@@ -2713,7 +2744,7 @@ export default function Ordenes() {
                       </select>
                     </div>
 
-                    {/* Seguimiento administrativo — solo diseño (admins) */}
+                    {/* Seguimiento administrativo (admins) */}
                     {isAdmin ? (
                       <div className="relative overflow-hidden rounded-xl border border-[#e7ded0] bg-gradient-to-br from-[#fffdf8] via-white to-[#fff3e8]/70 p-4 dark:border-[#334155] dark:from-[#111a2b] dark:via-[#0f172a] dark:to-[#1a1510]">
                         <div
@@ -2730,7 +2761,8 @@ export default function Ordenes() {
                           </h5>
                         </div>
                         <p className="relative mb-4 text-xs leading-relaxed text-[#78716c] dark:text-[#94a3b8]">
-                          Puedes adjuntar cotizaciones DigitalFlow o SICAR; la fecha de envío se registra al marcar como enviado.
+                          Control de oficina independiente del status del técnico. Las cotizaciones y el
+                          status administrativo se guardan con la orden.
                         </p>
                         <div className="relative grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
                           <div className={statusAdministrativo === "enviado" ? "" : "sm:col-span-2"}>

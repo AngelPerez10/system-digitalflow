@@ -34,6 +34,42 @@ class OrdenSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Solo se permiten 0 o valores entre 2 y 5 fotos adicionales.")
         return v
 
+    def validate_status_administrativo(self, value):
+        allowed = {"pendiente", "en_revision", "enviado", "cerrado"}
+        raw = str(value or "").strip().lower()
+        if raw not in allowed:
+            raise serializers.ValidationError("Status administrativo inválido.")
+        return raw
+
+    def validate_cotizaciones_adjuntas(self, value):
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("cotizaciones_adjuntas debe ser una lista.")
+        cleaned = []
+        seen = set()
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            origen = str(item.get("origen") or "").strip().lower()
+            if origen not in ("digitalflow", "sicar"):
+                continue
+            cid = str(item.get("id") or "").strip()
+            if not cid or cid in seen:
+                continue
+            seen.add(cid)
+            cleaned.append(
+                {
+                    "id": cid,
+                    "origen": origen,
+                    "folio": str(item.get("folio") or "").strip() or "—",
+                    "cliente": str(item.get("cliente") or "").strip() or "—",
+                    "fecha": str(item.get("fecha") or "").strip()[:10],
+                    "contacto": str(item.get("contacto") or "").strip() or None,
+                }
+            )
+        return cleaned
+
     def get_tecnico_asignado_full_name(self, obj):
         if obj.tecnico_asignado:
             first = obj.tecnico_asignado.first_name
@@ -113,6 +149,9 @@ class OrdenSerializer(serializers.ModelSerializer):
             'status',
             'prioridad',
             'comentario_tecnico',
+            'status_administrativo',
+            'fecha_envio',
+            'cotizaciones_adjuntas',
             'fecha_inicio',
             'hora_inicio',
             'fecha_finalizacion',

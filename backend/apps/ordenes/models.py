@@ -11,6 +11,13 @@ STATUS_CHOICES = [
     ('resuelto', 'Resuelto'),
 ]
 
+STATUS_ADMINISTRATIVO_CHOICES = [
+    ('pendiente', 'Pendiente'),
+    ('en_revision', 'En revisión'),
+    ('enviado', 'Enviado'),
+    ('cerrado', 'Cerrado'),
+]
+
 PRIORIDAD_CHOICES = [
     ('baja', 'Baja'),
     ('media', 'Media'),
@@ -39,6 +46,15 @@ class Orden(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pendiente')
     prioridad = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='media')
     comentario_tecnico = models.TextField(blank=True, null=True)
+
+    # Seguimiento de oficina (independiente del status del técnico)
+    status_administrativo = models.CharField(
+        max_length=20,
+        choices=STATUS_ADMINISTRATIVO_CHOICES,
+        default='pendiente',
+    )
+    fecha_envio = models.DateField(blank=True, null=True)
+    cotizaciones_adjuntas = models.JSONField(default=list, blank=True)
 
     fecha_inicio = models.DateField(blank=True, null=True, default=timezone.now)
     hora_inicio = models.TimeField(blank=True, null=True)

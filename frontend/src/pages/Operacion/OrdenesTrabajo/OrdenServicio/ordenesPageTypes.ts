@@ -2,6 +2,17 @@ export const ORDEN_BASE_MAX_FOTOS = 5;
 export const FOTOS_EXTRA_OPTIONS = [0, 2, 3, 4, 5] as const;
 export type FotosExtraMax = (typeof FOTOS_EXTRA_OPTIONS)[number];
 
+export type OrdenStatusAdministrativo = "pendiente" | "en_revision" | "enviado" | "cerrado";
+
+export type OrdenCotizacionAdjunta = {
+  id: string;
+  origen: "digitalflow" | "sicar";
+  folio: string;
+  cliente: string;
+  fecha: string;
+  contacto?: string;
+};
+
 export interface ServicioCatalogo {
   id: number;
   nombre: string;
@@ -22,6 +33,10 @@ export interface Orden {
   servicios_realizados: string[];
   status: "pendiente" | "resuelto";
   comentario_tecnico: string;
+  /** Seguimiento de oficina (solo admins en UI). */
+  status_administrativo?: "pendiente" | "en_revision" | "enviado" | "cerrado" | string | null;
+  fecha_envio?: string | null;
+  cotizaciones_adjuntas?: OrdenCotizacionAdjunta[] | null;
   fecha_inicio: string;
   hora_inicio: string;
   fecha_finalizacion: string;
@@ -67,6 +82,38 @@ export function normalizeFotosExtraFromOrden(
   if (FOTOS_EXTRA_OPTIONS.includes(v as FotosExtraMax)) return v as FotosExtraMax;
   if (orden.permitir_fotos_extra === true) return 2;
   return 0;
+}
+
+export function normalizeStatusAdministrativo(raw: unknown): OrdenStatusAdministrativo {
+  const v = String(raw || "").trim().toLowerCase();
+  if (v === "en_revision" || v === "enviado" || v === "cerrado") return v;
+  return "pendiente";
+}
+
+export function normalizeCotizacionesAdjuntas(raw: unknown): OrdenCotizacionAdjunta[] {
+  if (!Array.isArray(raw)) return [];
+  const out: OrdenCotizacionAdjunta[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const origenRaw = String(row.origen || "").trim().toLowerCase();
+    const origen = origenRaw === "sicar" ? "sicar" : origenRaw === "digitalflow" ? "digitalflow" : null;
+    if (!origen) continue;
+    const id = String(row.id || "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const contacto = String(row.contacto || "").trim();
+    out.push({
+      id,
+      origen,
+      folio: String(row.folio || "").trim() || "—",
+      cliente: String(row.cliente || "").trim() || "—",
+      fecha: String(row.fecha || "").trim().slice(0, 10),
+      ...(contacto ? { contacto } : {}),
+    });
+  }
+  return out;
 }
 
 export const getCurrentYearMonth = () => {

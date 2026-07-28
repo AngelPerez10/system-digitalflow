@@ -22,7 +22,7 @@ type OrdenAdminCotizacionesFieldProps = {
 
 /**
  * Adjuntar cotizaciones DigitalFlow / SICAR en el bloque admin de órdenes.
- * Por ahora solo UI (no persiste en la API de órdenes).
+ * Se persisten en `cotizaciones_adjuntas` al guardar la orden.
  */
 export default function OrdenAdminCotizacionesField({
   value,
