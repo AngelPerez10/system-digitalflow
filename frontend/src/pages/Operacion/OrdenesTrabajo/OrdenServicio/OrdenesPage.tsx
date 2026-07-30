@@ -274,7 +274,7 @@ export default function Ordenes() {
         show: true,
         variant: "warning",
         title: "PDF del mes",
-        message: "Seleccione un mes vÃ¡lido para descargar el listado.",
+        message: "Seleccione un mes válido para descargar el listado.",
       });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
       return;
@@ -283,8 +283,8 @@ export default function Ordenes() {
       setAlert({
         show: true,
         variant: "info",
-        title: "Sin Ã³rdenes",
-        message: "No hay Ã³rdenes registradas en el mes seleccionado.",
+        title: "Sin órdenes",
+        message: "No hay órdenes registradas en el mes seleccionado.",
       });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
       return;
@@ -404,7 +404,7 @@ export default function Ordenes() {
 
   const handleDeleteClick = (orden: Orden) => {
     if (!canOrdenesDelete) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar Ã³rdenes.' });
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar órdenes.' });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
       return;
     }
@@ -455,7 +455,7 @@ export default function Ordenes() {
 
   const handleEdit = (orden: Orden) => {
     if (!canOrdenesEdit) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar Ã³rdenes.' });
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar órdenes.' });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
       return;
     }
@@ -473,7 +473,7 @@ export default function Ordenes() {
 
   const abrirOrdenFromQueryDoneRef = useRef<string | null>(null);
 
-  // Desde historial global (MonthlyTarget): /ordenes?abrir=<id> abre el modal de ediciÃ³n de esa orden
+  // Desde historial global (MonthlyTarget): /ordenes?abrir=<id> abre el modal de edición de esa orden
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const raw = params.get("abrir");
@@ -606,8 +606,8 @@ export default function Ordenes() {
     <div className={erpPageCanvasClass}>
     <div className={erpPageInnerClass}>
       <PageMeta
-        title="Ã“rdenes de Trabajo | Sistema Grupo Intrax GPS"
-        description="GestiÃ³n de Ã³rdenes de servicio para el sistema de administraciÃ³n Grupo Intrax GPS"
+        title="Órdenes de Trabajo | Sistema Grupo Intrax GPS"
+        description="Gestión de órdenes de servicio para el sistema de administración Grupo Intrax GPS"
       />
       <nav
         className={erpBreadcrumbNavClass}
@@ -619,7 +619,7 @@ export default function Ordenes() {
         <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
           /
         </span>
-        <span className="text-[#44403c] dark:text-[#cbd5e1]">Ã“rdenes de trabajo</span>
+        <span className="text-[#44403c] dark:text-[#cbd5e1]">Órdenes de trabajo</span>
       </nav>
 
       <OrdenPdfLoadingModal open={pdfDownloading || mesPdfLoading} downloading />
@@ -633,7 +633,7 @@ export default function Ordenes() {
             show: true,
             variant: "success",
             title: "Correo enviado",
-            message: `El PDF se enviÃ³ a ${correo}.`,
+            message: `El PDF se envió a ${correo}.`,
           });
           setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
         }}
@@ -658,11 +658,11 @@ export default function Ordenes() {
           </div>
           <div className="min-w-0 flex-1">
             <p className={sectionLabelOrangeClass}>
-              OperaciÃ³n
+              Operación
             </p>
-            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Ã“rdenes de trabajo</h1>
+            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Órdenes de trabajo</h1>
             <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
-              Administra Ã³rdenes de servicio, fotos, firmas y PDF. Filtra por estado, servicio o fecha en el listado.
+              Administra órdenes de servicio, fotos, firmas y PDF. Filtra por estado, servicio o fecha en el listado.
             </p>
             <div className={erpHeroGradientClass} />
           </div>
@@ -678,14 +678,14 @@ export default function Ordenes() {
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por folio, cliente, tÃ©cnico o estadoâ€¦"
+            placeholder="Buscar por folio, cliente, técnico o estado…"
             className={pageSearchInputClass}
           />
           {searchTerm && (
             <button
               type="button"
               onClick={() => setSearchTerm('')}
-              aria-label="Limpiar bÃºsqueda"
+              aria-label="Limpiar búsqueda"
               className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
@@ -699,7 +699,7 @@ export default function Ordenes() {
           type="button"
           onClick={() => {
             if (!canOrdenesCreate) {
-              setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear Ã³rdenes.' });
+              setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear órdenes.' });
               setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
               return;
             }
@@ -727,7 +727,7 @@ export default function Ordenes() {
       <ComponentCard
         compact
         title="Listado"
-        desc="Resultados segÃºn bÃºsqueda y filtros. En pantallas pequeÃ±as desplÃ¡zate horizontalmente si hace falta."
+        desc="Resultados según búsqueda y filtros. En pantallas pequeñas desplázate horizontalmente si hace falta."
         className={`overflow-visible ${pageCardShellClass}`}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
@@ -736,7 +736,7 @@ export default function Ordenes() {
               onClick={handleDownloadMesPdf}
               disabled={mesPdfLoading || loading}
               className={erpSecondaryBtnClass + " h-10 w-full sm:w-auto shrink-0"}
-              title="Descargar PDF con todas las Ã³rdenes del mes visible"
+              title="Descargar PDF con todas las órdenes del mes visible"
             >
               <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" strokeLinejoin="round" />
@@ -864,7 +864,7 @@ export default function Ordenes() {
                   <TableCell isHeader className="px-2 py-2 text-left w-1/5 min-w-[220px] text-gray-700 dark:text-gray-300">Detalles</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">Fechas</TableCell>
 
-                  <TableCell isHeader className="px-2 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-gray-700 dark:text-gray-300">TÃ©cnico</TableCell>
+                  <TableCell isHeader className="px-2 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-gray-700 dark:text-gray-300">Técnico</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Estado</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
                 </TableRow>
@@ -902,10 +902,10 @@ export default function Ordenes() {
                             type="button"
                             onClick={() => setProblematicaModal({ open: true, content: orden.problematica || '-' })}
                             className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                            title="Ver problemÃ¡tica"
+                            title="Ver problemática"
                           >
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            ProblemÃ¡tica
+                            Problemática
                           </button>
                           <button
                             type="button"
@@ -931,7 +931,7 @@ export default function Ordenes() {
                             type="button"
                             onClick={() => setComentarioModal({ open: true, content: (orden.comentario_tecnico || '') as string })}
                             className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                            title="Ver comentario del tÃ©cnico"
+                            title="Ver comentario del técnico"
                           >
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /></svg>
                             Comentarios
@@ -1001,7 +1001,7 @@ export default function Ordenes() {
                   <TableRow>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2 text-center text-[12px] text-gray-500">Sin Ã³rdenes</TableCell>
+                    <TableCell className="px-2 py-2 text-center text-[12px] text-gray-500">Sin órdenes</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
@@ -1012,14 +1012,14 @@ export default function Ordenes() {
             </Table>
           </div>
 
-          {/* PaginaciÃ³n */}
+          {/* Paginación */}
           {!loading && (
             <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between sm:gap-4 flex-wrap">
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   Mostrando <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
                   <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> Ã³rdenes
+                  <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> órdenes
                 </p>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1074,7 +1074,7 @@ export default function Ordenes() {
       <OrdenViewModal
         open={problematicaModal.open}
         onClose={() => setProblematicaModal({ open: false, content: "" })}
-        title="ProblemÃ¡tica"
+        title="Problemática"
         subtitle="Detalle completo reportado por el cliente"
         icon={
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -1117,8 +1117,8 @@ export default function Ordenes() {
       <OrdenViewModal
         open={comentarioModal.open}
         onClose={() => setComentarioModal({ open: false, content: "" })}
-        title="Comentario del tÃ©cnico"
-        subtitle="Observaciones y notas del tÃ©cnico"
+        title="Comentario del técnico"
+        subtitle="Observaciones y notas del técnico"
         icon={
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />

@@ -439,7 +439,7 @@ export default function OrdenesTecnico() {
 
   const handleDeleteClick = (orden: Orden) => {
     if (!canOrdenesDelete) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar Ã³rdenes.' });
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar órdenes.' });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
       return;
     }
@@ -493,7 +493,7 @@ export default function OrdenesTecnico() {
 
   const handleEdit = (orden: Orden) => {
     if (!canOrdenesEdit) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar Ã³rdenes.' });
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar órdenes.' });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
       return;
     }
@@ -526,8 +526,8 @@ export default function OrdenesTecnico() {
     formScrollRef.current?.requestSubmit();
   };
 
-  // PaginaciÃ³n
-  // PaginaciÃ³n por mes (mostrar todas las Ã³rdenes del mes seleccionado)
+  // Paginación
+  // Paginación por mes (mostrar todas las órdenes del mes seleccionado)
   const startIndex = 0;
   const currentOrdenes = shownList;
 
@@ -613,8 +613,8 @@ export default function OrdenesTecnico() {
     <div className={erpPageCanvasClass}>
     <div className={erpPageInnerClass}>
       <PageMeta
-        title="Ã“rdenes de Trabajo | Sistema Grupo Intrax GPS"
-        description="GestiÃ³n de Ã³rdenes de servicio para el sistema de administraciÃ³n Grupo Intrax GPS"
+        title="Órdenes de Trabajo | Sistema Grupo Intrax GPS"
+        description="Gestión de órdenes de servicio para el sistema de administración Grupo Intrax GPS"
       />
       <nav
         className={erpBreadcrumbNavClass}
@@ -626,7 +626,7 @@ export default function OrdenesTecnico() {
         <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
           /
         </span>
-        <span className="text-[#44403c] dark:text-[#cbd5e1]">Mis Ã³rdenes</span>
+        <span className="text-[#44403c] dark:text-[#cbd5e1]">Mis órdenes</span>
       </nav>
 
       <OrdenPdfLoadingModal open={pdfDownloading} downloading />
@@ -640,7 +640,7 @@ export default function OrdenesTecnico() {
             show: true,
             variant: "success",
             title: "Correo enviado",
-            message: `El PDF se enviÃ³ a ${correo}.`,
+            message: `El PDF se envió a ${correo}.`,
           });
           setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
         }}
@@ -665,11 +665,11 @@ export default function OrdenesTecnico() {
           </div>
           <div className="min-w-0 flex-1">
             <p className={sectionLabelOrangeClass}>
-              OperaciÃ³n
+              Operación
             </p>
-            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Mis Ã³rdenes</h1>
+            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Mis órdenes</h1>
             <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
-              Ã“rdenes donde eres el tÃ©cnico asignado o el creador. Registra servicio, firmas y evidencia desde aquÃ­.
+              Órdenes donde eres el técnico asignado o el creador. Registra servicio, firmas y evidencia desde aquí.
             </p>
             <div className={erpHeroGradientClass} />
           </div>
@@ -686,14 +686,14 @@ export default function OrdenesTecnico() {
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar en tus Ã³rdenesâ€¦"
+            placeholder="Buscar en tus órdenes…"
             className={pageSearchInputClass}
           />
           {searchTerm && (
             <button
               type="button"
               onClick={() => setSearchTerm('')}
-              aria-label="Limpiar bÃºsqueda"
+              aria-label="Limpiar búsqueda"
               className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
@@ -731,7 +731,7 @@ export default function OrdenesTecnico() {
       <ComponentCard
         compact
         title="Listado"
-        desc="Ã“rdenes visibles para tu cuenta. Usa filtros para acotar por estado, servicio o fecha."
+        desc="Órdenes visibles para tu cuenta. Usa filtros para acotar por estado, servicio o fecha."
         className={`overflow-visible ${pageCardShellClass}`}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
@@ -847,7 +847,7 @@ export default function OrdenesTecnico() {
                   <TableCell isHeader className="px-2 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-gray-700 dark:text-gray-300">Cliente</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-1/5 min-w-[220px] text-gray-700 dark:text-gray-300">Detalles</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">Fechas</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-gray-700 dark:text-gray-300">TÃ©cnico</TableCell>
+                  <TableCell isHeader className="px-2 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-gray-700 dark:text-gray-300">Técnico</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Estado</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
                 </TableRow>
@@ -887,10 +887,10 @@ export default function OrdenesTecnico() {
                             type="button"
                             onClick={() => setProblematicaModal({ open: true, content: orden.problematica || '-' })}
                             className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                            title="Ver problemÃ¡tica"
+                            title="Ver problemática"
                           >
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 8v4l3 3" /><circle cx="12" cy="12" r="9" /></svg>
-                            ProblemÃ¡tica
+                            Problemática
                           </button>
                           <button
                             type="button"
@@ -916,7 +916,7 @@ export default function OrdenesTecnico() {
                             type="button"
                             onClick={() => setComentarioModal({ open: true, content: (orden.comentario_tecnico || '') as string })}
                             className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                            title="Ver comentario del tÃ©cnico"
+                            title="Ver comentario del técnico"
                           >
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /></svg>
                             Comentarios
@@ -986,7 +986,7 @@ export default function OrdenesTecnico() {
                   <TableRow>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2 text-center text-[12px] text-gray-500">Sin Ã³rdenes</TableCell>
+                    <TableCell className="px-2 py-2 text-center text-[12px] text-gray-500">Sin órdenes</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
@@ -997,14 +997,14 @@ export default function OrdenesTecnico() {
             </Table>
           </div>
 
-          {/* PaginaciÃ³n */}
+          {/* Paginación */}
           {!loading && (
             <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 flex-wrap">
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   Mostrando <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
                   <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> Ã³rdenes
+                  <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> órdenes
                 </p>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1058,7 +1058,7 @@ export default function OrdenesTecnico() {
       <OrdenViewModal
         open={problematicaModal.open}
         onClose={() => setProblematicaModal({ open: false, content: "" })}
-        title="ProblemÃ¡tica"
+        title="Problemática"
         subtitle="Detalle completo reportado por el cliente"
         icon={
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -1101,8 +1101,8 @@ export default function OrdenesTecnico() {
       <OrdenViewModal
         open={comentarioModal.open}
         onClose={() => setComentarioModal({ open: false, content: "" })}
-        title="Comentario del tÃ©cnico"
-        subtitle="Observaciones y notas del tÃ©cnico"
+        title="Comentario del técnico"
+        subtitle="Observaciones y notas del técnico"
         icon={
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
@@ -1220,7 +1220,7 @@ export default function OrdenesTecnico() {
         isOpen={showMapModal}
         onClose={() => setShowMapModal(false)}
         closeOnBackdropClick={false}
-        ariaLabel="Seleccionar ubicaciÃ³n en el mapa"
+        ariaLabel="Seleccionar ubicación en el mapa"
         className="w-[96vw] sm:w-[90vw] md:w-[80vw] max-w-3xl mx-0 sm:mx-auto"
       >
         <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-3xl">
@@ -1232,8 +1232,8 @@ export default function OrdenesTecnico() {
                 </svg>
               </div>
               <div>
-                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">Seleccionar UbicaciÃ³n</h5>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Haz clic en el mapa para seleccionar la ubicaciÃ³n</p>
+                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">Seleccionar Ubicación</h5>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Haz clic en el mapa para seleccionar la ubicación</p>
               </div>
             </div>
           </div>
@@ -1269,12 +1269,12 @@ export default function OrdenesTecnico() {
               onClick={() => {
                 bumpFormNonce();
                 if (!navigator.geolocation) {
-                  setAlert({ show: true, variant: 'warning', title: 'GeolocalizaciÃ³n no disponible', message: 'Tu navegador no soporta geolocalizaciÃ³n.' });
+                  setAlert({ show: true, variant: 'warning', title: 'Geolocalización no disponible', message: 'Tu navegador no soporta geolocalización.' });
                   setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
                   return;
                 }
                 if (!window.isSecureContext) {
-                  setAlert({ show: true, variant: 'warning', title: 'Se requiere conexiÃ³n segura', message: 'La geolocalizaciÃ³n requiere HTTPS (o localhost). Abre el sistema con HTTPS o en localhost e intÃ©ntalo de nuevo.' });
+                  setAlert({ show: true, variant: 'warning', title: 'Se requiere conexión segura', message: 'La geolocalización requiere HTTPS (o localhost). Abre el sistema con HTTPS o en localhost e inténtalo de nuevo.' });
                   setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3200);
                   return;
                 }
@@ -1288,7 +1288,7 @@ export default function OrdenesTecnico() {
                     setSelectedLocation(null);
                   },
                   () => {
-                    setAlert({ show: true, variant: 'warning', title: 'No se pudo obtener ubicaciÃ³n', message: 'Activa permisos de ubicaciÃ³n e intÃ©ntalo de nuevo.' });
+                    setAlert({ show: true, variant: 'warning', title: 'No se pudo obtener ubicación', message: 'Activa permisos de ubicación e inténtalo de nuevo.' });
                     setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
                   },
                   { enableHighAccuracy: true, timeout: 8000 }
@@ -1299,7 +1299,7 @@ export default function OrdenesTecnico() {
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7z" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Usar mi ubicaciÃ³n
+              Usar mi ubicación
             </button>
             <button
               type="button"
@@ -1315,7 +1315,7 @@ export default function OrdenesTecnico() {
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Usar esta ubicaciÃ³n
+              Usar esta ubicación
             </button>
           </div>
         </div>
