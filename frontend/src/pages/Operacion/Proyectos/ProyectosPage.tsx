@@ -31,16 +31,22 @@ import {
   pageSearchInputClass,
   sectionLabelOrangeClass,
 } from "../OrdenesTrabajo/ordenTrabajoStyles";
-import ProyectoFormModal from "./ProyectoFormModal";
-import { ProyectosMobileList } from "./ProyectosMobileList";
-import { ProyectosPageStats } from "./ProyectosPageStats";
+import ProyectoFormModal from "./form/ProyectoFormModal";
+import { ProyectosMobileList } from "./list/ProyectosMobileList";
+import { ProyectosPageStats } from "./list/ProyectosPageStats";
 import {
   createProyecto,
   deleteProyecto,
   listProyectos,
   updateProyecto,
   type ProyectoApiError,
-} from "./proyectoApi";
+} from "./shared/proyectoApi";
+import {
+  createProyectoInstalacion,
+  isProyectoInstalacionApiError,
+  buildInstalacionPayload,
+  type ProyectoInstalacionDraft,
+} from "./instalaciones";
 import {
   computeProyectoStats,
   createEmptyProyectoDraft,
@@ -48,11 +54,11 @@ import {
   displayProyectoFolio,
   estadoProyectoBadgeClass,
   estadoProyectoLabel,
-} from "./proyectoFormUtils";
-import { formatProyectoFecha, proyectoOrigenBadgeClass } from "./proyectoPageStyles";
+} from "./shared/proyectoFormUtils";
+import { formatProyectoFecha, proyectoOrigenBadgeClass } from "./shared/proyectoPageStyles";
 import { matchesDocumentFolio } from "@/utils/documentFolio";
 import { useProyectosPagePermissions } from "./useProyectosPagePermissions";
-import type { ProyectoDraft, ProyectoRow } from "./proyectoTypes";
+import type { ProyectoDraft, ProyectoRow } from "./shared/proyectoTypes";
 
 function proyectoMatchesSearch(row: ProyectoRow, q: string): boolean {
   const term = q.trim().toLowerCase();
@@ -193,7 +199,10 @@ export default function ProyectosPage() {
     }
   };
 
-  const handleSave = async (draft: ProyectoDraft) => {
+  const handleSave = async (
+    draft: ProyectoDraft,
+    extras?: { instalacionDraft?: ProyectoInstalacionDraft | null }
+  ) => {
     const wasEditing = Boolean(editingRow);
     try {
       const saved = wasEditing && editingRow
@@ -205,6 +214,29 @@ export default function ProyectosPage() {
         }
         return [saved, ...prev];
       });
+
+      const pending = extras?.instalacionDraft;
+      if (!wasEditing && pending?.subtipo) {
+        try {
+          await createProyectoInstalacion({
+            proyecto: Number(saved.id),
+            payload: buildInstalacionPayload(pending.form, pending.subtipo),
+          });
+        } catch (insErr) {
+          console.error("Error al guardar instalación inicial:", insErr);
+          showAlert(
+            "warning",
+            "Proyecto creado",
+            isProyectoInstalacionApiError(insErr)
+              ? `El proyecto se guardó, pero la instalación no: ${insErr.message}`
+              : "El proyecto se guardó, pero no se pudo registrar la instalación.",
+            5000
+          );
+          closeModal();
+          return;
+        }
+      }
+
       closeModal();
       showAlert(
         "success",
@@ -503,6 +535,7 @@ export default function ProyectosPage() {
           key={editingRow?.id ?? "new"}
           open={showModal}
           editing={Boolean(editingRow)}
+          proyectoId={editingRow ? Number(editingRow.id) : null}
           initialDraft={modalDraft}
           onClose={closeModal}
           onSave={handleSave}

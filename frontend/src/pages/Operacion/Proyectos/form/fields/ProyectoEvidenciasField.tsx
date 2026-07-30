@@ -4,12 +4,12 @@ import { Modal } from "@/components/ui/modal";
 import {
   compressImage,
   getPublicIdFromUrl,
-} from "../OrdenesTrabajo/OrdenServicio/useOrdenesShared";
+} from "../../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
 import {
   deleteProyectoImageFromCloudinary,
   uploadProyectoImageToCloudinary,
-} from "./proyectoImageApi";
-import { proyectoSectionHintClass } from "./proyectoPageStyles";
+} from "../../shared/proyectoImageApi";
+import { proyectoSectionHintClass } from "../../shared/proyectoPageStyles";
 
 const PROYECTO_MAX_FOTOS = 10;
 const PROYECTO_FOTOS_FOLDER = "proyectos/evidencias";

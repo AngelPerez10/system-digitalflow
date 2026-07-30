@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
-import { compressImage, getPublicIdFromUrl } from "../OrdenesTrabajo/OrdenServicio/useOrdenesShared";
+import { compressImage, getPublicIdFromUrl } from "../../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
 import {
   deleteProyectoImageFromCloudinary,
   uploadProyectoImageToCloudinary,
-} from "./proyectoImageApi";
+} from "../../shared/proyectoImageApi";
 
 export const PROYECTO_NOTA_MAX_FOTOS = 2;
 const PROYECTO_NOTA_FOTOS_FOLDER = "proyectos/bitacora";

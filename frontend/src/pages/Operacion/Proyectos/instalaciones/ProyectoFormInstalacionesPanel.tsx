@@ -6,11 +6,10 @@ import {
   erpDeleteModalClass,
   erpDeleteModalPanelClass,
   erpPrimaryBtnClass,
-  erpRowActionBarClass,
-  erpRowActionBtnClass,
   erpSecondaryBtnClass,
 } from "../../OrdenesTrabajo/ordenTrabajoStyles";
 import InstalacionForm from "./InstalacionForm";
+import { InstalacionFormSection } from "./InstalacionFormSection";
 import {
   createProyectoInstalacion,
   deleteProyectoInstalacion,
@@ -32,13 +31,13 @@ import {
   type ProyectoInstalacionRow,
 } from "./proyectoInstalacionTypes";
 import {
+  instalacionDangerActionClass,
+  instalacionFolioBadgeClass,
+  instalacionGhostActionClass,
+  instalacionListCardClass,
+  instalacionListCardEditingClass,
+  instalacionTipoBadgeClass,
   proyectoEmptyPanelClass,
-  proyectoOrdenCardClass,
-  proyectoOrdenEyebrowClass,
-  proyectoOrdenHintClass,
-  proyectoOrdenSectionClass,
-  proyectoOrdenSectionHeadClass,
-  proyectoOrdenTitleClass,
   proyectoSectionIconClass,
 } from "./instalacionStyles";
 
@@ -55,9 +54,8 @@ type Props = {
 };
 
 /**
- * Pestaña Instalaciones: siempre muestra el formulario de tipo de instalación.
- * Si el proyecto ya existe, también lista y permite guardar instalaciones al API.
- * Si es proyecto nuevo, el borrador se persiste al guardar el proyecto.
+ * Pestaña Instalaciones: misma jerarquía visual que Cliente / Operación
+ * (eyebrow + título + tarjeta). Lista registrada + ficha de datos.
  */
 export function ProyectoFormInstalacionesPanel({
   proyectoId,
@@ -67,7 +65,8 @@ export function ProyectoFormInstalacionesPanel({
   onDraftChange,
 }: Props) {
   const deleteTitleId = useId();
-  const sectionTitleId = "proyecto-sec-instalaciones";
+  const listStatusId = useId();
+  const formStatusId = useId();
 
   const [rows, setRows] = useState<ProyectoInstalacionRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -125,6 +124,12 @@ export function ProyectoFormInstalacionesPanel({
       subtipo: subtipoFromPayload(row.payload),
     });
     setError("");
+    requestAnimationFrame(() => {
+      document.getElementById("proyecto-sec-instalacion-datos")?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    });
   };
 
   const handleSaveInstalacion = async () => {
@@ -179,139 +184,192 @@ export function ProyectoFormInstalacionesPanel({
     }
   };
 
+  const iconList = (
+    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" strokeLinecap="round" />
+    </svg>
+  );
+
   const iconGps = (
     <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   );
 
-  const sectionHint =
+  const formEyebrow = editingId != null ? "Editando" : proyectoId == null ? "Paso 2" : "Nueva";
+  const formTitle = editingId != null ? "Editar instalación" : "Datos de la instalación";
+  const formHint =
     proyectoId == null
-      ? "Completa el tipo de instalación. Se guardará al guardar el proyecto."
-      : "Registra una o más instalaciones de este proyecto.";
+      ? "Completa el tipo; se registrará al guardar el proyecto abajo."
+      : editingId != null
+        ? "Modifica los campos y confirma con Actualizar instalación."
+        : "Completa la ficha GPS y guárdala en este proyecto.";
 
   return (
-    <>
-      <section className={proyectoOrdenSectionClass} aria-labelledby={sectionTitleId}>
-        <div className={proyectoOrdenSectionHeadClass}>
-          <div className="flex min-w-0 flex-1 items-start gap-2.5">
-            <span className="mt-0.5 inline-flex shrink-0 text-[#ea580c] dark:text-[#fb923c]" aria-hidden>
-              {iconGps}
-            </span>
-            <div className="min-w-0">
-              <p className={proyectoOrdenEyebrowClass}>Paso 2</p>
-              <h4 id={sectionTitleId} className={`${proyectoOrdenTitleClass} mt-0.5`}>
-                Instalaciones
-              </h4>
-              <p className={proyectoOrdenHintClass}>{sectionHint}</p>
+    <div className="space-y-5">
+      {proyectoId != null ? (
+        <InstalacionFormSection
+          titleId="proyecto-sec-instalaciones-lista"
+          eyebrow="Registro"
+          title="Instalaciones del proyecto"
+          hint={
+            rows.length > 0
+              ? `${rows.length} ${rows.length === 1 ? "ficha registrada" : "fichas registradas"}.`
+              : "Aún no hay fichas; usa el formulario de abajo para agregar la primera."
+          }
+          icon={iconList}
+          card={!loading && rows.length > 0}
+        >
+          {loading ? (
+            <div
+              id={listStatusId}
+              className={proyectoEmptyPanelClass}
+              role="status"
+              aria-live="polite"
+            >
+              <p className="text-sm text-gray-600 dark:text-gray-300">Cargando instalaciones…</p>
             </div>
-          </div>
-        </div>
-        <div className={proyectoOrdenCardClass}>
-          {proyectoId != null ? (
-            <div className="mb-4 space-y-2">
-              {loading ? (
-                <div className={proyectoEmptyPanelClass} role="status" aria-live="polite">
-                  Cargando instalaciones…
-                </div>
-              ) : rows.length === 0 ? (
-                <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]" role="status">
-                  Aún no hay instalaciones guardadas en este proyecto.
-                </p>
-              ) : (
-                <ul className="space-y-2" aria-label="Instalaciones del proyecto">
-                  {rows.map((row) => (
-                    <li
-                      key={row.id}
-                      className="flex items-start justify-between gap-3 rounded-xl border border-[#e7ded0] bg-white/80 px-3 py-2.5 dark:border-[#334155] dark:bg-[#0f172a]/60"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
-                          {displayInstalacionFolio(row.idx)}
-                          {editingId === row.id ? (
-                            <span className="ml-2 text-[10px] font-medium uppercase tracking-wide text-[#ea580c]">
-                              Editando
-                            </span>
-                          ) : null}
-                        </p>
-                        <p className="mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">
-                          Placas {payloadPlacas(row.payload)} · IMEI {payloadImei(row.payload)}
-                        </p>
-                      </div>
-                      {!disabled ? (
-                        <div className={erpRowActionBarClass}>
-                          <button
-                            type="button"
-                            className={erpRowActionBtnClass}
-                            aria-label={`Editar ${displayInstalacionFolio(row.idx)}`}
-                            onClick={() => openEdit(row)}
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            className={erpRowActionBtnClass}
-                            aria-label={`Eliminar ${displayInstalacionFolio(row.idx)}`}
-                            onClick={() => setDeletingRow(row)}
-                          >
-                            <TrashBinIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : null}
-
-          {error ? (
-            <p className="mb-3 text-sm text-rose-600 dark:text-rose-400" role="alert">
-              {error}
-            </p>
-          ) : null}
-
-          <InstalacionForm
-            value={draft.form}
-            subtipo={draft.subtipo}
-            onChange={setForm}
-            onSubtipoChange={setSubtipo}
-            disabled={disabled || saving}
-          />
-
-          {proyectoId != null ? (
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
-              {editingId != null ? (
-                <button
-                  type="button"
-                  className={erpSecondaryBtnClass}
-                  disabled={saving}
-                  onClick={resetDraft}
-                >
-                  Cancelar edición
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className={erpPrimaryBtnClass}
-                disabled={disabled || saving}
-                onClick={() => void handleSaveInstalacion()}
-              >
-                {saving
-                  ? "Guardando…"
-                  : editingId != null
-                    ? "Actualizar instalación"
-                    : "Guardar instalación"}
-              </button>
+          ) : rows.length === 0 ? (
+            <div className={proyectoEmptyPanelClass} role="status">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                No hay instalaciones guardadas en este proyecto.
+              </p>
+              <p className="mt-1.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                Completa los datos GPS en la sección inferior y pulsa Guardar instalación.
+              </p>
             </div>
           ) : (
-            <p className="mt-3 text-xs text-[#78716c] dark:text-[#8ea0b8]" role="note">
-              Al pulsar <strong className="font-semibold text-[#1c1917] dark:text-[#f8fafc]">Guardar</strong>{" "}
-              abajo se crea el proyecto y, si elegiste un tipo de instalación, también esta ficha.
-            </p>
+            <ul className="space-y-3" aria-label="Instalaciones del proyecto">
+              {rows.map((row) => {
+                const folio = displayInstalacionFolio(row.idx);
+                const isEditing = editingId === row.id;
+                const tipo = subtipoFromPayload(row.payload);
+                return (
+                  <li
+                    key={row.id}
+                    className={`${instalacionListCardClass}${isEditing ? ` ${instalacionListCardEditingClass}` : ""}`}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={instalacionFolioBadgeClass}>{folio}</span>
+                        {tipo === "gps" ? (
+                          <span className={instalacionTipoBadgeClass}>GPS</span>
+                        ) : null}
+                        {isEditing ? (
+                          <span
+                            className="text-[10px] font-semibold uppercase tracking-wide text-[#ea580c] dark:text-[#fdba74]"
+                            aria-current="true"
+                          >
+                            En edición
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        Placas {payloadPlacas(row.payload)}
+                        {" · "}
+                        IMEI {payloadImei(row.payload)}
+                      </p>
+                    </div>
+                    {!disabled ? (
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          type="button"
+                          className={instalacionGhostActionClass}
+                          aria-label={`Editar ${folio}`}
+                          aria-pressed={isEditing}
+                          onClick={() => openEdit(row)}
+                        >
+                          <PencilIcon className="h-4 w-4" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          className={instalacionDangerActionClass}
+                          aria-label={`Eliminar ${folio}`}
+                          aria-haspopup="dialog"
+                          onClick={() => setDeletingRow(row)}
+                        >
+                          <TrashBinIcon className="h-4 w-4" aria-hidden />
+                        </button>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
           )}
+        </InstalacionFormSection>
+      ) : null}
+
+      <InstalacionFormSection
+        titleId="proyecto-sec-instalacion-datos"
+        eyebrow={formEyebrow}
+        title={formTitle}
+        hint={formHint}
+        icon={iconGps}
+      >
+        <div
+          id={formStatusId}
+          className="sr-only"
+          role="status"
+          aria-live="polite"
+        >
+          {editingId != null
+            ? `Editando ${displayInstalacionFolio(rows.find((r) => r.id === editingId)?.idx)}`
+            : "Formulario de nueva instalación"}
         </div>
-      </section>
+
+        {error ? (
+          <p className="mb-1 text-sm font-medium text-rose-600 dark:text-rose-400" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <InstalacionForm
+          value={draft.form}
+          subtipo={draft.subtipo}
+          onChange={setForm}
+          onSubtipoChange={setSubtipo}
+          disabled={disabled || saving}
+        />
+
+        {proyectoId != null ? (
+          <div className="mt-1 flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4 dark:border-white/10">
+            {editingId != null ? (
+              <button
+                type="button"
+                className={erpSecondaryBtnClass}
+                disabled={saving}
+                onClick={resetDraft}
+              >
+                Cancelar edición
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={erpPrimaryBtnClass}
+              disabled={disabled || saving}
+              onClick={() => void handleSaveInstalacion()}
+            >
+              {saving
+                ? "Guardando…"
+                : editingId != null
+                  ? "Actualizar instalación"
+                  : "Guardar instalación"}
+            </button>
+          </div>
+        ) : (
+          <div
+            className="mt-1 rounded-xl border border-dashed border-[#e2d9ca] bg-[#fffdf8]/90 px-3.5 py-3 dark:border-[#334155] dark:bg-[#0f172a]/40"
+            role="note"
+          >
+            <p className="text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+              Al pulsar{" "}
+              <strong className="font-semibold text-[#1c1917] dark:text-[#f8fafc]">Guardar</strong>{" "}
+              en el pie del modal se crea el proyecto y, si elegiste un tipo, también esta ficha GPS.
+            </p>
+          </div>
+        )}
+      </InstalacionFormSection>
 
       <Modal
         isOpen={Boolean(deletingRow)}
@@ -333,6 +391,7 @@ export function ProyectoFormInstalacionesPanel({
           </h3>
           <p className="mt-2 text-center text-sm text-[#57534e] dark:text-[#94a3b8]">
             ¿Eliminar {deletingRow ? displayInstalacionFolio(deletingRow.idx) : "esta instalación"}?
+            Esta acción no se puede deshacer.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <button
@@ -354,6 +413,6 @@ export function ProyectoFormInstalacionesPanel({
           </div>
         </div>
       </Modal>
-    </>
+    </div>
   );
 }

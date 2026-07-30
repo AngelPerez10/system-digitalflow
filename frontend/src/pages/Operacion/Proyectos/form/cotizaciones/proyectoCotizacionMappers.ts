@@ -1,6 +1,6 @@
 import type { ApiCotizacion, ApiCotizacionItem, CloneCotizacionRow } from "@/pages/Ventas/Cotizacion/cotizacionFormTypes";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
-import type { CotizacionResumen, PresupuestoLinea } from "./proyectoTypes";
+import type { CotizacionResumen, PresupuestoLinea } from "../../shared/proyectoTypes";
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" ? (value as Record<string, unknown>) : {};

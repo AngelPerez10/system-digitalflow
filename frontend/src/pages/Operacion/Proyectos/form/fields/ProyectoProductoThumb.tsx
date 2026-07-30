@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { resolveProyectoProductoImageUrl } from "./proyectoProductoImage";
+import { resolveProyectoProductoImageUrl } from "../../shared/proyectoProductoImage";
 
 type Props = {
   src?: string | null;

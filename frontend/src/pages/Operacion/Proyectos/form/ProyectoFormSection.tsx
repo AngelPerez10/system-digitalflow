@@ -6,7 +6,7 @@ import {
   proyectoOrdenSectionClass,
   proyectoOrdenSectionHeadClass,
   proyectoOrdenTitleClass,
-} from "./proyectoPageStyles";
+} from "../shared/proyectoPageStyles";
 
 type Props = {
   titleId: string;

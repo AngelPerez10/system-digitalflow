@@ -1,73 +1,52 @@
-import { useState, useEffect, useId, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useId, useMemo, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
-import { Modal } from "@/components/ui/modal";
 import Alert from "@/components/ui/alert/Alert";
-import SignaturePad from "@/components/ui/signature/SignaturePad";
-import { useDropzone } from "react-dropzone";
-import Label from "@/components/form/Label";
-import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
-import { OrdenesPageStats } from "./OrdenesPageStats";
-import OrdenAdminCotizacionesField from "./OrdenAdminCotizacionesField";
-import OrdenLocationMapModal from "./OrdenLocationMapModal";
+import { OrdenesPageStats } from "./list/OrdenesPageStats";
+import OrdenLocationMapModal from "./form/fields/OrdenLocationMapModal";
+import OrdenFormModal, { ORDEN_FORM_PANEL_IDS, ORDEN_FORM_TAB_IDS } from "./form/OrdenFormModal";
+import { OrdenClienteTab } from "./form/tabs/OrdenClienteTab";
+import { OrdenDetalleTab } from "./form/tabs/OrdenDetalleTab";
 import {
-  computeOrdenStats,
-  getCurrentYearMonth,
-  normalizeCotizacionesAdjuntas,
-  normalizeFotosExtraFromOrden,
-  normalizeStatusAdministrativo,
-  ORDEN_BASE_MAX_FOTOS,
-  type FotosExtraMax,
   type Orden,
-  type OrdenCotizacionAdjunta,
-  type OrdenStatusAdministrativo,
-  type ServicioCatalogo,
   type Usuario,
-} from "./ordenesPageTypes";
-import type { CotizacionResumen } from "@/pages/Operacion/Proyectos/proyectoTypes";
-import { useOrdenFormModalState } from "./useOrdenFormModalState";
+} from "./shared/ordenesPageTypes";
+import { useOrdenFormModalState } from "./form/useOrdenFormModalState";
+import { useOrdenFormDraft } from "./form/useOrdenFormDraft";
+import {
+  markOrdenesListInitialLoad,
+  ORDENES_PAGE_INIT_THROTTLE_MS,
+  useOrdenesList,
+} from "./shared/useOrdenesList";
 import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
-import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
-import { PencilIcon, TrashBinIcon, TimeIcon, MailIcon } from "@/icons";
-import { MobileOrderList } from "./MobileOrderCard";
-import { OrdenPdfLoadingModal } from "./OrdenPdfLoadingModal";
-import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./OrdenEnviarPdfModal";
+import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
+import { MobileOrderList } from "./list/MobileOrderCard";
+import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
+import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./list/OrdenEnviarPdfModal";
 import {
   downloadOrdenesMesPdf,
   handleOrdenPdfClick,
   isOrdenResuelta,
   isOrdenServicioTecnico,
   displayOrdenFolio,
-  ordenMatchesSearch,
   resolveClienteCorreoSugerido,
-} from "./useOrdenesShared";
+} from "./shared/useOrdenesShared";
 import {
   formatYmdToDMY,
   getNowHHMM,
-  getPublicIdFromUrl,
   isGoogleMapsUrl,
-  normalizeStatus,
   parseYearMonth,
-  round2,
-} from "./ordenesPageUtils";
+} from "./shared/ordenesPageUtils";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
-import ActionSearchBar from "@/components/kokonutui/action-search-bar";
-import LevantamientoForm from "../OrdenLevantamiento/LevantamientoForm";
-import InstalacionForm from "../OrdenInstalacion/InstalacionForm";
 import {
   OrdenDeleteModal,
-  OrdenFormModalHeader,
-  OrdenModalFooterActions,
-  OrdenModalPrimaryButton,
-  OrdenPhotoDeleteModal,
-  OrdenPhotoPreviewModal,
   OrdenViewModal,
 } from "../OrdenTrabajoModals";
 import {
@@ -80,11 +59,6 @@ import {
   erpHeroGradientClass,
   erpHeroHeadingClass,
   erpHeroIconWrapClass,
-  erpModalBodyClass,
-  erpModalFooterClass,
-  erpModalFormScrollClass,
-  erpModalShellClass,
-  erpModalTabClass,
   erpMonthNavBtnClass,
   erpPageCanvasClass,
   erpPageInnerClass,
@@ -101,21 +75,15 @@ import {
 } from "../ordenTrabajoStyles";
 
 
-let ordenesPageInitialDataLastLoadAt = 0;
 let ordenesPageSignatureLastLoadAt = 0;
-
-const ORDENES_PAGE_INIT_THROTTLE_MS = 800;
 
 export default function Ordenes() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const formNonceRef = useRef(0);
   const formScrollRef = useRef<HTMLFormElement>(null);
 
   const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
-  const instalacionSnapshotRef = useRef<{ payload: any; dibujo_url: string } | null>(null);
-
   const {
     permissions,
     authLoading,
@@ -127,11 +95,28 @@ export default function Ordenes() {
   } = useOrdenesPagePermissions();
   const { user, isAdmin } = useAuth();
 
-  const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [serviciosDisponibles, setServiciosDisponibles] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    ordenes,
+    setOrdenes,
+    loading,
+    searchTerm,
+    setSearchTerm,
+    selectedMonth,
+    setSelectedMonth,
+    filterStatus,
+    setFilterStatus,
+    filterServicio,
+    setFilterServicio,
+    filterDate,
+    setFilterDate,
+    shownList,
+    stats: ordenStats,
+    alert,
+    setAlert,
+    fetchOrdenes,
+  } = useOrdenesList({ variant: "admin", canView: canOrdenesView, usuarios });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
 
@@ -164,26 +149,27 @@ export default function Ordenes() {
     ro(field)
       ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400'
       : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20';
-  const [searchTerm, setSearchTerm] = useState("");
-  // Por defecto no filtramos por mes; evitamos que órdenes nuevas queden ocultas
-  // si caen fuera del mes “actual” según cuándo se abrió la pantalla.
-  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
   const [photoPreview, setPhotoPreview] = useState<{ open: boolean; url: string | null; index: number }>({
     open: false,
     url: null,
     index: 0,
   });
-  const [deletingPhoto, setDeletingPhoto] = useState(false);
-  // Filtros
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<'' | 'pendiente' | 'resuelto'>('');
-  const [filterServicio, setFilterServicio] = useState<string[]>([]);
-  const [filterDate, setFilterDate] = useState(''); // YYYY-MM-DD
-  const filterRef = useRef<HTMLDivElement | null>(null);
-
-  const [isSaving, setIsSaving] = useState(false);
-
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [problematicaModal, setProblematicaModal] = useState<{ open: boolean; content: string }>({
+    open: false,
+    content: "",
+  });
+  const [serviciosModal, setServiciosModal] = useState<{ open: boolean; content: string[] }>({
+    open: false,
+    content: [],
+  });
+  const [comentarioModal, setComentarioModal] = useState<{ open: boolean; content: string }>({
+    open: false,
+    content: "",
+  });
   const [mySignatureUrl, setMySignatureUrl] = useState<string>('');
 
   useEffect(() => {
@@ -231,164 +217,11 @@ export default function Ordenes() {
   }, [location.search, canOrdenesCreate, navigate, openNewOrden]);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!isAuthenticated) {
-      setOrdenes([]);
-      setLoading(false);
-      return;
-    }
-    const now = Date.now();
-    if (now - ordenesPageInitialDataLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
-    ordenesPageInitialDataLastLoadAt = now;
-    loadServiciosDisponibles();
-    fetchOrdenes();
-    fetchUsuarios();
-    fetchClientes("");
-  }, [authLoading, isAuthenticated]);
+    if (authLoading || !isAuthenticated) return;
+    if (!markOrdenesListInitialLoad()) return;
+    void fetchOrdenes();
+  }, [authLoading, isAuthenticated, canOrdenesView, fetchOrdenes]);
 
-  const handleDeletePhoto = async (index: number, url: string) => {
-    const nonce = formNonceRef.current;
-    const publicId = getPublicIdFromUrl(url);
-    const updated = (Array.isArray(formData.fotos_urls) ? formData.fotos_urls : []).filter((_, i) => i !== index);
-
-    setDeletingPhoto(true);
-    try {
-      // Eliminar de Cloudinary
-      if (publicId) {
-        await fetchApi('/api/ordenes/delete-image/', {
-          method: 'POST',
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ public_id: publicId }),
-        });
-      }
-      // Si estamos editando una orden existente, actualizar solo fotos_urls en backend
-      if (editingOrden && editingOrden.id) {
-        const response = await fetchApi(`/api/ordenes/${editingOrden.id}/update-photos/`, {
-          method: 'PATCH',
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ fotos_urls: updated }),
-        });
-
-        if (response.ok) {
-          const updatedOrden = await response.json();
-          // Actualizar el estado editingOrden con los datos actualizados
-          setEditingOrden(updatedOrden);
-          // Recargar lista de órdenes para reflejar el cambio
-          await fetchOrdenes();
-        } else {
-          console.error('Error al actualizar fotos en backend:', await response.text());
-        }
-      }
-    } catch (e) {
-      console.error('Error al eliminar foto:', e);
-    } finally {
-      if (formNonceRef.current === nonce) {
-        setFormData((prev) => ({ ...prev, fotos_urls: updated }));
-      }
-      setConfirmDelete({ open: false, index: null, url: null });
-      setDeletingPhoto(false);
-    }
-  };
-
-  const compressImage = async (
-    file: File,
-    maxSizeKB: number,
-    maxWidth: number = 1400,
-    maxHeight: number = 1400
-  ): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let { width, height } = img;
-          if (width > maxWidth || height > maxHeight) {
-            const ratio = Math.min(maxWidth / width, maxHeight / height);
-            width = Math.floor(width * ratio);
-            height = Math.floor(height * ratio);
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          // Evita fondos negros al convertir imágenes con transparencia a JPEG.
-          if (ctx) {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, width, height);
-          }
-          ctx?.drawImage(img, 0, 0, width, height);
-
-          // Búsqueda binaria para encontrar la calidad óptima más rápido
-          const minQuality = 0.1;
-          const maxQuality = 0.95;
-          let attempts = 0;
-          const maxAttempts = 8;
-
-          const binarySearchCompress = (low: number, high: number) => {
-            if (attempts >= maxAttempts || high - low < 0.01) {
-              const finalQuality = (low + high) / 2;
-              canvas.toBlob(
-                (blob) => {
-                  if (!blob) {
-                    reject(new Error('Error al comprimir la imagen'));
-                    return;
-                  }
-                  const r = new FileReader();
-                  r.readAsDataURL(blob);
-                  r.onloadend = () => resolve(r.result as string);
-                },
-                'image/jpeg',
-                finalQuality
-              );
-              return;
-            }
-
-            attempts++;
-            const midQuality = (low + high) / 2;
-            canvas.toBlob(
-              (blob) => {
-                if (!blob) {
-                  reject(new Error('Error al comprimir la imagen'));
-                  return;
-                }
-                const sizeKB = blob.size / 1024;
-                if (Math.abs(sizeKB - maxSizeKB) < 5) {
-                  const r = new FileReader();
-                  r.readAsDataURL(blob);
-                  r.onloadend = () => resolve(r.result as string);
-                } else if (sizeKB > maxSizeKB) {
-                  binarySearchCompress(low, midQuality);
-                } else {
-                  binarySearchCompress(midQuality, high);
-                }
-              },
-              'image/jpeg',
-              midQuality
-            );
-          };
-
-          binarySearchCompress(minQuality, maxQuality);
-        };
-        img.onerror = () => reject(new Error('Error al cargar la imagen'));
-      };
-      reader.onerror = () => reject(new Error('Error al leer el archivo'));
-    });
-  };
-
-  const [alert, setAlert] = useState<{
-    show: boolean;
-    variant: "success" | "error" | "warning" | "info";
-    title: string;
-    message: string;
-  }>({ show: false, variant: "success", title: "", message: "" });
-
-  // Alert state for Modal
   const [modalAlert, setModalAlert] = useState<{
     show: boolean;
     variant: "success" | "error" | "warning" | "info";
@@ -408,7 +241,7 @@ export default function Ordenes() {
     setEnviarPdfOrden({
       id: orden.id,
       folio: orden.folio,
-      idx: "idx" in orden ? orden.idx : undefined,
+      idx: "idx" in orden ? (orden as Orden).idx : undefined,
       cliente: orden.cliente,
       cliente_id: orden.cliente_id ?? null,
       status: orden.status,
@@ -441,7 +274,7 @@ export default function Ordenes() {
         show: true,
         variant: "warning",
         title: "PDF del mes",
-        message: "Seleccione un mes válido para descargar el listado.",
+        message: "Seleccione un mes vÃ¡lido para descargar el listado.",
       });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
       return;
@@ -450,8 +283,8 @@ export default function Ordenes() {
       setAlert({
         show: true,
         variant: "info",
-        title: "Sin órdenes",
-        message: "No hay órdenes registradas en el mes seleccionado.",
+        title: "Sin Ã³rdenes",
+        message: "No hay Ã³rdenes registradas en el mes seleccionado.",
       });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
       return;
@@ -466,289 +299,9 @@ export default function Ordenes() {
     });
   };
 
-  // Form state
-  const [formData, setFormData] = useState({
-    folio: "",
-    cliente_id: null as number | null,
-    contacto_id: null as number | null,
-    cliente: "",
-    direccion: "",
-    telefono_cliente: "",
-    nombre_cliente: "",
-    problematica: "",
-    servicios_realizados: [] as string[],
-    status: "pendiente" as 'pendiente' | 'resuelto',
-    comentario_tecnico: "",
-    fecha_inicio: new Date().toISOString().split('T')[0],
-    hora_inicio: "",
-    fecha_finalizacion: "",
-    hora_termino: "",
-    nombre_encargado: "",
-    tecnico_asignado: null as number | null,
-    quien_instalo: null as number | null,
-    quien_entrego: null as number | null,
-    firma_encargado_url: "",
-    firma_cliente_url: "",
-    fotos_urls: [] as string[],
-    fotos_extra_max: 0 as FotosExtraMax
-  });
-
-  /** Seguimiento administrativo (persistido en API). */
-  type StatusAdministrativo = OrdenStatusAdministrativo;
-  const [statusAdministrativo, setStatusAdministrativo] = useState<StatusAdministrativo>("pendiente");
-  const [fechaEnvioAdmin, setFechaEnvioAdmin] = useState("");
-  const [cotizacionesAdmin, setCotizacionesAdmin] = useState<CotizacionResumen[]>([]);
   const statusTecnicoId = useId().replace(/:/g, "");
   const statusAdminId = useId().replace(/:/g, "");
   const fechaEnvioAdminId = useId().replace(/:/g, "");
-
-  const resetAdminSeguimientoUi = () => {
-    setStatusAdministrativo("pendiente");
-    setFechaEnvioAdmin("");
-    setCotizacionesAdmin([]);
-  };
-
-  const loadAdminSeguimientoFromOrden = (orden: Orden) => {
-    setStatusAdministrativo(normalizeStatusAdministrativo(orden.status_administrativo));
-    setFechaEnvioAdmin(String(orden.fecha_envio || "").slice(0, 10));
-    const rows = normalizeCotizacionesAdjuntas(orden.cotizaciones_adjuntas);
-    setCotizacionesAdmin(rows as CotizacionResumen[]);
-  };
-
-  const maxPhotosAllowed = ORDEN_BASE_MAX_FOTOS + formData.fotos_extra_max;
-
-  const onDropPhotos = async (acceptedFiles: File[]) => {
-    const nonce = formNonceRef.current;
-    const current = Array.isArray(formData.fotos_urls) ? formData.fotos_urls : [];
-    const remainingSlots = maxPhotosAllowed - current.length;
-
-    if (remainingSlots <= 0) return;
-    const files = acceptedFiles.slice(0, remainingSlots).filter(f => f.type.startsWith('image/'));
-
-    const uploadOne = async (file: File): Promise<string | null> => {
-      try {
-        // Comprimir localmente para subir payload pequeño (80KB para mejor balance)
-        const compressed = await compressImage(file, 80, 1400, 1400);
-
-        // Subir al backend (Cloudinary)
-        const resp = await fetchApi("/api/ordenes/upload-image/", {
-          method: 'POST',
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ data_url: compressed, folder: 'ordenes/fotos' }),
-        });
-        if (!resp.ok) return null;
-        const data = await resp.json().catch(() => null);
-        return data?.url ? String(data.url) : null;
-      } catch {
-        return null;
-      }
-    };
-
-    const concurrency = 5;
-    const urls: string[] = [];
-    for (let i = 0; i < files.length; i += concurrency) {
-      const chunk = files.slice(i, i + concurrency);
-      const results = await Promise.allSettled(chunk.map(uploadOne));
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value) urls.push(r.value);
-      }
-    }
-
-    if (urls.length && formNonceRef.current === nonce) {
-      setFormData((prev) => {
-        const prevCurrent = Array.isArray(prev.fotos_urls) ? prev.fotos_urls : [];
-        return { ...prev, fotos_urls: [...prevCurrent, ...urls] };
-      });
-    }
-  };
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: onDropPhotos,
-    multiple: true,
-    maxFiles: maxPhotosAllowed,
-    accept: {
-      'image/png': [],
-      'image/jpeg': [],
-      'image/webp': [],
-      'image/svg+xml': [],
-    },
-  });
-
-  // Estado para modal de mapa
-  const [showMapModal, setShowMapModal] = useState(false);
-
-  // Estados para dropdowns personalizados
-  const [clienteSearch, setClienteSearch] = useState('');
-  const [debouncedClienteSearch, setDebouncedClienteSearch] = useState('');
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedClienteSearch(clienteSearch), 400);
-    return () => clearTimeout(timer);
-  }, [clienteSearch]);
-
-  useEffect(() => {
-    fetchClientes(debouncedClienteSearch);
-  }, [debouncedClienteSearch]);
-
-  useEffect(() => {
-    if (showModal) fetchClientes(debouncedClienteSearch);
-  }, [showModal]);
-
-  const [tecnicoSearch, setTecnicoSearch] = useState('');
-  const [quienInstaloSearch, setQuienInstaloSearch] = useState('');
-  const [quienEntregoSearch, setQuienEntregoSearch] = useState('');
-
-  const [servicioSearch, setServicioSearch] = useState('');
-
-  const [tecnicoSignatureUrl, setTecnicoSignatureUrl] = useState<string>('');
-  const tecnicoSignatureCacheRef = useRef<Record<number, string>>({});
-
-  // Modales de detalles
-  const [problematicaModal, setProblematicaModal] = useState<{ open: boolean, content: string }>({ open: false, content: '' });
-  const [serviciosModal, setServiciosModal] = useState<{ open: boolean; content: string[] }>({ open: false, content: [] });
-  const [comentarioModal, setComentarioModal] = useState<{ open: boolean; content: string }>({ open: false, content: '' });
-
-  const loadTecnicoSignature = async (userId: number | null) => {
-    if (!userId) {
-      setTecnicoSignatureUrl('');
-      return;
-    }
-
-    const cached = tecnicoSignatureCacheRef.current[userId];
-    if (typeof cached === 'string') {
-      setTecnicoSignatureUrl(cached);
-      return;
-    }
-
-    try {
-      const res = await fetchApi(`/api/users/accounts/${userId}/signature/`, {
-        cache: "no-store" as RequestCache,
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) return;
-      const url = (data as any)?.url || '';
-      tecnicoSignatureCacheRef.current[userId] = url;
-      setTecnicoSignatureUrl(url);
-    } catch {
-      return;
-    }
-  };
-
-  const validateForm = () => {
-    const missing: string[] = [];
-    if (!formData.cliente_id) missing.push('Cliente');
-
-    if (!formData.telefono_cliente?.trim()) missing.push('Teléfono');
-    if (!Array.isArray(formData.servicios_realizados) || formData.servicios_realizados.length === 0) missing.push('Servicios Realizados');
-
-    return { ok: missing.length === 0, missing };
-  };
-
-  const fetchClientes = async (search = "") => {
-    try {
-      const rows = await fetchClientesCatalog(search, 50);
-      setClientes(rows);
-    } catch (error) {
-      console.error("Error al cargar clientes:", error);
-      setClientes([]);
-    }
-  };
-
-  const handleClienteSuccess = (newCliente: Cliente) => {
-    fetchClientes();
-    selectCliente(newCliente as any);
-    setShowClienteModal(false);
-  };
-
-  const fetchUsuarios = async () => {
-    try {
-      let response = await fetchApi("/api/ordenes/tecnico-opciones/");
-      if (!response.ok) {
-        response = await fetchApi("/api/users/accounts/");
-      }
-
-      if (response.ok) {
-        const data = await response.json();
-        const rows = Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
-        setUsuarios(rows);
-      }
-    } catch (error) {
-      console.error("Error al cargar usuarios:", error);
-    }
-  };
-
-  const loadServiciosDisponibles = async () => {
-    const fallbackServicios = [
-      'ALARMAS',
-      'RASTREO',
-      'INTERNET',
-      'GPS',
-      'SENSOR DE GASOLINA',
-      'SENSOR DE TEMPERATURA',
-      'CAMARA',
-      'DASHCAM',
-      'VENTA DE PRODUCTO',
-    ];
-
-    try {
-      const res = await fetchApi("/api/servicios/?page=1&page_size=500&ordering=idx", {
-        cache: "no-store" as RequestCache,
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setServiciosDisponibles(fallbackServicios);
-        return;
-      }
-
-      const results = Array.isArray((data as any)?.results) ? ((data as any).results as ServicioCatalogo[]) : [];
-      const names = results
-        .filter((s) => s && typeof s.nombre === 'string' && s.nombre.trim() && s.activo !== false)
-        .map((s) => s.nombre.trim());
-
-      const merged = Array.from(new Set([...(names.length ? names : fallbackServicios)]));
-      setServiciosDisponibles(merged);
-      localStorage.setItem('servicios_disponibles', JSON.stringify(merged));
-    } catch {
-      setServiciosDisponibles(fallbackServicios);
-    }
-  };
-
-  const fetchOrdenes = async () => {
-    try {
-      if (!canOrdenesView) {
-        setOrdenes([]);
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetchApi(`/api/ordenes/?_ts=${Date.now()}`, {
-        cache: "no-store" as RequestCache,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const rows = Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
-        console.debug("[OrdenesPage] fetchOrdenes idx:", rows.map((r: any) => Number(r?.idx || 0)).filter((n: number) => Number.isFinite(n)));
-        setOrdenes(rows);
-      } else if (response.status === 401) {
-        console.error("Token inválido o expirado");
-        setOrdenes([]);
-      } else if (response.status === 403) {
-        console.error("Acceso prohibido");
-        setOrdenes([]);
-      } else {
-        console.error("Error al cargar órdenes:", response.status);
-        setOrdenes([]);
-      }
-    } catch (error) {
-      console.error("Error al cargar órdenes:", error);
-      setOrdenes([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const activeTabRef = useRef<"orden" | "cliente">(activeTab);
   activeTabRef.current = activeTab;
@@ -765,6 +318,76 @@ export default function Ordenes() {
     else apply();
   };
 
+  const {
+    formData,
+    setFormData,
+    resetForm,
+    loadFromOrden,
+    bumpFormNonce,
+    handleSubmit,
+    isSaving,
+    maxPhotosAllowed,
+    getRootProps,
+    getInputProps,
+    isDragActive,
+    handleDeletePhoto,
+    deletingPhoto,
+    fetchClientes,
+    serviciosDisponibles,
+    setServiciosDisponibles,
+    clienteSearch,
+    setClienteSearch,
+    tecnicoSearch,
+    setTecnicoSearch,
+    quienInstaloSearch,
+    setQuienInstaloSearch,
+    quienEntregoSearch,
+    setQuienEntregoSearch,
+    servicioSearch,
+    setServicioSearch,
+    selectCliente,
+    selectTecnico,
+    selectQuienInstalo,
+    selectQuienEntrego,
+    addServicio,
+    tecnicoSignatureUrl,
+    statusAdministrativo,
+    setStatusAdministrativo,
+    fechaEnvioAdmin,
+    setFechaEnvioAdmin,
+    cotizacionesAdmin,
+    setCotizacionesAdmin,
+  } = useOrdenFormDraft({
+    variant: "admin",
+    open: showModal,
+    editingOrden,
+    setEditingOrden,
+    tipoOrden,
+    isLimitedEdit,
+    userId: user?.id ?? null,
+    isAdmin,
+    isAuthenticated,
+    mySignatureUrl,
+    clientes,
+    setClientes,
+    usuarios,
+    setUsuarios,
+    setOrdenes,
+    fetchOrdenes,
+    levantamientoSnapshotRef,
+    activeTabRef,
+    goToOrdenTab,
+    setAlert,
+    setModalAlert,
+    onAfterSaveClose: resetOrdenModalShell,
+    openEnviarPdfModal,
+  });
+
+  const confirmDeletePhoto = async (index: number, url: string) => {
+    await handleDeletePhoto(index, url);
+    setConfirmDelete({ open: false, index: null, url: null });
+  };
+
   const triggerSaveFromFooter = () => {
     if (activeTabRef.current === "cliente") {
       goToOrdenTab();
@@ -773,434 +396,15 @@ export default function Ordenes() {
     formScrollRef.current?.requestSubmit();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSaving) return;
-    if (activeTabRef.current === "cliente") {
-      goToOrdenTab();
-      return;
-    }
-    // Reglas: Cliente, Dirección, Teléfono, Servicios Realizados y Fecha de Inicio son requeridos
-    const { ok, missing } = validateForm();
-    if (!ok) {
-      setModalAlert({
-        show: true,
-        variant: 'warning',
-        title: 'Campos requeridos',
-        message: `Faltan: ${missing.join(', ')}`
-      });
-      setTimeout(() => setModalAlert(prev => ({ ...prev, show: false })), 3500);
-      return;
-    }
-
-    // Guardar el cliente antes de limpiar el formulario
-    const ordenCliente = formData.cliente;
-    const isEditing = !!editingOrden;
-
-    try {
-      setIsSaving(true);
-      const path = editingOrden
-        ? `/api/ordenes/${editingOrden.id}/`
-        : "/api/ordenes/";
-      const method = editingOrden ? "PUT" : "POST";
-
-      // Construir payload, omitiendo tecnico_asignado si es null y contacto_id (solo uso interno)
-      const payload: any = { ...formData };
-      delete payload.firma_encargado_url;
-      delete payload.contacto_id;
-      if (payload.tecnico_asignado == null) {
-        delete payload.tecnico_asignado;
-      }
-      if (payload.quien_instalo == null) {
-        delete payload.quien_instalo;
-      }
-      if (payload.quien_entrego == null) {
-        delete payload.quien_entrego;
-      }
-
-      // Saneamiento: convertir strings vacíos a null en campos opcionales
-      const toNullIfEmpty = (v: any) => (typeof v === 'string' && v.trim() === '' ? null : v);
-      payload.direccion = toNullIfEmpty(payload.direccion);
-      payload.telefono_cliente = toNullIfEmpty(payload.telefono_cliente);
-      payload.problematica = toNullIfEmpty(payload.problematica);
-      payload.comentario_tecnico = toNullIfEmpty(payload.comentario_tecnico);
-      payload.fecha_inicio = toNullIfEmpty(payload.fecha_inicio);
-      payload.hora_inicio = toNullIfEmpty(payload.hora_inicio);
-      payload.fecha_finalizacion = toNullIfEmpty(payload.fecha_finalizacion);
-      payload.hora_termino = toNullIfEmpty(payload.hora_termino);
-      payload.nombre_encargado = toNullIfEmpty(payload.nombre_encargado);
-      payload.nombre_cliente = toNullIfEmpty(payload.nombre_cliente);
-      payload.firma_cliente_url = toNullIfEmpty(payload.firma_cliente_url);
-      // Asegurar arreglo para servicios_realizados
-      if (!Array.isArray(payload.servicios_realizados)) payload.servicios_realizados = [];
-
-      if (isAdmin) {
-        payload.status_administrativo = statusAdministrativo;
-        payload.fecha_envio = fechaEnvioAdmin.trim() ? fechaEnvioAdmin.trim().slice(0, 10) : null;
-        payload.cotizaciones_adjuntas = cotizacionesAdmin.map((c) => {
-          const row: OrdenCotizacionAdjunta = {
-            id: c.id,
-            origen: c.origen,
-            folio: c.folio,
-            cliente: c.cliente,
-            fecha: String(c.fecha || "").slice(0, 10),
-          };
-          if (c.contacto) row.contacto = c.contacto;
-          return row;
-        });
-      } else {
-        delete payload.status_administrativo;
-        delete payload.fecha_envio;
-        delete payload.cotizaciones_adjuntas;
-      }
-
-      const response = await fetchApi(path, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.ok) {
-        const savedOrden = await response.json();
-        const cid = payload?.cliente_id;
-
-        if (cid && (payload?.direccion || payload?.telefono_cliente)) {
-          const existingCliente = clientes.find(c => c.id === cid);
-          const updates: any = {};
-
-          const hasClienteDireccion = !!existingCliente?.direccion && String(existingCliente.direccion).trim() !== '';
-          const hasClienteTelefono = !!existingCliente?.telefono && String(existingCliente.telefono).trim() !== '';
-
-          if (!hasClienteDireccion && payload?.direccion) {
-            updates.direccion = String(payload.direccion);
-          }
-          if (!hasClienteTelefono && payload?.telefono_cliente) {
-            updates.telefono = String(payload.telefono_cliente);
-          }
-
-          if (Object.keys(updates).length > 0) {
-            await fetchApi(`/api/clientes/${cid}/`, {
-              method: 'PATCH',
-              headers: {                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(updates),
-            }).catch(() => null);
-          }
-        }
-
-        if (cid && (payload?.nombre_cliente || payload?.telefono_cliente)) {
-          const nombre = String(payload?.nombre_cliente || '').trim();
-          const celular = String(payload?.telefono_cliente || '').trim();
-          const contactoIdToUpdate = formData.contacto_id != null ? Number(formData.contacto_id) : null;
-
-          // Solo actualizar un contacto existente seleccionado explícitamente.
-          // No crear contactos nuevos automáticamente aquí para evitar duplicados.
-          if (contactoIdToUpdate != null) {
-            const body: any = {};
-            if (nombre) body.nombre_apellido = nombre;
-            if (celular) body.celular = celular;
-            if (Object.keys(body).length > 0) {
-              await fetchApi(`/api/cliente-contactos/${contactoIdToUpdate}/`, {
-                method: 'PATCH',
-                headers: {                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(body),
-              }).catch(() => null);
-            }
-          }
-        }
-
-        if (savedOrden && savedOrden.id) {
-          setOrdenes((prev) => {
-            const list = Array.isArray(prev) ? prev : [];
-            const idx = list.findIndex((o) => (o as any).id === savedOrden.id);
-            if (idx >= 0) {
-              const copy = list.slice();
-              copy[idx] = savedOrden;
-              return copy;
-            }
-            return [savedOrden, ...list];
-          });
-        }
-
-        if (!isLimitedEdit && tipoOrden === 'levantamiento' && savedOrden?.id && levantamientoSnapshotRef.current) {
-          const snap = levantamientoSnapshotRef.current;
-          await fetchApi(`/api/ordenes/${savedOrden.id}/levantamiento/`, {
-            method: 'PUT',
-            headers: {              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              payload: snap.payload || {},
-              dibujo_url: snap.dibujo_url || '',
-            }),
-          }).catch(() => null);
-
-          try {
-            const payloadTipo = String(snap.payload?.tipo || '').toLowerCase();
-            const cercoItems = Array.isArray((snap as any).cerco_materiales) ? (snap as any).cerco_materiales : [];
-            if (payloadTipo === 'cerco' && cercoItems.length > 0) {
-              const todayIso = new Date().toISOString().slice(0, 10);
-              const cid = (savedOrden as any).cliente_id ?? null;
-              const clienteNombre = String((savedOrden as any).cliente || '').trim();
-              const contactoNombre = String((savedOrden as any).nombre_cliente || '').trim();
-
-              const subtotalRaw = cercoItems.reduce((acc: number, it: any) => {
-                const qty = Number(it.cantidad || 0);
-                const price = Number(it.precio_lista || 0);
-                if (!Number.isFinite(qty) || !Number.isFinite(price)) return acc;
-                return acc + qty * price;
-              }, 0);
-              const subtotal = round2(subtotalRaw);
-              const ivaPct = 16;
-              const iva = round2(subtotal * (ivaPct / 100));
-              const total = round2(subtotal + iva);
-
-              const cotPayload: any = {
-                cliente_id: cid != null ? Number(cid) : null,
-                cliente: clienteNombre,
-                prospecto: !cid,
-                contacto: contactoNombre,
-                // usar un valor válido para choices de medio_contacto (ver backend MEDIO_CONTACTO_CHOICES)
-                medio_contacto: 'OTRO',
-                status: 'PENDIENTE',
-                fecha: todayIso,
-                subtotal,
-                descuento_cliente_pct: 0,
-                iva_pct: ivaPct,
-                iva,
-                total,
-                texto_arriba_precios: 'A continuación cotización solicitada:',
-                terminos:
-                  "TÉRMINOS Y CONDICIONES\n\n" +
-                  "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
-                  "- No se programan trabajos sin anticipo confirmado.\n" +
-                  "- Precios expresados en pesos mexicanos.\n" +
-                  "- Vigencia de la cotización: 15 días naturales.\n" +
-                  "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
-                  "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
-                  "- La garantía no aplica por mal uso, golpes, humedad, variaciones de voltaje o manipulación por terceros.\n" +
-                  "- La cotización incluye únicamente los conceptos especificados; trabajos adicionales se cotizan aparte.\n" +
-                  "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
-                  "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
-                  "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
-                  "- El anticipo o liquidación no es reembolsable en caso de cancelación.\n" +
-                  "- La aceptación de la cotización implica conformidad con estos términos.",
-                // Para evitar errores de validación de URL en el backend,
-                // NO enviamos thumbnail_url en la creación automática desde levantamiento.
-                items: cercoItems.map((it: any, index: number) => ({
-                  producto_externo_id: String(it.producto_externo_id || ''),
-                  producto_nombre: String(it.producto_nombre || ''),
-                  producto_descripcion: String(it.producto_descripcion || ''),
-                  unidad: String(it.unidad || ''),
-                  cantidad: round2(Number(it.cantidad || 0)),
-                  precio_lista: round2(Number(it.precio_lista || 0)),
-                  descuento_pct: 0,
-                  orden: index,
-                })),
-              };
-
-              try {
-                const ordenMarker = `ORDEN #${savedOrden.id}`;
-                // Buscar si ya existe una cotización ligada a esta orden
-                let existingCotizacionId: number | null = null;
-                try {
-                  const searchParam = encodeURIComponent(ordenMarker);
-                  const searchRes = await fetchApi(`/api/cotizaciones/?search=${searchParam}`, {
-                    method: 'GET',
-                    headers: {                      'Content-Type': 'application/json',
-                    },
-                    cache: 'no-store' as RequestCache,
-                  });
-                  if (searchRes.ok) {
-                    const data = await searchRes.json().catch(() => null);
-                    const searchRows = Array.isArray(data?.results)
-                      ? data.results
-                      : Array.isArray(data)
-                        ? data
-                        : [];
-                    if (searchRows.length > 0 && searchRows[0]?.id != null) {
-                      existingCotizacionId = Number(searchRows[0].id);
-                    }
-                  }
-                } catch (searchErr) {
-                  console.warn('No se pudo buscar cotización existente para la orden desde levantamiento (OrdenesPage):', searchErr);
-                }
-
-                const isUpdate = existingCotizacionId != null;
-                const cotPath = isUpdate
-                  ? `/api/cotizaciones/${existingCotizacionId}/`
-                  : '/api/cotizaciones/';
-                const cotMethod = isUpdate ? 'PUT' : 'POST';
-
-                const cotRes = await fetchApi(cotPath, {
-                  method: cotMethod,
-                  headers: {                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify(cotPayload),
-                });
-
-                if (!cotRes.ok) {
-                  let detail: any = null;
-                  try {
-                    detail = await cotRes.json();
-                  } catch {
-                    try {
-                      detail = await cotRes.text();
-                    } catch {
-                      detail = null;
-                    }
-                  }
-                  console.warn(
-                    `No se pudo ${isUpdate ? 'actualizar' : 'crear'} la cotización desde levantamiento (OrdenesPage). Status:`,
-                    cotRes.status,
-                    'Detalle:',
-                    typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2),
-                  );
-                }
-              } catch (cotErr) {
-                console.error('Error de red al guardar cotización desde levantamiento (OrdenesPage):', cotErr);
-              }
-            }
-          } catch (e) {
-            console.error('Error creando cotización desde levantamiento (OrdenesPage):', e);
-          }
-
-          setOrdenes((prev) => {
-            const list = Array.isArray(prev) ? prev : [];
-            const idx = list.findIndex((o) => (o as any).id === savedOrden.id);
-            if (idx >= 0) {
-              const copy = list.slice();
-              copy[idx] = { ...copy[idx], tipo_orden: 'levantamiento' as const };
-              return copy;
-            }
-            return prev;
-          });
-        }
-
-        if (!isLimitedEdit && tipoOrden === 'instalaciones' && savedOrden?.id && instalacionSnapshotRef.current) {
-          const snap = instalacionSnapshotRef.current;
-          const instalacionRes = await fetchApi(`/api/ordenes/${savedOrden.id}/instalacion/`, {
-            method: 'PUT',
-            headers: {              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              payload: snap.payload || {},
-              dibujo_url: snap.dibujo_url || '',
-            }),
-          });
-          if (!instalacionRes.ok) {
-            let detail = `No se pudo guardar la instalación (HTTP ${instalacionRes.status}).`;
-            try {
-              const data = await instalacionRes.json();
-              detail = (data as { detail?: string })?.detail || detail;
-            } catch {
-              // ignore parse errors, keep default message
-            }
-            throw new Error(detail);
-          }
-          setOrdenes((prev) => {
-            const list = Array.isArray(prev) ? prev : [];
-            const idx = list.findIndex((o) => (o as any).id === savedOrden.id);
-            if (idx >= 0) {
-              const copy = list.slice();
-              copy[idx] = { ...copy[idx], tipo_orden: 'instalaciones' as const };
-              return copy;
-            }
-            return prev;
-          });
-        }
-
-        // Refresh from backend to avoid any stale client state/caching.
-        await fetchOrdenes();
-
-        const becameResuelto =
-          isOrdenResuelta(savedOrden?.status) && !isOrdenResuelta(editingOrden?.status);
-        const tipoGuardado =
-          (savedOrden as { tipo_orden?: string } | null)?.tipo_orden || tipoOrden;
-
-        setShowModal(false);
-        setActiveTab("cliente");
-        setFormData({
-          folio: "",
-          cliente_id: null,
-          contacto_id: null,
-          cliente: "",
-          direccion: "",
-          telefono_cliente: "",
-          nombre_cliente: "",
-          problematica: "",
-          servicios_realizados: [],
-          status: "pendiente",
-          comentario_tecnico: "",
-          fecha_inicio: new Date().toISOString().split('T')[0],
-          hora_inicio: "",
-          fecha_finalizacion: "",
-          hora_termino: "",
-          nombre_encargado: "",
-          tecnico_asignado: null,
-          quien_instalo: null,
-          quien_entrego: null,
-          firma_encargado_url: "",
-          firma_cliente_url: "",
-          fotos_urls: [],
-          fotos_extra_max: 0 as FotosExtraMax
-        });
-        resetAdminSeguimientoUi();
-        setEditingOrden(null);
-
-        setAlert({
-          show: true,
-          variant: "success",
-          title: isEditing ? "Orden Actualizada" : "Orden Creada",
-          message: isEditing
-            ? `La orden para "${ordenCliente}" ha sido actualizada exitosamente.`
-            : `La orden para "${ordenCliente}" ha sido creada exitosamente.`,
-        });
-        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
-
-        if (
-          becameResuelto &&
-          savedOrden?.id &&
-          isOrdenServicioTecnico(tipoGuardado)
-        ) {
-          openEnviarPdfModal(savedOrden as Orden);
-        }
-      } else {
-        // Mostrar error detallado
-        let errorMsg = 'Error al guardar la orden';
-        const raw = await response.text().catch(() => '');
-        try {
-          const errorData = raw ? JSON.parse(raw) : null;
-          console.error('Error del servidor:', errorData);
-          errorMsg = (errorData?.detail || JSON.stringify(errorData)) || errorMsg;
-        } catch {
-          errorMsg = raw || errorMsg;
-        }
-        setAlert({
-          show: true,
-          variant: "error",
-          title: "Error al guardar",
-          message: errorMsg
-        });
-        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 5000);
-      }
-    } catch (error) {
-      console.error("Error al guardar orden:", error);
-      setAlert({
-        show: true,
-        variant: "error",
-        title: "Error",
-        message: String(error)
-      });
-      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
-    } finally {
-      setIsSaving(false);
-    }
+  const handleClienteSuccess = (newCliente: Cliente) => {
+    void fetchClientes();
+    selectCliente(newCliente);
+    setShowClienteModal(false);
   };
 
   const handleDeleteClick = (orden: Orden) => {
     if (!canOrdenesDelete) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar órdenes.' });
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar Ã³rdenes.' });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
       return;
     }
@@ -1250,69 +454,17 @@ export default function Ordenes() {
   };
 
   const handleEdit = (orden: Orden) => {
-    formNonceRef.current += 1;
-    const editNonce = formNonceRef.current;
     if (!canOrdenesEdit) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar órdenes.' });
+      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar Ã³rdenes.' });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
       return;
     }
     setEditingOrden(orden);
     setTecnicoSearch('');
     setActiveTab("cliente");
-    const orderType = String((orden as any)?.tipo_orden || '').toLowerCase();
-    setTipoOrden(
-      orderType === 'levantamiento'
-        ? 'levantamiento'
-        : orderType === 'instalaciones'
-          ? 'instalaciones'
-          : 'servicio_tecnico'
-    );
-    if (orderType !== 'instalaciones' && orderType !== 'levantamiento') {
-      void fetchApi(`/api/ordenes/${orden.id}/instalacion/`, {
-        method: 'GET',
-        cache: 'no-store' as RequestCache,
-      })
-        .then(async (res) => {
-          if (!res.ok) return;
-          const data = await res.json().catch(() => null);
-          if (!data) return;
-          const payload = (data as any).payload;
-          const hasPayload = payload && typeof payload === 'object' && Object.keys(payload).length > 0;
-          const hasInstalacion = Number((data as any).id || 0) > 0 || hasPayload;
-          if (hasInstalacion && formNonceRef.current === editNonce) {
-            setTipoOrden('instalaciones');
-          }
-        })
-        .catch(() => null);
-    }
-
-    setFormData({
-      folio: ((orden as any).folio ?? '').toString(),
-      cliente_id: orden.cliente_id || null,
-      contacto_id: null,
-      cliente: orden.cliente || "",
-      direccion: orden.direccion || "",
-      telefono_cliente: orden.telefono_cliente || "",
-      nombre_cliente: orden.nombre_cliente || "",
-      nombre_encargado: orden.nombre_encargado || "",
-      problematica: orden.problematica || "",
-      servicios_realizados: orden.servicios_realizados || [],
-      comentario_tecnico: orden.comentario_tecnico || "",
-      status: orden.status || "pendiente",
-      fecha_inicio: orden.fecha_inicio || "",
-      hora_inicio: orden.hora_inicio || "",
-      fecha_finalizacion: orden.fecha_finalizacion || "",
-      hora_termino: orden.hora_termino || "",
-      tecnico_asignado: orden.tecnico_asignado ? Number(orden.tecnico_asignado) : null,
-      quien_instalo: (orden as any).quien_instalo ? Number((orden as any).quien_instalo) : null,
-      quien_entrego: (orden as any).quien_entrego ? Number((orden as any).quien_entrego) : null,
-      firma_encargado_url: mySignatureUrl || orden.firma_encargado_url || "",
-      firma_cliente_url: orden.firma_cliente_url || "",
-      fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : [],
-      fotos_extra_max: normalizeFotosExtraFromOrden(orden)
-    });
-    loadAdminSeguimientoFromOrden(orden);
+    const orderType = String(orden.tipo_orden || '').toLowerCase();
+    setTipoOrden(orderType === 'levantamiento' ? 'levantamiento' : 'servicio_tecnico');
+    loadFromOrden(orden);
     setShowModal(true);
   };
 
@@ -1321,7 +473,7 @@ export default function Ordenes() {
 
   const abrirOrdenFromQueryDoneRef = useRef<string | null>(null);
 
-  // Desde historial global (MonthlyTarget): /ordenes?abrir=<id> abre el modal de edición de esa orden
+  // Desde historial global (MonthlyTarget): /ordenes?abrir=<id> abre el modal de ediciÃ³n de esa orden
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const raw = params.get("abrir");
@@ -1366,89 +518,10 @@ export default function Ordenes() {
   }, [loading, ordenes, location.search, navigate]);
 
   const handleCloseModal = () => {
-    formNonceRef.current += 1;
+    bumpFormNonce();
     resetOrdenModalShell();
-    setFormData({
-      folio: "",
-      cliente_id: null,
-      contacto_id: null,
-      cliente: "",
-      direccion: "",
-      telefono_cliente: "",
-      nombre_cliente: "",
-      problematica: "",
-      servicios_realizados: [],
-      status: "pendiente",
-      comentario_tecnico: "",
-      fecha_inicio: new Date().toISOString().split('T')[0],
-      hora_inicio: "",
-      fecha_finalizacion: "",
-      hora_termino: "",
-      nombre_encargado: "",
-      tecnico_asignado: null,
-      quien_instalo: null,
-      quien_entrego: null,
-      firma_encargado_url: mySignatureUrl || "",
-      firma_cliente_url: "",
-      fotos_urls: [],
-      fotos_extra_max: 0 as FotosExtraMax
-    });
-    resetAdminSeguimientoUi();
-    // Limpiar estados de búsqueda de dropdowns
-    setClienteSearch('');
-    setTecnicoSearch('');
-    setQuienInstaloSearch('');
-    setQuienEntregoSearch('');
-    setServicioSearch('');
+    resetForm();
   };
-
-  const shownList = useMemo(() => {
-    if (!Array.isArray(ordenes)) return [];
-    const q = (searchTerm || '').trim().toLowerCase();
-    const list = ordenes.filter(o => {
-      if (!ordenMatchesSearch(o, q, usuarios)) return false;
-      // Con búsqueda activa: todas las órdenes; sin búsqueda: filtro por mes
-      if (!q && selectedMonth) {
-        const month = selectedMonth; // YYYY-MM
-        const fecha = (o.fecha_inicio || o.fecha_creacion || '').toString();
-        const matchMonth = fecha.startsWith(month);
-        if (!matchMonth) return false;
-      }
-      // filtro por status
-      if (filterStatus && normalizeStatus(o.status) !== normalizeStatus(filterStatus)) return false;
-      // filtro por servicio realizado (debe contener TODOS los seleccionados)
-      if (filterServicio && filterServicio.length > 0) {
-        const ordenServicios = Array.isArray(o.servicios_realizados) ? o.servicios_realizados : [];
-        const allSelected = filterServicio.every(sel => ordenServicios.includes(sel));
-        if (!allSelected) return false;
-      }
-      // filtro por fecha exacta (YYYY-MM-DD)
-      if (filterDate) {
-        const base = (o.fecha_inicio || o.fecha_creacion || '').toString();
-        if (!base.startsWith(filterDate)) return false;
-      }
-      return true;
-    });
-    const toTs = (v: any) => {
-      if (!v) return 0;
-      const t = Date.parse(String(v));
-      return Number.isFinite(t) ? t : 0;
-    };
-    // Más recientes arriba
-    return list.slice().sort((a, b) => {
-      const ai = toTs((a as any).fecha_inicio) || 0;
-      const bi = toTs((b as any).fecha_inicio) || 0;
-      if (bi !== ai) return bi - ai;
-
-      const ac = toTs((a as any).fecha_creacion) || 0;
-      const bc = toTs((b as any).fecha_creacion) || 0;
-      if (bc !== ac) return bc - ac;
-
-      const aid = Number((a as any).id || 0);
-      const bid = Number((b as any).id || 0);
-      return bid - aid;
-    });
-  }, [ordenes, searchTerm, selectedMonth, filterStatus, filterServicio, filterDate, usuarios]);
 
   const startIndex = 0;
   const currentOrdenes = shownList;
@@ -1529,109 +602,12 @@ export default function Ordenes() {
     return base;
   }, [serviciosDisponibles, servicioSearch, formData.servicios_realizados]);
 
-  const selectCliente = (cliente: Cliente | null) => {
-    if (cliente) {
-      const contactos = cliente.contactos || [];
-      const contactoPrincipal = contactos.find((c) => c.is_principal) || contactos[0];
-      const nombreContacto =
-        String(contactoPrincipal?.nombre_apellido || "").trim() ||
-        String(cliente.representante || "").trim();
-      const telefonoCliente =
-        String(contactoPrincipal?.celular || "").trim() ||
-        String(cliente.celular || "").trim() ||
-        String(cliente.telefono || "").trim();
-
-      setFormData({
-        ...formData,
-        cliente_id: cliente.id,
-        contacto_id: contactoPrincipal?.id != null ? Number(contactoPrincipal.id) : null,
-        cliente: cliente.nombre,
-        direccion: cliente.direccion,
-        telefono_cliente: telefonoCliente,
-        nombre_cliente: nombreContacto,
-      });
-      setClienteSearch(cliente.nombre);
-    } else {
-      setFormData({
-        ...formData,
-        cliente_id: null,
-        contacto_id: null,
-        cliente: '',
-        nombre_cliente: '',
-        direccion: '',
-        telefono_cliente: ''
-      });
-      setClienteSearch('');
-    }
-  };
-
-  const selectTecnico = (usuario: Usuario | null) => {
-    if (usuario) {
-      setFormData({ ...formData, tecnico_asignado: usuario.id });
-      const nombre = usuario.first_name && usuario.last_name ? `${usuario.first_name} ${usuario.last_name}` : usuario.email;
-      setTecnicoSearch(nombre);
-      loadTecnicoSignature(usuario.id);
-    } else {
-      setFormData({ ...formData, tecnico_asignado: null });
-      setTecnicoSearch('');
-      setTecnicoSignatureUrl('');
-    }
-  };
-
-  const selectQuienInstalo = (usuario: Usuario | null) => {
-    if (usuario) {
-      setFormData({ ...formData, quien_instalo: usuario.id });
-      const nombre = usuario.first_name && usuario.last_name ? `${usuario.first_name} ${usuario.last_name}` : usuario.email;
-      setQuienInstaloSearch(nombre);
-    } else {
-      setFormData({ ...formData, quien_instalo: null });
-      setQuienInstaloSearch('');
-    }
-  };
-
-  const selectQuienEntrego = (usuario: Usuario | null) => {
-    if (usuario) {
-      setFormData({ ...formData, quien_entrego: usuario.id });
-      const nombre = usuario.first_name && usuario.last_name ? `${usuario.first_name} ${usuario.last_name}` : usuario.email;
-      setQuienEntregoSearch(nombre);
-    } else {
-      setFormData({ ...formData, quien_entrego: null });
-      setQuienEntregoSearch('');
-    }
-  };
-
-  useEffect(() => {
-    const tecnicoId = formData?.tecnico_asignado != null ? Number(formData.tecnico_asignado) : null;
-    if (!tecnicoId) {
-      setTecnicoSignatureUrl('');
-      return;
-    }
-    loadTecnicoSignature(tecnicoId);
-  }, [formData?.tecnico_asignado]);
-
-  const addServicio = (servicio: string) => {
-    // Selección ÚNICA: reemplazar la lista por el servicio elegido
-    setFormData({
-      ...formData,
-      servicios_realizados: [servicio]
-    });
-    // Limpiar búsqueda y cerrar dropdown
-    setServicioSearch('');
-  };
-
-  const statsMonthKey = selectedMonth || getCurrentYearMonth();
-
-  const ordenStats = useMemo(
-    () => computeOrdenStats(ordenes, statsMonthKey),
-    [ordenes, statsMonthKey]
-  );
-
   return (
     <div className={erpPageCanvasClass}>
     <div className={erpPageInnerClass}>
       <PageMeta
-        title="Órdenes de Trabajo | Sistema Grupo Intrax GPS"
-        description="Gestión de órdenes de servicio para el sistema de administración Grupo Intrax GPS"
+        title="Ã“rdenes de Trabajo | Sistema Grupo Intrax GPS"
+        description="GestiÃ³n de Ã³rdenes de servicio para el sistema de administraciÃ³n Grupo Intrax GPS"
       />
       <nav
         className={erpBreadcrumbNavClass}
@@ -1643,7 +619,7 @@ export default function Ordenes() {
         <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
           /
         </span>
-        <span className="text-[#44403c] dark:text-[#cbd5e1]">Órdenes de trabajo</span>
+        <span className="text-[#44403c] dark:text-[#cbd5e1]">Ã“rdenes de trabajo</span>
       </nav>
 
       <OrdenPdfLoadingModal open={pdfDownloading || mesPdfLoading} downloading />
@@ -1657,7 +633,7 @@ export default function Ordenes() {
             show: true,
             variant: "success",
             title: "Correo enviado",
-            message: `El PDF se envió a ${correo}.`,
+            message: `El PDF se enviÃ³ a ${correo}.`,
           });
           setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
         }}
@@ -1682,11 +658,11 @@ export default function Ordenes() {
           </div>
           <div className="min-w-0 flex-1">
             <p className={sectionLabelOrangeClass}>
-              Operación
+              OperaciÃ³n
             </p>
-            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Órdenes de trabajo</h1>
+            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Ã“rdenes de trabajo</h1>
             <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
-              Administra órdenes de servicio, fotos, firmas y PDF. Filtra por estado, servicio o fecha en el listado.
+              Administra Ã³rdenes de servicio, fotos, firmas y PDF. Filtra por estado, servicio o fecha en el listado.
             </p>
             <div className={erpHeroGradientClass} />
           </div>
@@ -1702,14 +678,14 @@ export default function Ordenes() {
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por folio, cliente, técnico o estado…"
+            placeholder="Buscar por folio, cliente, tÃ©cnico o estadoâ€¦"
             className={pageSearchInputClass}
           />
           {searchTerm && (
             <button
               type="button"
               onClick={() => setSearchTerm('')}
-              aria-label="Limpiar búsqueda"
+              aria-label="Limpiar bÃºsqueda"
               className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
@@ -1722,9 +698,8 @@ export default function Ordenes() {
         <button
           type="button"
           onClick={() => {
-            formNonceRef.current += 1;
             if (!canOrdenesCreate) {
-              setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear órdenes.' });
+              setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear Ã³rdenes.' });
               setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
               return;
             }
@@ -1752,7 +727,7 @@ export default function Ordenes() {
       <ComponentCard
         compact
         title="Listado"
-        desc="Resultados según búsqueda y filtros. En pantallas pequeñas desplázate horizontalmente si hace falta."
+        desc="Resultados segÃºn bÃºsqueda y filtros. En pantallas pequeÃ±as desplÃ¡zate horizontalmente si hace falta."
         className={`overflow-visible ${pageCardShellClass}`}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
@@ -1761,7 +736,7 @@ export default function Ordenes() {
               onClick={handleDownloadMesPdf}
               disabled={mesPdfLoading || loading}
               className={erpSecondaryBtnClass + " h-10 w-full sm:w-auto shrink-0"}
-              title="Descargar PDF con todas las órdenes del mes visible"
+              title="Descargar PDF con todas las Ã³rdenes del mes visible"
             >
               <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" strokeLinejoin="round" />
@@ -1889,7 +864,7 @@ export default function Ordenes() {
                   <TableCell isHeader className="px-2 py-2 text-left w-1/5 min-w-[220px] text-gray-700 dark:text-gray-300">Detalles</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">Fechas</TableCell>
 
-                  <TableCell isHeader className="px-2 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-gray-700 dark:text-gray-300">Técnico</TableCell>
+                  <TableCell isHeader className="px-2 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-gray-700 dark:text-gray-300">TÃ©cnico</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Estado</TableCell>
                   <TableCell isHeader className="px-2 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
                 </TableRow>
@@ -1927,10 +902,10 @@ export default function Ordenes() {
                             type="button"
                             onClick={() => setProblematicaModal({ open: true, content: orden.problematica || '-' })}
                             className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                            title="Ver problemática"
+                            title="Ver problemÃ¡tica"
                           >
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            Problemática
+                            ProblemÃ¡tica
                           </button>
                           <button
                             type="button"
@@ -1956,7 +931,7 @@ export default function Ordenes() {
                             type="button"
                             onClick={() => setComentarioModal({ open: true, content: (orden.comentario_tecnico || '') as string })}
                             className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                            title="Ver comentario del técnico"
+                            title="Ver comentario del tÃ©cnico"
                           >
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /></svg>
                             Comentarios
@@ -2026,7 +1001,7 @@ export default function Ordenes() {
                   <TableRow>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2 text-center text-[12px] text-gray-500">Sin órdenes</TableCell>
+                    <TableCell className="px-2 py-2 text-center text-[12px] text-gray-500">Sin Ã³rdenes</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
@@ -2037,14 +1012,14 @@ export default function Ordenes() {
             </Table>
           </div>
 
-          {/* Paginación */}
+          {/* PaginaciÃ³n */}
           {!loading && (
             <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between sm:gap-4 flex-wrap">
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   Mostrando <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
                   <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> órdenes
+                  <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> Ã³rdenes
                 </p>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -2099,7 +1074,7 @@ export default function Ordenes() {
       <OrdenViewModal
         open={problematicaModal.open}
         onClose={() => setProblematicaModal({ open: false, content: "" })}
-        title="Problemática"
+        title="ProblemÃ¡tica"
         subtitle="Detalle completo reportado por el cliente"
         icon={
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -2142,8 +1117,8 @@ export default function Ordenes() {
       <OrdenViewModal
         open={comentarioModal.open}
         onClose={() => setComentarioModal({ open: false, content: "" })}
-        title="Comentario del técnico"
-        subtitle="Observaciones y notas del técnico"
+        title="Comentario del tÃ©cnico"
+        subtitle="Observaciones y notas del tÃ©cnico"
         icon={
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
@@ -2155,978 +1130,104 @@ export default function Ordenes() {
         </pre>
       </OrdenViewModal>
 
-      {/* Modal Crear/Editar */}
-      <Modal
+      <OrdenFormModal
+        variant="admin"
         isOpen={showModal}
         onClose={handleCloseModal}
-        closeOnBackdropClick={false}
         closeOnEscape={!confirmDelete.open && !photoPreview.open}
-        ariaLabel={`${editingOrden ? "Editar" : "Nueva"} orden de ${tipoOrdenLabel}`}
-        className={erpModalShellClass}
+        editingOrden={editingOrden}
+        tipoOrdenLabel={tipoOrdenLabel}
+        isLimitedEdit={isLimitedEdit}
+        formScrollRef={formScrollRef}
+        onSubmit={handleSubmit}
+        activeTabRef={activeTabRef}
+        goToOrdenTab={goToOrdenTab}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        modalAlert={modalAlert}
+        isSaving={isSaving}
+        triggerSaveFromFooter={triggerSaveFromFooter}
       >
-        <OrdenFormModalHeader
-          editing={!!editingOrden}
-          title={`${editingOrden ? "Editar" : "Nueva"} orden de ${tipoOrdenLabel}`}
-          subtitle="Captura y revisa los datos antes de guardar"
-        />
-        <div className={erpModalBodyClass}>
-        {isLimitedEdit && (
-          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-            Edición limitada: solo puedes actualizar problemática, estado, tiempos y fotos en órdenes de otros técnicos.
-          </div>
+        {activeTab === "cliente" && (
+          <OrdenClienteTab
+            variant="admin"
+            panelId={ORDEN_FORM_PANEL_IDS.cliente}
+            labelledBy={ORDEN_FORM_TAB_IDS.cliente}
+            editingOrden={editingOrden}
+            formData={formData}
+            setFormData={setFormData}
+            ro={ro}
+            inputLockedClass={inputLockedClass}
+            clienteActions={clienteActions}
+            clienteSearch={clienteSearch}
+            setClienteSearch={setClienteSearch}
+            clientes={clientes}
+            selectCliente={selectCliente}
+            setShowClienteModal={setShowClienteModal}
+            tecnicoActions={tecnicoActions}
+            tecnicoSearch={tecnicoSearch}
+            setTecnicoSearch={setTecnicoSearch}
+            quienInstaloActions={quienInstaloActions}
+            quienInstaloSearch={quienInstaloSearch}
+            setQuienInstaloSearch={setQuienInstaloSearch}
+            quienEntregoActions={quienEntregoActions}
+            quienEntregoSearch={quienEntregoSearch}
+            setQuienEntregoSearch={setQuienEntregoSearch}
+            usuarios={usuarios}
+            selectTecnico={selectTecnico}
+            selectQuienInstalo={selectQuienInstalo}
+            selectQuienEntrego={selectQuienEntrego}
+            setShowMapModal={setShowMapModal}
+            tecnicoSignatureUrl={tecnicoSignatureUrl}
+            mySignatureUrl={mySignatureUrl}
+            maxPhotosAllowed={maxPhotosAllowed}
+            getRootProps={getRootProps}
+            getInputProps={getInputProps}
+            isDragActive={isDragActive}
+            photoPreview={photoPreview}
+            setPhotoPreview={setPhotoPreview}
+            confirmDelete={confirmDelete}
+            setConfirmDelete={setConfirmDelete}
+            confirmDeletePhoto={confirmDeletePhoto}
+            deletingPhoto={deletingPhoto}
+          />
         )}
-        <form
-          ref={formScrollRef}
-          onSubmit={handleSubmit}
-          className="flex min-h-0 min-w-0 flex-1 flex-col"
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" || e.defaultPrevented) return;
-            const t = e.target as HTMLElement;
-            if (t.tagName === "TEXTAREA") return;
-            if (activeTabRef.current !== "cliente") return;
-            e.preventDefault();
-            goToOrdenTab();
-          }}
-        >
-          <div className={erpModalFormScrollClass}>
-
-            {/* Modal Alert */}
-            {modalAlert.show && (
-              <div className="mb-4">
-                <Alert variant={modalAlert.variant} title={modalAlert.title} message={modalAlert.message} showLink={false} />
-              </div>
-            )}
-
-            {/* Tabs */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab("cliente")}
-                className={erpModalTabClass(activeTab === "cliente")}
-              >
-                Datos del cliente
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("orden")}
-                className={erpModalTabClass(activeTab === "orden")}
-              >
-                Datos de la orden
-              </button>
-            </div>
-
-            {activeTab === "orden" && (
-              <>
-                {/* Selector de Tipo de Orden */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tipo de Orden de Trabajo</h4>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs">
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Selecciona el tipo de orden</label>
-                    <select
-                      value={tipoOrden}
-                      onChange={(e) => setTipoOrden(e.target.value as any)}
-                      disabled={isReadOnly || isLimitedEdit}
-                      className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${isReadOnly || isLimitedEdit ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400' : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20'}`}
-                    >
-                      <option value="servicio_tecnico">Servicio Técnico</option>
-                      <option value="levantamiento">Levantamiento</option>
-                      <option value="instalaciones">Proyecto</option>
-                      <option value="mantenimiento">Mantenimiento</option>
-                    </select>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {activeTab === "cliente" && (
-              <>
-                {/* SECCIÓN 1: Detalles Generales */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                    {editingOrden && (
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Folio</label>
-                        <input
-                          type="text"
-                          value={(formData as any).folio || ''}
-                          readOnly={ro('folio')}
-                          disabled={ro('folio')}
-                          onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
-                          className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('folio')}`}
-                          placeholder="Ej: ATX2000"
-                        />
-                      </div>
-                    )}
-                    {/* 1. Cliente con ActionSearchBar */}
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1">
-                        <ActionSearchBar
-                          actions={clienteActions as any}
-                          showAllActions={true}
-                          defaultOpen={false}
-                          label="Cliente"
-                          placeholder="Buscar cliente por nombre o teléfono..."
-                          value={clienteSearch || formData.cliente || ''}
-                          onQueryChange={(q: string) => setClienteSearch(q)}
-
-                          onSelectAction={(action: any) => {
-                            if (ro('cliente')) return;
-                            if (action?.id === '__new__') {
-                              setShowClienteModal(true);
-                              return;
-                            }
-                            const rawId = String(action?.id ?? '');
-                            const clienteIdStr = rawId.includes('::') ? rawId.split('::')[0] : rawId;
-                            const id = Number(clienteIdStr);
-                            const c = (clientes || []).find((x) => Number(x.id) === id);
-                            if (!c) return;
-
-                            const contacto = action?.__contacto;
-                            if (contacto) {
-                              setFormData({
-                                ...formData,
-                                cliente_id: c.id,
-                                contacto_id: contacto?.id != null ? Number(contacto.id) : null,
-                                cliente: c.nombre,
-                                direccion: c.direccion,
-                                telefono_cliente: String(contacto?.celular || c.telefono || ''),
-                                nombre_cliente: String(contacto?.nombre_apellido || ''),
-                              });
-                              setClienteSearch(String(action?.label || c.nombre || ''));
-                              return;
-                            }
-
-                            selectCliente(c);
-                          }}
-                        />
-                      </div>
-                      {(formData.cliente_id || formData.cliente) && !ro('cliente') && (
-                        <button
-                          type="button"
-                          onClick={() => selectCliente(null)}
-
-                          aria-label="Limpiar selección"
-                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="w-4 h-4"
-                          >
-                            <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
-                            <path d="M18 11l-4.3-4.3" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                    {/* 2. Nombre del Cliente y Técnico Asignado */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Nombre del Cliente</label>
-                        <input
-                          type="text"
-                          value={formData.nombre_cliente}
-                          readOnly={ro('nombre_cliente')}
-                          disabled={ro('nombre_cliente')}
-                          onChange={(e) => setFormData({ ...formData, nombre_cliente: e.target.value })}
-                          className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('nombre_cliente')}`}
-                          placeholder="Nombre completo del cliente"
-                        />
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1">
-                          <ActionSearchBar
-                            actions={tecnicoActions as any}
-                            defaultOpen={false}
-                            label="Técnico Asignado"
-                            placeholder="Buscar técnico..."
-                            value={tecnicoSearch || (formData.tecnico_asignado ? (() => {
-                              const tecnicoId = Number(formData.tecnico_asignado);
-                              const u = usuarios.find(u => u.id === tecnicoId);
-                              return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : '';
-                            })() : '')}
-                            onQueryChange={(q: string) => setTecnicoSearch(q)}
-
-                            onSelectAction={(action: any) => {
-                              if (ro('tecnico_asignado')) return;
-                              const id = Number(action?.id);
-                              const u = (usuarios || []).find((x) => Number(x.id) === id);
-                              if (u) selectTecnico(u);
-                            }}
-                          />
-                        </div>
-                        {formData.tecnico_asignado && !ro('tecnico_asignado') && (
-                          <button
-                            type="button"
-                            onClick={() => selectTecnico(null)}
-                            aria-label="Limpiar selección"
-                            className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="w-4 h-4"
-                            >
-                              <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
-                              <path d="M18 11l-4.3-4.3" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1">
-                          <ActionSearchBar
-                            actions={quienInstaloActions as any}
-                            defaultOpen={false}
-                            label="¿Quien instaló?"
-                            placeholder="Buscar técnico..."
-                            value={quienInstaloSearch || (formData.quien_instalo ? (() => {
-                              const tecnicoId = Number(formData.quien_instalo);
-                              const u = usuarios.find(u => u.id === tecnicoId);
-                              return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : '';
-                            })() : '')}
-                            onQueryChange={(q: string) => setQuienInstaloSearch(q)}
-                            onSelectAction={(action: any) => {
-                              if (ro('quien_instalo')) return;
-                              const id = Number(action?.id);
-                              const u = (usuarios || []).find((x) => Number(x.id) === id);
-                              if (u) selectQuienInstalo(u);
-                            }}
-                          />
-                        </div>
-                        {formData.quien_instalo && !ro('quien_instalo') && (
-                          <button
-                            type="button"
-                            onClick={() => selectQuienInstalo(null)}
-                            aria-label="Limpiar selección"
-                            className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                              <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
-                              <path d="M18 11l-4.3-4.3" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1">
-                          <ActionSearchBar
-                            actions={quienEntregoActions as any}
-                            defaultOpen={false}
-                            label="¿Quien entregó?"
-                            placeholder="Buscar técnico..."
-                            value={quienEntregoSearch || (formData.quien_entrego ? (() => {
-                              const tecnicoId = Number(formData.quien_entrego);
-                              const u = usuarios.find(u => u.id === tecnicoId);
-                              return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : '';
-                            })() : '')}
-                            onQueryChange={(q: string) => setQuienEntregoSearch(q)}
-                            onSelectAction={(action: any) => {
-                              if (ro('quien_entrego')) return;
-                              const id = Number(action?.id);
-                              const u = (usuarios || []).find((x) => Number(x.id) === id);
-                              if (u) selectQuienEntrego(u);
-                            }}
-                          />
-                        </div>
-                        {formData.quien_entrego && !ro('quien_entrego') && (
-                          <button
-                            type="button"
-                            onClick={() => selectQuienEntrego(null)}
-                            aria-label="Limpiar selección"
-                            className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                              <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
-                              <path d="M18 11l-4.3-4.3" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {activeTab === "cliente" && (
-              <>
-                {/* SECCIÓN 2: Detalles del Cliente */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles del Cliente</h4>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                    {/* Teléfono - Solo números */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Teléfono</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="tel"
-                          value={formData.telefono_cliente}
-                          readOnly={ro('telefono_cliente')}
-                          disabled={ro('telefono_cliente')}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, '');
-                            setFormData({ ...formData, telefono_cliente: value });
-                          }}
-                          onKeyPress={(e) => {
-                            if (!/[0-9]/.test(e.key)) {
-                              e.preventDefault();
-                            }
-                          }}
-                          className={`w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 shadow-theme-xs outline-none ${inputLockedClass('telefono_cliente')}`}
-                          placeholder="Teléfono del cliente"
-                          maxLength={10}
-                        />
-                        <a
-                          href={formData.telefono_cliente ? `tel:${formData.telefono_cliente}` : undefined}
-                          onClick={(e) => {
-                            if (!formData.telefono_cliente) e.preventDefault();
-                          }}
-                          className={`shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 ${!formData.telefono_cliente ? 'opacity-50 pointer-events-none' : ''}`}
-                          title="Llamar"
-                          aria-label="Llamar"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.86.31 1.7.57 2.5a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.58-1.09a2 2 0 0 1 2.11-.45c.8.26 1.64.45 2.5.57A2 2 0 0 1 22 16.92Z" />
-                          </svg>
-                        </a>
-                      </div>
-                    </div>
-
-                    {/* Dirección con botones */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Dirección</label>
-                        <button
-                          type="button"
-                          onClick={() => setShowMapModal(true)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          Seleccionar en mapa
-                        </button>
-                      </div>
-                      <div className="relative">
-                        <textarea
-                          value={formData.direccion}
-                          readOnly={ro('direccion')}
-                          disabled={ro('direccion')}
-                          onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                          rows={2}
-                          className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 pr-12 shadow-theme-xs outline-none resize-none ${inputLockedClass('direccion')}`}
-                          placeholder="Dirección, coordenadas o URL de Google Maps"
-                        />
-                        {formData.direccion && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const direccion = formData.direccion.trim();
-
-                              // Detectar si es una URL de Google Maps
-                              if (direccion.includes('google.com/maps') || direccion.includes('maps.app.goo.gl')) {
-                                window.open(direccion, '_blank');
-                                return;
-                              }
-
-                              // Detectar si son coordenadas (formato: lat,lng)
-                              const coordMatch = direccion.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
-                              if (coordMatch) {
-                                const lat = coordMatch[1];
-                                const lng = coordMatch[2];
-                                window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
-                                return;
-                              }
-
-                              // Si es texto normal, buscar
-                              const query = encodeURIComponent(direccion);
-                              window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
-                            }}
-                            className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                            title="Abrir en Google Maps"
-                          >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {tipoOrden === 'levantamiento' && (
-              <div className={activeTab === 'orden' ? '' : 'hidden'}>
-                <LevantamientoForm
-                  ordenId={editingOrden?.id ?? null}
-                  disabled={isReadOnly || isLimitedEdit}
-                  onSnapshot={(snapshot) => {
-                    levantamientoSnapshotRef.current = snapshot;
-                  }}
-                />
-              </div>
-            )}
-
-            {tipoOrden === 'instalaciones' && (
-              <div className={activeTab === 'orden' ? '' : 'hidden'}>
-                <InstalacionForm
-                  ordenId={editingOrden?.id ?? null}
-                  disabled={isReadOnly || isLimitedEdit}
-                  onSnapshot={(snapshot) => {
-                    instalacionSnapshotRef.current = snapshot;
-                  }}
-                />
-              </div>
-            )}
-
-            {activeTab === "orden" && (
-              <>
-                {/* SECCIÓN 3: Descripción de la Orden */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Descripción de la Orden</h4>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                    {/* Problemática */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Problemática</label>
-                      <textarea
-                        value={formData.problematica}
-                        readOnly={ro('problematica')}
-                        disabled={ro('problematica')}
-                        onChange={(e) => setFormData({ ...formData, problematica: e.target.value })}
-                        rows={3}
-                        className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${inputLockedClass('problematica')}`}
-                        placeholder="Describe el problema reportado"
-                      />
-                    </div>
-
-                    {/* Servicios Realizados con ActionSearchBar */}
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1">
-                        <ActionSearchBar
-                          actions={servicioActions as any}
-                          defaultOpen={false}
-                          label="Servicios Realizados"
-                          placeholder="Buscar o agregar servicio..."
-                          value={servicioSearch}
-                          onQueryChange={(q: string) => setServicioSearch(q)}
-                          onSelectAction={(action: any) => {
-                            if (ro('servicios_realizados')) return;
-                            if (action?.id === '__new__') {
-                              const nuevoServicio = servicioSearch.trim();
-                              if (nuevoServicio && !serviciosDisponibles.includes(nuevoServicio)) {
-                                setServiciosDisponibles([...serviciosDisponibles, nuevoServicio]);
-                              }
-                              addServicio(nuevoServicio);
-                              return;
-                            }
-                            addServicio(action.id);
-                          }}
-                        />
-                      </div>
-                      {formData.servicios_realizados.length > 0 && !ro('servicios_realizados') && (
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, servicios_realizados: [] })}
-                          aria-label="Limpiar selección"
-                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="w-4 h-4"
-                          >
-                            <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
-                            <path d="M18 11l-4.3-4.3" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {formData.servicios_realizados.map((servicio, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-[#fff3e8] dark:bg-[#ff801f]/15 text-[#9a3412] dark:text-[#fdba74] rounded-md text-xs"
-                        >
-                          {servicio}
-                          {!ro('servicios_realizados') && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setFormData({
-                                  ...formData,
-                                  servicios_realizados: formData.servicios_realizados.filter((_, i) => i !== index)
-                                });
-                              }}
-                              className="hover:text-[#7c2d12] dark:hover:text-[#ffedd5] ml-1"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Comentario del Técnico */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Comentario del Técnico</label>
-                      <textarea
-                        value={formData.comentario_tecnico}
-                        readOnly={ro('comentario_tecnico')}
-                        disabled={ro('comentario_tecnico')}
-                        onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
-                        rows={3}
-                        className={`w-full rounded-lg border border-gray-300 dark:border-gray-700 text-sm px-3 py-2 shadow-theme-xs outline-none resize-none ${inputLockedClass('comentario_tecnico')}`}
-                        placeholder="Observaciones del técnico..."
-                      />
-                    </div>
-
-                    {/* Status del técnico */}
-                    <div>
-                      <label
-                        htmlFor={statusTecnicoId}
-                        className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300"
-                      >
-                        Status del técnico
-                      </label>
-                      <select
-                        id={statusTecnicoId}
-                        value={formData.status}
-                        disabled={ro("status")}
-                        onChange={(e) =>
-                          setFormData({ ...formData, status: e.target.value as "pendiente" | "resuelto" })
-                        }
-                        className={`h-10 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${inputLockedClass("status")}`}
-                      >
-                        <option value="pendiente">No, pendiente</option>
-                        <option value="resuelto">Sí, problema resuelto</option>
-                      </select>
-                    </div>
-
-                    {/* Seguimiento administrativo (admins) */}
-                    {isAdmin ? (
-                      <div className="relative overflow-hidden rounded-xl border border-[#e7ded0] bg-gradient-to-br from-[#fffdf8] via-white to-[#fff3e8]/70 p-4 dark:border-[#334155] dark:from-[#111a2b] dark:via-[#0f172a] dark:to-[#1a1510]">
-                        <div
-                          className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#ff801f]/10 blur-2xl dark:bg-[#ff801f]/15"
-                          aria-hidden
-                        />
-                        <div className="relative mb-3 flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c2410c] dark:border-[#fb923c]/35 dark:bg-[#fb923c]/10 dark:text-[#fdba74]">
-                            <span className="h-1.5 w-1.5 rounded-full bg-[#ff801f]" aria-hidden />
-                            Admin
-                          </span>
-                          <h5 className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
-                            Seguimiento administrativo
-                          </h5>
-                        </div>
-                        <p className="relative mb-4 text-xs leading-relaxed text-[#78716c] dark:text-[#94a3b8]">
-                          Control de oficina independiente del status del técnico. Las cotizaciones y el
-                          status administrativo se guardan con la orden.
-                        </p>
-                        <div className="relative grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
-                          <div className={statusAdministrativo === "enviado" ? "" : "sm:col-span-2"}>
-                            <label
-                              htmlFor={statusAdminId}
-                              className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300"
-                            >
-                              Status administrativo
-                            </label>
-                            <select
-                              id={statusAdminId}
-                              value={statusAdministrativo}
-                              disabled={isReadOnly || isLimitedEdit}
-                              onChange={(e) => {
-                                const next = e.target.value as StatusAdministrativo;
-                                setStatusAdministrativo(next);
-                                if (next === "enviado") {
-                                  setFechaEnvioAdmin((prev) => prev || new Date().toISOString().slice(0, 10));
-                                }
-                              }}
-                              className={`h-10 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${
-                                isReadOnly || isLimitedEdit
-                                  ? "cursor-not-allowed bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400"
-                                  : "bg-white text-gray-800 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:bg-gray-800 dark:text-gray-200 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20"
-                              }`}
-                            >
-                              <option value="pendiente">Pendiente</option>
-                              <option value="en_revision">En revisión</option>
-                              <option value="enviado">Enviado</option>
-                              <option value="cerrado">Cerrado</option>
-                            </select>
-                          </div>
-                          {statusAdministrativo === "enviado" ? (
-                            <div>
-                              <label
-                                htmlFor={fechaEnvioAdminId}
-                                className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300"
-                              >
-                                Fecha en que se envió
-                              </label>
-                              <div className="[&_input]:!h-10 [&_input]:!py-2 [&_input]:!text-sm">
-                                <DatePicker
-                                  key={`fecha-envio-admin-${editingOrden?.id ?? "new"}-${formNonceRef.current}-${statusAdministrativo}`}
-                                  id={fechaEnvioAdminId}
-                                  placeholder="Seleccionar fecha"
-                                  disabled={isReadOnly || isLimitedEdit}
-                                  defaultDate={fechaEnvioAdmin || undefined}
-                                  onChange={(_dates, currentDateString) => {
-                                    setFechaEnvioAdmin(currentDateString || "");
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                        <OrdenAdminCotizacionesField
-                          value={cotizacionesAdmin}
-                          onChange={setCotizacionesAdmin}
-                          disabled={isReadOnly || isLimitedEdit}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {activeTab === "cliente" && (
-              <>
-                {/* SECCIÓN 4: Detalles de Tiempo */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles de Tiempo</h4>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                    {/* Fechas de Inicio */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <DatePicker
-                          key={`fecha-inicio-${editingOrden?.id ?? "new"}-${formNonceRef.current}`}
-                          id="fecha-inicio"
-                          label="Fecha Inicio"
-                          placeholder="Seleccionar fecha"
-                          disabled={ro('fecha_inicio')}
-                          defaultDate={formData.fecha_inicio || undefined}
-                          onChange={(_dates, currentDateString) => {
-                            setFormData((prev) => ({
-                              ...prev,
-                              fecha_inicio: currentDateString || "",
-                            }));
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="hora-inicio">Hora Inicio</Label>
-                        <div className="relative">
-                          <Input
-                            type="time"
-                            id="hora-inicio"
-                            name="hora-inicio"
-                            disabled={ro('hora_inicio')}
-                            value={formData.hora_inicio}
-                            onChange={(e) => setFormData({ ...formData, hora_inicio: e.target.value })}
-                          />
-                          <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
-                            <TimeIcon className="size-6" />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Fechas de Finalización */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <DatePicker
-                          key={`fecha-finalizacion-${editingOrden?.id ?? "new"}-${formNonceRef.current}`}
-                          id="fecha-finalizacion"
-                          label="Fecha Finalización"
-                          placeholder="Seleccionar fecha"
-                          disabled={ro('fecha_finalizacion')}
-                          defaultDate={formData.fecha_finalizacion || undefined}
-                          onChange={(_dates, currentDateString) => {
-                            setFormData((prev) => ({
-                              ...prev,
-                              fecha_finalizacion: currentDateString || "",
-                            }));
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="hora-termino">Hora Término</Label>
-                        <div className="relative">
-                          <Input
-                            type="time"
-                            id="hora-termino"
-                            name="hora-termino"
-                            disabled={ro('hora_termino')}
-                            value={formData.hora_termino}
-                            onChange={(e) => setFormData({ ...formData, hora_termino: e.target.value })}
-                          />
-                          <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
-                            <TimeIcon className="size-6" />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {activeTab === "cliente" && (
-              <>
-                {/* SECCIÓN 5: Firmas y Archivos */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg className="w-5 h-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Firmas y Archivos</h4>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-gray-900/40 shadow-theme-xs space-y-4">
-                    {/* Firmas */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <SignaturePad
-                        label="Firma del Encargado"
-                        value={tecnicoSignatureUrl || mySignatureUrl || formData.firma_encargado_url}
-                        disabled={true}
-                        onChange={() => { }}
-                        width={400}
-                        height={250}
-                      />
-
-                      <SignaturePad
-                        label="Firma del Cliente"
-                        value={formData.firma_cliente_url}
-                        disabled={ro('firma_cliente_url')}
-                        onChange={(signature) => setFormData({ ...formData, firma_cliente_url: signature })}
-                        width={400}
-                        height={250}
-                      />
-                    </div>
-
-                    {/* Subida de Fotos - Dropzone con dz-message */}
-                    {!ro('fotos_extra_max') && (
-                    <div className="rounded-lg border border-gray-200 dark:border-white/10 p-3 sm:p-4 space-y-2">
-                      <label htmlFor="fotos-extra-max" className="block text-sm font-medium text-gray-800 dark:text-gray-100">
-                        Fotos adicionales (además de las {ORDEN_BASE_MAX_FOTOS} base)
-                      </label>
-                      <select
-                        id="fotos-extra-max"
-                        value={formData.fotos_extra_max}
-                        onChange={(e) => {
-                          const n = Number(e.target.value) as FotosExtraMax;
-                          setFormData({ ...formData, fotos_extra_max: n });
-                        }}
-                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#ff801f]/80 focus:ring-2 focus:ring-[#ff801f]/20 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100"
-                        aria-describedby="fotos-extra-hint-admin"
-                      >
-                        <option value={0}>Ninguna — máximo {ORDEN_BASE_MAX_FOTOS} en total</option>
-                        <option value={2}>+2 — máximo {ORDEN_BASE_MAX_FOTOS + 2} en total</option>
-                        <option value={3}>+3 — máximo {ORDEN_BASE_MAX_FOTOS + 3} en total</option>
-                        <option value={4}>+4 — máximo {ORDEN_BASE_MAX_FOTOS + 4} en total</option>
-                        <option value={5}>+5 — máximo {ORDEN_BASE_MAX_FOTOS + 5} en total</option>
-                      </select>
-                      <p id="fotos-extra-hint-admin" className="text-xs text-gray-600 dark:text-gray-400">
-                        Límite actual: {maxPhotosAllowed} fotos en total.
-                      </p>
-                    </div>
-                    )}
-
-                    {!ro('fotos_urls') && (
-                    <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-[#ff801f] dark:border-gray-700 rounded-lg hover:border-[#ff801f]">
-                      <div
-                        {...getRootProps()}
-                        className={`dropzone rounded-lg border-dashed border-gray-300 p-4 sm:p-5 ${isDragActive ? "border-[#ff801f] bg-[#fff8f1] dark:bg-gray-800" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
-                          }`}
-                        id="fotos-upload"
-                        role="button"
-                        tabIndex={0}
-                      >
-                        {/* Input oculto */}
-                        <input {...getInputProps()} />
-
-                        <div className="dz-message flex flex-col items-center m-0!">
-                          {/* Contenedor del icono */}
-                          <div className="mb-3 flex justify-center">
-                            <div className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                              <svg
-                                className="fill-current"
-                                width="22"
-                                height="22"
-                                viewBox="0 0 29 28"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  clipRule="evenodd"
-                                  d="M14.5019 3.91699C14.2852 3.91699 14.0899 4.00891 13.953 4.15589L8.57363 9.53186C8.28065 9.82466 8.2805 10.2995 8.5733 10.5925C8.8661 10.8855 9.34097 10.8857 9.63396 10.5929L13.7519 6.47752V18.667C13.7519 19.0812 14.0877 19.417 14.5019 19.417C14.9161 19.417 15.2519 19.0812 15.2519 18.667V6.48234L19.3653 10.5929C19.6583 10.8857 20.1332 10.8855 20.426 10.5925C20.7188 10.2995 20.7186 9.82463 20.4256 9.53184L15.0838 4.19378C14.9463 4.02488 14.7367 3.91699 14.5019 3.91699ZM5.91626 18.667C5.91626 18.2528 5.58047 17.917 5.16626 17.917C4.75205 17.917 4.41626 18.2528 4.41626 18.667V21.8337C4.41626 23.0763 5.42362 24.0837 6.66626 24.0837H22.3339C23.5766 24.0837 24.5839 23.0763 24.5839 21.8337V18.667C24.5839 18.2528 24.2482 17.917 23.8339 17.917C23.4197 17.917 23.0839 18.2528 23.0839 18.667V21.8337C23.0839 22.2479 22.7482 22.5837 22.3339 22.5837H6.66626C6.25205 22.5837 5.91626 22.2479 5.91626 21.8337V18.667Z"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-
-                          {/* Contenido de texto */}
-                          <h4 className="mb-1 font-semibold text-gray-800 text-sm sm:text-base dark:text-white/90">
-                            {isDragActive ? "Suelta aquí para subir" : `Haz clic o arrastra imágenes (máx. ${maxPhotosAllowed})`}
-                          </h4>
-
-                          <span className="text-center mb-2 block w-full max-w-[320px] text-[12px] text-gray-700 dark:text-gray-400">
-                            Formatos: PNG, JPG, WebP o SVG
-                          </span>
-
-                          <span className="font-medium underline text-[12px] text-[#ff801f]">
-                            Buscar archivos
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    )}
-
-                    {/* Previsualizaciones y eliminar */}
-                    {Array.isArray(formData.fotos_urls) && formData.fotos_urls.length > 0 && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-3">
-                        {formData.fotos_urls.map((preview, index) => (
-                          <div key={index} className="relative group">
-                            <button
-                              type="button"
-                              onClick={() => setPhotoPreview({ open: true, url: preview, index })}
-                              className="block w-full cursor-zoom-in overflow-hidden rounded-lg border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#ff801f]/40 dark:border-gray-700"
-                              aria-label={`Ver foto ${index + 1} en tamaño completo`}
-                            >
-                              <img
-                                src={preview}
-                                alt={`Foto ${index + 1}`}
-                                className="h-24 w-full object-cover pointer-events-none"
-                              />
-                            </button>
-                            {!ro('fotos_urls') && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setConfirmDelete({ open: true, index, url: preview });
-                                }}
-                                className="absolute top-1 right-1 z-[1] flex h-6 w-6 items-center justify-center rounded-full bg-error-600 text-white opacity-100 transition-opacity hover:bg-error-700 sm:opacity-0 sm:group-hover:opacity-100"
-                                title="Eliminar imagen"
-                              >
-                                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <OrdenPhotoPreviewModal
-                      open={photoPreview.open}
-                      url={photoPreview.url}
-                      index={photoPreview.index}
-                      total={formData.fotos_urls.length}
-                      onClose={() => setPhotoPreview({ open: false, url: null, index: 0 })}
-                    />
-                    <OrdenPhotoDeleteModal
-                      open={confirmDelete.open}
-                      deleting={deletingPhoto}
-                      onCancel={() => setConfirmDelete({ open: false, index: null, url: null })}
-                      onConfirm={() => {
-                        if (confirmDelete.index != null && confirmDelete.url) {
-                          void handleDeletePhoto(confirmDelete.index, confirmDelete.url);
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-          </div>
-        </form>
-          <div className={erpModalFooterClass}>
-            <OrdenModalFooterActions
-              onCancel={handleCloseModal}
-              primary={
-                activeTab === "cliente" ? (
-                  <OrdenModalPrimaryButton
-                    type="button"
-                    disabled={isSaving}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      goToOrdenTab(true);
-                    }}
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                      <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    Siguiente
-                  </OrdenModalPrimaryButton>
-                ) : (
-                  <OrdenModalPrimaryButton type="button" disabled={isSaving} onClick={triggerSaveFromFooter}>
-                    {isSaving ? (
-                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                        <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                        <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
-                      </svg>
-                    ) : (
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                        <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                    {isSaving ? "Guardando…" : editingOrden ? "Actualizar" : "Guardar"}
-                  </OrdenModalPrimaryButton>
-                )
-              }
-            />
-          </div>
-        </div>
-
-      </Modal>
+        {(activeTab === "orden" || tipoOrden === "levantamiento") && (
+          <OrdenDetalleTab
+            variant="admin"
+            panelId={ORDEN_FORM_PANEL_IDS.orden}
+            labelledBy={ORDEN_FORM_TAB_IDS.orden}
+            isActive={activeTab === "orden"}
+            showLevantamiento={tipoOrden === "levantamiento"}
+            tipoOrden={tipoOrden}
+            setTipoOrden={setTipoOrden}
+            isReadOnly={isReadOnly}
+            isLimitedEdit={isLimitedEdit}
+            editingOrden={editingOrden}
+            levantamientoSnapshotRef={levantamientoSnapshotRef}
+            formData={formData}
+            setFormData={setFormData}
+            ro={ro}
+            inputLockedClass={inputLockedClass}
+            servicioActions={servicioActions}
+            servicioSearch={servicioSearch}
+            setServicioSearch={setServicioSearch}
+            serviciosDisponibles={serviciosDisponibles}
+            setServiciosDisponibles={setServiciosDisponibles}
+            addServicio={addServicio}
+            isAdmin={isAdmin}
+            statusTecnicoId={statusTecnicoId}
+            statusAdminId={statusAdminId}
+            fechaEnvioAdminId={fechaEnvioAdminId}
+            statusAdministrativo={statusAdministrativo}
+            setStatusAdministrativo={setStatusAdministrativo}
+            fechaEnvioAdmin={fechaEnvioAdmin}
+            setFechaEnvioAdmin={setFechaEnvioAdmin}
+            cotizacionesAdmin={cotizacionesAdmin}
+            setCotizacionesAdmin={setCotizacionesAdmin}
+          />
+        )}
+      </OrdenFormModal>
 
       {ordenToDelete && (
         <OrdenDeleteModal

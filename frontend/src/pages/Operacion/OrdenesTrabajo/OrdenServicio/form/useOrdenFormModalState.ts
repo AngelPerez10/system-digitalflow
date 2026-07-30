@@ -1,12 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
-import type { Orden } from "./ordenesPageTypes";
+import type { Orden } from "../shared/ordenesPageTypes";
 import {
   isOrdenFieldReadOnly,
   isOrdenLimitedEdit,
   type OrdenEditableField,
-} from "./ordenEditScope";
+} from "../shared/ordenEditScope";
 
-export type TipoOrden = "servicio_tecnico" | "levantamiento" | "instalaciones" | "mantenimiento";
+export type TipoOrden = "servicio_tecnico" | "levantamiento" | "mantenimiento";
 export type OrdenFormTab = "orden" | "cliente";
 
 export function useOrdenFormModalState({
@@ -52,8 +52,6 @@ export function useOrdenFormModalState({
     switch (tipoOrden) {
       case "levantamiento":
         return "Levantamiento";
-      case "instalaciones":
-        return "Instalaciones";
       case "mantenimiento":
         return "Mantenimiento";
       case "servicio_tecnico":

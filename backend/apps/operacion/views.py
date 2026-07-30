@@ -16,8 +16,8 @@ from apps.ordenes.image_services import (
 )
 from apps.users.permissions import ProyectosPermission, user_module_own_only
 
-from .models import Proyecto
-from .serializers import ProyectoSerializer
+from .models import Proyecto, ProyectoInstalacion
+from .serializers import ProyectoInstalacionSerializer, ProyectoSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ PROYECTO_UPLOAD_FOLDERS = frozenset(
         "proyectos/evidencias",
         "proyectos/bitacora",
         "proyectos/firmas",
+        "proyectos/instalacion/dibujos",
     }
 )
 
@@ -155,3 +156,69 @@ class ProyectoViewSet(viewsets.ModelViewSet):
                 {"detail": "Error eliminando imagen en Cloudinary"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+
+
+def _is_data_url(value: str) -> bool:
+    return isinstance(value, str) and value.startswith("data:") and ";base64," in value
+
+
+class ProyectoInstalacionViewSet(viewsets.ModelViewSet):
+    """CRUD de instalaciones ligadas a proyectos. Permisos módulo `proyectos`."""
+
+    permission_classes = [IsAuthenticated, ProyectosPermission]
+    pagination_class = None
+    serializer_class = ProyectoInstalacionSerializer
+    queryset = ProyectoInstalacion.objects.select_related(
+        "proyecto", "proyecto__cliente", "creado_por"
+    ).all()
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        qs = (
+            self.queryset.all()
+            .select_related("proyecto", "proyecto__cliente", "creado_por")
+            .order_by("-idx", "-id")
+        )
+        user = getattr(self.request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return qs.none()
+        if user_module_own_only(user, "proyectos"):
+            qs = qs.filter(
+                Q(proyecto__tecnico=user)
+                | Q(proyecto__creado_por=user)
+                | Q(proyecto__auxiliar=user)
+            )
+        proyecto_id = self.request.query_params.get("proyecto")
+        if proyecto_id not in (None, ""):
+            try:
+                qs = qs.filter(proyecto_id=int(proyecto_id))
+            except (TypeError, ValueError):
+                qs = qs.none()
+        return qs
+
+    def perform_create(self, serializer):
+        validated = dict(serializer.validated_data)
+        dibujo_url = validated.get("dibujo_url") or ""
+        if _is_data_url(dibujo_url):
+            dibujo_url = upload_data_url(
+                dibujo_url,
+                folder="proyectos/instalacion/dibujos",
+                max_size_kb=200,
+            )
+        serializer.save(
+            creado_por=self.request.user if self.request.user.is_authenticated else None,
+            dibujo_url=dibujo_url,
+        )
+
+    def perform_update(self, serializer):
+        validated = dict(serializer.validated_data)
+        dibujo_url = validated.get("dibujo_url")
+        if dibujo_url is not None and _is_data_url(dibujo_url):
+            dibujo_url = upload_data_url(
+                dibujo_url,
+                folder="proyectos/instalacion/dibujos",
+                max_size_kb=200,
+            )
+            serializer.save(dibujo_url=dibujo_url)
+            return
+        serializer.save()

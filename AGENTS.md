@@ -19,6 +19,14 @@ Flujo obligatorio: resolver primero el library ID con Context7 y luego consultar
 - **Auth**: cookies HttpOnly + CSRF. Usar siempre `fetchApi` de `src/config/api.ts` — no `localStorage.getItem("token")` ni `fetch` crudo para API autenticada.
 - **API**: las rutas nuevas deben preferir `/api/v1/`. El prefijo legado `/api/` se mantiene por compatibilidad; no eliminarlo sin plan de migración frontend/clientes.
 
+### Plantilla de feature pages (programa arquitectura)
+
+Ver `docs/superpowers/specs/2026-07-30-frontend-architecture-roadmap-design.md`.
+Ola 1 (Proyectos): carpetas `list/`, `form/`, `shared/`, `instalaciones/` — detalle en
+`docs/superpowers/specs/2026-07-30-proyectos-frontend-architecture-design.md`.
+Ola 2 (Órdenes servicio): carpetas `list/`, `form/`, `shared/` — detalle en
+`docs/superpowers/specs/2026-07-30-ordenes-frontend-architecture-design.md`.
+
 ## Permisos
 
 Los permisos viven en `UserPermissions.permissions` (JSON por módulo: `view`, `create`, `edit`, `delete`).
@@ -129,6 +137,9 @@ Terminal 2: frontend → pnpm dev :5173
 | SSRF imágenes | `backend/apps/common/ssrf.py` |
 | CI | `.github/workflows/ci.yml` |
 | ESLint (frontend) | `frontend/eslint.config.js` |
+| Arquitectura frontend (roadmap) | `docs/superpowers/specs/2026-07-30-frontend-architecture-roadmap-design.md` |
+| Proyectos — Ola 1 (carpetas) | `docs/superpowers/specs/2026-07-30-proyectos-frontend-architecture-design.md` |
+| Órdenes servicio — Ola 2 (carpetas) | `docs/superpowers/specs/2026-07-30-ordenes-frontend-architecture-design.md` |
 | Ventas (pages) | `frontend/src/pages/Ventas/` — ver tabla abajo |
 
 ### `pages/Ventas/` (lazy imports)
@@ -166,7 +177,8 @@ En `backend/config/middleware.py`, las peticiones a `/api/*` con cabecera `Autho
 - HTML de órdenes: `backend/apps/ordenes/pdf_templates/orden.py`
 - HTML de facturas CFDI (SICAR): `backend/apps/cotizaciones/sicar_cfdi_pdf.py`
 - Helpers compartidos: `backend/apps/common/pdf_html.py`, `backend/apps/common/pdf_images.py`
-- **Proyectos CRUD** (`apps/operacion`): `GET/POST /api/proyectos/`, `GET/PATCH/DELETE /api/proyectos/{id}/`, `POST /api/proyectos/upload-image/` y `delete-image/`. Permisos del módulo **`proyectos`** (`ProyectosPermission`). Folio `PRJ-{idx}`. Carpetas Cloudinary: `proyectos/evidencias`, `proyectos/bitacora`, `proyectos/firmas`.
+- **Proyectos CRUD** (`apps/operacion`): `GET/POST /api/proyectos/`, `GET/PATCH/DELETE /api/proyectos/{id}/`, `POST /api/proyectos/upload-image/` y `delete-image/`. Permisos del módulo **`proyectos`** (`ProyectosPermission`). Folio `PRJ-{idx}`. Carpetas Cloudinary: `proyectos/evidencias`, `proyectos/bitacora`, `proyectos/firmas`, `proyectos/instalacion/dibujos`.
+- **Instalaciones GPS de proyecto**: `GET/POST /api/proyecto-instalaciones/`, `GET/PATCH/DELETE /api/proyecto-instalaciones/{id}/` (filtro `?proyecto=`). Folio UI `INS-{idx}`. Permisos módulo **`proyectos`**.
 - **Enviar PDF de orden por correo** (solo servicio técnico resuelto): `POST /api/ordenes/{id}/enviar-pdf/` + SMTP vía `EMAIL_HOST` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_PORT=465` / `EMAIL_USE_SSL=true` (ver `backend/.env.example`). Lógica en `backend/apps/ordenes/email_pdf.py`.
 - **Enviar PDF de cotización por correo** (PENDIENTE o AUTORIZADA): `POST /api/cotizaciones/{id}/enviar-pdf/` — mismo SMTP; asunto/cuerpo en `backend/apps/cotizaciones/email_pdf.py`.
 

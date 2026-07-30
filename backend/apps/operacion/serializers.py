@@ -4,7 +4,7 @@ from rest_framework import serializers
 from apps.clientes.models import Cliente
 
 from .close_validation import validate_proyecto_cierre
-from .models import Proyecto
+from .models import Proyecto, ProyectoInstalacion
 
 User = get_user_model()
 
@@ -190,3 +190,72 @@ class ProyectoSerializer(serializers.ModelSerializer):
         if not result.ok:
             raise serializers.ValidationError({"status": [result.message]})
         return attrs
+
+
+class ProyectoInstalacionSerializer(serializers.ModelSerializer):
+    proyecto = serializers.PrimaryKeyRelatedField(queryset=Proyecto.objects.all())
+    proyecto_idx = serializers.IntegerField(source="proyecto.idx", read_only=True, allow_null=True)
+    proyecto_folio = serializers.SerializerMethodField()
+    cliente_nombre = serializers.CharField(source="proyecto.cliente_nombre", read_only=True)
+
+    class Meta:
+        model = ProyectoInstalacion
+        fields = [
+            "id",
+            "idx",
+            "proyecto",
+            "proyecto_idx",
+            "proyecto_folio",
+            "cliente_nombre",
+            "payload",
+            "dibujo_url",
+            "creado_por",
+            "fecha_creacion",
+            "fecha_actualizacion",
+        ]
+        read_only_fields = [
+            "id",
+            "idx",
+            "proyecto_idx",
+            "proyecto_folio",
+            "cliente_nombre",
+            "creado_por",
+            "fecha_creacion",
+            "fecha_actualizacion",
+        ]
+
+    def get_proyecto_folio(self, obj: ProyectoInstalacion) -> str:
+        from apps.common.document_folio import FOLIO_SERIE_PRJ, resolve_document_folio
+
+        proyecto = obj.proyecto
+        return resolve_document_folio(FOLIO_SERIE_PRJ, getattr(proyecto, "folio", None), getattr(proyecto, "idx", None))
+
+    def validate_payload(self, value):
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("payload debe ser un objeto JSON.")
+        return value
+
+    def validate_dibujo_url(self, value):
+        if value is None:
+            return ""
+        return str(value)
+
+    def validate_proyecto(self, proyecto: Proyecto) -> Proyecto:
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request is not None else None
+        if not user or not getattr(user, "is_authenticated", False):
+            return proyecto
+        from apps.users.permissions import user_module_own_only
+
+        if not user_module_own_only(user, "proyectos"):
+            return proyecto
+        allowed = (
+            proyecto.creado_por_id == getattr(user, "id", None)
+            or proyecto.tecnico_id == getattr(user, "id", None)
+            or proyecto.auxiliar_id == getattr(user, "id", None)
+        )
+        if not allowed:
+            raise serializers.ValidationError("No tienes acceso a este proyecto.")
+        return proyecto

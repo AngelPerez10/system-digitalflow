@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { erpSecondaryBtnClass } from "@/layout/erpPageStyles";
-import { ProyectoFormSection } from "./ProyectoFormSection";
-import { displayCotizacionFolio, estadoBadgeClass, estadoInstalacionLabel } from "./proyectoFormUtils";
+import { ProyectoFormSection } from "../ProyectoFormSection";
+import { displayCotizacionFolio, estadoBadgeClass, estadoInstalacionLabel } from "../../shared/proyectoFormUtils";
 import {
   proyectoEmptyPanelClass,
   proyectoEquipoAccentClass,
@@ -12,13 +12,13 @@ import {
   proyectoEquipoMetaClass,
   proyectoEquipoProgressBarClass,
   proyectoEquipoSummaryChipClass,
-} from "./proyectoPageStyles";
+} from "../../shared/proyectoPageStyles";
 import { ProyectoProductoThumb } from "./ProyectoProductoThumb";
 import type {
   EquipoEstadoInstalacion,
   ProyectoCotizacionBloque,
   ProyectoEquipoLinea,
-} from "./proyectoTypes";
+} from "../../shared/proyectoTypes";
 
 type Props = {
   icon: ReactNode;

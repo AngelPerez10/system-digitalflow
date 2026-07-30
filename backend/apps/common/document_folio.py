@@ -7,6 +7,7 @@ import re
 FOLIO_SERIE_COT = "COT"
 FOLIO_SERIE_ODT = "ODT"
 FOLIO_SERIE_PRJ = "PRJ"
+FOLIO_SERIE_INS = "INS"
 
 _PREFIXED_FOLIO_RE = re.compile(r"^([A-Za-z]{3})-(\d+)$")
 

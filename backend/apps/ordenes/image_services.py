@@ -29,6 +29,7 @@ ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES = (
     "proyectos/evidencias/",
     "proyectos/bitacora/",
     "proyectos/firmas/",
+    "proyectos/instalacion/dibujos/",
 )
 
 try:

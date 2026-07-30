@@ -2,8 +2,8 @@ import { useEffect, useId, useState } from "react";
 import Label from "@/components/form/Label";
 import { Modal } from "@/components/ui/modal";
 import { erpInputLikeClass, erpSecondaryBtnClass, erpSubheadingClass } from "@/layout/erpPageStyles";
-import { searchProyectoCotizaciones } from "@/pages/Operacion/Proyectos/proyectoCotizacionSearch";
-import { displayCotizacionFolio } from "@/pages/Operacion/Proyectos/proyectoFormUtils";
+import { searchProyectoCotizaciones } from "@/pages/Operacion/Proyectos/form/cotizaciones/proyectoCotizacionSearch";
+import { displayCotizacionFolio } from "@/pages/Operacion/Proyectos/shared/proyectoFormUtils";
 import {
   proyectoCotizacionOptionClass,
   proyectoEmptyPanelClass,
@@ -11,8 +11,8 @@ import {
   proyectoPickerModalBodyClass,
   proyectoPickerModalClass,
   proyectoPickerModalHeaderClass,
-} from "@/pages/Operacion/Proyectos/proyectoPageStyles";
-import type { CotizacionOrigen, CotizacionResumen } from "@/pages/Operacion/Proyectos/proyectoTypes";
+} from "@/pages/Operacion/Proyectos/shared/proyectoPageStyles";
+import type { CotizacionOrigen, CotizacionResumen } from "@/pages/Operacion/Proyectos/shared/proyectoTypes";
 
 type OrdenAdminCotizacionesFieldProps = {
   value: CotizacionResumen[];

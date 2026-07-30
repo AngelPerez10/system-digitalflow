@@ -10,9 +10,9 @@ import DatePicker from "@/components/form/date-picker";
 import { fetchApi } from "@/config/api";
 import { formatMonthLabelEs, getCurrentMonthKey } from "@/utils/statsMonthKey";
 import { PencilIcon, TrashBinIcon } from "@/icons";
-import { MobileOrderList } from "../OrdenServicio/MobileOrderCard";
-import { OrdenPdfLoadingModal } from "../OrdenServicio/OrdenPdfLoadingModal";
-import { handleOrdenPdfClick, displayOrdenFolio } from "../OrdenServicio/useOrdenesShared";
+import { MobileOrderList } from "../OrdenServicio/list/MobileOrderCard";
+import { OrdenPdfLoadingModal } from "../OrdenServicio/list/OrdenPdfLoadingModal";
+import { handleOrdenPdfClick, displayOrdenFolio } from "../OrdenServicio/shared/useOrdenesShared";
 import {
   claudeBodyClass,
   erpBreadcrumbLinkClass,

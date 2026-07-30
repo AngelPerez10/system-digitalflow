@@ -1,5 +1,5 @@
-import type { OrdenStats } from "./ordenesPageTypes";
-import { erpStatCardClass } from "../ordenTrabajoStyles";
+import type { OrdenStats } from "../shared/ordenesPageTypes";
+import { erpStatCardClass } from "../../ordenTrabajoStyles";
 
 type Props = {
   stats: OrdenStats;

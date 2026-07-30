@@ -12,8 +12,8 @@ import {
   erpSecondaryBtnClass,
   erpSubheadingClass,
   sectionLabelOrangeClass,
-} from "../ordenTrabajoStyles";
-import { displayOrdenFolio } from "./useOrdenesShared";
+} from "../../ordenTrabajoStyles";
+import { displayOrdenFolio } from "../shared/useOrdenesShared";
 
 export type OrdenEnviarPdfTarget = {
   id: number;

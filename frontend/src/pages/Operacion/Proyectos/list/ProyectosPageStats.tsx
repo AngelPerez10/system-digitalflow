@@ -1,5 +1,5 @@
-import type { ProyectoStats } from "./proyectoTypes";
-import { erpStatCardClass } from "../OrdenesTrabajo/ordenTrabajoStyles";
+import type { ProyectoStats } from "../shared/proyectoTypes";
+import { erpStatCardClass } from "../../OrdenesTrabajo/ordenTrabajoStyles";
 
 type Props = {
   stats: ProyectoStats;

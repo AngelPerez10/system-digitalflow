@@ -16,7 +16,7 @@ import {
   erpTableHeaderClass,
   erpTableWrapClass,
 } from "@/layout/erpPageStyles";
-import { OrdenPdfLoadingModal } from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/OrdenPdfLoadingModal";
+import { OrdenPdfLoadingModal } from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/list/OrdenPdfLoadingModal";
 import { useAuth } from "@/context/AuthContext";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";

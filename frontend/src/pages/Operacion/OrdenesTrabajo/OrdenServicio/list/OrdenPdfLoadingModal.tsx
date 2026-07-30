@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { Modal } from "@/components/ui/modal";
-import { sectionLabelOrangeClass } from "../ordenTrabajoStyles";
+import { sectionLabelOrangeClass } from "../../ordenTrabajoStyles";
 
 type OrdenPdfLoadingModalProps = {
   open: boolean;

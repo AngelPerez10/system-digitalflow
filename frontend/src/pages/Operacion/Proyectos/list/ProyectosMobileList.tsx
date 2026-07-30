@@ -1,13 +1,13 @@
 import { PencilIcon, TrashBinIcon } from "@/icons";
-import { erpMobileCardClass } from "../OrdenesTrabajo/ordenTrabajoStyles";
+import { erpMobileCardClass } from "../../OrdenesTrabajo/ordenTrabajoStyles";
 import {
   displayCotizacionFolio,
   displayProyectoFolio,
   estadoProyectoBadgeClass,
   estadoProyectoLabel,
-} from "./proyectoFormUtils";
-import { formatProyectoFecha, proyectoOrigenBadgeClass } from "./proyectoPageStyles";
-import type { ProyectoRow } from "./proyectoTypes";
+} from "../shared/proyectoFormUtils";
+import { formatProyectoFecha, proyectoOrigenBadgeClass } from "../shared/proyectoPageStyles";
+import type { ProyectoRow } from "../shared/proyectoTypes";
 
 const mobileActionBtnClass =
   "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] transition hover:border-[#ff801f] hover:text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:border-[#ff801f]";

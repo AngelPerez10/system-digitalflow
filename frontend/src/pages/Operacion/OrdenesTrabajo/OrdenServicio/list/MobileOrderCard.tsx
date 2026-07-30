@@ -1,9 +1,8 @@
-import { OrdenViewModal } from "../OrdenTrabajoModals";
+import { OrdenViewModal } from "../../OrdenTrabajoModals";
 import { useState } from "react";
-import { PencilIcon, TrashBinIcon } from "../../../../icons";
-import { MailIcon } from "@/icons";
-import { erpMobileCardClass } from "../ordenTrabajoStyles";
-import { displayOrdenFolio, isOrdenResuelta, isOrdenServicioTecnico } from "./useOrdenesShared";
+import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
+import { erpMobileCardClass } from "../../ordenTrabajoStyles";
+import { displayOrdenFolio, isOrdenResuelta, isOrdenServicioTecnico } from "../shared/useOrdenesShared";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;

@@ -1,11 +1,22 @@
 import { fetchApi } from "@/config/api";
 import { FOLIO_SERIE, matchesDocumentFolio, resolveDocumentFolio } from "@/utils/documentFolio";
+import type { Orden, ServicioCatalogo, Usuario } from "./ordenesPageTypes";
+
+export type {
+  Orden,
+  Usuario,
+  ServicioCatalogo,
+  FotosExtraMax,
+} from "./ordenesPageTypes";
+export {
+  ORDEN_BASE_MAX_FOTOS,
+  FOTOS_EXTRA_OPTIONS,
+  normalizeFotosExtraFromOrden,
+  getCurrentYearMonth,
+} from "./ordenesPageTypes";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
-export const ORDEN_BASE_MAX_FOTOS = 5;
-export const FOTOS_EXTRA_OPTIONS = [0, 2, 3, 4, 5] as const;
 export const ORDENES_PAGE_INIT_THROTTLE_MS = 800;
-export type FotosExtraMax = (typeof FOTOS_EXTRA_OPTIONS)[number];
 
 /** Folio visible de orden: respeta SERIE-n existente o formatea ODT-{idx}. */
 export function displayOrdenFolio(
@@ -20,58 +31,6 @@ export function displayOrdenFolio(
 }
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-export interface ServicioCatalogo {
-  id: number;
-  nombre: string;
-  descripcion?: string;
-  categoria?: string;
-  activo?: boolean;
-}
-
-export interface Orden {
-  id: number;
-  idx: number;
-  folio?: string | null;
-  cliente_id: number | null;
-  cliente: string;
-  direccion: string;
-  telefono_cliente: string;
-  problematica: string;
-  servicios_realizados: string[];
-  status: 'pendiente' | 'resuelto';
-  comentario_tecnico: string;
-  fecha_inicio: string;
-  hora_inicio: string;
-  fecha_finalizacion: string;
-  hora_termino: string;
-  nombre_encargado: string;
-  nombre_cliente: string;
-  tecnico_asignado?: number | null;
-  tecnico_asignado_username?: string;
-  tecnico_asignado_full_name?: string;
-  quien_instalo?: number | null;
-  quien_entrego?: number | null;
-  firma_encargado_url: string;
-  firma_cliente_url: string;
-  fotos_urls: string[];
-  fotos_extra_max?: number;
-  pdf_url?: string;
-  fecha_creacion: string;
-  tipo_orden?: 'servicio_tecnico' | 'levantamiento' | string;
-  creado_por?: number;
-  creado_por_id?: number;
-}
-
-export interface Usuario {
-  id: number;
-  username?: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  is_staff?: boolean;
-  is_superuser?: boolean;
-}
-
 export type AlertVariant = "success" | "error" | "warning" | "info";
 
 export interface AlertState {
@@ -84,22 +43,6 @@ export interface AlertState {
 export const EMPTY_ALERT: AlertState = { show: false, variant: "success", title: "", message: "" };
 
 // ─── Pure helpers ───────────────────────────────────────────────────────────
-
-export function normalizeFotosExtraFromOrden(orden: {
-  fotos_extra_max?: unknown;
-  permitir_fotos_extra?: boolean;
-} | null | undefined): FotosExtraMax {
-  if (!orden) return 0;
-  const v = Number(orden.fotos_extra_max);
-  if (FOTOS_EXTRA_OPTIONS.includes(v as FotosExtraMax)) return v as FotosExtraMax;
-  if (orden.permitir_fotos_extra === true) return 2;
-  return 0;
-}
-
-export const getCurrentYearMonth = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-};
 
 export const formatYmdToDMY = (ymd: string | null | undefined): string => {
   if (!ymd) return '-';
@@ -503,6 +446,14 @@ export const deleteImageFromCloudinary = async (publicId: string): Promise<void>
 
 // ─── API fetchers ───────────────────────────────────────────────────────────
 
+// ─── API helpers ────────────────────────────────────────────────────────────
+
+function unwrapListResults<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  const results = (data as { results?: T[] } | null)?.results;
+  return Array.isArray(results) ? results : [];
+}
+
 export const fetchClientesApi = async (search = "") => {
   try {
     const query = new URLSearchParams({
@@ -514,7 +465,7 @@ export const fetchClientesApi = async (search = "") => {
     });
     if (response.ok) {
       const data = await response.json();
-      return Array.isArray(data) ? data : (data.results || []);
+      return unwrapListResults(data);
     }
     return [];
   } catch (error) {
@@ -532,7 +483,7 @@ export const fetchUsuariosApi = async () => {
     }
     if (response.ok) {
       const data = await response.json();
-      return Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
+      return unwrapListResults<Usuario>(data);
     }
     return [];
   } catch (error) {
@@ -550,7 +501,7 @@ export const fetchServiciosApi = async (fallbackServicios: string[] = []) => {
     const data = await res.json().catch(() => null);
     if (!res.ok) return fallbackServicios;
 
-    const results = Array.isArray((data as any)?.results) ? ((data as any).results as ServicioCatalogo[]) : [];
+    const results = unwrapListResults<ServicioCatalogo>(data);
     const names = results
       .filter((s) => s && typeof s.nombre === 'string' && s.nombre.trim() && s.activo !== false)
       .map((s) => s.nombre.trim());
@@ -570,7 +521,7 @@ export const fetchOrdenesApi = async (canView: boolean) => {
     });
     if (response.ok) {
       const data = await response.json();
-      return Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
+      return unwrapListResults<Orden>(data);
     }
     return [];
   } catch (error) {

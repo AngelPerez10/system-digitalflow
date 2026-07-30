@@ -13,7 +13,7 @@ import {
   mapSicarListRowToResumen,
   parseCotizacionApiId,
 } from "./proyectoCotizacionMappers";
-import type { CotizacionOrigen, CotizacionResumen, PresupuestoLinea } from "./proyectoTypes";
+import type { CotizacionOrigen, CotizacionResumen, PresupuestoLinea } from "../../shared/proyectoTypes";
 
 export type ProyectoCotizacionLoadResult = {
   resumen: CotizacionResumen;

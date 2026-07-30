@@ -147,3 +147,50 @@ class Proyecto(models.Model):
     def __str__(self):
         display = (self.folio or "").strip() or self.idx
         return f"Proyecto #{display} - {self.cliente_nombre or 'Sin cliente'}"
+
+
+class ProyectoInstalacion(models.Model):
+    """Instalación GPS (u otro subtipo) asociada a un proyecto. Varias por proyecto."""
+
+    idx = models.IntegerField(unique=True, db_index=True, null=True, blank=True)
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.CASCADE,
+        related_name="instalaciones",
+    )
+    payload = models.JSONField(default=dict, blank=True)
+    dibujo_url = models.TextField(blank=True, default="")
+    creado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="proyecto_instalaciones_creadas",
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-idx", "-id"]
+        verbose_name = "Instalación de proyecto"
+        verbose_name_plural = "Instalaciones de proyecto"
+        indexes = [
+            models.Index(fields=["idx"]),
+            models.Index(fields=["proyecto"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.idx:
+            current_max = ProyectoInstalacion.objects.aggregate(models.Max("idx"))["idx__max"]
+            idx = int(current_max or 0) + 1
+            while ProyectoInstalacion.objects.filter(idx=idx).exists():
+                idx += 1
+            self.idx = idx
+        if self.payload is None:
+            self.payload = {}
+        if self.dibujo_url is None:
+            self.dibujo_url = ""
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Instalación INS-{self.idx} · Proyecto #{self.proyecto_id}"

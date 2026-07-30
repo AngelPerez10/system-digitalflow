@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { fetchApi } from "@/config/api";
-import { OrdenPdfLoadingModal } from "./OrdenPdfLoadingModal";
+import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
 import {
   erpCardShellClass as cardShellClass,
   erpCardShellMutedClass,
@@ -15,7 +15,7 @@ import {
   erpSubheadingClass,
 } from "@/layout/erpPageStyles";
 import { claudeBodyClass, outlineCoralBtnClass, sectionLabelOrangeClass } from "../ordenTrabajoStyles";
-import { downloadOrdenPdfById, isOrdenPdfDirectDownload } from "./useOrdenesShared";
+import { downloadOrdenPdfById, isOrdenPdfDirectDownload } from "./shared/useOrdenesShared";
 
 const externalLinkIcon = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

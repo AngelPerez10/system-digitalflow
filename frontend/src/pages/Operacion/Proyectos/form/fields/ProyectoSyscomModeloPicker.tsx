@@ -21,7 +21,7 @@ import {
   proyectoPickerModalBodyClass,
   proyectoPickerModalClass,
   proyectoPickerModalHeaderClass,
-} from "./proyectoPageStyles";
+} from "../../shared/proyectoPageStyles";
 
 export type CatalogFuentePicker = "syscom" | "tvc" | "manual";
 
