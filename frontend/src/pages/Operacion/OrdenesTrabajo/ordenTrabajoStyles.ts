@@ -60,10 +60,21 @@ export const erpFormPanelClass =
   "rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5";
 
 export const erpFilterBtnClass =
-  "flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 py-2 text-xs font-semibold text-[#57534e] transition-colors hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b] sm:w-auto sm:min-w-[86px]";
+  "relative flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 py-2 text-xs font-semibold text-[#57534e] transition-colors hover:bg-[#fffdf8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b] sm:w-auto sm:min-w-[86px]";
+
+export const erpFilterBtnActiveClass =
+  "border-[#ff801f]/55 bg-[#fff4eb] text-[#9a3412] dark:border-[#fb923c]/50 dark:bg-[#fb923c]/10 dark:text-[#fdba74]";
 
 export const erpFilterPopoverClass =
-  "absolute right-0 z-[110] mt-2 w-72 max-h-[min(80vh,24rem)] overflow-auto rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-xl ring-1 ring-black/5 dark:border-[#273244] dark:bg-[#111a2b] dark:ring-white/10";
+  "absolute right-0 z-[110] mt-2 flex w-[min(calc(100vw-1.5rem),22rem)] max-h-[min(80vh,32rem)] flex-col overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] shadow-[0_24px_48px_-16px_rgba(28,25,23,0.28)] ring-1 ring-black/5 dark:border-[#273244] dark:bg-[#111a2b] dark:ring-white/10";
+
+export const erpFilterSectionLabelClass =
+  "mb-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8]";
+
+export const erpFilterStatusChipClass = (active: boolean) =>
+  active
+    ? "inline-flex min-h-9 flex-1 items-center justify-center rounded-lg bg-[#ff801f] px-2.5 text-xs font-semibold text-black shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40"
+    : "inline-flex min-h-9 flex-1 items-center justify-center rounded-lg border border-[#e2d9ca] bg-[#fffdfa] px-2.5 text-xs font-medium text-[#57534e] transition-colors hover:bg-[#fff8f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/25 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]";
 
 export const erpRowActionBarClass =
   "inline-flex items-center gap-1 rounded-md bg-[#f5f0e8] px-1.5 py-1 dark:bg-white/10";

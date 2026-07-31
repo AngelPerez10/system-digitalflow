@@ -21,6 +21,51 @@ import {
 
 export type OrdenesListVariant = "admin" | "tecnico";
 
+export type OrdenListFilterStatus = "" | "pendiente" | "resuelto";
+
+export type OrdenListFilters = {
+  status: OrdenListFilterStatus;
+  servicio: string[];
+  date: string;
+  /** `null` = todos; `0` = sin técnico asignado; id > 0 = técnico concreto. */
+  tecnicoId: number | null;
+};
+
+export function ordenPassesListFilters(orden: Orden, filters: OrdenListFilters): boolean {
+  if (filters.status && normalizeStatus(orden.status) !== normalizeStatus(filters.status)) {
+    return false;
+  }
+  if (filters.servicio.length > 0) {
+    const ordenServicios = Array.isArray(orden.servicios_realizados) ? orden.servicios_realizados : [];
+    if (!filters.servicio.every((sel) => ordenServicios.includes(sel))) return false;
+  }
+  if (filters.date) {
+    const base = (orden.fecha_inicio || orden.fecha_creacion || "").toString();
+    if (!base.startsWith(filters.date)) return false;
+  }
+  if (filters.tecnicoId != null) {
+    const assigned =
+      orden.tecnico_asignado != null && Number.isFinite(Number(orden.tecnico_asignado))
+        ? Number(orden.tecnico_asignado)
+        : null;
+    if (filters.tecnicoId === 0) {
+      if (assigned != null) return false;
+    } else if (assigned !== filters.tecnicoId) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function countActiveListFilters(filters: OrdenListFilters): number {
+  let n = 0;
+  if (filters.status) n += 1;
+  if (filters.servicio.length > 0) n += 1;
+  if (filters.date) n += 1;
+  if (filters.tecnicoId != null) n += 1;
+  return n;
+}
+
 /** Shared with page init effects (servicios/usuarios/clientes + fetchOrdenes). */
 let ordenesListInitialLoadAt = 0;
 
@@ -42,9 +87,10 @@ export function useOrdenesList(opts: {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
-  const [filterStatus, setFilterStatus] = useState<"" | "pendiente" | "resuelto">("");
+  const [filterStatus, setFilterStatus] = useState<OrdenListFilterStatus>("");
   const [filterServicio, setFilterServicio] = useState<string[]>([]);
   const [filterDate, setFilterDate] = useState("");
+  const [filterTecnicoId, setFilterTecnicoId] = useState<number | null>(null);
   const [alert, setAlert] = useState<AlertState>(EMPTY_ALERT);
 
   const alertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -123,16 +169,12 @@ export function useOrdenesList(opts: {
         const fecha = (o.fecha_inicio || o.fecha_creacion || "").toString();
         if (!fecha.startsWith(month)) return false;
       }
-      if (filterStatus && normalizeStatus(o.status) !== normalizeStatus(filterStatus)) return false;
-      if (filterServicio.length > 0) {
-        const ordenServicios = Array.isArray(o.servicios_realizados) ? o.servicios_realizados : [];
-        if (!filterServicio.every((sel) => ordenServicios.includes(sel))) return false;
-      }
-      if (filterDate) {
-        const base = (o.fecha_inicio || o.fecha_creacion || "").toString();
-        if (!base.startsWith(filterDate)) return false;
-      }
-      return true;
+      return ordenPassesListFilters(o, {
+        status: filterStatus,
+        servicio: filterServicio,
+        date: filterDate,
+        tecnicoId: filterTecnicoId,
+      });
     });
 
     const toTs = (v: unknown) => {
@@ -156,7 +198,17 @@ export function useOrdenesList(opts: {
       }
       return Number(b.id || 0) - Number(a.id || 0);
     });
-  }, [ordenes, searchTerm, selectedMonth, filterStatus, filterServicio, filterDate, usuarios, variant]);
+  }, [
+    ordenes,
+    searchTerm,
+    selectedMonth,
+    filterStatus,
+    filterServicio,
+    filterDate,
+    filterTecnicoId,
+    usuarios,
+    variant,
+  ]);
 
   const statsMonthKey = selectedMonth || getCurrentYearMonth();
   const stats = useMemo(
@@ -167,6 +219,24 @@ export function useOrdenesList(opts: {
         variant === "tecnico" ? { includeEstrella: false } : undefined,
       ),
     [ordenes, statsMonthKey, variant],
+  );
+
+  const clearListFilters = useCallback(() => {
+    setFilterStatus("");
+    setFilterServicio([]);
+    setFilterDate("");
+    setFilterTecnicoId(null);
+  }, []);
+
+  const activeFilterCount = useMemo(
+    () =>
+      countActiveListFilters({
+        status: filterStatus,
+        servicio: filterServicio,
+        date: filterDate,
+        tecnicoId: filterTecnicoId,
+      }),
+    [filterStatus, filterServicio, filterDate, filterTecnicoId],
   );
 
   return {
@@ -184,6 +254,10 @@ export function useOrdenesList(opts: {
     setFilterServicio,
     filterDate,
     setFilterDate,
+    filterTecnicoId,
+    setFilterTecnicoId,
+    clearListFilters,
+    activeFilterCount,
     shownList,
     stats,
     alert,

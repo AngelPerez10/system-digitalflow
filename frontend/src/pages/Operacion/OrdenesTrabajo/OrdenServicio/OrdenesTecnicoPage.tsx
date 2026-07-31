@@ -5,10 +5,10 @@ import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
 import Alert from "@/components/ui/alert/Alert";
-import DatePicker from "@/components/form/date-picker";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { OrdenesPageStats } from "./list/OrdenesPageStats";
+import OrdenesListFiltersPopover from "./list/OrdenesListFiltersPopover";
 import OrdenFormModal, { ORDEN_FORM_PANEL_IDS, ORDEN_FORM_TAB_IDS } from "./form/OrdenFormModal";
 import { OrdenClienteTab } from "./form/tabs/OrdenClienteTab";
 import { OrdenDetalleTab } from "./form/tabs/OrdenDetalleTab";
@@ -47,8 +47,6 @@ import {
   claudeBodyClass,
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
-  erpFilterBtnClass,
-  erpFilterPopoverClass,
   erpHeroBlurClass,
   erpHeroGradientClass,
   erpHeroHeadingClass,
@@ -59,7 +57,6 @@ import {
   erpPrimaryBtnClass,
   erpRowActionBarClass,
   erpRowActionBtnClass,
-  erpSecondaryBtnClass,
   erpTableHeaderClass,
   erpTableRowHoverClass,
   erpTableWrapClass,
@@ -126,6 +123,10 @@ export default function OrdenesTecnico() {
     setFilterServicio,
     filterDate,
     setFilterDate,
+    filterTecnicoId,
+    setFilterTecnicoId,
+    clearListFilters,
+    activeFilterCount,
     shownList,
     stats: ordenStats,
     alert,
@@ -273,7 +274,6 @@ export default function OrdenesTecnico() {
     index: 0,
   });
   const [filterOpen, setFilterOpen] = useState(false);
-  const filterRef = useRef<HTMLDivElement | null>(null);
 
   const formatYmdToDMY = (ymd: string | null | undefined) => {
     if (!ymd) return '-';
@@ -295,23 +295,6 @@ export default function OrdenesTecnico() {
     if (!Number.isFinite(year) || month < 1 || month > 12) return null;
     return { year, month };
   };
-
-  // Cerrar dropdown de filtros al hacer click fuera
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (!filterRef.current) return;
-      const target = e.target as Node;
-      // No cerrar si el click ocurre dentro del calendario de flatpickr (apendado al body)
-      if ((target as Element)?.closest && (target as Element).closest('.flatpickr-calendar')) {
-        return;
-      }
-      if (!filterRef.current.contains(target)) {
-        setFilterOpen(false);
-      }
-    };
-    if (filterOpen) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [filterOpen]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
@@ -735,93 +718,24 @@ export default function OrdenesTecnico() {
         className={`overflow-visible ${pageCardShellClass}`}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
-            {/* Filtro desplegable */}
-            <div className={`relative w-full sm:w-auto ${filterOpen ? "z-[100]" : "z-0"}`} ref={filterRef}>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(v => !v)}
-                className={erpFilterBtnClass + " sm:min-w-[80px]"}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none">
-                  <path d="M14.6537 5.90414C14.6537 4.48433 13.5027 3.33331 12.0829 3.33331C10.6631 3.33331 9.51206 4.48433 9.51204 5.90415M14.6537 5.90414C14.6537 7.32398 13.5027 8.47498 12.0829 8.47498C10.663 8.47498 9.51204 7.32398 9.51204 5.90415M14.6537 5.90414L17.7087 5.90411M9.51204 5.90415L2.29199 5.90411M5.34694 14.0958C5.34694 12.676 6.49794 11.525 7.91777 11.525C9.33761 11.525 10.4886 12.676 10.4886 14.0958M5.34694 14.0958C5.34694 15.5156 6.49794 16.6666 7.91778 16.6666C9.33761 16.6666 10.4886 15.5156 10.4886 14.0958M5.34694 14.0958L2.29199 14.0958M10.4886 14.0958L17.7087 14.0958" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Filtros
-              </button>
-              {filterOpen && (
-                <div className={erpFilterPopoverClass}>
-                  <div className="mb-4">
-                    <label className="mb-2 block text-xs text-[#44403c] dark:text-[#cbd5e1]">Estado</label>
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value as any)}
-                      className="h-10 w-full rounded-lg border border-gray-200/90 bg-gray-50/90 px-3 text-sm text-gray-800 outline-none focus:border-[#ff801f]/80 focus:bg-white focus:ring-2 focus:ring-[#ff801f]/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:focus:bg-gray-900/60"
-                    >
-                      <option value="">Todos</option>
-                      <option value="pendiente">Pendiente</option>
-                      <option value="resuelto">Resuelto</option>
-                    </select>
-                  </div>
-                  <div className="mb-4">
-                    <label className="mb-2 block text-xs text-[#44403c] dark:text-[#cbd5e1]">Servicios Realizados</label>
-                    <div className="grid grid-cols-1 gap-2">
-                      {serviciosDisponibles.map((srv) => {
-                        const checked = filterServicio.includes(srv);
-                        return (
-                          <label key={srv} className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) => {
-                                setFilterServicio((prev) => {
-                                  if (e.target.checked) return Array.from(new Set([...(prev || []), srv]));
-                                  return (prev || []).filter(s => s !== srv);
-                                });
-                              }}
-                              className="h-4 w-4 rounded border-gray-300 text-[#ea580c] focus:ring-[#ff801f]"
-                            />
-                            <span>{srv}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {filterServicio.length > 0 && (
-                      <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">Seleccionados: {filterServicio.length}</div>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <label className="mb-2 block text-xs text-[#44403c] dark:text-[#cbd5e1]">Fecha</label>
-                    <div className="relative w-full">
-                      <DatePicker
-                        id="filtro-fecha"
-                        label={undefined as any}
-                        placeholder="Seleccionar fecha"
-                        defaultDate={filterDate || undefined}
-                        appendToBody={true}
-                        onChange={(_dates: any, currentDateString: string) => {
-                          setFilterDate(currentDateString || "");
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFilterOpen(false)}
-                      className={erpPrimaryBtnClass + " h-10 flex-1 !w-full"}
-                    >
-                      Aplicar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setFilterStatus(''); setFilterServicio([]); setFilterDate(''); setFilterOpen(false); }}
-                      className={erpSecondaryBtnClass + " h-10 flex-1 !w-full"}
-                    >
-                      Limpiar
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <OrdenesListFiltersPopover
+              open={filterOpen}
+              onOpenChange={setFilterOpen}
+              filterStatus={filterStatus}
+              setFilterStatus={setFilterStatus}
+              filterServicio={filterServicio}
+              setFilterServicio={setFilterServicio}
+              filterDate={filterDate}
+              setFilterDate={setFilterDate}
+              filterTecnicoId={filterTecnicoId}
+              setFilterTecnicoId={setFilterTecnicoId}
+              serviciosDisponibles={serviciosDisponibles}
+              usuarios={usuarios}
+              activeFilterCount={activeFilterCount}
+              onClear={clearListFilters}
+              showTecnicoFilter={false}
+              datePickerId="filtro-fecha-ordenes-tecnico"
+            />
           </div>
         }
       >
