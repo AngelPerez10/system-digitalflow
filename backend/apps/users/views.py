@@ -194,18 +194,21 @@ def login_view(request):
 
     User = get_user_model()
 
-    resolved_username = login_value
+    # Resolver usuario real en BD (Postgres es case-sensitive en username).
+    # Sin esto, "Admin" vs "admin" encuentra el candidato con iexact pero
+    # authenticate() falla y el login responde 401.
     candidate = None
     if '@' in login_value:
         candidate = User.objects.filter(Q(email__iexact=login_value)).first()
-        if candidate:
-            resolved_username = candidate.get_username()
-
-    if candidate is None and '@' not in login_value:
+    else:
         candidate = User.objects.filter(username__iexact=login_value).first()
+        if candidate is None:
+            candidate = User.objects.filter(Q(email__iexact=login_value)).first()
+
+    resolved_username = candidate.get_username() if candidate is not None else login_value
 
     user = authenticate(request, username=resolved_username, password=password)
-    if not user and '@' in login_value:
+    if not user and resolved_username != login_value:
         user = authenticate(request, username=login_value, password=password)
     if not user and candidate is not None and not candidate.is_active:
         try:

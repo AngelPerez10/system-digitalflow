@@ -118,6 +118,38 @@ class AuthViewTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertIn("desactivada", response.data["detail"])
 
+    def test_login_username_is_case_insensitive(self):
+        """Postgres match exacto: el login debe usar el username canónico de BD."""
+        User = self.active_user.__class__
+        mixed = User.objects.create_user(
+            username="AdminUser",
+            email="adminuser@example.com",
+            password="test-pass-123",
+        )
+        request = self.factory.post(
+            "/api/login/",
+            {"username": "adminuser", "password": "test-pass-123"},
+            format="json",
+        )
+
+        response = login_view(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], mixed.username)
+        self.assertEqual(response.data["id"], mixed.id)
+
+    def test_login_email_case_insensitive(self):
+        request = self.factory.post(
+            "/api/login/",
+            {"email": self.active_user.email.upper(), "password": "test-pass-123"},
+            format="json",
+        )
+
+        response = login_view(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.active_user.id)
+
     def test_refresh_rotates_refresh_cookie(self):
         original_refresh = str(RefreshToken.for_user(self.active_user))
         request = self.factory.post("/api/token/refresh/", {}, format="json")
