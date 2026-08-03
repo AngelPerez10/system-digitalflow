@@ -22,6 +22,14 @@ USER_SMTP_MISSING_DETAIL = (
 )
 
 
+class UserSmtpCredentialsError(Exception):
+    """Credenciales SMTP del usuario ausentes o ilegibles."""
+
+    def __init__(self, detail: str):
+        super().__init__(detail)
+        self.detail = detail
+
+
 def _env_email(key: str, default: str = "") -> str:
     """Lee SMTP desde proceso, settings o backend/.env (por si runserver arrancó antes)."""
     val = (os.environ.get(key) or "").strip()
@@ -66,31 +74,58 @@ def smtp_configured() -> bool:
     return bool(host and user and password)
 
 
-def resolve_user_smtp_credentials(user) -> tuple[str, str] | None:
-    """Devuelve (smtp_email, smtp_password) del usuario, o None si no están configuradas."""
+def resolve_user_smtp_credentials(user) -> tuple[str, str]:
+    """
+    Devuelve (smtp_email, smtp_password) del usuario.
+
+    Raises:
+        UserSmtpCredentialsError: si faltan o no se pueden leer.
+    """
     if user is None or not getattr(user, "is_authenticated", False):
-        return None
+        raise UserSmtpCredentialsError(USER_SMTP_MISSING_DETAIL)
+
+    username = (
+        getattr(user, "get_username", lambda: "")()
+        or getattr(user, "username", "")
+        or str(getattr(user, "pk", "?"))
+    )
+
     try:
         from apps.users.models import UserSmtpCredentials
         from apps.users.smtp_crypto import decrypt_smtp_password
 
         creds = UserSmtpCredentials.objects.filter(user_id=user.pk).first()
         if creds is None or not creds.is_configured:
-            return None
+            raise UserSmtpCredentialsError(
+                f"Tu cuenta ({username}) no tiene correo SMTP configurado. "
+                "Un administrador debe cargarlo en Gestión de usuarios "
+                "(del usuario con el que iniciaste sesión)."
+            )
         email = normalize_email(creds.smtp_email)
         if not email:
-            return None
-        password = decrypt_smtp_password(creds.smtp_password_encrypted)
+            raise UserSmtpCredentialsError(
+                f"Tu cuenta ({username}) no tiene correo SMTP configurado. "
+                "Un administrador debe cargarlo en Gestión de usuarios "
+                "(del usuario con el que iniciaste sesión)."
+            )
+        try:
+            password = decrypt_smtp_password(creds.smtp_password_encrypted)
+        except ValueError as exc:
+            raise UserSmtpCredentialsError(str(exc)) from exc
         if not password:
-            return None
+            raise UserSmtpCredentialsError(
+                f"Tu cuenta ({username}) no tiene correo SMTP configurado. "
+                "Un administrador debe cargarlo en Gestión de usuarios "
+                "(del usuario con el que iniciaste sesión)."
+            )
         return email, password
-    except ValueError:
-        return None
-    except Exception:
+    except UserSmtpCredentialsError:
+        raise
+    except Exception as exc:
         logger.exception(
             "Error leyendo credenciales SMTP del usuario %s", getattr(user, "pk", "?")
         )
-        return None
+        raise UserSmtpCredentialsError(USER_SMTP_MISSING_DETAIL) from exc
 
 
 def resolve_cliente_correo(cliente: Cliente | None) -> str:

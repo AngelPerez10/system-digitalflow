@@ -27,7 +27,7 @@ from apps.cotizaciones.pdf_render import (
     render_html_to_pdf,
 )
 from apps.ordenes.email_pdf import (
-    USER_SMTP_MISSING_DETAIL,
+    UserSmtpCredentialsError,
     build_orden_email_body,
     build_orden_email_subject,
     is_valid_email,
@@ -1635,11 +1635,10 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 status=503,
             )
 
-        user_smtp = resolve_user_smtp_credentials(request.user)
-        if not user_smtp:
-            return Response({'detail': USER_SMTP_MISSING_DETAIL}, status=400)
-
-        smtp_user, smtp_password = user_smtp
+        try:
+            smtp_user, smtp_password = resolve_user_smtp_credentials(request.user)
+        except UserSmtpCredentialsError as exc:
+            return Response({'detail': exc.detail}, status=400)
 
         if not any_provider_configured():
             return Response(

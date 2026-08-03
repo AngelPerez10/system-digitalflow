@@ -326,7 +326,8 @@ class OrdenesEnviarPdfTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("no está configurada", response.data.get("detail", ""))
+        self.assertIn("SMTP", response.data.get("detail", ""))
+        self.assertIn("envio_pdf", response.data.get("detail", ""))
 
     def test_enviar_pdf_ok_guarda_correo_y_envia(self):
         from unittest.mock import patch

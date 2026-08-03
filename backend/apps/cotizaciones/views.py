@@ -21,7 +21,7 @@ from apps.common.document_folio import FOLIO_SERIE_COT, format_document_folio
 from apps.common.pdf_html import subtotal_iva_display_split as _subtotal_iva_display_split
 from apps.common.pdf_images import safe_http_image_bytes as _safe_http_image_bytes
 from apps.ordenes.email_pdf import (
-    USER_SMTP_MISSING_DETAIL,
+    UserSmtpCredentialsError,
     is_valid_email,
     maybe_save_cliente_correo,
     normalize_email,
@@ -691,11 +691,10 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 status=503,
             )
 
-        user_smtp = resolve_user_smtp_credentials(request.user)
-        if not user_smtp:
-            return Response({'detail': USER_SMTP_MISSING_DETAIL}, status=400)
-
-        smtp_user, smtp_password = user_smtp
+        try:
+            smtp_user, smtp_password = resolve_user_smtp_credentials(request.user)
+        except UserSmtpCredentialsError as exc:
+            return Response({'detail': exc.detail}, status=400)
 
         if not any_provider_configured():
             return Response(

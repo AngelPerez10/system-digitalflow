@@ -82,7 +82,16 @@ class UserAccountSerializer(serializers.ModelSerializer):
             creds.smtp_email = (smtp_email or '').strip()
             update_fields.append('smtp_email')
         if 'smtp_password' in keys and str(smtp_password or '').strip():
-            creds.smtp_password_encrypted = encrypt_smtp_password(str(smtp_password).strip())
+            from .smtp_crypto import decrypt_smtp_password
+
+            encrypted = encrypt_smtp_password(str(smtp_password).strip())
+            # Verificación inmediata: si la clave de cifrado está mal, fallar al guardar.
+            decrypted = decrypt_smtp_password(encrypted)
+            if decrypted != str(smtp_password).strip():
+                raise serializers.ValidationError(
+                    {'smtp_password': 'No se pudo verificar el cifrado SMTP. Revise SMTP_CREDENTIALS_KEY.'}
+                )
+            creds.smtp_password_encrypted = encrypted
             update_fields.append('smtp_password_encrypted')
         if update_fields:
             update_fields.append('updated_at')
