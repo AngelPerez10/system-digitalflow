@@ -183,8 +183,8 @@ export default function CotizacionEnviarPdfModal({
                 Enviar PDF por correo
               </h2>
               <p id={descId} className={`mt-1 text-xs ${erpBodyClass}`}>
-                Revisa el destinatario y envía la cotización. Puedes omitir y usar el icono de correo
-                más tarde.
+                Revisa el destinatario y envía la cotización. Puedes omitir y enviar más tarde
+                desde esta misma pantalla.
               </p>
             </div>
           </div>

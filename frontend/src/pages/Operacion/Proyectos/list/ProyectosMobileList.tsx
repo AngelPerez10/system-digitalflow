@@ -33,7 +33,7 @@ export function ProyectosMobileList({
     return (
       <div className="rounded-xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/50 px-4 py-10 text-center text-sm text-[#78716c] dark:border-[#334155] dark:bg-[#0f172a]/30 dark:text-[#8ea0b8] md:hidden">
         {hasSearch
-          ? "No hay proyectos que coincidan con la búsqueda."
+          ? "No hay proyectos que coincidan con la búsqueda o los filtros."
           : "Aún no hay proyectos registrados."}
       </div>
     );

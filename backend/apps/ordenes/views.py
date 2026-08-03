@@ -27,14 +27,16 @@ from apps.cotizaciones.pdf_render import (
     render_html_to_pdf,
 )
 from apps.ordenes.email_pdf import (
+    USER_SMTP_MISSING_DETAIL,
     build_orden_email_body,
     build_orden_email_subject,
     is_valid_email,
     maybe_save_cliente_correo,
     normalize_email,
     resolve_cliente_correo,
+    resolve_user_smtp_credentials,
     send_orden_pdf_email,
-    smtp_configured,
+    smtp_host_configured,
 )
 from apps.ordenes.edit_scope import (
     filter_limited_orden_update as _filter_limited_orden_update,
@@ -1622,7 +1624,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 status=400,
             )
 
-        if not smtp_configured():
+        if not smtp_host_configured():
             return Response(
                 {
                     'detail': (
@@ -1632,6 +1634,12 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 },
                 status=503,
             )
+
+        user_smtp = resolve_user_smtp_credentials(request.user)
+        if not user_smtp:
+            return Response({'detail': USER_SMTP_MISSING_DETAIL}, status=400)
+
+        smtp_user, smtp_password = user_smtp
 
         if not any_provider_configured():
             return Response(
@@ -1657,6 +1665,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 body=build_orden_email_body(orden),
                 pdf_bytes=pdf_bytes,
                 filename=filename,
+                from_email=smtp_user,
+                smtp_user=smtp_user,
+                smtp_password=smtp_password,
             )
         except Exception as e:
             logger.exception('Failed to send orden PDF email')

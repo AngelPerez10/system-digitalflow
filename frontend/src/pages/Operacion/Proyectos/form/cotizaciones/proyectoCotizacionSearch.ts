@@ -14,12 +14,26 @@ import {
   parseCotizacionApiId,
 } from "./proyectoCotizacionMappers";
 import type { CotizacionOrigen, CotizacionResumen, PresupuestoLinea } from "../../shared/proyectoTypes";
+import { normalizeTipoTrabajoIds } from "@/pages/Ventas/Cotizacion/cotizacionFormUtils";
+import { normalizeTiposTrabajo } from "../../shared/proyectoFormUtils";
+
+function tiposTrabajoFromDigitalFlowDetail(detail: {
+  tipo_trabajo?: unknown;
+}): { id: number; nombre: string }[] {
+  // Preferir objetos {id, nombre}; si solo hay ids, el catálogo de servicios completa el nombre al unir.
+  const fromObjects = normalizeTiposTrabajo(detail.tipo_trabajo);
+  if (fromObjects.length) return fromObjects;
+  const ids = normalizeTipoTrabajoIds(detail.tipo_trabajo);
+  return ids.map((id) => ({ id, nombre: "" }));
+}
 
 export type ProyectoCotizacionLoadResult = {
   resumen: CotizacionResumen;
   lineas: PresupuestoLinea[];
   clienteNombre: string;
   clienteId: string;
+  /** Tipos de trabajo de la cotización (DigitalFlow); vacío en SICAR. */
+  tiposTrabajo: { id: number; nombre: string }[];
 };
 
 export type ProyectoCotizacionSearchError = {
@@ -144,6 +158,7 @@ export async function loadProyectoCotizacionDetalle(
           lineas,
           clienteNombre: mappedResumen.cliente,
           clienteId: clienteIdFromDigitalFlowDetail(detail),
+          tiposTrabajo: tiposTrabajoFromDigitalFlowDetail(detail),
         },
         error: null,
       };
@@ -175,6 +190,7 @@ export async function loadProyectoCotizacionDetalle(
         lineas: mapSicarItemsToPresupuesto(items),
         clienteNombre: mappedResumen.cliente,
         clienteId: clienteIdFromSicarDetail(data),
+        tiposTrabajo: [],
       },
       error: null,
     };

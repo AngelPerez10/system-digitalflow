@@ -133,7 +133,7 @@ def _delete_avatar_public_id(public_id: str) -> None:
 
 
 class UserAccountViewSet(viewsets.ModelViewSet):
-    queryset = get_user_model().objects.all().order_by('id')
+    queryset = get_user_model().objects.all().select_related('smtp_credentials').order_by('id')
     serializer_class = UserAccountSerializer
     permission_classes = [IsAdminUser]
 

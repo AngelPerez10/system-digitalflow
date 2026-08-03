@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+USER_SMTP_MISSING_DETAIL = (
+    "Tu cuenta de correo no está configurada; contacta al administrador."
+)
+
 
 def _env_email(key: str, default: str = "") -> str:
     """Lee SMTP desde proceso, settings o backend/.env (por si runserver arrancó antes)."""
@@ -34,13 +38,6 @@ def _env_email(key: str, default: str = "") -> str:
         return default
 
 
-def smtp_configured() -> bool:
-    host = _env_email("EMAIL_HOST")
-    user = _env_email("EMAIL_HOST_USER")
-    password = _env_email("EMAIL_HOST_PASSWORD")
-    return bool(host and user and password)
-
-
 def normalize_email(value: str | None) -> str:
     return (value or "").strip()
 
@@ -54,6 +51,46 @@ def is_valid_email(value: str) -> bool:
     except DjangoValidationError:
         return False
     return True
+
+
+def smtp_host_configured() -> bool:
+    """Host SMTP global (EMAIL_HOST). User/password van por usuario."""
+    return bool(_env_email("EMAIL_HOST"))
+
+
+def smtp_configured() -> bool:
+    """Compat legacy: host + user + password globales."""
+    host = _env_email("EMAIL_HOST")
+    user = _env_email("EMAIL_HOST_USER")
+    password = _env_email("EMAIL_HOST_PASSWORD")
+    return bool(host and user and password)
+
+
+def resolve_user_smtp_credentials(user) -> tuple[str, str] | None:
+    """Devuelve (smtp_email, smtp_password) del usuario, o None si no están configuradas."""
+    if user is None or not getattr(user, "is_authenticated", False):
+        return None
+    try:
+        from apps.users.models import UserSmtpCredentials
+        from apps.users.smtp_crypto import decrypt_smtp_password
+
+        creds = UserSmtpCredentials.objects.filter(user_id=user.pk).first()
+        if creds is None or not creds.is_configured:
+            return None
+        email = normalize_email(creds.smtp_email)
+        if not email:
+            return None
+        password = decrypt_smtp_password(creds.smtp_password_encrypted)
+        if not password:
+            return None
+        return email, password
+    except ValueError:
+        return None
+    except Exception:
+        logger.exception(
+            "Error leyendo credenciales SMTP del usuario %s", getattr(user, "pk", "?")
+        )
+        return None
 
 
 def resolve_cliente_correo(cliente: Cliente | None) -> str:
@@ -107,10 +144,10 @@ def build_orden_email_body(orden) -> str:
     )
 
 
-def _smtp_connection():
+def _smtp_connection(*, username: str | None = None, password: str | None = None):
     host = _env_email("EMAIL_HOST")
-    user = _env_email("EMAIL_HOST_USER")
-    password = _env_email("EMAIL_HOST_PASSWORD")
+    user = (username or "").strip() or _env_email("EMAIL_HOST_USER")
+    pwd = password if password is not None else _env_email("EMAIL_HOST_PASSWORD")
     port_raw = _env_email("EMAIL_PORT", "465") or "465"
     try:
         port = int(port_raw)
@@ -128,41 +165,63 @@ def _smtp_connection():
         host=host,
         port=port,
         username=user,
-        password=password,
+        password=pwd,
         use_tls=use_tls,
         use_ssl=use_ssl,
         fail_silently=False,
     )
 
 
-def send_pdf_email(*, to_email: str, subject: str, body: str, pdf_bytes: bytes, filename: str) -> None:
+def send_pdf_email(
+    *,
+    to_email: str,
+    subject: str,
+    body: str,
+    pdf_bytes: bytes,
+    filename: str,
+    from_email: str | None = None,
+    smtp_user: str | None = None,
+    smtp_password: str | None = None,
+) -> None:
     """Envía un PDF por SMTP (órdenes, cotizaciones, etc.)."""
-    if not smtp_configured():
-        raise RuntimeError(
-            "El correo de salida no está configurado. "
-            "Defina EMAIL_HOST, EMAIL_HOST_USER y EMAIL_HOST_PASSWORD."
-        )
+    if not smtp_host_configured():
+        raise RuntimeError("El correo de salida no está configurado. Defina EMAIL_HOST.")
+    auth_user = (smtp_user or "").strip() or _env_email("EMAIL_HOST_USER")
+    auth_pass = smtp_password if smtp_password is not None else _env_email("EMAIL_HOST_PASSWORD")
+    if not auth_user or not auth_pass:
+        raise RuntimeError(USER_SMTP_MISSING_DETAIL)
     if not pdf_bytes:
         raise RuntimeError("PDF vacío; no se puede enviar.")
 
-    from_email = (
-        _env_email("DEFAULT_FROM_EMAIL")
-        or _env_email("EMAIL_HOST_USER")
+    sender = (
+        (from_email or "").strip()
+        or auth_user
+        or _env_email("DEFAULT_FROM_EMAIL")
         or "webmaster@localhost"
     )
     message = EmailMessage(
         subject=subject,
         body=body,
-        from_email=from_email,
+        from_email=sender,
         to=[normalize_email(to_email)],
-        connection=_smtp_connection(),
+        connection=_smtp_connection(username=auth_user, password=auth_pass),
     )
     message.attach(filename, pdf_bytes, "application/pdf")
     message.send(fail_silently=False)
-    logger.info("PDF enviado a %s (%s)", to_email, filename)
+    logger.info("PDF enviado a %s (%s) from=%s", to_email, filename, sender)
 
 
-def send_orden_pdf_email(*, to_email: str, subject: str, body: str, pdf_bytes: bytes, filename: str) -> None:
+def send_orden_pdf_email(
+    *,
+    to_email: str,
+    subject: str,
+    body: str,
+    pdf_bytes: bytes,
+    filename: str,
+    from_email: str | None = None,
+    smtp_user: str | None = None,
+    smtp_password: str | None = None,
+) -> None:
     """Alias histórico; preferir ``send_pdf_email``."""
     send_pdf_email(
         to_email=to_email,
@@ -170,4 +229,7 @@ def send_orden_pdf_email(*, to_email: str, subject: str, body: str, pdf_bytes: b
         body=body,
         pdf_bytes=pdf_bytes,
         filename=filename,
+        from_email=from_email,
+        smtp_user=smtp_user,
+        smtp_password=smtp_password,
     )

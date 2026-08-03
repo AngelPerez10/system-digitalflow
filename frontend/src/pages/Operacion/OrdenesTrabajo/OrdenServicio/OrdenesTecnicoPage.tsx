@@ -1037,7 +1037,7 @@ export default function OrdenesTecnico() {
         tipoOrdenLabel={tipoOrdenLabel}
         isLimitedEdit={isLimitedEdit}
         formScrollRef={formScrollRef}
-        onSubmit={handleSubmit}
+          onSubmit={handleSubmit}
         activeTabRef={activeTabRef}
         goToOrdenTab={goToOrdenTab}
         activeTab={activeTab}
@@ -1049,7 +1049,7 @@ export default function OrdenesTecnico() {
         canOrdenesCreate={canOrdenesCreate}
       >
 
-        {activeTab === "cliente" && (
+            {activeTab === "cliente" && (
           <OrdenClienteTab
             variant="tecnico"
             panelId={ORDEN_FORM_PANEL_IDS.cliente}

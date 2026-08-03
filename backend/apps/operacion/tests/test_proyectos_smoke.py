@@ -132,3 +132,257 @@ class ProyectosSmokeTests(APITestCase):
             format="json",
         )
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_tipos_trabajo_multi_and_legacy_sync(self):
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Multi tipos",
+                "status": "en_proceso",
+                "tipos_trabajo": [
+                    {"id": 10, "nombre": "Instalación"},
+                    {"id": 20, "nombre": "Mantenimiento"},
+                    {"id": 10, "nombre": "Instalación dup"},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
+        self.assertEqual(len(create_res.data["tipos_trabajo"]), 2)
+        self.assertEqual(create_res.data["tipo_trabajo_id"], 10)
+        self.assertEqual(create_res.data["tipo_trabajo_nombre"], "Instalación")
+
+    def test_assigned_technician_cannot_change_locked_fields(self):
+        tech = User.objects.create_user(username="proy_tech", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=tech,
+            permissions={
+                "proyectos": {
+                    "view": True,
+                    "create": False,
+                    "edit": True,
+                    "delete": False,
+                    "own_only": True,
+                },
+            },
+        )
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Con técnico",
+                "status": "en_proceso",
+                "tecnico_id": tech.id,
+                "tecnico_nombre": "proy_tech",
+                "fecha_autorizacion": "2026-08-01",
+                "tipos_trabajo": [{"id": 1, "nombre": "GPS"}],
+                "cotizaciones": [
+                    {
+                        "vinculoId": "vin-1",
+                        "orden": 1,
+                        "cotizacion": {
+                            "id": "cot-1",
+                            "origen": "digitalflow",
+                            "folio": "10001",
+                            "cliente": "Con técnico",
+                            "fecha": "2026-07-01",
+                        },
+                        "lineas": [],
+                    }
+                ],
+                "equipos": [
+                    {
+                        "lineaId": "eq-1",
+                        "modelo": "GPS X",
+                        "modeloOriginal": "GPS X",
+                        "estadoInstalacion": "pendiente",
+                        "equipoEntregado": False,
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
+        proyecto_id = create_res.data["id"]
+
+        self.client.force_authenticate(user=tech)
+        bad_fecha = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {"fecha_autorizacion": "2026-08-15"},
+            format="json",
+        )
+        self.assertEqual(bad_fecha.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("fecha_autorizacion", bad_fecha.data)
+
+        bad_tipos = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {"tipos_trabajo": [{"id": 99, "nombre": "Otro"}]},
+            format="json",
+        )
+        self.assertEqual(bad_tipos.status_code, status.HTTP_400_BAD_REQUEST)
+
+        bad_cot = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {"cotizaciones": []},
+            format="json",
+        )
+        self.assertEqual(bad_cot.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Tampoco puede agregar cotizaciones nuevas.
+        bad_add = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {
+                "cotizaciones": [
+                    {
+                        "vinculoId": "vin-1",
+                        "orden": 1,
+                        "cotizacion": {
+                            "id": "cot-1",
+                            "origen": "digitalflow",
+                            "folio": "10001",
+                            "cliente": "Con técnico",
+                            "fecha": "2026-07-01",
+                        },
+                        "lineas": [],
+                    },
+                    {
+                        "vinculoId": "vin-2",
+                        "orden": 2,
+                        "cotizacion": {
+                            "id": "df-99999",
+                            "origen": "digitalflow",
+                            "folio": "19999",
+                            "cliente": "Con técnico",
+                            "fecha": "2026-07-02",
+                        },
+                        "lineas": [],
+                    },
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(bad_add.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cotizaciones", bad_add.data)
+
+        bad_entrega = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {
+                "equipos": [
+                    {
+                        "lineaId": "eq-1",
+                        "modelo": "GPS X",
+                        "modeloOriginal": "GPS X",
+                        "estadoInstalacion": "entregado",
+                        "equipoEntregado": True,
+                    }
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(bad_entrega.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Sí puede actualizar campos no bloqueados (p. ej. incidencias).
+        ok = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {"incidencias": "Sin novedades"},
+            format="json",
+        )
+        self.assertEqual(ok.status_code, status.HTTP_200_OK, ok.data)
+        self.assertEqual(ok.data["incidencias"], "Sin novedades")
+
+    def test_quien_autorizo_persists(self):
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Cliente auth",
+                "quien_autorizo": "Ana Pérez",
+                "status": "en_proceso",
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
+        self.assertEqual(create_res.data["quien_autorizo"], "Ana Pérez")
+        proyecto_id = create_res.data["id"]
+
+        patch_res = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {"quien_autorizo": "Luis Gómez"},
+            format="json",
+        )
+        self.assertEqual(patch_res.status_code, status.HTTP_200_OK, patch_res.data)
+        self.assertEqual(patch_res.data["quien_autorizo"], "Luis Gómez")
+        self.assertEqual(Proyecto.objects.get(pk=proyecto_id).quien_autorizo, "Luis Gómez")
+
+    def test_save_autoriza_digitalflow_pendiente_no_cancelada(self):
+        from apps.cotizaciones.models import Cotizacion
+
+        pend = Cotizacion.objects.create(cliente="Pendiente DF", status="PENDIENTE")
+        canc = Cotizacion.objects.create(cliente="Cancelada DF", status="CANCELADA")
+        already = Cotizacion.objects.create(cliente="Ya auth", status="AUTORIZADA")
+
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Cliente DF",
+                "status": "en_proceso",
+                "quien_autorizo": "Director",
+                "cotizaciones": [
+                    {
+                        "vinculoId": "vin-p",
+                        "orden": 1,
+                        "cotizacion": {
+                            "id": f"df-{pend.id}",
+                            "origen": "digitalflow",
+                            "folio": "10001",
+                            "cliente": "Cliente DF",
+                            "fecha": "2026-07-01",
+                        },
+                        "lineas": [],
+                    },
+                    {
+                        "vinculoId": "vin-c",
+                        "orden": 2,
+                        "cotizacion": {
+                            "id": f"df-{canc.id}",
+                            "origen": "digitalflow",
+                            "folio": "10002",
+                            "cliente": "Cliente DF",
+                            "fecha": "2026-07-02",
+                        },
+                        "lineas": [],
+                    },
+                    {
+                        "vinculoId": "vin-a",
+                        "orden": 3,
+                        "cotizacion": {
+                            "id": f"df-{already.id}",
+                            "origen": "digitalflow",
+                            "folio": "10003",
+                            "cliente": "Cliente DF",
+                            "fecha": "2026-07-03",
+                        },
+                        "lineas": [],
+                    },
+                    {
+                        "vinculoId": "vin-s",
+                        "orden": 4,
+                        "cotizacion": {
+                            "id": "sicar-999",
+                            "origen": "sicar",
+                            "folio": "SIC-9",
+                            "cliente": "Cliente DF",
+                            "fecha": "2026-07-04",
+                        },
+                        "lineas": [],
+                    },
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
+
+        pend.refresh_from_db()
+        canc.refresh_from_db()
+        already.refresh_from_db()
+        self.assertEqual(pend.status, "AUTORIZADA")
+        self.assertEqual(canc.status, "CANCELADA")
+        self.assertEqual(already.status, "AUTORIZADA")

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { fetchApi } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 import { canCerrarProyecto } from "../shared/proyectoCloseValidation";
 import {
   buildEquiposFromCotizaciones,
@@ -12,7 +13,10 @@ import {
   getDeviceTimeHHMM,
   normalizeDraftCotizaciones,
   normalizeNotasPorDia,
+  normalizeTiposTrabajo,
+  mergeTiposTrabajo,
   reindexCotizacionBloques,
+  tiposTrabajoFromLegacy,
 } from "../shared/proyectoFormUtils";
 import type {
   ProyectoCotizacionBloque,
@@ -21,6 +25,7 @@ import type {
   ProyectoEstado,
   ProyectoNotaDia,
   ProyectoPersonaAsignada,
+  ProyectoTipoTrabajo,
   ServicioOpcion,
   TecnicoOpcion,
 } from "../shared/proyectoTypes";
@@ -58,6 +63,7 @@ export function useProyectoFormState({
   initialDraft,
   onSave,
 }: UseProyectoFormStateArgs) {
+  const { user, isAdmin } = useAuth();
   const clienteTabId = useId();
   const operacionTabId = useId();
   const presupuestoTabId = useId();
@@ -90,11 +96,17 @@ export function useProyectoFormState({
   );
   const [equipos, setEquipos] = useState(initialDraft.equipos);
 
-  const [tipoTrabajoId, setTipoTrabajoId] = useState(initialDraft.tipoTrabajoId);
-  const [tipoTrabajoNombre, setTipoTrabajoNombre] = useState(initialDraft.tipoTrabajoNombre);
+  const [tiposTrabajo, setTiposTrabajo] = useState<ProyectoTipoTrabajo[]>(() =>
+    normalizeTiposTrabajo(
+      initialDraft.tiposTrabajo?.length
+        ? initialDraft.tiposTrabajo
+        : tiposTrabajoFromLegacy(initialDraft.tipoTrabajoId, initialDraft.tipoTrabajoNombre)
+    )
+  );
   const [status, setStatus] = useState<ProyectoEstado>(initialDraft.status);
   const [motivoPausa, setMotivoPausa] = useState(initialDraft.motivoPausa);
   const [fechaAutorizacion, setFechaAutorizacion] = useState(initialDraft.fechaAutorizacion);
+  const [quienAutorizo, setQuienAutorizo] = useState(initialDraft.quienAutorizo || "");
   const [fechasInicio, setFechasInicio] = useState(initialDraft.fechasInicio);
   const initialFechaRango = dateRangeFromFechasInicio(initialDraft.fechasInicio);
   const [fechaDesde, setFechaDesde] = useState(initialFechaRango.start);
@@ -132,6 +144,16 @@ export function useProyectoFormState({
 
   const [modeloPickerLineaId, setModeloPickerLineaId] = useState<string | null>(null);
 
+  const onMergeTiposTrabajo = useCallback((incoming: ProyectoTipoTrabajo[]) => {
+    setTiposTrabajo((prev) => mergeTiposTrabajo(prev, incoming));
+  }, []);
+
+  const assignedTechnicianLocked =
+    !isAdmin &&
+    user?.id != null &&
+    tecnico.id != null &&
+    Number(tecnico.id) === Number(user.id);
+
   const cotizacionPicker = useCotizacionPicker({
     open,
     cotizaciones,
@@ -144,6 +166,8 @@ export function useProyectoFormState({
     cotizacionAdicional,
     setCotizacionAdicional,
     setCloseBlockedMessage,
+    onMergeTiposTrabajo: assignedTechnicianLocked ? undefined : onMergeTiposTrabajo,
+    servicios,
   });
   const { resetPicker } = cotizacionPicker;
 
@@ -187,11 +211,17 @@ export function useProyectoFormState({
         ? initialDraft.equipos
         : buildEquiposFromCotizaciones(bloques)
     );
-    setTipoTrabajoId(initialDraft.tipoTrabajoId);
-    setTipoTrabajoNombre(initialDraft.tipoTrabajoNombre);
+    setTiposTrabajo(
+      normalizeTiposTrabajo(
+        initialDraft.tiposTrabajo?.length
+          ? initialDraft.tiposTrabajo
+          : tiposTrabajoFromLegacy(initialDraft.tipoTrabajoId, initialDraft.tipoTrabajoNombre)
+      )
+    );
     setStatus(initialDraft.status);
     setMotivoPausa(initialDraft.motivoPausa);
     setFechaAutorizacion(initialDraft.fechaAutorizacion);
+    setQuienAutorizo(initialDraft.quienAutorizo || "");
     setFechasInicio(initialDraft.fechasInicio.length ? initialDraft.fechasInicio : [""]);
     {
       const rango = dateRangeFromFechasInicio(
@@ -344,11 +374,13 @@ export function useProyectoFormState({
       cotizacion: bloques[0]?.cotizacion ?? null,
       presupuesto: flattenPresupuesto(bloques),
       equipos,
-      tipoTrabajoId,
-      tipoTrabajoNombre: tipoTrabajoNombre.trim(),
+      tiposTrabajo,
+      tipoTrabajoId: tiposTrabajo[0]?.id ?? null,
+      tipoTrabajoNombre: tiposTrabajo[0]?.nombre?.trim() || "",
       status,
       motivoPausa: status === "pausado" ? motivoPausa.trim() : "",
       fechaAutorizacion,
+      quienAutorizo: quienAutorizo.trim(),
       fechasInicio: fechasInicio.length ? fechasInicio : [""],
       horaLlegada,
       horaSalida,
@@ -385,12 +417,12 @@ export function useProyectoFormState({
     motivoPausa,
     notasPorDia,
     porcentajeAvance,
+    quienAutorizo,
     requerimientosAdicionales,
     requierePresupuestoAdicional,
     status,
     tecnico,
-    tipoTrabajoId,
-    tipoTrabajoNombre,
+    tiposTrabajo,
     vehiculoAsignado,
   ]);
 
@@ -698,15 +730,16 @@ export function useProyectoFormState({
     setClienteId,
     cotizaciones,
     equipos,
-    tipoTrabajoId,
-    setTipoTrabajoId,
-    tipoTrabajoNombre,
-    setTipoTrabajoNombre,
+    tiposTrabajo,
+    setTiposTrabajo,
+    assignedTechnicianLocked,
     status,
     motivoPausa,
     setMotivoPausa,
     fechaAutorizacion,
     setFechaAutorizacion,
+    quienAutorizo,
+    setQuienAutorizo,
     fechasInicio,
     fechaDesde,
     fechaHasta,

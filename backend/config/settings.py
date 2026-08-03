@@ -356,8 +356,9 @@ TVC_API_BASE = os.environ.get('TVC_API_BASE', 'https://api.tvc.mx')
 TVC_API_TOKEN = os.environ.get('TVC_API_TOKEN', '')
 TVC_MEDIA_BASE = os.environ.get('TVC_MEDIA_BASE', 'https://cdn.tvc.mx')
 
-# --- Email (SMTP) — envío PDF de órdenes de servicio ---
-# Ejemplo Intrax: mail.intrax.mx puerto 465 SSL, usuario soporte@intrax.mx
+# --- Email (SMTP) — envío PDF (órdenes / cotizaciones) ---
+# Host/puerto/SSL globales. User/password: por usuario (Gestión de usuarios).
+# EMAIL_HOST_USER / PASSWORD solo como legacy opcional; el envío de PDF exige SMTP del usuario.
 EMAIL_BACKEND = os.environ.get(
     'EMAIL_BACKEND',
     'django.core.mail.backends.smtp.EmailBackend',
@@ -376,3 +377,5 @@ DEFAULT_FROM_EMAIL = os.environ.get(
     'DEFAULT_FROM_EMAIL',
     EMAIL_HOST_USER or 'webmaster@localhost',
 ).strip()
+# Clave Fernet para cifrar contraseñas SMTP por usuario (o se deriva de SECRET_KEY).
+SMTP_CREDENTIALS_KEY = os.environ.get('SMTP_CREDENTIALS_KEY', '').strip()

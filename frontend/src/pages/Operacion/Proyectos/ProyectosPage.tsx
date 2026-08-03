@@ -7,6 +7,7 @@ import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { erpSansStyle } from "@/layout/erpPageStyles";
+import { fetchApi } from "@/config/api";
 import {
   claudeBodyClass,
   erpBreadcrumbLinkClass,
@@ -32,6 +33,11 @@ import {
   sectionLabelOrangeClass,
 } from "../OrdenesTrabajo/ordenTrabajoStyles";
 import ProyectoFormModal from "./form/ProyectoFormModal";
+import {
+  ProyectosListFiltersPopover,
+  type ProyectoListFilterStatus,
+  type ProyectoTecnicoFilterOption,
+} from "./list/ProyectosListFiltersPopover";
 import { ProyectosMobileList } from "./list/ProyectosMobileList";
 import { ProyectosPageStats } from "./list/ProyectosPageStats";
 import {
@@ -60,6 +66,24 @@ import { matchesDocumentFolio } from "@/utils/documentFolio";
 import { useProyectosPagePermissions } from "./useProyectosPagePermissions";
 import type { ProyectoDraft, ProyectoRow } from "./shared/proyectoTypes";
 
+function tecnicoNombreFromUser(u: {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  username?: string;
+  id: number;
+}): string {
+  const full = `${u.first_name || ""} ${u.last_name || ""}`.trim();
+  if (full) return full;
+  return String(u.username || u.email || "").trim() || `Técnico #${u.id}`;
+}
+
+function unwrapListResults<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  const results = (data as { results?: T[] } | null)?.results;
+  return Array.isArray(results) ? results : [];
+}
+
 function proyectoMatchesSearch(row: ProyectoRow, q: string): boolean {
   const term = q.trim().toLowerCase();
   if (!term) return true;
@@ -71,18 +95,71 @@ function proyectoMatchesSearch(row: ProyectoRow, q: string): boolean {
   );
 }
 
+function proyectoTiposLabels(row: ProyectoRow): string[] {
+  const tipos = row.draft?.tiposTrabajo;
+  if (Array.isArray(tipos) && tipos.length > 0) {
+    return tipos
+      .map((t) => String(t.nombre || "").trim() || (t.id != null ? `#${t.id}` : ""))
+      .filter(Boolean);
+  }
+  const legacy = String(row.draft?.tipoTrabajoNombre || "").trim();
+  return legacy ? [legacy] : [];
+}
+
+function proyectoMatchesFilters(
+  row: ProyectoRow,
+  opts: {
+    status: ProyectoListFilterStatus;
+    tipos: string[];
+    date: string;
+    tecnicoId: number | null;
+  }
+): boolean {
+  if (opts.status && row.estado !== opts.status) return false;
+
+  if (opts.date) {
+    const rowDate = String(row.fecha || row.draft?.fechaAutorizacion || "").slice(0, 10);
+    if (rowDate !== opts.date.slice(0, 10)) return false;
+  }
+
+  if (opts.tecnicoId != null) {
+    const tid = row.draft?.tecnico?.id ?? null;
+    if (opts.tecnicoId === 0) {
+      if (tid != null) return false;
+    } else if (tid !== opts.tecnicoId) {
+      return false;
+    }
+  }
+
+  if (opts.tipos.length > 0) {
+    const labels = proyectoTiposLabels(row);
+    const hit = opts.tipos.some((t) => labels.includes(t));
+    if (!hit) return false;
+  }
+
+  return true;
+}
+
 function isProyectoApiError(err: unknown): err is ProyectoApiError {
   return Boolean(err && typeof err === "object" && "message" in err && "status" in err);
 }
 
 export default function ProyectosPage() {
-  const { canProyectosCreate, canProyectosEdit, canProyectosDelete } = useProyectosPagePermissions();
+  const { canProyectosCreate, canProyectosEdit, canProyectosDelete, isAdmin } =
+    useProyectosPagePermissions();
   const emptyDraft = useMemo(() => createEmptyProyectoDraft(), []);
   const deleteTitleId = useId();
 
   const [rows, setRows] = useState<ProyectoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<ProyectoListFilterStatus>("");
+  const [filterTiposTrabajo, setFilterTiposTrabajo] = useState<string[]>([]);
+  const [filterDate, setFilterDate] = useState("");
+  const [filterTecnicoId, setFilterTecnicoId] = useState<number | null>(null);
+  const [catalogTiposTrabajo, setCatalogTiposTrabajo] = useState<string[]>([]);
+  const [catalogTecnicos, setCatalogTecnicos] = useState<ProyectoTecnicoFilterOption[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingRow, setEditingRow] = useState<ProyectoRow | null>(null);
   const [deletingRow, setDeletingRow] = useState<ProyectoRow | null>(null);
@@ -96,10 +173,62 @@ export default function ProyectosPage() {
 
   const stats = useMemo(() => computeProyectoStats(rows), [rows]);
 
+  /** Catálogo de Servicios + tipos ya usados en proyectos (p. ej. legacy). */
+  const tiposTrabajoDisponibles = useMemo(() => {
+    const set = new Set(catalogTiposTrabajo);
+    for (const row of rows) {
+      for (const label of proyectoTiposLabels(row)) set.add(label);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  }, [catalogTiposTrabajo, rows]);
+
+  /** Opciones de técnico desde API + cualquier asignado que no venga en catálogo. */
+  const tecnicosDisponibles = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const t of catalogTecnicos) {
+      if (t.id > 0) map.set(t.id, t.nombre);
+    }
+    for (const row of rows) {
+      const t = row.draft?.tecnico;
+      if (t?.id != null && Number.isFinite(t.id) && t.id > 0 && !map.has(t.id)) {
+        map.set(t.id, String(t.nombre || "").trim() || `Técnico #${t.id}`);
+      }
+    }
+    return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
+  }, [catalogTecnicos, rows]);
+
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (filterStatus) n += 1;
+    if (filterTiposTrabajo.length > 0) n += 1;
+    if (filterDate.trim()) n += 1;
+    if (filterTecnicoId != null) n += 1;
+    return n;
+  }, [filterStatus, filterTiposTrabajo, filterDate, filterTecnicoId]);
+
+  const clearListFilters = () => {
+    setFilterStatus("");
+    setFilterTiposTrabajo([]);
+    setFilterDate("");
+    setFilterTecnicoId(null);
+  };
+
   const filteredRows = useMemo(
-    () => rows.filter((r) => proyectoMatchesSearch(r, searchTerm)),
-    [rows, searchTerm]
+    () =>
+      rows.filter(
+        (r) =>
+          proyectoMatchesSearch(r, searchTerm) &&
+          proyectoMatchesFilters(r, {
+            status: filterStatus,
+            tipos: filterTiposTrabajo,
+            date: filterDate,
+            tecnicoId: filterTecnicoId,
+          })
+      ),
+    [rows, searchTerm, filterStatus, filterTiposTrabajo, filterDate, filterTecnicoId]
   );
+
+  const hasActiveListQuery = Boolean(searchTerm.trim()) || activeFilterCount > 0;
 
   const modalDraft = editingRow?.draft ?? emptyDraft;
 
@@ -136,6 +265,57 @@ export default function ProyectosPage() {
         }
       } finally {
         if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [servRes, tecRes] = await Promise.all([
+          fetchApi("/api/servicios/?page=1&page_size=500&ordering=idx", {
+            cache: "no-store" as RequestCache,
+          }),
+          fetchApi("/api/ordenes/tecnico-opciones/").then(async (res) => {
+            if (res.ok) return res;
+            return fetchApi("/api/users/accounts/");
+          }),
+        ]);
+        if (cancelled) return;
+
+        if (servRes.ok) {
+          const data = await servRes.json().catch(() => null);
+          const results = unwrapListResults<{ nombre?: string; activo?: boolean }>(data);
+          const names = results
+            .filter((s) => s && typeof s.nombre === "string" && s.nombre.trim() && s.activo !== false)
+            .map((s) => String(s.nombre).trim());
+          setCatalogTiposTrabajo(Array.from(new Set(names)));
+        }
+
+        if (tecRes.ok) {
+          const data = await tecRes.json().catch(() => null);
+          const rowsList = unwrapListResults<{
+            id?: number;
+            first_name?: string;
+            last_name?: string;
+            email?: string;
+            username?: string;
+          }>(data);
+          setCatalogTecnicos(
+            rowsList
+              .filter((u) => u && u.id != null && Number(u.id) > 0)
+              .map((u) => ({
+                id: Number(u.id),
+                nombre: tecnicoNombreFromUser({ ...u, id: Number(u.id) }),
+              }))
+          );
+        }
+      } catch (err) {
+        console.error("Error al cargar catálogos de filtros:", err);
       }
     })();
     return () => {
@@ -238,6 +418,7 @@ export default function ProyectosPage() {
       }
 
       closeModal();
+      window.dispatchEvent(new CustomEvent("cotizaciones:updated"));
       showAlert(
         "success",
         wasEditing ? "Proyecto actualizado" : "Proyecto creado",
@@ -353,7 +534,7 @@ export default function ProyectosPage() {
             ) : null}
           </div>
 
-          <button type="button" onClick={openNew} className={`${erpPrimaryBtnClass} lg:shrink-0`}>
+          <button type="button" onClick={openNew} className={`${erpPrimaryBtnClass} w-full sm:w-auto lg:shrink-0`}>
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
               <path d="M12 5v14M5 12h14" strokeLinecap="round" />
             </svg>
@@ -364,8 +545,30 @@ export default function ProyectosPage() {
         <ComponentCard
           compact
           title="Listado"
-          desc="Resultados según búsqueda. En pantallas pequeñas verás tarjetas; en escritorio, la tabla completa."
+          desc="Resultados según búsqueda y filtros. En pantallas pequeñas verás tarjetas; en escritorio, la tabla completa."
           className={`overflow-visible ${pageCardShellClass}`}
+          actions={
+            <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:items-center">
+              <ProyectosListFiltersPopover
+                open={filterOpen}
+                onOpenChange={setFilterOpen}
+                filterStatus={filterStatus}
+                setFilterStatus={setFilterStatus}
+                filterTiposTrabajo={filterTiposTrabajo}
+                setFilterTiposTrabajo={setFilterTiposTrabajo}
+                filterDate={filterDate}
+                setFilterDate={setFilterDate}
+                filterTecnicoId={filterTecnicoId}
+                setFilterTecnicoId={setFilterTecnicoId}
+                tiposTrabajoDisponibles={tiposTrabajoDisponibles}
+                tecnicos={tecnicosDisponibles}
+                activeFilterCount={activeFilterCount}
+                onClear={clearListFilters}
+                showTecnicoFilter={isAdmin}
+                datePickerId="filtro-fecha-proyectos"
+              />
+            </div>
+          }
         >
           <div className="p-2 pt-0">
             {loading ? (
@@ -380,7 +583,7 @@ export default function ProyectosPage() {
               <>
                 <ProyectosMobileList
                   rows={filteredRows}
-                  hasSearch={Boolean(searchTerm.trim())}
+                  hasSearch={hasActiveListQuery}
                   canEdit={canProyectosEdit}
                   canDelete={canProyectosDelete}
                   onEdit={openEdit}
@@ -419,8 +622,8 @@ export default function ProyectosPage() {
                         <TableRow>
                           <TableCell colSpan={7} className="px-2 py-10">
                             <div className="text-center text-sm text-gray-500 dark:text-gray-400">
-                              {searchTerm
-                                ? "No hay proyectos que coincidan con la búsqueda."
+                              {hasActiveListQuery
+                                ? "No hay proyectos que coincidan con la búsqueda o los filtros."
                                 : "Aún no hay proyectos registrados."}
                             </div>
                           </TableCell>
@@ -523,7 +726,7 @@ export default function ProyectosPage() {
                     Mostrando{" "}
                     <span className="font-medium text-gray-900 dark:text-white">{filteredRows.length}</span> de{" "}
                     <span className="font-medium text-gray-900 dark:text-white">{rows.length}</span> proyectos
-                    {searchTerm ? " (filtrados)" : ""}
+                    {hasActiveListQuery ? " (filtrados)" : ""}
                   </p>
                 </div>
               </>

@@ -7,6 +7,8 @@ import {
   formatCotizacionesFolioLabel,
   normalizeDraftCotizaciones,
   normalizeNotasPorDia,
+  normalizeTiposTrabajo,
+  tiposTrabajoFromLegacy,
 } from "./proyectoFormUtils";
 import type {
   CotizacionOrigen,
@@ -18,6 +20,7 @@ import type {
   ProyectoNotaDia,
   ProyectoPersonaAsignada,
   ProyectoRow,
+  ProyectoTipoTrabajo,
 } from "./proyectoTypes";
 
 export type ApiProyecto = {
@@ -30,7 +33,9 @@ export type ApiProyecto = {
   motivo_pausa: string;
   tipo_trabajo_id: number | null;
   tipo_trabajo_nombre: string;
+  tipos_trabajo?: ProyectoTipoTrabajo[] | null;
   fecha_autorizacion: string | null;
+  quien_autorizo?: string;
   fechas_inicio: string[];
   hora_llegada: string;
   hora_salida: string;
@@ -106,6 +111,11 @@ function draftFromApi(api: ApiProyecto): ProyectoDraft {
     presupuesto: [],
   });
   const primary = cotizaciones[0]?.cotizacion ?? null;
+  const tiposTrabajo = (() => {
+    const fromApi = normalizeTiposTrabajo(api.tipos_trabajo);
+    if (fromApi.length) return fromApi;
+    return tiposTrabajoFromLegacy(api.tipo_trabajo_id, api.tipo_trabajo_nombre);
+  })();
   return {
     ...base,
     cliente: String(api.cliente_nombre || "").trim(),
@@ -114,11 +124,13 @@ function draftFromApi(api: ApiProyecto): ProyectoDraft {
     cotizacion: primary,
     presupuesto: flattenPresupuesto(cotizaciones),
     equipos: Array.isArray(api.equipos) ? api.equipos : [],
-    tipoTrabajoId: api.tipo_trabajo_id ?? null,
-    tipoTrabajoNombre: String(api.tipo_trabajo_nombre || ""),
+    tiposTrabajo,
+    tipoTrabajoId: tiposTrabajo[0]?.id ?? null,
+    tipoTrabajoNombre: tiposTrabajo[0]?.nombre ?? "",
     status: (api.status as ProyectoEstado) || "en_proceso",
     motivoPausa: String(api.motivo_pausa || ""),
     fechaAutorizacion: api.fecha_autorizacion ? String(api.fecha_autorizacion) : "",
+    quienAutorizo: String(api.quien_autorizo || ""),
     fechasInicio: Array.isArray(api.fechas_inicio) && api.fechas_inicio.length
       ? api.fechas_inicio.map((d) => String(d || ""))
       : [""],
@@ -183,14 +195,21 @@ export function proyectoRowFromApi(api: ApiProyecto): ProyectoRow {
 
 export function draftToApiPayload(draft: ProyectoDraft): Record<string, unknown> {
   const cotizaciones = normalizeDraftCotizaciones(draft);
+  const tiposTrabajo = normalizeTiposTrabajo(
+    draft.tiposTrabajo?.length
+      ? draft.tiposTrabajo
+      : tiposTrabajoFromLegacy(draft.tipoTrabajoId, draft.tipoTrabajoNombre)
+  );
   return {
     cliente_id: parseClientePk(draft.clienteId),
     cliente_nombre: draft.cliente.trim(),
     status: draft.status,
     motivo_pausa: draft.status === "pausado" ? draft.motivoPausa.trim() : "",
-    tipo_trabajo_id: draft.tipoTrabajoId,
-    tipo_trabajo_nombre: draft.tipoTrabajoNombre.trim(),
+    tipos_trabajo: tiposTrabajo,
+    tipo_trabajo_id: tiposTrabajo[0]?.id ?? null,
+    tipo_trabajo_nombre: tiposTrabajo[0]?.nombre?.trim() || "",
     fecha_autorizacion: draft.fechaAutorizacion.trim() || null,
+    quien_autorizo: draft.quienAutorizo.trim(),
     fechas_inicio: draft.fechasInicio?.length ? draft.fechasInicio : [""],
     hora_llegada: draft.horaLlegada || "",
     hora_salida: draft.horaSalida || "",

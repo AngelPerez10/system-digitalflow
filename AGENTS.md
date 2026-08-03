@@ -179,8 +179,8 @@ En `backend/config/middleware.py`, las peticiones a `/api/*` con cabecera `Autho
 - Helpers compartidos: `backend/apps/common/pdf_html.py`, `backend/apps/common/pdf_images.py`
 - **Proyectos CRUD** (`apps/operacion`): `GET/POST /api/proyectos/`, `GET/PATCH/DELETE /api/proyectos/{id}/`, `POST /api/proyectos/upload-image/` y `delete-image/`. Permisos del módulo **`proyectos`** (`ProyectosPermission`). Folio `PRJ-{idx}`. Carpetas Cloudinary: `proyectos/evidencias`, `proyectos/bitacora`, `proyectos/firmas`, `proyectos/instalacion/dibujos`.
 - **Instalaciones GPS de proyecto**: `GET/POST /api/proyecto-instalaciones/`, `GET/PATCH/DELETE /api/proyecto-instalaciones/{id}/` (filtro `?proyecto=`). Folio UI `INS-{idx}`. Permisos módulo **`proyectos`**.
-- **Enviar PDF de orden por correo** (solo servicio técnico resuelto): `POST /api/ordenes/{id}/enviar-pdf/` + SMTP vía `EMAIL_HOST` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_PORT=465` / `EMAIL_USE_SSL=true` (ver `backend/.env.example`). Lógica en `backend/apps/ordenes/email_pdf.py`.
-- **Enviar PDF de cotización por correo** (PENDIENTE o AUTORIZADA): `POST /api/cotizaciones/{id}/enviar-pdf/` — mismo SMTP; asunto/cuerpo en `backend/apps/cotizaciones/email_pdf.py`.
+- **Enviar PDF de orden por correo** (solo servicio técnico resuelto): `POST /api/ordenes/{id}/enviar-pdf/`. SMTP autenticado con el **buzón del usuario** que envía (`UserSmtpCredentials` en Gestión de usuarios). Host/puerto/SSL: `EMAIL_HOST` / `EMAIL_PORT=465` / `EMAIL_USE_SSL=true`. Cifrado: `SMTP_CREDENTIALS_KEY` (ver `backend/.env.example`). Lógica en `backend/apps/ordenes/email_pdf.py`.
+- **Enviar PDF de cotización por correo** (PENDIENTE o AUTORIZADA): `POST /api/cotizaciones/{id}/enviar-pdf/` — mismo SMTP por usuario; asunto/cuerpo en `backend/apps/cotizaciones/email_pdf.py`. Si el usuario no tiene SMTP configurado → 400 con mensaje claro.
 
 ## No hacer
 

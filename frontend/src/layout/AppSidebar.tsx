@@ -165,14 +165,20 @@ export default function AppSidebar() {
         subItems: contactosSub,
       });
 
-      items.push({
-        icon: <BoxCubeIcon />,
-        name: "Productos Y Servicios",
-        subItems: [
-          { name: "Productos", path: "/productos", pro: false },
-          { name: "Servicios", path: "/servicios", pro: false },
-        ],
-      });
+      const productosServiciosSub: SidebarSubItem[] = [];
+      if (isAdmin || permissions?.productos?.view === true) {
+        productosServiciosSub.push({ name: "Productos", path: "/productos", pro: false });
+      }
+      if (isAdmin || permissions?.servicios?.view === true) {
+        productosServiciosSub.push({ name: "Servicios", path: "/servicios", pro: false });
+      }
+      if (productosServiciosSub.length > 0) {
+        items.push({
+          icon: <BoxCubeIcon />,
+          name: "Productos Y Servicios",
+          subItems: productosServiciosSub,
+        });
+      }
 
       items.push({
         icon: <PieChartIcon />,
@@ -271,6 +277,21 @@ export default function AppSidebar() {
             { name: "Cotizaciones", path: "/cotizacion", pro: false },
             { name: "Facturas CFDI", path: "/facturas", pro: false },
           ],
+        });
+      }
+
+      const productosServiciosSub: SidebarSubItem[] = [];
+      if (permissions?.productos?.view === true) {
+        productosServiciosSub.push({ name: "Productos", path: "/productos", pro: false });
+      }
+      if (permissions?.servicios?.view === true) {
+        productosServiciosSub.push({ name: "Servicios", path: "/servicios", pro: false });
+      }
+      if (productosServiciosSub.length > 0) {
+        items.push({
+          icon: <BoxCubeIcon />,
+          name: "Productos Y Servicios",
+          subItems: productosServiciosSub,
         });
       }
 

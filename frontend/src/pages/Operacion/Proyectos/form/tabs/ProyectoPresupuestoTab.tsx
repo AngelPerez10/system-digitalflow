@@ -20,6 +20,7 @@ export type ProyectoPresupuestoTabProps = {
   presupuestoCargado: boolean;
   cotizaciones: ProyectoCotizacionBloque[];
   isAdmin: boolean;
+  assignedTechnicianLocked?: boolean;
   equipos: ProyectoEquipoLinea[];
   equiposPorCotizacion: Map<string, ProyectoEquipoLinea[]>;
   onUpdateEquipo: (lineaId: string, patch: Partial<ProyectoEquipoLinea>) => void;
@@ -53,6 +54,7 @@ export function ProyectoPresupuestoTab({
   presupuestoCargado,
   cotizaciones,
   isAdmin,
+  assignedTechnicianLocked = false,
   equipos,
   equiposPorCotizacion,
   onUpdateEquipo,
@@ -186,6 +188,7 @@ export function ProyectoPresupuestoTab({
         icon={iconBox}
         presupuestoCargado={presupuestoCargado}
         isAdmin={isAdmin}
+        assignedTechnicianLocked={assignedTechnicianLocked}
         cotizaciones={cotizaciones}
         equipos={equipos}
         equiposPorCotizacion={equiposPorCotizacion}

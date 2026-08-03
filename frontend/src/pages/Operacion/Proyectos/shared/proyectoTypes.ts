@@ -65,6 +65,12 @@ export type ProyectoPersonaAsignada = {
   nombre: string;
 };
 
+/** Servicio vinculado como tipo de trabajo del proyecto (varios). */
+export type ProyectoTipoTrabajo = {
+  id: number;
+  nombre: string;
+};
+
 export type ProyectoNotaDia = {
   id: string;
   nota: string;
@@ -85,11 +91,17 @@ export type ProyectoDraft = {
   /** Líneas aplanadas de todas las cotizaciones (compat). */
   presupuesto: PresupuestoLinea[];
   equipos: ProyectoEquipoLinea[];
+  /** Tipos de trabajo (servicios); varios permitidos. */
+  tiposTrabajo: ProyectoTipoTrabajo[];
+  /** @deprecated Preferir tiposTrabajo; se sincroniza al primero. */
   tipoTrabajoId: number | null;
+  /** @deprecated Preferir tiposTrabajo. */
   tipoTrabajoNombre: string;
   status: ProyectoEstado;
   motivoPausa: string;
   fechaAutorizacion: string;
+  /** Nombre libre de quien autorizó el proyecto / presupuesto. */
+  quienAutorizo: string;
   /** Día 1, Día 2, … */
   fechasInicio: string[];
   horaLlegada: string;

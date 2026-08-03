@@ -1,10 +1,18 @@
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.clientes.models import Cliente
 
 from .close_validation import validate_proyecto_cierre
+from .cotizacion_autorizacion import authorize_pending_digitalflow_cotizaciones
 from .models import Proyecto, ProyectoInstalacion
+from .tipos_trabajo import (
+    assert_tecnico_locked_fields,
+    is_assigned_technician_actor,
+    normalize_tipos_trabajo,
+    sync_legacy_tipo_trabajo,
+)
 
 User = get_user_model()
 
@@ -87,7 +95,9 @@ class ProyectoSerializer(serializers.ModelSerializer):
             "motivo_pausa",
             "tipo_trabajo_id",
             "tipo_trabajo_nombre",
+            "tipos_trabajo",
             "fecha_autorizacion",
+            "quien_autorizo",
             "fechas_inicio",
             "hora_llegada",
             "hora_salida",
@@ -166,6 +176,52 @@ class ProyectoSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
         instance = getattr(self, "instance", None)
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request is not None else None
+
+        if instance is not None and is_assigned_technician_actor(user, instance):
+            lock_errors = assert_tecnico_locked_fields(instance, attrs)
+            if lock_errors:
+                raise serializers.ValidationError(lock_errors)
+
+        if "tipos_trabajo" in attrs:
+            tipos = normalize_tipos_trabajo(attrs.get("tipos_trabajo"))
+        elif "tipo_trabajo_id" in attrs or "tipo_trabajo_nombre" in attrs:
+            tid = attrs.get(
+                "tipo_trabajo_id",
+                getattr(instance, "tipo_trabajo_id", None) if instance else None,
+            )
+            tname = attrs.get(
+                "tipo_trabajo_nombre",
+                getattr(instance, "tipo_trabajo_nombre", "") if instance else "",
+            )
+            tipos = normalize_tipos_trabajo(
+                [{"id": tid, "nombre": tname or ""}] if tid else []
+            )
+        elif instance is not None:
+            tipos = normalize_tipos_trabajo(getattr(instance, "tipos_trabajo", None))
+            if not tipos and getattr(instance, "tipo_trabajo_id", None):
+                tipos = normalize_tipos_trabajo(
+                    [
+                        {
+                            "id": instance.tipo_trabajo_id,
+                            "nombre": instance.tipo_trabajo_nombre or "",
+                        }
+                    ]
+                )
+        else:
+            tipos = []
+
+        if (
+            "tipos_trabajo" in attrs
+            or "tipo_trabajo_id" in attrs
+            or "tipo_trabajo_nombre" in attrs
+            or instance is None
+        ):
+            attrs["tipos_trabajo"] = tipos
+            legacy_id, legacy_nombre = sync_legacy_tipo_trabajo(tipos)
+            attrs["tipo_trabajo_id"] = legacy_id
+            attrs["tipo_trabajo_nombre"] = legacy_nombre
 
         status = attrs.get("status", getattr(instance, "status", "en_proceso"))
         requiere = attrs.get(
@@ -190,6 +246,22 @@ class ProyectoSerializer(serializers.ModelSerializer):
         if not result.ok:
             raise serializers.ValidationError({"status": [result.message]})
         return attrs
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            instance = super().create(validated_data)
+            authorize_pending_digitalflow_cotizaciones(instance.cotizaciones)
+            return instance
+
+    def update(self, instance, validated_data):
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request is not None else None
+        with transaction.atomic():
+            instance = super().update(instance, validated_data)
+            # Técnico asignado no vincula cotizaciones; no debe autorizar por side-effect.
+            if not is_assigned_technician_actor(user, instance):
+                authorize_pending_digitalflow_cotizaciones(instance.cotizaciones)
+            return instance
 
 
 class ProyectoInstalacionSerializer(serializers.ModelSerializer):

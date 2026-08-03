@@ -10,6 +10,7 @@ import { proyectoRequiereCotizacionAdicional } from "../../shared/proyectoCloseV
 import { ProyectoEvidenciasField } from "../fields/ProyectoEvidenciasField";
 import { ProyectoFormSection, proyectoSectionIconClass } from "../ProyectoFormSection";
 import { ProyectoNotaDiaFotosField } from "../fields/ProyectoNotaDiaFotosField";
+import { ProyectoTiposTrabajoField } from "../fields/ProyectoTiposTrabajoField";
 import { displayCotizacionFolio } from "../../shared/proyectoFormUtils";
 import type { CotizacionPickerTarget } from "../cotizaciones/useCotizacionPicker";
 import {
@@ -32,6 +33,7 @@ import type {
   ProyectoEstado,
   ProyectoNotaDia,
   ProyectoPersonaAsignada,
+  ProyectoTipoTrabajo,
   ServicioOpcion,
 } from "../../shared/proyectoTypes";
 
@@ -115,11 +117,10 @@ export type ProyectoOperacionTabProps = {
   editing: boolean;
   catalogError: string;
   servicios: ServicioOpcion[];
-  servicioOptions: { value: string; label: string }[];
-  tipoTrabajoId: number | null;
-  setTipoTrabajoId: (v: number | null) => void;
-  tipoTrabajoNombre: string;
-  setTipoTrabajoNombre: (v: string) => void;
+  tiposTrabajo: ProyectoTipoTrabajo[];
+  setTiposTrabajo: (v: ProyectoTipoTrabajo[]) => void;
+  /** Bloqueos del técnico asignado (tipos, fecha autorización). */
+  assignedTechnicianLocked?: boolean;
   status: ProyectoEstado;
   handleStatusChange: (v: ProyectoEstado) => void;
   motivoPausa: string;
@@ -189,11 +190,9 @@ export function ProyectoOperacionTab({
   editing,
   catalogError,
   servicios,
-  servicioOptions,
-  tipoTrabajoId,
-  setTipoTrabajoId,
-  tipoTrabajoNombre,
-  setTipoTrabajoNombre,
+  tiposTrabajo,
+  setTiposTrabajo,
+  assignedTechnicianLocked = false,
   status,
   handleStatusChange,
   motivoPausa,
@@ -275,24 +274,17 @@ export function ProyectoOperacionTab({
         icon={iconStatus}
       >
         <div>
-          <SearchableSelect
-            label="Tipo de trabajo"
-            value={tipoTrabajoId != null ? String(tipoTrabajoId) : ""}
-            onChange={(v) => {
-              if (!v) {
-                setTipoTrabajoId(null);
-                setTipoTrabajoNombre("");
-                return;
-              }
-              const found = servicios.find((s) => String(s.id) === v);
-              setTipoTrabajoId(found ? found.id : Number(v));
-              setTipoTrabajoNombre(found?.nombre || "");
-            }}
-            options={servicioOptions}
+          <ProyectoTiposTrabajoField
+            value={tiposTrabajo}
+            onChange={setTiposTrabajo}
+            servicios={servicios}
+            disabled={assignedTechnicianLocked}
             placeholder="Buscar servicio…"
           />
-          {tipoTrabajoNombre && tipoTrabajoId == null ? (
-            <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Actual: {tipoTrabajoNombre}</p>
+          {catalogError ? (
+            <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400" role="alert">
+              {catalogError}
+            </p>
           ) : null}
         </div>
 
@@ -350,7 +342,9 @@ export function ProyectoOperacionTab({
               label="Fecha de autorización"
               placeholder="Seleccionar fecha"
               defaultDate={fechaAutorizacion || undefined}
+              disabled={assignedTechnicianLocked}
               onChange={(_dates, currentDateString) => {
+                if (assignedTechnicianLocked) return;
                 setFechaAutorizacion(currentDateString || "");
               }}
             />

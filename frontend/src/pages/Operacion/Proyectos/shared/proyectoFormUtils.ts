@@ -11,8 +11,48 @@ import type {
   ProyectoPersonaAsignada,
   ProyectoRow,
   ProyectoStats,
+  ProyectoTipoTrabajo,
 } from "./proyectoTypes";
 import { FOLIO_SERIE, formatDocumentFolio, resolveDocumentFolio } from "@/utils/documentFolio";
+
+/** Normaliza lista de tipos de trabajo sin duplicar por id. */
+export function normalizeTiposTrabajo(raw: unknown): ProyectoTipoTrabajo[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<number>();
+  const out: ProyectoTipoTrabajo[] = [];
+  for (const item of raw) {
+    let id = NaN;
+    let nombre = "";
+    if (typeof item === "number") {
+      id = item;
+    } else if (typeof item === "string" && item.trim()) {
+      id = Number(item);
+    } else if (item && typeof item === "object") {
+      const rec = item as { id?: unknown; nombre?: unknown };
+      id = Number(rec.id);
+      nombre = String(rec.nombre || "").trim();
+    }
+    if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, nombre });
+  }
+  return out;
+}
+
+/** Une listas de tipos de trabajo sin duplicar. */
+export function mergeTiposTrabajo(
+  ...groups: Array<ProyectoTipoTrabajo[] | undefined | null>
+): ProyectoTipoTrabajo[] {
+  return normalizeTiposTrabajo(groups.flatMap((g) => g || []));
+}
+
+export function tiposTrabajoFromLegacy(
+  id: number | null | undefined,
+  nombre: string | null | undefined
+): ProyectoTipoTrabajo[] {
+  if (id == null || !Number.isFinite(id) || id <= 0) return [];
+  return [{ id, nombre: String(nombre || "").trim() }];
+}
 
 /** Folio visible: COT-{n} en DigitalFlow; SICAR se muestra sin prefijo COT. */
 export function displayCotizacionFolio(
@@ -128,11 +168,13 @@ export function createEmptyProyectoDraft(): ProyectoDraft {
     cotizacion: null,
     presupuesto: [],
     equipos: [],
+    tiposTrabajo: [],
     tipoTrabajoId: null,
     tipoTrabajoNombre: "",
     status: "en_proceso",
     motivoPausa: "",
     fechaAutorizacion: "",
+    quienAutorizo: "",
     fechasInicio: [""],
     horaLlegada: "",
     horaSalida: "",

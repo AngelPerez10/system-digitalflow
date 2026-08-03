@@ -136,6 +136,14 @@ class CotizacionesEnviarPdfTests(APITestCase):
             fecha="2026-07-03",
             creado_por=self.user,
         )
+        from apps.users.models import UserSmtpCredentials
+        from apps.users.smtp_crypto import encrypt_smtp_password
+
+        UserSmtpCredentials.objects.create(
+            user=self.user,
+            smtp_email="vendedor@example.com",
+            smtp_password_encrypted=encrypt_smtp_password("webmail-secret"),
+        )
 
     def test_correo_sugerido(self):
         response = self.client.get(f"/api/cotizaciones/{self.cot_pendiente.id}/correo-sugerido/")
@@ -159,9 +167,9 @@ class CotizacionesEnviarPdfTests(APITestCase):
         with override_settings(
             EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
             EMAIL_HOST="mail.example.com",
-            EMAIL_HOST_USER="soporte@example.com",
-            EMAIL_HOST_PASSWORD="secret",
-            DEFAULT_FROM_EMAIL="soporte@example.com",
+            EMAIL_HOST_USER="",
+            EMAIL_HOST_PASSWORD="",
+            DEFAULT_FROM_EMAIL="",
         ):
             with patch(
                 "apps.cotizaciones.views.render_html_to_pdf",
@@ -180,6 +188,7 @@ class CotizacionesEnviarPdfTests(APITestCase):
         self.cliente.refresh_from_db()
         self.assertEqual(self.cliente.correo, "nuevo.cot@example.com")
         self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].from_email, "vendedor@example.com")
 
     def test_enviar_pdf_autorizada_ok(self):
         from unittest.mock import patch
@@ -189,9 +198,9 @@ class CotizacionesEnviarPdfTests(APITestCase):
         with override_settings(
             EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
             EMAIL_HOST="mail.example.com",
-            EMAIL_HOST_USER="soporte@example.com",
-            EMAIL_HOST_PASSWORD="secret",
-            DEFAULT_FROM_EMAIL="soporte@example.com",
+            EMAIL_HOST_USER="",
+            EMAIL_HOST_PASSWORD="",
+            DEFAULT_FROM_EMAIL="",
         ):
             with patch(
                 "apps.cotizaciones.views.render_html_to_pdf",

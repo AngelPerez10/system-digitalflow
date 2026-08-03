@@ -21,12 +21,14 @@ from apps.common.document_folio import FOLIO_SERIE_COT, format_document_folio
 from apps.common.pdf_html import subtotal_iva_display_split as _subtotal_iva_display_split
 from apps.common.pdf_images import safe_http_image_bytes as _safe_http_image_bytes
 from apps.ordenes.email_pdf import (
+    USER_SMTP_MISSING_DETAIL,
     is_valid_email,
     maybe_save_cliente_correo,
     normalize_email,
     resolve_cliente_correo,
+    resolve_user_smtp_credentials,
     send_pdf_email,
-    smtp_configured,
+    smtp_host_configured,
 )
 from apps.users.permissions import CotizacionesSendPdfPermission, ModulePermission, user_module_own_only
 
@@ -678,7 +680,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 status=400,
             )
 
-        if not smtp_configured():
+        if not smtp_host_configured():
             return Response(
                 {
                     'detail': (
@@ -688,6 +690,12 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 },
                 status=503,
             )
+
+        user_smtp = resolve_user_smtp_credentials(request.user)
+        if not user_smtp:
+            return Response({'detail': USER_SMTP_MISSING_DETAIL}, status=400)
+
+        smtp_user, smtp_password = user_smtp
 
         if not any_provider_configured():
             return Response(
@@ -715,6 +723,9 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 body=build_cotizacion_email_body(cotizacion),
                 pdf_bytes=pdf_bytes,
                 filename=filename,
+                from_email=smtp_user,
+                smtp_user=smtp_user,
+                smtp_password=smtp_password,
             )
         except Exception as e:
             logger.exception('Failed to send cotizacion PDF email')

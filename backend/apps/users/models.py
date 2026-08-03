@@ -29,3 +29,27 @@ class UserSignature(models.Model):
 
     def __str__(self):
         return f"Firma de {self.user}"
+
+
+class UserSmtpCredentials(models.Model):
+    """Credenciales SMTP del buzón webmail del usuario (envío de PDF)."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='smtp_credentials',
+    )
+    smtp_email = models.EmailField(blank=True, default='')
+    smtp_password_encrypted = models.TextField(blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Credenciales SMTP'
+        verbose_name_plural = 'Credenciales SMTP'
+
+    def __str__(self):
+        return f"SMTP de {self.user}"
+
+    @property
+    def is_configured(self) -> bool:
+        return bool((self.smtp_email or '').strip() and (self.smtp_password_encrypted or '').strip())

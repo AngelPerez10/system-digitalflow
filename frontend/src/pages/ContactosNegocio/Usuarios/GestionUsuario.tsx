@@ -52,6 +52,8 @@ type UserAccount = {
   is_superuser: boolean;
   password_enabled?: boolean;
   role?: Role;
+  smtp_email?: string;
+  smtp_configured?: boolean;
 };
 
 type NewUserForm = {
@@ -72,6 +74,9 @@ type EditUserForm = {
   role: Role;
   password: string;
   password2: string;
+  smtp_email: string;
+  smtp_password: string;
+  smtp_clear: boolean;
 };
 
 const emptyForm: NewUserForm = {
@@ -92,6 +97,9 @@ const emptyEditForm: EditUserForm = {
   role: 'tecnico',
   password: '',
   password2: '',
+  smtp_email: '',
+  smtp_password: '',
+  smtp_clear: false,
 };
 
 const cardShellClass =
@@ -251,6 +259,7 @@ export default function UserProfiles() {
   const [editing, setEditing] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [showEditPassword2, setShowEditPassword2] = useState(false);
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
 
   const [signatureLoading, setSignatureLoading] = useState(false);
   const [signatureSaving, setSignatureSaving] = useState(false);
@@ -379,6 +388,8 @@ export default function UserProfiles() {
             ...permsForm,
             // Cotizaciones: los técnicos pueden tener permisos granulares (ver/crear/editar/eliminar)
             cotizaciones: merged.cotizaciones,
+            productos: merged.productos,
+            servicios: merged.servicios,
             cuentas_antarix: merged.cuentas_antarix,
             usuarios: { view: false, create: false, edit: false, delete: false },
             reportes: { ...merged.reportes, delete: false },
@@ -529,9 +540,13 @@ export default function UserProfiles() {
       role: isAdmin ? 'admin' : 'tecnico',
       password: '',
       password2: '',
+      smtp_email: u.smtp_email || '',
+      smtp_password: '',
+      smtp_clear: false,
     });
     setShowEditPassword(false);
     setShowEditPassword2(false);
+    setShowSmtpPassword(false);
     setIsEditOpen(true);
 
     setSignatureLoading(true);
@@ -645,17 +660,23 @@ export default function UserProfiles() {
     try {
       const hasNewSignature = !!signatureValue && signatureValue.startsWith('data:') && signatureValue.includes(';base64,');
 
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         username: editForm.username.trim(),
         first_name: (editForm.first_name || '').trim(),
         last_name: (editForm.last_name || '').trim(),
         email: (editForm.email || '').trim(),
         is_staff: editForm.role === 'admin',
         is_superuser: editForm.role === 'admin',
+        smtp_email: (editForm.smtp_email || '').trim(),
       };
       if (editForm.password || editForm.password2) {
         payload.password = editForm.password;
         payload.password2 = editForm.password2;
+      }
+      if (editForm.smtp_clear) {
+        payload.smtp_clear = true;
+      } else if ((editForm.smtp_password || '').trim()) {
+        payload.smtp_password = editForm.smtp_password.trim();
       }
 
       const res = await fetchApi(`/api/users/accounts/${editUser.id}/`, {
@@ -1075,6 +1096,15 @@ export default function UserProfiles() {
                     <div className={cn("truncate", bodyMutedClass)}>
                       <span className="text-[#78716c] dark:text-[#8ea0b8]">Correo:</span>{' '}
                       {u.email || '—'}
+                      {u.smtp_configured ? (
+                        <span className="ml-2 inline-flex items-center rounded-full border border-emerald-200/90 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                          SMTP listo
+                        </span>
+                      ) : (
+                        <span className="ml-2 inline-flex items-center rounded-full border border-amber-200/90 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                          Sin SMTP
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center rounded-md border border-[#e7ded0] bg-[#fcfaf6]/90 px-2 py-0.5 text-[11px] font-semibold text-[#44403c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1]">
@@ -1831,6 +1861,92 @@ export default function UserProfiles() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
+              <div className="mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className={sectionLabelClass}>Correo de envío</p>
+                    <p className={`mt-0.5 ${claudeSubheadingClass}`}>SMTP / Webmail</p>
+                  </div>
+                  <span
+                    className={
+                      editUser?.smtp_configured
+                        ? 'inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200'
+                        : 'inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200'
+                    }
+                  >
+                    {editUser?.smtp_configured ? 'Correo listo' : 'Sin configurar'}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Buzón Intrax con el que este usuario enviará PDF de órdenes y cotizaciones. La contraseña de webmail no se vuelve a mostrar.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+                <div className="sm:col-span-2">
+                  <Label htmlFor="edit-smtp-email">Correo SMTP</Label>
+                  <Input
+                    id="edit-smtp-email"
+                    type="email"
+                    value={editForm.smtp_email}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                      setEditForm((p) => ({ ...p, smtp_email: e.target.value, smtp_clear: false }))
+                    }
+                    placeholder="usuario@intrax.mx"
+                    disabled={editForm.smtp_clear}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="edit-smtp-password">Contraseña webmail</Label>
+                  <div className="relative mt-1">
+                    <Input
+                      id="edit-smtp-password"
+                      type={showSmtpPassword ? 'text' : 'password'}
+                      value={editForm.smtp_password}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                        setEditForm((p) => ({ ...p, smtp_password: e.target.value, smtp_clear: false }))
+                      }
+                      placeholder={editUser?.smtp_configured ? 'Deja vacío para mantener la actual' : 'Contraseña del webmail'}
+                      disabled={editForm.smtp_clear}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSmtpPassword(!showSmtpPassword)}
+                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                      aria-label={showSmtpPassword ? 'Ocultar contraseña SMTP' : 'Mostrar contraseña SMTP'}
+                      disabled={editForm.smtp_clear}
+                    >
+                      {showSmtpPassword ? (
+                        <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                      ) : (
+                        <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                {(editUser?.smtp_configured || editForm.smtp_email || editForm.smtp_password) && (
+                  <div className="sm:col-span-2">
+                    <label className="inline-flex items-center gap-2 text-sm text-[#57534e] dark:text-[#cbd5e1]">
+                      <input
+                        type="checkbox"
+                        checked={editForm.smtp_clear}
+                        onChange={(e) =>
+                          setEditForm((p) => ({
+                            ...p,
+                            smtp_clear: e.target.checked,
+                            smtp_password: e.target.checked ? '' : p.smtp_password,
+                            smtp_email: e.target.checked ? '' : p.smtp_email,
+                          }))
+                        }
+                        className="h-4 w-4 rounded border-[#e2d9ca] text-[#ff801f] focus:ring-[#ff801f]/30"
+                      />
+                      Quitar credenciales SMTP de este usuario
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   buildEquiposFromCotizaciones,
   createCotizacionBloque,
+  normalizeTiposTrabajo,
   reindexCotizacionBloques,
 } from "../../shared/proyectoFormUtils";
 import type {
@@ -9,6 +10,7 @@ import type {
   CotizacionResumen,
   ProyectoCotizacionBloque,
   ProyectoEquipoLinea,
+  ProyectoTipoTrabajo,
 } from "../../shared/proyectoTypes";
 import { loadProyectoCotizacionDetalle, searchProyectoCotizaciones } from "./proyectoCotizacionSearch";
 
@@ -26,7 +28,22 @@ export type UseCotizacionPickerArgs = {
   cotizacionAdicional: CotizacionResumen | null;
   setCotizacionAdicional: React.Dispatch<React.SetStateAction<CotizacionResumen | null>>;
   setCloseBlockedMessage: React.Dispatch<React.SetStateAction<string>>;
+  /** Une tipos de trabajo de la cotización al proyecto. */
+  onMergeTiposTrabajo?: (tipos: ProyectoTipoTrabajo[]) => void;
+  servicios?: Array<{ id: number; nombre: string }>;
 };
+
+function tiposFromLoadResult(
+  tipos: ProyectoTipoTrabajo[] | undefined,
+  servicios: Array<{ id: number; nombre: string }>
+): ProyectoTipoTrabajo[] {
+  const normalized = normalizeTiposTrabajo(tipos);
+  if (!normalized.length) return [];
+  return normalized.map((t) => ({
+    id: t.id,
+    nombre: t.nombre || servicios.find((s) => s.id === t.id)?.nombre || "",
+  }));
+}
 
 export function useCotizacionPicker({
   open,
@@ -38,6 +55,8 @@ export function useCotizacionPicker({
   setClienteId,
   setCotizacionAdicional,
   setCloseBlockedMessage,
+  onMergeTiposTrabajo,
+  servicios = [],
 }: UseCotizacionPickerArgs) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [confirmClearCotizaciones, setConfirmClearCotizaciones] = useState(false);
@@ -137,6 +156,10 @@ export function useCotizacionPicker({
     if (!cliente.trim()) {
       setCliente(result.clienteNombre);
       setClienteId(result.clienteId);
+    }
+    const tiposIncoming = tiposFromLoadResult(result.tiposTrabajo, servicios);
+    if (tiposIncoming.length && onMergeTiposTrabajo) {
+      onMergeTiposTrabajo(tiposIncoming);
     }
     setPickerOpen(false);
     setPickerSearch("");

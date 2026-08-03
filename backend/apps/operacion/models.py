@@ -37,8 +37,11 @@ class Proyecto(models.Model):
 
     tipo_trabajo_id = models.IntegerField(null=True, blank=True)
     tipo_trabajo_nombre = models.CharField(max_length=255, blank=True, default="")
+    # Varios servicios; legacy id/nombre se sincronizan al primero.
+    tipos_trabajo = models.JSONField(default=list, blank=True)
 
     fecha_autorizacion = models.DateField(null=True, blank=True)
+    quien_autorizo = models.CharField(max_length=255, blank=True, default="")
     fechas_inicio = models.JSONField(default=list, blank=True)
     hora_llegada = models.CharField(max_length=10, blank=True, default="")
     hora_salida = models.CharField(max_length=10, blank=True, default="")

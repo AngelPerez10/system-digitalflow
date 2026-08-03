@@ -13,6 +13,8 @@ import RequireCotizacionPermission from "@/components/auth/RequireCotizacionPerm
 import RequireClientePermission from "@/components/auth/RequireClientePermission";
 import RequireOrdenesPermission from "@/components/auth/RequireOrdenesPermission";
 import RequireProyectosPermission from "@/components/auth/RequireProyectosPermission";
+import RequireProductosPermission from "@/components/auth/RequireProductosPermission";
+import RequireServiciosPermission from "@/components/auth/RequireServiciosPermission";
 import RequireReportesPermission from "@/components/auth/RequireReportesPermission";
 import RequireTareasPermission from "@/components/auth/RequireTareasPermission";
 
@@ -96,8 +98,8 @@ export default function App() {
             <Route path="/empresas" element={<RequireClientePermission required="view"><EmpresaPage /></RequireClientePermission>} />
             <Route path="/personas" element={<RequireClientePermission required="view"><PersonasPage /></RequireClientePermission>} />
             <Route path="/proveedores" element={<RequireClientePermission required="view"><ProveedoresPage /></RequireClientePermission>} />
-            <Route path="/productos" element={<RequireAdmin><Productos /></RequireAdmin>} />
-            <Route path="/servicios" element={<RequireAdmin><Servicios /></RequireAdmin>} />
+            <Route path="/productos" element={<RequireProductosPermission required="view"><Productos /></RequireProductosPermission>} />
+            <Route path="/servicios" element={<RequireServiciosPermission required="view"><Servicios /></RequireServiciosPermission>} />
             <Route path="/cotizacion" element={<RequireCotizacionPermission required="view"><CotizacionesPage /></RequireCotizacionPermission>} />
             <Route path="/facturas" element={<RequireCotizacionPermission required="view"><FacturasCfdiPage /></RequireCotizacionPermission>}/>
             <Route path="/cotizacion/nueva" element={<RequireCotizacionPermission required="create"><NuevaCotizacionPage /></RequireCotizacionPermission>} />

@@ -192,7 +192,7 @@ const viewTabClass = (active: boolean) =>
     : "rounded-lg px-3 py-1.5 text-xs font-semibold text-[#57534e] transition-colors hover:bg-[#fffdf8] dark:text-[#aeb8c8] dark:hover:bg-white/[0.06]";
 
 export default function Servicios() {
-  const { permissions } = useAuth();
+  const { permissions, isAdmin } = useAuth();
   const asBool = (v: any, defaultValue: boolean) => {
     if (typeof v === "boolean") return v;
     if (typeof v === "string") {
@@ -206,10 +206,10 @@ export default function Servicios() {
   // Soporte para mayúsculas/minúsculas en la llave del módulo
   const modulePerms = permissions?.servicios || permissions?.Servicios || {};
 
-  const canServiciosView = asBool(modulePerms.view, false);
-  const canServiciosCreate = asBool(modulePerms.create, false);
-  const canServiciosEdit = asBool(modulePerms.edit, false);
-  const canServiciosDelete = asBool(modulePerms.delete, false);
+  const canServiciosView = isAdmin || asBool(modulePerms.view, false);
+  const canServiciosCreate = isAdmin || asBool(modulePerms.create, false);
+  const canServiciosEdit = isAdmin || asBool(modulePerms.edit, false);
+  const canServiciosDelete = isAdmin || asBool(modulePerms.delete, false);
 
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [conceptos, setConceptos] = useState<Concepto[]>([]);

@@ -79,15 +79,16 @@ export default function ProyectoFormModal({
     setClienteId,
     cotizaciones,
     equipos,
-    tipoTrabajoId,
-    setTipoTrabajoId,
-    tipoTrabajoNombre,
-    setTipoTrabajoNombre,
+    tiposTrabajo,
+    setTiposTrabajo,
+    assignedTechnicianLocked,
     status,
     motivoPausa,
     setMotivoPausa,
     fechaAutorizacion,
     setFechaAutorizacion,
+    quienAutorizo,
+    setQuienAutorizo,
     fechasInicio,
     fechaDesde,
     fechaHasta,
@@ -132,7 +133,6 @@ export default function ProyectoFormModal({
     setHoraSalidaError,
     presupuestoCargado,
     equiposPorCotizacion,
-    servicioOptions,
     tecnicoOptions,
     pickerOpen,
     setPickerOpen,
@@ -233,11 +233,14 @@ export default function ProyectoFormModal({
                   setClienteId={setClienteId}
                   clienteStepError={clienteStepError}
                   setClienteStepError={setClienteStepError}
+                  quienAutorizo={quienAutorizo}
+                  setQuienAutorizo={setQuienAutorizo}
                   presupuestoCargado={presupuestoCargado}
                   cotizaciones={cotizaciones}
                   setConfirmClearCotizaciones={setConfirmClearCotizaciones}
                   openCotizacionPicker={openCotizacionPicker}
                   handleQuitarCotizacion={handleQuitarCotizacion}
+                  assignedTechnicianLocked={assignedTechnicianLocked}
                 />
               )}
 
@@ -248,11 +251,9 @@ export default function ProyectoFormModal({
                   editing={editing}
                   catalogError={catalogError}
                   servicios={servicios}
-                  servicioOptions={servicioOptions}
-                  tipoTrabajoId={tipoTrabajoId}
-                  setTipoTrabajoId={setTipoTrabajoId}
-                  tipoTrabajoNombre={tipoTrabajoNombre}
-                  setTipoTrabajoNombre={setTipoTrabajoNombre}
+                  tiposTrabajo={tiposTrabajo}
+                  setTiposTrabajo={setTiposTrabajo}
+                  assignedTechnicianLocked={assignedTechnicianLocked}
                   status={status}
                   handleStatusChange={handleStatusChange}
                   motivoPausa={motivoPausa}
@@ -321,6 +322,7 @@ export default function ProyectoFormModal({
                   presupuestoCargado={presupuestoCargado}
                   cotizaciones={cotizaciones}
                   isAdmin={isAdmin}
+                  assignedTechnicianLocked={assignedTechnicianLocked}
                   equipos={equipos}
                   equiposPorCotizacion={equiposPorCotizacion}
                   onUpdateEquipo={updateEquipo}

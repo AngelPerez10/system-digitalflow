@@ -278,8 +278,26 @@ function mapApiCatalogError(res: Response, data: unknown): string {
 }
 
 export default function ProductosPage() {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, isAdmin, permissions } = useAuth();
   const catalogReady = isAuthenticated && !authLoading;
+
+  const asBool = (v: unknown, defaultValue: boolean) => {
+    if (typeof v === "boolean") return v;
+    if (typeof v === "string") {
+      const s = v.trim().toLowerCase();
+      if (s === "true") return true;
+      if (s === "false") return false;
+    }
+    return defaultValue;
+  };
+  const modulePerms =
+    (permissions as Record<string, unknown>)?.productos ||
+    (permissions as Record<string, unknown>)?.Productos ||
+    {};
+  const canProductosView = isAdmin || asBool((modulePerms as { view?: unknown }).view, false);
+  const canProductosCreate = isAdmin || asBool((modulePerms as { create?: unknown }).create, false);
+  const canProductosEdit = isAdmin || asBool((modulePerms as { edit?: unknown }).edit, false);
+  const canProductosDelete = isAdmin || asBool((modulePerms as { delete?: unknown }).delete, false);
 
   const [productos, setProductos] = useState<SyscomProducto[]>([]);
   const [pagina, setPagina] = useState(1);
@@ -739,8 +757,30 @@ export default function ProductosPage() {
     setPagina(1);
   };
 
-  const openCreateManual = () => { setEditingManualId(null); setManualFormError(""); setManualForm({ imagen_url: "", producto: "", caracteristicas: "", marca: "", modelo: "", precio: "", stock: "" }); setManualModalOpen(true); };
-  const openEditManual = (id: string) => { const p = manualProducts.find((x) => x.id === id); if (!p) return; setEditingManualId(id); setManualFormError(""); setManualForm({ imagen_url: p.imagen_url || "", producto: p.producto || "", caracteristicas: p.caracteristicas || "", marca: p.marca || "", modelo: p.modelo || "", precio: String(p.precio ?? 0), stock: String(p.stock ?? 0) }); setManualModalOpen(true); };
+  const openCreateManual = () => {
+    if (!canProductosCreate) return;
+    setEditingManualId(null);
+    setManualFormError("");
+    setManualForm({ imagen_url: "", producto: "", caracteristicas: "", marca: "", modelo: "", precio: "", stock: "" });
+    setManualModalOpen(true);
+  };
+  const openEditManual = (id: string) => {
+    if (!canProductosEdit) return;
+    const p = manualProducts.find((x) => x.id === id);
+    if (!p) return;
+    setEditingManualId(id);
+    setManualFormError("");
+    setManualForm({
+      imagen_url: p.imagen_url || "",
+      producto: p.producto || "",
+      caracteristicas: p.caracteristicas || "",
+      marca: p.marca || "",
+      modelo: p.modelo || "",
+      precio: String(p.precio ?? 0),
+      stock: String(p.stock ?? 0),
+    });
+    setManualModalOpen(true);
+  };
 
   const saveManualProduct = async () => {
     const producto = manualForm.producto.trim(); const marca = manualForm.marca.trim(); const modelo = manualForm.modelo.trim();
@@ -750,6 +790,15 @@ export default function ProductosPage() {
     if (!Number.isFinite(stock) || stock < 0) { setManualFormError("Stock inválido."); return; }
     if (!catalogReady) {
       setManualFormError("Debes iniciar sesión para guardar productos.");
+      return;
+    }
+    const isEdit = Boolean(editingManualId);
+    if (isEdit && !canProductosEdit) {
+      setManualFormError("No tienes permiso para editar productos.");
+      return;
+    }
+    if (!isEdit && !canProductosCreate) {
+      setManualFormError("No tienes permiso para crear productos.");
       return;
     }
     const modeloKey = modelo.toLowerCase();
@@ -764,7 +813,6 @@ export default function ProductosPage() {
     }
     const body = { imagen_url: manualForm.imagen_url.trim(), producto, caracteristicas: manualForm.caracteristicas.trim(), marca, modelo, precio: toMoney2(precio), stock: Math.round(stock), activo: true };
     try {
-      const isEdit = Boolean(editingManualId);
       const endpoint = isEdit ? `/api/productos-manuales/${editingManualId}/` : "/api/productos-manuales/";
       const res = await fetchApi(endpoint, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
@@ -784,7 +832,7 @@ export default function ProductosPage() {
   };
 
   const confirmDeleteManual = async () => {
-    if (!manualDeleteId || !catalogReady) return;
+    if (!manualDeleteId || !catalogReady || !canProductosDelete) return;
     try {
       const res = await fetchApi(`/api/productos-manuales/${manualDeleteId}/`, { method: "DELETE" });
       if (!res.ok) return;
@@ -807,6 +855,11 @@ export default function ProductosPage() {
             <span className="text-[#44403c] dark:text-[#cbd5e1]">Productos</span>
           </nav>
 
+          {!canProductosView ? (
+            <div className={`${claudeCardShell} px-4 py-10 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]`}>
+              No tienes permiso para ver Productos.
+            </div>
+          ) : (
           <div className="flex flex-col gap-4">
             <header className={`relative flex w-full flex-col gap-4 ${claudeCardShell} p-4 sm:p-6`}>
               <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
@@ -832,10 +885,12 @@ export default function ProductosPage() {
                   <input id="search-input" type="text" value={busquedaInput} onChange={(e) => handleSearchInputChange(e.target.value)} placeholder="Buscar por producto, marca o modelo..." className={`${claudeSearchInput} pr-11`} />
                 </div>
                 <div className="flex items-end gap-2 md:self-end">
-                  <button type="button" onClick={() => openCreateManual()} className={claudePrimaryBtn}>
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
-                    Nuevo producto
-                  </button>
+                  {canProductosCreate ? (
+                    <button type="button" onClick={() => openCreateManual()} className={claudePrimaryBtn}>
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
+                      Nuevo producto
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </form>
@@ -972,8 +1027,15 @@ export default function ProductosPage() {
                                 <TableCell className="px-3 py-2 text-center w-[100px]">
                                   {p.fuente === "manual" ? (
                                     <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
-                                      <button type="button" onClick={() => openEditManual(p.producto_id)} className="group inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white transition hover:border-[#ff801f]/50 hover:text-[#ff801f] dark:border-white/10 dark:bg-[#111a2b] dark:hover:border-[#ff801f]/50 dark:hover:text-[#ffa057]" title="Editar"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg></button>
-                                      <button type="button" onClick={() => setManualDeleteId(p.producto_id)} className="group inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white transition hover:border-red-400 hover:text-red-600 dark:border-white/10 dark:bg-gray-800 dark:hover:border-red-500" title="Eliminar"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="m6 6 1 14h10l1-14" /></svg></button>
+                                      {canProductosEdit ? (
+                                        <button type="button" onClick={() => openEditManual(p.producto_id)} className="group inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white transition hover:border-[#ff801f]/50 hover:text-[#ff801f] dark:border-white/10 dark:bg-[#111a2b] dark:hover:border-[#ff801f]/50 dark:hover:text-[#ffa057]" title="Editar" aria-label={`Editar ${p.titulo}`}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg></button>
+                                      ) : null}
+                                      {canProductosDelete ? (
+                                        <button type="button" onClick={() => setManualDeleteId(p.producto_id)} className="group inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white transition hover:border-red-400 hover:text-red-600 dark:border-white/10 dark:bg-gray-800 dark:hover:border-red-500" title="Eliminar" aria-label={`Eliminar ${p.titulo}`}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="m6 6 1 14h10l1-14" /></svg></button>
+                                      ) : null}
+                                      {!canProductosEdit && !canProductosDelete ? (
+                                        <span className="px-1 text-[10px] text-gray-500 dark:text-gray-400">Manual</span>
+                                      ) : null}
                                     </div>
                                   ) : (<a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-[#ff801f] dark:text-[#ffa057] hover:underline">Ver más</a>)}
                                 </TableCell>
@@ -1002,6 +1064,7 @@ export default function ProductosPage() {
               </ComponentCard>
             </div>
           </div>
+          )}
         </div>
       </div>
 

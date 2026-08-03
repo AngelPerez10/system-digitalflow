@@ -285,6 +285,14 @@ class OrdenesEnviarPdfTests(APITestCase):
             creado_por=self.user,
             tecnico_asignado=self.user,
         )
+        from apps.users.models import UserSmtpCredentials
+        from apps.users.smtp_crypto import encrypt_smtp_password
+
+        UserSmtpCredentials.objects.create(
+            user=self.user,
+            smtp_email="tecnico@example.com",
+            smtp_password_encrypted=encrypt_smtp_password("webmail-secret"),
+        )
 
     def test_correo_sugerido_usa_contacto_si_cliente_vacio(self):
         response = self.client.get(f"/api/ordenes/{self.orden.id}/correo-sugerido/")
@@ -308,6 +316,18 @@ class OrdenesEnviarPdfTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_enviar_pdf_sin_smtp_usuario_bloquea(self):
+        from apps.users.models import UserSmtpCredentials
+
+        UserSmtpCredentials.objects.filter(user=self.user).delete()
+        response = self.client.post(
+            f"/api/ordenes/{self.orden.id}/enviar-pdf/",
+            {"correo": "alguien@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("no está configurada", response.data.get("detail", ""))
+
     def test_enviar_pdf_ok_guarda_correo_y_envia(self):
         from unittest.mock import patch
 
@@ -317,9 +337,9 @@ class OrdenesEnviarPdfTests(APITestCase):
         with override_settings(
             EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
             EMAIL_HOST="mail.example.com",
-            EMAIL_HOST_USER="soporte@example.com",
-            EMAIL_HOST_PASSWORD="secret",
-            DEFAULT_FROM_EMAIL="soporte@example.com",
+            EMAIL_HOST_USER="",
+            EMAIL_HOST_PASSWORD="",
+            DEFAULT_FROM_EMAIL="",
         ):
             with patch(
                 "apps.ordenes.views.render_html_to_pdf",
@@ -340,4 +360,5 @@ class OrdenesEnviarPdfTests(APITestCase):
         self.assertEqual(self.cliente.correo, "nuevo@example.com")
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["nuevo@example.com"])
+        self.assertEqual(mail.outbox[0].from_email, "tecnico@example.com")
         self.assertEqual(len(mail.outbox[0].attachments), 1)
