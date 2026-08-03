@@ -76,7 +76,6 @@ type EditUserForm = {
   password2: string;
   smtp_email: string;
   smtp_password: string;
-  smtp_clear: boolean;
 };
 
 const emptyForm: NewUserForm = {
@@ -99,7 +98,6 @@ const emptyEditForm: EditUserForm = {
   password2: '',
   smtp_email: '',
   smtp_password: '',
-  smtp_clear: false,
 };
 
 const cardShellClass =
@@ -226,6 +224,7 @@ export default function UserProfiles() {
   const permsModalTitleId = useId();
   const editModalTitleId = useId();
   const deleteSignatureModalTitleId = useId();
+  const deleteSmtpModalTitleId = useId();
   const deleteUserModalTitleId = useId();
 
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -267,6 +266,8 @@ export default function UserProfiles() {
   const [signatureValue, setSignatureValue] = useState<string>('');
 
   const [confirmDeleteSignature, setConfirmDeleteSignature] = useState(false);
+  const [confirmDeleteSmtp, setConfirmDeleteSmtp] = useState(false);
+  const [clearingSmtp, setClearingSmtp] = useState(false);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -542,11 +543,11 @@ export default function UserProfiles() {
       password2: '',
       smtp_email: u.smtp_email || '',
       smtp_password: '',
-      smtp_clear: false,
     });
     setShowEditPassword(false);
     setShowEditPassword2(false);
     setShowSmtpPassword(false);
+    setConfirmDeleteSmtp(false);
     setIsEditOpen(true);
 
     setSignatureLoading(true);
@@ -673,9 +674,7 @@ export default function UserProfiles() {
         payload.password = editForm.password;
         payload.password2 = editForm.password2;
       }
-      if (editForm.smtp_clear) {
-        payload.smtp_clear = true;
-      } else if ((editForm.smtp_password || '').trim()) {
+      if ((editForm.smtp_password || '').trim()) {
         payload.smtp_password = editForm.smtp_password.trim();
       }
 
@@ -1864,10 +1863,28 @@ export default function UserProfiles() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
-              <div className="mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
+            <div className="relative rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
+              {editUser?.smtp_configured ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteSmtp(true)}
+                  disabled={editing || clearingSmtp}
+                  className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] shadow-sm transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 disabled:opacity-60 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1] dark:hover:border-rose-500/50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 sm:right-4 sm:top-4"
+                  aria-label="Quitar credenciales SMTP"
+                  title="Quitar credenciales SMTP"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                  </svg>
+                </button>
+              ) : null}
+              <div className={`mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80 ${editUser?.smtp_configured ? 'pr-11' : ''}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="min-w-0">
                     <p className={sectionLabelClass}>Correo de envío</p>
                     <p className={`mt-0.5 ${claudeSubheadingClass}`}>SMTP / Webmail</p>
                   </div>
@@ -1893,10 +1910,9 @@ export default function UserProfiles() {
                     type="email"
                     value={editForm.smtp_email}
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      setEditForm((p) => ({ ...p, smtp_email: e.target.value, smtp_clear: false }))
+                      setEditForm((p) => ({ ...p, smtp_email: e.target.value }))
                     }
                     placeholder="usuario@intrax.mx"
-                    disabled={editForm.smtp_clear}
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -1907,17 +1923,15 @@ export default function UserProfiles() {
                       type={showSmtpPassword ? 'text' : 'password'}
                       value={editForm.smtp_password}
                       onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                        setEditForm((p) => ({ ...p, smtp_password: e.target.value, smtp_clear: false }))
+                        setEditForm((p) => ({ ...p, smtp_password: e.target.value }))
                       }
                       placeholder={editUser?.smtp_configured ? 'Deja vacío para mantener la actual' : 'Contraseña del webmail'}
-                      disabled={editForm.smtp_clear}
                     />
                     <button
                       type="button"
                       onClick={() => setShowSmtpPassword(!showSmtpPassword)}
                       className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
                       aria-label={showSmtpPassword ? 'Ocultar contraseña SMTP' : 'Mostrar contraseña SMTP'}
-                      disabled={editForm.smtp_clear}
                     >
                       {showSmtpPassword ? (
                         <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
@@ -1927,26 +1941,6 @@ export default function UserProfiles() {
                     </button>
                   </div>
                 </div>
-                {(editUser?.smtp_configured || editForm.smtp_email || editForm.smtp_password) && (
-                  <div className="sm:col-span-2">
-                    <label className="inline-flex items-center gap-2 text-sm text-[#57534e] dark:text-[#cbd5e1]">
-                      <input
-                        type="checkbox"
-                        checked={editForm.smtp_clear}
-                        onChange={(e) =>
-                          setEditForm((p) => ({
-                            ...p,
-                            smtp_clear: e.target.checked,
-                            smtp_password: e.target.checked ? '' : p.smtp_password,
-                            smtp_email: e.target.checked ? '' : p.smtp_email,
-                          }))
-                        }
-                        className="h-4 w-4 rounded border-[#e2d9ca] text-[#ff801f] focus:ring-[#ff801f]/30"
-                      />
-                      Quitar credenciales SMTP de este usuario
-                    </label>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -2078,6 +2072,79 @@ export default function UserProfiles() {
           </div>
         </div>
 
+      </Modal>
+
+      <Modal
+        mobileBottomSheet
+        isOpen={confirmDeleteSmtp}
+        onClose={() => {
+          if (clearingSmtp) return;
+          setConfirmDeleteSmtp(false);
+        }}
+        closeOnBackdropClick={!clearingSmtp}
+        className="w-full max-w-sm overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"
+        ariaLabelledBy={deleteSmtpModalTitleId}
+      >
+        <div className="bg-[#fffdfa] p-5 dark:bg-[#111a2b]">
+          <div className="mb-4 flex items-start gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ff801f] dark:text-[#ffa057]">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                <path d="M3 6h18" strokeLinecap="round" />
+                <path d="M8 6V4h8v2" strokeLinecap="round" />
+                <path d="M6 6l1 16h10l1-16" strokeLinejoin="round" />
+                <path d="M10 11v6M14 11v6" strokeLinecap="round" />
+              </svg>
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 id={deleteSmtpModalTitleId} className={claudeSubheadingClass}>Quitar credenciales SMTP</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Se eliminará el correo y la contraseña de webmail de este usuario. No podrá enviar PDF hasta que vuelvas a configurarlos.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteSmtp(false)}
+              className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06] sm:w-auto"
+              disabled={clearingSmtp}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!editUser) return;
+                setEditError(null);
+                setClearingSmtp(true);
+                try {
+                  const res = await fetchApi(`/api/users/accounts/${editUser.id}/`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ smtp_clear: true }),
+                  });
+                  const data = await res.json().catch(() => null);
+                  if (!res.ok) throw new Error((data as { detail?: string } | null)?.detail || 'No se pudieron quitar las credenciales SMTP');
+                  const updated = data as UserAccount;
+                  setEditUser((prev) => (prev ? { ...prev, ...updated, smtp_configured: false, smtp_email: '' } : prev));
+                  setEditForm((p) => ({ ...p, smtp_email: '', smtp_password: '' }));
+                  setUsers((prev) => prev.map((u) => (u.id === editUser.id ? { ...u, ...updated, smtp_configured: false, smtp_email: '' } : u)));
+                  setSuccess('Credenciales SMTP eliminadas');
+                  setConfirmDeleteSmtp(false);
+                } catch (e: unknown) {
+                  setEditError(e instanceof Error ? e.message : 'Error');
+                  setConfirmDeleteSmtp(false);
+                } finally {
+                  setClearingSmtp(false);
+                }
+              }}
+              className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60 sm:w-auto"
+              disabled={clearingSmtp}
+            >
+              {clearingSmtp ? 'Eliminando…' : 'Quitar credenciales'}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       <Modal mobileBottomSheet isOpen={confirmDeleteId != null} onClose={() => setConfirmDeleteId(null)} closeOnBackdropClick={false} className="w-full max-w-sm overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b]" ariaLabelledBy={deleteUserModalTitleId}>
