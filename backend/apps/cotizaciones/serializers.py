@@ -1,7 +1,10 @@
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
+from django.db.models.functions import Lower
 from rest_framework import serializers
+
+from apps.clientes.models import ClienteContacto
 
 from .categorias_productos import normalize_categorias_productos
 from .models import Cotizacion, CotizacionItem
@@ -9,6 +12,37 @@ from .pdf_opciones import parse_pdf_opciones, pdf_opciones_to_dict
 
 IVA_MX_DISPLAY = Decimal('1.16')
 
+
+def _ensure_cliente_contacto_from_cotizacion(cliente, nombre: str, telefono: str = '') -> None:
+    """
+    Si la cotización trae un contacto y el cliente aún no lo tiene, lo crea.
+    Comparación por nombre (case-insensitive). No duplica.
+    """
+    if cliente is None:
+        return
+    nombre = str(nombre or '').strip()
+    if not nombre:
+        return
+    telefono = str(telefono or '').strip()[:25]
+
+    existing = (
+        ClienteContacto.objects.filter(cliente=cliente)
+        .annotate(nombre_l=Lower('nombre_apellido'))
+        .filter(nombre_l=nombre.lower())
+        .first()
+    )
+    if existing:
+        if telefono and not str(existing.celular or '').strip():
+            existing.celular = telefono
+            existing.save(update_fields=['celular', 'fecha_actualizacion'])
+        return
+
+    ClienteContacto.objects.create(
+        cliente=cliente,
+        nombre_apellido=nombre[:200],
+        celular=telefono,
+        is_principal=False,
+    )
 
 class CotizacionItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -213,6 +247,11 @@ class CotizacionSerializer(serializers.ModelSerializer):
                 **item_data,
             )
         cot.tipo_trabajo.set(tipo_trabajo_data or [])
+        _ensure_cliente_contacto_from_cotizacion(
+            cot.cliente_id,
+            cot.contacto,
+            getattr(cot, 'contacto_telefono', '') or '',
+        )
         return cot
 
     @transaction.atomic
@@ -252,6 +291,11 @@ class CotizacionSerializer(serializers.ModelSerializer):
         if tipo_trabajo_data is not None:
             instance.tipo_trabajo.set(tipo_trabajo_data)
 
+        _ensure_cliente_contacto_from_cotizacion(
+            instance.cliente_id,
+            instance.contacto,
+            getattr(instance, 'contacto_telefono', '') or '',
+        )
         return instance
 
     @staticmethod

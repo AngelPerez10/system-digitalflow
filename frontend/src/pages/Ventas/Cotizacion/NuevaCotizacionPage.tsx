@@ -1048,12 +1048,18 @@ export default function NuevaCotizacionPage() {
   const validateClienteContacto = () => {
     const missing: string[] = [];
     if (!clienteId) missing.push("Cliente");
-    if (!String(contactoNombre || "").trim()) missing.push("Contacto");
-    if (!String(medioContacto || "").trim()) missing.push("Medio de Contacto");
+    const tieneContacto = !!String(contactoNombre || "").trim();
+    // Contacto es opcional; medio solo obligatorio si hay contacto.
+    if (tieneContacto && !String(medioContacto || "").trim()) {
+      missing.push("Medio de Contacto");
+    }
     return { ok: missing.length === 0, missing };
   };
 
-  const medioContactoInvalid = medioContactoTouched && !String(medioContacto || "").trim();
+  const medioContactoInvalid =
+    medioContactoTouched &&
+    !!String(contactoNombre || "").trim() &&
+    !String(medioContacto || "").trim();
 
   const resolveClienteNombre = () => {
     const fromList = String(selectedCliente?.nombre || "").trim();
@@ -1307,6 +1313,23 @@ export default function NuevaCotizacionPage() {
           title: isEdit ? "Cotización actualizada" : "Cotización guardada",
           message: `Folio ${formatDocumentFolio(FOLIO_SERIE.cotizacion, data?.idx || data?.id)} guardado correctamente.`,
         });
+      }
+      // Refresca contactos del cliente por si el backend creó uno nuevo.
+      const cid = clienteId ? Number(clienteId) : 0;
+      if (cid && String(contactoNombre || "").trim()) {
+        try {
+          const refreshed = await fetchCotizacionClienteById(cid);
+          if (refreshed) {
+            setClientes((prev) => {
+              if (prev.some((c) => c.id === refreshed.id)) {
+                return prev.map((c) => (c.id === refreshed.id ? { ...c, ...refreshed } : c));
+              }
+              return [refreshed, ...prev];
+            });
+          }
+        } catch (error) {
+          console.error("Error refrescando contactos del cliente:", error);
+        }
       }
       if (navigateAfterSave) {
         window.setTimeout(() => navigate("/cotizacion"), 350);
@@ -1690,11 +1713,10 @@ export default function NuevaCotizacionPage() {
     };
   }, [conceptos, effectiveDescuentoClientePct]);
 
-  /** Cliente, contacto y al menos un concepto (misma regla que validateClienteContacto + líneas) */
+  /** Cliente y al menos un concepto; contacto es opcional (medio solo si hay contacto). */
   const canGuardarCotizacion = useMemo(() => {
     if (!clienteId) return false;
-    if (!String(contactoNombre || "").trim()) return false;
-    if (!medioContacto) return false;
+    if (String(contactoNombre || "").trim() && !medioContacto) return false;
     if (!computed.lines.length) return false;
     return true;
   }, [clienteId, contactoNombre, medioContacto, computed.lines.length]);
@@ -2490,7 +2512,12 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div>
-                      <Label className={labelPageClass}>Contacto</Label>
+                      <Label className={labelPageClass}>
+                        Contacto{" "}
+                        <span className="font-normal normal-case tracking-normal text-[#a8a29e] dark:text-[#64748b]">
+                          (opcional)
+                        </span>
+                      </Label>
                       <input
                         value={contactoNombre}
                         onChange={(e) => setContactoNombre(e.target.value)}
@@ -2503,10 +2530,18 @@ export default function NuevaCotizacionPage() {
                           <option key={name} value={name} />
                         ))}
                       </datalist>
+                      <p className="mt-1 text-[11px] leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                        Si escribes un contacto nuevo, se guardará en la ficha del cliente.
+                      </p>
                     </div>
 
                     <div>
-                      <Label className={labelPageClass}>Teléfono contacto</Label>
+                      <Label className={labelPageClass}>
+                        Teléfono contacto{" "}
+                        <span className="font-normal normal-case tracking-normal text-[#a8a29e] dark:text-[#64748b]">
+                          (opcional)
+                        </span>
+                      </Label>
                       <Input
                         className={inputFieldInsetClass}
                         value={contactoTelefono}
@@ -2534,7 +2569,15 @@ export default function NuevaCotizacionPage() {
 
                     <div>
                       <Label className={labelPageClass}>
-                        Medio de Contacto <span className="text-red-500">*</span>
+                        Medio de Contacto
+                        {String(contactoNombre || "").trim() ? (
+                          <span className="text-red-500"> *</span>
+                        ) : (
+                          <span className="font-normal normal-case tracking-normal text-[#a8a29e] dark:text-[#64748b]">
+                            {" "}
+                            (si hay contacto)
+                          </span>
+                        )}
                       </Label>
                       <select
                         value={medioContacto}
@@ -3179,8 +3222,9 @@ export default function NuevaCotizacionPage() {
                         <p className="text-xs font-semibold text-amber-950 dark:text-amber-100/95">Completa lo siguiente para guardar</p>
                         <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-xs text-amber-900/90 dark:text-amber-200/90">
                           {!clienteId && <li>Selecciona un cliente</li>}
-                          {!!clienteId && !String(contactoNombre || "").trim() && <li>Indica el nombre del contacto</li>}
-                          {!!clienteId && !!String(contactoNombre || "").trim() && !medioContacto && <li>Selecciona un medio de contacto</li>}
+                          {!!clienteId &&
+                            !!String(contactoNombre || "").trim() &&
+                            !medioContacto && <li>Selecciona un medio de contacto</li>}
                           {!computed.lines.length && <li>Agrega al menos un producto o servicio</li>}
                         </ul>
                       </div>
