@@ -6,6 +6,7 @@ import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
+import Switch from "@/components/form/switch/Switch";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
@@ -63,7 +64,6 @@ import {
   correoActionBtnClass,
   ghostActionBtnClass,
   headerStatPillClass,
-  innerFieldPanelClass,
   inputFieldInsetClass,
   inputLikeClassName,
   labelPageClass,
@@ -84,20 +84,21 @@ import {
   formatCotizacionApiError,
   formatMoney,
   getSyscomPrecioListaMxnConIva,
+  linePrecioUnitarioCotizacion,
+  linePrecioUnitarioSinIva,
   MAX_COTIZ_CLIENTE_LEN,
   MAX_COTIZ_PRODUCTO_NOMBRE_LEN,
   MAX_COTIZ_THUMB_URL_LEN,
   normalizeTipoTrabajoIds,
   resolveConceptoDescripcion,
   round2,
-  IVA_MX,
   toNumber,
   truncateStr,
   uid,
 } from "./cotizacionFormUtils";
 
 export default function NuevaCotizacionPage() {
-  const { permissions } = useAuth();
+  const { permissions, isAdmin } = useAuth();
   const canCotizacionesView = permissions?.cotizaciones?.view === true;
   const canCotizacionesCreate = permissions?.cotizaciones?.create === true;
 
@@ -177,6 +178,8 @@ export default function NuevaCotizacionPage() {
   const [unidad, setUnidad] = useState("");
   const [precioLista, setPrecioLista] = useState<number>(0);
   const [descuentoPct, setDescuentoPct] = useState<number>(0);
+  /** Switch ON = no aplicar IVA en la línea que se agrega/edita. */
+  const [sinIva, setSinIva] = useState(false);
   const [syscomTipoCambio, setSyscomTipoCambio] = useState<number | null>(null);
   const [syscomOpen, setSyscomOpen] = useState(false);
   const [loadingSyscom, setLoadingSyscom] = useState(false);
@@ -378,13 +381,23 @@ export default function NuevaCotizacionPage() {
     return hasManualConceptLines && !hasProductLines ? 0 : base;
   }, [conceptos, descuentoClientePct]);
 
-  const isProductoConPrecioSyscom = useCallback(
-    (productoExternoId?: string) => {
-      const id = String(productoExternoId || "").trim().toLowerCase();
-      return id !== "" && !id.startsWith("manual:");
-    },
-    []
+  const lineaEditando = useMemo(
+    () => (editingConceptoId ? conceptos.find((c) => c.id === editingConceptoId) : undefined),
+    [editingConceptoId, conceptos]
   );
+
+  const esFormularioProducto = useMemo(() => {
+    if (selectedSyscomProducto || selectedManualProducto) return true;
+    if (lineaEditando && String(lineaEditando.producto_externo_id || "").trim() !== "") return true;
+    return false;
+  }, [selectedSyscomProducto, selectedManualProducto, lineaEditando]);
+
+  /** Conceptos: cualquiera. Productos: solo admin. */
+  const canMarcarSinIva = !esFormularioProducto || isAdmin;
+
+  useEffect(() => {
+    if (!canMarcarSinIva && sinIva) setSinIva(false);
+  }, [canMarcarSinIva, sinIva]);
 
   const contactosOptions = useMemo(() => {
     if (!selectedCliente?.contactos) return [];
@@ -397,12 +410,26 @@ export default function NuevaCotizacionPage() {
     const qty = Math.max(0, toNumber(cantidad, 0));
     const pl = Math.max(0, toNumber(precioLista, 0));
     const desc = clampPct(toNumber(descuentoPct, 0));
-    const usarPrecioSyscom = !!selectedSyscomProducto;
-    const puBase = usarPrecioSyscom ? pl / IVA_MX : pl;
-    const puConDescuento = puBase * (1 - desc / 100);
-    const importe = qty * puConDescuento;
-    return { qty, pl, desc, puBase, importe };
-  }, [cantidad, precioLista, descuentoPct, selectedSyscomProducto]);
+    const productoExternoId =
+      selectedSyscomProducto?.producto_id ||
+      (selectedManualProducto ? `manual:${selectedManualProducto.id}` : "") ||
+      (lineaEditando ? String(lineaEditando.producto_externo_id || "") : "");
+    const sinIvaEfectivo = canMarcarSinIva && sinIva;
+    const puBase = linePrecioUnitarioSinIva(pl, desc, productoExternoId);
+    const puCobrado = linePrecioUnitarioCotizacion(pl, desc, productoExternoId, sinIvaEfectivo);
+    const importe = qty * puBase;
+    const importeCobrado = qty * puCobrado;
+    return { qty, pl, desc, puBase, importe, puCobrado, importeCobrado, sinIvaEfectivo };
+  }, [
+    cantidad,
+    precioLista,
+    descuentoPct,
+    selectedSyscomProducto,
+    selectedManualProducto,
+    lineaEditando,
+    canMarcarSinIva,
+    sinIva,
+  ]);
 
   const fetchClientes = useCallback(async (search = "") => {
     if (!canCotizacionesView) return;
@@ -502,6 +529,7 @@ export default function NuevaCotizacionPage() {
         cantidad: toNumber(it.cantidad, 0),
         precio_lista: toNumber(it.precio_lista, 0),
         descuento_pct: clampPct(toNumber(it.descuento_pct, 0)),
+        sin_iva: !!it.sin_iva,
         categoria_id: String(it.categoria_id || "").trim() || undefined,
       }));
       const descCortas: Record<string, string> = {};
@@ -1044,10 +1072,13 @@ export default function NuevaCotizacionPage() {
     );
     const subtotalLineasConIva = lines.reduce((acc, c) => {
       const descuento = clampPct(toNumber(c.descuento_pct, 0));
-      const precioBase = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
-      const esSoloConceptoManual = String(c.producto_externo_id || "").trim() === "";
-      const precioConIva = esSoloConceptoManual ? (precioBase * IVA_MX) : precioBase;
-      return acc + toNumber(c.cantidad, 0) * precioConIva;
+      const pu = linePrecioUnitarioCotizacion(
+        toNumber(c.precio_lista, 0),
+        descuento,
+        c.producto_externo_id,
+        !!c.sin_iva
+      );
+      return acc + toNumber(c.cantidad, 0) * pu;
     }, 0);
     const descClientePct = clampPct(toNumber(effectiveDescuentoClientePct, 0));
     const descuentoCliente = subtotalLineasConIva * (descClientePct / 100);
@@ -1083,6 +1114,7 @@ export default function NuevaCotizacionPage() {
         cantidad: toNumber(c.cantidad, 0),
         precio_lista: toNumber(c.precio_lista, 0),
         descuento_pct: clampPct(toNumber(c.descuento_pct, 0)),
+        sin_iva: !!c.sin_iva,
         categoria_id: truncateStr(resolveCategoriaId(categorias, c.categoria_id), 64),
         orden: i,
       })),
@@ -1404,6 +1436,7 @@ export default function NuevaCotizacionPage() {
     setUnidad("");
     setPrecioLista(0);
     setDescuentoPct(0);
+    setSinIva(false);
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(null);
@@ -1468,6 +1501,11 @@ export default function NuevaCotizacionPage() {
     const thumbnail = selectedSyscomProducto?.img_portada
       ? getCatalogProductoImageUrl(selectedSyscomProducto) || undefined
       : manualThumb || catalogThumb || undefined;
+    const esProductoLinea =
+      !!productoExternoId ||
+      (!!editingConceptoId &&
+        String(conceptos.find((x) => x.id === editingConceptoId)?.producto_externo_id || "").trim() !== "");
+    const sinIvaLinea = (esProductoLinea ? isAdmin : true) && sinIva;
 
     if (qty <= 0 || !nombre) return;
 
@@ -1485,6 +1523,7 @@ export default function NuevaCotizacionPage() {
               cantidad: qty,
               precio_lista: precioLinea,
               descuento_pct: desc,
+              sin_iva: sinIvaLinea,
             }
             : x
         )
@@ -1504,6 +1543,7 @@ export default function NuevaCotizacionPage() {
           cantidad: qty,
           precio_lista: precioLinea,
           descuento_pct: desc,
+          sin_iva: sinIvaLinea,
           categoria_id: categoriaAsignada || undefined,
         },
       ]);
@@ -1516,6 +1556,7 @@ export default function NuevaCotizacionPage() {
     setUnidad("");
     setPrecioLista(0);
     setDescuentoPct(0);
+    setSinIva(false);
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(null);
@@ -1579,6 +1620,7 @@ export default function NuevaCotizacionPage() {
     setUnidad(String(c.unidad || ""));
     setPrecioLista(toNumber(c.precio_lista, 0));
     setDescuentoPct(clampPct(toNumber(c.descuento_pct, 0)));
+    setSinIva(!!c.sin_iva);
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(null);
@@ -1597,28 +1639,39 @@ export default function NuevaCotizacionPage() {
   const computed = useMemo(() => {
     const lines = conceptos.map((c) => {
       const descuento = clampPct(toNumber(c.descuento_pct, 0));
-      const precioBase = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
-      const pu = isProductoConPrecioSyscom(c.producto_externo_id) ? precioBase / IVA_MX : precioBase;
-      const importe = toNumber(c.cantidad, 0) * pu;
-      return { ...c, pu, importe };
+      const sinIvaLinea = !!c.sin_iva;
+      const pu = linePrecioUnitarioSinIva(toNumber(c.precio_lista, 0), descuento, c.producto_externo_id);
+      const puCobrado = linePrecioUnitarioCotizacion(
+        toNumber(c.precio_lista, 0),
+        descuento,
+        c.producto_externo_id,
+        sinIvaLinea
+      );
+      const qty = toNumber(c.cantidad, 0);
+      const importe = qty * pu;
+      const importeCobrado = qty * puCobrado;
+      return { ...c, pu, importe, sin_iva: sinIvaLinea, importeCobrado };
     });
 
     const subtotalLineasSinIva = lines.reduce((acc, l) => acc + (Number.isFinite(l.importe) ? l.importe : 0), 0);
-    /** Suma con IVA (precio Syscom); el descuento cliente se aplica sobre este monto (igual que el serializer). */
-    const subtotalLineasConIva = conceptos.reduce((acc, c) => {
-      const descuento = clampPct(toNumber(c.descuento_pct, 0));
-      const precioBase = toNumber(c.precio_lista, 0) * (1 - descuento / 100);
-      const esSoloConceptoManual = String(c.producto_externo_id || "").trim() === "";
-      const precioConIva = esSoloConceptoManual ? (precioBase * IVA_MX) : precioBase;
-      return acc + toNumber(c.cantidad, 0) * precioConIva;
+    const subtotalLineasBase = lines.reduce((acc, l) => {
+      const descuento = clampPct(toNumber(l.descuento_pct, 0));
+      const puBase = linePrecioUnitarioSinIva(toNumber(l.precio_lista, 0), descuento, l.producto_externo_id);
+      return acc + toNumber(l.cantidad, 0) * puBase;
     }, 0);
+    /** Suma cobrada (con o sin IVA según bandera); el descuento cliente se aplica sobre este monto. */
+    const subtotalLineasConIva = lines.reduce(
+      (acc, l) => acc + (Number.isFinite(l.importeCobrado) ? l.importeCobrado : 0),
+      0
+    );
 
     const descClientePct = clampPct(toNumber(effectiveDescuentoClientePct, 0));
     const descuentoCliente = subtotalLineasConIva * (descClientePct / 100);
     const totalConIva = Math.max(0, subtotalLineasConIva - descuentoCliente);
-    const subtotalSinIva = round2(totalConIva / IVA_MX);
-    const ivaDesglose = round2(totalConIva - subtotalSinIva);
-    /** Subtotal/total guardados: monto con IVA incluido (misma convención que el backend). */
+    const factorDesc = subtotalLineasConIva > 0 ? totalConIva / subtotalLineasConIva : 1;
+    const subtotalSinIva = round2(subtotalLineasBase * factorDesc);
+    const ivaDesglose = round2(Math.max(0, totalConIva - subtotalSinIva));
+    /** Subtotal/total guardados: monto cobrado (misma convención que el backend). */
     const subtotal = totalConIva;
     const total = totalConIva;
 
@@ -1635,7 +1688,7 @@ export default function NuevaCotizacionPage() {
       subtotalSinIva,
       ivaDesglose,
     };
-  }, [conceptos, effectiveDescuentoClientePct, isProductoConPrecioSyscom]);
+  }, [conceptos, effectiveDescuentoClientePct]);
 
   /** Cliente, contacto y al menos un concepto (misma regla que validateClienteContacto + líneas) */
   const canGuardarCotizacion = useMemo(() => {
@@ -1666,6 +1719,7 @@ export default function NuevaCotizacionPage() {
     setUnidad("");
     setPrecioLista(0);
     setDescuentoPct(0);
+    setSinIva(false);
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(null);
@@ -2684,20 +2738,20 @@ export default function NuevaCotizacionPage() {
 
                 <ComponentCard
                   title="Agregar productos o servicios"
-                  desc="Integra con catálogo Syscom o captura manualmente cantidad, precio y descuento."
+                  desc="Arma una línea: primero qué vendes, luego precio y descuento."
                   className={`${cardShellClass.replace(/^overflow-hidden\b/, "overflow-visible")} ${
-                    conceptoOpen ? "relative z-[200]" : ""
+                    conceptoOpen || syscomOpen ? "relative z-[200]" : ""
                   }`}
                   compact
                   actions={
                     <button
                       type="button"
                       onClick={clearConceptoForm}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200/90 bg-white text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#ff801f]/25 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-[#e5e7eb] dark:hover:bg-white/[0.04]"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-[#fffdfa] text-[#78716c] transition-colors hover:border-[#fed7aa] hover:bg-[#fff7ed] hover:text-[#9a3412] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/25 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#aeb8c8] dark:hover:border-[#fb923c]/40 dark:hover:bg-[#fb923c]/10 dark:hover:text-[#fdba74]"
                       aria-label="Limpiar sección de producto"
                       title="Limpiar"
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                         <path d="M3 6h18" />
                         <path d="M8 6V4h8v2" />
                         <path d="M6 6l1 16h10l1-16" />
@@ -2707,175 +2761,285 @@ export default function NuevaCotizacionPage() {
                     </button>
                   }
                 >
-                  <div className="mb-4 flex gap-3 rounded-2xl border border-[#fed7aa]/50 bg-gradient-to-r from-[#fff7ed]/90 to-[#fcfaf6] px-4 py-3 text-[11px] leading-relaxed text-[#9a3412] dark:border-[#ff801f]/25 dark:from-[#7c2d12]/20 dark:to-[#0f172a]/40 dark:text-[#ffa057] sm:text-xs">
-                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#ff801f]/15 text-[#ea580c] dark:bg-[#ff801f]/20 dark:text-[#ffa057]" aria-hidden>
-                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                        <path d="M12 16v-4M12 8h.01" strokeLinecap="round" />
-                        <circle cx="12" cy="12" r="9" />
-                      </svg>
-                    </span>
-                    <span>
-                      Selecciona primero el producto para aplicar precio de lista automáticamente; después ajusta el concepto si necesitas editar el texto final.
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-6 lg:grid-cols-12 lg:gap-x-6">
-                    <div className="sm:col-span-2 lg:col-span-2">
-                      <Label className={labelPageClass}>Cant</Label>
-                      <Input
-                        className={inputFieldInsetClass}
-                        type="number"
-                        value={String(cantidad)}
-                        onChange={(e) => setCantidad(toNumber(e.target.value, 0))}
-                        min="0"
-                        step={1}
-                        placeholder="0"
-                      />
+                  <div className="space-y-4 sm:space-y-5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {editingConceptoId ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#c2410c] dark:border-[#fb923c]/35 dark:bg-[#fb923c]/12 dark:text-[#fdba74]">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#ff801f]" aria-hidden />
+                          Editando línea
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e2d9ca] bg-[#fcfaf6] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#78716c] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#aeb8c8]">
+                          Nueva línea
+                        </span>
+                      )}
+                      {esFormularioProducto ? (
+                        <span className="inline-flex items-center rounded-full border border-sky-200/80 bg-sky-50/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
+                          Producto / catálogo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full border border-emerald-200/80 bg-emerald-50/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+                          Concepto / servicio
+                        </span>
+                      )}
+                      {preview.sinIvaEfectivo ? (
+                        <span className="inline-flex items-center rounded-full border border-[#ff801f]/30 bg-[#ff801f]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#c2410c] dark:text-[#ffa057]">
+                          Sin IVA
+                        </span>
+                      ) : null}
+                      <p className="ml-auto hidden text-[11px] text-[#78716c] dark:text-[#8ea0b8] lg:block">
+                        Producto primero → precio de lista; concepto para el texto final.
+                      </p>
                     </div>
 
-                    <div className="sm:col-span-6 lg:col-span-5">
-                      <Label className={labelPageClass}>Concepto</Label>
-                      <div className={`relative ${conceptoOpen ? "z-[100]" : "z-0"}`} ref={conceptoRef}>
-                        <input
-                          className={`${inputLikeClassName} min-h-[46px] text-sm sm:text-base`}
-                          value={conceptoOpen ? conceptoSearch : conceptoNombre}
-                          disabled={bloquearConceptoInput}
-                          onFocus={() => {
-                            setConceptoSearch(conceptoNombre || "");
-                            setConceptoOpen(true);
-                          }}
-                          onChange={(e) => {
-                            const nextConcepto = e.target.value;
-                            handleConceptoInputChange(nextConcepto);
-                            setConceptoOpen(true);
-                          }}
-                          placeholder={bloquearConceptoInput ? "Concepto bloqueado por selección de producto" : "Buscar o escribir concepto..."}
-                          autoComplete="off"
-                        />
-                        {!bloquearConceptoInput && conceptoOpen && (
-                          <div className="absolute left-0 right-0 top-full z-[110] mt-1 max-h-64 w-full overflow-auto rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl ring-1 ring-black/5 dark:border-[#334155] dark:bg-[#111827]/95 dark:ring-white/10">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleConceptoInputChange(conceptoSearch);
-                                setConceptoOpen(false);
+                    <fieldset
+                      className={`relative overflow-visible rounded-2xl border border-[#e7ded0]/90 bg-gradient-to-br from-[#fffdfa] via-[#fcfaf6]/80 to-[#fff7ed]/35 p-3.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.65)] dark:border-[#273244] dark:from-[#111827]/70 dark:via-[#0f172a]/50 dark:to-[#7c2d12]/10 dark:shadow-none sm:p-4 ${
+                        conceptoOpen ? "z-30" : "z-10"
+                      }`}
+                    >
+                      <legend className="sr-only">Qué vendes</legend>
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-[#ff801f]/15 text-[11px] font-bold tabular-nums text-[#c2410c] dark:bg-[#ff801f]/20 dark:text-[#ffa057]" aria-hidden>
+                          1
+                        </span>
+                        <div>
+                          <p className={sectionEyebrowClass}>Qué vendes</p>
+                          <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Cantidad, concepto o producto de catálogo</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:gap-3">
+                        <div className="sm:col-span-2">
+                          <Label className={labelPageClass}>Cant.</Label>
+                          <Input
+                            className={`${inputFieldInsetClass} !text-center !text-base !font-semibold tabular-nums`}
+                            type="number"
+                            value={String(cantidad)}
+                            onChange={(e) => setCantidad(toNumber(e.target.value, 0))}
+                            min="0"
+                            step={1}
+                            placeholder="1"
+                            aria-label="Cantidad"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-5">
+                          <Label className={labelPageClass}>Concepto</Label>
+                          <div className={`relative ${conceptoOpen ? "z-[100]" : "z-0"}`} ref={conceptoRef}>
+                            <input
+                              className={`${inputLikeClassName} min-h-[46px] text-sm sm:text-base ${bloquearConceptoInput ? "opacity-60" : ""}`}
+                              value={conceptoOpen ? conceptoSearch : conceptoNombre}
+                              disabled={bloquearConceptoInput}
+                              onFocus={() => {
+                                setConceptoSearch(conceptoNombre || "");
+                                setConceptoOpen(true);
                               }}
-                              className="w-full px-3 py-2.5 text-left text-sm text-[#57534e] transition-colors hover:bg-gray-100 dark:text-[#cbd5e1] dark:hover:bg-white/[0.06]"
-                            >
-                              Usar: {conceptoSearch.trim() || "Concepto personalizado"}
-                            </button>
-                            {catalogoConceptos
-                              .filter((c) => {
-                                const q = (conceptoSearch || "").trim().toLowerCase();
-                                if (!q) return true;
-                                return String(c.concepto || "").toLowerCase().includes(q) || String(c.folio || "").toLowerCase().includes(q);
-                              })
-                              .map((c) => (
+                              onChange={(e) => {
+                                const nextConcepto = e.target.value;
+                                handleConceptoInputChange(nextConcepto);
+                                setConceptoOpen(true);
+                              }}
+                              placeholder={bloquearConceptoInput ? "Bloqueado por producto" : "Buscar folio o escribir…"}
+                              autoComplete="off"
+                              aria-expanded={conceptoOpen}
+                              aria-controls={conceptoOpen ? "cotizacion-concepto-sugerencias" : undefined}
+                            />
+                            {!bloquearConceptoInput && conceptoOpen && (
+                              <div
+                                id="cotizacion-concepto-sugerencias"
+                                role="listbox"
+                                className="absolute left-0 right-0 top-full z-[120] mt-1.5 max-h-64 w-full overflow-auto rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-[0_18px_40px_-20px_rgba(28,25,23,0.45)] ring-1 ring-black/5 dark:border-[#334155] dark:bg-[#111827]/95 dark:ring-white/10"
+                              >
                                 <button
-                                  key={c.id}
                                   type="button"
+                                  role="option"
                                   onClick={() => {
-                                    handleConceptoInputChange(String(c.concepto || ""));
+                                    handleConceptoInputChange(conceptoSearch);
                                     setConceptoOpen(false);
                                   }}
-                                  className="w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]"
+                                  className="w-full border-b border-[#e7ded0]/80 px-3 py-2.5 text-left text-sm text-[#57534e] transition-colors hover:bg-[#fff7ed] dark:border-[#273244] dark:text-[#cbd5e1] dark:hover:bg-white/[0.06]"
                                 >
-                                  <div className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{c.concepto || "Sin nombre"}</div>
-                                  <div className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
-                                    {`Folio ${c.folio} · ${formatMoney(toNumber(c.precio1, 0))}`}
-                                  </div>
+                                  Usar: <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{conceptoSearch.trim() || "Concepto personalizado"}</span>
                                 </button>
+                                {catalogoConceptos
+                                  .filter((c) => {
+                                    const q = (conceptoSearch || "").trim().toLowerCase();
+                                    if (!q) return true;
+                                    return String(c.concepto || "").toLowerCase().includes(q) || String(c.folio || "").toLowerCase().includes(q);
+                                  })
+                                  .map((c) => (
+                                    <button
+                                      key={c.id}
+                                      type="button"
+                                      role="option"
+                                      onClick={() => {
+                                        handleConceptoInputChange(String(c.concepto || ""));
+                                        setConceptoOpen(false);
+                                      }}
+                                      className="w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-[#fff7ed] dark:hover:bg-white/[0.06]"
+                                    >
+                                      <div className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{c.concepto || "Sin nombre"}</div>
+                                      <div className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                                        {`Folio ${c.folio} · ${formatMoney(toNumber(c.precio1, 0))}`}
+                                      </div>
+                                    </button>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-5">
+                          <Label className={labelPageClass}>Producto</Label>
+                          <div ref={syscomInputWrapRef} className="relative">
+                            <span className="pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-[#a8a29e] dark:text-[#64748b]" aria-hidden>
+                              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                <circle cx="11" cy="11" r="7" />
+                                <path d="M20 20l-3-3" />
+                              </svg>
+                            </span>
+                            <input
+                              className={`${inputLikeClassName} min-h-[46px] pl-9 text-sm sm:text-base ${bloquearProductoInput ? "opacity-60" : ""}`}
+                              value={productoSearch}
+                              disabled={bloquearProductoInput}
+                              onFocus={() => {
+                                if (!bloquearProductoInput && productoSearch.trim().length >= 2) setSyscomOpen(true);
+                              }}
+                              onChange={(e) => {
+                                setProductoSearch(e.target.value);
+                                setSelectedSyscomProducto(null);
+                                setSelectedCatalogoConcepto(null);
+                                setSelectedManualProducto(null);
+                              }}
+                              placeholder={bloquearProductoInput ? "Bloqueado por concepto" : "Manual / SYSCOM / TVC…"}
+                              autoComplete="off"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </fieldset>
+
+                    <fieldset className="relative z-0 rounded-2xl border border-[#e7ded0]/90 bg-[#fffdfa]/70 p-3.5 dark:border-[#273244] dark:bg-[#0f172a]/35 sm:p-4">
+                      <legend className="sr-only">Precio y condiciones</legend>
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-[#1c1917]/8 text-[11px] font-bold tabular-nums text-[#57534e] dark:bg-white/10 dark:text-[#cbd5e1]" aria-hidden>
+                          2
+                        </span>
+                        <div>
+                          <p className={sectionEyebrowClass}>Precio</p>
+                          <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Lista, descuento{canMarcarSinIva ? ", IVA" : ""} y categoría</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:gap-3 sm:items-start">
+                        <div className="sm:col-span-4">
+                          <Label className={labelPageClass}>Precio de lista</Label>
+                          <div className="relative">
+                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#a8a29e] dark:text-[#64748b]" aria-hidden>
+                              $
+                            </span>
+                            <Input
+                              className={`${inputFieldInsetClass} !pl-7 !font-semibold tabular-nums`}
+                              type="number"
+                              value={String(precioLista)}
+                              onChange={(e) => setPrecioLista(toNumber(e.target.value, 0))}
+                              min="0"
+                              step={0.01}
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <Label className={labelPageClass}>Desct. %</Label>
+                          <Input
+                            className={`${inputFieldInsetClass} !text-center tabular-nums`}
+                            type="number"
+                            value={String(descuentoPct)}
+                            onChange={(e) => setDescuentoPct(clampPct(toNumber(e.target.value, 0)))}
+                            min="0"
+                            max="100"
+                            step={0.01}
+                            placeholder="0"
+                          />
+                        </div>
+
+                        {canMarcarSinIva && (
+                          <div className="sm:col-span-3 flex min-h-[46px] items-center rounded-xl border border-[#e7ded0]/80 bg-[#fcfaf6]/80 px-3.5 py-2.5 dark:border-[#273244] dark:bg-[#111a2b]/50 sm:mt-6">
+                            <Switch
+                              label="Sin IVA"
+                              checked={sinIva}
+                              onChange={setSinIva}
+                            />
+                          </div>
+                        )}
+
+                        {categorias.length > 0 && (
+                          <div className={canMarcarSinIva ? "sm:col-span-3" : "sm:col-span-6"}>
+                            <Label className={labelPageClass}>Categoría</Label>
+                            <select
+                              className={inputLikeClassName}
+                              value={categoriaIdParaAgregar}
+                              onChange={(e) => setCategoriaIdParaAgregar(e.target.value)}
+                            >
+                              <option value="">Sin categoría</option>
+                              {categorias.map((cat) => (
+                                <option key={cat.id} value={cat.id}>
+                                  {cat.nombre}
+                                </option>
                               ))}
+                            </select>
                           </div>
                         )}
                       </div>
-                    </div>
+                    </fieldset>
 
-                    <div className="sm:col-span-6 lg:col-span-5">
-                      <Label className={labelPageClass}>Buscar producto</Label>
-                      <div ref={syscomInputWrapRef} className="relative">
-                        <input
-                          className={`${inputLikeClassName} min-h-[46px] text-sm sm:text-base`}
-                          value={productoSearch}
-                          disabled={bloquearProductoInput}
-                          onFocus={() => {
-                            if (!bloquearProductoInput && productoSearch.trim().length >= 2) setSyscomOpen(true);
-                          }}
-                          onChange={(e) => {
-                            setProductoSearch(e.target.value);
-                            setSelectedSyscomProducto(null);
-                            setSelectedCatalogoConcepto(null);
-                            setSelectedManualProducto(null);
-                          }}
-                          placeholder={bloquearProductoInput ? "Producto bloqueado por captura de concepto" : "Buscar en concepto folio/manual/SYSCOM"}
-                          autoComplete="off"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="sm:col-span-3 lg:col-span-4">
-                      <Label className={labelPageClass}>Precio del producto</Label>
-                      <Input
-                        className={inputFieldInsetClass}
-                        type="number"
-                        value={String(precioLista)}
-                        onChange={(e) => setPrecioLista(toNumber(e.target.value, 0))}
-                        min="0"
-                        step={0.01}
-                        placeholder="0.00"
+                    <div className="relative z-0 overflow-hidden rounded-2xl border border-[#ff801f]/30 bg-gradient-to-r from-[#fff7ed] via-[#fffdfa] to-[#fcfaf6] p-3.5 dark:border-[#ff801f]/25 dark:from-[#7c2d12]/30 dark:via-[#111827]/90 dark:to-[#0f172a]/80 sm:p-4">
+                      <div
+                        className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#ff801f]/15 blur-2xl dark:bg-[#ff801f]/20"
+                        aria-hidden
                       />
-                    </div>
-
-                    <div className="sm:col-span-3 lg:col-span-2">
-                      <Label className={labelPageClass}>Desct%</Label>
-                      <Input
-                        className={inputFieldInsetClass}
-                        type="number"
-                        value={String(descuentoPct)}
-                        onChange={(e) => setDescuentoPct(clampPct(toNumber(e.target.value, 0)))}
-                        min="0"
-                        max="100"
-                        step={0.01}
-                        placeholder="0"
-                      />
-                    </div>
-
-                    {categorias.length > 0 && (
-                      <div className="sm:col-span-6 lg:col-span-4">
-                        <Label className={labelPageClass}>Categoría</Label>
-                        <select
-                          className={inputLikeClassName}
-                          value={categoriaIdParaAgregar}
-                          onChange={(e) => setCategoriaIdParaAgregar(e.target.value)}
-                        >
-                          <option value="">Sin categoría</option>
-                          {categorias.map((cat) => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.nombre}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    <div className="sm:col-span-6 lg:col-span-12">
-                      <div className={`${innerFieldPanelClass} flex flex-col justify-between gap-4 sm:flex-row sm:items-center`}>
-                        <div className="grid flex-1 grid-cols-2 gap-4">
+                      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="grid flex-1 grid-cols-2 gap-4 sm:max-w-md">
                           <div>
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">Precio unitario</div>
-                            <div className="mt-1 text-sm font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-base">{formatMoney(preview.puBase)}</div>
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#9a3412]/80 dark:text-[#fdba74]/80 sm:text-[11px]">
+                              Unitario{preview.sinIvaEfectivo ? " (sin IVA)" : " base"}
+                            </div>
+                            <div className="mt-1 text-lg font-semibold tabular-nums tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">
+                              {formatMoney(preview.puBase)}
+                            </div>
                           </div>
                           <div className="sm:text-right">
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">Importe de línea</div>
-                            <div className="mt-1 text-base font-semibold tabular-nums tracking-tight text-[#ea580c] dark:text-[#ffa057] sm:text-lg">{formatMoney(preview.importe)}</div>
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#9a3412]/80 dark:text-[#fdba74]/80 sm:text-[11px]">
+                              Importe de línea
+                            </div>
+                            <div className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-[#ea580c] dark:text-[#ffa057] sm:text-2xl">
+                              {formatMoney(preview.importeCobrado ?? preview.importe)}
+                            </div>
+                            {preview.sinIvaEfectivo ? (
+                              <p className="mt-0.5 text-[10px] text-[#9a3412]/70 dark:text-[#fdba74]/70">Cobrado sin IVA</p>
+                            ) : null}
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={addConcepto}
                           disabled={!canAddConcepto}
-                          className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-6 py-2.5 text-sm font-semibold text-[#1c1917] shadow-[0_6px_20px_-10px_rgba(255,128,31,0.8)] transition-all hover:bg-[#ff6a00] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
+                          className="inline-flex min-h-[48px] shrink-0 items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-6 py-3 text-sm font-semibold text-[#1c1917] shadow-[0_10px_28px_-12px_rgba(255,128,31,0.85)] transition-all hover:bg-[#ff6a00] hover:shadow-[0_12px_32px_-10px_rgba(255,128,31,0.9)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none sm:min-w-[11rem]"
                         >
-                          {editingConceptoId ? "Actualizar línea" : "Agregar línea"}
+                          {editingConceptoId ? (
+                            <>
+                              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                                <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                              Actualizar línea
+                            </>
+                          ) : (
+                            <>
+                              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                              </svg>
+                              Agregar línea
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>

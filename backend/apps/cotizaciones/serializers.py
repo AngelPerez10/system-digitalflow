@@ -25,6 +25,7 @@ class CotizacionItemSerializer(serializers.ModelSerializer):
             'cantidad',
             'precio_lista',
             'descuento_pct',
+            'sin_iva',
             'orden',
             'categoria_id',
         ]
@@ -93,6 +94,27 @@ class CotizacionSerializer(serializers.ModelSerializer):
         errors = {}
         if cliente_id and str(contacto or '').strip() and not str(medio or '').strip():
             errors['medio_contacto'] = 'Este campo es obligatorio.'
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        is_admin = bool(
+            user
+            and getattr(user, 'is_authenticated', False)
+            and (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False))
+        )
+        raw_items = self.initial_data.get('items') if isinstance(getattr(self, 'initial_data', None), dict) else None
+        if isinstance(raw_items, list) and not is_admin:
+            for idx, item in enumerate(raw_items):
+                if not isinstance(item, dict):
+                    continue
+                sin_iva = bool(item.get('sin_iva', False))
+                producto_externo_id = str(item.get('producto_externo_id', '') or '').strip()
+                if sin_iva and producto_externo_id:
+                    errors.setdefault('items', {})
+                    errors['items'][idx] = {
+                        'sin_iva': 'Solo un administrador puede marcar Sin IVA en productos.',
+                    }
+                    break
 
         if errors:
             raise serializers.ValidationError(errors)
@@ -198,7 +220,7 @@ class CotizacionSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop('items', None)
         tipo_trabajo_data = validated_data.pop('tipo_trabajo', None)
         current_items = items_data if items_data is not None else list(instance.items.all().values(
-            'cantidad', 'precio_lista', 'descuento_pct', 'producto_externo_id'
+            'cantidad', 'precio_lista', 'descuento_pct', 'producto_externo_id', 'sin_iva'
         ))
 
         totals = self._calculate_totals(current_items, validated_data, instance)
@@ -244,7 +266,9 @@ class CotizacionSerializer(serializers.ModelSerializer):
         Recalcula subtotal/total en backend.
         Regla unificada:
         - Productos (con producto_externo_id): precio_lista ya incluye IVA.
+          Con sin_iva=True se quita el 16% (÷1.16).
         - Conceptos manuales (sin producto_externo_id): precio_lista es base sin IVA y se suma 16%.
+          Con sin_iva=True no se suma IVA.
         """
         items = list(items_data or [])
         subtotal_lineas = Decimal('0')
@@ -253,6 +277,7 @@ class CotizacionSerializer(serializers.ModelSerializer):
             precio_lista = self._to_decimal((item or {}).get('precio_lista', 0))
             descuento_pct = self._to_decimal((item or {}).get('descuento_pct', 0))
             producto_externo_id = str((item or {}).get('producto_externo_id', '') or '').strip()
+            sin_iva = bool((item or {}).get('sin_iva', False))
 
             if descuento_pct < 0:
                 descuento_pct = Decimal('0')
@@ -260,7 +285,10 @@ class CotizacionSerializer(serializers.ModelSerializer):
                 descuento_pct = Decimal('100')
 
             pu_base = precio_lista * (Decimal('1') - (descuento_pct / Decimal('100')))
-            pu = pu_base if producto_externo_id else (pu_base * IVA_MX_DISPLAY)
+            if producto_externo_id:
+                pu = (pu_base / IVA_MX_DISPLAY) if sin_iva else pu_base
+            else:
+                pu = pu_base if sin_iva else (pu_base * IVA_MX_DISPLAY)
             importe = cantidad * pu
             if importe > 0:
                 subtotal_lineas += importe

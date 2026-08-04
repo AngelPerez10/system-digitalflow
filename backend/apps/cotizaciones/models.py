@@ -128,6 +128,8 @@ class CotizacionItem(models.Model):
     cantidad = models.DecimalField(max_digits=12, decimal_places=2, default=1)
     precio_lista = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     descuento_pct = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # True = no aplicar IVA en esta línea (concepto: no ×1.16; producto: quitar 16% del precio con IVA).
+    sin_iva = models.BooleanField(default=False)
 
     orden = models.IntegerField(default=0)
     categoria_id = models.CharField(max_length=64, blank=True, default='')

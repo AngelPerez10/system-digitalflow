@@ -17,6 +17,32 @@ export const clampPct = (v: number) => {
   return v;
 };
 
+/** Precio unitario de línea ya con descuento, en la moneda “con IVA” de la cotización. */
+export const linePrecioUnitarioCotizacion = (
+  precioLista: number,
+  descuentoPct: number,
+  productoExternoId: string | undefined,
+  sinIva: boolean
+): number => {
+  const precioBase = Math.max(0, toNumber(precioLista, 0)) * (1 - clampPct(descuentoPct) / 100);
+  const esConcepto = String(productoExternoId || "").trim() === "";
+  if (esConcepto) {
+    return sinIva ? precioBase : precioBase * IVA_MX;
+  }
+  return sinIva ? precioBase / IVA_MX : precioBase;
+};
+
+/** Base sin IVA de la línea (tras descuento de línea), para desglose. */
+export const linePrecioUnitarioSinIva = (
+  precioLista: number,
+  descuentoPct: number,
+  productoExternoId: string | undefined
+): number => {
+  const precioBase = Math.max(0, toNumber(precioLista, 0)) * (1 - clampPct(descuentoPct) / 100);
+  const esConcepto = String(productoExternoId || "").trim() === "";
+  return esConcepto ? precioBase : precioBase / IVA_MX;
+};
+
 export const normalizeTipoTrabajoIds = (raw: unknown): number[] => {
   if (!Array.isArray(raw)) return [];
   const ids = raw

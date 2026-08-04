@@ -110,19 +110,28 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
             descuento = float(it.descuento_pct or 0)
             producto_externo_id = str(getattr(it, "producto_externo_id", "") or "").strip()
             solo_concepto_manual = producto_externo_id == ""
+            sin_iva = bool(getattr(it, "sin_iva", False))
             if solo_concepto_manual:
                 has_manual_concept_lines = True
             else:
                 has_product_lines = True
-            # Si es solo concepto manual (sin producto), el precio se captura sin IVA y aquí se suma.
-            # Si viene de producto, se conserva el comportamiento actual (precio_lista ya con IVA).
-            pu_base = precio_lista if solo_concepto_manual else (precio_lista / IVA_MX_DISPLAY)
+            # Concepto: precio sin IVA → se ×1.16 salvo sin_iva.
+            # Producto: precio con IVA → se usa tal cual salvo sin_iva (÷1.16).
+            if solo_concepto_manual:
+                pu_base = precio_lista
+                precio_con_iva = (
+                    precio_lista * (1 - (descuento / 100.0))
+                    if sin_iva
+                    else (precio_lista * IVA_MX_DISPLAY) * (1 - (descuento / 100.0))
+                )
+            else:
+                pu_base = precio_lista / IVA_MX_DISPLAY
+                precio_con_iva = (
+                    (precio_lista / IVA_MX_DISPLAY) * (1 - (descuento / 100.0))
+                    if sin_iva
+                    else (precio_lista * (1 - (descuento / 100.0)))
+                )
             pu_desc = pu_base * (1 - (descuento / 100.0))
-            precio_con_iva = (
-                (precio_lista * IVA_MX_DISPLAY) * (1 - (descuento / 100.0))
-                if solo_concepto_manual
-                else (precio_lista * (1 - (descuento / 100.0)))
-            )
             importe = cantidad * pu_desc
             gross_subtotal_sin_iva += cantidad * pu_base
             net_subtotal_sin_iva += importe

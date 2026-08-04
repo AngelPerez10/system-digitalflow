@@ -39,6 +39,8 @@ export type Concepto = {
   cantidad: number;
   precio_lista: number;
   descuento_pct: number;
+  /** True = no aplicar IVA en esta línea. */
+  sin_iva?: boolean;
   categoria_id?: string;
 };
 
@@ -53,6 +55,7 @@ export type ApiCotizacionItem = {
   cantidad: number;
   precio_lista: number;
   descuento_pct: number;
+  sin_iva?: boolean;
   orden?: number;
   categoria_id?: string;
 };

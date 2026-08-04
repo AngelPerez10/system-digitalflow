@@ -90,14 +90,20 @@ def _cotizacion_item_line_totals(
     precio_lista: float,
     descuento_pct: float,
     producto_externo_id: str,
+    sin_iva: bool = False,
 ) -> tuple[float, float, float]:
     """
     Importes por línea (misma regla que CotizacionSerializer._calculate_totals).
     Retorna (precio_unitario_con_iva, importe_con_iva, importe_sin_iva).
+
+    - Concepto (sin producto_externo_id): precio_lista es base sin IVA; por defecto se ×1.16.
+      Con sin_iva=True no se agrega IVA.
+    - Producto (con producto_externo_id): precio_lista ya incluye IVA; por defecto se usa tal cual.
+      Con sin_iva=True se divide /1.16 (quita el IVA).
     """
     producto_externo_id = str(producto_externo_id or "").strip()
     es_manual = producto_externo_id == ""
-    # Catálogos externos (SYSCOM id numérico, TVC `tvc:{id}`, manual:{id}): precio_lista incluye IVA.
+    sin_iva = bool(sin_iva)
     descuento_pct = float(descuento_pct or 0)
     if descuento_pct < 0:
         descuento_pct = 0.0
@@ -108,7 +114,10 @@ def _cotizacion_item_line_totals(
     pu_lista_desc = float(precio_lista or 0) * factor
     if es_manual:
         pu_sin_iva = pu_lista_desc
-        pu_con_iva = pu_lista_desc * IVA_MX_DISPLAY
+        pu_con_iva = pu_lista_desc if sin_iva else pu_lista_desc * IVA_MX_DISPLAY
+    elif sin_iva:
+        pu_sin_iva = pu_lista_desc / IVA_MX_DISPLAY
+        pu_con_iva = pu_sin_iva
     else:
         pu_sin_iva = (float(precio_lista or 0) / IVA_MX_DISPLAY) * factor
         pu_con_iva = pu_lista_desc
@@ -351,8 +360,9 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
             precio_lista = float(it.precio_lista or 0)
             descuento = float(it.descuento_pct or 0)
             producto_externo_id = str(getattr(it, "producto_externo_id", "") or "").strip()
+            sin_iva = bool(getattr(it, "sin_iva", False))
             _pu_con_iva, importe_con_iva, importe_sin_iva = _cotizacion_item_line_totals(
-                cantidad, precio_lista, descuento, producto_externo_id
+                cantidad, precio_lista, descuento, producto_externo_id, sin_iva
             )
             net_subtotal_con_iva += importe_con_iva
             pu_sin_iva = (importe_sin_iva / cantidad) if cantidad else 0.0
@@ -793,6 +803,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 cantidad=it.get('cantidad'),
                 precio_lista=it.get('precio_lista'),
                 descuento_pct=it.get('descuento_pct'),
+                sin_iva=bool(it.get('sin_iva', False)),
                 unidad=it.get('unidad'),
                 producto_nombre=it.get('producto_nombre'),
                 producto_descripcion=it.get('producto_descripcion'),

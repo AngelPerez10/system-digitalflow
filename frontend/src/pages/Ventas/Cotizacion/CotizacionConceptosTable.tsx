@@ -24,6 +24,7 @@ export type CotizacionConceptoLine = {
   descuento_pct: number;
   pu: number;
   importe: number;
+  sin_iva?: boolean;
 };
 
 type Props = {
@@ -308,7 +309,14 @@ export function CotizacionConceptosTable({
                 {(line.producto_nombre || "?").slice(0, 1)}
               </span>
             )}
-            <span className="font-medium leading-snug text-[#1c1917] dark:text-[#f8fafc]">{line.producto_nombre}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium leading-snug text-[#1c1917] dark:text-[#f8fafc]">{line.producto_nombre}</span>
+              {line.sin_iva ? (
+                <span className="inline-flex shrink-0 rounded-full bg-[#ff801f]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#c2410c] dark:bg-[#ff801f]/20 dark:text-[#ffa057]">
+                  Sin IVA
+                </span>
+              ) : null}
+            </div>
           </div>
         </td>
         <td className="max-w-[14rem] px-2 py-2 align-middle">
