@@ -13,6 +13,7 @@ import { onlyDigits10 } from "./clientesCatalogos";
 import { ClienteSimplifiedFormFields } from "@/components/clientes/ClienteSimplifiedFormFields";
 import { ClienteMapPickerModal } from "@/components/clientes/ClienteMapPickerModal";
 import {
+  type ClienteFormTab,
   type ClienteTipo,
   TIPO_OPTIONS,
   buildClientePayload,
@@ -20,6 +21,7 @@ import {
   formatApiErrors,
   formDataFromCliente,
   isGoogleMapsLink,
+  upsertClienteContactoFromForm,
 } from "@/components/clientes/clienteFormShared";
 
 const cardShellClass =
@@ -196,7 +198,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   }>({ show: false, variant: "success", title: "", message: "" });
 
   // Form state
-  const [activeTab, setActiveTab] = useState<"general" | "more">("general");
+  const [activeTab, setActiveTab] = useState<ClienteFormTab>("general");
   const [modalError, setModalError] = useState<string>("");
 
   const [showMapModal, setShowMapModal] = useState(false);
@@ -297,6 +299,18 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
       const clienteId = saved?.id || editingCliente?.id;
       if (!clienteId) {
         setModalError('No se pudo obtener el ID del cliente guardado.');
+        return;
+      }
+
+      try {
+        await upsertClienteContactoFromForm(Number(clienteId), formData);
+      } catch (contactError) {
+        setModalError(
+          contactError instanceof Error
+            ? contactError.message
+            : "El cliente se guardó, pero no se pudo guardar el contacto."
+        );
+        await fetchClientes();
         return;
       }
 

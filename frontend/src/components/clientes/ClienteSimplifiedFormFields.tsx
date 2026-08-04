@@ -1,10 +1,12 @@
 import type { Dispatch, SetStateAction } from "react";
+import { useId } from "react";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import SearchableSelect from "@/components/form/SearchableSelect";
 import { estadosPorPais, paisOptions } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
 import type { Cliente } from "@/types/cliente";
 import {
+  type ClienteFormTab,
   ClienteTipo,
   TIPO_OPTIONS,
   getNoClienteLabelByTipo,
@@ -19,8 +21,8 @@ import {
 type Props = {
   formData: Record<string, unknown>;
   setFormData: Dispatch<SetStateAction<Record<string, unknown>>>;
-  activeTab: "general" | "more";
-  setActiveTab: (tab: "general" | "more") => void;
+  activeTab: ClienteFormTab;
+  setActiveTab: (tab: ClienteFormTab) => void;
   fixedTipo?: ClienteTipo;
   editingCliente?: Cliente | null;
   onOpenMap: () => void;
@@ -39,6 +41,12 @@ type Props = {
   };
 };
 
+const TABS: { id: ClienteFormTab; label: string }[] = [
+  { id: "general", label: "Datos Básicos" },
+  { id: "contacto", label: "Contacto" },
+  { id: "more", label: "Datos Facturación" },
+];
+
 export function ClienteSimplifiedFormFields({
   formData,
   setFormData,
@@ -51,6 +59,7 @@ export function ClienteSimplifiedFormFields({
   hideTabs = false,
   representanteSelect,
 }: Props) {
+  const tabsId = useId();
   const noClienteLabel = getNoClienteLabelByTipo(fixedTipo || (formData.tipo as ClienteTipo));
   const estadosOptions =
     estadosPorPais[String(formData.pais || "México")] || estadosPorPais["México"] || [];
@@ -58,34 +67,43 @@ export function ClienteSimplifiedFormFields({
   return (
     <>
       {!hideTabs ? (
-        <div className="inline-flex items-center gap-1 rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
-          <button
-            type="button"
-            onClick={() => setActiveTab("general")}
-            className={`${modalTabBaseClass} border ${
-              activeTab === "general"
-                ? "border-[#ff801f]/30 bg-[#ff801f] text-black shadow-sm"
-                : "border-transparent bg-transparent text-gray-700 hover:bg-white dark:text-[#e5e7eb] dark:hover:bg-white/[0.06]"
-            }`}
-          >
-            Datos Básicos
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("more")}
-            className={`${modalTabBaseClass} border ${
-              activeTab === "more"
-                ? "border-[#ff801f]/30 bg-[#ff801f] text-black shadow-sm"
-                : "border-transparent bg-transparent text-gray-700 hover:bg-white dark:text-[#e5e7eb] dark:hover:bg-white/[0.06]"
-            }`}
-          >
-            Datos Facturación
-          </button>
+        <div
+          role="tablist"
+          aria-label="Secciones del formulario de cliente"
+          className="inline-flex flex-wrap items-center gap-1 rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80"
+        >
+          {TABS.map((tab) => {
+            const selected = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                id={`${tabsId}-${tab.id}`}
+                aria-selected={selected}
+                aria-controls={`${tabsId}-panel-${tab.id}`}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => setActiveTab(tab.id)}
+                className={`${modalTabBaseClass} border ${
+                  selected
+                    ? "border-[#ff801f]/30 bg-[#ff801f] text-black shadow-sm"
+                    : "border-transparent bg-transparent text-gray-700 hover:bg-white dark:text-[#e5e7eb] dark:hover:bg-white/[0.06]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       ) : null}
 
       {activeTab === "general" && (
-        <div className="space-y-4">
+        <div
+          role="tabpanel"
+          id={`${tabsId}-panel-general`}
+          aria-labelledby={`${tabsId}-general`}
+          className="space-y-4"
+        >
           <div className={`${modalPanelClass} space-y-4`}>
             <p className={modalSectionTitleClass}>Información Comercial</p>
             {!hideContactMeta && !fixedTipo && (
@@ -293,8 +311,113 @@ export function ClienteSimplifiedFormFields({
         </div>
       )}
 
+      {activeTab === "contacto" && (
+        <div
+          role="tabpanel"
+          id={`${tabsId}-panel-contacto`}
+          aria-labelledby={`${tabsId}-contacto`}
+          className="space-y-4"
+        >
+          <div className={`${modalPanelClass} space-y-4`}>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className={modalSectionTitleClass}>Contacto de negocio</p>
+                <p className="mt-1 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                  Persona de contacto que se guardará con este cliente (cotizaciones, órdenes y listados).
+                </p>
+              </div>
+              {formData.contacto_id ? (
+                <span className="inline-flex items-center rounded-full border border-[#e2d9ca] bg-[#fcfaf6] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#aeb8c8]">
+                  Principal
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#c2410c] dark:border-[#fb923c]/35 dark:bg-[#fb923c]/12 dark:text-[#fdba74]">
+                  Nuevo
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label htmlFor={`${tabsId}-contacto-nombre`}>Nombre completo</Label>
+                <Input
+                  id={`${tabsId}-contacto-nombre`}
+                  value={String(formData.contacto_nombre || "")}
+                  onChange={(e) => setFormData({ ...formData, contacto_nombre: e.target.value })}
+                  placeholder="Nombre y apellido"
+                />
+              </div>
+              <div>
+                <Label htmlFor={`${tabsId}-contacto-puesto`}>Puesto</Label>
+                <Input
+                  id={`${tabsId}-contacto-puesto`}
+                  value={String(formData.contacto_puesto || "")}
+                  onChange={(e) => setFormData({ ...formData, contacto_puesto: e.target.value })}
+                  placeholder="Ej. Gerente de compras"
+                />
+              </div>
+              <div>
+                <Label htmlFor={`${tabsId}-contacto-telefono`}>Teléfono</Label>
+                <Input
+                  id={`${tabsId}-contacto-telefono`}
+                  type="tel"
+                  value={String(formData.contacto_telefono || "")}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      contacto_telefono: (e.target.value || "").replace(/\D/g, ""),
+                    })
+                  }
+                  placeholder="10 dígitos"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor={`${tabsId}-contacto-correo`}>Correo</Label>
+                <Input
+                  id={`${tabsId}-contacto-correo`}
+                  type="email"
+                  value={String(formData.contacto_correo || "")}
+                  onChange={(e) => setFormData({ ...formData, contacto_correo: e.target.value })}
+                  placeholder="correo@empresa.com"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-dashed border-[#e2d9ca] bg-[#fcfaf6]/80 px-3 py-2.5 dark:border-[#334155] dark:bg-[#111a2b]/40">
+              <p className="text-[11px] leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                Si dejas el nombre vacío, no se crea ni actualiza un contacto. Con nombre, se guarda como contacto principal del cliente.
+              </p>
+              <button
+                type="button"
+                className="mt-2 text-[11px] font-semibold text-[#ea580c] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 dark:text-[#ffa057]"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    contacto_nombre:
+                      String(prev.contacto_nombre || "").trim() ||
+                      String(prev.representante || prev.nombre || "").trim(),
+                    contacto_telefono:
+                      String(prev.contacto_telefono || "").trim() ||
+                      String(prev.celular || prev.telefono || "").replace(/\D/g, ""),
+                    contacto_correo:
+                      String(prev.contacto_correo || "").trim() || String(prev.correo || "").trim(),
+                  }))
+                }
+              >
+                Rellenar desde datos básicos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === "more" && (
-        <div className="space-y-4">
+        <div
+          role="tabpanel"
+          id={`${tabsId}-panel-more`}
+          aria-labelledby={`${tabsId}-more`}
+          className="space-y-4"
+        >
           <div className={`${modalPanelClass} space-y-4`}>
             <p className={modalSectionTitleClass}>Información Fiscal</p>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -7,11 +7,13 @@ import { onlyDigits10 } from "@/pages/ContactosNegocio/Clientes/clientesCatalogo
 import { ClienteMapPickerModal } from "./ClienteMapPickerModal";
 import { ClienteSimplifiedFormFields } from "./ClienteSimplifiedFormFields";
 import {
+  type ClienteFormTab,
   type ClienteTipo,
   buildClientePayload,
   emptyFormData,
   formatApiErrors,
   formDataFromCliente,
+  upsertClienteContactoFromForm,
 } from "./clienteFormShared";
 
 const claudeSectionHeadingClass =
@@ -58,7 +60,7 @@ export function ClienteFormModal({
   const errorId = useId();
 
   const [formData, setFormData] = useState<Record<string, unknown>>(emptyFormData(fixedTipo));
-  const [activeTab, setActiveTab] = useState<"general" | "more">("general");
+  const [activeTab, setActiveTab] = useState<ClienteFormTab>("general");
   const [modalError, setModalError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -147,6 +149,17 @@ export function ClienteFormModal({
       const saved = (await response.json().catch(() => null)) as Cliente | null;
       if (!saved?.id) {
         setModalError("No se pudo obtener el ID del cliente guardado.");
+        return;
+      }
+
+      try {
+        await upsertClienteContactoFromForm(saved.id, formData);
+      } catch (contactError) {
+        setModalError(
+          contactError instanceof Error
+            ? contactError.message
+            : "El cliente se guardó, pero no se pudo guardar el contacto."
+        );
         return;
       }
 

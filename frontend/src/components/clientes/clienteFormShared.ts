@@ -1,7 +1,10 @@
+import { fetchApi } from "@/config/api";
 import { formatPhoneE164, parsePhoneToForm } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
 import type { Cliente } from "@/types/cliente";
 
 export type ClienteTipo = "EMPRESA" | "PERSONA_FISICA" | "PROVEEDOR";
+
+export type ClienteFormTab = "general" | "contacto" | "more";
 
 export const TIPO_OPTIONS: { value: ClienteTipo; label: string }[] = [
   { value: "EMPRESA", label: "Empresa" },
@@ -88,8 +91,17 @@ export const emptyFormData = (fixedTipo?: ClienteTipo) => ({
   ciudad_envio: "",
   tipo: fixedTipo || "EMPRESA",
   is_prospecto: false,
+  contacto_id: null as number | null,
+  contacto_nombre: "",
+  contacto_correo: "",
+  contacto_telefono: "",
+  contacto_puesto: "",
 });
 
+const pickPrincipalContacto = (cliente: Cliente) => {
+  const list = Array.isArray(cliente.contactos) ? cliente.contactos : [];
+  return list.find((c) => c.is_principal) || list[0] || null;
+};
 export const buildClientePayload = (
   formData: Record<string, unknown>,
   fixedTipo?: ClienteTipo
@@ -193,7 +205,60 @@ export const formDataFromCliente = (cliente: Cliente, fixedTipo?: ClienteTipo) =
     numero_precio: cliente.numero_precio || "1",
     aplica_retenciones: cliente.aplica_retenciones || false,
     desglosar_ieps: cliente.desglosar_ieps || false,
+    ...(() => {
+      const ct = pickPrincipalContacto(cliente);
+      return {
+        contacto_id: ct?.id ?? null,
+        contacto_nombre: String(ct?.nombre_apellido || "").trim(),
+        contacto_correo: String(ct?.correo || "").trim(),
+        contacto_telefono: String(ct?.celular || "").trim(),
+        contacto_puesto: String(ct?.area_puesto || "").trim(),
+      };
+    })(),
   };
+};
+
+/** Crea o actualiza el contacto principal del cliente a partir del formulario. */
+export const upsertClienteContactoFromForm = async (
+  clienteId: number,
+  formData: Record<string, unknown>
+): Promise<void> => {
+  const nombre = trimOrEmpty(formData.contacto_nombre);
+  if (!nombre) return;
+
+  const body = {
+    cliente: clienteId,
+    nombre_apellido: nombre.slice(0, 200),
+    titulo: "",
+    area_puesto: trimOrEmpty(formData.contacto_puesto).slice(0, 150),
+    celular: trimOrEmpty(formData.contacto_telefono).replace(/\D/g, "").slice(0, 25),
+    correo: trimOrEmpty(formData.contacto_correo).slice(0, 254),
+    is_principal: true,
+  };
+
+  const contactoId = Number(formData.contacto_id);
+  if (Number.isFinite(contactoId) && contactoId > 0) {
+    const res = await fetchApi(`/api/cliente-contactos/${contactoId}/`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(formatApiErrors(txt) || "No se pudo actualizar el contacto.");
+    }
+    return;
+  }
+
+  const res = await fetchApi("/api/cliente-contactos/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(formatApiErrors(txt) || "No se pudo guardar el contacto.");
+  }
 };
 
 export const validateClienteForm = (formData: Record<string, unknown>) => {

@@ -567,7 +567,9 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
                       formData={formData}
                       setFormData={setFormData}
                       activeTab={activeTab}
-                      setActiveTab={(tab) => setActiveTab(tab)}
+                      setActiveTab={(tab) => {
+                        if (tab === "general" || tab === "more") setActiveTab(tab);
+                      }}
                       hideContactMeta
                       hideTabs
                       onOpenMap={() => setShowMapModal(true)}
