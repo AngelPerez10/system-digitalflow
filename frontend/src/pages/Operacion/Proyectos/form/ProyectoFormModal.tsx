@@ -20,6 +20,7 @@ import {
   erpModalFormScrollClass,
   erpModalShellClass,
   erpModalTabClass,
+  erpModalTabListClass,
 } from "../../OrdenesTrabajo/ordenTrabajoStyles";
 import { ProyectoFormInstalacionesPanel, type ProyectoInstalacionDraft } from "../instalaciones";
 import { ProyectoCotizacionPickerModal } from "./cotizaciones/ProyectoCotizacionPickerModal";
@@ -201,8 +202,12 @@ export default function ProyectoFormModal({
         <div className={erpModalBodyClass}>
           <form ref={formRef} onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
             <div ref={formScrollRef} className={erpModalFormScrollClass}>
-              <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Secciones del proyecto">
-                {FORM_TABS.map((tab) => (
+              <div
+                className={erpModalTabListClass}
+                role="tablist"
+                aria-label="Secciones del proyecto"
+              >
+                {FORM_TABS.map((tab, index) => (
                   <button
                     key={tab.id}
                     type="button"
@@ -218,7 +223,11 @@ export default function ProyectoFormModal({
                     onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
                     className={erpModalTabClass(activeTab === tab.id)}
                   >
-                    {tab.label}
+                    <span className="tabular-nums opacity-70 sm:hidden" aria-hidden>
+                      {index + 1}.
+                    </span>
+                    <span className="ml-1 sm:ml-0">{tab.label}</span>
+                    <span className="sr-only"> ({tab.step})</span>
                   </button>
                 ))}
               </div>
@@ -322,7 +331,6 @@ export default function ProyectoFormModal({
                   presupuestoCargado={presupuestoCargado}
                   cotizaciones={cotizaciones}
                   isAdmin={isAdmin}
-                  assignedTechnicianLocked={assignedTechnicianLocked}
                   equipos={equipos}
                   equiposPorCotizacion={equiposPorCotizacion}
                   onUpdateEquipo={updateEquipo}

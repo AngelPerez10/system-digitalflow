@@ -1,12 +1,19 @@
 /** Tokens visuales del módulo Proyectos (modal y badges). */
 
+export const proyectoOrdenCardClass =
+  "space-y-3 rounded-xl border border-gray-200 bg-white p-3 shadow-theme-xs dark:border-white/10 dark:bg-gray-900/40 sm:space-y-4 sm:p-4";
+
+export const proyectoOrdenSectionHeadClass =
+  "flex flex-col gap-2 border-b border-gray-200 pb-2 dark:border-gray-700 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between";
+
 export const proyectoPickerModalClass =
-  "w-full max-w-lg overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_30px_90px_-45px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111a2b]";
+  "w-full max-w-lg overflow-hidden rounded-t-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 pb-[env(safe-area-inset-bottom)] shadow-[0_30px_90px_-45px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111a2b] sm:rounded-2xl sm:pb-0";
+
+export const proyectoPickerModalBodyClass =
+  "custom-scrollbar max-h-[min(60dvh,24rem)] overflow-y-auto overscroll-contain touch-auto p-4 sm:max-h-[min(70vh,28rem)] sm:p-6";
 
 export const proyectoPickerModalHeaderClass =
-  "relative shrink-0 border-b border-[#e7ded0] bg-gradient-to-r from-[#fcfaf6] via-[#fffaf3] to-[#fffdfa] px-5 py-4 pr-14 dark:border-[#334155] dark:bg-none dark:from-[#111827] dark:via-[#111827] dark:to-[#111827] sm:px-6 sm:pr-16";
-
-export const proyectoPickerModalBodyClass = "custom-scrollbar max-h-[min(70vh,28rem)] overflow-y-auto p-5 sm:p-6";
+  "relative shrink-0 border-b border-[#e7ded0] bg-gradient-to-r from-[#fcfaf6] via-[#fffaf3] to-[#fffdfa] px-4 py-3.5 pr-14 dark:border-[#334155] dark:bg-none dark:from-[#111827] dark:via-[#111827] dark:to-[#111827] sm:px-6 sm:py-4 sm:pr-16";
 
 export const proyectoEmptyPanelClass =
   "rounded-xl border border-dashed border-[#e2d9ca] bg-[#fffdf8]/80 px-4 py-8 text-center dark:border-[#334155] dark:bg-[#0f172a]/40";
@@ -91,9 +98,6 @@ export const proyectoSectionHintClass =
 /** Secciones tipo Órdenes / Cotización */
 export const proyectoOrdenSectionClass = "space-y-3";
 
-export const proyectoOrdenSectionHeadClass =
-  "flex flex-wrap items-end justify-between gap-2 border-b border-gray-200 pb-2 dark:border-gray-700";
-
 export const proyectoOrdenEyebrowClass =
   "text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]";
 
@@ -102,9 +106,6 @@ export const proyectoOrdenTitleClass =
 
 export const proyectoOrdenHintClass =
   "mt-0.5 text-[12px] leading-snug text-gray-500 dark:text-gray-400";
-
-export const proyectoOrdenCardClass =
-  "space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-white/10 dark:bg-gray-900/40";
 
 export const proyectoStepBadgeClass =
   "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/15 text-[11px] font-bold tabular-nums text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]";

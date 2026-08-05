@@ -24,8 +24,6 @@ type Props = {
   icon: ReactNode;
   presupuestoCargado: boolean;
   isAdmin: boolean;
-  /** Técnico asignado: no puede marcar entrega. */
-  assignedTechnicianLocked?: boolean;
   cotizaciones: ProyectoCotizacionBloque[];
   equipos: ProyectoEquipoLinea[];
   equiposPorCotizacion: Map<string, ProyectoEquipoLinea[]>;
@@ -55,7 +53,6 @@ export function ProyectoEquiposSection({
   icon,
   presupuestoCargado,
   isAdmin,
-  assignedTechnicianLocked = false,
   cotizaciones,
   equipos,
   equiposPorCotizacion,
@@ -256,7 +253,7 @@ export function ProyectoEquiposSection({
                                 type="checkbox"
                                 className="h-4 w-4 rounded border-[#d6d3d1] text-[#ff801f] focus:ring-[#ff801f]/30"
                                 checked={eq.equipoEntregado}
-                                disabled={!presupuestoCargado || assignedTechnicianLocked}
+                                disabled={!presupuestoCargado}
                                 onChange={(e) =>
                                   onUpdateEquipo(eq.lineaId, { equipoEntregado: e.target.checked })
                                 }

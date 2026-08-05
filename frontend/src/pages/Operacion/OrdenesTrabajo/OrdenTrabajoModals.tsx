@@ -49,8 +49,10 @@ export function OrdenFormModalHeader({ editing, title, subtitle, contextLabel = 
   return (
     <header className={erpModalHeaderClass}>
       <div className={erpModalHeaderAccentClass} aria-hidden />
-      <div className="flex items-start gap-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm">{docIcon}</div>
+      <div className="flex items-start gap-3 sm:gap-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black shadow-sm sm:h-11 sm:w-11 sm:rounded-2xl">
+          {docIcon}
+        </div>
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex flex-wrap items-center gap-2">
             <p className={sectionLabelOrangeClass}>{contextLabel}</p>
@@ -64,8 +66,12 @@ export function OrdenFormModalHeader({ editing, title, subtitle, contextLabel = 
               </span>
             )}
           </div>
-          <h2 className={`mt-1.5 ${erpSubheadingClass}`}>{title}</h2>
-          {subtitle ? <p className={`mt-1.5 max-w-md text-sm ${claudeBodyClass}`}>{subtitle}</p> : null}
+          <h2 className={`mt-1 text-base sm:mt-1.5 sm:text-[clamp(1.1rem,1.3vw,1.25rem)] ${erpSubheadingClass}`}>{title}</h2>
+          {subtitle ? (
+            <p className={`mt-1 line-clamp-2 max-w-md text-xs sm:mt-1.5 sm:line-clamp-none sm:text-sm ${claudeBodyClass}`}>
+              {subtitle}
+            </p>
+          ) : null}
         </div>
       </div>
     </header>

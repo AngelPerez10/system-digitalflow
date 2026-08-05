@@ -58,6 +58,7 @@ export function ProyectoCotizacionPickerModal({
       isOpen={open}
       onClose={onClose}
       closeOnEscape
+      mobileBottomSheet
       ariaLabelledBy={titleId}
       className={proyectoPickerModalClass}
     >

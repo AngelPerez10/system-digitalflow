@@ -51,6 +51,7 @@ import {
   createProyectoInstalacion,
   isProyectoInstalacionApiError,
   buildInstalacionPayload,
+  updateProyectoInstalacion,
   type ProyectoInstalacionDraft,
 } from "./instalaciones";
 import {
@@ -396,17 +397,25 @@ export default function ProyectosPage() {
       });
 
       const pending = extras?.instalacionDraft;
-      if (!wasEditing && pending?.subtipo) {
+      if (pending?.subtipo) {
         try {
-          await createProyectoInstalacion({
-            proyecto: Number(saved.id),
-            payload: buildInstalacionPayload(pending.form, pending.subtipo),
-          });
+          const payload = buildInstalacionPayload(pending.form, pending.subtipo);
+          if (pending.editingId != null) {
+            await updateProyectoInstalacion(pending.editingId, {
+              proyecto: Number(saved.id),
+              payload,
+            });
+          } else {
+            await createProyectoInstalacion({
+              proyecto: Number(saved.id),
+              payload,
+            });
+          }
         } catch (insErr) {
-          console.error("Error al guardar instalación inicial:", insErr);
+          console.error("Error al guardar instalación del proyecto:", insErr);
           showAlert(
             "warning",
-            "Proyecto creado",
+            wasEditing ? "Proyecto actualizado" : "Proyecto creado",
             isProyectoInstalacionApiError(insErr)
               ? `El proyecto se guardó, pero la instalación no: ${insErr.message}`
               : "El proyecto se guardó, pero no se pudo registrar la instalación.",

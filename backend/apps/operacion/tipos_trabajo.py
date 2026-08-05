@@ -76,23 +76,11 @@ def _cotizacion_ids(cotizaciones) -> list[str]:
     return ids
 
 
-def _entrega_map(equipos) -> dict[str, bool]:
-    items = equipos if isinstance(equipos, list) else []
-    out: dict[str, bool] = {}
-    for eq in items:
-        if not isinstance(eq, dict):
-            continue
-        lid = str(eq.get("lineaId") or "").strip()
-        if not lid:
-            continue
-        out[lid] = bool(eq.get("equipoEntregado"))
-    return out
-
-
 def assert_tecnico_locked_fields(instance, attrs: dict) -> dict[str, list[str]]:
     """
     Devuelve errores de validación si el técnico asignado intenta cambiar
-    cotizaciones (vincular o quitar), tipos de trabajo, fecha de autorización o entrega.
+    cotizaciones (vincular o quitar), tipos de trabajo o fecha de autorización.
+    La entrega de equipos sí la puede marcar el técnico.
     """
     errors: dict[str, list[str]] = {}
 
@@ -135,18 +123,5 @@ def assert_tecnico_locked_fields(instance, attrs: dict) -> dict[str, list[str]]:
         incoming_ids = set(_cotizacion_ids(attrs.get("cotizaciones")))
         if incoming_ids != current_ids:
             errors["cotizaciones"] = [TECNICO_LOCK_MSG]
-
-    if "equipos" in attrs:
-        current_entrega = _entrega_map(getattr(instance, "equipos", None))
-        incoming_entrega = _entrega_map(attrs.get("equipos"))
-        for lid, delivered in current_entrega.items():
-            if lid in incoming_entrega and incoming_entrega[lid] != delivered:
-                errors["equipos"] = [TECNICO_LOCK_MSG]
-                break
-        if "equipos" not in errors:
-            for lid, delivered in incoming_entrega.items():
-                if lid not in current_entrega and delivered:
-                    errors["equipos"] = [TECNICO_LOCK_MSG]
-                    break
 
     return errors

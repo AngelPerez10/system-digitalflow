@@ -2,7 +2,6 @@ import { useId } from "react";
 import {
   erpChipNeutralClass,
   erpTableHeaderClass,
-  erpTableWrapClass,
 } from "@/layout/erpPageStyles";
 import { displayCotizacionFolio } from "../../shared/proyectoFormUtils";
 import {
@@ -20,7 +19,6 @@ export type ProyectoPresupuestoTabProps = {
   presupuestoCargado: boolean;
   cotizaciones: ProyectoCotizacionBloque[];
   isAdmin: boolean;
-  assignedTechnicianLocked?: boolean;
   equipos: ProyectoEquipoLinea[];
   equiposPorCotizacion: Map<string, ProyectoEquipoLinea[]>;
   onUpdateEquipo: (lineaId: string, patch: Partial<ProyectoEquipoLinea>) => void;
@@ -54,7 +52,6 @@ export function ProyectoPresupuestoTab({
   presupuestoCargado,
   cotizaciones,
   isAdmin,
-  assignedTechnicianLocked = false,
   equipos,
   equiposPorCotizacion,
   onUpdateEquipo,
@@ -92,7 +89,7 @@ export function ProyectoPresupuestoTab({
             {cotizaciones.map((bloque) => (
               <section
                 key={bloque.vinculoId}
-                className="overflow-hidden rounded-xl border border-[#e7ded0] dark:border-[#334155]"
+                className="rounded-xl border border-[#e7ded0] dark:border-[#334155]"
                 aria-labelledby={`proyecto-presupuesto-cot-${bloque.vinculoId}`}
               >
                 <header className="flex flex-wrap items-center gap-2 border-b border-[#e7ded0] bg-gradient-to-r from-[#fff8f1] to-[#fffdfa] px-3 py-2.5 dark:border-[#334155] dark:from-[#ff801f]/10 dark:to-[#0f172a]">
@@ -120,17 +117,27 @@ export function ProyectoPresupuestoTab({
                     Esta cotización no tiene partidas.
                   </p>
                 ) : (
-                  <div className={`${erpTableWrapClass} !rounded-none !border-0 !shadow-none`}>
-                    <table className="min-w-full text-left text-sm">
+                  <div
+                    className="min-w-0 touch-pan-y"
+                    role="region"
+                    aria-label={`Partidas de cotización ${bloque.orden}`}
+                  >
+                    <table className="w-full table-fixed text-left text-sm sm:table-auto">
                       <thead className={erpTableHeaderClass}>
                         <tr>
                           <th scope="col" className="px-3 py-2.5 font-semibold">
                             Descripción
                           </th>
-                          <th scope="col" className="w-16 px-2 py-2.5 text-center font-semibold">
+                          <th
+                            scope="col"
+                            className="w-14 px-1.5 py-2.5 text-center font-semibold sm:w-16 sm:px-2"
+                          >
                             Cant.
                           </th>
-                          <th scope="col" className="w-14 px-2 py-2.5 text-center font-semibold">
+                          <th
+                            scope="col"
+                            className="w-12 px-1.5 py-2.5 text-center font-semibold sm:w-14 sm:px-2"
+                          >
                             Ud.
                           </th>
                         </tr>
@@ -141,7 +148,7 @@ export function ProyectoPresupuestoTab({
                             key={linea.id}
                             className="transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03]"
                           >
-                            <td className="px-3 py-2.5">
+                            <td className="min-w-0 px-3 py-2.5">
                               <div className="flex items-start gap-2.5">
                                 <ProyectoProductoThumb
                                   src={linea.imagenUrl}
@@ -149,7 +156,7 @@ export function ProyectoPresupuestoTab({
                                   size="sm"
                                   className="mt-0.5 border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]"
                                 />
-                                <div className="min-w-0">
+                                <div className="min-w-0 break-words [overflow-wrap:anywhere]">
                                   {linea.categoria ? (
                                     <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#ff801f]">
                                       {linea.categoria}
@@ -166,10 +173,10 @@ export function ProyectoPresupuestoTab({
                                 </div>
                               </div>
                             </td>
-                            <td className="px-2 py-2.5 text-center tabular-nums">
+                            <td className="px-1.5 py-2.5 text-center tabular-nums sm:px-2">
                               {linea.cantidad}
                             </td>
-                            <td className="px-2 py-2.5 text-center text-xs uppercase">
+                            <td className="px-1.5 py-2.5 text-center text-xs uppercase sm:px-2">
                               {linea.unidad}
                             </td>
                           </tr>
@@ -188,7 +195,6 @@ export function ProyectoPresupuestoTab({
         icon={iconBox}
         presupuestoCargado={presupuestoCargado}
         isAdmin={isAdmin}
-        assignedTechnicianLocked={assignedTechnicianLocked}
         cotizaciones={cotizaciones}
         equipos={equipos}
         equiposPorCotizacion={equiposPorCotizacion}

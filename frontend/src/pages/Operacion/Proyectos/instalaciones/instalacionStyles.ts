@@ -6,7 +6,7 @@ export const proyectoEmptyPanelClass =
 export const proyectoOrdenSectionClass = "space-y-3";
 
 export const proyectoOrdenSectionHeadClass =
-  "flex flex-wrap items-end justify-between gap-2 border-b border-gray-200 pb-2 dark:border-gray-700";
+  "flex flex-col gap-2 border-b border-gray-200 pb-2 dark:border-gray-700 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between";
 
 export const proyectoOrdenEyebrowClass =
   "text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]";
@@ -18,7 +18,7 @@ export const proyectoOrdenHintClass =
   "mt-0.5 text-[12px] leading-snug text-gray-500 dark:text-gray-400";
 
 export const proyectoOrdenCardClass =
-  "space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-white/10 dark:bg-gray-900/40";
+  "space-y-3 rounded-xl border border-gray-200 bg-white p-3 shadow-theme-xs dark:border-white/10 dark:bg-gray-900/40 sm:space-y-4 sm:p-4";
 
 export const proyectoSectionIconClass = "h-5 w-5";
 

@@ -263,7 +263,8 @@ class ProyectosSmokeTests(APITestCase):
         self.assertEqual(bad_add.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("cotizaciones", bad_add.data)
 
-        bad_entrega = self.client.patch(
+        # Sí puede marcar entrega de equipos.
+        ok_entrega = self.client.patch(
             f"/api/proyectos/{proyecto_id}/",
             {
                 "equipos": [
@@ -278,7 +279,8 @@ class ProyectosSmokeTests(APITestCase):
             },
             format="json",
         )
-        self.assertEqual(bad_entrega.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ok_entrega.status_code, status.HTTP_200_OK, ok_entrega.data)
+        self.assertTrue(ok_entrega.data["equipos"][0]["equipoEntregado"])
 
         # Sí puede actualizar campos no bloqueados (p. ej. incidencias).
         ok = self.client.patch(

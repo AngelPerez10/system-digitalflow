@@ -59,7 +59,6 @@ export type UseProyectoFormStateArgs = {
 
 export function useProyectoFormState({
   open,
-  proyectoId,
   initialDraft,
   onSave,
 }: UseProyectoFormStateArgs) {
@@ -687,8 +686,7 @@ export function useProyectoFormState({
     }
     try {
       await onSave(draft, {
-        instalacionDraft:
-          proyectoId == null && instalacionDraft.subtipo ? instalacionDraft : null,
+        instalacionDraft: instalacionDraft.subtipo ? instalacionDraft : null,
       });
     } catch {
       // El padre muestra el toast; el modal permanece abierto.

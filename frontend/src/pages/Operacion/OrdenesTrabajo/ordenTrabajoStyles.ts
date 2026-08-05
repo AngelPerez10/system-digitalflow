@@ -93,28 +93,28 @@ export const viewTabClass = (active: boolean) =>
 export const erpHeroHeaderClass = (cardShell: string) =>
   `relative flex w-full flex-col gap-4 ${cardShell} p-4 sm:p-6`;
 
-/** Modal crear/editar orden */
+/** Modal crear/editar orden / proyecto */
 export const erpModalShellClass =
-  "flex max-h-[min(92vh,92vh)] w-[min(96vw,56rem)] flex-col overflow-hidden rounded-2xl border border-[#e7ded0] bg-white p-0 shadow-[0_24px_48px_-12px_rgba(28,25,23,0.18)] dark:border-[#334155] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] sm:max-w-4xl";
+  "flex max-h-[min(94dvh,94vh)] w-full flex-col overflow-hidden rounded-t-2xl border border-[#e7ded0] bg-white p-0 shadow-[0_24px_48px_-12px_rgba(28,25,23,0.18)] dark:border-[#334155] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] sm:max-h-[min(92vh,92vh)] sm:w-[min(96vw,56rem)] sm:max-w-4xl sm:rounded-2xl";
 
 export const erpModalHeaderClass =
-  "relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-[#111827] sm:pr-16";
+  "relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-4 py-3.5 pr-14 dark:border-[#334155] dark:bg-[#111827] sm:px-6 sm:py-5 sm:pr-16";
 
 export const erpModalHeaderAccentClass = "pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]";
 
-export const erpModalBodyClass = "flex min-h-0 w-full flex-1 flex-col bg-[#fcfaf6]/60 dark:bg-[#111827]/40";
+export const erpModalBodyClass = "flex min-h-0 w-full min-w-0 flex-1 flex-col bg-[#fcfaf6]/60 dark:bg-[#111827]/40";
 
 export const erpModalFormScrollClass =
-  "min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 custom-scrollbar sm:p-5";
+  "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-y-contain touch-pan-y p-3 custom-scrollbar sm:space-y-5 sm:p-5 sm:touch-auto";
 
 export const erpModalFooterClass =
-  "shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 dark:border-[#334155] dark:bg-[#111827] sm:px-6";
+  "shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6] px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-[#334155] dark:bg-[#111827] sm:px-6 sm:py-4 sm:pb-4";
 
 export const erpModalPanelClass =
-  "rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5";
+  "rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5";
 
 export const erpModalInnerPanelClass =
-  "space-y-4 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-sm dark:border-[#334155] dark:bg-[#0f172a]/40";
+  "space-y-4 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-3 shadow-sm dark:border-[#334155] dark:bg-[#0f172a]/40 sm:p-4";
 
 export const erpModalSectionRowClass =
   "flex items-center gap-2 border-b border-[#e7ded0] pb-2 dark:border-[#334155]/80";
@@ -123,8 +123,12 @@ export const erpModalSectionTitleClass = "text-sm font-semibold text-[#1c1917] d
 
 export const erpModalTabClass = (active: boolean) =>
   active
-    ? "rounded-lg border border-[#ff801f] bg-[#ff801f] px-3 py-2 text-xs font-semibold text-black"
-    : "rounded-lg border border-[#e7ded0] bg-white px-3 py-2 text-xs font-medium text-[#57534e] transition-colors hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#aeb8c8] dark:hover:bg-white/[0.05]";
+    ? "inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#ff801f] bg-[#ff801f] px-3 py-2 text-xs font-semibold text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40"
+    : "inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0] bg-white px-3 py-2 text-xs font-medium text-[#57534e] transition-colors hover:bg-[#fffdf8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/25 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#aeb8c8] dark:hover:bg-white/[0.05]";
+
+/** Fila de tabs con scroll horizontal en móvil. */
+export const erpModalTabListClass =
+  "-mx-1 flex gap-2 overflow-x-auto overscroll-x-contain px-1 pb-0.5 touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 /** Modal eliminar / confirmación */
 export const erpDeleteModalClass = "mx-4 w-full max-w-md sm:mx-auto";

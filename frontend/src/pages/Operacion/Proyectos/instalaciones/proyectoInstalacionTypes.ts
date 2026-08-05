@@ -118,8 +118,10 @@ export function payloadImei(payload: Record<string, unknown> | null | undefined)
 export type ProyectoInstalacionDraft = {
   form: InstalacionFormValue;
   subtipo: InstalacionSubtipo;
+  /** ID de instalación en edición; null = alta nueva al guardar el proyecto. */
+  editingId?: number | null;
 };
 
 export function emptyInstalacionDraft(): ProyectoInstalacionDraft {
-  return { form: { ...EMPTY_INSTALACION_FORM }, subtipo: "" };
+  return { form: { ...EMPTY_INSTALACION_FORM }, subtipo: "", editingId: null };
 }

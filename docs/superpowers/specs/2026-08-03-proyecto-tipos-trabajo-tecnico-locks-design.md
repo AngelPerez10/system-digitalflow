@@ -4,7 +4,7 @@
 
 1. El proyecto admite **varios** tipos de trabajo (`tipos_trabajo: [{id, nombre}]`).
 2. Al vincular una cotización DigitalFlow, se **unen** (sin duplicar) sus `tipo_trabajo` al proyecto.
-3. Si el usuario logueado es el **técnico asignado** (y no admin), no puede: quitar cotizaciones, cambiar tipos de trabajo, cambiar fecha de autorización, ni marcar entrega de equipos. Backend refuerza esas reglas.
+3. Si el usuario logueado es el **técnico asignado** (y no admin), no puede: quitar/agregar cotizaciones, cambiar tipos de trabajo ni cambiar fecha de autorización. **Sí puede** marcar entrega e instalación de equipos. Backend refuerza esas reglas.
 4. Visibilidad de listado sigue `own_only` en Gestión de usuarios (técnico / creador / auxiliar).
 
 ## Data

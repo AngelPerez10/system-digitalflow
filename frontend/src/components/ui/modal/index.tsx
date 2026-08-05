@@ -34,6 +34,7 @@ export const Modal: React.FC<ModalProps> = ({
   isFullscreen = false,
   closeOnBackdropClick = true,
   closeOnEscape = true,
+  mobileBottomSheet = false,
   ariaLabelledBy,
   ariaLabel,
   ariaDescribedBy,
@@ -124,13 +125,20 @@ export const Modal: React.FC<ModalProps> = ({
 
   if (!isOpen) return null;
 
+  const overlayClasses = mobileBottomSheet
+    ? "fixed inset-0 z-99999 flex items-end justify-center overflow-y-auto overscroll-contain sm:items-center sm:p-4"
+    : "fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto modal";
+
+  // Con mobileBottomSheet, el shell del caller controla max-h / radius (p. ej. erpModalShellClass).
   const contentClasses = isFullscreen
     ? "w-full h-full"
-    : "relative flex min-h-0 w-full flex-col rounded-3xl bg-white dark:bg-gray-900";
+    : mobileBottomSheet
+      ? "relative flex min-h-0 w-full flex-col bg-white dark:bg-gray-900"
+      : "relative flex min-h-0 w-full flex-col rounded-3xl bg-white dark:bg-gray-900";
 
   // Portal a body: fuera de `.app-ui-scale { zoom }`, coords de canvas/pointer 1:1.
   return createPortal(
-    <div className="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto modal">
+    <div className={overlayClasses}>
       {!isFullscreen && (
         <div
           className="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
@@ -144,7 +152,7 @@ export const Modal: React.FC<ModalProps> = ({
         aria-labelledby={labelledBy}
         aria-label={resolvedAriaLabel}
         aria-describedby={ariaDescribedBy}
-        className={`${contentClasses}  ${className}`}
+        className={`${contentClasses} ${className ?? ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         {resolvedAriaLabel && !ariaLabelledBy ? (

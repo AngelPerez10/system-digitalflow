@@ -6,5 +6,6 @@ export {
 } from "./proyectoInstalacionTypes";
 export {
   createProyectoInstalacion,
+  updateProyectoInstalacion,
   isProyectoInstalacionApiError,
 } from "./proyectoInstalacionApi";

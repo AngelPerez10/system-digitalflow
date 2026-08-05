@@ -5,20 +5,16 @@ import {
   erpDangerBtnClass,
   erpDeleteModalClass,
   erpDeleteModalPanelClass,
-  erpPrimaryBtnClass,
   erpSecondaryBtnClass,
 } from "../../OrdenesTrabajo/ordenTrabajoStyles";
 import InstalacionForm from "./InstalacionForm";
 import { InstalacionFormSection } from "./InstalacionFormSection";
 import {
-  createProyectoInstalacion,
   deleteProyectoInstalacion,
   isProyectoInstalacionApiError,
   listProyectoInstalaciones,
-  updateProyectoInstalacion,
 } from "./proyectoInstalacionApi";
 import {
-  buildInstalacionPayload,
   displayInstalacionFolio,
   EMPTY_INSTALACION_FORM,
   payloadFromApi,
@@ -71,10 +67,9 @@ export function ProyectoFormInstalacionesPanel({
   const [rows, setRows] = useState<ProyectoInstalacionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingRow, setDeletingRow] = useState<ProyectoInstalacionRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const editingId = draft.editingId ?? null;
 
   const reload = async () => {
     if (proyectoId == null) {
@@ -113,15 +108,14 @@ export function ProyectoFormInstalacionesPanel({
   };
 
   const resetDraft = () => {
-    onDraftChange({ form: { ...EMPTY_INSTALACION_FORM }, subtipo: "" });
-    setEditingId(null);
+    onDraftChange({ form: { ...EMPTY_INSTALACION_FORM }, subtipo: "", editingId: null });
   };
 
   const openEdit = (row: ProyectoInstalacionRow) => {
-    setEditingId(row.id);
     onDraftChange({
       form: payloadFromApi(row.payload),
       subtipo: subtipoFromPayload(row.payload),
+      editingId: row.id,
     });
     setError("");
     requestAnimationFrame(() => {
@@ -130,40 +124,6 @@ export function ProyectoFormInstalacionesPanel({
         block: "nearest",
       });
     });
-  };
-
-  const handleSaveInstalacion = async () => {
-    if (proyectoId == null) {
-      setError("Guarda el proyecto con el botón Guardar de abajo para registrar esta instalación.");
-      return;
-    }
-    if (!draft.subtipo) {
-      setError("Selecciona el tipo de instalación.");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      const payload = buildInstalacionPayload(draft.form, draft.subtipo);
-      if (editingId != null) {
-        const updated = await updateProyectoInstalacion(editingId, {
-          proyecto: proyectoId,
-          payload,
-        });
-        setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-      } else {
-        const created = await createProyectoInstalacion({ proyecto: proyectoId, payload });
-        setRows((prev) => [created, ...prev]);
-      }
-      resetDraft();
-    } catch (err) {
-      console.error("Error al guardar instalación:", err);
-      setError(
-        isProyectoInstalacionApiError(err) ? err.message : "No se pudo guardar la instalación."
-      );
-    } finally {
-      setSaving(false);
-    }
   };
 
   const confirmDelete = async () => {
@@ -199,11 +159,9 @@ export function ProyectoFormInstalacionesPanel({
   const formEyebrow = editingId != null ? "Editando" : proyectoId == null ? "Paso 2" : "Nueva";
   const formTitle = editingId != null ? "Editar instalación" : "Datos de la instalación";
   const formHint =
-    proyectoId == null
-      ? "Completa el tipo; se registrará al guardar el proyecto abajo."
-      : editingId != null
-        ? "Modifica los campos y confirma con Actualizar instalación."
-        : "Completa la ficha GPS y guárdala en este proyecto.";
+    editingId != null
+      ? "Modifica los campos y pulsa Guardar en el pie del modal."
+      : "Completa la ficha GPS; se registra al guardar el proyecto abajo.";
 
   return (
     <div className="space-y-5">
@@ -235,7 +193,7 @@ export function ProyectoFormInstalacionesPanel({
                 No hay instalaciones guardadas en este proyecto.
               </p>
               <p className="mt-1.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">
-                Completa los datos GPS en la sección inferior y pulsa Guardar instalación.
+                Completa los datos GPS abajo y pulsa Guardar en el pie del modal.
               </p>
             </div>
           ) : (
@@ -329,46 +287,37 @@ export function ProyectoFormInstalacionesPanel({
           subtipo={draft.subtipo}
           onChange={setForm}
           onSubtipoChange={setSubtipo}
-          disabled={disabled || saving}
+          disabled={disabled}
         />
 
-        {proyectoId != null ? (
-          <div className="mt-1 flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4 dark:border-white/10">
-            {editingId != null ? (
-              <button
-                type="button"
-                className={erpSecondaryBtnClass}
-                disabled={saving}
-                onClick={resetDraft}
-              >
-                Cancelar edición
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className={erpPrimaryBtnClass}
-              disabled={disabled || saving}
-              onClick={() => void handleSaveInstalacion()}
-            >
-              {saving
-                ? "Guardando…"
-                : editingId != null
-                  ? "Actualizar instalación"
-                  : "Guardar instalación"}
-            </button>
-          </div>
-        ) : (
+        <div className="mt-1 flex flex-col gap-3 border-t border-gray-100 pt-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <div
-            className="mt-1 rounded-xl border border-dashed border-[#e2d9ca] bg-[#fffdf8]/90 px-3.5 py-3 dark:border-[#334155] dark:bg-[#0f172a]/40"
+            className="rounded-xl border border-dashed border-[#e2d9ca] bg-[#fffdf8]/90 px-3.5 py-3 dark:border-[#334155] dark:bg-[#0f172a]/40"
             role="note"
           >
             <p className="text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
-              Al pulsar{" "}
-              <strong className="font-semibold text-[#1c1917] dark:text-[#f8fafc]">Guardar</strong>{" "}
-              en el pie del modal se crea el proyecto y, si elegiste un tipo, también esta ficha GPS.
+              {editingId != null ? (
+                <>
+                  Los cambios de esta ficha se aplican al pulsar{" "}
+                  <strong className="font-semibold text-[#1c1917] dark:text-[#f8fafc]">Guardar</strong>{" "}
+                  en el pie del modal.
+                </>
+              ) : (
+                <>
+                  Al pulsar{" "}
+                  <strong className="font-semibold text-[#1c1917] dark:text-[#f8fafc]">Guardar</strong>{" "}
+                  en el pie del modal se guarda el proyecto y, si elegiste un tipo, también esta ficha
+                  GPS.
+                </>
+              )}
             </p>
           </div>
-        )}
+          {editingId != null && !disabled ? (
+            <button type="button" className={erpSecondaryBtnClass} onClick={resetDraft}>
+              Cancelar edición
+            </button>
+          ) : null}
+        </div>
       </InstalacionFormSection>
 
       <Modal
