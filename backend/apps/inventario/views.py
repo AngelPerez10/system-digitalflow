@@ -155,5 +155,6 @@ class InventarioMovimientoListView(APIView):
                 parsed_date = parse_date(desde)
                 if parsed_date:
                     queryset = queryset.filter(creado_en__date__gte=parsed_date)
+        queryset = queryset.order_by('-creado_en')
         data = InventarioMovimientoSerializer(queryset, many=True).data
         return Response(data)

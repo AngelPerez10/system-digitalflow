@@ -31,10 +31,11 @@ Ola 2 (Órdenes servicio): carpetas `list/`, `form/`, `shared/` — detalle en
 
 Los permisos viven en `UserPermissions.permissions` (JSON por módulo: `view`, `create`, `edit`, `delete`).
 
-- Backend: subclases de `ModulePermission` en `apps/users/permissions.py` (`OrdenesPermission`, `ProyectosPermission`, `TareasPermission`, …).
+- Backend: subclases de `ModulePermission` en `apps/users/permissions.py` (`OrdenesPermission`, `ProyectosPermission`, `InventarioPermission`, `TareasPermission`, …).
 - Frontend: guards `Require*Permission` con comprobación estricta `=== true` para `view`. Admin (`isAdmin`) bypass en guards.
 - **Catálogos en cotización**: GET a `/api/productos/syscom/*`, `/api/productos/tvc/*` y `/api/productos-manuales/` permiten usuarios con acceso a `cotizaciones` (aunque no tengan módulo `productos`). Altas/edición/baja de manuales siguen exigiendo `productos`.
 - **Proyectos**: módulo propio `proyectos` (independiente de `ordenes`). Sidebar y ruta `/proyectos` requieren `proyectos.view`.
+- **Inventario**: módulo propio `inventario` (escáner HID / código de barras). Sidebar y ruta `/inventario` requieren `inventario.view`; registrar entradas y salidas (`POST /api/inventario/scan/`) requieren `inventario.create`; editar ficha de ítem (`PATCH`) requiere `inventario.create` o `inventario.edit`. FE: `frontend/src/pages/Inventario/`.
 
 ## Convenciones
 
@@ -178,6 +179,7 @@ En `backend/config/middleware.py`, las peticiones a `/api/*` con cabecera `Autho
 - HTML de facturas CFDI (SICAR): `backend/apps/cotizaciones/sicar_cfdi_pdf.py`
 - Helpers compartidos: `backend/apps/common/pdf_html.py`, `backend/apps/common/pdf_images.py`
 - **Proyectos CRUD** (`apps/operacion`): `GET/POST /api/proyectos/`, `GET/PATCH/DELETE /api/proyectos/{id}/`, `POST /api/proyectos/upload-image/` y `delete-image/`. Permisos del módulo **`proyectos`** (`ProyectosPermission`). Folio `PRJ-{idx}`. Carpetas Cloudinary: `proyectos/evidencias`, `proyectos/bitacora`, `proyectos/firmas`, `proyectos/instalacion/dibujos`.
+- **Inventario** (`apps/inventario`): `POST /api/inventario/scan/` (entrada/salida ±1 por código de barras; alta automática en entrada), `GET /api/inventario/items/` (`?search=`), `GET/PATCH /api/inventario/items/{id}/`, `GET /api/inventario/movimientos/` (`?item=&desde=`). Permisos módulo **`inventario`** (`InventarioPermission`). FE: `frontend/src/pages/Inventario/`.
 - **Instalaciones GPS de proyecto**: `GET/POST /api/proyecto-instalaciones/`, `GET/PATCH/DELETE /api/proyecto-instalaciones/{id}/` (filtro `?proyecto=`). Folio UI `INS-{idx}`. Permisos módulo **`proyectos`**.
 - **Enviar PDF de orden por correo** (solo servicio técnico resuelto): `POST /api/ordenes/{id}/enviar-pdf/`. SMTP autenticado con el **buzón del usuario** que envía (`UserSmtpCredentials` en Gestión de usuarios). Host/puerto/SSL: `EMAIL_HOST` / `EMAIL_PORT=465` / `EMAIL_USE_SSL=true`. Cifrado: `SMTP_CREDENTIALS_KEY` (ver `backend/.env.example`). Lógica en `backend/apps/ordenes/email_pdf.py`.
 - **Enviar PDF de cotización por correo** (PENDIENTE o AUTORIZADA): `POST /api/cotizaciones/{id}/enviar-pdf/` — mismo SMTP por usuario; asunto/cuerpo en `backend/apps/cotizaciones/email_pdf.py`. Si el usuario no tiene SMTP configurado → 400 con mensaje claro.
