@@ -267,6 +267,32 @@ class ProyectosPermission(ModulePermission):
     module_key = 'proyectos'
 
 
+class InventarioPermission(ModulePermission):
+    """Permisos JSON para Inventario (Operación / escáner)."""
+
+    module_key = 'inventario'
+
+    def has_object_permission(self, request, view, obj):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        method = (request.method or '').upper()
+        if method not in ('PUT', 'PATCH', 'DELETE'):
+            return True
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, self.module_key)
+        if method == 'DELETE':
+            return self._as_bool(module_perms.get('delete'), False)
+        # Ficha compartida: create o edit permiten PATCH de cualquier ítem
+        return (
+            self._as_bool(module_perms.get('edit'), False)
+            or self._as_bool(module_perms.get('create'), False)
+        )
+
+
 class OrdenesSendPdfPermission(BasePermission):
     """
     Enviar PDF de orden por correo: basta con `view` en órdenes
