@@ -83,4 +83,7 @@ pytest-report.html
 # ---- Allow examples / templates ----
 !.env.example
 
+# ---- Git worktrees (local isolation) ----
+.worktrees/
+
 # Fin
