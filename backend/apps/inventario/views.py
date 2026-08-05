@@ -1,4 +1,4 @@
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -65,9 +65,24 @@ class ScanView(APIView):
                             if value is not None:
                                 setattr(item, field, value)
                     creado = True
-                item.cantidad += 1
+                    item.cantidad += 1
+                    try:
+                        item.save()
+                    except IntegrityError:
+                        item = (
+                            InventarioItem.objects.select_for_update()
+                            .get(codigo_barras=codigo)
+                        )
+                        creado = False
+                        enriquecido = False
+                        item.cantidad += 1
+                        item.save()
+                else:
+                    item.cantidad += 1
+                    item.save()
 
-            item.save()
+            if modo == InventarioMovimiento.Tipo.SALIDA:
+                item.save()
             movimiento = InventarioMovimiento.objects.create(
                 item=item,
                 tipo=modo,

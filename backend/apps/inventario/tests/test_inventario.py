@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.test import APITestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from apps.inventario.models import InventarioItem
 from apps.users.models import UserPermissions
@@ -104,3 +105,36 @@ class InventarioScanTests(APITestCase):
         self.assertTrue(res.data['enriquecido'])
         self.assertEqual(res.data['item']['nombre'], 'Cámara X')
         self.assertEqual(res.data['item']['fuente'], 'syscom')
+
+    @patch('apps.inventario.views.enrich_from_catalogs', return_value=None)
+    def test_entrada_integrity_error_recovery(self, _enrich):
+        peer_item = InventarioItem.objects.create(codigo_barras='RACE', cantidad=1)
+
+        original_save = InventarioItem.save
+
+        def save_raises_on_insert(self, *args, **kwargs):
+            if self.pk is None:
+                raise IntegrityError('duplicate key')
+            return original_save(self, *args, **kwargs)
+
+        queryset_mock = MagicMock()
+        queryset_mock.first.return_value = None
+        queryset_mock.get.return_value = peer_item
+        queryset_mock.filter.return_value = queryset_mock
+
+        with patch.object(InventarioItem, 'save', save_raises_on_insert):
+            with patch.object(
+                InventarioItem.objects, 'select_for_update', return_value=queryset_mock
+            ):
+                res = self.client.post(
+                    '/api/inventario/scan/',
+                    {'codigo_barras': 'RACE', 'modo': 'entrada'},
+                    format='json',
+                )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertFalse(res.data['creado'])
+        self.assertFalse(res.data['enriquecido'])
+        self.assertEqual(res.data['item']['cantidad'], 2)
+        peer_item.refresh_from_db()
+        self.assertEqual(peer_item.cantidad, 2)
