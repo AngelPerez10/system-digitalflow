@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
+import requests
 from rest_framework import status
 from rest_framework.test import APITestCase
 from unittest.mock import MagicMock, patch
@@ -138,3 +139,105 @@ class InventarioScanTests(APITestCase):
         self.assertEqual(res.data['item']['cantidad'], 2)
         peer_item.refresh_from_db()
         self.assertEqual(peer_item.cantidad, 2)
+
+
+class InventarioItemsTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='inv2', password='test-pass-123')
+        UserPermissions.objects.create(
+            user=self.user,
+            permissions={'inventario': {'view': True, 'create': True}},
+        )
+        self.client.force_authenticate(user=self.user)
+        self.item = InventarioItem.objects.create(
+            codigo_barras='X1', nombre='', cantidad=3
+        )
+
+    def test_list_items(self):
+        res = self.client.get('/api/inventario/items/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = (
+            res.data['results']
+            if isinstance(res.data, dict) and 'results' in res.data
+            else res.data
+        )
+        self.assertTrue(any(i['codigo_barras'] == 'X1' for i in data))
+
+    def test_patch_ficha(self):
+        res = self.client.patch(
+            f'/api/inventario/items/{self.item.id}/',
+            {'nombre': 'Sensor', 'marca': 'Ajax'},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.nombre, 'Sensor')
+
+    def test_patch_rejects_cantidad(self):
+        res = self.client.patch(
+            f'/api/inventario/items/{self.item.id}/',
+            {'cantidad': 99, 'nombre': 'Sensor'},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.cantidad, 3)
+        self.assertEqual(self.item.nombre, 'Sensor')
+
+    @patch('apps.inventario.views.enrich_from_catalogs', return_value=None)
+    def test_list_movimientos(self, _enrich):
+        self.client.post(
+            '/api/inventario/scan/',
+            {'codigo_barras': 'X1', 'modo': 'entrada'},
+            format='json',
+        )
+        res = self.client.get(f'/api/inventario/movimientos/?item={self.item.id}')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(res.data) >= 1)
+
+
+class InventarioEnrichmentTests(APITestCase):
+    @patch('apps.inventario.enrichment._search_tvc', return_value=None)
+    @patch(
+        'apps.inventario.enrichment._search_syscom',
+        return_value={
+            'nombre': 'Cámara SYSCOM',
+            'marca': 'Hikvision',
+            'modelo': 'DS-2',
+            'fuente': 'syscom',
+            'ref_externa': '999',
+        },
+    )
+    def test_enrich_syscom_first(self, _syscom, _tvc):
+        from apps.inventario.enrichment import enrich_from_catalogs
+
+        result = enrich_from_catalogs('DS-2')
+        self.assertEqual(result['fuente'], 'syscom')
+        _syscom.assert_called_once_with('DS-2')
+        _tvc.assert_not_called()
+
+    @patch(
+        'apps.inventario.enrichment._search_tvc',
+        return_value={
+            'nombre': 'Sensor TVC',
+            'marca': 'Ajax',
+            'modelo': 'AJAX-1',
+            'fuente': 'tvc',
+            'ref_externa': 'tvc:42',
+        },
+    )
+    @patch('apps.inventario.enrichment._search_syscom', return_value=None)
+    def test_enrich_falls_back_to_tvc(self, _syscom, _tvc):
+        from apps.inventario.enrichment import enrich_from_catalogs
+
+        result = enrich_from_catalogs('AJAX-1')
+        self.assertEqual(result['fuente'], 'tvc')
+        _syscom.assert_called_once_with('AJAX-1')
+        _tvc.assert_called_once_with('AJAX-1')
+
+    @patch('apps.inventario.enrichment._search_tvc', side_effect=requests.RequestException('timeout'))
+    @patch('apps.inventario.enrichment._search_syscom', side_effect=requests.RequestException('timeout'))
+    def test_enrich_never_raises(self, _syscom, _tvc):
+        from apps.inventario.enrichment import enrich_from_catalogs
+
+        self.assertIsNone(enrich_from_catalogs('FAIL'))
