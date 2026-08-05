@@ -73,7 +73,7 @@ pnpm exec eslint src         # ver alcance CI abajo
 ```bash
 cd backend
 ruff check apps              # imports, estilo (auto-fix: ruff check apps --fix)
-python manage.py test apps.users apps.cotizaciones apps.ordenes apps.operacion apps.common apps.clientes apps.escritorio
+python manage.py test apps.users apps.cotizaciones apps.ordenes apps.operacion apps.common apps.clientes apps.escritorio apps.inventario
 ```
 
 ### Ortografía (UI)

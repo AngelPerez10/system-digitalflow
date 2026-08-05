@@ -56,5 +56,5 @@ jobs:
           SECRET_KEY: ci-test-secret-key
         run: >-
           python manage.py test
-          apps.users apps.cotizaciones apps.ordenes apps.common apps.clientes apps.escritorio
+          apps.users apps.cotizaciones apps.ordenes apps.common apps.clientes apps.escritorio apps.inventario
           --verbosity 1
