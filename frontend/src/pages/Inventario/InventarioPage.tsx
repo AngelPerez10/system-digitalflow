@@ -50,6 +50,7 @@ export default function InventarioPage() {
 
   const canCreate = isAdmin || inventarioPerm(perms, "create");
   const canEdit = isAdmin || inventarioPerm(perms, "edit");
+  const canEditFicha = canCreate || canEdit;
 
   const [modo, setModo] = useState<ScanModo>("entrada");
   const [items, setItems] = useState<InventarioItem[]>([]);
@@ -234,7 +235,7 @@ export default function InventarioPage() {
             <InventarioItemsTable
               items={items}
               loading={itemsLoading}
-              canEdit={canEdit}
+              canEdit={canEditFicha}
               selectedItemId={filterItem?.id ?? null}
               onSelectItem={handleSelectItem}
               onEdit={setEditItem}
