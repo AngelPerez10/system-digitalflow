@@ -199,6 +199,9 @@ export default function AppSidebar() {
           ...(permissions?.proyectos?.view === true || isAdmin
             ? [{ name: "Proyectos", path: "/proyectos", pro: false } as const]
             : []),
+          ...((permissions as Record<string, { view?: boolean }> | null)?.inventario?.view === true || isAdmin
+            ? [{ name: "Inventario", path: "/inventario", pro: false } as const]
+            : []),
           ...(permissions?.cuentas_antarix?.view === true || isAdmin
             ? [{ name: "Antarix GPS", path: "/cuentas", pro: false } as const]
             : []),
@@ -231,6 +234,10 @@ export default function AppSidebar() {
 
       if (permissions?.proyectos?.view === true) {
         subItems.push({ name: "Proyectos", path: "/proyectos", pro: false });
+      }
+
+      if ((permissions as Record<string, { view?: boolean }> | null)?.inventario?.view === true) {
+        subItems.push({ name: "Inventario", path: "/inventario", pro: false });
       }
 
       if (

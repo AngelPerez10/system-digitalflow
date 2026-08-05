@@ -13,6 +13,7 @@ import RequireCotizacionPermission from "@/components/auth/RequireCotizacionPerm
 import RequireClientePermission from "@/components/auth/RequireClientePermission";
 import RequireOrdenesPermission from "@/components/auth/RequireOrdenesPermission";
 import RequireProyectosPermission from "@/components/auth/RequireProyectosPermission";
+import RequireInventarioPermission from "@/components/auth/RequireInventarioPermission";
 import RequireProductosPermission from "@/components/auth/RequireProductosPermission";
 import RequireServiciosPermission from "@/components/auth/RequireServiciosPermission";
 import RequireReportesPermission from "@/components/auth/RequireReportesPermission";
@@ -48,6 +49,7 @@ const CotizacionPdfPage = lazy(() => import("@/pages/Ventas/Cotizacion/Cotizacio
 const IaPage = lazy(() => import("@/pages/IA/iaPage"));
 const ReportesPage = lazy(() => import("@/pages/Operacion/Reportes/ReportesPage"));
 const CuentasAntarixPage = lazy(() => import("@/pages/Operacion/CuentasAntarix/CuentasAntarixPage"));
+const InventarioPage = lazy(() => import("@/pages/Inventario/InventarioPage"));
 
 export default function App() {
   return (
@@ -94,6 +96,7 @@ export default function App() {
             />
             <Route path="/levantamiento" element={<RequireOrdenesPermission required="view"><LevantamientoPage /></RequireOrdenesPermission>} />
             <Route path="/proyectos" element={<RequireProyectosPermission required="view"><ProyectosPage /></RequireProyectosPermission>} />
+            <Route path="/inventario" element={<RequireInventarioPermission required="view"><InventarioPage /></RequireInventarioPermission>} />
             <Route path="/clientes" element={<RequireClientePermission required="view"><Clientes /></RequireClientePermission>} />
             <Route path="/empresas" element={<RequireClientePermission required="view"><EmpresaPage /></RequireClientePermission>} />
             <Route path="/personas" element={<RequireClientePermission required="view"><PersonasPage /></RequireClientePermission>} />
