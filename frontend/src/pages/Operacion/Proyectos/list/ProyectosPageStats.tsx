@@ -22,7 +22,7 @@ export function ProyectosPageStats({ stats }: Props) {
             </svg>
           </span>
           <div className="min-w-0">
-            <p className={statLabelClass}>Total proyectos</p>
+            <p className={statLabelClass}>Proyectos del mes</p>
             <p className={statValueClass}>{stats.total}</p>
           </div>
         </div>

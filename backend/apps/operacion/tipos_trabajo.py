@@ -72,15 +72,48 @@ def _cotizacion_ids(cotizaciones) -> list[str]:
         cot = b.get("cotizacion") if isinstance(b.get("cotizacion"), dict) else {}
         cid = str(cot.get("id") or b.get("vinculoId") or "").strip()
         if cid:
-            ids.append(cid)
+            ids.append(_canonical_cotizacion_id(cid))
     return ids
+
+
+def _canonical_cotizacion_id(raw: str) -> str:
+    """Normaliza `df-12` / `sicar-89` / `12` para comparar vínculos sin falsos positivos."""
+    cid = str(raw or "").strip()
+    lower = cid.lower()
+    for prefix in ("df-", "sicar-"):
+        if lower.startswith(prefix):
+            return cid[len(prefix) :].strip() or cid
+    return cid
+
+
+def _tipos_trabajo_id_set(tipos: list[dict]) -> set[int]:
+    ids: set[int] = set()
+    for item in tipos:
+        try:
+            tid = int(item.get("id"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if tid > 0:
+            ids.add(tid)
+    return ids
+
+
+def _fecha_autorizacion_key(value) -> str:
+    """Compara fechas como YYYY-MM-DD; None/'' cuentan igual (sin cambio)."""
+    if value is None or value == "":
+        return ""
+    text = str(value).strip()
+    return text[:10] if text else ""
 
 
 def assert_tecnico_locked_fields(instance, attrs: dict) -> dict[str, list[str]]:
     """
     Devuelve errores de validación si el técnico asignado intenta cambiar
     cotizaciones (vincular o quitar), tipos de trabajo o fecha de autorización.
-    La entrega de equipos sí la puede marcar el técnico.
+    La entrega / instalación de equipos sí la puede marcar el técnico.
+
+    Compara solo el *conjunto* de ids de tipos (ignora nombre y orden) para no
+    bloquear un PATCH completo del frontend por ruido de serialización.
     """
     errors: dict[str, list[str]] = {}
 
@@ -106,16 +139,15 @@ def assert_tecnico_locked_fields(instance, attrs: dict) -> dict[str, list[str]]:
             incoming = normalize_tipos_trabajo(
                 [{"id": tid, "nombre": tname}] if tid else []
             )
-        if incoming is not None and incoming != current:
+        if incoming is not None and _tipos_trabajo_id_set(incoming) != _tipos_trabajo_id_set(
+            current
+        ):
             errors["tipos_trabajo"] = [TECNICO_LOCK_MSG]
 
     if "fecha_autorizacion" in attrs:
         current_fecha = getattr(instance, "fecha_autorizacion", None)
         incoming_fecha = attrs.get("fecha_autorizacion")
-        # Comparar como strings ISO cuando hay date objects
-        cur_s = str(current_fecha) if current_fecha else ""
-        inc_s = str(incoming_fecha) if incoming_fecha else ""
-        if cur_s != inc_s:
+        if _fecha_autorizacion_key(current_fecha) != _fecha_autorizacion_key(incoming_fecha):
             errors["fecha_autorizacion"] = [TECNICO_LOCK_MSG]
 
     if "cotizaciones" in attrs:

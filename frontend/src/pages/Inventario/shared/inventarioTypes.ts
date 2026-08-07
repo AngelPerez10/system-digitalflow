@@ -10,7 +10,15 @@ export type InventarioItem = {
   notas: string;
   fuente: InventarioFuente;
   ref_externa: string;
+  imagen_url: string;
   cantidad: number;
+  /** Folio de la última factura importada (vacío si solo se escaneó). */
+  folio_factura: string;
+  /** FK al Cliente PROVEEDOR de Contactos; null si no hay. */
+  proveedor: number | null;
+  proveedor_nombre: string;
+  /** Costo por pieza de la última compra; null si no hay. */
+  precio_unitario: string | null;
   fecha_creacion: string;
   fecha_actualizacion: string;
 };
@@ -18,9 +26,15 @@ export type InventarioItem = {
 export type InventarioMovimiento = {
   id: number;
   item: number;
+  item_codigo_barras: string;
+  item_nombre: string;
+  item_marca: string;
+  item_modelo: string;
   tipo: ScanModo;
   cantidad: number;
   usuario: number | null;
+  /** Nombre visible del operador que registró el movimiento (vacío si no hay usuario). */
+  usuario_nombre: string;
   nota: string;
   creado_en: string;
 };
@@ -33,10 +47,59 @@ export type ScanResponse = {
 };
 
 export type InventarioItemPatch = Partial<
-  Pick<InventarioItem, "nombre" | "marca" | "modelo" | "notas">
+  Pick<
+    InventarioItem,
+    "nombre" | "marca" | "modelo" | "notas" | "fuente" | "ref_externa" | "imagen_url"
+  >
 >;
+
+/** Candidato de SYSCOM/TVC para vincular a mano un código de barras. */
+export type CatalogoCandidato = {
+  nombre: string;
+  marca: string;
+  modelo: string;
+  fuente: InventarioFuente;
+  ref_externa: string;
+  imagen_url: string;
+  /** Ficha técnica del proveedor; la búsqueda suele traerla vacía y el detalle no. */
+  caracteristicas: string;
+};
+
+export type InventarioItemsParams = {
+  search?: string;
+  page?: number;
+  page_size?: number;
+};
 
 export type InventarioMovimientosParams = {
   item?: number | string;
   desde?: string;
+  page?: number;
+  page_size?: number;
+};
+
+export type PaginatedResponse<T> = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+};
+
+export type InventarioStats = {
+  total_items: number;
+  total_unidades: number;
+  sin_identificar: number;
+  movimientos_hoy: number;
+};
+
+export type FacturaProveedor = "syscom" | "tvc";
+
+export type ImportarFacturaResponse = {
+  importacion_id: number;
+  proveedor: FacturaProveedor;
+  folio: string;
+  creados: number;
+  actualizados: number;
+  movimientos: number;
+  items: InventarioItem[];
 };

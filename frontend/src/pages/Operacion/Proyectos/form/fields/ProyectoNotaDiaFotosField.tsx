@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
 import { compressImage, getPublicIdFromUrl } from "../../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
 import {
@@ -33,6 +33,7 @@ export function ProyectoNotaDiaFotosField({
   );
   const remaining = PROYECTO_NOTA_MAX_FOTOS - safeUrls.length;
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [preview, setPreview] = useState<{ open: boolean; url: string; index: number }>({
     open: false,
@@ -46,24 +47,48 @@ export function ProyectoNotaDiaFotosField({
   }>({ open: false, index: null, url: null });
 
   const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
+    async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
       if (disabled || remaining <= 0) return;
+      setUploadError("");
+
+      if (fileRejections.length) {
+        setUploadError("Algunos archivos no son válidos. Usa PNG, JPG, WebP o SVG.");
+      }
+
       const files = acceptedFiles.slice(0, remaining).filter((f) => f.type.startsWith("image/"));
-      if (!files.length) return;
+      if (!files.length) {
+        if (!fileRejections.length) {
+          setUploadError("No se encontraron imágenes para subir.");
+        }
+        return;
+      }
 
       setUploading(true);
       try {
         const uploaded: string[] = [];
+        const failures: string[] = [];
         for (const file of files) {
           try {
             const compressed = await compressImage(file, 80, 1400, 1400);
-            const url = await uploadProyectoImageToCloudinary(compressed, PROYECTO_NOTA_FOTOS_FOLDER);
-            if (url) uploaded.push(url);
+            const result = await uploadProyectoImageToCloudinary(compressed, PROYECTO_NOTA_FOTOS_FOLDER);
+            if (result.ok) {
+              uploaded.push(result.url);
+            } else {
+              failures.push(result.message);
+            }
           } catch (err) {
             console.error("Error al subir foto de bitácora:", err);
+            failures.push("No se pudo procesar la imagen.");
           }
         }
         if (uploaded.length) onChange([...safeUrls, ...uploaded].slice(0, PROYECTO_NOTA_MAX_FOTOS));
+        if (failures.length) {
+          setUploadError(
+            failures.length === 1
+              ? failures[0]
+              : `No se pudieron subir ${failures.length} foto(s). ${failures[0]}`
+          );
+        }
       } finally {
         setUploading(false);
       }
@@ -123,6 +148,15 @@ export function ProyectoNotaDiaFotosField({
       {...getRootProps()}
     >
       <input {...getInputProps()} />
+
+      {uploadError ? (
+        <p
+          className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
+          role="alert"
+        >
+          {uploadError}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <ul className="flex flex-wrap items-center gap-1.5" aria-label={`Fotos del ${diaLabel}`}>

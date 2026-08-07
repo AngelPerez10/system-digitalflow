@@ -1,11 +1,16 @@
 import { erpInputLikeClass, erpPrimaryBtnClass } from "@/layout/erpPageStyles";
+import { TrashBinIcon } from "@/icons";
 import { displayCotizacionFolio } from "../../shared/proyectoFormUtils";
 import type { ProyectoCotizacionBloque } from "../../shared/proyectoTypes";
 import {
   formatProyectoFecha,
-  proyectoAddDayBtnClass,
+  proyectoCotizacionAddZoneClass,
+  proyectoCotizacionAddZoneIconClass,
+  proyectoCotizacionClearLinkClass,
+  proyectoCotizacionMetaRowClass,
   proyectoEmptyPanelClass,
   proyectoFieldLabelClass,
+  proyectoGhostIconBtnClass,
   proyectoOrigenBadgeClass,
 } from "../../shared/proyectoPageStyles";
 import type { CotizacionPickerTarget } from "../cotizaciones/useCotizacionPicker";
@@ -147,92 +152,85 @@ export function ProyectoClienteTab({
         hint="Puedes vincular varias cotizaciones sin duplicar el formulario."
         icon={iconDoc}
         card={presupuestoCargado}
-        actions={
-          presupuestoCargado ? (
-            <div className="flex flex-wrap items-center justify-end gap-2">
+      >
+        {presupuestoCargado ? (
+          <div className="space-y-3">
+            <div className={proyectoCotizacionMetaRowClass}>
+              <p className="text-xs font-medium text-[#78716c] dark:text-[#8ea0b8]">
+                <span className="font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc]">
+                  {cotizaciones.length}
+                </span>{" "}
+                {cotizaciones.length === 1 ? "vinculada" : "vinculadas"}
+              </p>
               {!assignedTechnicianLocked ? (
                 <button
                   type="button"
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-rose-300 bg-rose-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50 dark:border-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500"
+                  className={proyectoCotizacionClearLinkClass}
                   onClick={() => setConfirmClearCotizaciones(true)}
                   aria-haspopup="dialog"
                 >
-                  <svg
-                    className="h-3.5 w-3.5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden
-                  >
-                    <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <TrashBinIcon className="h-3.5 w-3.5" aria-hidden />
                   Quitar todas
                 </button>
               ) : null}
-              {!assignedTechnicianLocked ? (
-                <button
-                  type="button"
-                  className={proyectoAddDayBtnClass}
-                  onClick={() => openCotizacionPicker("principal")}
-                >
-                  <svg
-                    className="h-3.5 w-3.5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden
-                  >
-                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                  </svg>
-                  Agregar cotización
-                </button>
-              ) : null}
             </div>
-          ) : null
-        }
-      >
-        {presupuestoCargado ? (
-          <ul className="space-y-3" aria-label="Cotizaciones vinculadas">
-            {cotizaciones.map((bloque) => (
-              <li
-                key={bloque.vinculoId}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-3.5 dark:border-[#334155] dark:bg-[#0f172a]/50"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#ff801f]/15 px-2 text-[11px] font-bold tabular-nums text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]">
-                      {bloque.orden}
-                    </span>
-                    <span className={proyectoOrigenBadgeClass(bloque.cotizacion.origen)}>
-                      {bloque.cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
-                    </span>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Cotización {bloque.orden} · {displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}
+
+            <ul className="space-y-2.5" aria-label="Cotizaciones vinculadas">
+              {cotizaciones.map((bloque) => (
+                <li
+                  key={bloque.vinculoId}
+                  className="flex items-start gap-3 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-3.5 dark:border-[#334155] dark:bg-[#0f172a]/50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#ff801f]/15 px-2 text-[11px] font-bold tabular-nums text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]">
+                        {bloque.orden}
+                      </span>
+                      <span className={proyectoOrigenBadgeClass(bloque.cotizacion.origen)}>
+                        {bloque.cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
+                      </span>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        Cotización {bloque.orden} ·{" "}
+                        {displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}
+                      </p>
+                    </div>
+                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {formatProyectoFecha(bloque.cotizacion.fecha)}
+                      {bloque.cotizacion.contacto ? ` · ${bloque.cotizacion.contacto}` : ""}
+                      {" · "}
+                      {bloque.lineas.length}{" "}
+                      {bloque.lineas.length === 1 ? "partida" : "partidas"}
                     </p>
                   </div>
-                  <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {formatProyectoFecha(bloque.cotizacion.fecha)}
-                    {bloque.cotizacion.contacto ? ` · ${bloque.cotizacion.contacto}` : ""}
-                    {" · "}
-                    {bloque.lineas.length}{" "}
-                    {bloque.lineas.length === 1 ? "partida" : "partidas"}
-                  </p>
-                </div>
-                {!assignedTechnicianLocked ? (
-                  <button
-                    type="button"
-                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
-                    onClick={() => handleQuitarCotizacion(bloque.vinculoId)}
-                    aria-label={`Quitar cotización ${bloque.orden}, folio ${displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}`}
-                  >
-                    Quitar
-                  </button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+                  {!assignedTechnicianLocked ? (
+                    <button
+                      type="button"
+                      className={proyectoGhostIconBtnClass}
+                      onClick={() => handleQuitarCotizacion(bloque.vinculoId)}
+                      aria-label={`Quitar cotización ${bloque.orden}, folio ${displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}`}
+                    >
+                      <TrashBinIcon className="h-4 w-4" aria-hidden />
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+
+            {!assignedTechnicianLocked ? (
+              <button
+                type="button"
+                className={proyectoCotizacionAddZoneClass}
+                onClick={() => openCotizacionPicker("principal")}
+              >
+                <span className={proyectoCotizacionAddZoneIconClass} aria-hidden>
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                  </svg>
+                </span>
+                Agregar otra cotización
+              </button>
+            ) : null}
+          </div>
         ) : (
           <div className={`${proyectoEmptyPanelClass} mt-0`}>
             <p className="text-sm text-gray-600 dark:text-gray-300">

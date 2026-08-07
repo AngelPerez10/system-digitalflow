@@ -133,6 +133,19 @@ export const proyectoGhostIconBtnClass =
 export const proyectoAddDayBtnClass =
   "inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[#e2d9ca] bg-white px-3 text-xs font-semibold text-[#44403c] shadow-sm transition hover:border-[#ff801f]/40 hover:bg-[#fff8f1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/25 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:border-[#ff801f]/40 dark:hover:bg-[#1e293b]/50";
 
+/** Acciones de cotizaciones: zona de alta + enlace de limpieza (sin barra de botones). */
+export const proyectoCotizacionMetaRowClass =
+  "flex flex-wrap items-center justify-between gap-x-3 gap-y-1";
+
+export const proyectoCotizacionClearLinkClass =
+  "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:text-rose-300 dark:hover:bg-rose-950/40";
+
+export const proyectoCotizacionAddZoneClass =
+  "group flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-dashed border-[#d6d3d1] bg-gradient-to-b from-[#fffdfa] to-[#fcfaf6] px-4 py-3.5 text-sm font-semibold text-[#44403c] transition hover:border-[#ff801f] hover:from-[#fff8f1] hover:to-[#fff4eb] hover:text-[#9a3412] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 active:scale-[0.99] dark:border-[#334155] dark:from-[#0f172a]/50 dark:to-[#111827]/40 dark:text-[#e5e7eb] dark:hover:border-[#ff801f] dark:hover:from-[#1e293b]/50 dark:hover:to-[#1e293b]/30 dark:hover:text-[#fdba74]";
+
+export const proyectoCotizacionAddZoneIconClass =
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/15 text-[#9a3412] transition group-hover:bg-[#ff801f] group-hover:text-black dark:bg-[#ff801f]/20 dark:text-[#fdba74] dark:group-hover:bg-[#ff801f] dark:group-hover:text-black";
+
 /** Bitácora: tarjeta de nota por jornada */
 export const proyectoNotaCardClass =
   "relative min-w-0 flex-1 overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-sm transition-[border-color,box-shadow] hover:border-[#ff801f]/30 focus-within:border-[#ff801f]/45 focus-within:shadow-[0_0_0_3px_rgba(255,128,31,0.12)] dark:border-[#334155] dark:bg-[#0f172a]/55 dark:hover:border-[#ff801f]/35 dark:focus-within:border-[#ff801f]/40";

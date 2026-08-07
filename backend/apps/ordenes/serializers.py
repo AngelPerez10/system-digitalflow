@@ -147,6 +147,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'problematica',
             'servicios_realizados',
             'status',
+            'status_changed_at',
             'prioridad',
             'comentario_tecnico',
             'status_administrativo',
@@ -193,6 +194,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'creado_por',
             'creado_por_username',
             'pdf_url',
+            'status_changed_at',
             'fecha_creacion',
             'fecha_actualizacion',
         ]

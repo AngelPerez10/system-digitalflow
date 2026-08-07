@@ -210,6 +210,35 @@ class OrdenesLimitedEditTests(APITestCase):
         self.orden_ajena.refresh_from_db()
         self.assertEqual(self.orden_ajena.problematica, "Falla remota")
         self.assertEqual(self.orden_ajena.status, "resuelto")
+        self.assertIsNotNone(self.orden_ajena.fecha_finalizacion)
+        self.assertIsNotNone(self.orden_ajena.hora_termino)
+
+    def test_patch_resuelto_fills_fecha_finalizacion_when_empty(self):
+        self.assertIsNone(self.orden_ajena.fecha_finalizacion)
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden_ajena.id}/",
+            {"status": "resuelto"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.orden_ajena.refresh_from_db()
+        self.assertEqual(self.orden_ajena.status, "resuelto")
+        self.assertIsNotNone(self.orden_ajena.fecha_finalizacion)
+        self.assertIsNotNone(self.orden_ajena.hora_termino)
+
+    def test_patch_resuelto_does_not_overwrite_existing_fecha_finalizacion(self):
+        self.orden_ajena.fecha_finalizacion = "2026-01-15"
+        self.orden_ajena.hora_termino = "10:30:00"
+        self.orden_ajena.save(update_fields=["fecha_finalizacion", "hora_termino"])
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden_ajena.id}/",
+            {"status": "resuelto"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.orden_ajena.refresh_from_db()
+        self.assertEqual(str(self.orden_ajena.fecha_finalizacion), "2026-01-15")
+        self.assertEqual(self.orden_ajena.hora_termino.strftime("%H:%M:%S"), "10:30:00")
 
     def test_limited_patch_time_fields(self):
         response = self.client.patch(
@@ -247,6 +276,58 @@ class OrdenesLimitedEditTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_patch_status_sets_status_changed_at(self):
+        self.assertIsNone(self.orden_ajena.status_changed_at)
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden_ajena.id}/",
+            {"status": "resuelto"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.orden_ajena.refresh_from_db()
+        self.assertIsNotNone(self.orden_ajena.status_changed_at)
+        self.assertIsNotNone(response.data.get("status_changed_at"))
+
+    def test_patch_without_status_change_keeps_status_changed_at(self):
+        first = self.client.patch(
+            f"/api/ordenes/{self.orden_ajena.id}/",
+            {"status": "resuelto"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.orden_ajena.refresh_from_db()
+        stamped = self.orden_ajena.status_changed_at
+        self.assertIsNotNone(stamped)
+
+        second = self.client.patch(
+            f"/api/ordenes/{self.orden_ajena.id}/",
+            {"problematica": "Sin cambio de status"},
+            format="json",
+        )
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.orden_ajena.refresh_from_db()
+        self.assertEqual(self.orden_ajena.status_changed_at, stamped)
+
+    def test_patch_same_status_keeps_status_changed_at(self):
+        first = self.client.patch(
+            f"/api/ordenes/{self.orden_ajena.id}/",
+            {"status": "resuelto"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.orden_ajena.refresh_from_db()
+        stamped = self.orden_ajena.status_changed_at
+        self.assertIsNotNone(stamped)
+
+        second = self.client.patch(
+            f"/api/ordenes/{self.orden_ajena.id}/",
+            {"status": "resuelto", "problematica": "Sigue resuelto"},
+            format="json",
+        )
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.orden_ajena.refresh_from_db()
+        self.assertEqual(self.orden_ajena.status_changed_at, stamped)
 
 
 class OrdenesEnviarPdfTests(APITestCase):

@@ -40,7 +40,11 @@ type ProyectoFormModalProps = {
   onClose: () => void;
   onSave: (
     draft: ProyectoDraft,
-    extras?: { instalacionDraft?: ProyectoInstalacionDraft | null }
+    extras?: {
+      instalacionDraft?: ProyectoInstalacionDraft | null;
+      /** Técnico asignado: no reenviar campos bloqueados en el PATCH. */
+      omitTechnicianLockedFields?: boolean;
+    }
   ) => void | Promise<void>;
 };
 

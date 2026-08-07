@@ -71,3 +71,18 @@ export function round2(value: number) {
   if (!Number.isFinite(n)) return 0;
   return Math.round(n * 100) / 100;
 }
+
+/** Ventana de resalte admin: 48 horas desde status_changed_at. */
+export const ORDEN_STATUS_CHANGE_RECENT_MS = 2 * 24 * 60 * 60 * 1000;
+
+export function isOrdenStatusChangeRecent(
+  orden: { status_changed_at?: string | null } | null | undefined,
+  now: Date | number = Date.now(),
+): boolean {
+  const raw = orden?.status_changed_at;
+  if (!raw) return false;
+  const ts = new Date(raw).getTime();
+  if (!Number.isFinite(ts)) return false;
+  const nowMs = typeof now === "number" ? now : now.getTime();
+  return nowMs - ts < ORDEN_STATUS_CHANGE_RECENT_MS && nowMs - ts >= 0;
+}

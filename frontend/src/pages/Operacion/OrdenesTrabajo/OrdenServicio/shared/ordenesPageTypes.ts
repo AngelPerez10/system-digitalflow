@@ -32,6 +32,8 @@ export interface Orden {
   problematica: string;
   servicios_realizados: string[];
   status: "pendiente" | "resuelto";
+  /** Último cambio de status del técnico (ISO); null = sin resalte. */
+  status_changed_at?: string | null;
   comentario_tecnico: string;
   /** Seguimiento de oficina (solo admins en UI). */
   status_administrativo?: "pendiente" | "en_revision" | "enviado" | "cerrado" | string | null;

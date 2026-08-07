@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import re
 import threading
 import time
 import urllib.error
@@ -11,6 +12,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Callable, TypeVar
 from zoneinfo import ZoneInfo
+
+from django.conf import settings
 
 T = TypeVar("T")
 
@@ -25,7 +28,8 @@ WIALON_API_BASE = os.environ.get(
     "WIALON_API_BASE",
     "https://hst-api.wialon.com/wialon/ajax.html",
 ).strip()
-WIALON_ACCESS_TOKEN = os.environ.get("WIALON_ACCESS_TOKEN", "").strip()
+_TOKEN_PATTERN = re.compile(r"[0-9a-fA-F]{72}")
+_TOKEN_HEX_CHARS = frozenset("0123456789abcdefABCDEF")
 
 # base + custom props (monu) + billing (crt, bact) + other (fl, ld)
 USER_FLAGS = 0x00000001 | 0x00000002 | 0x00000004 | 0x00000100
@@ -63,7 +67,8 @@ _UNITS_INDEX_TTL_SEC = int(os.environ.get("WIALON_UNITS_INDEX_TTL_SEC", "300"))
 _PARALLEL_WORKERS = int(os.environ.get("WIALON_PARALLEL_WORKERS", "8"))
 
 _cache_lock = threading.Lock()
-_session: tuple[str, float] | None = None
+# (sid, expiración, token con el que se abrió la sesión)
+_session: tuple[str, float, str] | None = None
 _users_list_cache: tuple[list[dict[str, Any]], float] | None = None
 _users_raw_cache: tuple[list[dict[str, Any]], float] | None = None
 _users_prp_cache: tuple[dict[int, dict[str, Any]], float] | None = None
@@ -97,8 +102,7 @@ def _wialon_error_message(code: Any, reason: str) -> str:
         7: "Acceso denegado en Wialon. Verifica permisos del token.",
         8: (
             "Token de Wialon inválido o expirado. Genera uno nuevo en Wialon Hosting "
-            "(CMS, token de acceso), actualiza WIALON_ACCESS_TOKEN en backend/.env "
-            "y reinicia el servidor Django."
+            "(CMS, token de acceso) y actualiza WIALON_ACCESS_TOKEN en backend/.env."
         ),
         9: "Límite de sesiones Wialon alcanzado. Espera unos minutos e intenta de nuevo.",
     }
@@ -137,10 +141,44 @@ def _call(svc: str, params: dict[str, Any], sid: str | None = None) -> dict[str,
     return {}
 
 
-def _login_fresh() -> str:
-    token = WIALON_ACCESS_TOKEN
+def _resolve_access_token() -> str:
+    """
+    Token vigente. En DEBUG gana el valor de backend/.env sobre el del entorno del
+    proceso: runserver hereda las variables del proceso padre, así que sin esto habría
+    que reiniciar el servidor cada vez que se rota el token.
+    """
+    token = (os.environ.get("WIALON_ACCESS_TOKEN") or "").strip()
+    if not token or getattr(settings, "DEBUG", False):
+        from config.settings import get_env_from_dotenv
+
+        file_token = get_env_from_dotenv("WIALON_ACCESS_TOKEN").strip()
+        if file_token:
+            token = file_token
+    return token
+
+
+def _require_access_token() -> str:
+    """Token validado. Falla con un mensaje que distingue el motivo real del rechazo."""
+    token = _resolve_access_token()
     if not token:
         raise WialonError("WIALON_ACCESS_TOKEN no está configurado en el servidor.")
+    if _TOKEN_PATTERN.fullmatch(token):
+        return token
+
+    invalid_chars = sorted(set(token) - _TOKEN_HEX_CHARS)
+    if invalid_chars:
+        raise WialonError(
+            "WIALON_ACCESS_TOKEN contiene caracteres que no son hexadecimales "
+            f"({''.join(invalid_chars)}). Copia solo el valor de access_token de la URL "
+            "de Wialon, sin el '&' ni los parámetros que van después."
+        )
+    raise WialonError(
+        "WIALON_ACCESS_TOKEN debe tener 72 caracteres hexadecimales y el configurado "
+        f"tiene {len(token)}. Genera un token nuevo en Wialon Hosting (CMS, token de acceso)."
+    )
+
+
+def _login_fresh(token: str) -> str:
     data = _call("token/login", {"token": token})
     if not isinstance(data, dict):
         raise WialonError("Respuesta de login inválida.")
@@ -153,13 +191,21 @@ def _login_fresh() -> str:
 def get_session() -> str:
     """Sesión Wialon reutilizable (evita token/login en cada petición)."""
     global _session
+    token = _require_access_token()
     now = time.monotonic()
+    token_changed = False
     with _cache_lock:
-        if _session and _session[1] > now:
-            return _session[0]
-    sid = _login_fresh()
+        if _session:
+            if _session[2] != token:
+                token_changed = True
+            elif _session[1] > now:
+                return _session[0]
+    # Los datos cacheados pertenecen a la cuenta del token anterior.
+    if token_changed:
+        invalidate_wialon_cache()
+    sid = _login_fresh(token)
     with _cache_lock:
-        _session = (sid, time.monotonic() + _SESSION_TTL_SEC)
+        _session = (sid, time.monotonic() + _SESSION_TTL_SEC, token)
     return sid
 
 

@@ -41,6 +41,7 @@ import {
   formatYmdToDMY,
   getNowHHMM,
   isGoogleMapsUrl,
+  isOrdenStatusChangeRecent,
   parseYearMonth,
 } from "./shared/ordenesPageUtils";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
@@ -764,6 +765,7 @@ export default function Ordenes() {
             canEdit={canOrdenesEdit}
             canDelete={canOrdenesDelete}
             usuarios={usuarios}
+            highlightRecentStatus={isAdmin}
           />
           <div className={"hidden md:block " + erpTableWrapClass}>
             <Table className="w-full min-w-[900px] table-fixed sm:min-w-0 xl:min-w-full">
@@ -785,13 +787,18 @@ export default function Ordenes() {
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
                   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
+                  const recentStatusChange = isAdmin && isOrdenStatusChangeRecent(orden);
 
                   const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
                   const tecnicoNombre = tecnico
                     ? (tecnico.first_name && tecnico.last_name ? `${tecnico.first_name} ${tecnico.last_name}` : tecnico.email)
                     : ((orden as any).nombre_encargado || '-');
                   return (
-                    <TableRow key={orden.id ?? idx} className={erpTableRowHoverClass}>
+                    <TableRow
+                      key={orden.id ?? idx}
+                      className={`${erpTableRowHoverClass}${recentStatusChange ? " bg-amber-50/90 ring-1 ring-inset ring-amber-200/80 dark:bg-amber-500/10 dark:ring-amber-500/25" : ""}`}
+                      aria-label={recentStatusChange ? `Orden ${folioDisplay}, cambio de estado reciente` : undefined}
+                    >
                       <TableCell className="px-2 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
                       <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
@@ -849,11 +856,21 @@ export default function Ordenes() {
                         </div>
                       </TableCell>
                       <TableCell className="px-2 py-2 text-center w-[110px] min-w-[110px]">
-                        {orden.status === 'resuelto' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Resuelto</span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pendiente</span>
-                        )}
+                        <div className="inline-flex flex-col items-center gap-1">
+                          {orden.status === 'resuelto' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Resuelto</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pendiente</span>
+                          )}
+                          {recentStatusChange && (
+                            <span
+                              className="inline-flex items-center rounded-full bg-amber-200/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-950 dark:bg-amber-500/25 dark:text-amber-100"
+                              aria-label="Cambio de estado reciente"
+                            >
+                              Cambio reciente
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="px-2 py-2 text-center w-[150px] min-w-[150px]">
                         <div className={erpRowActionBarClass}>

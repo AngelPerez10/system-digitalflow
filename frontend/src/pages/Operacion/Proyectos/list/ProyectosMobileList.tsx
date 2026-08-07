@@ -88,6 +88,18 @@ export function ProyectosMobileList({
 
             <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px]">
               <div>
+                <dt className="text-[#78716c] dark:text-[#8ea0b8]">Técnico</dt>
+                <dd className="mt-0.5 truncate font-medium text-gray-900 dark:text-white" title={row.draft?.tecnico?.nombre || undefined}>
+                  {row.draft?.tecnico?.nombre?.trim() || "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[#78716c] dark:text-[#8ea0b8]">Auxiliar</dt>
+                <dd className="mt-0.5 truncate font-medium text-gray-900 dark:text-white" title={row.draft?.auxiliar?.nombre || undefined}>
+                  {row.draft?.auxiliar?.nombre?.trim() || "—"}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-[#78716c] dark:text-[#8ea0b8]">Cotización</dt>
                 <dd className="mt-0.5 font-medium text-gray-900 dark:text-white">
                   {row.cotizacionFolio === "—" ? (

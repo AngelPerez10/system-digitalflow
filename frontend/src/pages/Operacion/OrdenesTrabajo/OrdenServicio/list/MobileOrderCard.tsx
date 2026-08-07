@@ -3,6 +3,7 @@ import { useState } from "react";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { erpMobileCardClass } from "../../ordenTrabajoStyles";
 import { displayOrdenFolio, isOrdenResuelta, isOrdenServicioTecnico } from "../shared/useOrdenesShared";
+import { isOrdenStatusChangeRecent } from "../shared/ordenesPageUtils";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;
@@ -38,6 +39,8 @@ interface MobileOrderCardProps {
   tecnicoNombre?: string;
   notaPdf?: string;
   onNotaChange?: (ordenId: number, value: string) => void;
+  /** Solo admin: resalte visual si el status cambió en las últimas 48h. */
+  highlightRecentStatus?: boolean;
 }
 
 export function MobileOrderCard({
@@ -54,18 +57,23 @@ export function MobileOrderCard({
   tecnicoNombre,
   notaPdf = "",
   onNotaChange,
+  highlightRecentStatus = false,
 }: MobileOrderCardProps) {
   const [showProblematicaModal, setShowProblematicaModal] = useState(false);
   const fechaInicio = orden.fecha_inicio || orden.fecha_creacion || '';
   const fechaInicioFmt = fechaInicio ? formatDate(fechaInicio) : '-';
   const fechaFinFmt = orden.fecha_finalizacion ? formatDate(orden.fecha_finalizacion) : '-';
+  const showRecent = highlightRecentStatus && isOrdenStatusChangeRecent(orden);
 
   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
 
   return (
-    <div className={erpMobileCardClass}>
+    <div
+      className={`${erpMobileCardClass}${showRecent ? " border-amber-300 bg-amber-50/90 ring-1 ring-amber-200/80 dark:border-amber-500/40 dark:bg-amber-500/10 dark:ring-amber-500/20" : ""}`}
+      aria-label={showRecent ? `Orden ${folioDisplay}, cambio de estado reciente` : undefined}
+    >
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold text-[#ea580c] dark:text-[#fb923c]">
             {folioDisplay}
           </span>
@@ -73,6 +81,14 @@ export function MobileOrderCard({
           <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${orden.status === 'resuelto' ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200'}`}>
             {orden.status === 'resuelto' ? 'Resuelto' : 'Pendiente'}
           </span>
+          {showRecent && (
+            <span
+              className="inline-flex items-center rounded-md bg-amber-200/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-950 dark:bg-amber-500/25 dark:text-amber-100"
+              aria-label="Cambio de estado reciente"
+            >
+              Cambio reciente
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button type="button" onClick={() => onPdf(orden)} className={mobileActionBtnClass} title="PDF" aria-label="PDF">
@@ -196,6 +212,8 @@ interface MobileOrderListProps {
   usuarios?: any[];
   notasMesPdf?: Record<number, string>;
   onNotaChange?: (ordenId: number, value: string) => void;
+  /** Si true (admin), resalta órdenes con status_changed_at reciente. */
+  highlightRecentStatus?: boolean;
 }
 
 export function MobileOrderList({
@@ -212,6 +230,7 @@ export function MobileOrderList({
   usuarios = [],
   notasMesPdf = {},
   onNotaChange,
+  highlightRecentStatus = false,
 }: MobileOrderListProps) {
   const getTecnicoNombre = (orden: any): string => {
     const tecnico = usuarios.find((u: any) => u.id === orden.tecnico_asignado);
@@ -244,6 +263,7 @@ export function MobileOrderList({
           tecnicoNombre={getTecnicoNombre(orden)}
           notaPdf={notasMesPdf[orden.id] ?? ""}
           onNotaChange={onNotaChange}
+          highlightRecentStatus={highlightRecentStatus}
         />
       ))}
       {!loading && ordenes.length === 0 && (

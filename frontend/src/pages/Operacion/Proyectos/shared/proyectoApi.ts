@@ -193,22 +193,21 @@ export function proyectoRowFromApi(api: ApiProyecto): ProyectoRow {
   };
 }
 
-export function draftToApiPayload(draft: ProyectoDraft): Record<string, unknown> {
+export function draftToApiPayload(
+  draft: ProyectoDraft,
+  options?: { omitTechnicianLockedFields?: boolean }
+): Record<string, unknown> {
   const cotizaciones = normalizeDraftCotizaciones(draft);
   const tiposTrabajo = normalizeTiposTrabajo(
     draft.tiposTrabajo?.length
       ? draft.tiposTrabajo
       : tiposTrabajoFromLegacy(draft.tipoTrabajoId, draft.tipoTrabajoNombre)
   );
-  return {
+  const payload: Record<string, unknown> = {
     cliente_id: parseClientePk(draft.clienteId),
     cliente_nombre: draft.cliente.trim(),
     status: draft.status,
     motivo_pausa: draft.status === "pausado" ? draft.motivoPausa.trim() : "",
-    tipos_trabajo: tiposTrabajo,
-    tipo_trabajo_id: tiposTrabajo[0]?.id ?? null,
-    tipo_trabajo_nombre: tiposTrabajo[0]?.nombre?.trim() || "",
-    fecha_autorizacion: draft.fechaAutorizacion.trim() || null,
     quien_autorizo: draft.quienAutorizo.trim(),
     fechas_inicio: draft.fechasInicio?.length ? draft.fechasInicio : [""],
     hora_llegada: draft.horaLlegada || "",
@@ -219,7 +218,6 @@ export function draftToApiPayload(draft: ProyectoDraft): Record<string, unknown>
     auxiliar_nombre: draft.auxiliar?.nombre?.trim() || "",
     vehiculo_asignado: draft.vehiculoAsignado.trim(),
     herramientas_generales: draft.herramientasGenerales.trim(),
-    cotizaciones,
     cotizacion_adicional: draft.cotizacionAdicional,
     equipos: draft.equipos,
     notas_por_dia: normalizeNotasPorDia(draft.notasPorDia),
@@ -231,6 +229,18 @@ export function draftToApiPayload(draft: ProyectoDraft): Record<string, unknown>
     firma_cliente_url: draft.firmaClienteUrl || "",
     firma_tecnico_url: draft.firmaTecnicoUrl || "",
   };
+
+  // El técnico asignado no puede tocar estos campos; omitirlos evita 400 por ruido
+  // de serialización al guardar entrega/instalación/evidencias.
+  if (!options?.omitTechnicianLockedFields) {
+    payload.tipos_trabajo = tiposTrabajo;
+    payload.tipo_trabajo_id = tiposTrabajo[0]?.id ?? null;
+    payload.tipo_trabajo_nombre = tiposTrabajo[0]?.nombre?.trim() || "";
+    payload.fecha_autorizacion = draft.fechaAutorizacion.trim() || null;
+    payload.cotizaciones = cotizaciones;
+  }
+
+  return payload;
 }
 
 function messageFromErrorBody(body: unknown, fallback: string): string {
@@ -286,11 +296,15 @@ export async function createProyecto(draft: ProyectoDraft): Promise<ProyectoRow>
   return proyectoRowFromApi(api);
 }
 
-export async function updateProyecto(id: string | number, draft: ProyectoDraft): Promise<ProyectoRow> {
+export async function updateProyecto(
+  id: string | number,
+  draft: ProyectoDraft,
+  options?: { omitTechnicianLockedFields?: boolean }
+): Promise<ProyectoRow> {
   const res = await fetchApi(`/api/proyectos/${id}/`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(draftToApiPayload(draft)),
+    body: JSON.stringify(draftToApiPayload(draft, options)),
   });
   const api = await parseApiProyecto(res);
   return proyectoRowFromApi(api);

@@ -53,7 +53,10 @@ export type UseProyectoFormStateArgs = {
   initialDraft: ProyectoDraft;
   onSave: (
     draft: ProyectoDraft,
-    extras?: { instalacionDraft?: ProyectoInstalacionDraft | null }
+    extras?: {
+      instalacionDraft?: ProyectoInstalacionDraft | null;
+      omitTechnicianLockedFields?: boolean;
+    }
   ) => void | Promise<void>;
 };
 
@@ -430,10 +433,16 @@ export function useProyectoFormState({
       prev.map((eq) => {
         if (eq.lineaId !== lineaId) return eq;
         const next = { ...eq, ...patch };
+        // Entrega no debe degradar un equipo ya marcado como instalado.
         if (patch.equipoEntregado === true) {
-          next.estadoInstalacion = "entregado";
+          if (next.estadoInstalacion === "pendiente" || next.estadoInstalacion === "no_instalado") {
+            next.estadoInstalacion = "entregado";
+          }
         } else if (patch.equipoEntregado === false && next.estadoInstalacion === "entregado") {
           next.estadoInstalacion = "pendiente";
+        }
+        if (patch.estadoInstalacion === "instalado") {
+          next.equipoEntregado = true;
         }
         if (patch.estadoInstalacion === "no_instalado") {
           next.equipoEntregado = false;
@@ -687,6 +696,7 @@ export function useProyectoFormState({
     try {
       await onSave(draft, {
         instalacionDraft: instalacionDraft.subtipo ? instalacionDraft : null,
+        omitTechnicianLockedFields: assignedTechnicianLocked,
       });
     } catch {
       // El padre muestra el toast; el modal permanece abierto.

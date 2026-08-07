@@ -5,8 +5,17 @@ import type { CotizacionResumen } from "@/pages/Operacion/Proyectos/shared/proye
 import LevantamientoForm from "../../../OrdenLevantamiento/LevantamientoForm";
 import OrdenAdminCotizacionesField from "../fields/OrdenAdminCotizacionesField";
 import type { OrdenStatusAdministrativo } from "../../shared/ordenesPageTypes";
+import { formatYmdToDMY } from "../../shared/ordenesPageUtils";
 import type { OrdenFormData } from "../useOrdenFormDraft";
 import { ClearSelectionButton, type OrdenFieldKey } from "./ordenTabHelpers";
+
+function localYmdAndHm(now = new Date()): { ymd: string; hm: string } {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    ymd: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    hm: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+  };
+}
 
 export type OrdenDetalleTabProps = {
   variant: "admin" | "tecnico";
@@ -233,14 +242,30 @@ export function OrdenDetalleTab({
                   id={statusSelectId}
                   value={formData.status}
                   disabled={ro("status")}
-                  onChange={(e) =>
-                    setFormData({ ...formData, status: e.target.value as "pendiente" | "resuelto" })
-                  }
+                  onChange={(e) => {
+                    const next = e.target.value as "pendiente" | "resuelto";
+                    setFormData((prev) => {
+                      if (next !== "resuelto") return { ...prev, status: next };
+                      const { ymd, hm } = localYmdAndHm();
+                      return {
+                        ...prev,
+                        status: next,
+                        fecha_finalizacion: prev.fecha_finalizacion || ymd,
+                        hora_termino: prev.hora_termino || hm,
+                      };
+                    });
+                  }}
                   className={`h-10 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${inputLockedClass("status")}`}
                 >
                   <option value="pendiente">No, pendiente</option>
                   <option value="resuelto">Sí, problema resuelto</option>
                 </select>
+                {formData.status === "resuelto" && formData.fecha_finalizacion ? (
+                  <p className="mt-1.5 text-xs text-gray-600 dark:text-gray-400" aria-live="polite">
+                    Fecha de cierre: {formatYmdToDMY(formData.fecha_finalizacion)}
+                    {formData.hora_termino ? ` · ${formData.hora_termino.slice(0, 5)}` : ""}
+                  </p>
+                ) : null}
               </div>
 
               {variant === "admin" && isAdmin && setStatusAdministrativo && setFechaEnvioAdmin && setCotizacionesAdmin ? (

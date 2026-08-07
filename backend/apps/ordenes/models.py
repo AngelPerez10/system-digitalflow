@@ -44,6 +44,8 @@ class Orden(models.Model):
     problematica = models.TextField(blank=True, null=True)
     servicios_realizados = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pendiente')
+    # Momento del último cambio de status del técnico (para resalte admin ~48h).
+    status_changed_at = models.DateTimeField(null=True, blank=True)
     prioridad = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='media')
     comentario_tecnico = models.TextField(blank=True, null=True)
 

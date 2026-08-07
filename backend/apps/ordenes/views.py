@@ -77,6 +77,51 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
+def _apply_resuelto_cierre_fechas(data: dict, instance=None) -> dict:
+    """Si status es resuelto y faltan fechas de cierre, rellenar con ahora local."""
+    status_val = data.get("status", None)
+    if status_val is None and instance is not None:
+        status_val = getattr(instance, "status", None)
+    if str(status_val or "").strip().lower() != "resuelto":
+        return data
+
+    fecha = data.get("fecha_finalizacion", None)
+    if fecha is None and instance is not None and "fecha_finalizacion" not in data:
+        fecha = getattr(instance, "fecha_finalizacion", None)
+    if not fecha:
+        data["fecha_finalizacion"] = timezone.localdate()
+
+    hora = data.get("hora_termino", None)
+    if hora is None and instance is not None and "hora_termino" not in data:
+        hora = getattr(instance, "hora_termino", None)
+    if not hora:
+        data["hora_termino"] = timezone.localtime().time().replace(second=0, microsecond=0)
+
+    return data
+
+
+def _stamp_status_changed_at(data: dict, instance=None) -> dict:
+    """Si el status del técnico cambia (o es alta), registrar status_changed_at."""
+    if "status" not in data and instance is not None:
+        return data
+
+    new_status = data.get("status", None)
+    if new_status is None and instance is None:
+        new_status = "pendiente"
+    elif new_status is None:
+        return data
+
+    new_norm = str(new_status or "").strip().lower()
+    if instance is None:
+        data["status_changed_at"] = timezone.now()
+        return data
+
+    old_norm = str(getattr(instance, "status", "") or "").strip().lower()
+    if new_norm != old_norm:
+        data["status_changed_at"] = timezone.now()
+    return data
+
+
 class ReportesPermission(ModulePermission):
     """Permisos JSON del módulo reportes (reportes semanales)."""
 
@@ -1394,6 +1439,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 else:
                     raise ValidationError("fotos_urls contiene una entrada inválida")
             data['fotos_urls'] = new_fotos
+        data = _apply_resuelto_cierre_fechas(dict(data))
+        data = _stamp_status_changed_at(data)
         serializer.save(creado_por=self.request.user, **data)
 
     def perform_update(self, serializer):
@@ -1453,6 +1500,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 else:
                     raise ValidationError("fotos_urls contiene una entrada inválida")
             data['fotos_urls'] = new_fotos
+
+        data = _apply_resuelto_cierre_fechas(data, instance=instance)
+        data = _stamp_status_changed_at(data, instance=instance)
 
         # Save updated instance
         instance = serializer.save(**data)

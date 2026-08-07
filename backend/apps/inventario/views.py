@@ -1,160 +1,356 @@
-from django.db import IntegrityError, transaction
-from django.db.models import Q
-from django.shortcuts import get_object_or_404
-from django.utils.dateparse import parse_date, parse_datetime
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
-from apps.users.permissions import InventarioPermission
-
-from .enrichment import enrich_from_catalogs
-from .models import InventarioItem, InventarioMovimiento
-from .serializers import (
-    InventarioItemPatchSerializer,
-    InventarioItemSerializer,
-    InventarioMovimientoSerializer,
-    ScanSerializer,
-)
-
-ENRICHMENT_FIELDS = ('nombre', 'marca', 'modelo', 'fuente', 'ref_externa')
-
-
-class ScanView(APIView):
-    permission_classes = [IsAuthenticated, InventarioPermission]
-
-    def post(self, request):
-        serializer = ScanSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        codigo = (serializer.validated_data['codigo_barras'] or '').strip()
-        if not codigo:
-            return Response(
-                {'detail': 'Código inválido.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        modo = serializer.validated_data['modo']
-        creado = False
-        enriquecido = False
-
-        with transaction.atomic():
-            item = (
-                InventarioItem.objects.select_for_update()
-                .filter(codigo_barras=codigo)
-                .first()
-            )
-
-            if modo == InventarioMovimiento.Tipo.SALIDA:
-                if item is None:
-                    return Response(
-                        {'detail': 'Producto no registrado; no hay existencia.'},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                if item.cantidad == 0:
-                    return Response(
-                        {'detail': 'Sin existencia para este código.'},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                item.cantidad -= 1
-            else:
-                if item is None:
-                    item = InventarioItem(codigo_barras=codigo, cantidad=0)
-                    enrich_data = enrich_from_catalogs(codigo)
-                    if enrich_data:
-                        enriquecido = True
-                        for field in ENRICHMENT_FIELDS:
-                            value = enrich_data.get(field)
-                            if value is not None:
-                                setattr(item, field, value)
-                    creado = True
-                    item.cantidad += 1
-                    try:
-                        item.save()
-                    except IntegrityError:
-                        item = (
-                            InventarioItem.objects.select_for_update()
-                            .get(codigo_barras=codigo)
-                        )
-                        creado = False
-                        enriquecido = False
-                        item.cantidad += 1
-                        item.save()
-                else:
-                    item.cantidad += 1
-                    item.save()
-
-            if modo == InventarioMovimiento.Tipo.SALIDA:
-                item.save()
-            movimiento = InventarioMovimiento.objects.create(
-                item=item,
-                tipo=modo,
-                cantidad=1,
-                usuario=request.user,
-            )
-
-        return Response(
-            {
-                'item': InventarioItemSerializer(item).data,
-                'movimiento': InventarioMovimientoSerializer(movimiento).data,
-                'creado': creado,
-                'enriquecido': enriquecido,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-
-class InventarioItemListView(APIView):
-    permission_classes = [IsAuthenticated, InventarioPermission]
-
-    def get(self, request):
-        queryset = InventarioItem.objects.all()
-        search = (request.query_params.get('search') or '').strip()
-        if search:
-            queryset = queryset.filter(
-                Q(codigo_barras__icontains=search)
-                | Q(nombre__icontains=search)
-                | Q(marca__icontains=search)
-                | Q(modelo__icontains=search)
-            )
-        data = InventarioItemSerializer(queryset, many=True).data
-        return Response(data)
-
-
-class InventarioItemDetailView(APIView):
-    permission_classes = [IsAuthenticated, InventarioPermission]
-
-    def get(self, request, pk):
-        item = get_object_or_404(InventarioItem, pk=pk)
-        return Response(InventarioItemSerializer(item).data)
-
-    def patch(self, request, pk):
-        item = get_object_or_404(InventarioItem, pk=pk)
-        self.check_object_permissions(request, item)
-        serializer = InventarioItemPatchSerializer(item, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(InventarioItemSerializer(item).data)
-
-
-class InventarioMovimientoListView(APIView):
-    permission_classes = [IsAuthenticated, InventarioPermission]
-
-    def get(self, request):
-        queryset = InventarioMovimiento.objects.select_related('item', 'usuario').all()
-        item_id = (request.query_params.get('item') or '').strip()
-        if item_id:
-            queryset = queryset.filter(item_id=item_id)
-        desde = (request.query_params.get('desde') or '').strip()
-        if desde:
-            parsed_dt = parse_datetime(desde)
-            if parsed_dt:
-                queryset = queryset.filter(creado_en__gte=parsed_dt)
-            else:
-                parsed_date = parse_date(desde)
-                if parsed_date:
-                    queryset = queryset.filter(creado_en__date__gte=parsed_date)
-        queryset = queryset.order_by('-creado_en')
-        data = InventarioMovimientoSerializer(queryset, many=True).data
-        return Response(data)
+import logging
+
+from datetime import datetime, time
+
+from django.db import IntegrityError, transaction
+from django.db.models import Count, Q, Sum
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
+from rest_framework import status
+from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.ordenes.image_services import cloudinary, delete_cloudinary_resource, upload_data_url
+from apps.users.permissions import InventarioPermission
+
+from .enrichment import enrich_from_catalogs, fetch_catalog_detail, search_catalogs
+from .invoice_import import (
+    FacturaInvalida,
+    FacturaNoEncontrada,
+    FacturaYaImportada,
+    ProveedorNoSoportado,
+    importar_factura,
+)
+from .models import InventarioItem, InventarioMovimiento
+from .serializers import (
+    ImportarFacturaSerializer,
+    InventarioItemPatchSerializer,
+    InventarioItemSerializer,
+    InventarioMovimientoSerializer,
+    ScanSerializer,
+)
+
+logger = logging.getLogger(__name__)
+
+ENRICHMENT_FIELDS = ('nombre', 'marca', 'modelo', 'fuente', 'ref_externa', 'imagen_url')
+
+INVENTARIO_UPLOAD_FOLDER = 'inventario/productos'
+
+
+class InventarioPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+def _parse_desde(valor: str):
+    """Convierte ?desde=YYYY-MM-DD (o ISO datetime) a datetime aware (inicio del día local)."""
+    parsed_dt = parse_datetime(valor)
+    if parsed_dt is not None:
+        if timezone.is_naive(parsed_dt):
+            return timezone.make_aware(parsed_dt, timezone.get_current_timezone())
+        return parsed_dt
+    parsed_date = parse_date(valor)
+    if parsed_date is None:
+        return None
+    return timezone.make_aware(
+        datetime.combine(parsed_date, time.min),
+        timezone.get_current_timezone(),
+    )
+
+
+def _paginate(request, queryset, serializer_class):
+    paginator = InventarioPagination()
+    page = paginator.paginate_queryset(queryset, request)
+    serializer = serializer_class(page, many=True)
+    return paginator.get_paginated_response(serializer.data)
+
+
+class ScanView(APIView):
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def post(self, request):
+        serializer = ScanSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        codigo = (serializer.validated_data['codigo_barras'] or '').strip()
+        if not codigo:
+            return Response(
+                {'detail': 'Código inválido.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        modo = serializer.validated_data['modo']
+        creado = False
+        enriquecido = False
+
+        with transaction.atomic():
+            item = (
+                InventarioItem.objects.select_for_update()
+                .filter(codigo_barras=codigo)
+                .first()
+            )
+
+            if modo == InventarioMovimiento.Tipo.SALIDA:
+                if item is None:
+                    return Response(
+                        {'detail': 'Producto no registrado; no hay existencia.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if item.cantidad == 0:
+                    return Response(
+                        {'detail': 'Sin existencia para este código.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                item.cantidad -= 1
+            else:
+                if item is None:
+                    item = InventarioItem(codigo_barras=codigo, cantidad=0)
+                    enrich_data = enrich_from_catalogs(codigo)
+                    if enrich_data:
+                        enriquecido = True
+                        for field in ENRICHMENT_FIELDS:
+                            value = enrich_data.get(field)
+                            if value is not None:
+                                setattr(item, field, value)
+                        # El catálogo describe el producto; el ítem es nuevo, así
+                        # que las notas están vacías y no se pisa nada del operador.
+                        item.notas = enrich_data.get('caracteristicas') or ''
+                    creado = True
+                    item.cantidad += 1
+                    try:
+                        item.save()
+                    except IntegrityError:
+                        item = (
+                            InventarioItem.objects.select_for_update()
+                            .get(codigo_barras=codigo)
+                        )
+                        creado = False
+                        enriquecido = False
+                        item.cantidad += 1
+                        item.save()
+                else:
+                    item.cantidad += 1
+                    item.save()
+
+            if modo == InventarioMovimiento.Tipo.SALIDA:
+                item.save()
+            movimiento = InventarioMovimiento.objects.create(
+                item=item,
+                tipo=modo,
+                cantidad=1,
+                usuario=request.user,
+            )
+
+        return Response(
+            {
+                'item': InventarioItemSerializer(item).data,
+                'movimiento': InventarioMovimientoSerializer(movimiento).data,
+                'creado': creado,
+                'enriquecido': enriquecido,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class InventarioItemListView(APIView):
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def get(self, request):
+        queryset = InventarioItem.objects.select_related('proveedor').all()
+        search = (request.query_params.get('search') or '').strip()
+        if search:
+            queryset = queryset.filter(
+                Q(codigo_barras__icontains=search)
+                | Q(nombre__icontains=search)
+                | Q(marca__icontains=search)
+                | Q(modelo__icontains=search)
+                | Q(folio_factura__icontains=search)
+            )
+        return _paginate(request, queryset, InventarioItemSerializer)
+
+
+class InventarioStatsView(APIView):
+    """Totales globales (no dependen de la página actual de la tabla)."""
+
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def get(self, request):
+        aggregates = InventarioItem.objects.aggregate(
+            total_items=Count('id'),
+            total_unidades=Sum('cantidad'),
+            sin_identificar=Count('id', filter=Q(nombre='')),
+        )
+        inicio_hoy = timezone.make_aware(
+            datetime.combine(timezone.localdate(), time.min),
+            timezone.get_current_timezone(),
+        )
+        movimientos_hoy = InventarioMovimiento.objects.filter(
+            creado_en__gte=inicio_hoy
+        ).count()
+        return Response(
+            {
+                'total_items': aggregates['total_items'] or 0,
+                'total_unidades': aggregates['total_unidades'] or 0,
+                'sin_identificar': aggregates['sin_identificar'] or 0,
+                'movimientos_hoy': movimientos_hoy,
+            }
+        )
+
+
+class InventarioItemDetailView(APIView):
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def get(self, request, pk):
+        item = get_object_or_404(InventarioItem.objects.select_related('proveedor'), pk=pk)
+        return Response(InventarioItemSerializer(item).data)
+
+    def patch(self, request, pk):
+        item = get_object_or_404(InventarioItem, pk=pk)
+        self.check_object_permissions(request, item)
+        imagen_previa = item.imagen_url
+        serializer = InventarioItemPatchSerializer(item, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        if imagen_previa and imagen_previa != item.imagen_url:
+            delete_cloudinary_resource(imagen_previa)
+        return Response(InventarioItemSerializer(item).data)
+
+    def delete(self, request, pk):
+        """Borra el ítem y su historial; sirve para limpiar escaneos equivocados."""
+        item = get_object_or_404(InventarioItem, pk=pk)
+        self.check_object_permissions(request, item)
+        imagen = item.imagen_url
+        item.delete()
+        if imagen:
+            delete_cloudinary_resource(imagen)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InventarioUploadImageView(APIView):
+    """Sube la foto del producto a Cloudinary (`inventario/productos`)."""
+
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def post(self, request):
+        payload = request.data if isinstance(request.data, dict) else {}
+        data_url = payload.get('data_url')
+        if not isinstance(data_url, str) or ';base64,' not in data_url:
+            return Response({'detail': 'data_url inválido'}, status=status.HTTP_400_BAD_REQUEST)
+        if not cloudinary:
+            return Response(
+                {'detail': 'Cloudinary no está configurado en el servidor.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        try:
+            url = upload_data_url(data_url, folder=INVENTARIO_UPLOAD_FOLDER, max_size_kb=120)
+        except DRFValidationError:
+            return Response(
+                {'detail': 'Imagen inválida o demasiado grande'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception:
+            logger.exception('Cloudinary inventario upload-image failed')
+            return Response(
+                {'detail': 'Error subiendo imagen a Cloudinary'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response({'url': url}, status=status.HTTP_200_OK)
+
+
+class InventarioCatalogoSearchView(APIView):
+    """Busca candidatos en SYSCOM/TVC para vincular a un código de barras."""
+
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def get(self, request):
+        search = (request.query_params.get('search') or '').strip()
+        if len(search) < 3:
+            return Response([])
+        return Response(search_catalogs(search, limit=10))
+
+
+class InventarioCatalogoDetallePorRefView(APIView):
+    """Detalle del catálogo por fuente + referencia, sin necesidad de guardar antes.
+
+    La búsqueda de SYSCOM no trae las características del producto; solo el
+    detalle las tiene. Este endpoint deja que la ficha las pida en cuanto el
+    operador elige un candidato, antes de que el vínculo exista en la base.
+    """
+
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def get(self, request):
+        fuente = (request.query_params.get('fuente') or '').strip().lower()
+        ref = (request.query_params.get('ref') or '').strip()
+        modelo = (request.query_params.get('modelo') or '').strip()
+        if fuente not in {'syscom', 'tvc'} or not (ref or modelo):
+            return Response(
+                {'detail': 'Indica una fuente válida (syscom o tvc) y su referencia.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        detalle = fetch_catalog_detail(fuente, ref, modelo)
+        if not detalle:
+            return Response(
+                {'detail': 'El catálogo ya no devuelve este producto.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(detalle)
+
+
+class InventarioImportarFacturaView(APIView):
+    """Importa todos los productos de una factura de proveedor (SYSCOM hoy; TVC después)."""
+
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def post(self, request):
+        serializer = ImportarFacturaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            resultado = importar_factura(
+                proveedor=serializer.validated_data['proveedor'],
+                folio=serializer.validated_data['folio'],
+                usuario=request.user,
+            )
+        except FacturaInvalida as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except FacturaNoEncontrada as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except FacturaYaImportada as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
+        except ProveedorNoSoportado as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_501_NOT_IMPLEMENTED)
+
+        return Response(
+            {
+                'importacion_id': resultado['importacion_id'],
+                'proveedor': resultado['proveedor'],
+                'folio': resultado['folio'],
+                'creados': resultado['creados'],
+                'actualizados': resultado['actualizados'],
+                'movimientos': resultado['movimientos'],
+                'items': InventarioItemSerializer(resultado['items'], many=True).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class InventarioMovimientoListView(APIView):
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def get(self, request):
+        queryset = InventarioMovimiento.objects.select_related('item', 'usuario').all()
+        item_id = (request.query_params.get('item') or '').strip()
+        if item_id:
+            queryset = queryset.filter(item_id=item_id)
+        desde = (request.query_params.get('desde') or '').strip()
+        if desde:
+            inicio = _parse_desde(desde)
+            if inicio is not None:
+                queryset = queryset.filter(creado_en__gte=inicio)
+        queryset = queryset.order_by('-creado_en')
+        return _paginate(request, queryset, InventarioMovimientoSerializer)

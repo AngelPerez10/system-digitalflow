@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
 import {
   compressImage,
@@ -25,6 +25,7 @@ type Props = {
  */
 export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Props) {
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [preview, setPreview] = useState<{ open: boolean; url: string; index: number }>({
     open: false,
@@ -38,28 +39,63 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
   }>({ open: false, index: null, url: null });
 
   const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
+    async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
       if (disabled) return;
+      setUploadError("");
+
+      if (fileRejections.length) {
+        setUploadError(
+          "Algunos archivos no son válidos. Usa PNG, JPG, WebP o SVG."
+        );
+      }
+
       const current = Array.isArray(urls) ? urls : [];
       const remaining = PROYECTO_MAX_FOTOS - current.length;
-      if (remaining <= 0) return;
+      if (remaining <= 0) {
+        setUploadError(`Ya alcanzaste el máximo de ${PROYECTO_MAX_FOTOS} fotos.`);
+        return;
+      }
 
       const files = acceptedFiles.slice(0, remaining).filter((f) => f.type.startsWith("image/"));
-      if (!files.length) return;
+      if (!files.length) {
+        if (!fileRejections.length) {
+          setUploadError("No se encontraron imágenes para subir.");
+        }
+        return;
+      }
 
       setUploading(true);
       try {
         const uploaded: string[] = [];
+        const failures: string[] = [];
         for (const file of files) {
           try {
             const compressed = await compressImage(file, 80, 1400, 1400);
-            const url = await uploadProyectoImageToCloudinary(compressed, PROYECTO_FOTOS_FOLDER);
-            if (url) uploaded.push(url);
+            const result = await uploadProyectoImageToCloudinary(compressed, PROYECTO_FOTOS_FOLDER);
+            if (result.ok) {
+              uploaded.push(result.url);
+            } else {
+              failures.push(`${file.name}: ${result.message}`);
+            }
           } catch (err) {
             console.error("Error al subir evidencia de proyecto:", err);
+            failures.push(`${file.name}: no se pudo procesar la imagen.`);
           }
         }
         if (uploaded.length) onChange([...current, ...uploaded]);
+        if (failures.length) {
+          const skipped =
+            acceptedFiles.length > remaining
+              ? ` Solo se subieron ${remaining} por el límite de ${PROYECTO_MAX_FOTOS}.`
+              : "";
+          setUploadError(
+            failures.length === 1
+              ? `${failures[0]}${skipped}`
+              : `No se pudieron subir ${failures.length} imagen(es). ${failures[0]}${skipped}`
+          );
+        } else if (acceptedFiles.length > remaining) {
+          setUploadError(`Solo se subieron ${remaining} fotos (máximo ${PROYECTO_MAX_FOTOS}).`);
+        }
       } finally {
         setUploading(false);
       }
@@ -106,6 +142,15 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
       <p className={proyectoSectionHintClass}>
         Máximo {PROYECTO_MAX_FOTOS} fotos · PNG, JPG, WebP o SVG.
       </p>
+
+      {uploadError ? (
+        <p
+          className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
+          role="alert"
+        >
+          {uploadError}
+        </p>
+      ) : null}
 
       {!disabled ? (
         <div className="transition border border-dashed border-[#d6d3d1] rounded-xl cursor-pointer hover:border-[#ff801f] dark:border-[#334155] dark:hover:border-[#ff801f]">

@@ -19,6 +19,7 @@ import {
   erpHeroGradientClass,
   erpHeroHeadingClass,
   erpHeroIconWrapClass,
+  erpMonthNavBtnClass,
   erpPageCanvasClass,
   erpPageInnerClass,
   erpPrimaryBtnClass,
@@ -32,6 +33,10 @@ import {
   pageSearchInputClass,
   sectionLabelOrangeClass,
 } from "../OrdenesTrabajo/ordenTrabajoStyles";
+import {
+  getCurrentYearMonth,
+} from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
+import { parseYearMonth } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageUtils";
 import ProyectoFormModal from "./form/ProyectoFormModal";
 import {
   ProyectosListFiltersPopover,
@@ -154,6 +159,7 @@ export default function ProyectosPage() {
   const [rows, setRows] = useState<ProyectoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentYearMonth());
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<ProyectoListFilterStatus>("");
   const [filterTiposTrabajo, setFilterTiposTrabajo] = useState<string[]>([]);
@@ -171,8 +177,6 @@ export default function ProyectosPage() {
     title: string;
     message: string;
   }>({ show: false, variant: "warning", title: "", message: "" });
-
-  const stats = useMemo(() => computeProyectoStats(rows), [rows]);
 
   /** Catálogo de Servicios + tipos ya usados en proyectos (p. ej. legacy). */
   const tiposTrabajoDisponibles = useMemo(() => {
@@ -214,22 +218,32 @@ export default function ProyectosPage() {
     setFilterTecnicoId(null);
   };
 
-  const filteredRows = useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          proyectoMatchesSearch(r, searchTerm) &&
-          proyectoMatchesFilters(r, {
-            status: filterStatus,
-            tipos: filterTiposTrabajo,
-            date: filterDate,
-            tecnicoId: filterTecnicoId,
-          })
-      ),
-    [rows, searchTerm, filterStatus, filterTiposTrabajo, filterDate, filterTecnicoId]
-  );
+  const filteredRows = useMemo(() => {
+    const q = searchTerm.trim();
+    return rows.filter((r) => {
+      if (!proyectoMatchesSearch(r, searchTerm)) return false;
+      // Con búsqueda libre se muestran coincidencias de cualquier mes (igual que órdenes).
+      if (!q && selectedMonth) {
+        const fecha = String(r.fecha || r.draft?.fechaAutorizacion || "").slice(0, 10);
+        if (!fecha.startsWith(selectedMonth)) return false;
+      }
+      return proyectoMatchesFilters(r, {
+        status: filterStatus,
+        tipos: filterTiposTrabajo,
+        date: filterDate,
+        tecnicoId: filterTecnicoId,
+      });
+    });
+  }, [rows, searchTerm, selectedMonth, filterStatus, filterTiposTrabajo, filterDate, filterTecnicoId]);
 
   const hasActiveListQuery = Boolean(searchTerm.trim()) || activeFilterCount > 0;
+
+  const stats = useMemo(() => {
+    const monthKey = selectedMonth || getCurrentYearMonth();
+    return computeProyectoStats(
+      rows.filter((r) => String(r.fecha || r.draft?.fechaAutorizacion || "").slice(0, 10).startsWith(monthKey))
+    );
+  }, [rows, selectedMonth]);
 
   const modalDraft = editingRow?.draft ?? emptyDraft;
 
@@ -382,12 +396,17 @@ export default function ProyectosPage() {
 
   const handleSave = async (
     draft: ProyectoDraft,
-    extras?: { instalacionDraft?: ProyectoInstalacionDraft | null }
+    extras?: {
+      instalacionDraft?: ProyectoInstalacionDraft | null;
+      omitTechnicianLockedFields?: boolean;
+    }
   ) => {
     const wasEditing = Boolean(editingRow);
     try {
       const saved = wasEditing && editingRow
-        ? await updateProyecto(editingRow.id, draft)
+        ? await updateProyecto(editingRow.id, draft, {
+            omitTechnicianLockedFields: Boolean(extras?.omitTechnicianLockedFields),
+          })
         : await createProyecto(draft);
       setRows((prev) => {
         if (wasEditing) {
@@ -554,7 +573,7 @@ export default function ProyectosPage() {
         <ComponentCard
           compact
           title="Listado"
-          desc="Resultados según búsqueda y filtros. En pantallas pequeñas verás tarjetas; en escritorio, la tabla completa."
+          desc="Resultados del mes seleccionado, búsqueda y filtros. En pantallas pequeñas verás tarjetas; en escritorio, la tabla completa."
           className={`overflow-visible ${pageCardShellClass}`}
           actions={
             <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:items-center">
@@ -600,14 +619,20 @@ export default function ProyectosPage() {
                 />
 
                 <div className={"hidden md:block " + erpTableWrapClass}>
-                  <Table className="w-full min-w-[960px] table-fixed sm:min-w-0 xl:min-w-full">
+                  <Table className="w-full min-w-[1180px] table-fixed sm:min-w-0 xl:min-w-full">
                     <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                       <TableRow>
                         <TableCell isHeader scope="col" className="w-[96px] min-w-[88px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300">
                           Folio
                         </TableCell>
-                        <TableCell isHeader scope="col" className="w-2/5 min-w-[200px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                        <TableCell isHeader scope="col" className="w-[18%] min-w-[160px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
                           Cliente
+                        </TableCell>
+                        <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                          Técnico
+                        </TableCell>
+                        <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                          Auxiliar
                         </TableCell>
                         <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
                           Cotización
@@ -629,7 +654,7 @@ export default function ProyectosPage() {
                     <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
                       {filteredRows.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="px-2 py-10">
+                          <TableCell colSpan={9} className="px-2 py-10">
                             <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                               {hasActiveListQuery
                                 ? "No hay proyectos que coincidan con la búsqueda o los filtros."
@@ -638,7 +663,10 @@ export default function ProyectosPage() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredRows.map((row) => (
+                        filteredRows.map((row) => {
+                          const tecnicoNombre = row.draft?.tecnico?.nombre?.trim() || "";
+                          const auxiliarNombre = row.draft?.auxiliar?.nombre?.trim() || "";
+                          return (
                           <TableRow key={row.id} className={erpTableRowHoverClass}>
                             <TableCell className="whitespace-nowrap px-2 py-2 align-middle">
                               <span className="inline-flex items-center rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white sm:text-[11px]">
@@ -649,6 +677,24 @@ export default function ProyectosPage() {
                               <span className="block truncate font-medium text-gray-900 dark:text-white sm:text-[12px]" title={row.cliente}>
                                 {row.cliente}
                               </span>
+                            </TableCell>
+                            <TableCell className="px-2 py-2 align-top">
+                              {tecnicoNombre ? (
+                                <span className="block truncate text-gray-900 dark:text-white" title={tecnicoNombre}>
+                                  {tecnicoNombre}
+                                </span>
+                              ) : (
+                                <span className="text-gray-500 dark:text-gray-400">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="px-2 py-2 align-top">
+                              {auxiliarNombre ? (
+                                <span className="block truncate text-gray-900 dark:text-white" title={auxiliarNombre}>
+                                  {auxiliarNombre}
+                                </span>
+                              ) : (
+                                <span className="text-gray-500 dark:text-gray-400">—</span>
+                              )}
                             </TableCell>
                             <TableCell className="px-2 py-2 align-top">
                               {row.cotizacionFolio === "—" ? (
@@ -724,19 +770,76 @@ export default function ProyectosPage() {
                               )}
                             </TableCell>
                           </TableRow>
-                        ))
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
                 </div>
 
                 <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-800 sm:px-5 sm:py-4">
-                  <p className="text-xs text-gray-600 dark:text-gray-400 sm:text-sm">
-                    Mostrando{" "}
-                    <span className="font-medium text-gray-900 dark:text-white">{filteredRows.length}</span> de{" "}
-                    <span className="font-medium text-gray-900 dark:text-white">{rows.length}</span> proyectos
-                    {hasActiveListQuery ? " (filtrados)" : ""}
-                  </p>
+                  <div className="flex flex-col flex-wrap items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 sm:text-sm">
+                      Mostrando{" "}
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {filteredRows.length > 0 ? 1 : 0}
+                      </span>{" "}
+                      a{" "}
+                      <span className="font-medium text-gray-900 dark:text-white">{filteredRows.length}</span>{" "}
+                      de{" "}
+                      <span className="font-medium text-gray-900 dark:text-white">{filteredRows.length}</span>{" "}
+                      proyectos
+                      {hasActiveListQuery ? " (filtrados)" : ""}
+                    </p>
+
+                    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Navegación por mes">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const ym = parseYearMonth(selectedMonth);
+                          if (!ym) return;
+                          const d = new Date(ym.year, ym.month - 2, 1);
+                          const mm = String(d.getMonth() + 1).padStart(2, "0");
+                          setSelectedMonth(`${d.getFullYear()}-${mm}`);
+                        }}
+                        className={erpMonthNavBtnClass}
+                        title="Mes anterior"
+                        aria-label="Mes anterior"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path d="M15 18l-6-6 6-6" />
+                        </svg>
+                      </button>
+                      <span className="min-w-[130px] text-center text-[11px] capitalize text-gray-700 dark:text-gray-300 sm:min-w-[160px] sm:text-[12px]">
+                        {(() => {
+                          const ym = parseYearMonth(selectedMonth);
+                          if (!ym) return selectedMonth ? selectedMonth : "Todos los meses";
+                          return new Date(ym.year, ym.month - 1, 1).toLocaleDateString("es-MX", {
+                            month: "long",
+                            year: "numeric",
+                          });
+                        })()}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const ym = parseYearMonth(selectedMonth);
+                          if (!ym) return;
+                          const dt = new Date(ym.year, ym.month - 1, 1);
+                          dt.setMonth(dt.getMonth() + 1);
+                          const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+                          setSelectedMonth(next);
+                        }}
+                        className={erpMonthNavBtnClass}
+                        title="Mes siguiente"
+                        aria-label="Mes siguiente"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path d="M9 18l6-6-6-6" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </>
             )}

@@ -282,6 +282,50 @@ class ProyectosSmokeTests(APITestCase):
         self.assertEqual(ok_entrega.status_code, status.HTTP_200_OK, ok_entrega.data)
         self.assertTrue(ok_entrega.data["equipos"][0]["equipoEntregado"])
 
+        # PATCH completo estilo frontend: mismos ids de tipos/cotización (con ruido
+        # de nombre / prefijo df-) + marcar instalado — no debe bloquearse.
+        ok_instalado = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {
+                "cliente_nombre": "Con técnico",
+                "status": "en_proceso",
+                "fecha_autorizacion": "2026-08-01",
+                "tipos_trabajo": [{"id": 1, "nombre": ""}],
+                "tipo_trabajo_id": 1,
+                "tipo_trabajo_nombre": "",
+                "cotizaciones": [
+                    {
+                        "vinculoId": "vin-1",
+                        "orden": 1,
+                        "cotizacion": {
+                            "id": "df-cot-1",
+                            "origen": "digitalflow",
+                            "folio": "10001",
+                            "cliente": "Con técnico",
+                            "fecha": "2026-07-01",
+                        },
+                        "lineas": [{"id": "l1", "descripcion": "extra"}],
+                    }
+                ],
+                "equipos": [
+                    {
+                        "lineaId": "eq-1",
+                        "modelo": "GPS X",
+                        "modeloOriginal": "GPS X",
+                        "estadoInstalacion": "instalado",
+                        "equipoEntregado": True,
+                    }
+                ],
+                "evidencias_urls": ["https://res.cloudinary.com/demo/image/upload/v1/proyectos/evidencias/x.jpg"],
+                "incidencias": "Instalado en sitio",
+            },
+            format="json",
+        )
+        self.assertEqual(ok_instalado.status_code, status.HTTP_200_OK, ok_instalado.data)
+        self.assertEqual(ok_instalado.data["equipos"][0]["estadoInstalacion"], "instalado")
+        self.assertEqual(ok_instalado.data["equipos_instalados"], 1)
+        self.assertEqual(len(ok_instalado.data["evidencias_urls"]), 1)
+
         # Sí puede actualizar campos no bloqueados (p. ej. incidencias).
         ok = self.client.patch(
             f"/api/proyectos/{proyecto_id}/",
