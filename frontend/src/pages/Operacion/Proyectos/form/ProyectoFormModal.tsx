@@ -205,7 +205,12 @@ export default function ProyectoFormModal({
 
         <div className={erpModalBodyClass}>
           <form ref={formRef} onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-            <div ref={formScrollRef} className={erpModalFormScrollClass}>
+            <div
+              ref={formScrollRef}
+              className={erpModalFormScrollClass}
+              data-proyecto-form-scroll
+              data-signature-scroll-lock
+            >
               <div
                 className={erpModalTabListClass}
                 role="tablist"

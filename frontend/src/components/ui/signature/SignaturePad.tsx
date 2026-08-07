@@ -57,7 +57,10 @@ function paintExternalValue(
 
   const token = ++loadTokenRef.current;
   const img = new Image();
-  img.crossOrigin = "anonymous";
+  // data: URLs + crossOrigin=anonymous fallan en varios navegadores y dejan el pad en blanco.
+  if (!src.startsWith("data:")) {
+    img.crossOrigin = "anonymous";
+  }
   img.onload = () => {
     if (token !== loadTokenRef.current) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -110,6 +113,7 @@ export default function SignaturePad({
   /** null = aún no hidratado; evita sync circular tras onChange local. */
   const syncedValueRef = useRef<string | null>(null);
   const loadTokenRef = useRef(0);
+  const scrollLockRef = useRef<{ el: HTMLElement; overflowY: string } | null>(null);
   const [isEmpty, setIsEmpty] = useState(!value);
   const labelId = useId();
   const canvasDomId = useId();
@@ -148,13 +152,32 @@ export default function SignaturePad({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const lockParentScroll = () => {
+      if (scrollLockRef.current) return;
+      const el = canvas.closest(
+        "[data-signature-scroll-lock], [data-proyecto-form-scroll], .overflow-y-auto"
+      ) as HTMLElement | null;
+      if (!el) return;
+      scrollLockRef.current = { el, overflowY: el.style.overflowY };
+      el.style.overflowY = "hidden";
+    };
+
+    const unlockParentScroll = () => {
+      const locked = scrollLockRef.current;
+      if (!locked) return;
+      locked.el.style.overflowY = locked.overflowY;
+      scrollLockRef.current = null;
+    };
+
     const onPointerDown = (e: PointerEvent) => {
       if (disabledRef.current) return;
       if (e.button != null && e.button !== 0) return;
       e.preventDefault();
+      e.stopPropagation();
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       applyStrokeStyle(ctx);
+      lockParentScroll();
       canvas.setPointerCapture(e.pointerId);
       isDrawingRef.current = true;
       setIsEmpty(false);
@@ -169,6 +192,7 @@ export default function SignaturePad({
     const onPointerMove = (e: PointerEvent) => {
       if (!isDrawingRef.current || disabledRef.current) return;
       e.preventDefault();
+      e.stopPropagation();
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       const next = pointerToCanvas(e, canvas);
@@ -184,8 +208,10 @@ export default function SignaturePad({
     const endStroke = (e: PointerEvent) => {
       if (!isDrawingRef.current) return;
       e.preventDefault();
+      e.stopPropagation();
       isDrawingRef.current = false;
       lastPointRef.current = null;
+      unlockParentScroll();
       try {
         canvas.releasePointerCapture(e.pointerId);
       } catch {
@@ -196,16 +222,25 @@ export default function SignaturePad({
       onChangeRef.current(dataUrl);
     };
 
-    canvas.addEventListener("pointerdown", onPointerDown);
-    canvas.addEventListener("pointermove", onPointerMove);
+    const onTouchStart = (e: TouchEvent) => {
+      if (disabledRef.current) return;
+      // Necesario en iOS para que el scroll del modal no robe el gesto.
+      e.preventDefault();
+    };
+
+    canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
+    canvas.addEventListener("pointermove", onPointerMove, { passive: false });
     canvas.addEventListener("pointerup", endStroke);
     canvas.addEventListener("pointercancel", endStroke);
+    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
 
     return () => {
+      unlockParentScroll();
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", endStroke);
       canvas.removeEventListener("pointercancel", endStroke);
+      canvas.removeEventListener("touchstart", onTouchStart);
     };
   }, []);
 
@@ -219,6 +254,11 @@ export default function SignaturePad({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     isDrawingRef.current = false;
     lastPointRef.current = null;
+    const locked = scrollLockRef.current;
+    if (locked) {
+      locked.el.style.overflowY = locked.overflowY;
+      scrollLockRef.current = null;
+    }
     setIsEmpty(true);
     syncedValueRef.current = "";
     onChange("");
@@ -237,7 +277,7 @@ export default function SignaturePad({
       ) : null}
 
       <div
-        className={`relative inline-block max-w-full rounded-lg border-2 bg-white dark:border-gray-700 ${
+        className={`relative inline-block max-w-full touch-none rounded-lg border-2 bg-white dark:border-gray-700 ${
           disabled ? "border-gray-300 opacity-75 grayscale-[0.5]" : "border-gray-300"
         }`}
       >
@@ -258,6 +298,7 @@ export default function SignaturePad({
             maxWidth: "100%",
             height: "auto",
             aspectRatio: `${width} / ${height}`,
+            touchAction: "none",
           }}
         />
 
