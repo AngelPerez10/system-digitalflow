@@ -279,7 +279,7 @@ def me(request):
 
     if request.method == 'GET':
         UserPermissions.objects.get_or_create(user=user)
-        user = User.objects.select_related('permissions_profile').get(pk=user.pk)
+        user = User.objects.select_related('permissions_profile', 'smtp_credentials').get(pk=user.pk)
         serializer = UserAccountSerializer(user)
         return Response(serializer.data)
 
@@ -327,7 +327,7 @@ def me(request):
             )
 
     user.save()
-    user = User.objects.select_related('permissions_profile').get(pk=user.pk)
+    user = User.objects.select_related('permissions_profile', 'smtp_credentials').get(pk=user.pk)
     return Response(UserAccountSerializer(user).data)
 
 

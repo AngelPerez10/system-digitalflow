@@ -7,6 +7,8 @@ export interface AuthUser {
   last_name: string;
   id: number;
   avatar_url?: string;
+  /** True si el admin ya cargó correo+contraseña webmail para envío de PDF. */
+  smtp_configured?: boolean;
 }
 
 export type Permissions = Record<

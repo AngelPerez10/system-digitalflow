@@ -67,28 +67,46 @@ export default function CotizacionEnviarPdfModal({
   const hintId = useId().replace(/:/g, "");
   const errorId = useId().replace(/:/g, "");
   const statusId = useId().replace(/:/g, "");
+  const smtpAlertId = useId().replace(/:/g, "");
 
   const [correo, setCorreo] = useState("");
   const [loadingPrefill, setLoadingPrefill] = useState(false);
   const [sending, setSending] = useState(false);
   const [fieldError, setFieldError] = useState("");
+  const [smtpBlockedMessage, setSmtpBlockedMessage] = useState("");
 
   useEffect(() => {
     if (!open || !cotizacion?.id) return;
 
     let cancelled = false;
     setFieldError("");
+    setSmtpBlockedMessage("");
     setCorreo(String(initialCorreo || "").trim());
     setLoadingPrefill(true);
 
     void (async () => {
       try {
-        const resp = await fetchApi(`/api/cotizaciones/${cotizacion.id}/correo-sugerido/`);
-        if (!resp.ok) return;
-        const data = (await resp.json().catch(() => null)) as { correo?: string } | null;
-        const suggested = String(data?.correo || "").trim();
-        if (!cancelled && suggested) {
-          setCorreo(suggested);
+        const [meRes, correoRes] = await Promise.all([
+          fetchApi("/api/me/"),
+          fetchApi(`/api/cotizaciones/${cotizacion.id}/correo-sugerido/`),
+        ]);
+
+        if (!cancelled && meRes.ok) {
+          const meData = (await meRes.json().catch(() => null)) as
+            | { smtp_configured?: boolean; username?: string }
+            | null;
+          if (meData && meData.smtp_configured !== true) {
+            const who = String(meData.username || "tu usuario").trim() || "tu usuario";
+            setSmtpBlockedMessage(
+              `La cuenta (${who}) no tiene correo SMTP configurado. Un administrador debe cargar el correo y la contraseña de webmail en Gestión de usuarios.`
+            );
+          }
+        }
+
+        if (!cancelled && correoRes.ok) {
+          const data = (await correoRes.json().catch(() => null)) as { correo?: string } | null;
+          const suggested = String(data?.correo || "").trim();
+          if (suggested) setCorreo(suggested);
         }
       } catch {
         // Mantener initialCorreo si falla la precarga.
@@ -110,6 +128,7 @@ export default function CotizacionEnviarPdfModal({
   const statusLabel = String(cotizacion?.status || "").trim().toUpperCase() || "—";
   const pdfFileName = folio && folio !== "—" ? `Cotizacion_${folio}.pdf` : "Cotizacion.pdf";
   const hasPrefill = Boolean(String(correo || "").trim());
+  const smtpBlocked = Boolean(smtpBlockedMessage);
 
   const handleClose = () => {
     if (sending) return;
@@ -117,7 +136,7 @@ export default function CotizacionEnviarPdfModal({
   };
 
   const handleSend = async () => {
-    if (!cotizacion?.id || sending) return;
+    if (!cotizacion?.id || sending || smtpBlocked) return;
     const to = correo.trim();
     if (!isValidEmail(to)) {
       setFieldError("Ingresa un correo electrónico válido.");
@@ -138,13 +157,16 @@ export default function CotizacionEnviarPdfModal({
         const msg =
           (data && typeof data.detail === "string" && data.detail) ||
           `No se pudo enviar el PDF (HTTP ${resp.status}).`;
+        setFieldError(msg);
         onError?.(msg);
         return;
       }
       onSent?.(String(data?.correo || to));
       onClose();
     } catch {
-      onError?.("Error de red al enviar el PDF por correo.");
+      const msg = "Error de red al enviar el PDF por correo.";
+      setFieldError(msg);
+      onError?.(msg);
     } finally {
       setSending(false);
     }
@@ -188,6 +210,19 @@ export default function CotizacionEnviarPdfModal({
               </p>
             </div>
           </div>
+
+          {smtpBlocked ? (
+            <div
+              id={smtpAlertId}
+              role="alert"
+              className="rounded-xl border border-amber-200/90 bg-amber-50 px-3.5 py-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/[0.1] dark:text-amber-100"
+            >
+              <p className="font-semibold">No se puede enviar desde esta cuenta</p>
+              <p className="mt-1 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+                {smtpBlockedMessage}
+              </p>
+            </div>
+          ) : null}
 
           <div className="overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]/80">
             <div className="flex items-center justify-between gap-3 border-b border-[#e7ded0]/80 px-3.5 py-2.5 dark:border-[#334155]">
@@ -257,12 +292,16 @@ export default function CotizacionEnviarPdfModal({
                 if (fieldError) setFieldError("");
               }}
               placeholder="cliente@correo.com"
-              disabled={sending || loadingPrefill}
+              disabled={sending || loadingPrefill || smtpBlocked}
               required
               error={Boolean(fieldError)}
               aria-invalid={fieldError ? true : undefined}
               aria-describedby={
-                [fieldError ? errorId : hintId, loadingPrefill ? statusId : null]
+                [
+                  smtpBlocked ? smtpAlertId : null,
+                  fieldError ? errorId : hintId,
+                  loadingPrefill ? statusId : null,
+                ]
                   .filter(Boolean)
                   .join(" ") || undefined
               }
@@ -294,7 +333,7 @@ export default function CotizacionEnviarPdfModal({
               </button>
               <button
                 type="submit"
-                disabled={sending || loadingPrefill}
+                disabled={sending || loadingPrefill || smtpBlocked}
                 aria-busy={sending || undefined}
                 className={`${erpPrimaryBtnClass} sm:flex-1`}
               >
