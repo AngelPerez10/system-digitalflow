@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
+from decimal import Decimal
 import requests
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -474,6 +475,61 @@ class InventarioCaracteristicasTests(APITestCase):
             'tvc',
         )
         self.assertEqual(mapped['caracteristicas'], 'nvr · 8 canales')
+
+    @patch('apps.inventario.enrichment._get_syscom_tipo_cambio', return_value=Decimal('17.27'))
+    def test_map_product_precio_lista_a_mxn(self, _tc):
+        mapped = _map_product(
+            {
+                'producto_id': 1,
+                'titulo': 'Botonera',
+                'precios': {'precio_lista': '14.66', 'precio_especial': '14.52'},
+            },
+            'syscom',
+        )
+        # especial 14.52 × 17.27 × 1.16
+        esperado = (Decimal('14.52') * Decimal('17.27') * Decimal('1.16')).quantize(Decimal('0.01'))
+        self.assertEqual(mapped['precio_unitario'], format(esperado, 'f'))
+
+    def test_map_product_tvc_usa_precio_mxn(self):
+        mapped = _map_product(
+            {'tvc_id': 9, 'name': 'Cable', 'precio_mxn': 1234.5},
+            'tvc',
+        )
+        self.assertEqual(mapped['precio_unitario'], '1234.50')
+
+    @patch(
+        'apps.inventario.views.enrich_from_catalogs',
+        return_value={
+            'nombre': 'Botonera',
+            'marca': 'ACCESSPRO',
+            'modelo': 'XBSSW01',
+            'fuente': 'syscom',
+            'ref_externa': '78542',
+            'imagen_url': '',
+            'caracteristicas': '',
+            'precio_unitario': '291.12',
+        },
+    )
+    def test_scan_guarda_precio_unitario(self, _enrich):
+        res = self.client.post(
+            '/api/inventario/scan/',
+            {'codigo_barras': 'XBSSW01', 'modo': 'entrada'},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        item = InventarioItem.objects.get(codigo_barras='XBSSW01')
+        self.assertEqual(item.precio_unitario, Decimal('291.12'))
+
+    def test_patch_precio_unitario(self):
+        item = InventarioItem.objects.create(codigo_barras='P-1', cantidad=1)
+        res = self.client.patch(
+            f'/api/inventario/items/{item.id}/',
+            {'precio_unitario': '99.50'},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        item.refresh_from_db()
+        self.assertEqual(item.precio_unitario, Decimal('99.50'))
 
     def test_texto_largo_se_recorta(self):
         mapped = _map_product(

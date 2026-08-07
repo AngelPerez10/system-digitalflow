@@ -46,8 +46,12 @@ class InventarioItemPatchSerializer(serializers.ModelSerializer):
             'fuente',
             'ref_externa',
             'imagen_url',
+            'precio_unitario',
         ]
-        extra_kwargs = {'imagen_url': {'allow_blank': True}}
+        extra_kwargs = {
+            'imagen_url': {'allow_blank': True},
+            'precio_unitario': {'required': False, 'allow_null': True},
+        }
 
 
 class InventarioMovimientoSerializer(serializers.ModelSerializer):

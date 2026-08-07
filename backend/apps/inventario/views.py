@@ -36,7 +36,15 @@ from .serializers import (
 
 logger = logging.getLogger(__name__)
 
-ENRICHMENT_FIELDS = ('nombre', 'marca', 'modelo', 'fuente', 'ref_externa', 'imagen_url')
+ENRICHMENT_FIELDS = (
+    'nombre',
+    'marca',
+    'modelo',
+    'fuente',
+    'ref_externa',
+    'imagen_url',
+    'precio_unitario',
+)
 
 INVENTARIO_UPLOAD_FOLDER = 'inventario/productos'
 
@@ -115,7 +123,16 @@ class ScanView(APIView):
                         enriquecido = True
                         for field in ENRICHMENT_FIELDS:
                             value = enrich_data.get(field)
-                            if value is not None:
+                            if value is None or value == '':
+                                continue
+                            if field == 'precio_unitario':
+                                from decimal import Decimal, InvalidOperation
+
+                                try:
+                                    item.precio_unitario = Decimal(str(value))
+                                except (InvalidOperation, TypeError, ValueError):
+                                    continue
+                            else:
                                 setattr(item, field, value)
                         # El catálogo describe el producto; el ítem es nuevo, así
                         # que las notas están vacías y no se pisa nada del operador.

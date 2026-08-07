@@ -187,7 +187,9 @@ En `backend/config/middleware.py`, las peticiones a `/api/*` con cabecera `Autho
 
  **Títulos con entidades HTML.** Los `titulo` de la factura vienen escapados (`Conexi&oacute;n`, `Env&iacute;o`). `_nombre_corto` los pasa por `_plain_text` (de `enrichment.py`) antes de partir el título en nombre + características; no guardar el título crudo.
 
- **Última compra en el ítem.** Cada import sobrescribe en `InventarioItem`: `folio_factura`, `precio_unitario` (de la línea SYSCOM) y `proveedor` (FK a `Cliente` tipo `PROVEEDOR`). `obtener_o_crear_proveedor` busca/crea “SYSCOM” o “TVC” en Contactos. Spec: `docs/superpowers/specs/2026-08-07-inventario-folio-proveedor-precio-design.md`.
+  **Última compra en el ítem.** Cada import sobrescribe en `InventarioItem`: `folio_factura`, `precio_unitario` (de la línea SYSCOM) y `proveedor` (FK a `Cliente` tipo `PROVEEDOR`). `obtener_o_crear_proveedor` busca/crea “SYSCOM” o “TVC” en Contactos. Spec: `docs/superpowers/specs/2026-08-07-inventario-folio-proveedor-precio-design.md`.
+
+  **Precio desde catálogo.** Al enriquecer/vincular, `_map_product` calcula `precio_unitario` en MXN (SYSCOM: especial/lista USD × tipocambio × 1.16; TVC: `precio_mxn`). Solo rellena si el campo está vacío; el modal lo edita vía `PATCH`. Spec: `docs/superpowers/specs/2026-08-07-inventario-precio-catalogo-design.md`.
 
   **Detalle del catálogo (foto y ficha técnica).** La búsqueda `/catalogo/` **no** trae foto ni características: eso solo vive en el detalle. `GET /api/inventario/catalogo/detalle/?fuente=&ref=&modelo=` lo resuelve con `fetch_catalog_detail` (SYSCOM por `producto_id` con `_fetch_syscom_detalle`; TVC cae a búsqueda por modelo porque no expone detalle por id). Toma la fuente y la referencia por query, no del ítem, para que el modal también pueda consultarlo con un candidato recién elegido y aún sin guardar. Devuelve el mismo shape que `/catalogo/` y **no escribe**: el modal rellena solo los campos vacíos y el operador guarda. Requiere `inventario.view`.
 

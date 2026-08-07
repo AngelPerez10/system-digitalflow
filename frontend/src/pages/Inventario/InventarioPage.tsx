@@ -261,11 +261,27 @@ export default function InventarioPage() {
       const updated = await patchInventarioItem(id, patch);
       setItems((prev) => prev.map((row) => (row.id === id ? updated : row)));
       if (filterItem?.id === id) setFilterItem(updated);
+      setEditItem(updated);
       setScanStatus(`Ítem actualizado: ${updated.nombre || updated.codigo_barras}`);
       await loadStats();
     } finally {
       setSavingEdit(false);
     }
+  };
+
+  const handleItemUpdatedFromModal = (updated: InventarioItem) => {
+    setEditItem((prev) =>
+      prev && prev.id === updated.id ? { ...prev, cantidad: updated.cantidad } : updated,
+    );
+    setItems((prev) => prev.map((row) => (row.id === updated.id ? { ...row, cantidad: updated.cantidad } : row)));
+    if (filterItem?.id === updated.id) {
+      setFilterItem((prev) => (prev ? { ...prev, cantidad: updated.cantidad } : prev));
+    }
+    setScanStatus(
+      `Existencia actualizada: ${updated.nombre || updated.codigo_barras} → ${updated.cantidad}`,
+    );
+    void loadMovimientos(filterItem?.id ?? null, movimientosPage);
+    void loadStats();
   };
 
   const handleImportFactura = async (proveedor: FacturaProveedor, folio: string) => {
@@ -427,8 +443,10 @@ export default function InventarioPage() {
         open={editItem != null}
         item={editItem}
         saving={savingEdit}
+        canAdjustStock={canCreate}
         onClose={() => setEditItem(null)}
         onSave={handleSaveEdit}
+        onItemUpdated={handleItemUpdatedFromModal}
       />
 
       <InventarioDeleteModal

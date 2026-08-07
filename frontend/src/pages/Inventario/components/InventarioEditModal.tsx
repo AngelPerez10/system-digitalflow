@@ -19,11 +19,13 @@ import {
 } from "../../Operacion/OrdenesTrabajo/ordenTrabajoStyles";
 import {
   fetchCatalogoDetallePorRef,
+  scanInventario,
   searchCatalogo,
   uploadInventarioImagen,
 } from "../shared/inventarioApi";
 import {
   candidatoRowClass,
+  existenciaBadgeClass,
   fuenteBadgeClass,
   inventarioFieldLabelClass,
   inventarioSectionIconClass,
@@ -47,6 +49,7 @@ import type {
   InventarioFuente,
   InventarioItem,
   InventarioItemPatch,
+  ScanModo,
 } from "../shared/inventarioTypes";
 
 const MIN_BUSQUEDA = 3;
@@ -71,16 +74,22 @@ type InventarioEditModalProps = {
   open: boolean;
   item: InventarioItem | null;
   saving: boolean;
+  /** Permiso inventario.create: meter/sacar ±1 sin escáner. */
+  canAdjustStock?: boolean;
   onClose: () => void;
   onSave: (id: number, patch: InventarioItemPatch) => Promise<void>;
+  /** Tras Entrada/Salida manual; el padre refresca listas y stats. */
+  onItemUpdated?: (item: InventarioItem) => void;
 };
 
 export default function InventarioEditModal({
   open,
   item,
   saving,
+  canAdjustStock = false,
   onClose,
   onSave,
+  onItemUpdated,
 }: InventarioEditModalProps) {
   const titleId = useId();
   const [nombre, setNombre] = useState("");
@@ -90,6 +99,10 @@ export default function InventarioEditModal({
   const [fuente, setFuente] = useState<InventarioFuente>("desconocido");
   const [refExterna, setRefExterna] = useState("");
   const [imagenUrl, setImagenUrl] = useState("");
+  const [precioUnitario, setPrecioUnitario] = useState("");
+  const [cantidad, setCantidad] = useState(0);
+  const [ajustando, setAjustando] = useState(false);
+  const [ajusteAviso, setAjusteAviso] = useState<string | null>(null);
   const [subiendoImagen, setSubiendoImagen] = useState(false);
   const [imagenError, setImagenError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,12 +129,16 @@ export default function InventarioEditModal({
     setModelo((prev) => (prev.trim() ? prev : detalle.modelo || prev));
     setImagenUrl((prev) => (prev.trim() ? prev : detalle.imagen_url || prev));
     setNotas((prev) => (prev.trim() ? prev : detalle.caracteristicas || prev));
+    setPrecioUnitario((prev) =>
+      prev.trim() ? prev : detalle.precio_unitario?.trim() || prev,
+    );
   }, []);
 
   useEffect(() => {
     if (!item) return;
     setRefrescoAviso(null);
     setFichaAviso(null);
+    setAjusteAviso(null);
     setNombre(item.nombre || "");
     setMarca(item.marca || "");
     setModelo(item.modelo || "");
@@ -129,12 +146,21 @@ export default function InventarioEditModal({
     setFuente(item.fuente || "desconocido");
     setRefExterna(item.ref_externa || "");
     setImagenUrl(item.imagen_url || "");
+    setPrecioUnitario(item.precio_unitario != null ? String(item.precio_unitario) : "");
+    setCantidad(item.cantidad);
     setImagenError(null);
     setError(null);
     setTermino(item.nombre || item.modelo || "");
     setCandidatos([]);
     setBusquedaError(null);
     setBusquedaHecha(false);
+    // Solo al abrir otro ítem: un ±1 no debe pisar campos sin guardar.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- reset de ficha solo por id
+  }, [item?.id]);
+
+  useEffect(() => {
+    if (item == null) return;
+    setCantidad(item.cantidad);
   }, [item]);
 
   // La búsqueda del catálogo no trae foto ni ficha técnica, solo el detalle; se
@@ -142,7 +168,11 @@ export default function InventarioEditModal({
   useEffect(() => {
     if (!open || !item) return;
     const tieneVinculo = item.fuente !== "desconocido" && item.ref_externa.trim().length > 0;
-    const faltaAlgo = !item.imagen_url.trim() || !item.notas.trim();
+    const faltaAlgo =
+      !item.imagen_url.trim() ||
+      !item.notas.trim() ||
+      item.precio_unitario == null ||
+      item.precio_unitario === "";
     if (!tieneVinculo || !faltaAlgo) return;
     if (autoCatalogoRef.current === item.id) return;
     autoCatalogoRef.current = item.id;
@@ -245,21 +275,53 @@ export default function InventarioEditModal({
     // Solo tomamos la foto del catálogo si el ítem aún no tiene una propia.
     if (candidato.imagen_url && !imagenUrl) setImagenUrl(candidato.imagen_url);
     if (candidato.caracteristicas && !notas.trim()) setNotas(candidato.caracteristicas);
+    if (candidato.precio_unitario && !precioUnitario.trim()) {
+      setPrecioUnitario(candidato.precio_unitario);
+    }
     setCandidatos([]);
     setBusquedaHecha(false);
     setFichaAviso(null);
 
-    // La ficha técnica solo viene en el detalle, así que se pide aparte.
-    if (notas.trim() || candidato.caracteristicas) return;
+    // Detalle: ficha técnica y precio de lista (la búsqueda suele no traerlos).
+    const faltaNotas = !notas.trim() && !candidato.caracteristicas;
+    const faltaPrecio = !precioUnitario.trim() && !candidato.precio_unitario;
+    if (!faltaNotas && !faltaPrecio) return;
     setTrayendoFicha(true);
     fetchCatalogoDetallePorRef(candidato.fuente, candidato.ref_externa, candidato.modelo)
       .then((detalle) => {
-        if (detalle?.caracteristicas) setNotas((prev) => (prev.trim() ? prev : detalle.caracteristicas));
+        if (!detalle) return;
+        if (detalle.caracteristicas) {
+          setNotas((prev) => (prev.trim() ? prev : detalle.caracteristicas));
+        }
+        if (detalle.precio_unitario) {
+          setPrecioUnitario((prev) => (prev.trim() ? prev : detalle.precio_unitario || prev));
+        }
       })
       .catch(() => {
         // Silencioso: queda el botón "Traer del catálogo" para reintentar.
       })
       .finally(() => setTrayendoFicha(false));
+  };
+
+  const ajustarExistencia = async (modo: ScanModo) => {
+    if (!item || !canAdjustStock) return;
+    setAjustando(true);
+    setAjusteAviso(null);
+    setError(null);
+    try {
+      const result = await scanInventario(item.codigo_barras, modo);
+      setCantidad(result.item.cantidad);
+      setAjusteAviso(
+        modo === "entrada"
+          ? `Entrada registrada · existencia ${result.item.cantidad}`
+          : `Salida registrada · existencia ${result.item.cantidad}`,
+      );
+      onItemUpdated?.(result.item);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo ajustar la existencia");
+    } finally {
+      setAjustando(false);
+    }
   };
 
   const desvincular = () => {
@@ -303,6 +365,7 @@ export default function InventarioEditModal({
         fuente,
         ref_externa: refExterna.trim(),
         imagen_url: imagenUrl.trim(),
+        precio_unitario: precioUnitario.trim() ? precioUnitario.trim() : null,
       });
       onClose();
     } catch (err) {
@@ -356,7 +419,7 @@ export default function InventarioEditModal({
                   <span className="font-mono tracking-wide text-[#1c1917] dark:text-[#f8fafc]">
                     {item.codigo_barras}
                   </span>{" "}
-                  · existencia {item.cantidad}
+                  · existencia {cantidad}
                 </p>
               ) : null}
             </div>
@@ -365,6 +428,55 @@ export default function InventarioEditModal({
 
         <div className={erpModalBodyClass}>
           <div className={erpModalFormScrollClass}>
+            <InventarioFormSection
+              titleId={`${titleId}-sec-existencia`}
+              eyebrow="Existencia"
+              title="Meter o sacar"
+              hint="Sin escáner: registra entrada o salida de 1 unidad (mismo historial)."
+              icon={<BarcodeIcon className={inventarioSectionIconClass} />}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <span className={existenciaBadgeClass(cantidad)} aria-live="polite">
+                    {cantidad}
+                  </span>
+                  <span className="text-sm text-[#57534e] dark:text-[#b7c1d1]">
+                    {cantidad === 1 ? "unidad en piso" : "unidades en piso"}
+                  </span>
+                </div>
+                {canAdjustStock ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className={erpPrimaryBtnClass}
+                      onClick={() => void ajustarExistencia("entrada")}
+                      disabled={saving || ajustando || !item}
+                    >
+                      {ajustando ? "Registrando…" : "Entrada (+1)"}
+                    </button>
+                    <button
+                      type="button"
+                      className={erpSecondaryBtnClass}
+                      onClick={() => void ajustarExistencia("salida")}
+                      disabled={saving || ajustando || !item || cantidad <= 0}
+                      title={cantidad <= 0 ? "Sin existencia" : "Registrar salida"}
+                    >
+                      Salida (−1)
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                    Necesitas permiso de crear en Inventario para meter o sacar.
+                  </p>
+                )}
+              </div>
+              {ajusteAviso ? (
+                <p className="mt-2 text-xs text-[#047857] dark:text-[#6ee7b7]" role="status" aria-live="polite">
+                  {ajusteAviso}
+                </p>
+              ) : null}
+            </InventarioFormSection>
+
             <InventarioFormSection
               titleId={`${titleId}-sec-foto`}
               eyebrow="Paso 1"
@@ -422,7 +534,7 @@ export default function InventarioEditModal({
               </div>
             </InventarioFormSection>
 
-            {item && (item.folio_factura || item.proveedor_nombre || item.precio_unitario) ? (
+            {item && (item.folio_factura || item.proveedor_nombre) ? (
               <InventarioFormSection
                 titleId={`${titleId}-sec-compra`}
                 eyebrow="Compra"
@@ -430,7 +542,7 @@ export default function InventarioEditModal({
                 hint="Se actualiza al importar otra factura de este producto."
                 icon={<BarcodeIcon className={inventarioSectionIconClass} />}
               >
-                <dl className="grid gap-3 sm:grid-cols-3">
+                <dl className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <dt className={inventarioFieldLabelClass}>Proveedor</dt>
                     <dd className="mt-1 text-sm text-[#1c1917] dark:text-[#f8fafc]">
@@ -441,17 +553,6 @@ export default function InventarioEditModal({
                     <dt className={inventarioFieldLabelClass}>Folio</dt>
                     <dd className="mt-1 font-mono text-sm text-[#1c1917] dark:text-[#f8fafc]">
                       {item.folio_factura || "—"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className={inventarioFieldLabelClass}>Precio unitario</dt>
-                    <dd className="mt-1 text-sm tabular-nums text-[#1c1917] dark:text-[#f8fafc]">
-                      {item.precio_unitario != null && item.precio_unitario !== ""
-                        ? Number(item.precio_unitario).toLocaleString("es-MX", {
-                            style: "currency",
-                            currency: "MXN",
-                          })
-                        : "—"}
                     </dd>
                   </div>
                 </dl>
@@ -638,6 +739,23 @@ export default function InventarioEditModal({
                     disabled={saving}
                   />
                 </div>
+                <div>
+                  <label htmlFor={`${titleId}-precio`} className={inventarioFieldLabelClass}>
+                    Precio unitario (MXN)
+                  </label>
+                  <input
+                    id={`${titleId}-precio`}
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={precioUnitario}
+                    onChange={(e) => setPrecioUnitario(e.target.value)}
+                    placeholder="Del catálogo o captura manual"
+                    className={erpInputLikeClass}
+                    disabled={saving}
+                  />
+                </div>
                 <div className="sm:col-span-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <label htmlFor={`${titleId}-notas`} className={inventarioFieldLabelClass}>
@@ -688,11 +806,11 @@ export default function InventarioEditModal({
 
         <footer className={erpModalFooterClass}>
           <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end sm:gap-3">
-            <button type="button" className={erpSecondaryBtnClass} onClick={onClose} disabled={saving}>
+            <button type="button" className={erpSecondaryBtnClass} onClick={onClose} disabled={saving || ajustando}>
               <CloseIcon className="h-4 w-4" />
               Cancelar
             </button>
-            <button type="submit" className={erpPrimaryBtnClass} disabled={saving || !item}>
+            <button type="submit" className={erpPrimaryBtnClass} disabled={saving || ajustando || !item}>
               <CheckIcon className="h-4 w-4" />
               {saving ? "Guardando…" : "Guardar"}
             </button>

@@ -49,7 +49,14 @@ export type ScanResponse = {
 export type InventarioItemPatch = Partial<
   Pick<
     InventarioItem,
-    "nombre" | "marca" | "modelo" | "notas" | "fuente" | "ref_externa" | "imagen_url"
+    | "nombre"
+    | "marca"
+    | "modelo"
+    | "notas"
+    | "fuente"
+    | "ref_externa"
+    | "imagen_url"
+    | "precio_unitario"
   >
 >;
 
@@ -63,6 +70,8 @@ export type CatalogoCandidato = {
   imagen_url: string;
   /** Ficha técnica del proveedor; la búsqueda suele traerla vacía y el detalle no. */
   caracteristicas: string;
+  /** Precio de lista en MXN si el catálogo lo resolvió. */
+  precio_unitario?: string | null;
 };
 
 export type InventarioItemsParams = {

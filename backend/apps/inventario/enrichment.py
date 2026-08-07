@@ -5,6 +5,7 @@ import html
 import logging
 import re
 import urllib.parse
+from decimal import Decimal, InvalidOperation
 
 import requests
 from django.conf import settings
@@ -14,15 +15,89 @@ logger = logging.getLogger(__name__)
 # La ficha de inventario muestra las características en un textarea; más allá de
 # esto el operador ya no lee y el detalle de SYSCOM llega en HTML muy largo.
 MAX_CARACTERISTICAS = 1500
+IVA_MX = Decimal('1.16')
 
 _SALTO_RE = re.compile(r'</(?:li|p|div|tr|h[1-6])\s*>|<br\s*/?>', re.IGNORECASE)
 _TAG_RE = re.compile(r'<[^>]+>')
 # \xa0 viene de los &nbsp; de SYSCOM y no lo cubre \s en modo ASCII.
 _BLANK_RE = re.compile(r'[^\S\n]+')
 
+_syscom_tc_cache: Decimal | None = None
+
 
 def _norm(value: str) -> str:
     return (value or '').strip().lower()
+
+
+def _as_decimal(value: object) -> Decimal | None:
+    if value is None or value == '':
+        return None
+    try:
+        numero = Decimal(str(value).strip())
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    if numero < 0:
+        return None
+    return numero
+
+
+def _get_syscom_tipo_cambio() -> Decimal | None:
+    """Tipo de cambio 'normal' de SYSCOM (cache en proceso)."""
+    global _syscom_tc_cache
+    if _syscom_tc_cache is not None:
+        return _syscom_tc_cache
+    from apps.productos.syscom_views import _get_syscom_token, _syscom_get
+
+    token, err = _get_syscom_token()
+    if err or not token:
+        return None
+    base = (
+        getattr(settings, 'SYSCOM_API_BASE', '') or 'https://developers.syscom.mx/api/v1'
+    ).rstrip('/')
+    try:
+        response = _syscom_get(f'{base}/tipocambio', token, timeout_seconds=10, retries=0)
+        body = response.json()
+    except Exception:
+        logger.exception('Inventario: no se pudo leer tipocambio SYSCOM')
+        return None
+    if not isinstance(body, dict):
+        return None
+    tc = _as_decimal(body.get('normal') or body.get('preferencial'))
+    if tc is None or tc <= 0:
+        return None
+    _syscom_tc_cache = tc
+    return tc
+
+
+def _extract_precio_unitario(raw: dict, fuente: str) -> Decimal | None:
+    """Precio de lista del proveedor en MXN (misma lógica que cotizaciones)."""
+    # TVC ya mapea precio_mxn; SYSCOM a veces también.
+    directo = _as_decimal(raw.get('precio_mxn') or raw.get('precio_unitario'))
+    if directo is not None and directo > 0:
+        return directo.quantize(Decimal('0.01'))
+
+    precios = raw.get('precios') if isinstance(raw.get('precios'), dict) else {}
+    # Cotización: especial ?? lista (USD).
+    usd = _as_decimal(precios.get('precio_especial'))
+    if usd is None:
+        usd = _as_decimal(precios.get('precio_lista') or precios.get('precio_1'))
+    if usd is None:
+        usd = _as_decimal(raw.get('list_price') or raw.get('distributor_price'))
+    if usd is None or usd <= 0:
+        return None
+
+    origen = (fuente or '').strip().lower()
+    if origen == 'syscom':
+        tc = _get_syscom_tipo_cambio()
+        if tc is None:
+            return None
+        return (usd * tc * IVA_MX).quantize(Decimal('0.01'))
+
+    if origen == 'tvc':
+        # Si el mapeo TVC no trajo precio_mxn, no inventamos TC aquí.
+        return None
+
+    return None
 
 
 def _plain_text(value: object) -> str:
@@ -71,6 +146,7 @@ def _map_product(raw: dict, fuente: str) -> dict:
     imagen = str(raw.get('img_portada') or raw.get('imagen') or '').strip()
     if not imagen.startswith(('http://', 'https://')):
         imagen = ''
+    precio = _extract_precio_unitario(raw, fuente)
     return {
         'nombre': nombre,
         'marca': marca,
@@ -79,6 +155,8 @@ def _map_product(raw: dict, fuente: str) -> dict:
         'ref_externa': ref,
         'imagen_url': imagen,
         'caracteristicas': _extract_caracteristicas(raw),
+        # String para JSON estable en /catalogo/; el scan lo convierte a Decimal.
+        'precio_unitario': format(precio, 'f') if precio is not None else None,
     }
 
 
