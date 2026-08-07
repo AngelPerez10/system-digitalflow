@@ -37,6 +37,28 @@ def _raise_drf_validation(exc: DjangoValidationError) -> None:
     raise DRFValidationError(list(exc.messages)) from exc
 
 
+def _is_data_url(value: str) -> bool:
+    return isinstance(value, str) and value.startswith("data:") and ";base64," in value
+
+
+def _firma_cloudinary_overrides(validated_data: dict) -> dict:
+    """Convierte data URLs de firmas a Cloudinary (mismo patrón que órdenes)."""
+    overrides: dict = {}
+    for field in ("firma_cliente_url", "firma_tecnico_url"):
+        if field not in validated_data:
+            continue
+        raw = validated_data.get(field)
+        if isinstance(raw, str) and _is_data_url(raw):
+            try:
+                overrides[field] = upload_data_url(raw, folder="proyectos/firmas", max_size_kb=80)
+            except DRFValidationError:
+                raise
+            except Exception:
+                logger.exception("Failed uploading proyecto %s", field)
+                raise DRFValidationError({field: ["No se pudo subir la firma."]}) from None
+    return overrides
+
+
 class ProyectoViewSet(viewsets.ModelViewSet):
     """CRUD de proyectos de operación. Permisos del módulo `proyectos`."""
 
@@ -83,13 +105,15 @@ class ProyectoViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         try:
-            serializer.save(creado_por=self.request.user)
+            firma_overrides = _firma_cloudinary_overrides(serializer.validated_data)
+            serializer.save(creado_por=self.request.user, **firma_overrides)
         except DjangoValidationError as exc:
             _raise_drf_validation(exc)
 
     def perform_update(self, serializer):
         try:
-            serializer.save()
+            firma_overrides = _firma_cloudinary_overrides(serializer.validated_data)
+            serializer.save(**firma_overrides)
         except DjangoValidationError as exc:
             _raise_drf_validation(exc)
 
@@ -156,10 +180,6 @@ class ProyectoViewSet(viewsets.ModelViewSet):
                 {"detail": "Error eliminando imagen en Cloudinary"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-
-
-def _is_data_url(value: str) -> bool:
-    return isinstance(value, str) and value.startswith("data:") and ";base64," in value
 
 
 class ProyectoInstalacionViewSet(viewsets.ModelViewSet):

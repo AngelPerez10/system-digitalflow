@@ -1,4 +1,4 @@
-import { useCallback, useId, useState, type CSSProperties } from "react";
+import { useId, type CSSProperties } from "react";
 import DatePicker from "@/components/form/date-picker";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
@@ -7,7 +7,6 @@ import SignaturePad from "@/components/ui/signature/SignaturePad";
 import { TimeIcon } from "@/icons";
 import { erpInputLikeClass, erpPrimaryBtnClass, erpSecondaryBtnClass } from "@/layout/erpPageStyles";
 import { proyectoRequiereCotizacionAdicional } from "../../shared/proyectoCloseValidation";
-import { uploadProyectoImageToCloudinary } from "../../shared/proyectoImageApi";
 import { ProyectoEvidenciasField } from "../fields/ProyectoEvidenciasField";
 import { ProyectoFormSection, proyectoSectionIconClass } from "../ProyectoFormSection";
 import { ProyectoNotaDiaFotosField } from "../fields/ProyectoNotaDiaFotosField";
@@ -848,7 +847,7 @@ export function ProyectoOperacionTab({
         hint="La firma del técnico se toma de su perfil. El cliente firma aquí al cierre."
         icon={iconPen}
       >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 touch-none md:grid-cols-2">
           <SignaturePad
             label="Firma del técnico"
             value={tecnicoSignatureUrl || firmaTecnicoUrl}

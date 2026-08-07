@@ -138,6 +138,8 @@ export default function SignaturePad({
   // Si value === lo que emitimos nosotros, no tocar el canvas → sin parpadeo.
   useEffect(() => {
     if (value === syncedValueRef.current) return;
+    // No repintar desde props mientras hay un trazo activo (evita borrar multi-stroke).
+    if (isDrawingRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     if (canvas.width !== width || canvas.height !== height) {
@@ -176,6 +178,8 @@ export default function SignaturePad({
       e.stopPropagation();
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+      // Cancela un paintExternalValue en vuelo (p. ej. URL remota) para no borrar trazos nuevos.
+      loadTokenRef.current += 1;
       applyStrokeStyle(ctx);
       lockParentScroll();
       canvas.setPointerCapture(e.pointerId);
