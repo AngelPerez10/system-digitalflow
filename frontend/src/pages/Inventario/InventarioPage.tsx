@@ -369,7 +369,7 @@ export default function InventarioPage() {
             <ComponentCard
               compact
               title="Ítems en inventario"
-              desc="Toca un producto para filtrar su historial."
+              desc="Existencia, precio y folio de factura. Toca un producto para filtrar su historial."
             >
               <div className="mb-4">
                 <label htmlFor="inventario-search" className="sr-only">

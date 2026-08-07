@@ -17,6 +17,7 @@ type InventarioItemsMobileListProps = {
   canDelete: boolean;
   selectedItemId: number | null;
   proveedorLabel: (item: InventarioItem) => string;
+  formatPrecio: (valor: string | number | null | undefined) => string;
   onSelectItem: (item: InventarioItem | null) => void;
   onEdit: (item: InventarioItem) => void;
   onDelete: (item: InventarioItem) => void;
@@ -33,6 +34,7 @@ export default function InventarioItemsMobileList({
   canDelete,
   selectedItemId,
   proveedorLabel,
+  formatPrecio,
   onSelectItem,
   onEdit,
   onDelete,
@@ -41,9 +43,11 @@ export default function InventarioItemsMobileList({
     <ul className="space-y-3 md:hidden" aria-label="Ítems en inventario">
       {items.map((item) => {
         const selected = selectedItemId === item.id;
-        const identificado = item.nombre.trim().length > 0;
+        const identificado = (item.nombre ?? "").trim().length > 0;
         const detalle = [item.marca, item.modelo].filter(Boolean).join(" · ");
         const proveedor = proveedorLabel(item);
+        const folio = (item.folio_factura ?? "").trim();
+        const precioTxt = formatPrecio(item.precio_unitario);
         return (
           <li key={item.id}>
             <article
@@ -86,23 +90,44 @@ export default function InventarioItemsMobileList({
                 </span>
               </button>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#f0e9dd] pt-3 dark:border-[#273244]">
+              <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-[#f0e9dd] pt-3 dark:border-[#273244]">
+                <div className="min-w-0 rounded-xl bg-[#fcfaf6] px-2.5 py-2 dark:bg-[#0f172a]/60">
+                  <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#78716c] dark:text-[#8ea0b8]">
+                    Precio
+                  </dt>
+                  <dd
+                    className={`mt-0.5 truncate text-sm font-semibold tabular-nums ${
+                      precioTxt
+                        ? "text-[#1c1917] dark:text-[#f8fafc]"
+                        : "font-normal text-[#a8a29e] dark:text-[#64748b]"
+                    }`}
+                  >
+                    {precioTxt || "—"}
+                  </dd>
+                </div>
+                <div className="min-w-0 rounded-xl bg-[#fcfaf6] px-2.5 py-2 dark:bg-[#0f172a]/60">
+                  <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#78716c] dark:text-[#8ea0b8]">
+                    Folio
+                  </dt>
+                  <dd
+                    className={`mt-0.5 truncate font-mono text-sm ${
+                      folio
+                        ? "font-medium text-[#1c1917] dark:text-[#f8fafc]"
+                        : "font-sans font-normal text-[#a8a29e] dark:text-[#64748b]"
+                    }`}
+                    title={folio || undefined}
+                  >
+                    {folio || "—"}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 {proveedor ? (
                   <span className={fuenteBadgeClass(badgeFuente(item))}>{proveedor}</span>
-                ) : null}
-                {item.folio_factura ? (
-                  <span className="font-mono text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
-                    {item.folio_factura}
-                  </span>
-                ) : null}
-                {item.precio_unitario != null && item.precio_unitario !== "" ? (
-                  <span className="text-[11px] tabular-nums text-[#57534e] dark:text-[#b7c1d1]">
-                    {Number(item.precio_unitario).toLocaleString("es-MX", {
-                      style: "currency",
-                      currency: "MXN",
-                    })}
-                  </span>
-                ) : null}
+                ) : (
+                  <span className="text-[11px] text-[#a8a29e] dark:text-[#64748b]">Sin proveedor</span>
+                )}
                 <div className="ml-auto flex items-center gap-1.5">
                   {canEdit ? (
                     <button
