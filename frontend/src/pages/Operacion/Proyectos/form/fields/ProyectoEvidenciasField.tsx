@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
 import {
@@ -9,6 +9,13 @@ import {
   deleteProyectoImageFromCloudinary,
   uploadProyectoImageToCloudinary,
 } from "../../shared/proyectoImageApi";
+import {
+  isHeicLikeFile,
+  isLikelyImageFile,
+  PROYECTO_IMAGE_ACCEPT,
+  proyectoImageProcessErrorMessage,
+  proyectoImageRejectMessage,
+} from "../../shared/proyectoImageUpload";
 import { proyectoSectionHintClass } from "../../shared/proyectoPageStyles";
 
 const PROYECTO_MAX_FOTOS = 10;
@@ -22,11 +29,13 @@ type Props = {
 
 /**
  * Evidencia fotográfica vía `/api/proyectos/upload-image/`.
+ * Pensado para técnicos en celular (MIME vacío / HEIC / subidas lentas).
  */
 export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Props) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [brokenUrls, setBrokenUrls] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<{ open: boolean; url: string; index: number }>({
     open: false,
     url: "",
@@ -38,25 +47,43 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
     url: string | null;
   }>({ open: false, index: null, url: null });
 
+  // Evita perder fotos si hay dos subidas en paralelo (red lenta en celular).
+  const urlsRef = useRef(urls);
+  urlsRef.current = Array.isArray(urls) ? urls : [];
+
   const onDrop = useCallback(
     async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
       if (disabled) return;
       setUploadError("");
 
       if (fileRejections.length) {
-        setUploadError(
-          "Algunos archivos no son válidos. Usa PNG, JPG, WebP o SVG."
-        );
+        const first = fileRejections[0]?.file;
+        setUploadError(proyectoImageRejectMessage(first?.name));
       }
 
-      const current = Array.isArray(urls) ? urls : [];
+      const current = urlsRef.current;
       const remaining = PROYECTO_MAX_FOTOS - current.length;
       if (remaining <= 0) {
         setUploadError(`Ya alcanzaste el máximo de ${PROYECTO_MAX_FOTOS} fotos.`);
         return;
       }
 
-      const files = acceptedFiles.slice(0, remaining).filter((f) => f.type.startsWith("image/"));
+      // Salvamos archivos con MIME vacío (cámara móvil) que dropzone a veces rechaza.
+      const fromAccepted = acceptedFiles.filter(isLikelyImageFile);
+      const fromRejected = fileRejections.map((r) => r.file).filter(isLikelyImageFile);
+      const merged = [...fromAccepted];
+      for (const f of fromRejected) {
+        if (!merged.includes(f)) merged.push(f);
+      }
+
+      const heicFiles = merged.filter(isHeicLikeFile);
+      const files = merged.filter((f) => !isHeicLikeFile(f)).slice(0, remaining);
+
+      if (heicFiles.length && !files.length) {
+        setUploadError(proyectoImageRejectMessage(heicFiles[0]?.name));
+        return;
+      }
+
       if (!files.length) {
         if (!fileRejections.length) {
           setUploadError("No se encontraron imágenes para subir.");
@@ -79,28 +106,29 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
             }
           } catch (err) {
             console.error("Error al subir evidencia de proyecto:", err);
-            failures.push(`${file.name}: no se pudo procesar la imagen.`);
+            failures.push(proyectoImageProcessErrorMessage(file));
           }
         }
-        if (uploaded.length) onChange([...current, ...uploaded]);
+        if (uploaded.length) {
+          const next = [...urlsRef.current, ...uploaded].slice(0, PROYECTO_MAX_FOTOS);
+          urlsRef.current = next;
+          onChange(next);
+        }
+        if (heicFiles.length) {
+          failures.push(proyectoImageRejectMessage(heicFiles[0]?.name));
+        }
         if (failures.length) {
-          const skipped =
-            acceptedFiles.length > remaining
-              ? ` Solo se subieron ${remaining} por el límite de ${PROYECTO_MAX_FOTOS}.`
-              : "";
           setUploadError(
             failures.length === 1
-              ? `${failures[0]}${skipped}`
-              : `No se pudieron subir ${failures.length} imagen(es). ${failures[0]}${skipped}`
+              ? failures[0]
+              : `No se pudieron subir ${failures.length} imagen(es). ${failures[0]}`
           );
-        } else if (acceptedFiles.length > remaining) {
-          setUploadError(`Solo se subieron ${remaining} fotos (máximo ${PROYECTO_MAX_FOTOS}).`);
         }
       } finally {
         setUploading(false);
       }
     },
-    [disabled, onChange, urls]
+    [disabled, onChange]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -108,19 +136,14 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
     multiple: true,
     maxFiles: PROYECTO_MAX_FOTOS,
     disabled: disabled || uploading,
-    accept: {
-      "image/png": [],
-      "image/jpeg": [],
-      "image/webp": [],
-      "image/svg+xml": [],
-    },
+    accept: PROYECTO_IMAGE_ACCEPT,
   });
 
   const handleDelete = async () => {
     if (confirmDelete.index == null || !confirmDelete.url) return;
     const index = confirmDelete.index;
     const url = confirmDelete.url;
-    const updated = urls.filter((_, i) => i !== index);
+    const updated = urlsRef.current.filter((_, i) => i !== index);
 
     setDeleting(true);
     try {
@@ -131,16 +154,20 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
     } catch (err) {
       console.error("Error al eliminar evidencia de proyecto:", err);
     } finally {
+      urlsRef.current = updated;
       onChange(updated);
       setConfirmDelete({ open: false, index: null, url: null });
       setDeleting(false);
     }
   };
 
+  const displayUrls = Array.isArray(urls) ? urls : [];
+
   return (
     <div className="space-y-3">
       <p className={proyectoSectionHintClass}>
-        Máximo {PROYECTO_MAX_FOTOS} fotos · PNG, JPG, WebP o SVG.
+        Máximo {PROYECTO_MAX_FOTOS} fotos · JPG o PNG recomendado en celular. En iPhone usa «Más
+        compatible» (no HEIC). Las fotos se ven aquí al subir; guarda el proyecto para conservarlas.
       </p>
 
       {uploadError ? (
@@ -153,7 +180,7 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
       ) : null}
 
       {!disabled ? (
-        <div className="transition border border-dashed border-[#d6d3d1] rounded-xl cursor-pointer hover:border-[#ff801f] dark:border-[#334155] dark:hover:border-[#ff801f]">
+        <div className="cursor-pointer rounded-xl border border-dashed border-[#d6d3d1] transition hover:border-[#ff801f] dark:border-[#334155] dark:hover:border-[#ff801f]">
           <div
             {...getRootProps()}
             className={`rounded-xl p-4 sm:p-5 ${
@@ -166,7 +193,7 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
             aria-label="Subir evidencia fotográfica"
           >
             <input {...getInputProps()} />
-            <div className="flex flex-col items-center m-0">
+            <div className="m-0 flex flex-col items-center">
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f0e8] text-[#57534e] dark:bg-[#1e293b] dark:text-[#94a3b8]">
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                   <path d="M12 16V4m0 0 4 4m-4-4L8 8M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeLinecap="round" strokeLinejoin="round" />
@@ -177,27 +204,47 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
                   ? "Subiendo…"
                   : isDragActive
                     ? "Suelta aquí para subir"
-                    : `Haz clic o arrastra imágenes (máx. ${PROYECTO_MAX_FOTOS})`}
+                    : `Toca para elegir o tomar fotos (máx. ${PROYECTO_MAX_FOTOS})`}
               </p>
               <p className="mt-1 text-center text-[12px] text-[#78716c] dark:text-[#8ea0b8]">
-                PNG, JPG, WebP o SVG · {urls.length}/{PROYECTO_MAX_FOTOS}
+                JPG / PNG · {displayUrls.length}/{PROYECTO_MAX_FOTOS}
               </p>
             </div>
           </div>
         </div>
       ) : null}
 
-      {urls.length > 0 ? (
+      {uploading ? (
+        <p className="text-sm text-[#57534e] dark:text-[#b7c1d1]" role="status" aria-live="polite">
+          Subiendo fotos… no cierres el modal.
+        </p>
+      ) : null}
+
+      {displayUrls.length > 0 ? (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5" aria-label="Evidencias del proyecto">
-          {urls.map((url, index) => (
-            <li key={`${url}-${index}`} className="relative group">
+          {displayUrls.map((url, index) => (
+            <li key={`${url}-${index}`} className="group relative">
               <button
                 type="button"
                 onClick={() => setPreview({ open: true, url, index })}
                 className="block w-full cursor-zoom-in overflow-hidden rounded-lg border-2 border-[#e2d9ca] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40 dark:border-[#334155]"
                 aria-label={`Ver evidencia ${index + 1} en tamaño completo`}
               >
-                <img src={url} alt={`Evidencia ${index + 1}`} className="h-24 w-full object-cover pointer-events-none" />
+                {brokenUrls[url] ? (
+                  <div className="flex h-24 w-full items-center justify-center bg-[#f5f0e8] px-2 text-center text-[11px] text-[#78716c] dark:bg-[#1e293b] dark:text-[#8ea0b8]">
+                    No se pudo mostrar la miniatura
+                  </div>
+                ) : (
+                  <img
+                    src={url}
+                    alt={`Evidencia ${index + 1}`}
+                    className="pointer-events-none h-24 w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    onError={() => setBrokenUrls((prev) => ({ ...prev, [url]: true }))}
+                  />
+                )}
               </button>
               {!disabled ? (
                 <button
@@ -206,7 +253,7 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
                     e.stopPropagation();
                     setConfirmDelete({ open: true, index, url });
                   }}
-                  className="absolute top-1 right-1 z-[1] flex h-7 w-7 items-center justify-center rounded-full bg-rose-600 text-white opacity-100 transition hover:bg-rose-700 sm:opacity-0 sm:group-hover:opacity-100"
+                  className="absolute top-1 right-1 z-[1] flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-rose-600 text-white opacity-100 transition hover:bg-rose-700 sm:h-7 sm:w-7 sm:min-h-0 sm:min-w-0 sm:opacity-0 sm:group-hover:opacity-100"
                   aria-label={`Eliminar evidencia ${index + 1}`}
                   title="Eliminar imagen"
                 >
@@ -240,6 +287,7 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
               src={preview.url}
               alt={`Evidencia ${preview.index + 1} ampliada`}
               className="max-h-[75vh] w-full object-contain"
+              referrerPolicy="no-referrer"
             />
           ) : null}
         </div>

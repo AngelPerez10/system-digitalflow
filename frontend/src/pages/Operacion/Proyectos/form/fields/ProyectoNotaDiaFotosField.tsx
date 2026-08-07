@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
 import { compressImage, getPublicIdFromUrl } from "../../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
@@ -6,6 +6,13 @@ import {
   deleteProyectoImageFromCloudinary,
   uploadProyectoImageToCloudinary,
 } from "../../shared/proyectoImageApi";
+import {
+  isHeicLikeFile,
+  isLikelyImageFile,
+  PROYECTO_IMAGE_ACCEPT,
+  proyectoImageProcessErrorMessage,
+  proyectoImageRejectMessage,
+} from "../../shared/proyectoImageUpload";
 
 export const PROYECTO_NOTA_MAX_FOTOS = 2;
 const PROYECTO_NOTA_FOTOS_FOLDER = "proyectos/bitacora";
@@ -35,6 +42,7 @@ export function ProyectoNotaDiaFotosField({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [brokenUrls, setBrokenUrls] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<{ open: boolean; url: string; index: number }>({
     open: false,
     url: "",
@@ -46,16 +54,39 @@ export function ProyectoNotaDiaFotosField({
     url: string | null;
   }>({ open: false, index: null, url: null });
 
+  const urlsRef = useRef(safeUrls);
+  urlsRef.current = safeUrls;
+
   const onDrop = useCallback(
     async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
-      if (disabled || remaining <= 0) return;
+      if (disabled) return;
       setUploadError("");
 
-      if (fileRejections.length) {
-        setUploadError("Algunos archivos no son válidos. Usa PNG, JPG, WebP o SVG.");
+      const slotsLeft = PROYECTO_NOTA_MAX_FOTOS - urlsRef.current.length;
+      if (slotsLeft <= 0) {
+        setUploadError(`Ya alcanzaste el máximo de ${PROYECTO_NOTA_MAX_FOTOS} fotos.`);
+        return;
       }
 
-      const files = acceptedFiles.slice(0, remaining).filter((f) => f.type.startsWith("image/"));
+      if (fileRejections.length) {
+        setUploadError(proyectoImageRejectMessage(fileRejections[0]?.file?.name));
+      }
+
+      const fromAccepted = acceptedFiles.filter(isLikelyImageFile);
+      const fromRejected = fileRejections.map((r) => r.file).filter(isLikelyImageFile);
+      const merged = [...fromAccepted];
+      for (const f of fromRejected) {
+        if (!merged.includes(f)) merged.push(f);
+      }
+
+      const heicFiles = merged.filter(isHeicLikeFile);
+      const files = merged.filter((f) => !isHeicLikeFile(f)).slice(0, slotsLeft);
+
+      if (heicFiles.length && !files.length) {
+        setUploadError(proyectoImageRejectMessage(heicFiles[0]?.name));
+        return;
+      }
+
       if (!files.length) {
         if (!fileRejections.length) {
           setUploadError("No se encontraron imágenes para subir.");
@@ -78,10 +109,17 @@ export function ProyectoNotaDiaFotosField({
             }
           } catch (err) {
             console.error("Error al subir foto de bitácora:", err);
-            failures.push("No se pudo procesar la imagen.");
+            failures.push(proyectoImageProcessErrorMessage(file));
           }
         }
-        if (uploaded.length) onChange([...safeUrls, ...uploaded].slice(0, PROYECTO_NOTA_MAX_FOTOS));
+        if (uploaded.length) {
+          const next = [...urlsRef.current, ...uploaded].slice(0, PROYECTO_NOTA_MAX_FOTOS);
+          urlsRef.current = next;
+          onChange(next);
+        }
+        if (heicFiles.length) {
+          failures.push(proyectoImageRejectMessage(heicFiles[0]?.name));
+        }
         if (failures.length) {
           setUploadError(
             failures.length === 1
@@ -93,7 +131,7 @@ export function ProyectoNotaDiaFotosField({
         setUploading(false);
       }
     },
-    [disabled, onChange, remaining, safeUrls]
+    [disabled, onChange]
   );
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
@@ -103,19 +141,14 @@ export function ProyectoNotaDiaFotosField({
     disabled: disabled || uploading || remaining <= 0,
     noClick: true,
     noKeyboard: true,
-    accept: {
-      "image/png": [],
-      "image/jpeg": [],
-      "image/webp": [],
-      "image/svg+xml": [],
-    },
+    accept: PROYECTO_IMAGE_ACCEPT,
   });
 
   const handleDelete = async () => {
     if (confirmDelete.index == null || !confirmDelete.url) return;
     const index = confirmDelete.index;
     const url = confirmDelete.url;
-    const updated = safeUrls.filter((_, i) => i !== index);
+    const updated = urlsRef.current.filter((_, i) => i !== index);
 
     setDeleting(true);
     try {
@@ -126,6 +159,7 @@ export function ProyectoNotaDiaFotosField({
     } catch (err) {
       console.error("Error al eliminar foto de bitácora:", err);
     } finally {
+      urlsRef.current = updated;
       onChange(updated);
       setConfirmDelete({ open: false, index: null, url: null });
       setDeleting(false);
@@ -137,7 +171,7 @@ export function ProyectoNotaDiaFotosField({
     : isDragActive
       ? "Suelta para adjuntar"
       : safeUrls.length === 0
-        ? "Opcional · máx. 2"
+        ? "Opcional · máx. 2 · JPG"
         : `${safeUrls.length}/${PROYECTO_NOTA_MAX_FOTOS}`;
 
   return (
@@ -168,11 +202,20 @@ export function ProyectoNotaDiaFotosField({
                 className="block h-11 w-11 overflow-hidden rounded-md border border-[#e7ded0]/90 bg-[#fcfaf6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/30 dark:border-[#334155] dark:bg-[#0f172a]"
                 aria-label={`Ver foto ${index + 1} del ${diaLabel}`}
               >
-                <img
-                  src={url}
-                  alt={`Foto ${index + 1} del ${diaLabel}`}
-                  className="h-full w-full object-cover pointer-events-none"
-                />
+                {brokenUrls[url] ? (
+                  <span className="flex h-full w-full items-center justify-center text-[9px] text-[#78716c]">
+                    —
+                  </span>
+                ) : (
+                  <img
+                    src={url}
+                    alt={`Foto ${index + 1} del ${diaLabel}`}
+                    className="pointer-events-none h-full w-full object-cover"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    onError={() => setBrokenUrls((prev) => ({ ...prev, [url]: true }))}
+                  />
+                )}
               </button>
               {!disabled ? (
                 <button
@@ -181,7 +224,7 @@ export function ProyectoNotaDiaFotosField({
                     e.stopPropagation();
                     setConfirmDelete({ open: true, index, url });
                   }}
-                  className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-[#e7ded0] bg-white text-[10px] leading-none text-[#78716c] opacity-0 shadow-sm transition hover:border-rose-200 hover:text-rose-600 focus:opacity-100 focus:outline-none group-hover:opacity-100 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#94a3b8]"
+                  className="absolute -right-1 -top-1 flex h-6 w-6 min-h-[24px] min-w-[24px] items-center justify-center rounded-full border border-[#e7ded0] bg-white text-[10px] leading-none text-[#78716c] shadow-sm transition hover:border-rose-200 hover:text-rose-600 focus:outline-none dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#94a3b8]"
                   aria-label={`Quitar foto ${index + 1} del ${diaLabel}`}
                   title="Quitar"
                 >
