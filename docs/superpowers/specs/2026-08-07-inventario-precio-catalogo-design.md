@@ -15,5 +15,5 @@
 
 ## Origen del monto
 
-- **SYSCOM:** `precios.precio_especial` o `precio_lista` (USD) × tipocambio SYSCOM × 1.16 → MXN.
-- **TVC:** `precio_mxn` del mapeo existente (lista/distribuidor × TC TVC × 1.16).
+- **SYSCOM:** el **más bajo** entre `precio_lista`, `precio_especial` y `precio_descuento` (USD) × tipocambio SYSCOM × 1.16 → MXN. (Inventario usa costo sugerido; cotización sigue prefiriendo especial.)
+- **TVC:** `precio_mxn` del mapeo; si hay `precio_descuento` (distribuidor) menor que lista, se escala al mínimo.

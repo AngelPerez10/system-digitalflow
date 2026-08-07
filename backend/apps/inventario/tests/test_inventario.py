@@ -482,12 +482,16 @@ class InventarioCaracteristicasTests(APITestCase):
             {
                 'producto_id': 1,
                 'titulo': 'Botonera',
-                'precios': {'precio_lista': '14.66', 'precio_especial': '14.52'},
+                'precios': {
+                    'precio_lista': '14.66',
+                    'precio_especial': '14.52',
+                    'precio_descuento': '9.10',
+                },
             },
             'syscom',
         )
-        # especial 14.52 × 17.27 × 1.16
-        esperado = (Decimal('14.52') * Decimal('17.27') * Decimal('1.16')).quantize(Decimal('0.01'))
+        # El más bajo (descuento 9.10) × 17.27 × 1.16
+        esperado = (Decimal('9.10') * Decimal('17.27') * Decimal('1.16')).quantize(Decimal('0.01'))
         self.assertEqual(mapped['precio_unitario'], format(esperado, 'f'))
 
     def test_map_product_tvc_usa_precio_mxn(self):
@@ -496,6 +500,19 @@ class InventarioCaracteristicasTests(APITestCase):
             'tvc',
         )
         self.assertEqual(mapped['precio_unitario'], '1234.50')
+
+    def test_map_product_tvc_escala_al_descuento(self):
+        mapped = _map_product(
+            {
+                'tvc_id': 9,
+                'name': 'Cable',
+                'precio_mxn': 1160.0,
+                'precios': {'precio_lista': '100', 'precio_descuento': '80'},
+            },
+            'tvc',
+        )
+        # 1160 × 80/100
+        self.assertEqual(mapped['precio_unitario'], '928.00')
 
     @patch(
         'apps.inventario.views.enrich_from_catalogs',

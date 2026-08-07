@@ -69,34 +69,64 @@ def _get_syscom_tipo_cambio() -> Decimal | None:
     return tc
 
 
-def _extract_precio_unitario(raw: dict, fuente: str) -> Decimal | None:
-    """Precio de lista del proveedor en MXN (misma lógica que cotizaciones)."""
-    # TVC ya mapea precio_mxn; SYSCOM a veces también.
-    directo = _as_decimal(raw.get('precio_mxn') or raw.get('precio_unitario'))
-    if directo is not None and directo > 0:
-        return directo.quantize(Decimal('0.01'))
-
+def _usd_precios_candidatos(raw: dict) -> list[Decimal]:
+    """Montos USD positivos de lista / especial / descuento (y aliases TVC)."""
     precios = raw.get('precios') if isinstance(raw.get('precios'), dict) else {}
-    # Cotización: especial ?? lista (USD).
-    usd = _as_decimal(precios.get('precio_especial'))
-    if usd is None:
-        usd = _as_decimal(precios.get('precio_lista') or precios.get('precio_1'))
-    if usd is None:
-        usd = _as_decimal(raw.get('list_price') or raw.get('distributor_price'))
-    if usd is None or usd <= 0:
-        return None
+    candidatos: list[Decimal] = []
+    for clave in (
+        'precio_lista',
+        'precio_especial',
+        'precio_descuento',
+        'precio_1',
+    ):
+        valor = _as_decimal(precios.get(clave))
+        if valor is not None and valor > 0:
+            candidatos.append(valor)
+    for clave in ('list_price', 'distributor_price'):
+        valor = _as_decimal(raw.get(clave))
+        if valor is not None and valor > 0:
+            candidatos.append(valor)
+    return candidatos
 
+
+def _extract_precio_unitario(raw: dict, fuente: str) -> Decimal | None:
+    """Precio de costo sugerido en MXN: el más bajo entre los tiers del proveedor."""
     origen = (fuente or '').strip().lower()
+    precios = raw.get('precios') if isinstance(raw.get('precios'), dict) else {}
+    usd_vals = _usd_precios_candidatos(raw)
+    usd_min = min(usd_vals) if usd_vals else None
+
     if origen == 'syscom':
+        if usd_min is None:
+            directo = _as_decimal(raw.get('precio_mxn') or raw.get('precio_unitario'))
+            if directo is not None and directo > 0:
+                return directo.quantize(Decimal('0.01'))
+            return None
         tc = _get_syscom_tipo_cambio()
         if tc is None:
             return None
-        return (usd * tc * IVA_MX).quantize(Decimal('0.01'))
+        return (usd_min * tc * IVA_MX).quantize(Decimal('0.01'))
 
     if origen == 'tvc':
-        # Si el mapeo TVC no trajo precio_mxn, no inventamos TC aquí.
+        # El mapeo TVC suele poner precio_mxn desde list_price; escalamos al USD mínimo.
+        directo = _as_decimal(raw.get('precio_mxn') or raw.get('precio_unitario'))
+        lista = _as_decimal(precios.get('precio_lista') or raw.get('list_price'))
+        if (
+            directo is not None
+            and directo > 0
+            and usd_min is not None
+            and lista is not None
+            and lista > 0
+            and usd_min < lista
+        ):
+            return (directo * usd_min / lista).quantize(Decimal('0.01'))
+        if directo is not None and directo > 0:
+            return directo.quantize(Decimal('0.01'))
         return None
 
+    directo = _as_decimal(raw.get('precio_mxn') or raw.get('precio_unitario'))
+    if directo is not None and directo > 0:
+        return directo.quantize(Decimal('0.01'))
     return None
 
 

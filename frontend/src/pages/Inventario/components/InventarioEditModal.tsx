@@ -36,9 +36,11 @@ import {
   BarcodeIcon,
   CheckIcon,
   CloseIcon,
+  EntradaIcon,
   LinkIcon,
   PhotoIcon,
   RefreshIcon,
+  SalidaIcon,
   SearchIcon,
   TagIcon,
   TrashIcon,
@@ -49,7 +51,6 @@ import type {
   InventarioFuente,
   InventarioItem,
   InventarioItemPatch,
-  ScanModo,
 } from "../shared/inventarioTypes";
 
 const MIN_BUSQUEDA = 3;
@@ -74,11 +75,11 @@ type InventarioEditModalProps = {
   open: boolean;
   item: InventarioItem | null;
   saving: boolean;
-  /** Permiso inventario.create: meter/sacar ±1 sin escáner. */
+  /** Permiso inventario.create: meter/sacar ±1 sin escáner (se aplica al Guardar). */
   canAdjustStock?: boolean;
   onClose: () => void;
   onSave: (id: number, patch: InventarioItemPatch) => Promise<void>;
-  /** Tras Entrada/Salida manual; el padre refresca listas y stats. */
+  /** Tras aplicar entradas/salidas pendientes al Guardar. */
   onItemUpdated?: (item: InventarioItem) => void;
 };
 
@@ -100,9 +101,12 @@ export default function InventarioEditModal({
   const [refExterna, setRefExterna] = useState("");
   const [imagenUrl, setImagenUrl] = useState("");
   const [precioUnitario, setPrecioUnitario] = useState("");
+  /** Existencia ya persistida (al abrir o tras Guardar). */
+  const [cantidadGuardada, setCantidadGuardada] = useState(0);
+  /** Existencia en pantalla; los ±1 solo se envían al Guardar. */
   const [cantidad, setCantidad] = useState(0);
-  const [ajustando, setAjustando] = useState(false);
   const [ajusteAviso, setAjusteAviso] = useState<string | null>(null);
+  const [aplicandoExistencia, setAplicandoExistencia] = useState(false);
   const [subiendoImagen, setSubiendoImagen] = useState(false);
   const [imagenError, setImagenError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -147,6 +151,7 @@ export default function InventarioEditModal({
     setRefExterna(item.ref_externa || "");
     setImagenUrl(item.imagen_url || "");
     setPrecioUnitario(item.precio_unitario != null ? String(item.precio_unitario) : "");
+    setCantidadGuardada(item.cantidad);
     setCantidad(item.cantidad);
     setImagenError(null);
     setError(null);
@@ -154,14 +159,9 @@ export default function InventarioEditModal({
     setCandidatos([]);
     setBusquedaError(null);
     setBusquedaHecha(false);
-    // Solo al abrir otro ítem: un ±1 no debe pisar campos sin guardar.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- reset de ficha solo por id
+    // Solo al abrir otro ítem: un ±1 pendiente no debe pisar campos sin guardar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset de ficha solo por id
   }, [item?.id]);
-
-  useEffect(() => {
-    if (item == null) return;
-    setCantidad(item.cantidad);
-  }, [item]);
 
   // La búsqueda del catálogo no trae foto ni ficha técnica, solo el detalle; se
   // piden solos al abrir un ítem vinculado al que le falte alguno de los dos.
@@ -303,25 +303,14 @@ export default function InventarioEditModal({
       .finally(() => setTrayendoFicha(false));
   };
 
-  const ajustarExistencia = async (modo: ScanModo) => {
-    if (!item || !canAdjustStock) return;
-    setAjustando(true);
+  const deltaExistencia = cantidad - cantidadGuardada;
+  const busy = saving || aplicandoExistencia;
+
+  const ajustarExistenciaLocal = (delta: 1 | -1) => {
+    if (!canAdjustStock || busy) return;
+    setCantidad((prev) => Math.max(0, prev + delta));
     setAjusteAviso(null);
     setError(null);
-    try {
-      const result = await scanInventario(item.codigo_barras, modo);
-      setCantidad(result.item.cantidad);
-      setAjusteAviso(
-        modo === "entrada"
-          ? `Entrada registrada · existencia ${result.item.cantidad}`
-          : `Salida registrada · existencia ${result.item.cantidad}`,
-      );
-      onItemUpdated?.(result.item);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo ajustar la existencia");
-    } finally {
-      setAjustando(false);
-    }
   };
 
   const desvincular = () => {
@@ -356,7 +345,30 @@ export default function InventarioEditModal({
     e.preventDefault();
     if (!item) return;
     setError(null);
+    setAjusteAviso(null);
     try {
+      // Mismos ±1 que el escáner; se aplican aquí para no tocar el historial hasta Guardar.
+      if (deltaExistencia !== 0) {
+        if (!canAdjustStock) {
+          throw new Error("No tienes permiso para meter o sacar existencia.");
+        }
+        setAplicandoExistencia(true);
+        const modo = deltaExistencia > 0 ? "entrada" : "salida";
+        const pasos = Math.abs(deltaExistencia);
+        let actualizado = item;
+        for (let i = 0; i < pasos; i += 1) {
+          const result = await scanInventario(item.codigo_barras, modo);
+          actualizado = result.item;
+        }
+        setCantidadGuardada(actualizado.cantidad);
+        setCantidad(actualizado.cantidad);
+        onItemUpdated?.(actualizado);
+        setAjusteAviso(
+          deltaExistencia > 0
+            ? `Se registraron ${pasos} entrada${pasos === 1 ? "" : "s"} · existencia ${actualizado.cantidad}`
+            : `Se registraron ${pasos} salida${pasos === 1 ? "" : "s"} · existencia ${actualizado.cantidad}`,
+        );
+      }
       await onSave(item.id, {
         nombre: nombre.trim(),
         marca: marca.trim(),
@@ -370,6 +382,8 @@ export default function InventarioEditModal({
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar el ítem");
+    } finally {
+      setAplicandoExistencia(false);
     }
   };
 
@@ -432,43 +446,88 @@ export default function InventarioEditModal({
               titleId={`${titleId}-sec-existencia`}
               eyebrow="Existencia"
               title="Meter o sacar"
-              hint="Sin escáner: registra entrada o salida de 1 unidad (mismo historial)."
+              hint="Los botones solo cambian el conteo aquí; el historial se escribe al Guardar."
               icon={<BarcodeIcon className={inventarioSectionIconClass} />}
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <span className={existenciaBadgeClass(cantidad)} aria-live="polite">
-                    {cantidad}
-                  </span>
-                  <span className="text-sm text-[#57534e] dark:text-[#b7c1d1]">
-                    {cantidad === 1 ? "unidad en piso" : "unidades en piso"}
-                  </span>
-                </div>
-                {canAdjustStock ? (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className={erpPrimaryBtnClass}
-                      onClick={() => void ajustarExistencia("entrada")}
-                      disabled={saving || ajustando || !item}
+              <div
+                className="overflow-hidden rounded-2xl border border-[#e7ded0] bg-gradient-to-br from-[#fffdfa] via-[#fff8f1] to-[#f5f0e8] dark:border-[#334155] dark:from-[#0f172a] dark:via-[#111827] dark:to-[#0b1220]"
+                role="group"
+                aria-labelledby={`${titleId}-existencia-label`}
+              >
+                <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-5">
+                  <div className="min-w-0">
+                    <p
+                      id={`${titleId}-existencia-label`}
+                      className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9a3412] dark:text-[#fdba74]"
                     >
-                      {ajustando ? "Registrando…" : "Entrada (+1)"}
-                    </button>
-                    <button
-                      type="button"
-                      className={erpSecondaryBtnClass}
-                      onClick={() => void ajustarExistencia("salida")}
-                      disabled={saving || ajustando || !item || cantidad <= 0}
-                      title={cantidad <= 0 ? "Sin existencia" : "Registrar salida"}
-                    >
-                      Salida (−1)
-                    </button>
+                      En piso ahora
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-end gap-3">
+                      <span
+                        className={`${existenciaBadgeClass(cantidad)} !min-w-[3.25rem] !rounded-xl !px-3 !py-1.5 !text-2xl !leading-none`}
+                        aria-live="polite"
+                        aria-atomic="true"
+                      >
+                        {cantidad}
+                      </span>
+                      <div className="pb-0.5">
+                        <p className="text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
+                          {cantidad === 1 ? "unidad" : "unidades"}
+                        </p>
+                        <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                          Guardado: {cantidadGuardada}
+                          {deltaExistencia !== 0 ? (
+                            <span className="ml-1.5 font-semibold text-[#9a3412] dark:text-[#fdba74]">
+                              · pendiente {deltaExistencia > 0 ? `+${deltaExistencia}` : deltaExistencia}
+                            </span>
+                          ) : null}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
-                    Necesitas permiso de crear en Inventario para meter o sacar.
+
+                  {canAdjustStock ? (
+                    <div className="flex w-full gap-2 sm:w-auto sm:shrink-0">
+                      <button
+                        type="button"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#e7ded0] bg-white px-4 text-sm font-semibold text-[#1c1917] shadow-sm transition-colors hover:border-[#f59e0b]/60 hover:bg-[#fffbeb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#334155] dark:bg-[#111827] dark:text-[#f8fafc] dark:hover:border-[#f59e0b]/50 dark:hover:bg-[#1e293b] sm:flex-none sm:min-w-[8.5rem]"
+                        onClick={() => ajustarExistenciaLocal(-1)}
+                        disabled={busy || !item || cantidad <= 0}
+                        aria-label="Salida: restar una unidad (se aplica al guardar)"
+                        title={cantidad <= 0 ? "Sin existencia" : "Salida −1 (al Guardar)"}
+                      >
+                        <SalidaIcon className="h-4 w-4 shrink-0" />
+                        Salida
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#ff801f]/35 bg-[#ff801f] px-4 text-sm font-semibold text-black shadow-sm transition-colors hover:bg-[#ea580c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/45 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:min-w-[8.5rem]"
+                        onClick={() => ajustarExistenciaLocal(1)}
+                        disabled={busy || !item}
+                        aria-label="Entrada: sumar una unidad (se aplica al guardar)"
+                        title="Entrada +1 (al Guardar)"
+                      >
+                        <EntradaIcon className="h-4 w-4 shrink-0" />
+                        Entrada
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                      Necesitas permiso de crear en Inventario para meter o sacar.
+                    </p>
+                  )}
+                </div>
+                {deltaExistencia !== 0 ? (
+                  <p
+                    className="border-t border-[#e7ded0]/80 bg-[#fff8f1]/80 px-4 py-2.5 text-xs text-[#9a3412] dark:border-[#334155] dark:bg-[#1e293b]/40 dark:text-[#fdba74] sm:px-5"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    Al guardar se {deltaExistencia > 0 ? "entrarán" : "sacarán"}{" "}
+                    {Math.abs(deltaExistencia)} unidad
+                    {Math.abs(deltaExistencia) === 1 ? "" : "es"} (mismo historial que el escáner).
                   </p>
-                )}
+                ) : null}
               </div>
               {ajusteAviso ? (
                 <p className="mt-2 text-xs text-[#047857] dark:text-[#6ee7b7]" role="status" aria-live="polite">
@@ -806,13 +865,19 @@ export default function InventarioEditModal({
 
         <footer className={erpModalFooterClass}>
           <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end sm:gap-3">
-            <button type="button" className={erpSecondaryBtnClass} onClick={onClose} disabled={saving || ajustando}>
+            <button type="button" className={erpSecondaryBtnClass} onClick={onClose} disabled={busy}>
               <CloseIcon className="h-4 w-4" />
               Cancelar
             </button>
-            <button type="submit" className={erpPrimaryBtnClass} disabled={saving || ajustando || !item}>
+            <button type="submit" className={erpPrimaryBtnClass} disabled={busy || !item}>
               <CheckIcon className="h-4 w-4" />
-              {saving ? "Guardando…" : "Guardar"}
+              {aplicandoExistencia
+                ? "Registrando existencia…"
+                : saving
+                  ? "Guardando…"
+                  : deltaExistencia !== 0
+                    ? `Guardar (${deltaExistencia > 0 ? "+" : ""}${deltaExistencia})`
+                    : "Guardar"}
             </button>
           </div>
         </footer>
