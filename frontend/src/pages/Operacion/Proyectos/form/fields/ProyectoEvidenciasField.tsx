@@ -1,20 +1,15 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
-import {
-  compressImage,
-  getPublicIdFromUrl,
-} from "../../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
+import { getPublicIdFromUrl } from "../../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
 import {
   deleteProyectoImageFromCloudinary,
-  uploadProyectoImageToCloudinary,
 } from "../../shared/proyectoImageApi";
 import {
-  isHeicLikeFile,
-  isLikelyImageFile,
+  collectProyectoImageFiles,
   PROYECTO_IMAGE_ACCEPT,
-  proyectoImageProcessErrorMessage,
   proyectoImageRejectMessage,
+  uploadProyectoImageBatch,
 } from "../../shared/proyectoImageUpload";
 import { proyectoSectionHintClass } from "../../shared/proyectoPageStyles";
 
@@ -29,10 +24,11 @@ type Props = {
 
 /**
  * Evidencia fotográfica vía `/api/proyectos/upload-image/`.
- * Pensado para técnicos en celular (MIME vacío / HEIC / subidas lentas).
+ * Pensado para técnicos en celular (MIME vacío / HEIC / varias fotos a la vez).
  */
 export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Props) {
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [uploadError, setUploadError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [brokenUrls, setBrokenUrls] = useState<Record<string, boolean>>({});
@@ -47,13 +43,19 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
     url: string | null;
   }>({ open: false, index: null, url: null });
 
-  // Evita perder fotos si hay dos subidas en paralelo (red lenta en celular).
-  const urlsRef = useRef(urls);
-  urlsRef.current = Array.isArray(urls) ? urls : [];
+  const urlsRef = useRef(Array.isArray(urls) ? urls : []);
+  const uploadingRef = useRef(false);
+
+  // No pisar urlsRef con props viejas mientras hay una subida en curso.
+  useEffect(() => {
+    if (!uploadingRef.current) {
+      urlsRef.current = Array.isArray(urls) ? urls : [];
+    }
+  }, [urls]);
 
   const onDrop = useCallback(
     async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
-      if (disabled) return;
+      if (disabled || uploadingRef.current) return;
       setUploadError("");
 
       if (fileRejections.length) {
@@ -61,23 +63,17 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
         setUploadError(proyectoImageRejectMessage(first?.name));
       }
 
-      const current = urlsRef.current;
-      const remaining = PROYECTO_MAX_FOTOS - current.length;
+      const remaining = PROYECTO_MAX_FOTOS - urlsRef.current.length;
       if (remaining <= 0) {
         setUploadError(`Ya alcanzaste el máximo de ${PROYECTO_MAX_FOTOS} fotos.`);
         return;
       }
 
-      // Salvamos archivos con MIME vacío (cámara móvil) que dropzone a veces rechaza.
-      const fromAccepted = acceptedFiles.filter(isLikelyImageFile);
-      const fromRejected = fileRejections.map((r) => r.file).filter(isLikelyImageFile);
-      const merged = [...fromAccepted];
-      for (const f of fromRejected) {
-        if (!merged.includes(f)) merged.push(f);
-      }
-
-      const heicFiles = merged.filter(isHeicLikeFile);
-      const files = merged.filter((f) => !isHeicLikeFile(f)).slice(0, remaining);
+      const { files, heicFiles } = collectProyectoImageFiles(
+        acceptedFiles,
+        fileRejections.map((r) => r.file),
+        remaining
+      );
 
       if (heicFiles.length && !files.length) {
         setUploadError(proyectoImageRejectMessage(heicFiles[0]?.name));
@@ -91,41 +87,37 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
         return;
       }
 
+      uploadingRef.current = true;
       setUploading(true);
+      setUploadProgress({ done: 0, total: files.length });
       try {
-        const uploaded: string[] = [];
-        const failures: string[] = [];
-        for (const file of files) {
-          try {
-            const compressed = await compressImage(file, 80, 1400, 1400);
-            const result = await uploadProyectoImageToCloudinary(compressed, PROYECTO_FOTOS_FOLDER);
-            if (result.ok) {
-              uploaded.push(result.url);
-            } else {
-              failures.push(`${file.name}: ${result.message}`);
-            }
-          } catch (err) {
-            console.error("Error al subir evidencia de proyecto:", err);
-            failures.push(proyectoImageProcessErrorMessage(file));
-          }
-        }
-        if (uploaded.length) {
-          const next = [...urlsRef.current, ...uploaded].slice(0, PROYECTO_MAX_FOTOS);
-          urlsRef.current = next;
-          onChange(next);
-        }
+        const { failures } = await uploadProyectoImageBatch({
+          files,
+          folder: PROYECTO_FOTOS_FOLDER,
+          maxTotal: PROYECTO_MAX_FOTOS,
+          getCurrentUrls: () => urlsRef.current,
+          onUrlsChange: (next) => {
+            urlsRef.current = next;
+            onChange(next);
+          },
+          onProgress: setUploadProgress,
+        });
+
+        const allFailures = [...failures];
         if (heicFiles.length) {
-          failures.push(proyectoImageRejectMessage(heicFiles[0]?.name));
+          allFailures.push(proyectoImageRejectMessage(heicFiles[0]?.name));
         }
-        if (failures.length) {
+        if (allFailures.length) {
           setUploadError(
-            failures.length === 1
-              ? failures[0]
-              : `No se pudieron subir ${failures.length} imagen(es). ${failures[0]}`
+            allFailures.length === 1
+              ? allFailures[0]
+              : `No se pudieron subir ${allFailures.length} imagen(es). ${allFailures[0]}`
           );
         }
       } finally {
+        uploadingRef.current = false;
         setUploading(false);
+        setUploadProgress(null);
       }
     },
     [disabled, onChange]
@@ -166,8 +158,8 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
   return (
     <div className="space-y-3">
       <p className={proyectoSectionHintClass}>
-        Máximo {PROYECTO_MAX_FOTOS} fotos · JPG o PNG recomendado en celular. En iPhone usa «Más
-        compatible» (no HEIC). Las fotos se ven aquí al subir; guarda el proyecto para conservarlas.
+        Máximo {PROYECTO_MAX_FOTOS} fotos · JPG o PNG en celular. En iPhone usa «Más compatible» (no
+        HEIC). Sube de a pocas si la red es lenta; guarda el proyecto al terminar.
       </p>
 
       {uploadError ? (
@@ -191,6 +183,7 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
             role="button"
             tabIndex={0}
             aria-label="Subir evidencia fotográfica"
+            aria-busy={uploading}
           >
             <input {...getInputProps()} />
             <div className="m-0 flex flex-col items-center">
@@ -201,7 +194,9 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
               </div>
               <p className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
                 {uploading
-                  ? "Subiendo…"
+                  ? uploadProgress
+                    ? `Subiendo ${uploadProgress.done} de ${uploadProgress.total}…`
+                    : "Subiendo…"
                   : isDragActive
                     ? "Suelta aquí para subir"
                     : `Toca para elegir o tomar fotos (máx. ${PROYECTO_MAX_FOTOS})`}
@@ -216,7 +211,9 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
 
       {uploading ? (
         <p className="text-sm text-[#57534e] dark:text-[#b7c1d1]" role="status" aria-live="polite">
-          Subiendo fotos… no cierres el modal.
+          {uploadProgress
+            ? `Procesando foto ${Math.min(uploadProgress.done + 1, uploadProgress.total)} de ${uploadProgress.total}. No cierres el modal.`
+            : "Subiendo fotos… no cierres el modal."}
         </p>
       ) : null}
 

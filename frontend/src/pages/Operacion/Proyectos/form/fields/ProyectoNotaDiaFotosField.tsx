@@ -1,17 +1,13 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
-import { compressImage, getPublicIdFromUrl } from "../../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
+import { getPublicIdFromUrl } from "../../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
+import { deleteProyectoImageFromCloudinary } from "../../shared/proyectoImageApi";
 import {
-  deleteProyectoImageFromCloudinary,
-  uploadProyectoImageToCloudinary,
-} from "../../shared/proyectoImageApi";
-import {
-  isHeicLikeFile,
-  isLikelyImageFile,
+  collectProyectoImageFiles,
   PROYECTO_IMAGE_ACCEPT,
-  proyectoImageProcessErrorMessage,
   proyectoImageRejectMessage,
+  uploadProyectoImageBatch,
 } from "../../shared/proyectoImageUpload";
 
 export const PROYECTO_NOTA_MAX_FOTOS = 2;
@@ -40,6 +36,7 @@ export function ProyectoNotaDiaFotosField({
   );
   const remaining = PROYECTO_NOTA_MAX_FOTOS - safeUrls.length;
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [uploadError, setUploadError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [brokenUrls, setBrokenUrls] = useState<Record<string, boolean>>({});
@@ -55,11 +52,17 @@ export function ProyectoNotaDiaFotosField({
   }>({ open: false, index: null, url: null });
 
   const urlsRef = useRef(safeUrls);
-  urlsRef.current = safeUrls;
+  const uploadingRef = useRef(false);
+
+  useEffect(() => {
+    if (!uploadingRef.current) {
+      urlsRef.current = safeUrls;
+    }
+  }, [safeUrls]);
 
   const onDrop = useCallback(
     async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
-      if (disabled) return;
+      if (disabled || uploadingRef.current) return;
       setUploadError("");
 
       const slotsLeft = PROYECTO_NOTA_MAX_FOTOS - urlsRef.current.length;
@@ -72,15 +75,11 @@ export function ProyectoNotaDiaFotosField({
         setUploadError(proyectoImageRejectMessage(fileRejections[0]?.file?.name));
       }
 
-      const fromAccepted = acceptedFiles.filter(isLikelyImageFile);
-      const fromRejected = fileRejections.map((r) => r.file).filter(isLikelyImageFile);
-      const merged = [...fromAccepted];
-      for (const f of fromRejected) {
-        if (!merged.includes(f)) merged.push(f);
-      }
-
-      const heicFiles = merged.filter(isHeicLikeFile);
-      const files = merged.filter((f) => !isHeicLikeFile(f)).slice(0, slotsLeft);
+      const { files, heicFiles } = collectProyectoImageFiles(
+        acceptedFiles,
+        fileRejections.map((r) => r.file),
+        slotsLeft
+      );
 
       if (heicFiles.length && !files.length) {
         setUploadError(proyectoImageRejectMessage(heicFiles[0]?.name));
@@ -94,41 +93,37 @@ export function ProyectoNotaDiaFotosField({
         return;
       }
 
+      uploadingRef.current = true;
       setUploading(true);
+      setUploadProgress({ done: 0, total: files.length });
       try {
-        const uploaded: string[] = [];
-        const failures: string[] = [];
-        for (const file of files) {
-          try {
-            const compressed = await compressImage(file, 80, 1400, 1400);
-            const result = await uploadProyectoImageToCloudinary(compressed, PROYECTO_NOTA_FOTOS_FOLDER);
-            if (result.ok) {
-              uploaded.push(result.url);
-            } else {
-              failures.push(result.message);
-            }
-          } catch (err) {
-            console.error("Error al subir foto de bitácora:", err);
-            failures.push(proyectoImageProcessErrorMessage(file));
-          }
-        }
-        if (uploaded.length) {
-          const next = [...urlsRef.current, ...uploaded].slice(0, PROYECTO_NOTA_MAX_FOTOS);
-          urlsRef.current = next;
-          onChange(next);
-        }
+        const { failures } = await uploadProyectoImageBatch({
+          files,
+          folder: PROYECTO_NOTA_FOTOS_FOLDER,
+          maxTotal: PROYECTO_NOTA_MAX_FOTOS,
+          getCurrentUrls: () => urlsRef.current,
+          onUrlsChange: (next) => {
+            urlsRef.current = next;
+            onChange(next);
+          },
+          onProgress: setUploadProgress,
+        });
+
+        const allFailures = [...failures];
         if (heicFiles.length) {
-          failures.push(proyectoImageRejectMessage(heicFiles[0]?.name));
+          allFailures.push(proyectoImageRejectMessage(heicFiles[0]?.name));
         }
-        if (failures.length) {
+        if (allFailures.length) {
           setUploadError(
-            failures.length === 1
-              ? failures[0]
-              : `No se pudieron subir ${failures.length} foto(s). ${failures[0]}`
+            allFailures.length === 1
+              ? allFailures[0]
+              : `No se pudieron subir ${allFailures.length} foto(s). ${allFailures[0]}`
           );
         }
       } finally {
+        uploadingRef.current = false;
         setUploading(false);
+        setUploadProgress(null);
       }
     },
     [disabled, onChange]
@@ -167,7 +162,9 @@ export function ProyectoNotaDiaFotosField({
   };
 
   const statusText = uploading
-    ? "Subiendo…"
+    ? uploadProgress
+      ? `${uploadProgress.done}/${uploadProgress.total}`
+      : "Subiendo…"
     : isDragActive
       ? "Suelta para adjuntar"
       : safeUrls.length === 0
@@ -242,6 +239,7 @@ export function ProyectoNotaDiaFotosField({
                 disabled={uploading}
                 className="inline-flex h-11 items-center gap-1.5 rounded-md border border-transparent px-2 text-[11px] font-medium text-[#78716c] transition hover:border-[#e7ded0] hover:bg-[#fcfaf6] hover:text-[#57534e] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/25 disabled:opacity-50 dark:text-[#8ea0b8] dark:hover:border-[#334155] dark:hover:bg-[#111a2b] dark:hover:text-[#cbd5e1]"
                 aria-label={`Adjuntar foto al ${diaLabel}. Quedan ${remaining}`}
+                aria-busy={uploading}
               >
                 <svg
                   className="h-3.5 w-3.5 shrink-0 opacity-70"
