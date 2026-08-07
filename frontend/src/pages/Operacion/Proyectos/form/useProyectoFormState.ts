@@ -62,11 +62,9 @@ export type UseProyectoFormStateArgs = {
 
 export function useProyectoFormState({
   open,
-  proyectoId,
   initialDraft,
   onSave,
 }: UseProyectoFormStateArgs) {
-  const editing = proyectoId != null;
   const { user, isAdmin } = useAuth();
   const clienteTabId = useId();
   const operacionTabId = useId();
@@ -670,9 +668,7 @@ export function useProyectoFormState({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // En alta, el wizard avanza hasta Presupuesto. En edición (técnico en celular)
-    // debe poder guardar desde Operación / Instalaciones sin perder evidencias.
-    if (!editing && activeTabRef.current !== "presupuesto") {
+    if (activeTabRef.current !== "presupuesto") {
       goToNextTab(true);
       return;
     }
