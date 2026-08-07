@@ -255,6 +255,30 @@ class OrdenesAttachmentPermission(BasePermission):
         return False
 
 
+class ProyectosAttachmentPermission(BasePermission):
+    """
+    Subida/borrado de imágenes de proyectos (evidencias, bitácora, firmas).
+    POST permitido con create o edit — los técnicos suelen tener solo edit.
+    """
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, 'proyectos')
+        method = (request.method or '').upper()
+        if method == 'POST':
+            return (
+                _as_bool_value(module_perms.get('create'), False)
+                or _as_bool_value(module_perms.get('edit'), False)
+            )
+        return False
+
+
 class OrdenesPermission(ModulePermission):
     """Permisos JSON para órdenes de trabajo."""
 

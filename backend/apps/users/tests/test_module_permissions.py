@@ -5,7 +5,12 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.users.models import UserPermissions
-from apps.users.permissions import OrdenesAttachmentPermission, OrdenesPermission, TareasPermission
+from apps.users.permissions import (
+    OrdenesAttachmentPermission,
+    OrdenesPermission,
+    ProyectosAttachmentPermission,
+    TareasPermission,
+)
 from apps.users.views import login_view, token_refresh_view, user_signature
 
 User = get_user_model()
@@ -49,6 +54,30 @@ class ModulePermissionTests(TestCase):
         request = self.factory.post("/api/ordenes/upload-image/")
         request.user = self.user
         self.assertFalse(OrdenesAttachmentPermission().has_permission(request, None))
+
+    def test_proyectos_upload_allowed_with_edit_only(self):
+        editor = User.objects.create_user(username="proy_editor", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=editor,
+            permissions={
+                "proyectos": {"view": True, "create": False, "edit": True, "delete": False},
+            },
+        )
+        request = self.factory.post("/api/proyectos/upload-image/")
+        request.user = editor
+        self.assertTrue(ProyectosAttachmentPermission().has_permission(request, None))
+
+    def test_proyectos_upload_denied_with_view_only(self):
+        viewer = User.objects.create_user(username="proy_viewer", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=viewer,
+            permissions={
+                "proyectos": {"view": True, "create": False, "edit": False, "delete": False},
+            },
+        )
+        request = self.factory.post("/api/proyectos/upload-image/")
+        request.user = viewer
+        self.assertFalse(ProyectosAttachmentPermission().has_permission(request, None))
 
     def test_user_signature_get_allowed_for_ordenes_user(self):
         other = User.objects.create_user(username="tecnico", password="test-pass-123")

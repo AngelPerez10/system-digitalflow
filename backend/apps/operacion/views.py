@@ -14,7 +14,7 @@ from apps.ordenes.image_services import (
     cloudinary,
     upload_data_url,
 )
-from apps.users.permissions import ProyectosPermission, user_module_own_only
+from apps.users.permissions import ProyectosAttachmentPermission, ProyectosPermission, user_module_own_only
 
 from .models import Proyecto, ProyectoInstalacion
 from .serializers import ProyectoInstalacionSerializer, ProyectoSerializer
@@ -68,6 +68,12 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         "cliente", "tecnico", "auxiliar", "creado_por"
     ).all()
     serializer_class = ProyectoSerializer
+
+    def get_permissions(self):
+        # Técnicos suelen tener edit sin create; adjuntos no deben exigir create.
+        if self.action in ("upload_image", "delete_image"):
+            return [IsAuthenticated(), ProyectosAttachmentPermission()]
+        return super().get_permissions()
 
     def get_queryset(self):
         qs = (

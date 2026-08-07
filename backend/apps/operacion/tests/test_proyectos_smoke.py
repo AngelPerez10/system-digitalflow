@@ -133,6 +133,25 @@ class ProyectosSmokeTests(APITestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_upload_image_allowed_with_edit_only(self):
+        """Técnicos suelen tener edit sin create; no deben recibir 403 al subir fotos."""
+        tech = User.objects.create_user(username="proy_edit_only", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=tech,
+            permissions={
+                "proyectos": {"view": True, "create": False, "edit": True, "delete": False},
+            },
+        )
+        self.client.force_authenticate(user=tech)
+        res = self.client.post(
+            "/api/proyectos/upload-image/",
+            {"data_url": "data:image/png;base64,aaa", "folder": "ordenes/fotos"},
+            format="json",
+        )
+        # Pasa el permiso; falla por folder inválido (400), no por 403.
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertNotEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_tipos_trabajo_multi_and_legacy_sync(self):
         create_res = self.client.post(
             "/api/proyectos/",
