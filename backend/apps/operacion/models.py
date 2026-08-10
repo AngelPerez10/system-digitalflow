@@ -62,6 +62,9 @@ class Proyecto(models.Model):
         related_name="proyectos_como_auxiliar",
     )
     auxiliar_nombre = models.CharField(max_length=255, blank=True, default="")
+    # Varios técnicos (uno responsable) y auxiliares; FKs arriba son legacy/sync.
+    tecnicos = models.JSONField(default=list, blank=True)
+    auxiliares = models.JSONField(default=list, blank=True)
 
     vehiculo_asignado = models.TextField(blank=True, default="")
     herramientas_generales = models.TextField(blank=True, default="")

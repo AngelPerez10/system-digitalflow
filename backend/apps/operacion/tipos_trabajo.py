@@ -55,12 +55,14 @@ def merge_tipos_trabajo(*groups) -> list[dict]:
 
 
 def is_assigned_technician_actor(user, proyecto) -> bool:
-    """True si el usuario es el técnico del proyecto y no es admin."""
+    """True si el usuario es técnico asignado del proyecto (lista o FK) y no es admin."""
     if user is None or proyecto is None:
         return False
     if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
         return False
-    return getattr(proyecto, "tecnico_id", None) == getattr(user, "id", None)
+    from .asignados import user_is_assigned_technician
+
+    return user_is_assigned_technician(user, proyecto)
 
 
 def _cotizacion_ids(cotizaciones) -> list[str]:

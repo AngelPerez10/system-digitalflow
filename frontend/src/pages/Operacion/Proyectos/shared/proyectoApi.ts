@@ -5,9 +5,15 @@ import {
   displayProyectoFolio,
   flattenPresupuesto,
   formatCotizacionesFolioLabel,
+  auxiliaresFromLegacy,
+  normalizeAuxiliaresAsignados,
   normalizeDraftCotizaciones,
   normalizeNotasPorDia,
+  normalizeTecnicosAsignados,
   normalizeTiposTrabajo,
+  primerAuxiliar,
+  responsableFromTecnicos,
+  tecnicosFromLegacy,
   tiposTrabajoFromLegacy,
 } from "./proyectoFormUtils";
 import type {
@@ -20,6 +26,7 @@ import type {
   ProyectoNotaDia,
   ProyectoPersonaAsignada,
   ProyectoRow,
+  ProyectoTecnicoAsignado,
   ProyectoTipoTrabajo,
 } from "./proyectoTypes";
 
@@ -43,6 +50,8 @@ export type ApiProyecto = {
   tecnico_nombre: string;
   auxiliar_id: number | null;
   auxiliar_nombre: string;
+  tecnicos?: ProyectoTecnicoAsignado[] | null;
+  auxiliares?: ProyectoPersonaAsignada[] | null;
   vehiculo_asignado: string;
   herramientas_generales: string;
   cotizaciones: ProyectoCotizacionBloque[];
@@ -95,13 +104,6 @@ function parseClientePk(clienteId: string): number | null {
   return null;
 }
 
-function personaFromApi(id: number | null | undefined, nombre: string | null | undefined): ProyectoPersonaAsignada {
-  return {
-    id: typeof id === "number" && Number.isFinite(id) ? id : null,
-    nombre: String(nombre || "").trim(),
-  };
-}
-
 function draftFromApi(api: ApiProyecto): ProyectoDraft {
   const base = createEmptyProyectoDraft();
   const cotizaciones = normalizeDraftCotizaciones({
@@ -136,8 +138,26 @@ function draftFromApi(api: ApiProyecto): ProyectoDraft {
       : [""],
     horaLlegada: String(api.hora_llegada || ""),
     horaSalida: String(api.hora_salida || ""),
-    tecnico: personaFromApi(api.tecnico_id, api.tecnico_nombre),
-    auxiliar: personaFromApi(api.auxiliar_id, api.auxiliar_nombre),
+    tecnicos: (() => {
+      const fromApi = normalizeTecnicosAsignados(api.tecnicos);
+      if (fromApi.length) return fromApi;
+      return tecnicosFromLegacy(api.tecnico_id, api.tecnico_nombre);
+    })(),
+    auxiliares: (() => {
+      const fromApi = normalizeAuxiliaresAsignados(api.auxiliares);
+      if (fromApi.length) return fromApi;
+      return auxiliaresFromLegacy(api.auxiliar_id, api.auxiliar_nombre);
+    })(),
+    tecnico: (() => {
+      const fromApi = normalizeTecnicosAsignados(api.tecnicos);
+      const list = fromApi.length ? fromApi : tecnicosFromLegacy(api.tecnico_id, api.tecnico_nombre);
+      return responsableFromTecnicos(list);
+    })(),
+    auxiliar: (() => {
+      const fromApi = normalizeAuxiliaresAsignados(api.auxiliares);
+      const list = fromApi.length ? fromApi : auxiliaresFromLegacy(api.auxiliar_id, api.auxiliar_nombre);
+      return primerAuxiliar(list);
+    })(),
     vehiculoAsignado: String(api.vehiculo_asignado || ""),
     herramientasGenerales: String(api.herramientas_generales || ""),
     notasPorDia: normalizeNotasPorDia(api.notas_por_dia),
@@ -212,10 +232,58 @@ export function draftToApiPayload(
     fechas_inicio: draft.fechasInicio?.length ? draft.fechasInicio : [""],
     hora_llegada: draft.horaLlegada || "",
     hora_salida: draft.horaSalida || "",
-    tecnico_id: draft.tecnico?.id ?? null,
-    tecnico_nombre: draft.tecnico?.nombre?.trim() || "",
-    auxiliar_id: draft.auxiliar?.id ?? null,
-    auxiliar_nombre: draft.auxiliar?.nombre?.trim() || "",
+    tecnicos: (() => {
+      const list = normalizeTecnicosAsignados(
+        draft.tecnicos?.length
+          ? draft.tecnicos
+          : draft.tecnico?.id != null
+            ? [{ ...draft.tecnico, responsable: true }]
+            : []
+      );
+      return list.map((t) => ({
+        id: t.id,
+        nombre: t.nombre.trim(),
+        responsable: Boolean(t.responsable),
+      }));
+    })(),
+    auxiliares: (() => {
+      const list = normalizeAuxiliaresAsignados(
+        draft.auxiliares?.length
+          ? draft.auxiliares
+          : draft.auxiliar?.id != null
+            ? [draft.auxiliar]
+            : []
+      );
+      return list.map((a) => ({ id: a.id, nombre: a.nombre.trim() }));
+    })(),
+    tecnico_id: responsableFromTecnicos(
+      draft.tecnicos?.length
+        ? draft.tecnicos
+        : draft.tecnico?.id != null
+          ? [{ ...draft.tecnico, responsable: true }]
+          : []
+    ).id,
+    tecnico_nombre: responsableFromTecnicos(
+      draft.tecnicos?.length
+        ? draft.tecnicos
+        : draft.tecnico?.id != null
+          ? [{ ...draft.tecnico, responsable: true }]
+          : []
+    ).nombre.trim(),
+    auxiliar_id: primerAuxiliar(
+      draft.auxiliares?.length
+        ? draft.auxiliares
+        : draft.auxiliar?.id != null
+          ? [draft.auxiliar]
+          : []
+    ).id,
+    auxiliar_nombre: primerAuxiliar(
+      draft.auxiliares?.length
+        ? draft.auxiliares
+        : draft.auxiliar?.id != null
+          ? [draft.auxiliar]
+          : []
+    ).nombre.trim(),
     vehiculo_asignado: draft.vehiculoAsignado.trim(),
     herramientas_generales: draft.herramientasGenerales.trim(),
     cotizacion_adicional: draft.cotizacionAdicional,

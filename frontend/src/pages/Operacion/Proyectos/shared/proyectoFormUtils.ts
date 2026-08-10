@@ -11,9 +11,84 @@ import type {
   ProyectoPersonaAsignada,
   ProyectoRow,
   ProyectoStats,
+  ProyectoTecnicoAsignado,
   ProyectoTipoTrabajo,
 } from "./proyectoTypes";
 import { FOLIO_SERIE, formatDocumentFolio, resolveDocumentFolio } from "@/utils/documentFolio";
+
+export function emptyPersona(): ProyectoPersonaAsignada {
+  return { id: null, nombre: "" };
+}
+
+/** Normaliza técnicos: un solo responsable si hay ≥1. */
+export function normalizeTecnicosAsignados(raw: unknown): ProyectoTecnicoAsignado[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<number>();
+  const out: ProyectoTecnicoAsignado[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as { id?: unknown; nombre?: unknown; responsable?: unknown };
+    const id = Number(rec.id);
+    if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      nombre: String(rec.nombre || "").trim(),
+      responsable: Boolean(rec.responsable),
+    });
+  }
+  if (!out.length) return [];
+  const responsables = out.filter((t) => t.responsable);
+  if (responsables.length === 0) {
+    out[0] = { ...out[0], responsable: true };
+  } else if (responsables.length > 1) {
+    const keepId = responsables[0].id;
+    return out.map((t) => ({ ...t, responsable: t.id === keepId }));
+  }
+  return out;
+}
+
+export function normalizeAuxiliaresAsignados(raw: unknown): ProyectoPersonaAsignada[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<number>();
+  const out: ProyectoPersonaAsignada[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as { id?: unknown; nombre?: unknown };
+    const id = Number(rec.id);
+    if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, nombre: String(rec.nombre || "").trim() });
+  }
+  return out;
+}
+
+export function tecnicosFromLegacy(
+  id: number | null | undefined,
+  nombre: string | null | undefined
+): ProyectoTecnicoAsignado[] {
+  if (id == null || !Number.isFinite(Number(id)) || Number(id) <= 0) return [];
+  return [{ id: Number(id), nombre: String(nombre || "").trim(), responsable: true }];
+}
+
+export function auxiliaresFromLegacy(
+  id: number | null | undefined,
+  nombre: string | null | undefined
+): ProyectoPersonaAsignada[] {
+  if (id == null || !Number.isFinite(Number(id)) || Number(id) <= 0) return [];
+  return [{ id: Number(id), nombre: String(nombre || "").trim() }];
+}
+
+export function responsableFromTecnicos(tecnicos: ProyectoTecnicoAsignado[]): ProyectoPersonaAsignada {
+  const list = normalizeTecnicosAsignados(tecnicos);
+  const r = list.find((t) => t.responsable) || list[0];
+  return r ? { id: r.id, nombre: r.nombre } : emptyPersona();
+}
+
+export function primerAuxiliar(auxiliares: ProyectoPersonaAsignada[]): ProyectoPersonaAsignada {
+  const list = normalizeAuxiliaresAsignados(auxiliares);
+  return list[0] ? { id: list[0].id, nombre: list[0].nombre } : emptyPersona();
+}
 
 /** Normaliza lista de tipos de trabajo sin duplicar por id. */
 export function normalizeTiposTrabajo(raw: unknown): ProyectoTipoTrabajo[] {
@@ -75,10 +150,6 @@ let proyectoFolioSeq = 2000;
 export function nextProyectoFolio(): string {
   proyectoFolioSeq += 1;
   return formatDocumentFolio(FOLIO_SERIE.proyecto, proyectoFolioSeq);
-}
-
-export function emptyPersona(): ProyectoPersonaAsignada {
-  return { id: null, nombre: "" };
 }
 
 export function createEmptyNotaDia(): ProyectoNotaDia {
@@ -178,6 +249,8 @@ export function createEmptyProyectoDraft(): ProyectoDraft {
     fechasInicio: [""],
     horaLlegada: "",
     horaSalida: "",
+    tecnicos: [],
+    auxiliares: [],
     tecnico: emptyPersona(),
     auxiliar: emptyPersona(),
     vehiculoAsignado: "",

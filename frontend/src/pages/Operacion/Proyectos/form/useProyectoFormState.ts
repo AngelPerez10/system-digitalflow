@@ -11,11 +11,15 @@ import {
   expandFechasInicioRange,
   flattenPresupuesto,
   getDeviceTimeHHMM,
+  normalizeAuxiliaresAsignados,
   normalizeDraftCotizaciones,
   normalizeNotasPorDia,
+  normalizeTecnicosAsignados,
   normalizeTiposTrabajo,
   mergeTiposTrabajo,
+  primerAuxiliar,
   reindexCotizacionBloques,
+  responsableFromTecnicos,
   tiposTrabajoFromLegacy,
 } from "../shared/proyectoFormUtils";
 import type {
@@ -25,6 +29,7 @@ import type {
   ProyectoEstado,
   ProyectoNotaDia,
   ProyectoPersonaAsignada,
+  ProyectoTecnicoAsignado,
   ProyectoTipoTrabajo,
   ServicioOpcion,
   TecnicoOpcion,
@@ -117,6 +122,24 @@ export function useProyectoFormState({
   const [horaSalida, setHoraSalida] = useState(initialDraft.horaSalida);
   const [tecnico, setTecnico] = useState(initialDraft.tecnico);
   const [auxiliar, setAuxiliar] = useState(initialDraft.auxiliar);
+  const [tecnicosAsignados, setTecnicosAsignados] = useState<ProyectoTecnicoAsignado[]>(() =>
+    normalizeTecnicosAsignados(
+      initialDraft.tecnicos?.length
+        ? initialDraft.tecnicos
+        : initialDraft.tecnico?.id != null
+          ? [{ ...initialDraft.tecnico, responsable: true }]
+          : []
+    )
+  );
+  const [auxiliaresAsignados, setAuxiliaresAsignados] = useState<ProyectoPersonaAsignada[]>(() =>
+    normalizeAuxiliaresAsignados(
+      initialDraft.auxiliares?.length
+        ? initialDraft.auxiliares
+        : initialDraft.auxiliar?.id != null
+          ? [initialDraft.auxiliar]
+          : []
+    )
+  );
   const [vehiculoAsignado, setVehiculoAsignado] = useState(initialDraft.vehiculoAsignado);
   const [herramientasGenerales, setHerramientasGenerales] = useState(initialDraft.herramientasGenerales);
   const [notasPorDia, setNotasPorDia] = useState<ProyectoNotaDia[]>(
@@ -153,8 +176,7 @@ export function useProyectoFormState({
   const assignedTechnicianLocked =
     !isAdmin &&
     user?.id != null &&
-    tecnico.id != null &&
-    Number(tecnico.id) === Number(user.id);
+    tecnicosAsignados.some((t) => t.id != null && Number(t.id) === Number(user.id));
 
   const cotizacionPicker = useCotizacionPicker({
     open,
@@ -236,6 +258,24 @@ export function useProyectoFormState({
     setHoraSalida(initialDraft.horaSalida);
     setTecnico(initialDraft.tecnico);
     setAuxiliar(initialDraft.auxiliar);
+    setTecnicosAsignados(
+      normalizeTecnicosAsignados(
+        initialDraft.tecnicos?.length
+          ? initialDraft.tecnicos
+          : initialDraft.tecnico?.id != null
+            ? [{ ...initialDraft.tecnico, responsable: true }]
+            : []
+      )
+    );
+    setAuxiliaresAsignados(
+      normalizeAuxiliaresAsignados(
+        initialDraft.auxiliares?.length
+          ? initialDraft.auxiliares
+          : initialDraft.auxiliar?.id != null
+            ? [initialDraft.auxiliar]
+            : []
+      )
+    );
     setVehiculoAsignado(initialDraft.vehiculoAsignado);
     setHerramientasGenerales(initialDraft.herramientasGenerales);
     setNotasPorDia(normalizeNotasPorDia(initialDraft.notasPorDia));
@@ -331,13 +371,18 @@ export function useProyectoFormState({
     const tecnicoId = tecnico.id != null ? Number(tecnico.id) : null;
     if (!tecnicoId) {
       setTecnicoSignatureUrl("");
+      setFirmaTecnicoUrl("");
       return;
     }
+
+    // Al cambiar de responsable: limpiar firma previa hasta cargar la del nuevo.
+    setTecnicoSignatureUrl("");
+    setFirmaTecnicoUrl("");
 
     const cached = tecnicoSignatureCacheRef.current[tecnicoId];
     if (typeof cached === "string") {
       setTecnicoSignatureUrl(cached);
-      if (cached) setFirmaTecnicoUrl(cached);
+      setFirmaTecnicoUrl(cached);
       return;
     }
 
@@ -348,13 +393,17 @@ export function useProyectoFormState({
           cache: "no-store" as RequestCache,
         });
         const data = (await res.json().catch(() => null)) as { url?: string } | null;
-        if (cancelled || !res.ok) return;
-        const url = String(data?.url || "");
+        if (cancelled) return;
+        const url = res.ok ? String(data?.url || "") : "";
         tecnicoSignatureCacheRef.current[tecnicoId] = url;
         setTecnicoSignatureUrl(url);
-        if (url) setFirmaTecnicoUrl(url);
+        setFirmaTecnicoUrl(url);
       } catch {
-        if (!cancelled) setTecnicoSignatureUrl("");
+        if (!cancelled) {
+          tecnicoSignatureCacheRef.current[tecnicoId] = "";
+          setTecnicoSignatureUrl("");
+          setFirmaTecnicoUrl("");
+        }
       }
     })();
 
@@ -366,6 +415,37 @@ export function useProyectoFormState({
   const equipoParaModeloPicker = modeloPickerLineaId
     ? equipos.find((eq) => eq.lineaId === modeloPickerLineaId) ?? null
     : null;
+
+  // Mantener legacy tecnico/auxiliar alineados con las listas (firma + filtros).
+  useEffect(() => {
+    const nextTecnico = responsableFromTecnicos(tecnicosAsignados);
+    setTecnico((prev) =>
+      prev.id === nextTecnico.id && prev.nombre === nextTecnico.nombre ? prev : nextTecnico
+    );
+  }, [tecnicosAsignados]);
+
+  useEffect(() => {
+    const nextAux = primerAuxiliar(auxiliaresAsignados);
+    setAuxiliar((prev) =>
+      prev.id === nextAux.id && prev.nombre === nextAux.nombre ? prev : nextAux
+    );
+  }, [auxiliaresAsignados]);
+
+  const handleTecnicosAsignadosChange = useCallback((next: ProyectoTecnicoAsignado[]) => {
+    const normalized = normalizeTecnicosAsignados(next);
+    const auxIds = new Set(
+      auxiliaresAsignados.map((a) => a.id).filter((id): id is number => id != null)
+    );
+    setTecnicosAsignados(normalized.filter((t) => t.id == null || !auxIds.has(t.id)));
+  }, [auxiliaresAsignados]);
+
+  const handleAuxiliaresAsignadosChange = useCallback((next: ProyectoPersonaAsignada[]) => {
+    const normalized = normalizeAuxiliaresAsignados(next);
+    const techIds = new Set(
+      tecnicosAsignados.map((t) => t.id).filter((id): id is number => id != null)
+    );
+    setAuxiliaresAsignados(normalized.filter((a) => a.id == null || !techIds.has(a.id)));
+  }, [tecnicosAsignados]);
 
   const buildCurrentDraft = useCallback((): ProyectoDraft => {
     const bloques = reindexCotizacionBloques(cotizaciones);
@@ -386,8 +466,10 @@ export function useProyectoFormState({
       fechasInicio: fechasInicio.length ? fechasInicio : [""],
       horaLlegada,
       horaSalida,
-      tecnico,
-      auxiliar,
+      tecnicos: normalizeTecnicosAsignados(tecnicosAsignados),
+      auxiliares: normalizeAuxiliaresAsignados(auxiliaresAsignados),
+      tecnico: responsableFromTecnicos(tecnicosAsignados),
+      auxiliar: primerAuxiliar(auxiliaresAsignados),
       vehiculoAsignado: vehiculoAsignado.trim(),
       herramientasGenerales: herramientasGenerales.trim(),
       notasPorDia: notasPorDia.length ? notasPorDia : [createEmptyNotaDia()],
@@ -401,7 +483,7 @@ export function useProyectoFormState({
       firmaTecnicoUrl,
     };
   }, [
-    auxiliar,
+    auxiliaresAsignados,
     cliente,
     clienteId,
     cotizacionAdicional,
@@ -423,7 +505,7 @@ export function useProyectoFormState({
     requerimientosAdicionales,
     requierePresupuestoAdicional,
     status,
-    tecnico,
+    tecnicosAsignados,
     tiposTrabajo,
     vehiculoAsignado,
   ]);
@@ -759,6 +841,10 @@ export function useProyectoFormState({
     setTecnico,
     auxiliar,
     setAuxiliar,
+    tecnicosAsignados,
+    setTecnicosAsignados: handleTecnicosAsignadosChange,
+    auxiliaresAsignados,
+    setAuxiliaresAsignados: handleAuxiliaresAsignadosChange,
     vehiculoAsignado,
     setVehiculoAsignado,
     herramientasGenerales,

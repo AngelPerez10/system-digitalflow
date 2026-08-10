@@ -65,6 +65,11 @@ export type ProyectoPersonaAsignada = {
   nombre: string;
 };
 
+/** Técnico en lista multi; exactamente uno con responsable=true si hay ≥1. */
+export type ProyectoTecnicoAsignado = ProyectoPersonaAsignada & {
+  responsable: boolean;
+};
+
 /** Servicio vinculado como tipo de trabajo del proyecto (varios). */
 export type ProyectoTipoTrabajo = {
   id: number;
@@ -106,7 +111,13 @@ export type ProyectoDraft = {
   fechasInicio: string[];
   horaLlegada: string;
   horaSalida: string;
+  /** Lista de técnicos; uno marcado responsable. */
+  tecnicos: ProyectoTecnicoAsignado[];
+  /** Lista de auxiliares (sin responsable). */
+  auxiliares: ProyectoPersonaAsignada[];
+  /** Compat / firma: técnico responsable (derivado de `tecnicos`). */
   tecnico: ProyectoPersonaAsignada;
+  /** Compat: primer auxiliar (derivado de `auxiliares`). */
   auxiliar: ProyectoPersonaAsignada;
   vehiculoAsignado: string;
   herramientasGenerales: string;

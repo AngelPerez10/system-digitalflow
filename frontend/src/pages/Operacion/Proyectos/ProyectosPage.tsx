@@ -129,11 +129,16 @@ function proyectoMatchesFilters(
   }
 
   if (opts.tecnicoId != null) {
-    const tid = row.draft?.tecnico?.id ?? null;
-    if (opts.tecnicoId === 0) {
-      if (tid != null) return false;
-    } else if (tid !== opts.tecnicoId) {
-      return false;
+    const tid = opts.tecnicoId;
+    if (tid === 0) {
+      const hasTech =
+        (row.draft?.tecnicos?.some((t) => t.id != null) ?? false) ||
+        row.draft?.tecnico?.id != null;
+      if (hasTech) return false;
+    } else {
+      const inList = row.draft?.tecnicos?.some((t) => t.id != null && Number(t.id) === tid);
+      const legacy = row.draft?.tecnico?.id != null && Number(row.draft.tecnico.id) === tid;
+      if (!inList && !legacy) return false;
     }
   }
 
@@ -194,9 +199,15 @@ export default function ProyectosPage() {
       if (t.id > 0) map.set(t.id, t.nombre);
     }
     for (const row of rows) {
-      const t = row.draft?.tecnico;
-      if (t?.id != null && Number.isFinite(t.id) && t.id > 0 && !map.has(t.id)) {
-        map.set(t.id, String(t.nombre || "").trim() || `Técnico #${t.id}`);
+      const list = row.draft?.tecnicos?.length
+        ? row.draft.tecnicos
+        : row.draft?.tecnico?.id != null
+          ? [row.draft.tecnico]
+          : [];
+      for (const t of list) {
+        if (t?.id != null && Number.isFinite(t.id) && t.id > 0 && !map.has(t.id)) {
+          map.set(t.id, String(t.nombre || "").trim() || `Técnico #${t.id}`);
+        }
       }
     }
     return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
@@ -664,8 +675,33 @@ export default function ProyectosPage() {
                         </TableRow>
                       ) : (
                         filteredRows.map((row) => {
-                          const tecnicoNombre = row.draft?.tecnico?.nombre?.trim() || "";
-                          const auxiliarNombre = row.draft?.auxiliar?.nombre?.trim() || "";
+                          const tecnicos = row.draft?.tecnicos?.length
+                            ? row.draft.tecnicos
+                            : row.draft?.tecnico?.id != null
+                              ? [{ ...row.draft.tecnico, responsable: true }]
+                              : [];
+                          const auxiliares = row.draft?.auxiliares?.length
+                            ? row.draft.auxiliares
+                            : row.draft?.auxiliar?.id != null
+                              ? [row.draft.auxiliar]
+                              : [];
+                          const responsable =
+                            tecnicos.find((t) => "responsable" in t && t.responsable) || tecnicos[0];
+                          const tecnicoNombre = responsable?.nombre?.trim() || "";
+                          const tecnicoExtra =
+                            tecnicos.length > 1 ? ` +${tecnicos.length - 1}` : "";
+                          const auxiliarNombre = auxiliares[0]?.nombre?.trim() || "";
+                          const auxiliarExtra =
+                            auxiliares.length > 1 ? ` +${auxiliares.length - 1}` : "";
+                          const tecnicoTitle = tecnicos
+                            .map((t) => {
+                              const n = t.nombre?.trim() || `#${t.id}`;
+                              return "responsable" in t && t.responsable ? `${n} (resp.)` : n;
+                            })
+                            .join(", ");
+                          const auxiliarTitle = auxiliares
+                            .map((a) => a.nombre?.trim() || `#${a.id}`)
+                            .join(", ");
                           return (
                           <TableRow key={row.id} className={erpTableRowHoverClass}>
                             <TableCell className="whitespace-nowrap px-2 py-2 align-middle">
@@ -680,8 +716,11 @@ export default function ProyectosPage() {
                             </TableCell>
                             <TableCell className="px-2 py-2 align-top">
                               {tecnicoNombre ? (
-                                <span className="block truncate text-gray-900 dark:text-white" title={tecnicoNombre}>
+                                <span className="block truncate text-gray-900 dark:text-white" title={tecnicoTitle}>
                                   {tecnicoNombre}
+                                  {tecnicoExtra ? (
+                                    <span className="text-gray-500 dark:text-gray-400">{tecnicoExtra}</span>
+                                  ) : null}
                                 </span>
                               ) : (
                                 <span className="text-gray-500 dark:text-gray-400">—</span>
@@ -689,8 +728,11 @@ export default function ProyectosPage() {
                             </TableCell>
                             <TableCell className="px-2 py-2 align-top">
                               {auxiliarNombre ? (
-                                <span className="block truncate text-gray-900 dark:text-white" title={auxiliarNombre}>
+                                <span className="block truncate text-gray-900 dark:text-white" title={auxiliarTitle}>
                                   {auxiliarNombre}
+                                  {auxiliarExtra ? (
+                                    <span className="text-gray-500 dark:text-gray-400">{auxiliarExtra}</span>
+                                  ) : null}
                                 </span>
                               ) : (
                                 <span className="text-gray-500 dark:text-gray-400">—</span>

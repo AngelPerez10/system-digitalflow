@@ -101,10 +101,10 @@ export default function ProyectoFormModal({
     setHoraLlegada,
     horaSalida,
     setHoraSalida,
-    tecnico,
-    setTecnico,
-    auxiliar,
-    setAuxiliar,
+    tecnicosAsignados,
+    setTecnicosAsignados,
+    auxiliaresAsignados,
+    setAuxiliaresAsignados,
     vehiculoAsignado,
     setVehiculoAsignado,
     herramientasGenerales,
@@ -166,7 +166,6 @@ export default function ProyectoFormModal({
     updateEquipo,
     handleSelectModeloSyscom,
     handleRestaurarModeloOriginal,
-    setPersonaFromId,
     diasRangoCount,
     setFechaRangoStart,
     setFechaRangoEnd,
@@ -292,16 +291,15 @@ export default function ProyectoFormModal({
                   setFechaRangoEnd={setFechaRangoEnd}
                   diasRangoCount={diasRangoCount}
                   fechasInicio={fechasInicio}
-                  tecnico={tecnico}
-                  setTecnico={setTecnico}
-                  auxiliar={auxiliar}
-                  setAuxiliar={setAuxiliar}
+                  tecnicosAsignados={tecnicosAsignados}
+                  setTecnicosAsignados={setTecnicosAsignados}
+                  auxiliaresAsignados={auxiliaresAsignados}
+                  setAuxiliaresAsignados={setAuxiliaresAsignados}
                   vehiculoAsignado={vehiculoAsignado}
                   setVehiculoAsignado={setVehiculoAsignado}
                   herramientasGenerales={herramientasGenerales}
                   setHerramientasGenerales={setHerramientasGenerales}
                   tecnicoOptions={tecnicoOptions}
-                  setPersonaFromId={setPersonaFromId}
                   notasPorDia={notasPorDia}
                   notasLiveMessage={notasLiveMessage}
                   addNotaDia={addNotaDia}

@@ -4,6 +4,16 @@ from rest_framework import serializers
 
 from apps.clientes.models import Cliente
 
+from .asignados import (
+    hydrate_auxiliares_from_legacy,
+    hydrate_tecnicos_from_legacy,
+    ids_from_asignados,
+    normalize_auxiliares,
+    normalize_tecnicos,
+    sync_legacy_from_auxiliares,
+    sync_legacy_from_tecnicos,
+    user_on_proyecto_team,
+)
 from .close_validation import validate_proyecto_cierre
 from .cotizacion_autorizacion import authorize_pending_digitalflow_cotizaciones
 from .models import Proyecto, ProyectoInstalacion
@@ -105,6 +115,8 @@ class ProyectoSerializer(serializers.ModelSerializer):
             "tecnico_nombre",
             "auxiliar_id",
             "auxiliar_nombre",
+            "tecnicos",
+            "auxiliares",
             "vehiculo_asignado",
             "herramientas_generales",
             "cotizaciones",
@@ -163,6 +175,22 @@ class ProyectoSerializer(serializers.ModelSerializer):
     def get_cotizacion_origen(self, obj: Proyecto) -> str:
         return _cotizacion_list_meta(obj.cotizaciones)[2]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        tecnicos = hydrate_tecnicos_from_legacy(
+            normalize_tecnicos(getattr(instance, "tecnicos", None)),
+            getattr(instance, "tecnico_id", None),
+            getattr(instance, "tecnico_nombre", "") or "",
+        )
+        auxiliares = hydrate_auxiliares_from_legacy(
+            normalize_auxiliares(getattr(instance, "auxiliares", None)),
+            getattr(instance, "auxiliar_id", None),
+            getattr(instance, "auxiliar_nombre", "") or "",
+        )
+        data["tecnicos"] = tecnicos
+        data["auxiliares"] = auxiliares
+        return data
+
     def validate_porcentaje_avance(self, value):
         if value is None:
             return 0
@@ -183,6 +211,102 @@ class ProyectoSerializer(serializers.ModelSerializer):
             lock_errors = assert_tecnico_locked_fields(instance, attrs)
             if lock_errors:
                 raise serializers.ValidationError(lock_errors)
+
+        # --- Técnicos / auxiliares múltiples ---
+        initial = getattr(self, "initial_data", {}) or {}
+        has_tecnicos_key = isinstance(initial, dict) and "tecnicos" in initial
+        has_auxiliares_key = isinstance(initial, dict) and "auxiliares" in initial
+
+        if has_tecnicos_key:
+            tecnicos = normalize_tecnicos(attrs.get("tecnicos"))
+        elif "tecnico" in attrs or "tecnico_nombre" in attrs:
+            # Compat: solo tecnico_id / tecnico_nombre
+            tech = attrs.get("tecnico", getattr(instance, "tecnico", None) if instance else None)
+            tid = getattr(tech, "id", None) if tech is not None else None
+            if tid is None and instance is not None and "tecnico" not in attrs:
+                tid = getattr(instance, "tecnico_id", None)
+            tname = attrs.get(
+                "tecnico_nombre",
+                getattr(instance, "tecnico_nombre", "") if instance else "",
+            )
+            tecnicos = normalize_tecnicos(
+                [{"id": tid, "nombre": tname or "", "responsable": True}] if tid else []
+            )
+        elif instance is not None:
+            tecnicos = hydrate_tecnicos_from_legacy(
+                normalize_tecnicos(getattr(instance, "tecnicos", None)),
+                getattr(instance, "tecnico_id", None),
+                getattr(instance, "tecnico_nombre", "") or "",
+            )
+        else:
+            tecnicos = []
+
+        if has_auxiliares_key:
+            auxiliares = normalize_auxiliares(attrs.get("auxiliares"))
+        elif "auxiliar" in attrs or "auxiliar_nombre" in attrs:
+            aux = attrs.get("auxiliar", getattr(instance, "auxiliar", None) if instance else None)
+            aid = getattr(aux, "id", None) if aux is not None else None
+            if aid is None and instance is not None and "auxiliar" not in attrs:
+                aid = getattr(instance, "auxiliar_id", None)
+            aname = attrs.get(
+                "auxiliar_nombre",
+                getattr(instance, "auxiliar_nombre", "") if instance else "",
+            )
+            auxiliares = normalize_auxiliares(
+                [{"id": aid, "nombre": aname or ""}] if aid else []
+            )
+        elif instance is not None:
+            auxiliares = hydrate_auxiliares_from_legacy(
+                normalize_auxiliares(getattr(instance, "auxiliares", None)),
+                getattr(instance, "auxiliar_id", None),
+                getattr(instance, "auxiliar_nombre", "") or "",
+            )
+        else:
+            auxiliares = []
+
+        overlap = ids_from_asignados(tecnicos) & ids_from_asignados(auxiliares)
+        if overlap:
+            raise serializers.ValidationError(
+                {
+                    "tecnicos": [
+                        "Un usuario no puede ser técnico y auxiliar en el mismo proyecto."
+                    ]
+                }
+            )
+
+        # Validar que los IDs existan
+        all_ids = ids_from_asignados(tecnicos) | ids_from_asignados(auxiliares)
+        if all_ids:
+            existing = set(User.objects.filter(id__in=all_ids).values_list("id", flat=True))
+            missing = all_ids - existing
+            if missing:
+                raise serializers.ValidationError(
+                    {"tecnicos": [f"Usuario(s) inexistente(s): {sorted(missing)}"]}
+                )
+            # Rellenar nombres vacíos desde User
+            names = {
+                u.id: (
+                    f"{(u.first_name or '').strip()} {(u.last_name or '').strip()}".strip()
+                    or u.username
+                    or f"Usuario {u.id}"
+                )
+                for u in User.objects.filter(id__in=all_ids)
+            }
+            for t in tecnicos:
+                if not t.get("nombre"):
+                    t["nombre"] = names.get(t["id"], "")
+            for a in auxiliares:
+                if not a.get("nombre"):
+                    a["nombre"] = names.get(a["id"], "")
+
+        attrs["tecnicos"] = tecnicos
+        attrs["auxiliares"] = auxiliares
+        legacy_tid, legacy_tname = sync_legacy_from_tecnicos(tecnicos)
+        legacy_aid, legacy_aname = sync_legacy_from_auxiliares(auxiliares)
+        attrs["tecnico"] = User.objects.filter(pk=legacy_tid).first() if legacy_tid else None
+        attrs["tecnico_nombre"] = legacy_tname
+        attrs["auxiliar"] = User.objects.filter(pk=legacy_aid).first() if legacy_aid else None
+        attrs["auxiliar_nombre"] = legacy_aname
 
         if "tipos_trabajo" in attrs:
             tipos = normalize_tipos_trabajo(attrs.get("tipos_trabajo"))
@@ -323,11 +447,6 @@ class ProyectoInstalacionSerializer(serializers.ModelSerializer):
 
         if not user_module_own_only(user, "proyectos"):
             return proyecto
-        allowed = (
-            proyecto.creado_por_id == getattr(user, "id", None)
-            or proyecto.tecnico_id == getattr(user, "id", None)
-            or proyecto.auxiliar_id == getattr(user, "id", None)
-        )
-        if not allowed:
+        if not user_on_proyecto_team(user, proyecto):
             raise serializers.ValidationError("No tienes acceso a este proyecto.")
         return proyecto

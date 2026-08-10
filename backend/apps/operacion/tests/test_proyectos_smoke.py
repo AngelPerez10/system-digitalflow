@@ -171,6 +171,71 @@ class ProyectosSmokeTests(APITestCase):
         self.assertEqual(create_res.data["tipo_trabajo_id"], 10)
         self.assertEqual(create_res.data["tipo_trabajo_nombre"], "Instalación")
 
+    def test_multi_tecnicos_sync_legacy_and_visibility(self):
+        tech_a = User.objects.create_user(username="tech_a", password="test-pass-123")
+        tech_b = User.objects.create_user(username="tech_b", password="test-pass-123")
+        aux = User.objects.create_user(username="aux_1", password="test-pass-123")
+        for u in (tech_a, tech_b, aux):
+            UserPermissions.objects.create(
+                user=u,
+                permissions={
+                    "proyectos": {
+                        "view": True,
+                        "create": False,
+                        "edit": True,
+                        "delete": False,
+                        "own_only": True,
+                    },
+                },
+            )
+
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Multi equipo",
+                "status": "en_proceso",
+                "tecnicos": [
+                    {"id": tech_a.id, "nombre": "tech_a", "responsable": False},
+                    {"id": tech_b.id, "nombre": "tech_b", "responsable": True},
+                ],
+                "auxiliares": [{"id": aux.id, "nombre": "aux_1"}],
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
+        self.assertEqual(create_res.data["tecnico_id"], tech_b.id)
+        self.assertEqual(create_res.data["auxiliar_id"], aux.id)
+        self.assertEqual(len(create_res.data["tecnicos"]), 2)
+        responsables = [t for t in create_res.data["tecnicos"] if t.get("responsable")]
+        self.assertEqual(len(responsables), 1)
+        self.assertEqual(responsables[0]["id"], tech_b.id)
+
+        proyecto_id = create_res.data["id"]
+        for u in (tech_a, tech_b, aux):
+            self.client.force_authenticate(user=u)
+            list_res = self.client.get("/api/proyectos/")
+            self.assertEqual(list_res.status_code, status.HTTP_200_OK)
+            ids = [row["id"] for row in list_res.data]
+            self.assertIn(proyecto_id, ids, f"{u.username} debería ver el proyecto")
+
+        stranger = User.objects.create_user(username="tech_x", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=stranger,
+            permissions={
+                "proyectos": {
+                    "view": True,
+                    "create": False,
+                    "edit": True,
+                    "delete": False,
+                    "own_only": True,
+                },
+            },
+        )
+        self.client.force_authenticate(user=stranger)
+        list_res = self.client.get("/api/proyectos/")
+        ids = [row["id"] for row in list_res.data]
+        self.assertNotIn(proyecto_id, ids)
+
     def test_assigned_technician_cannot_change_locked_fields(self):
         tech = User.objects.create_user(username="proy_tech", password="test-pass-123")
         UserPermissions.objects.create(

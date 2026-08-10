@@ -2,7 +2,6 @@ import json
 import logging
 
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError as DRFValidationError
@@ -16,6 +15,10 @@ from apps.ordenes.image_services import (
 )
 from apps.users.permissions import ProyectosAttachmentPermission, ProyectosPermission, user_module_own_only
 
+from .asignados import (
+    filter_proyectos_visible_to_user,
+    user_on_proyecto_team,
+)
 from .models import Proyecto, ProyectoInstalacion
 from .serializers import ProyectoInstalacionSerializer, ProyectoSerializer
 
@@ -85,7 +88,7 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         if not user or not getattr(user, "is_authenticated", False):
             return qs.none()
         if user_module_own_only(user, "proyectos"):
-            return qs.filter(Q(tecnico=user) | Q(creado_por=user) | Q(auxiliar=user))
+            return filter_proyectos_visible_to_user(qs, user)
         return qs
 
     def get_object(self):
@@ -100,12 +103,7 @@ class ProyectoViewSet(viewsets.ModelViewSet):
 
         user = getattr(self.request, "user", None)
         if user_module_own_only(user, "proyectos"):
-            allowed = (
-                obj.creado_por_id == getattr(user, "id", None)
-                or obj.tecnico_id == getattr(user, "id", None)
-                or obj.auxiliar_id == getattr(user, "id", None)
-            )
-            if not allowed:
+            if not user_on_proyecto_team(user, obj):
                 raise PermissionDenied("No tienes acceso a este proyecto.")
         return obj
 
@@ -209,11 +207,10 @@ class ProyectoInstalacionViewSet(viewsets.ModelViewSet):
         if not user or not getattr(user, "is_authenticated", False):
             return qs.none()
         if user_module_own_only(user, "proyectos"):
-            qs = qs.filter(
-                Q(proyecto__tecnico=user)
-                | Q(proyecto__creado_por=user)
-                | Q(proyecto__auxiliar=user)
-            )
+            visible_proyecto_ids = filter_proyectos_visible_to_user(
+                Proyecto.objects.all(), user
+            ).values_list("id", flat=True)
+            qs = qs.filter(proyecto_id__in=visible_proyecto_ids)
         proyecto_id = self.request.query_params.get("proyecto")
         if proyecto_id not in (None, ""):
             try:

@@ -2,11 +2,11 @@ import { useId, type CSSProperties } from "react";
 import DatePicker from "@/components/form/date-picker";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import SearchableSelect from "@/components/form/SearchableSelect";
 import SignaturePad from "@/components/ui/signature/SignaturePad";
 import { TimeIcon } from "@/icons";
 import { erpInputLikeClass, erpPrimaryBtnClass, erpSecondaryBtnClass } from "@/layout/erpPageStyles";
 import { proyectoRequiereCotizacionAdicional } from "../../shared/proyectoCloseValidation";
+import { ProyectoAsignadosMultiField } from "../fields/ProyectoAsignadosMultiField";
 import { ProyectoEvidenciasField } from "../fields/ProyectoEvidenciasField";
 import { ProyectoFormSection, proyectoSectionIconClass } from "../ProyectoFormSection";
 import { ProyectoNotaDiaFotosField } from "../fields/ProyectoNotaDiaFotosField";
@@ -33,6 +33,7 @@ import type {
   ProyectoEstado,
   ProyectoNotaDia,
   ProyectoPersonaAsignada,
+  ProyectoTecnicoAsignado,
   ProyectoTipoTrabajo,
   ServicioOpcion,
 } from "../../shared/proyectoTypes";
@@ -141,19 +142,15 @@ export type ProyectoOperacionTabProps = {
   setFechaRangoEnd: (v: string) => void;
   diasRangoCount: number;
   fechasInicio: string[];
-  tecnico: ProyectoPersonaAsignada;
-  setTecnico: React.Dispatch<React.SetStateAction<ProyectoPersonaAsignada>>;
-  auxiliar: ProyectoPersonaAsignada;
-  setAuxiliar: React.Dispatch<React.SetStateAction<ProyectoPersonaAsignada>>;
+  tecnicosAsignados: ProyectoTecnicoAsignado[];
+  setTecnicosAsignados: (v: ProyectoTecnicoAsignado[]) => void;
+  auxiliaresAsignados: ProyectoPersonaAsignada[];
+  setAuxiliaresAsignados: (v: ProyectoPersonaAsignada[]) => void;
   vehiculoAsignado: string;
   setVehiculoAsignado: (v: string) => void;
   herramientasGenerales: string;
   setHerramientasGenerales: (v: string) => void;
   tecnicoOptions: { value: string; label: string }[];
-  setPersonaFromId: (
-    id: string,
-    setter: React.Dispatch<React.SetStateAction<ProyectoPersonaAsignada>>
-  ) => void;
   notasPorDia: ProyectoNotaDia[];
   notasLiveMessage: string;
   addNotaDia: () => void;
@@ -213,16 +210,15 @@ export function ProyectoOperacionTab({
   setFechaRangoEnd,
   diasRangoCount,
   fechasInicio,
-  tecnico,
-  setTecnico,
-  auxiliar,
-  setAuxiliar,
+  tecnicosAsignados,
+  setTecnicosAsignados,
+  auxiliaresAsignados,
+  setAuxiliaresAsignados,
   vehiculoAsignado,
   setVehiculoAsignado,
   herramientasGenerales,
   setHerramientasGenerales,
   tecnicoOptions,
-  setPersonaFromId,
   notasPorDia,
   notasLiveMessage,
   addNotaDia,
@@ -254,6 +250,10 @@ export function ProyectoOperacionTab({
 }: ProyectoOperacionTabProps) {
   const motivoId = useId();
   const notasLiveId = useId();
+  const tecnicoResponsableNombre =
+    tecnicosAsignados.find((t) => t.responsable)?.nombre?.trim() ||
+    tecnicosAsignados[0]?.nombre?.trim() ||
+    "";
 
   return (
     <div id={panelId} role="tabpanel" aria-labelledby={labelledBy} className="space-y-5">
@@ -476,40 +476,51 @@ export function ProyectoOperacionTab({
       <ProyectoFormSection
         titleId="proyecto-sec-equipo"
         title="Equipo de campo"
-        hint="Quién va, en qué unidad y con qué herramientas."
+        hint="Varios técnicos: marca uno como responsable. Los auxiliares también ven el proyecto."
         icon={iconTeam}
       >
-        <div className="grid gap-4 lg:grid-cols-3">
-          <SearchableSelect
-            label="Técnico"
-            value={tecnico.id != null ? String(tecnico.id) : ""}
-            onChange={(v) => setPersonaFromId(v, setTecnico)}
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          <ProyectoAsignadosMultiField
+            mode="tecnicos"
+            label="Técnicos"
+            value={tecnicosAsignados}
+            onChange={setTecnicosAsignados}
             options={tecnicoOptions}
-            placeholder="Buscar técnico…"
+            excludeIds={auxiliaresAsignados
+              .map((a) => a.id)
+              .filter((id): id is number => id != null)}
+            placeholder="Buscar y agregar técnicos…"
           />
-          <SearchableSelect
-            label="Auxiliar"
-            value={auxiliar.id != null ? String(auxiliar.id) : ""}
-            onChange={(v) => setPersonaFromId(v, setAuxiliar)}
-            options={tecnicoOptions}
-            placeholder="Buscar auxiliar…"
-          />
-          <div>
-            <label htmlFor="proyecto-vehiculo" className={proyectoFieldLabelClass}>
-              Vehículo asignado
-            </label>
-            <input
-              id="proyecto-vehiculo"
-              type="text"
-              value={vehiculoAsignado}
-              onChange={(e) => setVehiculoAsignado(e.target.value)}
-              placeholder="Placas o unidad"
-              className={erpInputLikeClass}
+          <div className="space-y-4">
+            <ProyectoAsignadosMultiField
+              mode="auxiliares"
+              label="Auxiliares"
+              value={auxiliaresAsignados}
+              onChange={setAuxiliaresAsignados}
+              options={tecnicoOptions}
+              excludeIds={tecnicosAsignados
+                .map((t) => t.id)
+                .filter((id): id is number => id != null)}
+              placeholder="Buscar y agregar auxiliares…"
             />
+            <div>
+              <label htmlFor="proyecto-vehiculo" className={proyectoFieldLabelClass}>
+                Vehículo asignado
+              </label>
+              <input
+                id="proyecto-vehiculo"
+                type="text"
+                value={vehiculoAsignado}
+                onChange={(e) => setVehiculoAsignado(e.target.value)}
+                placeholder="Placas o unidad"
+                className={erpInputLikeClass}
+                autoComplete="off"
+              />
+            </div>
           </div>
         </div>
 
-        <div>
+        <div className="border-t border-[#e7ded0]/80 pt-4 dark:border-[#334155]/80">
           <label htmlFor="proyecto-herramientas" className={proyectoFieldLabelClass}>
             Herramientas generales
           </label>
@@ -517,9 +528,9 @@ export function ProyectoOperacionTab({
             id="proyecto-herramientas"
             value={herramientasGenerales}
             onChange={(e) => setHerramientasGenerales(e.target.value)}
-            rows={3}
-            placeholder="Lista de herramientas o equipo general del proyecto"
-            className={`${erpInputLikeClass} min-h-[4.5rem] resize-y`}
+            rows={2}
+            placeholder="Lista breve de herramientas o equipo general"
+            className={`${erpInputLikeClass} !min-h-0 max-h-36 resize-y py-2 sm:!min-h-0 sm:py-2`}
           />
         </div>
       </ProyectoFormSection>
@@ -844,16 +855,20 @@ export function ProyectoOperacionTab({
       <ProyectoFormSection
         titleId="proyecto-sec-firmas"
         title="Firmas"
-        hint="La firma del técnico se toma de su perfil. El cliente firma aquí al cierre."
+        hint="La firma del técnico es la del responsable. Si no tiene firma en su perfil, el recuadro queda vacío."
         icon={iconPen}
       >
         <div className="grid grid-cols-1 gap-4 touch-none md:grid-cols-2">
           <SignaturePad
-            label="Firma del técnico"
+            label={
+              tecnicoResponsableNombre
+                ? `Firma del técnico · ${tecnicoResponsableNombre}`
+                : "Firma del técnico (responsable)"
+            }
             value={tecnicoSignatureUrl || firmaTecnicoUrl}
             disabled
             onChange={() => {
-              /* Solo lectura: se carga del perfil del técnico asignado */
+              /* Solo lectura: se carga del perfil del técnico responsable */
             }}
             width={400}
             height={220}
