@@ -341,7 +341,11 @@ export default function CuentasAntarixPage() {
           <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
             /
           </span>
-          <span className="text-[#44403c] dark:text-[#cbd5e1]">Operación</span>
+          <span className="text-[#44403c] dark:text-[#cbd5e1]">Ventas</span>
+          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+            /
+          </span>
+          <span className="text-[#44403c] dark:text-[#cbd5e1]">Suscripción</span>
           <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
             /
           </span>
@@ -371,7 +375,7 @@ export default function CuentasAntarixPage() {
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <p className={cn(uiLabel, "text-[#ea580c] dark:text-[#fb923c]")}>Operación · Wialon</p>
+              <p className={cn(uiLabel, "text-[#ea580c] dark:text-[#fb923c]")}>Ventas · Suscripción</p>
               <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Cuentas de Antarix GPS</h1>
               <p className={`mt-1 max-w-2xl ${erpBodyClass}`}>
                 Usuarios disponibles en tu cuenta{" "}

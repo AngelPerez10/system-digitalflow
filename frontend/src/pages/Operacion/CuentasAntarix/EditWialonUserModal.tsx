@@ -1136,7 +1136,7 @@ export default function EditWialonUserModal({
             </span>
 
             <div className="min-w-0 flex-1 pt-0.5">
-              <p className={wialonUiLabel}>Operación · Wialon Hosting</p>
+              <p className={wialonUiLabel}>Ventas · Suscripción · Wialon</p>
               <h2 id={titleId} className={cn("mt-1.5 text-balance", erpSubheadingClass)}>
             {user?.name || "Cuenta"}
           </h2>

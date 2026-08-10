@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useState, useMemo, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 // Assume these icons are imported from an icon library
@@ -172,6 +172,12 @@ export default function AppSidebar() {
       if (isAdmin || permissions?.servicios?.view === true) {
         productosServiciosSub.push({ name: "Servicios", path: "/servicios", pro: false });
       }
+      if (
+        isAdmin ||
+        (permissions as Record<string, { view?: boolean }> | null)?.inventario?.view === true
+      ) {
+        productosServiciosSub.push({ name: "Inventario", path: "/inventario", pro: false });
+      }
       if (productosServiciosSub.length > 0) {
         items.push({
           icon: <BoxCubeIcon />,
@@ -180,13 +186,20 @@ export default function AppSidebar() {
         });
       }
 
+      const ventasSub: SidebarSubItem[] = [
+        { name: "Cotizaciones", path: "/cotizacion", pro: false },
+        { name: "Facturas CFDI", path: "/facturas", pro: false },
+      ];
+      if (permissions?.cuentas_antarix?.view === true || isAdmin) {
+        ventasSub.push({
+          name: "Suscripción",
+          subItems: [{ name: "Antarix GPS", path: "/cuentas", pro: false }],
+        });
+      }
       items.push({
         icon: <PieChartIcon />,
         name: "Ventas",
-        subItems: [
-          { name: "Cotizaciones", path: "/cotizacion", pro: false },
-          { name: "Facturas CFDI", path: "/facturas", pro: false },
-        ],
+        subItems: ventasSub,
       });
 
       const operacionSub: SidebarSubItem[] = [
@@ -198,12 +211,6 @@ export default function AppSidebar() {
             : []),
           ...(permissions?.proyectos?.view === true || isAdmin
             ? [{ name: "Proyectos", path: "/proyectos", pro: false } as const]
-            : []),
-          ...((permissions as Record<string, { view?: boolean }> | null)?.inventario?.view === true || isAdmin
-            ? [{ name: "Inventario", path: "/inventario", pro: false } as const]
-            : []),
-          ...(permissions?.cuentas_antarix?.view === true || isAdmin
-            ? [{ name: "Antarix GPS", path: "/cuentas", pro: false } as const]
             : []),
           ...(SIDEBAR_FUTURE.operacionExtended && permissions?.ordenes?.view === true
             ? ([
@@ -236,10 +243,6 @@ export default function AppSidebar() {
         subItems.push({ name: "Proyectos", path: "/proyectos", pro: false });
       }
 
-      if ((permissions as Record<string, { view?: boolean }> | null)?.inventario?.view === true) {
-        subItems.push({ name: "Inventario", path: "/inventario", pro: false });
-      }
-
       if (
         SIDEBAR_FUTURE.reportesOperator &&
         permissions?.reportes?.view === true
@@ -249,10 +252,6 @@ export default function AppSidebar() {
 
       if (permissions?.tareas?.view === true) {
         subItems.push({ name: "Tareas", path: "/tareas-tecnico", pro: false });
-      }
-
-      if (permissions?.cuentas_antarix?.view === true) {
-        subItems.push({ name: "Cuentas de Antarix GPS", path: "/cuentas", pro: false });
       }
 
       if (subItems.length > 0) {
@@ -276,14 +275,24 @@ export default function AppSidebar() {
         });
       }
 
+      const ventasSub: SidebarSubItem[] = [];
       if (permissions?.cotizaciones?.view === true) {
+        ventasSub.push(
+          { name: "Cotizaciones", path: "/cotizacion", pro: false },
+          { name: "Facturas CFDI", path: "/facturas", pro: false },
+        );
+      }
+      if (permissions?.cuentas_antarix?.view === true) {
+        ventasSub.push({
+          name: "Suscripción",
+          subItems: [{ name: "Antarix GPS", path: "/cuentas", pro: false }],
+        });
+      }
+      if (ventasSub.length > 0) {
         items.push({
           icon: <PieChartIcon />,
           name: "Ventas",
-          subItems: [
-            { name: "Cotizaciones", path: "/cotizacion", pro: false },
-            { name: "Facturas CFDI", path: "/facturas", pro: false },
-          ],
+          subItems: ventasSub,
         });
       }
 
@@ -293,6 +302,9 @@ export default function AppSidebar() {
       }
       if (permissions?.servicios?.view === true) {
         productosServiciosSub.push({ name: "Servicios", path: "/servicios", pro: false });
+      }
+      if ((permissions as Record<string, { view?: boolean }> | null)?.inventario?.view === true) {
+        productosServiciosSub.push({ name: "Inventario", path: "/inventario", pro: false });
       }
       if (productosServiciosSub.length > 0) {
         items.push({
@@ -315,10 +327,6 @@ export default function AppSidebar() {
   } | null>(null);
 
   const [openNestedSubmenus, setOpenNestedSubmenus] = useState<Record<string, boolean>>({});
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
-  );
-  const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
@@ -341,6 +349,7 @@ export default function AppSidebar() {
 
   useEffect(() => {
     let submenuMatched = false;
+    const nestedToOpen: Record<string, boolean> = {};
     ["main", "others"].forEach((menuType) => {
       const items = menuType === "main" ? navItems : othersItems;
       items.forEach((nav, index) => {
@@ -349,28 +358,23 @@ export default function AppSidebar() {
             if (hasActivePath(subItem)) {
               setOpenSubmenu({ type: menuType as "main" | "others", index });
               submenuMatched = true;
+              if (!("path" in subItem)) {
+                nestedToOpen[`${menuType}-${index}-${subItem.name}`] = true;
+              }
             }
           });
         }
       });
     });
 
+    if (Object.keys(nestedToOpen).length > 0) {
+      setOpenNestedSubmenus((prev) => ({ ...prev, ...nestedToOpen }));
+    }
+
     if (!submenuMatched) {
       setOpenSubmenu(null);
     }
   }, [location, isActive, navItems, othersItems, hasActivePath]);
-
-  useEffect(() => {
-    if (openSubmenu !== null) {
-      const key = `${openSubmenu.type}-${openSubmenu.index}`;
-      if (subMenuRefs.current[key]) {
-        setSubMenuHeight((prevHeights) => ({
-          ...prevHeights,
-          [key]: subMenuRefs.current[key]?.scrollHeight || 0,
-        }));
-      }
-    }
-  }, [openSubmenu]);
 
   const handleSubmenuToggle = (index: number, menuType: "main" | "others") => {
     setOpenSubmenu((prevOpenSubmenu) => {
@@ -387,20 +391,6 @@ export default function AppSidebar() {
 
   const toggleNestedSubmenu = (key: string) => {
     setOpenNestedSubmenus((prev) => ({ ...prev, [key]: !prev[key] }));
-
-    // Recalcular la altura del submenu abierto (overflow-hidden) para que
-    // el contenido anidado no quede recortado.
-    if (openSubmenu) {
-      window.requestAnimationFrame(() => {
-        const submenuKey = `${openSubmenu.type}-${openSubmenu.index}`;
-        const el = subMenuRefs.current[submenuKey];
-        if (!el) return;
-        setSubMenuHeight((prevHeights) => ({
-          ...prevHeights,
-          [submenuKey]: el.scrollHeight || 0,
-        }));
-      });
-    }
   };
 
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
@@ -465,17 +455,15 @@ export default function AppSidebar() {
           )}
           {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
             <div
-              ref={(el) => {
-                subMenuRefs.current[`${menuType}-${index}`] = el;
-              }}
-              className="overflow-hidden transition-all duration-300"
+              className="grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none"
               style={{
-                height:
+                gridTemplateRows:
                   openSubmenu?.type === menuType && openSubmenu?.index === index
-                    ? `${subMenuHeight[`${menuType}-${index}`]}px`
-                    : "0px",
+                    ? "1fr"
+                    : "0fr",
               }}
             >
+              <div className="min-h-0 overflow-hidden">
               <ul className="mt-2 space-y-1 ml-9">
                 {nav.subItems.map((subItem) => {
                   if ('path' in subItem) {
@@ -519,42 +507,65 @@ export default function AppSidebar() {
 
                   const nestedKey = `${menuType}-${index}-${subItem.name}`;
                   const isOpen = !!openNestedSubmenus[nestedKey];
+                  const nestedPanelId = `sidebar-nested-${menuType}-${index}-${subItem.name.replace(/\s+/g, "-").toLowerCase()}`;
+                  const nestedTriggerId = `${nestedPanelId}-trigger`;
+                  const hasActiveChild = subItem.subItems.some((child) => isActive(child.path));
 
                   return (
                     <li key={subItem.name}>
                       <button
                         type="button"
-                        onClick={() => toggleNestedSubmenu(nestedKey)}
-                        className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium tracking-[0.12px] text-[#a1a4a5] hover:text-[#f0f0f0]"
+                        id={nestedTriggerId}
                         aria-expanded={isOpen}
+                        aria-controls={nestedPanelId}
+                        onClick={() => toggleNestedSubmenu(nestedKey)}
+                        className={`menu-dropdown-item w-full justify-between gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#465FFF] ${
+                          isOpen || hasActiveChild
+                            ? "menu-dropdown-item-active"
+                            : "menu-dropdown-item-inactive"
+                        }`}
                       >
                         <span className="truncate">{subItem.name}</span>
                         <ChevronDownIcon
-                          className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-180 text-[#3b9eff]" : ""}`}
+                          className={`h-4 w-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${
+                            isOpen ? "rotate-180 text-[#465FFF] dark:text-[#3b9eff]" : "opacity-70"
+                          }`}
+                          aria-hidden
                         />
                       </button>
 
-                      {isOpen && (
-                        <ul className="space-y-1 ml-4">
+                      <div
+                        id={nestedPanelId}
+                        role="region"
+                        aria-labelledby={nestedTriggerId}
+                        hidden={!isOpen}
+                        className={isOpen ? "mt-1" : undefined}
+                      >
+                        <ul
+                          className="space-y-1 border-l border-[#e7ded0]/80 pl-2.5 ml-3 dark:border-[#334155]"
+                        >
                           {subItem.subItems.map((child) => (
                             <li key={child.name}>
                               <Link
                                 to={child.path}
-                                className={`menu-dropdown-item ${isActive(child.path)
-                                  ? "menu-dropdown-item-active"
-                                  : "menu-dropdown-item-inactive"
-                                  }`}
+                                aria-current={isActive(child.path) ? "page" : undefined}
+                                className={`menu-dropdown-item ${
+                                  isActive(child.path)
+                                    ? "menu-dropdown-item-active"
+                                    : "menu-dropdown-item-inactive"
+                                }`}
                               >
                                 {child.name}
                               </Link>
                             </li>
                           ))}
                         </ul>
-                      )}
+                      </div>
                     </li>
                   );
                 })}
               </ul>
+              </div>
             </div>
           )}
         </li>
