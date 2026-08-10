@@ -13,6 +13,7 @@ import {
 } from "../shared/inventarioStyles";
 import type { InventarioFuente, InventarioItem } from "../shared/inventarioTypes";
 import InventarioItemsMobileList from "./InventarioItemsMobileList";
+import InventarioSeccionBadge from "./InventarioSeccionBadge";
 import InventarioThumb from "./InventarioThumb";
 import { BarcodeIcon, LinkIcon } from "./inventarioIcons";
 
@@ -166,6 +167,9 @@ export default function InventarioItemsTable({
                         </span>
                         <span className="mt-1 block truncate font-mono text-[11px] tracking-wide text-gray-500 dark:text-gray-400">
                           {item.codigo_barras}
+                        </span>
+                        <span className="mt-1.5 block">
+                          <InventarioSeccionBadge seccion={item.seccion} compact />
                         </span>
                       </span>
                     </button>

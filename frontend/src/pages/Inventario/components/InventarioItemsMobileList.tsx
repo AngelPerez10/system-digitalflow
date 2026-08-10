@@ -5,6 +5,7 @@ import {
   inventarioMobileCardSelectedClass,
 } from "../shared/inventarioStyles";
 import type { InventarioFuente, InventarioItem } from "../shared/inventarioTypes";
+import InventarioSeccionBadge from "./InventarioSeccionBadge";
 import InventarioThumb from "./InventarioThumb";
 import { LinkIcon } from "./inventarioIcons";
 
@@ -123,6 +124,7 @@ export default function InventarioItemsMobileList({
               </dl>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                <InventarioSeccionBadge seccion={item.seccion} showEmpty compact />
                 {proveedor ? (
                   <span className={fuenteBadgeClass(badgeFuente(item))}>{proveedor}</span>
                 ) : (

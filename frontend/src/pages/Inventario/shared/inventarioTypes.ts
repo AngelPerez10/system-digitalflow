@@ -11,6 +11,8 @@ export type InventarioItem = {
   fuente: InventarioFuente;
   ref_externa: string;
   imagen_url: string;
+  /** Sección de catálogo (slug); vacío = sin sección. */
+  seccion: string;
   cantidad: number;
   /** Folio de la última factura importada (vacío si solo se escaneó). */
   folio_factura: string;
@@ -57,6 +59,7 @@ export type InventarioItemPatch = Partial<
     | "ref_externa"
     | "imagen_url"
     | "precio_unitario"
+    | "seccion"
   >
 >;
 
@@ -72,12 +75,16 @@ export type CatalogoCandidato = {
   caracteristicas: string;
   /** Precio de lista en MXN si el catálogo lo resolvió. */
   precio_unitario?: string | null;
+  /** Sección sugerida desde la categoría del catálogo. */
+  seccion?: string;
 };
 
 export type InventarioItemsParams = {
   search?: string;
   page?: number;
   page_size?: number;
+  /** slug, o "sin" para sin sección; omitir = todas. */
+  seccion?: string;
 };
 
 export type InventarioMovimientosParams = {

@@ -28,6 +28,7 @@ import InventarioItemsTable from "./components/InventarioItemsTable";
 import InventarioMovimientosList from "./components/InventarioMovimientosList";
 import InventarioPagination from "./components/InventarioPagination";
 import InventarioScanBar from "./components/InventarioScanBar";
+import InventarioSeccionChips from "./components/InventarioSeccionChips";
 import InventarioStats from "./components/InventarioStats";
 import { BarcodeIcon, SearchIcon } from "./components/inventarioIcons";
 import {
@@ -38,7 +39,9 @@ import {
   listInventarioMovimientos,
   patchInventarioItem,
   scanInventario,
+  sincronizarSeccionesInventario,
 } from "./shared/inventarioApi";
+import type { InventarioSeccionFiltro } from "./shared/inventarioSecciones";
 import type {
   FacturaProveedor,
   InventarioItem,
@@ -81,6 +84,7 @@ export default function InventarioPage() {
   const [movimientosLoading, setMovimientosLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [seccionFiltro, setSeccionFiltro] = useState<InventarioSeccionFiltro>("todas");
   const [filterItem, setFilterItem] = useState<InventarioItem | null>(null);
   const [editItem, setEditItem] = useState<InventarioItem | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -108,10 +112,15 @@ export default function InventarioPage() {
     }
   }, []);
 
-  const loadItems = useCallback(async (search: string, page: number) => {
+  const loadItems = useCallback(async (search: string, page: number, seccion: InventarioSeccionFiltro) => {
     setItemsLoading(true);
     try {
-      const data = await listInventarioItems({ search, page, page_size: ITEMS_PAGE_SIZE });
+      const data = await listInventarioItems({
+        search,
+        page,
+        page_size: ITEMS_PAGE_SIZE,
+        seccion: seccion === "todas" ? undefined : seccion,
+      });
       setItems(data.results);
       setItemsCount(data.count);
       const maxPage = Math.max(1, Math.ceil(data.count / ITEMS_PAGE_SIZE) || 1);
@@ -150,6 +159,26 @@ export default function InventarioPage() {
     void loadStats();
   }, [loadStats]);
 
+  // Al abrir: rellena secciones vacías desde SYSCOM (ítems viejos).
+  // Sin ref de “ya corrí”: en Strict Mode el primer efecto se cancela y el segundo debe volver a sincronizar.
+  useEffect(() => {
+    let cancelado = false;
+    void (async () => {
+      try {
+        const res = await sincronizarSeccionesInventario(50);
+        if (cancelado || res.actualizados <= 0) return;
+        await loadItems(debouncedSearch, itemsPage, seccionFiltro);
+        await loadStats();
+      } catch {
+        // Silencioso: el listado también intenta rellenar de a 5 al paginar.
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- backfill al montar la página
+  }, []);
+
   useEffect(() => {
     const delay = searchFirstRef.current ? 0 : 300;
     searchFirstRef.current = false;
@@ -161,8 +190,8 @@ export default function InventarioPage() {
   }, [searchTerm]);
 
   useEffect(() => {
-    void loadItems(debouncedSearch, itemsPage);
-  }, [debouncedSearch, itemsPage, loadItems]);
+    void loadItems(debouncedSearch, itemsPage, seccionFiltro);
+  }, [debouncedSearch, itemsPage, seccionFiltro, loadItems]);
 
   useEffect(() => {
     void loadMovimientos(filterItem?.id ?? null, movimientosPage);
@@ -170,7 +199,7 @@ export default function InventarioPage() {
 
   const refreshLists = useCallback(async () => {
     await Promise.all([
-      loadItems(debouncedSearch, itemsPage),
+      loadItems(debouncedSearch, itemsPage, seccionFiltro),
       loadMovimientos(filterItem?.id ?? null, movimientosPage),
       loadStats(),
     ]);
@@ -182,6 +211,7 @@ export default function InventarioPage() {
     loadMovimientos,
     loadStats,
     movimientosPage,
+    seccionFiltro,
   ]);
 
   const handleSearchChange = (value: string) => {
@@ -241,7 +271,7 @@ export default function InventarioPage() {
       }
       setScanStatus(`Ítem eliminado: ${item.nombre || item.codigo_barras}`);
     await Promise.all([
-      loadItems(debouncedSearch, itemsPage),
+      loadItems(debouncedSearch, itemsPage, seccionFiltro),
       loadMovimientos(
         filterItem?.id === item.id ? null : filterItem?.id ?? null,
         filterItem?.id === item.id ? 1 : movimientosPage,
@@ -292,7 +322,7 @@ export default function InventarioPage() {
     setItemsPage(1);
     setMovimientosPage(1);
     await Promise.all([
-      loadItems(debouncedSearch, 1),
+      loadItems(debouncedSearch, 1, seccionFiltro),
       loadMovimientos(filterItem?.id ?? null, 1),
       loadStats(),
     ]);
@@ -365,17 +395,18 @@ export default function InventarioPage() {
             />
           </div>
 
-          <div className="mt-4 grid gap-4">
+          <div className="mt-4 grid min-w-0 gap-4">
             <ComponentCard
               compact
+              className="min-w-0 max-w-full overflow-hidden"
               title="Ítems en inventario"
-              desc="Existencia, precio y folio de factura. Toca un producto para filtrar su historial."
+              desc="Elige una sección arriba. Toca un producto para ver su historial."
             >
-              <div className="mb-4">
+              <div className="mb-4 min-w-0">
                 <label htmlFor="inventario-search" className="sr-only">
                   Buscar ítems
                 </label>
-                <div className="relative">
+                <div className="relative min-w-0">
                   <span
                     className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#a8a29e] dark:text-[#64748b]"
                     aria-hidden="true"
@@ -391,6 +422,15 @@ export default function InventarioPage() {
                     className={erpSearchInputClass}
                   />
                 </div>
+              </div>
+              <div className="mb-4 min-w-0 max-w-full overflow-hidden">
+                <InventarioSeccionChips
+                  value={seccionFiltro}
+                  onChange={(next) => {
+                    setSeccionFiltro(next);
+                    setItemsPage(1);
+                  }}
+                />
               </div>
               <InventarioItemsTable
                 items={items}

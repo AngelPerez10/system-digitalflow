@@ -10,6 +10,8 @@ from decimal import Decimal, InvalidOperation
 import requests
 from django.conf import settings
 
+from .secciones import map_producto_to_seccion
+
 logger = logging.getLogger(__name__)
 
 # La ficha de inventario muestra las características en un textarea; más allá de
@@ -177,6 +179,7 @@ def _map_product(raw: dict, fuente: str) -> dict:
     if not imagen.startswith(('http://', 'https://')):
         imagen = ''
     precio = _extract_precio_unitario(raw, fuente)
+    seccion = map_producto_to_seccion(raw)
     return {
         'nombre': nombre,
         'marca': marca,
@@ -187,6 +190,7 @@ def _map_product(raw: dict, fuente: str) -> dict:
         'caracteristicas': _extract_caracteristicas(raw),
         # String para JSON estable en /catalogo/; el scan lo convierte a Decimal.
         'precio_unitario': format(precio, 'f') if precio is not None else None,
+        'seccion': seccion,
     }
 
 
@@ -376,3 +380,79 @@ def search_catalogs(termino: str, limit: int = 10) -> list[dict]:
             )
 
     return candidatos[: limit * 2]
+
+
+def aplicar_seccion_desde_catalogo(item) -> str:
+    """Rellena `item.seccion` desde SYSCOM/TVC si está vacía. Devuelve el slug aplicado.
+
+    Prioridad: detalle por vínculo (fuente+ref) → búsqueda por modelo/código.
+    Persiste solo si obtiene una sección válida.
+    """
+    if getattr(item, 'seccion', None):
+        return ''
+
+    detalle = None
+    fuente = (getattr(item, 'fuente', '') or '').strip().lower()
+    ref = (getattr(item, 'ref_externa', '') or '').strip()
+    modelo = (getattr(item, 'modelo', '') or '').strip()
+    codigo = (getattr(item, 'codigo_barras', '') or '').strip()
+
+    if fuente in {'syscom', 'tvc'} and (ref or modelo):
+        detalle = fetch_catalog_detail(fuente, ref, modelo)
+
+    # Si el detalle existe pero no trae sección (p. ej. búsqueda sin categorías),
+    # intentar match por modelo/código.
+    if not (detalle and detalle.get('seccion')):
+        for termino in (modelo, codigo):
+            if not termino:
+                continue
+            candidato = enrich_from_catalogs(termino)
+            if candidato and candidato.get('seccion'):
+                detalle = candidato
+                break
+
+    seccion = (detalle or {}).get('seccion') or ''
+    if not seccion:
+        return ''
+
+    item.seccion = seccion
+    # Si aún no había vínculo y el match lo trajo, conviene guardarlo para la próxima.
+    if fuente in {'', 'desconocido'} and detalle:
+        nueva_fuente = (detalle.get('fuente') or '').strip().lower()
+        nueva_ref = (detalle.get('ref_externa') or '').strip()
+        if nueva_fuente in {'syscom', 'tvc'} and nueva_ref:
+            item.fuente = nueva_fuente
+            item.ref_externa = nueva_ref
+            if not modelo and detalle.get('modelo'):
+                item.modelo = str(detalle['modelo'])[:120]
+    update_fields = ['seccion', 'fecha_actualizacion']
+    if item.fuente != fuente:
+        update_fields.append('fuente')
+    if item.ref_externa != ref:
+        update_fields.append('ref_externa')
+    if modelo != (getattr(item, 'modelo', '') or '').strip():
+        update_fields.append('modelo')
+    item.save(update_fields=update_fields)
+    return seccion
+
+
+def sincronizar_secciones_pendientes(limit: int = 40) -> dict:
+    """Backfill de secciones vacías consultando el catálogo."""
+    from .models import InventarioItem
+
+    limite = max(1, min(int(limit or 40), 100))
+    pendientes = list(
+        InventarioItem.objects.filter(seccion='')
+        .order_by('-fecha_actualizacion')[:limite]
+    )
+    actualizados = 0
+    revisados = 0
+    for item in pendientes:
+        revisados += 1
+        if aplicar_seccion_desde_catalogo(item):
+            actualizados += 1
+    return {
+        'revisados': revisados,
+        'actualizados': actualizados,
+        'pendientes_restantes': InventarioItem.objects.filter(seccion='').count(),
+    }

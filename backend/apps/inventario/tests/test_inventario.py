@@ -209,6 +209,71 @@ class InventarioItemsTests(APITestCase):
         self.assertEqual(self.item.cantidad, 3)
         self.assertEqual(self.item.nombre, 'Sensor')
 
+    def test_filtro_seccion(self):
+        InventarioItem.objects.create(
+            codigo_barras='CAM-1',
+            nombre='Cámara',
+            cantidad=1,
+            seccion='videovigilancia',
+        )
+        InventarioItem.objects.create(
+            codigo_barras='NET-1',
+            nombre='Switch',
+            cantidad=1,
+            seccion='redes_it',
+        )
+        res = self.client.get('/api/inventario/items/?seccion=videovigilancia')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        codigos = {i['codigo_barras'] for i in res.data['results']}
+        self.assertIn('CAM-1', codigos)
+        self.assertNotIn('NET-1', codigos)
+        self.assertNotIn('X1', codigos)
+
+        res_sin = self.client.get('/api/inventario/items/?seccion=sin')
+        self.assertEqual(res_sin.status_code, status.HTTP_200_OK)
+        codigos_sin = {i['codigo_barras'] for i in res_sin.data['results']}
+        self.assertIn('X1', codigos_sin)
+        self.assertNotIn('CAM-1', codigos_sin)
+
+    def test_patch_seccion(self):
+        res = self.client.patch(
+            f'/api/inventario/items/{self.item.id}/',
+            {'seccion': 'control_acceso'},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.seccion, 'control_acceso')
+
+    @patch(
+        'apps.inventario.enrichment.fetch_catalog_detail',
+        return_value={
+            'nombre': 'Cámara',
+            'marca': 'HIK',
+            'modelo': 'X',
+            'fuente': 'syscom',
+            'ref_externa': '1',
+            'imagen_url': '',
+            'caracteristicas': '',
+            'precio_unitario': None,
+            'seccion': 'videovigilancia',
+        },
+    )
+    def test_sincronizar_secciones(self, _detalle):
+        self.item.fuente = 'syscom'
+        self.item.ref_externa = '199807'
+        self.item.seccion = ''
+        self.item.save(update_fields=['fuente', 'ref_externa', 'seccion'])
+        res = self.client.post(
+            '/api/inventario/sincronizar-secciones/',
+            {'limit': 10},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(res.data['actualizados'], 1)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.seccion, 'videovigilancia')
+
     @patch('apps.inventario.views.enrich_from_catalogs', return_value=None)
     def test_list_movimientos(self, _enrich):
         self.client.post(
@@ -513,6 +578,43 @@ class InventarioCaracteristicasTests(APITestCase):
         )
         # 1160 × 80/100
         self.assertEqual(mapped['precio_unitario'], '928.00')
+
+    def test_map_product_asigna_seccion_desde_categoria(self):
+        mapped = _map_product(
+            {
+                'producto_id': 1,
+                'titulo': 'Cámara',
+                'categorias': [{'id': '22', 'nombre': 'Videovigilancia', 'nivel': 1}],
+            },
+            'syscom',
+        )
+        self.assertEqual(mapped['seccion'], 'videovigilancia')
+
+    def test_map_product_seccion_por_id_syscom_control_acceso(self):
+        mapped = _map_product(
+            {
+                'producto_id': 2,
+                'titulo': 'Lector',
+                'categorias': [{'id': '37', 'nombre': 'Control  de Acceso', 'nivel': 1}],
+            },
+            'syscom',
+        )
+        self.assertEqual(mapped['seccion'], 'control_acceso')
+
+    def test_map_product_marketing_sin_seccion(self):
+        mapped = _map_product(
+            {
+                'producto_id': 3,
+                'titulo': 'Flyer',
+                'categorias': [{'id': '65747', 'nombre': 'Marketing', 'nivel': 1}],
+            },
+            'syscom',
+        )
+        self.assertEqual(mapped['seccion'], '')
+
+    def test_map_product_sin_categoria_deja_seccion_vacia(self):
+        mapped = _map_product({'producto_id': 1, 'titulo': 'X'}, 'syscom')
+        self.assertEqual(mapped['seccion'], '')
 
     @patch(
         'apps.inventario.views.enrich_from_catalogs',

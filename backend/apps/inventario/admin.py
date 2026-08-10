@@ -8,6 +8,7 @@ class InventarioItemAdmin(admin.ModelAdmin):
     list_display = [
         'codigo_barras',
         'nombre',
+        'seccion',
         'cantidad',
         'fuente',
         'folio_factura',
@@ -15,6 +16,7 @@ class InventarioItemAdmin(admin.ModelAdmin):
         'precio_unitario',
         'fecha_actualizacion',
     ]
+    list_filter = ['seccion', 'fuente']
     search_fields = ['codigo_barras', 'nombre', 'marca', 'modelo']
 
 

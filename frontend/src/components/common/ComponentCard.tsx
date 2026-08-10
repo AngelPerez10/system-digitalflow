@@ -57,11 +57,11 @@ const ComponentCard: React.FC<ComponentCardProps> = ({
       <div
         className={
           compact
-            ? "space-y-0 border-t border-gray-100 p-3 dark:border-gray-800 sm:p-6"
-            : "border-t border-gray-100 p-4 dark:border-gray-800 sm:p-6"
+            ? "min-w-0 space-y-0 border-t border-gray-100 p-3 dark:border-gray-800 sm:p-6"
+            : "min-w-0 border-t border-gray-100 p-4 dark:border-gray-800 sm:p-6"
         }
       >
-        <div className={compact ? "space-y-4 sm:space-y-6" : "space-y-6"}>{children}</div>
+        <div className={`min-w-0 ${compact ? "space-y-4 sm:space-y-6" : "space-y-6"}`}>{children}</div>
       </div>
     </div>
   );

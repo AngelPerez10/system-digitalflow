@@ -31,6 +31,7 @@ import {
   inventarioSectionIconClass,
 } from "../shared/inventarioStyles";
 import InventarioFormSection from "./InventarioFormSection";
+import InventarioSeccionBadge from "./InventarioSeccionBadge";
 import InventarioThumb from "./InventarioThumb";
 import {
   BarcodeIcon,
@@ -52,6 +53,7 @@ import type {
   InventarioItem,
   InventarioItemPatch,
 } from "../shared/inventarioTypes";
+import { INVENTARIO_SECCIONES } from "../shared/inventarioSecciones";
 
 const MIN_BUSQUEDA = 3;
 const MAX_IMAGEN_MB = 8;
@@ -101,6 +103,7 @@ export default function InventarioEditModal({
   const [refExterna, setRefExterna] = useState("");
   const [imagenUrl, setImagenUrl] = useState("");
   const [precioUnitario, setPrecioUnitario] = useState("");
+  const [seccion, setSeccion] = useState("");
   /** Existencia ya persistida (al abrir o tras Guardar). */
   const [cantidadGuardada, setCantidadGuardada] = useState(0);
   /** Existencia en pantalla; los ±1 solo se envían al Guardar. */
@@ -136,6 +139,7 @@ export default function InventarioEditModal({
     setPrecioUnitario((prev) =>
       prev.trim() ? prev : detalle.precio_unitario?.trim() || prev,
     );
+    setSeccion((prev) => (prev.trim() ? prev : detalle.seccion?.trim() || prev));
   }, []);
 
   useEffect(() => {
@@ -151,6 +155,7 @@ export default function InventarioEditModal({
     setRefExterna(item.ref_externa || "");
     setImagenUrl(item.imagen_url || "");
     setPrecioUnitario(item.precio_unitario != null ? String(item.precio_unitario) : "");
+    setSeccion(item.seccion || "");
     setCantidadGuardada(item.cantidad);
     setCantidad(item.cantidad);
     setImagenError(null);
@@ -172,7 +177,8 @@ export default function InventarioEditModal({
       !item.imagen_url.trim() ||
       !item.notas.trim() ||
       item.precio_unitario == null ||
-      item.precio_unitario === "";
+      item.precio_unitario === "" ||
+      !(item.seccion || "").trim();
     if (!tieneVinculo || !faltaAlgo) return;
     if (autoCatalogoRef.current === item.id) return;
     autoCatalogoRef.current = item.id;
@@ -278,14 +284,18 @@ export default function InventarioEditModal({
     if (candidato.precio_unitario && !precioUnitario.trim()) {
       setPrecioUnitario(candidato.precio_unitario);
     }
+    if (candidato.seccion && !seccion.trim()) {
+      setSeccion(candidato.seccion);
+    }
     setCandidatos([]);
     setBusquedaHecha(false);
     setFichaAviso(null);
 
-    // Detalle: ficha técnica y precio de lista (la búsqueda suele no traerlos).
+    // Detalle: ficha técnica, precio y sección (la búsqueda suele no traerlos).
     const faltaNotas = !notas.trim() && !candidato.caracteristicas;
     const faltaPrecio = !precioUnitario.trim() && !candidato.precio_unitario;
-    if (!faltaNotas && !faltaPrecio) return;
+    const faltaSeccion = !seccion.trim() && !candidato.seccion;
+    if (!faltaNotas && !faltaPrecio && !faltaSeccion) return;
     setTrayendoFicha(true);
     fetchCatalogoDetallePorRef(candidato.fuente, candidato.ref_externa, candidato.modelo)
       .then((detalle) => {
@@ -295,6 +305,9 @@ export default function InventarioEditModal({
         }
         if (detalle.precio_unitario) {
           setPrecioUnitario((prev) => (prev.trim() ? prev : detalle.precio_unitario || prev));
+        }
+        if (detalle.seccion) {
+          setSeccion((prev) => (prev.trim() ? prev : detalle.seccion || prev));
         }
       })
       .catch(() => {
@@ -378,6 +391,7 @@ export default function InventarioEditModal({
         ref_externa: refExterna.trim(),
         imagen_url: imagenUrl.trim(),
         precio_unitario: precioUnitario.trim() ? precioUnitario.trim() : null,
+        seccion: seccion.trim(),
       });
       onClose();
     } catch (err) {
@@ -814,6 +828,37 @@ export default function InventarioEditModal({
                     className={erpInputLikeClass}
                     disabled={saving}
                   />
+                </div>
+                <div>
+                  <label htmlFor={`${titleId}-seccion`} className={inventarioFieldLabelClass}>
+                    Sección
+                  </label>
+                  <select
+                    id={`${titleId}-seccion`}
+                    value={seccion}
+                    onChange={(e) => setSeccion(e.target.value)}
+                    className={erpInputLikeClass}
+                    disabled={busy}
+                    aria-describedby={`${titleId}-seccion-hint`}
+                  >
+                    <option value="">Sin sección</option>
+                    {INVENTARIO_SECCIONES.map((s) => (
+                      <option key={s.slug} value={s.slug}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <InventarioSeccionBadge seccion={seccion || null} showEmpty />
+                    <p
+                      id={`${titleId}-seccion-hint`}
+                      className="text-xs text-[#78716c] dark:text-[#8ea0b8]"
+                    >
+                      {seccion
+                        ? "Puedes corregirla si el catálogo no acertó."
+                        : "Se intenta llenar desde el catálogo; puedes asignarla aquí."}
+                    </p>
+                  </div>
                 </div>
                 <div className="sm:col-span-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">

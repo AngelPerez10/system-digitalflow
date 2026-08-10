@@ -17,7 +17,13 @@ from rest_framework.views import APIView
 from apps.ordenes.image_services import cloudinary, delete_cloudinary_resource, upload_data_url
 from apps.users.permissions import InventarioPermission
 
-from .enrichment import enrich_from_catalogs, fetch_catalog_detail, search_catalogs
+from .enrichment import (
+    aplicar_seccion_desde_catalogo,
+    enrich_from_catalogs,
+    fetch_catalog_detail,
+    search_catalogs,
+    sincronizar_secciones_pendientes,
+)
 from .invoice_import import (
     FacturaInvalida,
     FacturaNoEncontrada,
@@ -44,6 +50,7 @@ ENRICHMENT_FIELDS = (
     'ref_externa',
     'imagen_url',
     'precio_unitario',
+    'seccion',
 )
 
 INVENTARIO_UPLOAD_FOLDER = 'inventario/productos'
@@ -188,7 +195,82 @@ class InventarioItemListView(APIView):
                 | Q(modelo__icontains=search)
                 | Q(folio_factura__icontains=search)
             )
-        return _paginate(request, queryset, InventarioItemSerializer)
+        seccion = (request.query_params.get('seccion') or '').strip().lower()
+        if seccion == 'sin':
+            queryset = queryset.filter(seccion='')
+        elif seccion:
+            from .secciones import SECCION_SLUGS
+
+            if seccion not in SECCION_SLUGS:
+                return Response(
+                    {'detail': 'Sección inválida.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            queryset = queryset.filter(seccion=seccion)
+
+        paginator = InventarioPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        if page is not None:
+            filled = 0
+            for item in page:
+                if filled >= 5:
+                    break
+                if item.seccion:
+                    continue
+                if aplicar_seccion_desde_catalogo(item):
+                    filled += 1
+            serializer = InventarioItemSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        # Fallback sin paginación (no debería ocurrir con PageNumberPagination).
+        filled = 0
+        for item in queryset[:5]:
+            if item.seccion:
+                continue
+            if aplicar_seccion_desde_catalogo(item):
+                filled += 1
+                if filled >= 5:
+                    break
+        serializer = InventarioItemSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class _InventarioViewPermission(InventarioPermission):
+    """Chequea `inventario.view` sin importar el método HTTP."""
+
+    def has_permission(self, request, view):
+        # Evitar mutar request.method (puede ser read-only en DRF Request).
+        # Reutilizamos la lógica de ModulePermission forzando el camino GET.
+        class _GetProxy:
+            def __init__(self, wrapped):
+                self._wrapped = wrapped
+
+            @property
+            def method(self):
+                return 'GET'
+
+            def __getattr__(self, name):
+                return getattr(self._wrapped, name)
+
+        return super().has_permission(_GetProxy(request), view)
+
+
+class InventarioSincronizarSeccionesView(APIView):
+    """Rellena secciones vacías desde SYSCOM/TVC (backfill de ítems viejos).
+
+    Requiere `inventario.view` (no create): es mantenimiento de datos, no alta.
+    """
+
+    permission_classes = [IsAuthenticated, _InventarioViewPermission]
+
+    def post(self, request):
+        raw_limit = request.data.get('limit') if isinstance(request.data, dict) else None
+        try:
+            limit = int(raw_limit) if raw_limit is not None else 40
+        except (TypeError, ValueError):
+            limit = 40
+        resultado = sincronizar_secciones_pendientes(limit=limit)
+        return Response(resultado, status=status.HTTP_200_OK)
 
 
 class InventarioStatsView(APIView):

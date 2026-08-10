@@ -1,4 +1,5 @@
 /** Clases de la consola de escaneo. Mantienen el lenguaje ERP (crema + coral). */
+import type { InventarioSeccionTono } from "./inventarioSecciones";
 import type { InventarioFuente, ScanModo } from "./inventarioTypes";
 
 /* --- Secciones de formulario: mismo patrón que Proyectos / Órdenes --- */
@@ -94,6 +95,37 @@ export const fuenteBadgeClass = (fuente: InventarioFuente) => {
     return `${base} bg-[#ede9fe] text-[#5b21b6] dark:bg-[#4c1d95]/40 dark:text-[#c4b5fd]`;
   }
   return `${base} bg-[#f5f0e8] text-[#78716c] dark:bg-[#1e293b] dark:text-[#94a3b8]`;
+};
+
+/** Badge de sección en tabla / cards: tipografía densa, tono por categoría. */
+export const seccionBadgeClass = (tono: InventarioSeccionTono | "empty") => {
+  const base =
+    "inline-flex max-w-full items-center gap-1 truncate rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wide sm:text-[11px]";
+  if (tono === "empty") {
+    return `${base} border-dashed border-[#d6d3d1] bg-transparent text-[#a8a29e] dark:border-[#475569] dark:text-[#64748b]`;
+  }
+  if (tono === "amber") {
+    return `${base} border-[#fcd34d]/50 bg-[#fffbeb] text-[#92400e] dark:border-[#b45309]/35 dark:bg-[#b45309]/15 dark:text-[#fcd34d]`;
+  }
+  if (tono === "rose") {
+    return `${base} border-[#fda4af]/50 bg-[#fff1f2] text-[#9f1239] dark:border-[#be123c]/35 dark:bg-[#9f1239]/20 dark:text-[#fda4af]`;
+  }
+  if (tono === "emerald") {
+    return `${base} border-[#6ee7b7]/50 bg-[#ecfdf5] text-[#065f46] dark:border-[#047857]/40 dark:bg-[#047857]/20 dark:text-[#6ee7b7]`;
+  }
+  if (tono === "sky") {
+    return `${base} border-[#7dd3fc]/50 bg-[#f0f9ff] text-[#075985] dark:border-[#0284c7]/40 dark:bg-[#0c4a6e]/30 dark:text-[#7dd3fc]`;
+  }
+  if (tono === "violet") {
+    return `${base} border-[#c4b5fd]/50 bg-[#f5f3ff] text-[#5b21b6] dark:border-[#7c3aed]/40 dark:bg-[#4c1d95]/25 dark:text-[#c4b5fd]`;
+  }
+  if (tono === "orange") {
+    return `${base} border-[#ff801f]/35 bg-[#fff7ed] text-[#9a3412] dark:border-[#fb923c]/40 dark:bg-[#fb923c]/15 dark:text-[#fdba74]`;
+  }
+  if (tono === "slate") {
+    return `${base} border-[#cbd5e1] bg-[#f8fafc] text-[#334155] dark:border-[#475569] dark:bg-[#1e293b] dark:text-[#cbd5e1]`;
+  }
+  return `${base} border-[#e7ded0] bg-[#fcfaf6] text-[#57534e] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#b7c1d1]`;
 };
 
 /** Chip de existencia: se marca en ámbar cuando el ítem se quedó en cero. */

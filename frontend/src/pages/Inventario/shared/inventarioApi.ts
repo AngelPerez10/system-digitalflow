@@ -37,6 +37,7 @@ export async function listInventarioItems(
 ): Promise<PaginatedResponse<InventarioItem>> {
   const searchParams = new URLSearchParams();
   if (params?.search?.trim()) searchParams.set("search", params.search.trim());
+  if (params?.seccion?.trim()) searchParams.set("seccion", params.seccion.trim());
   searchParams.set("page", String(params?.page ?? 1));
   searchParams.set("page_size", String(params?.page_size ?? DEFAULT_PAGE_SIZE));
   const qs = searchParams.toString();
@@ -49,6 +50,23 @@ export async function fetchInventarioStats(): Promise<InventarioStats> {
   const res = await fetchApi("/api/inventario/stats/", { method: "GET" });
   if (!res.ok) throw new Error(await readError(res));
   return (await res.json()) as InventarioStats;
+}
+
+/** Backfill de secciones vacías desde SYSCOM/TVC (ítems ya existentes). */
+export async function sincronizarSeccionesInventario(
+  limit = 40,
+): Promise<{ revisados: number; actualizados: number; pendientes_restantes: number }> {
+  const res = await fetchApi("/api/inventario/sincronizar-secciones/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ limit }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as {
+    revisados: number;
+    actualizados: number;
+    pendientes_restantes: number;
+  };
 }
 
 export async function patchInventarioItem(

@@ -1,12 +1,28 @@
 from django.conf import settings
 from django.db import models
 
+from .secciones import SECCION_MAX_LENGTH
+
 
 class InventarioItem(models.Model):
     class Fuente(models.TextChoices):
         DESCONOCIDO = 'desconocido', 'Desconocido'
         SYSCOM = 'syscom', 'SYSCOM'
         TVC = 'tvc', 'TVC'
+
+    class Seccion(models.TextChoices):
+        AUDIO_VIDEO = 'audio_video_profesional', 'Audio y video profesional'
+        AUTOMATIZACION = 'automatizacion_intrusion', 'Automatización e Intrusión'
+        CABLEADO = 'cableado_estructurado', 'Cableado Estructurado'
+        CONTROL_ACCESO = 'control_acceso', 'Control de Acceso'
+        DETECCION_FUEGO = 'deteccion_fuego', 'Detección de Fuego'
+        ENERGIA = 'energia_climatizacion', 'Energía y Climatización'
+        GPS = 'gps_telematica', 'GPS, Telemática y Equipamiento Vehicular'
+        HERRAMIENTAS = 'herramientas_ferreteria', 'Herramientas, Ferretería y Material Eléctrico'
+        INDUSTRIA = 'industria_bms_robots', 'Industria / BMS/ Robots'
+        RADIO = 'radiocomunicacion', 'Radiocomunicación'
+        REDES = 'redes_it', 'Redes e IT'
+        VIDEOVIGILANCIA = 'videovigilancia', 'Videovigilancia'
 
     codigo_barras = models.CharField(max_length=64, unique=True, db_index=True)
     nombre = models.CharField(max_length=255, blank=True, default='')
@@ -18,6 +34,13 @@ class InventarioItem(models.Model):
     )
     ref_externa = models.CharField(max_length=120, blank=True, default='')
     imagen_url = models.URLField(max_length=500, blank=True, default='')
+    seccion = models.CharField(
+        max_length=SECCION_MAX_LENGTH,
+        choices=Seccion.choices,
+        blank=True,
+        default='',
+        db_index=True,
+    )
     cantidad = models.PositiveIntegerField(default=0)
     # Última compra (importación de factura): se sobrescribe en cada import.
     folio_factura = models.CharField(max_length=64, blank=True, default='')

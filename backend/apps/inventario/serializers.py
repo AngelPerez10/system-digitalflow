@@ -18,6 +18,7 @@ class InventarioItemSerializer(serializers.ModelSerializer):
             'fuente',
             'ref_externa',
             'imagen_url',
+            'seccion',
             'cantidad',
             'folio_factura',
             'proveedor',
@@ -47,10 +48,12 @@ class InventarioItemPatchSerializer(serializers.ModelSerializer):
             'ref_externa',
             'imagen_url',
             'precio_unitario',
+            'seccion',
         ]
         extra_kwargs = {
             'imagen_url': {'allow_blank': True},
             'precio_unitario': {'required': False, 'allow_null': True},
+            'seccion': {'required': False, 'allow_blank': True},
         }
 
 
