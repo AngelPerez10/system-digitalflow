@@ -195,6 +195,11 @@ def _smtp_connection(*, username: str | None = None, password: str | None = None
         getattr(settings, "EMAIL_BACKEND", None)
         or "django.core.mail.backends.smtp.EmailBackend",
     )
+    timeout_raw = _env_email("EMAIL_TIMEOUT", "20") or "20"
+    try:
+        timeout = max(5, min(int(timeout_raw), 60))
+    except ValueError:
+        timeout = 20
     return get_connection(
         backend=backend,
         host=host,
@@ -203,6 +208,7 @@ def _smtp_connection(*, username: str | None = None, password: str | None = None
         password=pwd,
         use_tls=use_tls,
         use_ssl=use_ssl,
+        timeout=timeout,
         fail_silently=False,
     )
 

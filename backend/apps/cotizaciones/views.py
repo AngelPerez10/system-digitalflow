@@ -720,7 +720,9 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         idx = format_document_folio(FOLIO_SERIE_COT, getattr(cotizacion, 'idx', None) or cotizacion.id)
         filename = f'Cotizacion_{idx}.pdf'
         try:
-            pdf_bytes = render_html_to_pdf(html, size='A4', landscape=False, timeout=90)
+            pdf_bytes = render_html_to_pdf(
+                html, size='A4', landscape=False, timeout=45, prefer_local=True
+            )
         except PdfRenderError as e:
             logger.exception('PDF render failed for cotizacion email %s: %s', pk, e.detail)
             return Response({'detail': 'No se pudo generar el PDF.'}, status=502)

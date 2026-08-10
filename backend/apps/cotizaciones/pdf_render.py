@@ -150,7 +150,8 @@ def _try_playwright(html: str, size: str, landscape: bool, timeout: int) -> byte
         )
         try:
             page = browser.new_page()
-            page.set_content(html, wait_until="load", timeout=timeout_ms)
+            # HTML embebido (sin red): domcontentloaded es suficiente y más rápido que load.
+            page.set_content(html, wait_until="domcontentloaded", timeout=timeout_ms)
             # ``page.pdf`` usa media print; colores de fondo con print_background.
             return page.pdf(
                 format=fmt,
@@ -169,12 +170,40 @@ def render_html_to_pdf(
     size: str = "A4",
     landscape: bool = False,
     timeout: int = 30,
+    prefer_local: bool = False,
 ) -> bytes:
+    """
+    Genera PDF desde HTML.
+
+    ``prefer_local=True`` (p. ej. envío por correo): intenta Playwright primero
+    para evitar esperar a htmldocs cuando el Chromium local ya está disponible.
+    """
     if not html:
         raise PdfRenderError("HTML vacío", detail="empty html")
 
     last_detail: str | None = None
     hdoc_cap = 0
+    try_local_first = prefer_local and local_pdf_engine_available()
+
+    def _run_playwright(budget_cap: int) -> bytes | None:
+        pw_t = _playwright_budget_s(timeout, budget_cap)
+        out = _try_playwright(html, size, landscape, pw_t)
+        if out:
+            logger.info("PDF generado localmente (Playwright)")
+            return out
+        return None
+
+    if try_local_first:
+        try:
+            out = _run_playwright(0)
+            if out:
+                return out
+        except Exception as e:
+            logger.warning(
+                "Playwright (prefer_local) falló; se intenta htmldocs si aplica: %s",
+                type(e).__name__,
+            )
+            last_detail = f"playwright: {type(e).__name__}: {str(e)[:200]}"
 
     if htmldocs_configured():
         hdoc_t = _htmldocs_request_timeout_s(timeout)
@@ -199,12 +228,10 @@ def render_html_to_pdf(
             logger.exception("htmldocs error")
             last_detail = f"htmldocs: {type(e).__name__}"
 
-    if local_pdf_engine_available():
+    if local_pdf_engine_available() and not try_local_first:
         try:
-            pw_t = _playwright_budget_s(timeout, hdoc_cap)
-            out = _try_playwright(html, size, landscape, pw_t)
+            out = _run_playwright(hdoc_cap)
             if out:
-                logger.info("PDF generado localmente (Playwright)")
                 return out
         except Exception as e:
             logger.exception("Playwright PDF failed")
@@ -212,6 +239,12 @@ def render_html_to_pdf(
                 "No se pudo generar el PDF en el servidor",
                 detail=f"{type(e).__name__}: {str(e)[:400]}",
             ) from e
+    elif local_pdf_engine_available() and try_local_first and last_detail:
+        # Ya falló local; htmldocs también falló o no está → error claro.
+        raise PdfRenderError(
+            "No se pudo generar el PDF en el servidor",
+            detail=last_detail,
+        )
 
     if not htmldocs_configured() and not local_pdf_engine_available():
         raise PdfRenderError(

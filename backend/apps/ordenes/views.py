@@ -1702,7 +1702,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
         filename = f"Ordenes_Servicio_{orden.id}.pdf"
         try:
-            pdf_bytes = render_html_to_pdf(html, size='A4', landscape=False, timeout=90)
+            pdf_bytes = render_html_to_pdf(
+                html, size='A4', landscape=False, timeout=45, prefer_local=True
+            )
         except PdfRenderError as e:
             logger.exception('PDF render failed for email: %s', e.detail)
             return Response({'detail': 'No se pudo generar el PDF.'}, status=502)

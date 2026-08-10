@@ -2,7 +2,12 @@ import { useEffect, useId, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
+import EnviarPdfSendingOverlay, {
+  ENVIAR_PDF_PHASE_MAIL,
+  ENVIAR_PDF_PHASE_PDF,
+} from "@/components/common/EnviarPdfSendingOverlay";
 import { fetchApi } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 import { MailIcon } from "@/icons";
 import {
   claudeBodyClass,
@@ -62,6 +67,7 @@ export default function OrdenEnviarPdfModal({
   onSent,
   onError,
 }: Props) {
+  const { user } = useAuth();
   const titleId = useId().replace(/:/g, "");
   const descId = useId().replace(/:/g, "");
   const hintId = useId().replace(/:/g, "");
@@ -71,6 +77,7 @@ export default function OrdenEnviarPdfModal({
   const [correo, setCorreo] = useState("");
   const [loadingPrefill, setLoadingPrefill] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendPhase, setSendPhase] = useState<0 | 1>(0);
   const [fieldError, setFieldError] = useState("");
   const [smtpBlockedMessage, setSmtpBlockedMessage] = useState("");
   const smtpAlertId = useId().replace(/:/g, "");
@@ -86,20 +93,32 @@ export default function OrdenEnviarPdfModal({
 
     void (async () => {
       try {
+        const knownSmtp = user?.smtp_configured;
+        const mePromise =
+          knownSmtp === true || knownSmtp === false
+            ? Promise.resolve(null)
+            : fetchApi("/api/me/");
         const [meRes, correoRes] = await Promise.all([
-          fetchApi("/api/me/"),
+          mePromise,
           fetchApi(`/api/ordenes/${orden.id}/correo-sugerido/`),
         ]);
 
-        if (!cancelled && meRes.ok) {
-          const meData = (await meRes.json().catch(() => null)) as
-            | { smtp_configured?: boolean; username?: string }
-            | null;
-          if (meData && meData.smtp_configured !== true) {
-            const who = String(meData.username || "tu usuario").trim() || "tu usuario";
+        if (!cancelled) {
+          if (knownSmtp === false) {
+            const who = String(user?.username || "tu usuario").trim() || "tu usuario";
             setSmtpBlockedMessage(
               `La cuenta (${who}) no tiene correo SMTP configurado. Un administrador debe cargar el correo y la contraseña de webmail en Gestión de usuarios.`
             );
+          } else if (meRes && meRes.ok) {
+            const meData = (await meRes.json().catch(() => null)) as
+              | { smtp_configured?: boolean; username?: string }
+              | null;
+            if (meData && meData.smtp_configured !== true) {
+              const who = String(meData.username || "tu usuario").trim() || "tu usuario";
+              setSmtpBlockedMessage(
+                `La cuenta (${who}) no tiene correo SMTP configurado. Un administrador debe cargar el correo y la contraseña de webmail en Gestión de usuarios.`
+              );
+            }
           }
         }
 
@@ -118,14 +137,29 @@ export default function OrdenEnviarPdfModal({
     return () => {
       cancelled = true;
     };
-  }, [open, orden?.id, initialCorreo]);
+  }, [open, orden?.id, initialCorreo, user?.smtp_configured, user?.username]);
+
+  useEffect(() => {
+    if (!sending) {
+      setSendPhase(0);
+      return;
+    }
+    setSendPhase(0);
+    const t = window.setTimeout(() => setSendPhase(1), 2200);
+    return () => window.clearTimeout(t);
+  }, [sending]);
 
   const folio = displayOrdenFolio(orden || {});
   const clienteNombre = String(orden?.cliente || "").trim() || "Sin cliente";
   const pdfFileName =
-    folio && folio !== "—" ? `Orden_${folio}.pdf` : orden?.id != null ? `Ordenes_Servicio_${orden.id}.pdf` : "Orden_Servicio.pdf";
+    folio && folio !== "—"
+      ? `Orden_${folio}.pdf`
+      : orden?.id != null
+        ? `Ordenes_Servicio_${orden.id}.pdf`
+        : "Orden_Servicio.pdf";
   const hasPrefill = Boolean(String(correo || "").trim());
   const smtpBlocked = Boolean(smtpBlockedMessage);
+  const phaseLabel = sendPhase === 0 ? ENVIAR_PDF_PHASE_PDF : ENVIAR_PDF_PHASE_MAIL;
 
   const handleClose = () => {
     if (sending) return;
@@ -181,8 +215,14 @@ export default function OrdenEnviarPdfModal({
     >
       <div
         className={`${erpDeleteModalPanelClass} relative overflow-hidden`}
+        aria-busy={sending || undefined}
       >
-        {/* Acento superior Intrax */}
+        <EnviarPdfSendingOverlay
+          active={sending}
+          phaseLabel={phaseLabel}
+          phaseIndex={sendPhase}
+        />
+
         <div
           className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#ff801f] via-[#ffa057] to-transparent"
           aria-hidden="true"
@@ -192,8 +232,7 @@ export default function OrdenEnviarPdfModal({
           aria-hidden="true"
         />
 
-        <div className="relative space-y-5">
-          {/* Cabecera */}
+        <div className={`relative space-y-5 ${sending ? "pointer-events-none select-none" : ""}`}>
           <div className="flex items-start gap-3">
             <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm">
               <MailIcon className="h-5 w-5" />
@@ -210,7 +249,6 @@ export default function OrdenEnviarPdfModal({
             </div>
           </div>
 
-          {/* Stub de orden + adjunto */}
           {smtpBlocked ? (
             <div
               id={smtpAlertId}
@@ -261,7 +299,6 @@ export default function OrdenEnviarPdfModal({
             </div>
           </div>
 
-          {/* Correo */}
           <form
             className="space-y-2"
             onSubmit={(e) => {
@@ -323,7 +360,6 @@ export default function OrdenEnviarPdfModal({
               )}
             </div>
 
-            {/* Acciones */}
             <div className="flex flex-col-reverse gap-2.5 pt-2 sm:flex-row sm:justify-end sm:gap-3">
               <button
                 type="button"
