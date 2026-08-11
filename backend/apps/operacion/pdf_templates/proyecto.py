@@ -6,7 +6,7 @@ from typing import Any
 
 from apps.common.document_folio import FOLIO_SERIE_PRJ, resolve_document_folio
 from apps.common.pdf_html import esc, load_public_image_data_uri
-from apps.common.pdf_images import img_url_to_data_uri
+from apps.common.pdf_images import embed_remote_images
 
 logger = logging.getLogger(__name__)
 
@@ -264,6 +264,20 @@ def generate_proyecto_pdf_html(proyecto) -> str:
     fecha_inicio_txt, fecha_fin_txt = _fecha_extremos(fechas_inicio)
 
     bitacora = _bitacora_entries(getattr(proyecto, "notas_por_dia", None), fechas_inicio)
+    evidencias = getattr(proyecto, "evidencias_urls", None)
+    if not isinstance(evidencias, list):
+        evidencias = []
+    evidencias = [u for u in evidencias if isinstance(u, str) and u.strip()][:12]
+    firma_tecnico_url = str(getattr(proyecto, "firma_tecnico_url", "") or "").strip()
+    firma_cliente_url = str(getattr(proyecto, "firma_cliente_url", "") or "").strip()
+    image_urls = [
+        *[u for entry in bitacora for u in entry["fotos"]],
+        *evidencias,
+        *([firma_tecnico_url] if firma_tecnico_url else []),
+        *([firma_cliente_url] if firma_cliente_url else []),
+    ]
+    embedded = embed_remote_images(image_urls)
+
     if bitacora:
         bitacora_cards = []
         for entry in bitacora:
@@ -273,7 +287,7 @@ def generate_proyecto_pdf_html(proyecto) -> str:
                 if entry["nota"]
                 else "<div class='muted'>Sin texto en esta jornada.</div>"
             )
-            fotos_src = [src for src in (img_url_to_data_uri(u) for u in entry["fotos"]) if src]
+            fotos_src = [embedded[u] for u in entry["fotos"] if u in embedded]
             fotos_html = ""
             if fotos_src:
                 thumbs = "".join(
@@ -291,11 +305,7 @@ def generate_proyecto_pdf_html(proyecto) -> str:
     else:
         bitacora_html = "<div class='muted'>Sin bitácora registrada.</div>"
 
-    evidencias = getattr(proyecto, "evidencias_urls", None)
-    if not isinstance(evidencias, list):
-        evidencias = []
-    evidencias = [u for u in evidencias if isinstance(u, str) and u.strip()][:12]
-    fotos_embedded = [src for src in (img_url_to_data_uri(u) for u in evidencias) if src]
+    fotos_embedded = [embedded[u] for u in evidencias if u in embedded]
     has_photos = bool(fotos_embedded)
     fotos_grid = (
         "".join(
@@ -306,8 +316,8 @@ def generate_proyecto_pdf_html(proyecto) -> str:
         else ""
     )
 
-    firma_tecnico = img_url_to_data_uri(getattr(proyecto, "firma_tecnico_url", None) or "")
-    firma_cliente = img_url_to_data_uri(getattr(proyecto, "firma_cliente_url", None) or "")
+    firma_tecnico = embedded.get(firma_tecnico_url, "")
+    firma_cliente = embedded.get(firma_cliente_url, "")
     logo_data_uri = load_public_image_data_uri("images/logo/intrax-logo.png")
 
     vehiculo = str(getattr(proyecto, "vehiculo_asignado", "") or "").strip() or "-"
@@ -388,8 +398,8 @@ def generate_proyecto_pdf_html(proyecto) -> str:
       html {{ -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }}
       body {{
         font-family: PdfSans, Arial, Helvetica, sans-serif;
-        font-size: 12.5px;
-        line-height: 1.35;
+        font-size: 10.5px;
+        line-height: 1.3;
         letter-spacing: 0;
         font-synthesis: none;
         color: var(--text); background: var(--bg); margin: 0;
@@ -403,43 +413,43 @@ def generate_proyecto_pdf_html(proyecto) -> str:
       .brandwrap {{ display: flex; align-items: flex-start; gap: 12px; min-width: 0; }}
       .logo {{ width: 96px; height: 96px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto; }}
       .logo img {{ width: 100%; height: 100%; object-fit: contain; }}
-      .brand .name {{ font-size: 15px; font-weight: 700; color: var(--blue-900); letter-spacing: -0.2px; }}
-      .brand .meta {{ margin-top: 6px; font-size: 11px; line-height: 1.25; color: var(--muted); max-width: 330px; }}
+      .brand .name {{ font-size: 13px; font-weight: 700; color: var(--blue-900); letter-spacing: -0.2px; }}
+      .brand .meta {{ margin-top: 6px; font-size: 9.5px; line-height: 1.25; color: var(--muted); max-width: 330px; }}
       .brand .meta b {{ color: var(--text); font-weight: 600; }}
       .status {{ text-align: right; max-width: 45%; margin-left: auto; }}
       .status .pill {{
-        display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .7px;
+        display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: .7px;
         padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border);
       }}
-      .status .dates {{ margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.35; }}
-      .status .folio {{ font-size: 17px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }}
+      .status .dates {{ margin-top: 8px; font-size: 10px; color: var(--muted); line-height: 1.35; }}
+      .status .folio {{ font-size: 14px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }}
       .status .folio .num {{ color: #dc2626; font-weight: 700; }}
       .hero {{
         border: 1px solid var(--border); border-left: 6px solid var(--blue-700);
         border-radius: 14px; padding: 14px 14px 12px; background: #eff6ff; margin-bottom: 14px;
       }}
-      .hero .title {{ font-size: 19px; font-weight: 700; color: var(--blue-900); letter-spacing: -0.3px; }}
-      .hero .sub {{ margin-top: 5px; font-size: 11px; color: var(--muted); }}
+      .hero .title {{ font-size: 16px; font-weight: 700; color: var(--blue-900); letter-spacing: -0.3px; }}
+      .hero .sub {{ margin-top: 5px; font-size: 10px; color: var(--muted); }}
       .grid2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
       .card {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
       .card h3 {{
-        margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: var(--blue-900);
+        margin: 0 0 10px 0; font-size: 11px; font-weight: 700; color: var(--blue-900);
         letter-spacing: .3px; text-transform: uppercase;
       }}
       .row {{ display: flex; gap: 12px; }}
       .col {{ flex: 1; min-width: 0; }}
-      .label {{ font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }}
-      .value {{ margin-top: 4px; font-size: 13px; color: var(--text); }}
+      .label {{ font-size: 9.5px; font-weight: 600; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }}
+      .value {{ margin-top: 4px; font-size: 11px; color: var(--text); }}
       .pre {{ white-space: pre-wrap; overflow-wrap: anywhere; }}
-      .muted {{ color: var(--muted); font-size: 13px; }}
+      .muted {{ color: var(--muted); font-size: 11px; }}
       .services {{ margin-top: 6px; }}
       .service-pill {{
-        display: inline-block; font-size: 11px; font-weight: 600; color: #fff;
+        display: inline-block; font-size: 9.5px; font-weight: 600; color: #fff;
         padding: 4px 10px; border-radius: 999px; background: #2563eb; margin: 4px 6px 0 0;
       }}
       .section {{ margin-top: 12px; }}
       .section-title {{
-        margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: var(--blue-900);
+        margin: 0 0 10px 0; font-size: 11px; font-weight: 700; color: var(--blue-900);
         letter-spacing: .3px; text-transform: uppercase;
       }}
       .box {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
@@ -449,7 +459,7 @@ def generate_proyecto_pdf_html(proyecto) -> str:
       }}
       .bitacora-day:last-child {{ margin-bottom: 0; }}
       .bitacora-day h4 {{
-        margin: 0 0 6px 0; font-size: 13px; font-weight: 700; color: var(--blue-900);
+        margin: 0 0 6px 0; font-size: 11px; font-weight: 700; color: var(--blue-900);
       }}
       .bitacora-photos {{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }}
       .bitacora-photo {{
@@ -472,7 +482,7 @@ def generate_proyecto_pdf_html(proyecto) -> str:
         background: var(--blue-50); margin-top: 8px;
       }}
       .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; }}
-      .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 12px; color: var(--muted); }}
+      .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 10px; color: var(--muted); }}
       .sigline b {{ font-weight: 700; color: var(--text); }}
     </style>
   </head>

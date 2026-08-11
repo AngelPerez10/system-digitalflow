@@ -173,9 +173,12 @@ export default function ProyectoPdfPage() {
           setAlert((prev) => ({ ...prev, show: false }));
         }
 
-        const metaRes = await fetchApi(`/api/proyectos/${proyectoId}/`, {
-          cache: "no-store" as RequestCache,
-        });
+        const [metaRes, resp] = await Promise.all([
+          fetchApi(`/api/proyectos/${proyectoId}/`, {
+            cache: "no-store" as RequestCache,
+          }),
+          fetchApi(`/api/proyectos/${proyectoId}/pdf/`),
+        ]);
         if (isMounted && metaRes.ok) {
           const meta = (await metaRes.json().catch(() => null)) as {
             folio?: string | null;
@@ -191,8 +194,6 @@ export default function ProyectoPdfPage() {
             setStatusLabel(STATUS_LABEL[status] || (status ? status.replace(/_/g, " ") : null));
           }
         }
-
-        const resp = await fetchApi(`/api/proyectos/${proyectoId}/pdf/`);
         if (!isMounted) return;
 
         if (!resp.ok) {

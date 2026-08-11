@@ -133,6 +133,13 @@ export default function NuevaCotizacionPage() {
     setCloneSearch,
   } = useCotizacionCloneSearch({ canSearch: canCotizacionesView, isOpen: cloneModalOpen });
   const [clonePickingId, setClonePickingId] = useState<number | null>(null);
+  const [cloneClienteMode, setCloneClienteMode] = useState<"mismo" | "otro">("mismo");
+  const [cloneClienteSearch, setCloneClienteSearch] = useState("");
+  const [cloneClienteDebounced, setCloneClienteDebounced] = useState("");
+  const [cloneClienteOptions, setCloneClienteOptions] = useState<Cliente[]>([]);
+  const [cloneClienteLoading, setCloneClienteLoading] = useState(false);
+  const [cloneTargetCliente, setCloneTargetCliente] = useState<Cliente | null>(null);
+  const cloneClienteModeId = useId();
 
   const exportBusy = previewLoading || excelLoading;
 
@@ -454,6 +461,42 @@ export default function NuevaCotizacionPage() {
     fetchClientes(debouncedClienteSearch);
   }, [debouncedClienteSearch, fetchClientes]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setCloneClienteDebounced(cloneClienteSearch.trim());
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [cloneClienteSearch]);
+
+  useEffect(() => {
+    if (!cloneModalOpen || cloneClienteMode !== "otro" || !canCotizacionesView) {
+      setCloneClienteOptions([]);
+      return;
+    }
+    if (cloneClienteDebounced.length < 1) {
+      setCloneClienteOptions([]);
+      return;
+    }
+
+    let cancelled = false;
+    setCloneClienteLoading(true);
+    fetchCotizacionClientes(cloneClienteDebounced)
+      .then((rows) => {
+        if (!cancelled) setCloneClienteOptions(rows);
+      })
+      .catch((error) => {
+        console.error("Error buscando clientes para clonar:", error);
+        if (!cancelled) setCloneClienteOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCloneClienteLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canCotizacionesView, cloneClienteDebounced, cloneClienteMode, cloneModalOpen]);
+
   const contactoPrincipalDeCliente = (cliente: Cliente) => {
     const principal = (cliente.contactos || []).find((x) => x.is_principal);
     const first = (cliente.contactos || [])[0];
@@ -676,7 +719,25 @@ export default function NuevaCotizacionPage() {
     void load();
   }, [editingCotizacionId, hydrateFormFromCotizacionDetail, navigate]);
 
+  const resetCloneClienteState = useCallback(() => {
+    setCloneClienteMode("mismo");
+    setCloneClienteSearch("");
+    setCloneClienteDebounced("");
+    setCloneClienteOptions([]);
+    setCloneTargetCliente(null);
+  }, []);
+
   const handleClonePick = async (id: number) => {
+    if (cloneClienteMode === "otro" && !cloneTargetCliente) {
+      setAlert({
+        show: true,
+        variant: "warning",
+        title: "Falta el cliente",
+        message: "Elige el cliente destino o cambia a «Mismo cliente».",
+      });
+      return;
+    }
+
     setClonePickingId(id);
     setHydratingFromStorage(true);
     try {
@@ -691,13 +752,26 @@ export default function NuevaCotizacionPage() {
         return;
       }
       await hydrateFormFromCotizacionDetail(data, { updateIdxBadge: false });
+
+      if (cloneClienteMode === "otro" && cloneTargetCliente) {
+        selectCliente(cloneTargetCliente);
+      }
+
       setCloneModalOpen(false);
       resetCloneSearch();
+      resetCloneClienteState();
+      const folioOrigen = formatDocumentFolio(FOLIO_SERIE.cotizacion, data.idx);
+      const clienteDestino =
+        cloneClienteMode === "otro" && cloneTargetCliente
+          ? String(cloneTargetCliente.nombre || "").trim()
+          : "";
       setAlert({
         show: true,
         variant: "success",
         title: "Cotización clonada",
-        message: `Se copiaron los datos del folio ${formatDocumentFolio(FOLIO_SERIE.cotizacion, data.idx)}. Revisa la información y guarda como cotización nueva.`,
+        message: clienteDestino
+          ? `Se copiaron conceptos y textos del folio ${folioOrigen} para ${clienteDestino}. Revisa y guarda como cotización nueva.`
+          : `Se copiaron los datos del folio ${folioOrigen}. Revisa la información y guarda como cotización nueva.`,
       });
     } catch {
       setAlert({
@@ -2015,14 +2089,15 @@ export default function NuevaCotizacionPage() {
           onClose={() => {
             if (clonePickingId != null) return;
             setCloneModalOpen(false);
+            resetCloneClienteState();
           }}
           closeOnBackdropClick={clonePickingId == null}
           closeOnEscape={clonePickingId == null}
           ariaLabel="Clonar cotización"
-          className="mx-4 flex max-h-[min(90vh,640px)] w-[min(96vw,30rem)] flex-col overflow-hidden rounded-3xl border border-gray-200/80 p-0 shadow-[0_24px_54px_-20px_rgba(15,23,42,0.35)] dark:border-white/[0.08] dark:bg-[#111827] dark:shadow-[0_24px_54px_-18px_rgba(0,0,0,0.55)] sm:mx-auto sm:max-w-xl"
+          className="mx-4 flex h-[min(94vh,880px)] w-[min(96vw,36rem)] flex-col overflow-hidden rounded-3xl border border-gray-200/80 p-0 shadow-[0_24px_54px_-20px_rgba(15,23,42,0.35)] dark:border-white/[0.08] dark:bg-[#111827] dark:shadow-[0_24px_54px_-18px_rgba(0,0,0,0.55)] sm:mx-auto sm:max-w-xl"
         >
           <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-            <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fffdfa] px-5 py-5 pr-12 dark:border-[#273244] dark:bg-[#111827]/80 sm:px-6 sm:pr-14">
+            <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fffdfa] px-5 py-3.5 pr-12 dark:border-[#273244] dark:bg-[#111827]/80 sm:px-6 sm:pr-14">
               <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]/85 dark:bg-[#ff801f]/80" aria-hidden />
               <div className="flex items-start gap-3 sm:gap-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#ff801f]/15 bg-white text-[#ea580c] shadow-sm dark:border-[#ffa057]/20 dark:bg-[#111827]/70 dark:text-[#ffa057]">
@@ -2037,17 +2112,156 @@ export default function NuevaCotizacionPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ff801f]/80 dark:text-[#ffa057]/80 sm:text-[11px]">Cotización</p>
                   <h3 className="mt-1 text-lg font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc]">Clonar desde existente</h3>
                   <p className="mt-1.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
-                    Busque por <span className="font-medium text-gray-800 dark:text-[#e5e7eb]">cliente</span> o{" "}
-                    <span className="font-medium text-gray-800 dark:text-[#e5e7eb]">folio</span>. Al elegir una fila se copian cliente, contacto,
-                    descuentos, conceptos y textos al borrador actual.
+                    Busque por <span className="font-medium text-gray-800 dark:text-[#e5e7eb]">folio</span> o{" "}
+                    <span className="font-medium text-gray-800 dark:text-[#e5e7eb]">cliente de origen</span>. Puede
+                    conservar ese cliente o clonar las líneas hacia otro.
                   </p>
                 </div>
               </div>
             </header>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden bg-gray-50/45 px-5 py-5 dark:bg-[#0f172a]/60 sm:px-6">
-              <section className={cloneModalPanelClass}>
-                <label htmlFor="clone-cotizacion-search" className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden bg-gray-50/45 px-5 py-3.5 dark:bg-[#0f172a]/60 sm:px-6">
+              <fieldset className={`${cloneModalPanelClass} shrink-0 !p-3 sm:!p-3.5`} disabled={clonePickingId != null}>
+                <legend id={cloneClienteModeId} className="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm">
+                  Cliente destino
+                </legend>
+                <div role="radiogroup" aria-labelledby={cloneClienteModeId} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <label
+                    className={`flex min-h-[44px] cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 transition-colors ${
+                      cloneClienteMode === "mismo"
+                        ? "border-[#ff801f]/50 bg-[#fff7ed] dark:border-[#ff801f]/35 dark:bg-[#7c2d12]/20"
+                        : "border-[#e7ded0] bg-[#fffdfa] hover:border-[#fed7aa] dark:border-[#334155] dark:bg-[#0f172a] dark:hover:border-[#fb923c]/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="clone-cliente-mode"
+                      className="mt-0.5 h-4 w-4 accent-[#ff801f]"
+                      checked={cloneClienteMode === "mismo"}
+                      onChange={() => {
+                        setCloneClienteMode("mismo");
+                        setCloneTargetCliente(null);
+                        setCloneClienteSearch("");
+                        setCloneClienteOptions([]);
+                      }}
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">Mismo cliente</span>
+                      <span className="mt-0.5 block text-[11px] leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                        Conserva cliente y contacto de la cotización origen.
+                      </span>
+                    </span>
+                  </label>
+                  <label
+                    className={`flex min-h-[44px] cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 transition-colors ${
+                      cloneClienteMode === "otro"
+                        ? "border-[#ff801f]/50 bg-[#fff7ed] dark:border-[#ff801f]/35 dark:bg-[#7c2d12]/20"
+                        : "border-[#e7ded0] bg-[#fffdfa] hover:border-[#fed7aa] dark:border-[#334155] dark:bg-[#0f172a] dark:hover:border-[#fb923c]/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="clone-cliente-mode"
+                      className="mt-0.5 h-4 w-4 accent-[#ff801f]"
+                      checked={cloneClienteMode === "otro"}
+                      onChange={() => setCloneClienteMode("otro")}
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">Otro cliente</span>
+                      <span className="mt-0.5 block text-[11px] leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                        Copia conceptos y textos, pero asigna otro cliente.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
+                {cloneClienteMode === "otro" && (
+                  <div className="mt-3">
+                    <label htmlFor="clone-cliente-search" className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm">
+                      Buscar cliente destino
+                    </label>
+                    {cloneTargetCliente ? (
+                      <div className="flex items-center justify-between gap-2 rounded-xl border border-[#ff801f]/30 bg-[#fff7ed] px-3 py-2.5 dark:border-[#ff801f]/25 dark:bg-[#7c2d12]/20">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                            {cloneTargetCliente.nombre}
+                          </p>
+                          <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                            Se usará su contacto principal, si tiene.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCloneTargetCliente(null);
+                            setCloneClienteSearch("");
+                          }}
+                          className="inline-flex min-h-9 shrink-0 items-center rounded-lg border border-[#fed7aa] bg-white px-2.5 text-xs font-semibold text-[#9a3412] hover:bg-[#fff3e8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/30 dark:border-[#fb923c]/40 dark:bg-[#111a2b] dark:text-[#fdba74]"
+                        >
+                          Cambiar
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="relative">
+                          <input
+                            id="clone-cliente-search"
+                            type="search"
+                            value={cloneClienteSearch}
+                            onChange={(e) => setCloneClienteSearch(e.target.value)}
+                            placeholder="Nombre o teléfono del cliente…"
+                            className={cloneModalSearchInputClass}
+                            aria-describedby="clone-cliente-hint"
+                            autoComplete="off"
+                          />
+                        </div>
+                        <p id="clone-cliente-hint" className="mt-1.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                          Escribe el nombre o teléfono y elige un cliente de la lista.
+                        </p>
+                        {(cloneClienteLoading || cloneClienteDebounced.length >= 1) && (
+                          <div
+                            className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-[#e7ded0] bg-[#fffdfa] dark:border-[#334155] dark:bg-[#0f172a]"
+                            role="status"
+                            aria-live="polite"
+                          >
+                            {cloneClienteLoading && (
+                              <p className="px-3 py-3 text-xs text-[#78716c] dark:text-[#8ea0b8]">Buscando clientes…</p>
+                            )}
+                            {!cloneClienteLoading && cloneClienteOptions.length === 0 && (
+                              <p className="px-3 py-3 text-xs text-[#78716c] dark:text-[#8ea0b8]">Sin coincidencias.</p>
+                            )}
+                            {!cloneClienteLoading && cloneClienteOptions.length > 0 && (
+                              <ul>
+                                {cloneClienteOptions.map((c) => (
+                                  <li key={c.id}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setCloneTargetCliente(c);
+                                        setCloneClienteSearch(String(c.nombre || ""));
+                                        setCloneClienteOptions([]);
+                                      }}
+                                      className="w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-[#fff7ed] focus:outline-none focus-visible:bg-[#fff7ed] dark:hover:bg-white/[0.06]"
+                                    >
+                                      <span className="block font-medium text-[#1c1917] dark:text-[#f8fafc]">{c.nombre}</span>
+                                      {c.telefono ? (
+                                        <span className="block text-[11px] text-[#78716c] dark:text-[#8ea0b8]">{c.telefono}</span>
+                                      ) : null}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </fieldset>
+
+              <section className={`${cloneModalPanelClass} shrink-0 !p-3 sm:!p-3.5`}>
+                <label htmlFor="clone-cotizacion-search" className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:text-sm">
                   Buscar cotización
                 </label>
                 <div className="relative">
@@ -2084,10 +2298,6 @@ export default function NuevaCotizacionPage() {
                     </button>
                   )}
                 </div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  <span className="rounded-full border border-gray-200/90 bg-gray-50 px-2.5 py-1 text-[10px] font-medium text-gray-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-400">Tip: usa #folio exacto</span>
-                  <span className="rounded-full border border-gray-200/90 bg-gray-50 px-2.5 py-1 text-[10px] font-medium text-gray-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-400">Tip: busca por cliente parcial</span>
-                </div>
               </section>
 
               <div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -2097,8 +2307,8 @@ export default function NuevaCotizacionPage() {
                     <span className="tabular-nums text-[11px] font-medium text-gray-400 dark:text-gray-500">{cloneRows.length}</span>
                   )}
                 </div>
-                <div className="relative min-h-[12rem] flex-1 overflow-hidden rounded-2xl border border-gray-200/80 bg-white/75 dark:border-white/[0.08] dark:bg-[#111827]/45">
-                  <div className="custom-scrollbar max-h-[min(48vh,320px)] overflow-y-auto overscroll-contain sm:max-h-[min(50vh,340px)]">
+                <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-gray-200/80 bg-white/75 dark:border-white/[0.08] dark:bg-[#111827]/45">
+                    <div className="custom-scrollbar absolute inset-0 overflow-y-auto overscroll-contain">
                     {cloneListLoading && (
                       <div className="flex flex-col items-center justify-center gap-3 px-4 py-14">
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-[#ff801f] dark:border-gray-700 dark:border-t-[#ffa057]" />
@@ -2136,8 +2346,13 @@ export default function NuevaCotizacionPage() {
                           <li key={row.id}>
                             <button
                               type="button"
-                              disabled={clonePickingId != null}
+                              disabled={clonePickingId != null || (cloneClienteMode === "otro" && !cloneTargetCliente)}
                               onClick={() => void handleClonePick(row.id)}
+                              title={
+                                cloneClienteMode === "otro" && !cloneTargetCliente
+                                  ? "Elige primero el cliente destino"
+                                  : undefined
+                              }
                               className="flex w-full flex-col gap-2 rounded-2xl border border-gray-200/80 bg-gradient-to-br from-white to-gray-50/60 p-3.5 text-left shadow-sm transition-all hover:-translate-y-[1px] hover:border-[#ff801f]/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:from-gray-900/70 dark:to-gray-900/40 dark:hover:border-[#ff801f]/30 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                             >
                               <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -3330,6 +3545,7 @@ export default function NuevaCotizacionPage() {
                           type="button"
                           onClick={() => {
                             resetCloneSearch();
+                            resetCloneClienteState();
                             setCloneModalOpen(true);
                           }}
                           className={cloneActionBtnClass}

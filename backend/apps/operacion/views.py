@@ -77,7 +77,9 @@ def _pdf_response_from_html(html: str, filename: str, *, wants_html: bool = Fals
         return response
 
     try:
-        pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)
+        pdf_bytes = render_html_to_pdf(
+            html, size="A4", landscape=False, timeout=45, prefer_local=True
+        )
     except PdfRenderError as e:
         logger.exception("Proyecto PDF render failed: %s", e.detail)
         # Fallback útil en local sin Chromium/Playwright instalado.

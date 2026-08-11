@@ -136,6 +136,7 @@ class ProyectosSmokeTests(APITestCase):
         self.assertIn("Proyecto", body)
         self.assertIn("PdfSans", body)
         self.assertIn("Arial", body)
+        self.assertIn("font-size: 10.5px", body)
         self.assertIn("Cliente PDF", body)
         self.assertIn("Av. Elías Zamora 149, Manzanillo", body)
         self.assertIn("3141130469", body)

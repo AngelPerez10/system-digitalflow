@@ -35,3 +35,19 @@ class SsrfAllowlistTests(SimpleTestCase):
             self.assertFalse(is_embed_url_allowed("https://evil.example.com/logo.png"))
         finally:
             ssrf.IMG_EMBED_ALLOW_HOSTS = original
+
+
+class PdfImageEmbedTests(SimpleTestCase):
+    def test_cloudinary_pdf_thumb_inserts_limit(self):
+        from apps.common.pdf_images import cloudinary_pdf_thumb, embed_remote_images
+
+        src = "https://res.cloudinary.com/demo/image/upload/v1/sample.jpg"
+        self.assertEqual(
+            cloudinary_pdf_thumb(src, width=720),
+            "https://res.cloudinary.com/demo/image/upload/c_limit,w_720,q_auto:eco,f_jpg/v1/sample.jpg",
+        )
+        already = cloudinary_pdf_thumb(src, width=720)
+        self.assertEqual(cloudinary_pdf_thumb(already, width=720), already)
+
+        data = "data:image/png;base64,abc"
+        self.assertEqual(embed_remote_images([data]).get(data), data)

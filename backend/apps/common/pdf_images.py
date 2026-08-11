@@ -61,6 +61,68 @@ def safe_pdf_thumbnail_src(url: str) -> str:
     return f"data:{mime};base64,{b64}"
 
 
+def cloudinary_pdf_thumb(url: str, *, width: int = 720) -> str:
+    """Pide a Cloudinary un JPEG acotado para no bajar la foto original."""
+    if not isinstance(url, str):
+        return ""
+    u = url.strip()
+    marker = "/image/upload/"
+    idx = u.find(marker)
+    if idx < 0:
+        return u
+    rest = u[idx + len(marker) :]
+    if rest.startswith("c_limit,w_"):
+        return u
+    return f"{u[: idx + len(marker)]}c_limit,w_{int(width)},q_auto:eco,f_jpg/{rest}"
+
+
+def embed_remote_images(
+    urls: list[str],
+    *,
+    timeout: int = 8,
+    max_bytes: int = 400_000,
+    width: int = 720,
+) -> dict[str, str]:
+    """Descarga en paralelo y devuelve mapa url original → data URI."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    unique: list[str] = []
+    seen: set[str] = set()
+    for raw in urls:
+        if not isinstance(raw, str):
+            continue
+        u = raw.strip()
+        if not u or u in seen:
+            continue
+        seen.add(u)
+        unique.append(u)
+    if not unique:
+        return {}
+
+    def _one(orig: str) -> tuple[str, str]:
+        if orig.startswith("data:"):
+            return orig, orig if is_embed_url_allowed(orig) else ""
+        return orig, img_url_to_data_uri(
+            cloudinary_pdf_thumb(orig, width=width),
+            timeout=timeout,
+            max_bytes=max_bytes,
+        )
+
+    out: dict[str, str] = {}
+    workers = min(6, len(unique))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futs = [pool.submit(_one, u) for u in unique]
+        for fut in as_completed(futs):
+            try:
+                orig, uri = fut.result()
+            except Exception:
+                logger.exception("Failed embedding image for PDF")
+                continue
+            if uri:
+                out[orig] = uri
+    return out
+
+
 def img_url_to_data_uri(url: str, *, timeout: int = 30, max_bytes: int = MAX_EMBED_REMOTE_BYTES) -> str:
     """Download an image URL and embed as data URI for reliable PDF rendering."""
     if not isinstance(url, str) or not url:
