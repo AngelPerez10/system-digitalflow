@@ -20,6 +20,13 @@ export type WialonUnitRow = {
   /** Activo / Inactivo (facturación Wialon, campo act). */
   status: string;
   is_active?: boolean | null;
+  /** En movimiento / Detenido / Sin posición. */
+  last_state?: string;
+  speed_kmh?: number | null;
+  is_online?: boolean | null;
+  online_label?: string;
+  engine_on?: boolean | null;
+  engine_label?: string;
   last_message_at: string;
   created_at: string;
   custom_fields: string;
@@ -45,6 +52,12 @@ export type WialonUnitDetail = {
   phone: string;
   status: string;
   is_active?: boolean | null;
+  last_state?: string;
+  speed_kmh?: number | null;
+  is_online?: boolean | null;
+  online_label?: string;
+  engine_on?: boolean | null;
+  engine_label?: string;
   has_password: boolean;
   custom_fields: WialonCustomField[];
   access_users: WialonAccessUser[];

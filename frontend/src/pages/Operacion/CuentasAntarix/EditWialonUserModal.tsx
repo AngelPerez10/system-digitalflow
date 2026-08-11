@@ -94,10 +94,18 @@ async function fetchWialonCatalogs(): Promise<WialonCatalogsCache> {
   ]);
   const catData = await catRes.json().catch(() => null);
   const usersData = await usersRes.json().catch(() => null);
+  const hwTypes =
+    catRes.ok && Array.isArray(catData?.hw_types) ? (catData.hw_types as WialonHwType[]) : catalogsCache?.hwTypes ?? [];
+  const accessUsers =
+    usersRes.ok && Array.isArray(usersData?.users)
+      ? (usersData.users as WialonAccessUser[])
+      : catalogsCache?.accessUsers ?? [];
+  // No cachear un catálogo vacío por fallo temporal: reintentar en el próximo open.
+  const loadedOk = (catRes.ok || hwTypes.length > 0) && (usersRes.ok || accessUsers.length > 0);
   const next: WialonCatalogsCache = {
-    hwTypes: catRes.ok && Array.isArray(catData?.hw_types) ? catData.hw_types : catalogsCache?.hwTypes ?? [],
-    accessUsers: usersRes.ok && Array.isArray(usersData?.users) ? usersData.users : catalogsCache?.accessUsers ?? [],
-    loadedAt: Date.now(),
+    hwTypes,
+    accessUsers,
+    loadedAt: loadedOk ? Date.now() : 0,
   };
   catalogsCache = next;
   return next;
@@ -131,6 +139,12 @@ function unitRowPatchFromDetail(
     phone: unit.phone?.trim() ? unit.phone : "—",
     status: unit.status,
     is_active: unit.is_active,
+    last_state: unit.last_state,
+    speed_kmh: unit.speed_kmh,
+    is_online: unit.is_online,
+    online_label: unit.online_label,
+    engine_on: unit.engine_on,
+    engine_label: unit.engine_label,
     last_message_at: unit.last_message_at,
     custom_fields: fields,
     ...sharingPatchFromAccess(unit.access_users || [], contextUserId),
@@ -183,6 +197,96 @@ function WialonStatusBadge({ status }: { status: string }) {
     >
       {unknown ? "Sin dato" : status}
     </span>
+  );
+}
+
+function WialonTelemetryChips({
+  unit,
+  compact = false,
+}: {
+  unit: Pick<
+    WialonUnitRow,
+    | "last_state"
+    | "speed_kmh"
+    | "is_online"
+    | "online_label"
+    | "engine_on"
+    | "engine_label"
+    | "last_message_at"
+  >;
+  compact?: boolean;
+}) {
+  const online = unit.is_online === true;
+  const offline = unit.is_online === false;
+  const onlineText = unit.online_label || (online ? "En línea" : offline ? "Fuera de línea" : "Sin dato");
+  const engineOn = unit.engine_on === true;
+  const engineOff = unit.engine_on === false;
+  const engineText = unit.engine_label || (engineOn ? "Encendido" : engineOff ? "Apagado" : "Sin dato");
+  const motion = (unit.last_state || "").trim() || "Sin posición";
+  const speed =
+    typeof unit.speed_kmh === "number" && Number.isFinite(unit.speed_kmh) && unit.speed_kmh > 0
+      ? ` · ${unit.speed_kmh} km/h`
+      : "";
+  const lastConn =
+    unit.last_message_at && unit.last_message_at !== "—"
+      ? unit.last_message_at
+      : "Sin conexión";
+
+  const chip = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium leading-none ring-1 ring-inset";
+
+  return (
+    <div className={cn("flex flex-col gap-1.5", compact ? "mt-1.5" : "mt-2")}>
+      <div className="flex flex-wrap gap-1.5">
+        <span
+          className={cn(
+            chip,
+            online
+              ? "bg-emerald-50 text-emerald-800 ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/50"
+              : offline
+                ? "bg-rose-50 text-rose-800 ring-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-800/50"
+                : "bg-[#f5f0e8] text-[#78716c] ring-[#e7ded0] dark:bg-[#1e293b] dark:text-[#94a3b8] dark:ring-[#334155]"
+          )}
+          title="Estado de conexión"
+        >
+          <span
+            className={cn(
+              "h-1.5 w-1.5 rounded-full",
+              online ? "bg-emerald-500" : offline ? "bg-rose-500" : "bg-[#a8a29e]"
+            )}
+            aria-hidden
+          />
+          {onlineText}
+        </span>
+        <span
+          className={cn(
+            chip,
+            engineOn
+              ? "bg-[#fff3e6] text-[#c45f00] ring-[#ff801f]/25 dark:bg-[#ff801f]/15 dark:text-[#ffb366] dark:ring-[#ff801f]/30"
+              : engineOff
+                ? "bg-[#f5f0e8] text-[#57534e] ring-[#e7ded0] dark:bg-[#1e293b] dark:text-[#cbd5e1] dark:ring-[#334155]"
+                : "bg-[#f5f0e8] text-[#78716c] ring-[#e7ded0] dark:bg-[#1e293b] dark:text-[#94a3b8] dark:ring-[#334155]"
+          )}
+          title="Motor / ignición"
+        >
+          Motor {engineText.toLowerCase()}
+        </span>
+        <span
+          className={cn(
+            chip,
+            motion === "En movimiento"
+              ? "bg-sky-50 text-sky-800 ring-sky-200/80 dark:bg-sky-950/40 dark:text-sky-300 dark:ring-sky-800/50"
+              : "bg-[#f5f0e8] text-[#57534e] ring-[#e7ded0] dark:bg-[#1e293b] dark:text-[#cbd5e1] dark:ring-[#334155]"
+          )}
+          title="Último estado de movimiento"
+        >
+          {motion}
+          {speed}
+        </span>
+      </div>
+      <p className={cn(wialonUiCaption, "truncate")} title={`Última conexión: ${lastConn}`}>
+        Última conexión: {lastConn}
+      </p>
+    </div>
   );
 }
 
@@ -812,6 +916,18 @@ function WialonUnitEditForm({
           <p className="mt-1 truncate font-mono text-sm tracking-wide text-[#ea580c] dark:text-[#fb923c]">
             {uid.trim() || (unitSummary?.uid && unitSummary.uid !== "—" ? unitSummary.uid : "Sin UID")}
           </p>
+          <WialonTelemetryChips
+            unit={{
+              last_state: detail?.last_state ?? unitSummary?.last_state,
+              speed_kmh: detail?.speed_kmh ?? unitSummary?.speed_kmh,
+              is_online: detail?.is_online ?? unitSummary?.is_online,
+              online_label: detail?.online_label ?? unitSummary?.online_label,
+              engine_on: detail?.engine_on ?? unitSummary?.engine_on,
+              engine_label: detail?.engine_label ?? unitSummary?.engine_label,
+              last_message_at:
+                detail?.last_message_at ?? unitSummary?.last_message_at ?? "—",
+            }}
+          />
         </div>
         {detail ? <WialonStatusBadge status={detail.status ?? "—"} /> : null}
       </div>
@@ -1081,10 +1197,10 @@ function WialonUnitEditForm({
         )}
 
         {canEdit ? (
-          <div className="rounded-2xl border border-[#ff801f]/25 bg-gradient-to-br from-[#fff7ed] via-[#fffdfa] to-[#fcfaf6] p-4 dark:border-[#ff801f]/20 dark:from-[#7c2d12]/20 dark:via-[#111827]/80 dark:to-[#0f172a]/70">
+          <div className="relative z-30 rounded-2xl border border-[#ff801f]/25 bg-gradient-to-br from-[#fff7ed] via-[#fffdfa] to-[#fcfaf6] p-4 dark:border-[#ff801f]/20 dark:from-[#7c2d12]/20 dark:via-[#111827]/80 dark:to-[#0f172a]/70">
             <p className={wialonEyebrowClass}>Conceder acceso</p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-              <div className="min-w-0 flex-1">
+              <div className="relative z-30 min-w-0 flex-1 overflow-visible">
                 <SearchableSelect
                   label="Usuario Wialon"
                   value={grantUserId}
@@ -1104,6 +1220,13 @@ function WialonUnitEditForm({
                 <span>{accessBusy ? "Aplicando…" : "Dar acceso"}</span>
               </button>
             </div>
+            {grantableUsers.length === 0 ? (
+              <p className={cn("mt-2", wialonUiCaption)} role="status">
+                {accessOptions.length === 0
+                  ? "No se pudieron cargar los usuarios Wialon. Cierra y vuelve a abrir la ficha, o pulsa Actualizar en la página."
+                  : "Todos los usuarios disponibles ya tienen acceso a esta unidad."}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </WialonDossierSection>
@@ -1455,7 +1578,7 @@ export default function EditWialonUserModal({
           </div>
         </header>
 
-        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col bg-[#fffdfa] dark:bg-[#111a2b]">
+        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-[#fffdfa] dark:bg-[#111a2b]">
           <form
             id={cuentaPanelId}
             role="tabpanel"
@@ -1606,10 +1729,18 @@ export default function EditWialonUserModal({
             role="tabpanel"
             aria-labelledby={`${unidadesPanelId}-tab`}
             hidden={activeTab !== "unidades"}
-            className="flex min-h-0 flex-1 flex-col lg:min-h-[min(520px,60dvh)] lg:flex-row"
+            className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row"
           >
-              <aside className="shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6]/80 p-3 dark:border-[#334155] dark:bg-[#0f172a]/40 sm:p-4 lg:w-[min(100%,22rem)] lg:border-b-0 lg:border-r">
-                <div className="mb-3 flex items-end justify-between gap-2">
+              <aside
+                className={cn(
+                  "flex min-h-0 flex-col border-[#e7ded0] bg-[#fcfaf6]/80 p-3 dark:border-[#334155] dark:bg-[#0f172a]/40 sm:p-4",
+                  "lg:w-[min(100%,22rem)] lg:shrink-0 lg:self-stretch lg:border-b-0 lg:border-r",
+                  selectedUnitId != null
+                    ? "hidden border-b lg:flex"
+                    : "flex flex-1 border-b lg:flex-none"
+                )}
+              >
+                <div className="mb-3 flex shrink-0 items-end justify-between gap-2">
                   <div>
                     <p className={wialonEyebrowClass}>Flota</p>
                     <p className="mt-0.5 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">Unidades activas</p>
@@ -1619,7 +1750,7 @@ export default function EditWialonUserModal({
                   </span>
                 </div>
 
-                <div className="relative mb-3">
+                <div className="relative mb-3 shrink-0">
                   <input
                     type="search"
                     value={unitSearch}
@@ -1639,10 +1770,10 @@ export default function EditWialonUserModal({
                     <circle cx="11" cy="11" r="7" />
                     <path d="M20 20l-3-3" />
                   </svg>
-          </div>
+                </div>
 
                 <div
-                  className="custom-scrollbar max-h-[min(340px,45dvh)] space-y-2 overflow-y-auto lg:max-h-[min(560px,58dvh)]"
+                  className="custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pb-2 touch-pan-y [-webkit-overflow-scrolling:touch]"
                   role="listbox"
                   aria-label="Unidades activas"
                 >
@@ -1707,10 +1838,8 @@ export default function EditWialonUserModal({
                             </span>
                             <span className={cn("mt-1 block truncate", wialonUiCaption)}>
                               {unit.device_type}
-                              {unit.last_message_at && unit.last_message_at !== "—"
-                                ? ` · ${unit.last_message_at}`
-                                : ""}
                             </span>
+                            <WialonTelemetryChips unit={unit} compact />
                           </span>
                         </button>
                       );
@@ -1719,7 +1848,12 @@ export default function EditWialonUserModal({
                 </div>
               </aside>
 
-              <div className="custom-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-[#fffdfa] p-4 dark:bg-[#111a2b] sm:p-6">
+              <div
+                className={cn(
+                  "custom-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-[#fffdfa] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:bg-[#111a2b] sm:p-6",
+                  selectedUnitId == null ? "hidden lg:block" : "block"
+                )}
+              >
                 <WialonUnitEditForm
                   unitId={selectedUnitId}
                   contextUserId={user?.wialon_id ?? null}

@@ -137,6 +137,7 @@ export default function CuentasAntarixPage() {
   const [rows, setRows] = useState<WialonUserRow[]>([]);
   const [unitSearchIndex, setUnitSearchIndex] = useState<WialonUnitSearchEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [unitIndexLoading, setUnitIndexLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -150,9 +151,10 @@ export default function CuentasAntarixPage() {
   const [modalUser, setModalUser] = useState<WialonUserRow | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const loadUsers = async (forceRefresh = false) => {
+  const loadUsers = async (forceRefresh = false): Promise<boolean> => {
     const showFullPageLoader = rows.length === 0;
     if (showFullPageLoader) setLoading(true);
+    if (forceRefresh && !showFullPageLoader) setRefreshing(true);
     setUnitIndexLoading(true);
     setError("");
     try {
@@ -178,7 +180,7 @@ export default function CuentasAntarixPage() {
         } else {
           setError(String(data?.detail || `Error HTTP ${res.status}`));
         }
-        return;
+        return false;
       }
       const list = Array.isArray(data?.users) ? (data.users as WialonUserRow[]) : [];
       setRows(list);
@@ -188,15 +190,18 @@ export default function CuentasAntarixPage() {
       if (bundledUnits) {
         setUnitSearchIndex(bundledUnits);
         setUnitIndexLoading(false);
-      } else if (!forceRefresh) {
-        await loadUnitSearchIndex(false);
+      } else {
+        await loadUnitSearchIndex(forceRefresh);
       }
+      return true;
     } catch {
       setRows([]);
       setUnitSearchIndex([]);
       setError("No se pudo conectar con el servidor.");
+      return false;
     } finally {
       setLoading(false);
+      setRefreshing(false);
       setUnitIndexLoading(false);
     }
   };
@@ -284,8 +289,9 @@ export default function CuentasAntarixPage() {
   };
 
   const handleRefresh = async () => {
-    await loadUsers(true);
-    if (!error) {
+    if (loading || refreshing) return;
+    const ok = await loadUsers(true);
+    if (ok) {
       showAlert("info", "Actualizado", "Usuarios e índice de unidades sincronizados con Wialon.");
     }
   };
@@ -481,14 +487,29 @@ export default function CuentasAntarixPage() {
           </div>
           <button
             type="button"
-            onClick={handleRefresh}
-            disabled={loading}
+            onClick={() => void handleRefresh()}
+            disabled={loading || refreshing}
+            aria-busy={loading || refreshing}
             className={cn(erpPrimaryBtnClass, "w-full shrink-0 sm:w-auto")}
           >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <path d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0 0 14-2M19 5a9 9 0 0 0-14 2" strokeLinecap="round" strokeLinejoin="round" />
+            <svg
+              className={cn(
+                "h-4 w-4 shrink-0",
+                (loading || refreshing) && "animate-spin motion-reduce:animate-none"
+              )}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden
+            >
+              <path
+                d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0 0 14-2M19 5a9 9 0 0 0-14 2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
-            {loading ? "Cargando…" : "Actualizar"}
+            {loading || refreshing ? "Actualizando…" : "Actualizar"}
           </button>
         </div>
         {search.trim() && unitIndexLoading ? (

@@ -35,9 +35,41 @@ _TOKEN_HEX_CHARS = frozenset("0123456789abcdefABCDEF")
 USER_FLAGS = 0x00000001 | 0x00000002 | 0x00000004 | 0x00000100
 # base + billing (bpact)
 ACCOUNT_FLAGS = 0x00000001 | 0x00000004
-# base + custom + billing + custom fields + advanced (hw, uid, ph, psw) + lmsg + profile
-UNIT_FLAGS = 0x00000001 | 0x00000002 | 0x00000004 | 0x00000008 | 0x00000100 | 0x00000200 | 0x00000400
+# base + custom + billing + custom fields + advanced (hw, uid, ph, psw)
+# + last msg/pos + sensors + connection (netconn) + profile
+UNIT_FLAGS = (
+    0x00000001
+    | 0x00000002
+    | 0x00000004
+    | 0x00000008
+    | 0x00000100
+    | 0x00000200
+    | 0x00000400
+    | 0x00001000
+    | 0x00200000
+)
 UNIT_DETAIL_FLAGS = UNIT_FLAGS | 0x00800000
+
+# Umbral de respaldo si Wialon no envía netconn: minutos desde el último mensaje.
+_ONLINE_FALLBACK_MINUTES = int(os.environ.get("WIALON_ONLINE_FALLBACK_MINUTES", "10"))
+
+_IGNITION_PARAM_KEYS = frozenset(
+    {
+        "acc",
+        "ign",
+        "ignition",
+        "engine",
+        "motor",
+        "io_239",
+        "io239",
+        "din1",
+        "digital_1",
+        "ignicion",
+        "encendido",
+    }
+)
+_IGNITION_NAME_HINTS = ("ignition", "ignici", "motor", "acc", "encendido", "engine")
+_IGNITION_TYPE_HINTS = ("engine operation", "ignition", "engine")
 
 # Máscara de acceso por defecto al compartir unidad (ver + detalle + conectividad).
 WIALON_UNIT_ACCESS_DEFAULT = 0x1 | 0x2 | 0x1000000
@@ -384,6 +416,182 @@ def _unit_status_from_item(item: dict[str, Any]) -> tuple[str, bool | None]:
         except (TypeError, ValueError):
             pass
     return ("—", None)
+
+
+def _coerce_boolish(value: Any) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        if value != value:  # NaN
+            return None
+        return bool(value)
+    text = str(value).strip().lower()
+    if text in {"1", "true", "on", "yes", "sí", "si", "encendido", "activo"}:
+        return True
+    if text in {"0", "false", "off", "no", "apagado", "inactivo"}:
+        return False
+    try:
+        return bool(float(text))
+    except (TypeError, ValueError):
+        return None
+
+
+def _last_message_ts(item: dict[str, Any]) -> int | None:
+    lmsg = item.get("lmsg") if isinstance(item.get("lmsg"), dict) else {}
+    pos = item.get("pos") if isinstance(item.get("pos"), dict) else {}
+    for source in (lmsg, pos):
+        ts = source.get("t")
+        if ts is None:
+            continue
+        try:
+            return int(ts)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _unit_online_from_item(item: dict[str, Any]) -> tuple[bool | None, str]:
+    """Conexión Wialon (netconn) o respaldo por antigüedad del último mensaje."""
+    if "netconn" in item:
+        online = _coerce_boolish(item.get("netconn"))
+        if online is True:
+            return True, "En línea"
+        if online is False:
+            return False, "Fuera de línea"
+
+    ts = _last_message_ts(item)
+    if ts is None:
+        return None, "Sin dato"
+    age_sec = max(0, int(time.time()) - ts)
+    if age_sec <= _ONLINE_FALLBACK_MINUTES * 60:
+        return True, "En línea"
+    return False, "Fuera de línea"
+
+
+def _unit_motion_from_item(item: dict[str, Any]) -> tuple[str, int | None]:
+    """Último estado de movimiento a partir de la velocidad en pos/lmsg."""
+    pos = item.get("pos") if isinstance(item.get("pos"), dict) else {}
+    lmsg = item.get("lmsg") if isinstance(item.get("lmsg"), dict) else {}
+    speed_raw = pos.get("s")
+    if speed_raw is None and isinstance(lmsg.get("pos"), dict):
+        speed_raw = lmsg["pos"].get("s")
+    if speed_raw is None:
+        speed_raw = lmsg.get("s")
+    if speed_raw is None:
+        if pos or (isinstance(lmsg, dict) and lmsg.get("t")):
+            return "Detenido", 0
+        return "Sin posición", None
+    try:
+        speed = int(float(speed_raw))
+    except (TypeError, ValueError):
+        return "Sin posición", None
+    if speed > 0:
+        return "En movimiento", speed
+    return "Detenido", 0
+
+
+def _ignition_sensor_ids(item: dict[str, Any]) -> list[int]:
+    sens = item.get("sens") if isinstance(item.get("sens"), dict) else {}
+    ids: list[int] = []
+    for key, entry in sens.items():
+        if not isinstance(entry, dict):
+            continue
+        tp = str(entry.get("tp") or "").strip().lower()
+        name = str(entry.get("nm") or "").strip().lower()
+        is_ignition = any(hint in tp for hint in _IGNITION_TYPE_HINTS) or any(
+            hint in name for hint in _IGNITION_NAME_HINTS
+        )
+        if not is_ignition:
+            continue
+        raw_id = entry.get("id", key)
+        try:
+            ids.append(int(raw_id))
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
+def _engine_from_message_params(item: dict[str, Any]) -> bool | None:
+    """Heurística sobre parámetros del último mensaje / entradas digitales."""
+    lmsg = item.get("lmsg") if isinstance(item.get("lmsg"), dict) else {}
+    pos = item.get("pos") if isinstance(item.get("pos"), dict) else {}
+    params: dict[str, Any] = {}
+    for source in (lmsg.get("p"), pos.get("p"), lmsg):
+        if isinstance(source, dict):
+            for key, value in source.items():
+                if key in {"t", "f", "tp", "pos", "p"}:
+                    continue
+                params[str(key).strip().lower()] = value
+
+    for key in _IGNITION_PARAM_KEYS:
+        if key in params:
+            parsed = _coerce_boolish(params[key])
+            if parsed is not None:
+                return parsed
+
+    for key, value in params.items():
+        if any(hint in key for hint in _IGNITION_NAME_HINTS):
+            parsed = _coerce_boolish(value)
+            if parsed is not None:
+                return parsed
+    return None
+
+
+def _engine_label(engine_on: bool | None) -> str:
+    if engine_on is True:
+        return "Encendido"
+    if engine_on is False:
+        return "Apagado"
+    return "Sin dato"
+
+
+def _calc_last_for_units(sid: str, unit_ids: list[int]) -> dict[int, dict[str, Any]]:
+    """unit/calc_last en lotes → mapa unit_id → payload."""
+    if not unit_ids:
+        return {}
+    result: dict[int, dict[str, Any]] = {}
+    chunk_size = 40
+    for start in range(0, len(unit_ids), chunk_size):
+        chunk = unit_ids[start : start + chunk_size]
+        try:
+            payload = _call("unit/calc_last", {"itemIds": chunk}, sid=sid)
+        except WialonError as exc:
+            logger.warning("Wialon unit/calc_last falló (%s ids): %s", len(chunk), exc)
+            continue
+        rows = payload if isinstance(payload, list) else []
+        for row in rows:
+            if not isinstance(row, dict) or row.get("i") is None:
+                continue
+            try:
+                result[int(row["i"])] = row
+            except (TypeError, ValueError):
+                continue
+    return result
+
+
+def _engine_from_calc_last(
+    item: dict[str, Any],
+    calc_row: dict[str, Any] | None,
+) -> bool | None:
+    if not calc_row:
+        return _engine_from_message_params(item)
+    sensors_vals = calc_row.get("sensors") if isinstance(calc_row.get("sensors"), dict) else {}
+    for sensor_id in _ignition_sensor_ids(item):
+        entry = sensors_vals.get(str(sensor_id))
+        if entry is None:
+            entry = sensors_vals.get(sensor_id)
+        if not isinstance(entry, dict):
+            continue
+        parsed = _coerce_boolish(entry.get("value"))
+        if parsed is not None:
+            return parsed
+        fmt = entry.get("format") if isinstance(entry.get("format"), dict) else {}
+        parsed = _coerce_boolish(fmt.get("value"))
+        if parsed is not None:
+            return parsed
+    return _engine_from_message_params(item)
 
 
 def _assigned_units_count(
@@ -825,9 +1033,9 @@ def _normalize_unit(
     unit_id: int,
     current_user_id: int,
     sharing_index: dict[int, list[dict[str, Any]]],
+    calc_last: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    lmsg = item.get("lmsg") if isinstance(item.get("lmsg"), dict) else {}
-    last_msg_ts = lmsg.get("t")
+    last_msg_ts = _last_message_ts(item)
     hw_id = item.get("hw")
     device_type = ""
     if hw_id is not None:
@@ -842,6 +1050,9 @@ def _normalize_unit(
     is_shared = len(other_owners) > 0
     shared_with = ", ".join(_owner_label(o) for o in other_owners) if other_owners else "—"
     status_label, is_active = _unit_status_from_item(item)
+    is_online, online_label = _unit_online_from_item(item)
+    motion_label, speed_kmh = _unit_motion_from_item(item)
+    engine_on = _engine_from_calc_last(item, calc_last)
 
     return {
         "wialon_id": item.get("id"),
@@ -851,6 +1062,12 @@ def _normalize_unit(
         "phone": str(item.get("ph") or "").strip() or "—",
         "status": status_label,
         "is_active": is_active,
+        "last_state": motion_label,
+        "speed_kmh": speed_kmh,
+        "is_online": is_online,
+        "online_label": online_label,
+        "engine_on": engine_on,
+        "engine_label": _engine_label(engine_on),
         "last_message_at": _format_unix_datetime(int(last_msg_ts)) if last_msg_ts else "—",
         "created_at": _format_unix_datetime(int(created_ts)) if created_ts else "—",
         "custom_fields": _format_custom_fields(item.get("flds")),
@@ -880,6 +1097,7 @@ def _units_for_user(
     units_index: dict[int, dict[str, Any]],
     sharing_index: dict[int, list[dict[str, Any]]],
     hw_names: dict[int, str],
+    sid: str | None = None,
 ) -> list[dict[str, Any]]:
     user_item = next((u for u in users_raw if u.get("id") == wialon_user_id), None)
     if user_item is None:
@@ -889,18 +1107,32 @@ def _units_for_user(
         prp = user_item.get("prp") if isinstance(user_item.get("prp"), dict) else {}
         unit_ids = _user_unit_ids_from_prp(prp)
 
-    units: list[dict[str, Any]] = []
+    items_by_id: dict[int, dict[str, Any]] = {}
+    ordered_ids: list[int] = []
     for unit_id in unit_ids:
         item = units_index.get(int(unit_id))
         if not item:
             continue
+        uid_int = int(unit_id)
+        items_by_id[uid_int] = item
+        ordered_ids.append(uid_int)
+
+    calc_by_id: dict[int, dict[str, Any]] = {}
+    needs_calc = any(_ignition_sensor_ids(items_by_id[uid]) for uid in ordered_ids)
+    if needs_calc and sid and ordered_ids:
+        calc_by_id = _calc_last_for_units(sid, ordered_ids)
+
+    units: list[dict[str, Any]] = []
+    for uid_int in ordered_ids:
+        item = items_by_id[uid_int]
         units.append(
             _normalize_unit(
                 item,
                 hw_names,
-                unit_id=int(unit_id),
+                unit_id=uid_int,
                 current_user_id=wialon_user_id,
                 sharing_index=sharing_index,
+                calc_last=calc_by_id.get(uid_int),
             )
         )
     units.sort(key=lambda u: (u.get("name") or "").lower())
@@ -952,6 +1184,7 @@ def _build_units_fast(sid: str, user_id: int) -> list[dict[str, Any]]:
         units_index=units_index,
         sharing_index=sharing_index,
         hw_names=hw_names,
+        sid=sid,
     )
 
 
@@ -1420,6 +1653,7 @@ def _build_units_on_demand(sid: str, user_id: int, user_login: str) -> list[dict
         units_index=units_index,
         sharing_index=sharing_index,
         hw_names=hw_names,
+        sid=sid,
     )
 
 
@@ -1631,6 +1865,7 @@ def _normalize_unit_detail(
     *,
     unit_id: int,
     context_user_id: int | None = None,
+    calc_last: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     hw_id = item.get("hw")
     hw_int: int | None = None
@@ -1644,6 +1879,10 @@ def _normalize_unit_detail(
     unit_type = _profile_field_value(item, "vehicle_class") or _profile_field_value(item, "vehicle_type")
     access_users = _unit_access_users(unit_id, context_user_id=context_user_id)
     status_label, is_active = _unit_status_from_item(item)
+    last_msg_ts = _last_message_ts(item)
+    is_online, online_label = _unit_online_from_item(item)
+    motion_label, speed_kmh = _unit_motion_from_item(item)
+    engine_on = _engine_from_calc_last(item, calc_last)
 
     return {
         "wialon_id": int(unit_id),
@@ -1655,12 +1894,16 @@ def _normalize_unit_detail(
         "phone": phone,
         "status": status_label,
         "is_active": is_active,
+        "last_state": motion_label,
+        "speed_kmh": speed_kmh,
+        "is_online": is_online,
+        "online_label": online_label,
+        "engine_on": engine_on,
+        "engine_label": _engine_label(engine_on),
         "has_password": bool(str(item.get("psw") or "").strip()),
         "custom_fields": _parse_custom_fields_list(item.get("flds")),
         "access_users": access_users,
-        "last_message_at": _format_unix_datetime(int(item["lmsg"]["t"]))
-        if isinstance(item.get("lmsg"), dict) and item["lmsg"].get("t")
-        else "—",
+        "last_message_at": _format_unix_datetime(int(last_msg_ts)) if last_msg_ts else "—",
         "created_at": _format_unix_datetime(int(item["ct"])) if item.get("ct") else "—",
     }
 
@@ -1676,11 +1919,15 @@ def fetch_unit_detail(unit_id: int, *, context_user_id: int | None = None) -> di
         except (TypeError, ValueError):
             pass
     hw_names = _get_hw_type_names(sid, hw_ids)
+    calc_row = None
+    if _ignition_sensor_ids(item):
+        calc_row = _calc_last_for_units(sid, [target]).get(target)
     return _normalize_unit_detail(
         item,
         hw_names,
         unit_id=target,
         context_user_id=context_user_id,
+        calc_last=calc_row,
     )
 
 
