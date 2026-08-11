@@ -123,7 +123,12 @@ export function useOrdenesList(opts: {
         return;
       }
 
-      const response = await fetchApi(`/api/ordenes/?_ts=${Date.now()}`, {
+      const mes = selectedMonth || getCurrentYearMonth();
+      const params = new URLSearchParams({
+        mes,
+        _ts: String(Date.now()),
+      });
+      const response = await fetchApi(`/api/ordenes/?${params.toString()}`, {
         cache: "no-store" as RequestCache,
       });
 
@@ -157,7 +162,7 @@ export function useOrdenesList(opts: {
     } finally {
       setLoading(false);
     }
-  }, [canView, variant]);
+  }, [canView, variant, selectedMonth]);
 
   const shownList = useMemo(() => {
     if (!Array.isArray(ordenes)) return [];

@@ -8,6 +8,7 @@ import {
   normalizeCotizacionesAdjuntas,
   normalizeFotosExtraFromOrden,
   normalizeStatusAdministrativo,
+  COMENTARIO_TECNICO_MIN_LENGTH,
   ORDEN_BASE_MAX_FOTOS,
   type FotosExtraMax,
   type Orden,
@@ -522,20 +523,17 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
   }, [clienteSearch]);
 
   useEffect(() => {
-    fetchClientes(debouncedClienteSearch);
-  }, [debouncedClienteSearch, fetchClientes]);
+    if (!open || !isAuthenticated) return;
+    void fetchClientes(debouncedClienteSearch);
+  }, [open, isAuthenticated, debouncedClienteSearch, fetchClientes]);
 
   useEffect(() => {
-    if (open) fetchClientes(debouncedClienteSearch);
-  }, [open, debouncedClienteSearch, fetchClientes]);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!open || !isAuthenticated) return;
     void fetchUsuarios();
-  }, [isAuthenticated, fetchUsuarios]);
+  }, [open, isAuthenticated, fetchUsuarios]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!open || !isAuthenticated) return;
     const now = Date.now();
     if (variant === "admin") {
       if (now - adminServiciosLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
@@ -545,7 +543,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       tecnicoServiciosLastLoadAt = now;
     }
     void loadServiciosDisponibles();
-  }, [isAuthenticated, variant, loadServiciosDisponibles]);
+  }, [open, isAuthenticated, variant, loadServiciosDisponibles]);
 
   const loadTecnicoSignature = useCallback(
     async (tecUserId: number | null) => {
@@ -698,8 +696,16 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     if (!Array.isArray(formData.servicios_realizados) || formData.servicios_realizados.length === 0) {
       missing.push("Servicios Realizados");
     }
+    if (!isLimitedEdit) {
+      const comentarioLen = (formData.comentario_tecnico || "").trim().length;
+      if (comentarioLen < COMENTARIO_TECNICO_MIN_LENGTH) {
+        missing.push(
+          `Comentario del técnico (mínimo ${COMENTARIO_TECNICO_MIN_LENGTH} caracteres; lleva ${comentarioLen})`,
+        );
+      }
+    }
     return { ok: missing.length === 0, missing };
-  }, [formData]);
+  }, [formData, isLimitedEdit]);
 
   const patchClienteFromOrden = useCallback(
     async (payload: Record<string, unknown>) => {

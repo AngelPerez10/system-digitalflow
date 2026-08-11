@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  NOTA_DIA_MIN_CHARS,
   PROYECTO_FECHA_AUTORIZACION_FIELD_ID,
   PROYECTO_FECHA_DESDE_FIELD_ID,
   PROYECTO_TIPOS_TRABAJO_FIELD_ID,
+  proyectoNotaDiaFieldId,
+  validateNotasPorDiaMinLength,
   validateProyectoOperacionRequired,
 } from "./proyectoOperacionValidation";
 
@@ -50,6 +53,31 @@ describe("validateProyectoOperacionRequired", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.firstFieldId).toBe(PROYECTO_FECHA_DESDE_FIELD_ID);
+    }
+  });
+});
+
+describe("validateNotasPorDiaMinLength", () => {
+  const longNota = "x".repeat(NOTA_DIA_MIN_CHARS);
+
+  it("acepta jornadas con el mínimo", () => {
+    const result = validateNotasPorDiaMinLength([
+      { id: "a", nota: longNota },
+      { id: "b", nota: ` ${longNota} ` },
+    ]);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rechaza notas cortas y apunta al primer día", () => {
+    const result = validateNotasPorDiaMinLength([
+      { id: "corta", nota: "avance" },
+      { id: "ok", nota: longNota },
+    ]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.firstFieldId).toBe(proyectoNotaDiaFieldId("corta"));
+      expect(result.firstDia).toBe(1);
+      expect(result.errorsById.corta).toMatch(/Faltan/);
     }
   });
 });

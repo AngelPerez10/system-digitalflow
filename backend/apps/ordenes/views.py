@@ -3,13 +3,15 @@ import io
 import json
 import logging
 import re
+from calendar import monthrange
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Exists, F, OuterRef, Q
+from django.db.models import Exists, F, OuterRef, Q, Subquery
+from django.db.models.fields.json import KeyTextTransform
 from django.http import HttpResponse
 from django.utils import timezone
 from PIL import Image
@@ -68,6 +70,7 @@ from .models import Orden, OrdenInstalacion, OrdenLevantamiento, ReporteSemanal
 from .serializers import (
     OrdenInstalacionSerializer,
     OrdenLevantamientoSerializer,
+    OrdenListSerializer,
     OrdenSerializer,
     ReporteSemanalSerializer,
 )
@@ -500,29 +503,90 @@ class OrdenViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), OrdenesSendPdfPermission()]
         return super().get_permissions()
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return OrdenListSerializer
+        return OrdenSerializer
+
     def get_queryset(self):
         # IMPORTANTE: usar `.all()` para obtener un queryset fresco en cada request
         # y evitar cache accidental de resultados en el queryset de clase.
+        is_list = self.action == 'list'
+        related = [
+            'cliente_id',
+            'tecnico_asignado',
+            'creado_por',
+            'quien_instalo',
+            'quien_entrego',
+        ]
+        if not is_list:
+            related = related + ['levantamiento', 'instalacion']
+
         qs = (
             self.queryset.all()
             .annotate(
                 tiene_levantamiento=Exists(OrdenLevantamiento.objects.filter(orden_id=OuterRef('pk'))),
                 tiene_instalacion=Exists(OrdenInstalacion.objects.filter(orden_id=OuterRef('pk'))),
             )
-            .select_related('cliente_id', 'tecnico_asignado', 'creado_por', 'levantamiento', 'instalacion')
+            .select_related(*related)
             .order_by(
                 F('fecha_inicio').desc(nulls_last=True),
                 F('fecha_creacion').desc(nulls_last=True),
                 '-id',
             )
         )
+        if is_list:
+            lev_tipo = (
+                OrdenLevantamiento.objects.filter(orden_id=OuterRef('pk'))
+                .annotate(tipo=KeyTextTransform('tipo', 'payload'))
+                .values('tipo')[:1]
+            )
+            qs = qs.annotate(levantamiento_tipo_annot=Subquery(lev_tipo))
+
         user = getattr(self.request, 'user', None)
         if not user or not getattr(user, 'is_authenticated', False):
             return qs.none()
         own_only = user_module_own_only(user, 'ordenes')
-        if not own_only:
+        if own_only:
+            qs = qs.filter(Q(tecnico_asignado=user) | Q(creado_por=user))
+
+        if is_list:
+            qs = self._apply_list_filters(qs)
+
+        return qs
+
+    def _apply_list_filters(self, qs):
+        """Filtros opcionales de listado: mes=YYYY-MM, tipo_orden=..."""
+        request = getattr(self, 'request', None)
+        if request is None:
             return qs
-        return qs.filter(Q(tecnico_asignado=user) | Q(creado_por=user))
+        params = request.query_params
+
+        mes = (params.get('mes') or '').strip()
+        if re.match(r'^\d{4}-\d{2}$', mes):
+            year_s, month_s = mes.split('-')
+            year, month = int(year_s), int(month_s)
+            if 1 <= month <= 12:
+                start = date(year, month, 1)
+                end = date(year, month, monthrange(year, month)[1])
+                qs = qs.filter(
+                    Q(fecha_inicio__gte=start, fecha_inicio__lte=end)
+                    | Q(
+                        fecha_inicio__isnull=True,
+                        fecha_creacion__date__gte=start,
+                        fecha_creacion__date__lte=end,
+                    )
+                )
+
+        tipo = (params.get('tipo_orden') or '').strip().lower()
+        if tipo == 'levantamiento':
+            qs = qs.filter(tiene_levantamiento=True, tiene_instalacion=False)
+        elif tipo in ('servicio_tecnico', 'servicio'):
+            qs = qs.filter(tiene_levantamiento=False, tiene_instalacion=False)
+        elif tipo in ('instalaciones', 'instalacion'):
+            qs = qs.filter(tiene_instalacion=True)
+
+        return qs
 
     def get_object(self):
         """

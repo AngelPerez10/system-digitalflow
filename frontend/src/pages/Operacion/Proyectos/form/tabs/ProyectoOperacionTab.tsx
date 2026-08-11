@@ -28,6 +28,7 @@ import {
   proyectoSectionHintClass,
   proyectoStatusChipClass,
 } from "../../shared/proyectoPageStyles";
+import { NOTA_DIA_MIN_CHARS } from "../../shared/proyectoOperacionValidation";
 import type {
   CotizacionResumen,
   ProyectoEstado,
@@ -141,6 +142,7 @@ export type ProyectoOperacionTabProps = {
   setFechaRangoStart: (v: string) => void;
   setFechaRangoEnd: (v: string) => void;
   operacionErrors: { tipos: string; fechaAuth: string; fechaDesde: string };
+  notaDiaErrors: Record<string, string>;
   diasRangoCount: number;
   fechasInicio: string[];
   tecnicosAsignados: ProyectoTecnicoAsignado[];
@@ -210,6 +212,7 @@ export function ProyectoOperacionTab({
   setFechaRangoStart,
   setFechaRangoEnd,
   operacionErrors,
+  notaDiaErrors,
   diasRangoCount,
   fechasInicio,
   tecnicosAsignados,
@@ -546,7 +549,7 @@ export function ProyectoOperacionTab({
       <ProyectoFormSection
         titleId="proyecto-sec-notas"
         title="Bitácora por jornada"
-        hint="Una entrada por día de trabajo, con hasta 2 fotos. Se alinea con las fechas de inicio cuando existan."
+        hint={`Una entrada por día de trabajo (mínimo ${NOTA_DIA_MIN_CHARS} caracteres), con hasta 2 fotos. Se alinea con las fechas de inicio cuando existan.`}
         icon={iconNotes}
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -579,7 +582,11 @@ export function ProyectoOperacionTab({
             const fechaJornada = fechasInicio[index] || "";
             const fechaLabel = fechaJornada ? formatProyectoFecha(fechaJornada) : null;
             const charCount = item.nota.trim().length;
+            const faltan = Math.max(0, NOTA_DIA_MIN_CHARS - charCount);
+            const notaError = notaDiaErrors[item.id] || "";
             const hintId = `proyecto-nota-hint-${item.id}`;
+            const errorId = `proyecto-nota-error-${item.id}`;
+            const textareaId = `proyecto-nota-dia-${item.id}`;
 
             return (
               <li key={item.id} className="group relative flex gap-3 pb-4 last:pb-0">
@@ -594,7 +601,11 @@ export function ProyectoOperacionTab({
                   {index + 1}
                 </span>
 
-                <article className={proyectoNotaCardClass} aria-labelledby={`proyecto-nota-title-${item.id}`}>
+                <div
+                  role="article"
+                  className={proyectoNotaCardClass}
+                  aria-labelledby={`proyecto-nota-title-${item.id}`}
+                >
                   <div className="flex items-start justify-between gap-2 border-b border-[#f0e8dc] bg-gradient-to-r from-[#fff8f1]/90 to-transparent px-3 py-2.5 dark:border-[#273244] dark:from-[#ff801f]/10 dark:to-transparent">
                     <div className="min-w-0">
                       <h5
@@ -605,9 +616,15 @@ export function ProyectoOperacionTab({
                         {fechaLabel ? (
                           <span className="font-medium text-[#78716c] dark:text-[#8ea0b8]"> · {fechaLabel}</span>
                         ) : null}
+                        <span className="text-rose-600" aria-hidden>
+                          {" "}
+                          *
+                        </span>
                       </h5>
                       <p className={`${proyectoNotaMetaClass} mt-0.5`}>
                         {fechaLabel ? "Jornada vinculada a fecha de inicio" : "Sin fecha de inicio asociada aún"}
+                        {" · "}
+                        Mínimo {NOTA_DIA_MIN_CHARS} caracteres
                       </p>
                     </div>
                     {notasPorDia.length > 1 ? (
@@ -627,27 +644,50 @@ export function ProyectoOperacionTab({
 
                   <div className="space-y-2 p-3">
                     <div>
-                      <label htmlFor={`proyecto-nota-dia-${item.id}`} className="sr-only">
+                      <label htmlFor={textareaId} className="sr-only">
                         Nota del día {index + 1}
-                        {fechaLabel ? `, ${fechaLabel}` : ""}
+                        {fechaLabel ? `, ${fechaLabel}` : ""}. Mínimo {NOTA_DIA_MIN_CHARS} caracteres.
                       </label>
                       <textarea
-                        id={`proyecto-nota-dia-${item.id}`}
+                        id={textareaId}
                         value={item.nota}
                         onChange={(e) => updateNotaDia(index, e.target.value)}
                         rows={3}
                         placeholder={`Avances, pendientes o hallazgos del día ${index + 1}…`}
-                        className={proyectoNotaTextareaClass}
-                        aria-describedby={hintId}
+                        className={`${proyectoNotaTextareaClass}${
+                          notaError
+                            ? " !border-rose-400 focus:!border-rose-500 focus-visible:!ring-rose-500/25 dark:!border-rose-500/60"
+                            : ""
+                        }`}
+                        aria-required="true"
+                        aria-invalid={notaError ? true : undefined}
+                        aria-describedby={notaError ? `${hintId} ${errorId}` : hintId}
                       />
                       <div id={hintId} className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-                        <p className={proyectoNotaMetaClass}>
-                          {charCount === 0 ? "Sin nota todavía" : `${charCount} ${charCount === 1 ? "carácter" : "caracteres"}`}
+                        <p
+                          className={`${proyectoNotaMetaClass}${
+                            faltan > 0 ? " text-[#9a3412] dark:text-[#fdba74]" : " text-emerald-700 dark:text-emerald-400"
+                          }`}
+                        >
+                          {charCount === 0
+                            ? `0 / ${NOTA_DIA_MIN_CHARS} caracteres`
+                            : faltan > 0
+                              ? `${charCount} / ${NOTA_DIA_MIN_CHARS} · faltan ${faltan}`
+                              : `${charCount} caracteres · mínimo cumplido`}
                         </p>
                         {index === 0 && notasPorDia.length === 1 ? (
                           <p className={proyectoNotaMetaClass}>Usa «Agregar día» para más jornadas</p>
                         ) : null}
                       </div>
+                      {notaError ? (
+                        <p
+                          id={errorId}
+                          className="mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400"
+                          role="alert"
+                        >
+                          {notaError}
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="border-t border-[#f0e8dc]/80 pt-2 dark:border-[#273244]/80">
@@ -658,7 +698,7 @@ export function ProyectoOperacionTab({
                       />
                     </div>
                   </div>
-                </article>
+                </div>
               </li>
             );
           })}

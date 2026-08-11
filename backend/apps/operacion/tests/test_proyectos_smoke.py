@@ -110,7 +110,12 @@ class ProyectosSmokeTests(APITestCase):
                 "notas_por_dia": [
                     {
                         "id": "nota-pdf-1",
-                        "nota": "Se instaló el GPS en unidad 12.",
+                        "nota": (
+                            "Se instaló el GPS en unidad 12. Se verificó señal, "
+                            "alimentación y montaje. Queda pendiente el sellado "
+                            "final y la prueba de recorrido con el cliente en sitio "
+                            "para confirmar cobertura y reporte en plataforma."
+                        ),
                         "imagenesUrls": [],
                     }
                 ],
@@ -184,6 +189,35 @@ class ProyectosSmokeTests(APITestCase):
         del_res = self.client.delete(f"/api/proyectos/{proyecto_id}/")
         self.assertEqual(del_res.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Proyecto.objects.filter(pk=proyecto_id).exists())
+
+    def test_notas_por_dia_require_min_150_chars(self):
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Bitácora corta",
+                "status": "en_proceso",
+                "notas_por_dia": [
+                    {"id": "n1", "nota": "Texto demasiado corto", "imagenesUrls": []},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_400_BAD_REQUEST, create_res.data)
+        self.assertIn("notas_por_dia", create_res.data)
+
+        ok_nota = "x" * 150
+        ok_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Bitácora ok",
+                "status": "en_proceso",
+                "notas_por_dia": [
+                    {"id": "n1", "nota": ok_nota, "imagenesUrls": []},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(ok_res.status_code, status.HTTP_201_CREATED, ok_res.data)
 
     def test_upload_image_rejects_invalid_folder(self):
         res = self.client.post(

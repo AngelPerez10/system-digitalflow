@@ -135,6 +135,7 @@ export default function ProyectoFormModal({
     clienteStepError,
     setClienteStepError,
     operacionErrors,
+    notaDiaErrors,
     horaSalidaError,
     setHoraSalidaError,
     presupuestoCargado,
@@ -291,6 +292,7 @@ export default function ProyectoFormModal({
                   setFechaRangoStart={setFechaRangoStart}
                   setFechaRangoEnd={setFechaRangoEnd}
                   operacionErrors={operacionErrors}
+                  notaDiaErrors={notaDiaErrors}
                   diasRangoCount={diasRangoCount}
                   fechasInicio={fechasInicio}
                   tecnicosAsignados={tecnicosAsignados}

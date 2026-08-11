@@ -3,6 +3,8 @@ import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { canCerrarProyecto } from "../shared/proyectoCloseValidation";
 import {
+  NOTA_DIA_MIN_CHARS,
+  validateNotasPorDiaMinLength,
   validateProyectoOperacionRequired,
   type ProyectoOperacionRequiredErrors,
 } from "../shared/proyectoOperacionValidation";
@@ -97,6 +99,7 @@ export function useProyectoFormState({
     fechaAuth: "",
     fechaDesde: "",
   });
+  const [notaDiaErrors, setNotaDiaErrors] = useState<Record<string, string>>({});
 
   const [activeTab, setActiveTab] = useState<ProyectoFormTab>("cliente");
   const activeTabRef = useRef<ProyectoFormTab>(activeTab);
@@ -305,6 +308,7 @@ export function useProyectoFormState({
     setClienteStepError("");
     setHoraSalidaError("");
     setOperacionErrors({ tipos: "", fechaAuth: "", fechaDesde: "" });
+    setNotaDiaErrors({});
     setInstalacionDraft(emptyInstalacionDraft());
     resetPicker();
     setModeloPickerLineaId(null);
@@ -641,7 +645,15 @@ export function useProyectoFormState({
   };
 
   const updateNotaDia = (index: number, nota: string) => {
+    const id = notasPorDia[index]?.id;
     setNotasPorDia((prev) => prev.map((n, i) => (i === index ? { ...n, nota } : n)));
+    if (id && String(nota).trim().length >= NOTA_DIA_MIN_CHARS) {
+      setNotaDiaErrors((errs) => {
+        if (!(id in errs)) return errs;
+        const { [id]: _removed, ...rest } = errs;
+        return rest;
+      });
+    }
   };
 
   const updateNotaDiaImagenes = (index: number, imagenesUrls: string[]) => {
@@ -732,8 +744,17 @@ export function useProyectoFormState({
         });
         setOperacionErrors(check.errors);
         if (!check.ok) {
+          setNotaDiaErrors({});
           requestAnimationFrame(() => {
             document.getElementById(check.firstFieldId)?.focus();
+          });
+          return;
+        }
+        const notasCheck = validateNotasPorDiaMinLength(notasPorDia);
+        setNotaDiaErrors(notasCheck.errorsById);
+        if (!notasCheck.ok) {
+          requestAnimationFrame(() => {
+            document.getElementById(notasCheck.firstFieldId)?.focus();
           });
           return;
         }
@@ -752,7 +773,7 @@ export function useProyectoFormState({
       if (fromPointer) window.setTimeout(apply, 0);
       else apply();
     },
-    [cliente, tiposTrabajo, fechaAutorizacion, fechaDesde]
+    [cliente, tiposTrabajo, fechaAutorizacion, fechaDesde, notasPorDia]
   );
 
   const goToPrevTab = useCallback(() => {
@@ -814,9 +835,19 @@ export function useProyectoFormState({
     });
     setOperacionErrors(operacionCheck.errors);
     if (!operacionCheck.ok) {
+      setNotaDiaErrors({});
       setActiveTab("operacion");
       requestAnimationFrame(() => {
         document.getElementById(operacionCheck.firstFieldId)?.focus();
+      });
+      return;
+    }
+    const notasCheck = validateNotasPorDiaMinLength(notasPorDia);
+    setNotaDiaErrors(notasCheck.errorsById);
+    if (!notasCheck.ok) {
+      setActiveTab("operacion");
+      requestAnimationFrame(() => {
+        document.getElementById(notasCheck.firstFieldId)?.focus();
       });
       return;
     }
@@ -933,6 +964,7 @@ export function useProyectoFormState({
     clienteStepError,
     setClienteStepError,
     operacionErrors,
+    notaDiaErrors,
     horaSalidaError,
     setHoraSalidaError,
     presupuesto,

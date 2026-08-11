@@ -102,7 +102,7 @@ Las rutas de `src/App.tsx` usan **`React.lazy` + `Suspense`** (code splitting po
    - `cd frontend && pnpm exec eslint src/App.tsx src/components/common`
    - `cd frontend && pnpm build` (verificar que la página siga partida en chunks y el entry no crezca)
 
-Deuda pendiente (fase 2): APIs de órdenes/cotizaciones sin paginación (`pagination_class = None`) y listados sin virtualización; chunk de ApexCharts (~570 KB) compartido por dashboard y reportes.
+Deuda pendiente (fase 2): APIs de cotizaciones sin paginación (`pagination_class = None`) y listados sin virtualización; chunk de ApexCharts (~570 KB) compartido por dashboard y reportes. Órdenes: el listado sigue sin `page`/`page_size`, pero `GET /api/ordenes/` acepta `mes=YYYY-MM` y `tipo_orden=levantamiento|servicio_tecnico|instalaciones` y usa `OrdenListSerializer` (sin fotos/firmas); el detalle (`retrieve`) sigue con el serializer completo.
 
 ### Dependencias (auditoría 2026-06)
 

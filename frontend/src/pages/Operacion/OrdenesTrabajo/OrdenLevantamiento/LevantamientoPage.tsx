@@ -147,12 +147,53 @@ export default function LevantamientoPage() {
     return `${dd}/${mm}/${yy}`;
   };
 
+  const fetchOrdenes = async (mes = selectedMonth) => {
+    setLoading(true);
+    try {
+      const month = mes || getCurrentYearMonth();
+      const params = new URLSearchParams({
+        mes: month,
+        tipo_orden: "levantamiento",
+        _ts: String(Date.now()),
+      });
+      const res = await fetchApi(`/api/ordenes/?${params.toString()}`, {
+        cache: "no-store" as RequestCache,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setOrdenes([]);
+        return;
+      }
+      const rows = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+      console.debug(
+        "[LevantamientoPage] fetchOrdenes idx:",
+        rows.map((r: Orden) => Number(r?.idx || 0)).filter((n: number) => Number.isFinite(n)),
+      );
+      setOrdenes(rows);
+    } catch (e) {
+      setOrdenes([]);
+      console.error("Error al cargar levantamientos:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       setLoading(true);
       try {
-        const res = await fetchApi("/api/ordenes/");
+        const month = selectedMonth || getCurrentYearMonth();
+        const params = new URLSearchParams({
+          mes: month,
+          tipo_orden: "levantamiento",
+          _ts: String(Date.now()),
+        });
+        const res = await fetchApi(`/api/ordenes/?${params.toString()}`, {
+          cache: "no-store" as RequestCache,
+        });
         const data = await res.json().catch(() => null);
+        if (cancelled) return;
         if (!res.ok) {
           setOrdenes([]);
           setAlert({ show: true, variant: "error", title: "Error", message: "No se pudieron cargar las órdenes." });
@@ -162,15 +203,19 @@ export default function LevantamientoPage() {
         const rows = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
         setOrdenes(rows);
       } catch (e) {
+        if (cancelled) return;
         setOrdenes([]);
         setAlert({ show: true, variant: "error", title: "Error", message: String(e) });
         setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    load();
-  }, []);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMonth]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -189,6 +234,8 @@ export default function LevantamientoPage() {
     const list = Array.isArray(ordenes) ? ordenes : [];
     return list.filter((o) => {
       const raw = (o as any)?.tipo_orden ?? (o as any)?.tipoOrden ?? (o as any)?.tipo ?? (o as any)?.order_type;
+      // El API ya filtra tipo_orden=levantamiento; se mantiene por compatibilidad.
+      if (!raw) return true;
       return String(raw || "").toLowerCase() === "levantamiento";
     });
   }, [ordenes]);
@@ -315,22 +362,6 @@ export default function LevantamientoPage() {
   const handleCancelDelete = () => {
     setShowDeleteModal(false);
     setOrdenToDelete(null);
-  };
-
-  const fetchOrdenes = async () => {
-    try {
-      const res = await fetchApi(`/api/ordenes/?_ts=${Date.now()}`, {
-        cache: "no-store" as RequestCache,
-      });
-      const data = await res.json().catch(() => null);
-      if (res.ok) {
-        const rows = Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
-        console.debug("[LevantamientoPage] fetchOrdenes idx:", rows.map((r: any) => Number(r?.idx || 0)).filter((n: number) => Number.isFinite(n)));
-        setOrdenes(rows);
-      }
-    } catch {
-      setOrdenes([]);
-    }
   };
 
   const startIndex = 0;

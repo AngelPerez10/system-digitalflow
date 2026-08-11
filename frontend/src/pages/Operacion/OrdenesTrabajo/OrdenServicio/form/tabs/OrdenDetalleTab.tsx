@@ -5,6 +5,7 @@ import type { CotizacionResumen } from "@/pages/Operacion/Proyectos/shared/proye
 import LevantamientoForm from "../../../OrdenLevantamiento/LevantamientoForm";
 import OrdenAdminCotizacionesField from "../fields/OrdenAdminCotizacionesField";
 import type { OrdenStatusAdministrativo } from "../../shared/ordenesPageTypes";
+import { COMENTARIO_TECNICO_MIN_LENGTH } from "../../shared/ordenesPageTypes";
 import { formatYmdToDMY } from "../../shared/ordenesPageUtils";
 import type { OrdenFormData } from "../useOrdenFormDraft";
 import { ClearSelectionButton, type OrdenFieldKey } from "./ordenTabHelpers";
@@ -228,10 +229,22 @@ export function OrdenDetalleTab({
                   readOnly={ro("comentario_tecnico")}
                   disabled={ro("comentario_tecnico")}
                   onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
-                  rows={3}
+                  rows={4}
+                  minLength={COMENTARIO_TECNICO_MIN_LENGTH}
+                  aria-describedby={`${comentarioId}-hint`}
                   className={`w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${inputLockedClass("comentario_tecnico")}`}
-                  placeholder="Observaciones del técnico..."
+                  placeholder={`Observaciones del técnico (mínimo ${COMENTARIO_TECNICO_MIN_LENGTH} caracteres)...`}
                 />
+                <p
+                  id={`${comentarioId}-hint`}
+                  className={`mt-1 text-[11px] ${
+                    (formData.comentario_tecnico || "").trim().length >= COMENTARIO_TECNICO_MIN_LENGTH
+                      ? "text-emerald-700 dark:text-emerald-400"
+                      : "text-[#78716c] dark:text-[#8ea0b8]"
+                  }`}
+                >
+                  {(formData.comentario_tecnico || "").trim().length} / {COMENTARIO_TECNICO_MIN_LENGTH} caracteres mínimo
+                </p>
               </div>
 
               <div>

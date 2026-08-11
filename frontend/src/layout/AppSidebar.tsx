@@ -35,7 +35,7 @@ const SIDEBAR_FUTURE = {
   reportesOperator: false,
   /** Submenú Operación: ítem "Agenda" (/agenda) */
   operacionAgenda: false,
-  /** Submenú Operación: desde Levantamiento hasta Reparaciones */
+  /** Submenú Operación: Órdenes del Técnico y Reportes (Levantamiento ya está visible) */
   operacionExtended: false,
 } as const;
 
@@ -209,14 +209,14 @@ export default function AppSidebar() {
           ...(permissions?.ordenes?.view === true
             ? [{ name: "Órdenes de Trabajo", path: "/ordenes", pro: false } as const]
             : []),
+          ...(permissions?.ordenes?.view === true
+            ? [{ name: "Levantamiento", path: "/levantamiento", pro: false } as const]
+            : []),
           ...(permissions?.proyectos?.view === true || isAdmin
             ? [{ name: "Proyectos", path: "/proyectos", pro: false } as const]
             : []),
           ...(SIDEBAR_FUTURE.operacionExtended && permissions?.ordenes?.view === true
-            ? ([
-                { name: "Levantamiento", path: "/levantamiento", pro: false },
-                { name: "Órdenes del Tecnico", path: "/ordenes-tecnico", pro: false },
-              ] as const)
+            ? ([{ name: "Órdenes del Tecnico", path: "/ordenes-tecnico", pro: false }] as const)
             : []),
           ...(SIDEBAR_FUTURE.operacionExtended && permissions?.reportes?.view === true
             ? [{ name: "Reportes", path: "/reportes", pro: false } as const]

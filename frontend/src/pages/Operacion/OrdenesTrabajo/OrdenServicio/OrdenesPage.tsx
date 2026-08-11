@@ -19,7 +19,6 @@ import {
 import { useOrdenFormModalState } from "./form/useOrdenFormModalState";
 import { useOrdenFormDraft } from "./form/useOrdenFormDraft";
 import {
-  markOrdenesListInitialLoad,
   ORDENES_PAGE_INIT_THROTTLE_MS,
   useOrdenesList,
 } from "./shared/useOrdenesList";
@@ -203,7 +202,6 @@ export default function Ordenes() {
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
-    if (!markOrdenesListInitialLoad()) return;
     void fetchOrdenes();
   }, [authLoading, isAuthenticated, canOrdenesView, fetchOrdenes]);
 

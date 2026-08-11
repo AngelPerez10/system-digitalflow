@@ -19,7 +19,6 @@ import {
 import { useOrdenFormModalState } from "./form/useOrdenFormModalState";
 import { useOrdenFormDraft } from "./form/useOrdenFormDraft";
 import {
-  markOrdenesListInitialLoad,
   ORDENES_PAGE_INIT_THROTTLE_MS,
   useOrdenesList,
 } from "./shared/useOrdenesList";
@@ -298,9 +297,8 @@ export default function OrdenesTecnico() {
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
-    if (!markOrdenesListInitialLoad()) return;
-    fetchOrdenes();
-  }, [authLoading, isAuthenticated, canOrdenesView]);
+    void fetchOrdenes();
+  }, [authLoading, isAuthenticated, canOrdenesView, fetchOrdenes]);
 
   const [pdfDownloading, setPdfDownloading] = useState(false);
 

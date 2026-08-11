@@ -8,6 +8,13 @@ export const PROYECTO_TIPOS_TRABAJO_FIELD_ID = "proyecto-tipos-trabajo";
 export const PROYECTO_FECHA_AUTORIZACION_FIELD_ID = "proyecto-fecha-autorizacion";
 export const PROYECTO_FECHA_DESDE_FIELD_ID = "proyecto-fecha-inicio-desde";
 
+/** Mínimo de caracteres (trim) por jornada en la bitácora. */
+export const NOTA_DIA_MIN_CHARS = 150;
+
+export function proyectoNotaDiaFieldId(notaId: string): string {
+  return `proyecto-nota-dia-${notaId}`;
+}
+
 const EMPTY_ERRORS: ProyectoOperacionRequiredErrors = {
   tipos: "",
   fechaAuth: "",
@@ -40,4 +47,43 @@ export function validateProyectoOperacionRequired(input: {
       ? PROYECTO_FECHA_AUTORIZACION_FIELD_ID
       : PROYECTO_FECHA_DESDE_FIELD_ID;
   return { ok: false, errors, firstFieldId };
+}
+
+export type ProyectoNotaDiaMinLengthResult =
+  | { ok: true; errorsById: Record<string, string> }
+  | {
+      ok: false;
+      errorsById: Record<string, string>;
+      firstFieldId: string;
+      firstDia: number;
+    };
+
+/** Cada jornada de bitácora debe tener al menos NOTA_DIA_MIN_CHARS caracteres. */
+export function validateNotasPorDiaMinLength(
+  notas: ReadonlyArray<{ id: string; nota?: string | null }>
+): ProyectoNotaDiaMinLengthResult {
+  const list = notas.length > 0 ? notas : [{ id: "empty", nota: "" }];
+  const errorsById: Record<string, string> = {};
+  let firstFieldId = "";
+  let firstDia = 0;
+
+  list.forEach((item, index) => {
+    const id = String(item?.id || `dia-${index + 1}`);
+    const len = String(item?.nota || "").trim().length;
+    if (len >= NOTA_DIA_MIN_CHARS) return;
+    const faltan = NOTA_DIA_MIN_CHARS - len;
+    errorsById[id] =
+      len === 0
+        ? `Escribe al menos ${NOTA_DIA_MIN_CHARS} caracteres en el día ${index + 1}.`
+        : `Faltan ${faltan} caracteres (mínimo ${NOTA_DIA_MIN_CHARS}).`;
+    if (!firstFieldId) {
+      firstFieldId = proyectoNotaDiaFieldId(id);
+      firstDia = index + 1;
+    }
+  });
+
+  if (!firstFieldId) {
+    return { ok: true, errorsById: {} };
+  }
+  return { ok: false, errorsById, firstFieldId, firstDia };
 }

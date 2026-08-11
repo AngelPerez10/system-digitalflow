@@ -98,6 +98,9 @@ class OrdenSerializer(serializers.ModelSerializer):
 
     def get_levantamiento_tipo(self, obj):
         """Tipo del formulario de levantamiento (payload.tipo): camara | cerco | alarmas."""
+        annot = getattr(obj, 'levantamiento_tipo_annot', None)
+        if annot in ('camara', 'cerco', 'alarmas'):
+            return annot
         try:
             lev = getattr(obj, 'levantamiento', None)
             if lev is None:
@@ -194,6 +197,60 @@ class OrdenSerializer(serializers.ModelSerializer):
             'creado_por',
             'creado_por_username',
             'pdf_url',
+            'status_changed_at',
+            'fecha_creacion',
+            'fecha_actualizacion',
+        ]
+
+
+class OrdenListSerializer(OrdenSerializer):
+    """Listado liviano: sin fotos, firmas ni cotizaciones."""
+
+    class Meta(OrdenSerializer.Meta):
+        fields = [
+            'id',
+            'idx',
+            'folio',
+            'tipo_orden',
+            'levantamiento_tipo',
+            'cliente_id',
+            'cliente_nombre',
+            'cliente',
+            'direccion',
+            'telefono_cliente',
+            'problematica',
+            'servicios_realizados',
+            'status',
+            'status_changed_at',
+            'prioridad',
+            'comentario_tecnico',
+            'status_administrativo',
+            'fecha_envio',
+            'fecha_inicio',
+            'hora_inicio',
+            'fecha_finalizacion',
+            'hora_termino',
+            'nombre_encargado',
+            'tecnico_asignado',
+            'tecnico_asignado_username',
+            'tecnico_asignado_full_name',
+            'nombre_cliente',
+            'fotos_extra_max',
+            'creado_por',
+            'creado_por_username',
+            'fecha_creacion',
+            'fecha_actualizacion',
+        ]
+        read_only_fields = [
+            'id',
+            'idx',
+            'tipo_orden',
+            'levantamiento_tipo',
+            'cliente_nombre',
+            'tecnico_asignado_username',
+            'tecnico_asignado_full_name',
+            'creado_por',
+            'creado_por_username',
             'status_changed_at',
             'fecha_creacion',
             'fecha_actualizacion',

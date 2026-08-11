@@ -87,6 +87,83 @@ class OrdenesSmokeTests(APITestCase):
         self.assertTrue(row["is_staff"])
 
 
+class OrdenesListFilterTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="list_filter",
+            password="test-pass-123",
+            is_staff=True,
+        )
+        UserPermissions.objects.create(
+            user=self.user,
+            permissions={"ordenes": {"view": True, "create": True, "edit": True, "delete": False}},
+        )
+        self.client.force_authenticate(user=self.user)
+        self.junio = Orden.objects.create(
+            cliente="Junio",
+            direccion="Calle J",
+            telefono_cliente="5550001",
+            servicios_realizados=["GPS"],
+            fecha_inicio="2026-06-10",
+            creado_por=self.user,
+        )
+        self.julio = Orden.objects.create(
+            cliente="Julio",
+            direccion="Calle L",
+            telefono_cliente="5550002",
+            servicios_realizados=["GPS"],
+            fecha_inicio="2026-07-15",
+            creado_por=self.user,
+        )
+        self.lev = Orden.objects.create(
+            cliente="Lev",
+            direccion="Calle V",
+            telefono_cliente="5550003",
+            servicios_realizados=["Cámara"],
+            fecha_inicio="2026-07-20",
+            creado_por=self.user,
+        )
+        from apps.ordenes.models import OrdenLevantamiento
+
+        OrdenLevantamiento.objects.create(
+            orden=self.lev,
+            payload={"tipo": "camara"},
+        )
+
+    def test_list_mes_filters_by_fecha_inicio(self):
+        response = self.client.get("/api/ordenes/?mes=2026-07")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = {row["id"] for row in response.data}
+        self.assertIn(self.julio.id, ids)
+        self.assertIn(self.lev.id, ids)
+        self.assertNotIn(self.junio.id, ids)
+
+    def test_list_tipo_orden_levantamiento(self):
+        response = self.client.get("/api/ordenes/?mes=2026-07&tipo_orden=levantamiento")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = {row["id"] for row in response.data}
+        self.assertEqual(ids, {self.lev.id})
+        self.assertEqual(response.data[0].get("levantamiento_tipo"), "camara")
+
+    def test_list_omits_heavy_fields(self):
+        response = self.client.get("/api/ordenes/?mes=2026-07")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data)
+        row = response.data[0]
+        self.assertNotIn("fotos_urls", row)
+        self.assertNotIn("firma_encargado_url", row)
+        self.assertNotIn("firma_cliente_url", row)
+        self.assertNotIn("cotizaciones_adjuntas", row)
+        self.assertIn("cliente", row)
+        self.assertIn("status", row)
+
+    def test_retrieve_keeps_heavy_fields(self):
+        response = self.client.get(f"/api/ordenes/{self.julio.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("fotos_urls", response.data)
+        self.assertIn("firma_encargado_url", response.data)
+
+
 class OrdenesOwnOnlyScopeTests(APITestCase):
     """Non-staff técnico: own_only controls list/detail scope (not is_staff)."""
 
