@@ -140,6 +140,7 @@ export type ProyectoOperacionTabProps = {
   fechaHasta: string;
   setFechaRangoStart: (v: string) => void;
   setFechaRangoEnd: (v: string) => void;
+  operacionErrors: { tipos: string; fechaAuth: string; fechaDesde: string };
   diasRangoCount: number;
   fechasInicio: string[];
   tecnicosAsignados: ProyectoTecnicoAsignado[];
@@ -208,6 +209,7 @@ export function ProyectoOperacionTab({
   fechaHasta,
   setFechaRangoStart,
   setFechaRangoEnd,
+  operacionErrors,
   diasRangoCount,
   fechasInicio,
   tecnicosAsignados,
@@ -280,6 +282,8 @@ export function ProyectoOperacionTab({
             servicios={servicios}
             disabled={assignedTechnicianLocked}
             placeholder="Buscar servicio…"
+            required
+            error={operacionErrors.tipos}
           />
           {catalogError ? (
             <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400" role="alert">
@@ -341,6 +345,8 @@ export function ProyectoOperacionTab({
               id="proyecto-fecha-autorizacion"
               label="Fecha de autorización"
               placeholder="Seleccionar fecha"
+              required
+              error={operacionErrors.fechaAuth}
               defaultDate={fechaAutorizacion || undefined}
               disabled={assignedTechnicianLocked}
               onChange={(_dates, currentDateString) => {
@@ -446,6 +452,8 @@ export function ProyectoOperacionTab({
                 id="proyecto-fecha-inicio-desde"
                 label="Desde"
                 placeholder="Fecha de inicio"
+                required
+                error={operacionErrors.fechaDesde}
                 defaultDate={fechaDesde || undefined}
                 onChange={(_dates, currentDateString) => {
                   setFechaRangoStart(currentDateString || "");

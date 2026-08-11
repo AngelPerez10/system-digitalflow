@@ -284,6 +284,7 @@ export default function NuevaCotizacionPage() {
 
   const [tipoTrabajo, setTipoTrabajo] = useState<number[]>([]);
   const [tipoTrabajoOpen, setTipoTrabajoOpen] = useState(false);
+  const [tipoTrabajoTouched, setTipoTrabajoTouched] = useState(false);
   const tipoTrabajoRef = useRef<HTMLDivElement>(null);
   const lastAutosaveSnapshotRef = useRef<string | null>(null);
   const draftInitStartedRef = useRef(false);
@@ -1130,10 +1131,19 @@ export default function NuevaCotizacionPage() {
     return { ok: missing.length === 0, missing };
   };
 
+  const validateCotizacionRequired = () => {
+    const v = validateClienteContacto();
+    const missing = [...v.missing];
+    if (tipoTrabajoIds.length === 0) missing.push("Tipo de Trabajo");
+    return { ok: missing.length === 0, missing };
+  };
+
   const medioContactoInvalid =
     medioContactoTouched &&
     !!String(contactoNombre || "").trim() &&
     !String(medioContacto || "").trim();
+
+  const tipoTrabajoInvalid = tipoTrabajoTouched && tipoTrabajoIds.length === 0;
 
   const resolveClienteNombre = () => {
     const fromList = String(selectedCliente?.nombre || "").trim();
@@ -1294,10 +1304,13 @@ export default function NuevaCotizacionPage() {
     }
 
     if (validateRequired) {
-      const v = validateClienteContacto();
+      const v = validateCotizacionRequired();
       if (!v.ok) {
         if (!String(medioContacto || "").trim()) {
           setMedioContactoTouched(true);
+        }
+        if (tipoTrabajoIds.length === 0) {
+          setTipoTrabajoTouched(true);
         }
         if (!silent) {
           setAlert({
@@ -1787,13 +1800,14 @@ export default function NuevaCotizacionPage() {
     };
   }, [conceptos, effectiveDescuentoClientePct]);
 
-  /** Cliente y al menos un concepto; contacto es opcional (medio solo si hay contacto). */
+  /** Cliente, tipo de trabajo y al menos un concepto; contacto es opcional (medio solo si hay contacto). */
   const canGuardarCotizacion = useMemo(() => {
     if (!clienteId) return false;
     if (String(contactoNombre || "").trim() && !medioContacto) return false;
+    if (tipoTrabajoIds.length === 0) return false;
     if (!computed.lines.length) return false;
     return true;
-  }, [clienteId, contactoNombre, medioContacto, computed.lines.length]);
+  }, [clienteId, contactoNombre, medioContacto, tipoTrabajoIds.length, computed.lines.length]);
 
   const resetAll = () => {
     setClienteId("");
@@ -1806,6 +1820,7 @@ export default function NuevaCotizacionPage() {
     setMedioContacto('');
     setMedioContactoTouched(false);
     setTipoTrabajo([]);
+    setTipoTrabajoTouched(false);
     setStatus('PENDIENTE');
 
     setCantidad(1);
@@ -1864,8 +1879,9 @@ export default function NuevaCotizacionPage() {
       return;
     }
 
-    const v = validateClienteContacto();
+    const v = validateCotizacionRequired();
     if (!v.ok) {
+      if (tipoTrabajoIds.length === 0) setTipoTrabajoTouched(true);
       setAlert({
         show: true,
         variant: "warning",
@@ -1907,8 +1923,9 @@ export default function NuevaCotizacionPage() {
       return;
     }
 
-    const v = validateClienteContacto();
+    const v = validateCotizacionRequired();
     if (!v.ok) {
+      if (tipoTrabajoIds.length === 0) setTipoTrabajoTouched(true);
       setAlert({
         show: true,
         variant: "warning",
@@ -2825,15 +2842,29 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div>
-                      <Label className={labelPageClass}>Tipo de Trabajo</Label>
+                      <Label className={labelPageClass} htmlFor="tipo-trabajo-trigger">
+                        Tipo de Trabajo
+                        <span className="text-red-500"> *</span>
+                      </Label>
                       <div ref={tipoTrabajoRef} className={`relative ${tipoTrabajoOpen ? "z-[100]" : "z-0"}`}>
                         <button
+                          id="tipo-trabajo-trigger"
                           type="button"
-                          onClick={() => setTipoTrabajoOpen((open) => !open)}
+                          onClick={() => {
+                            setTipoTrabajoTouched(true);
+                            setTipoTrabajoOpen((open) => !open);
+                          }}
                           disabled={servicios.length === 0}
                           aria-expanded={tipoTrabajoOpen}
                           aria-haspopup="listbox"
-                          className={`${inputLikeClassName} flex w-full items-center justify-between gap-2 pr-10 text-left disabled:cursor-not-allowed disabled:opacity-60`}
+                          aria-required
+                          aria-invalid={tipoTrabajoInvalid}
+                          aria-describedby={tipoTrabajoInvalid ? "tipo-trabajo-error" : undefined}
+                          className={`${inputLikeClassName} flex w-full items-center justify-between gap-2 pr-10 text-left disabled:cursor-not-allowed disabled:opacity-60 ${
+                            tipoTrabajoInvalid
+                              ? "border-red-500 focus:border-red-500 focus:ring-red-500/20 dark:border-red-400 dark:focus:border-red-400"
+                              : ""
+                          }`}
                         >
                           <span
                             className={`min-w-0 flex-1 truncate ${
@@ -2883,7 +2914,10 @@ export default function NuevaCotizacionPage() {
                                 )}
                                 <button
                                   type="button"
-                                  onClick={() => setTipoTrabajo(servicios.map((s) => s.id))}
+                                  onClick={() => {
+                                    setTipoTrabajoTouched(true);
+                                    setTipoTrabajo(servicios.map((s) => s.id));
+                                  }}
                                   className="text-[10px] font-medium text-[#ea580c] hover:text-[#c2410c] dark:text-[#fb923c] dark:hover:text-[#fdba74]"
                                 >
                                   Todos
@@ -2893,7 +2927,10 @@ export default function NuevaCotizacionPage() {
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={() => setTipoTrabajo([])}
+                                  onClick={() => {
+                                    setTipoTrabajoTouched(true);
+                                    setTipoTrabajo([]);
+                                  }}
                                   className="text-[10px] font-medium text-[#78716c] hover:text-[#57534e] dark:text-[#8ea0b8] dark:hover:text-[#cbd5e1]"
                                 >
                                   Ninguno
@@ -2917,6 +2954,7 @@ export default function NuevaCotizacionPage() {
                                         type="checkbox"
                                         checked={checked}
                                         onChange={() => {
+                                          setTipoTrabajoTouched(true);
                                           setTipoTrabajo((prev) => {
                                             const next = new Set(normalizeTipoTrabajoIds(prev));
                                             if (next.has(s.id)) next.delete(s.id);
@@ -2965,6 +3003,11 @@ export default function NuevaCotizacionPage() {
                           </div>
                         )}
                       </div>
+                      {tipoTrabajoInvalid && (
+                        <p id="tipo-trabajo-error" className="mt-1 text-xs text-red-600 dark:text-red-400">
+                          Selecciona al menos un tipo de trabajo.
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -3440,6 +3483,7 @@ export default function NuevaCotizacionPage() {
                           {!!clienteId &&
                             !!String(contactoNombre || "").trim() &&
                             !medioContacto && <li>Selecciona un medio de contacto</li>}
+                          {tipoTrabajoIds.length === 0 && <li>Selecciona al menos un tipo de trabajo</li>}
                           {!computed.lines.length && <li>Agrega al menos un producto o servicio</li>}
                         </ul>
                       </div>
@@ -3460,7 +3504,13 @@ export default function NuevaCotizacionPage() {
                       onClick={() => {
                         void handleSaveCotizacion(true);
                       }}
-                      title={!clienteId ? "Selecciona un cliente" : undefined}
+                      title={
+                        !clienteId
+                          ? "Selecciona un cliente"
+                          : tipoTrabajoIds.length === 0
+                            ? "Selecciona al menos un tipo de trabajo"
+                            : undefined
+                      }
                       className={primaryActionBtnClass}
                     >
                       {isEditingRoute ? "Actualizar cotización" : "Guardar cotización"}

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.css";
 import { Spanish } from "flatpickr/dist/l10n/es";
@@ -13,10 +13,12 @@ type PropsType = {
   mode?: "single" | "multiple" | "range" | "time";
   onChange?: Hook | Hook[];
   defaultDate?: DateOption;
-  label?: string;
+  label?: ReactNode;
   placeholder?: string;
   appendToBody?: boolean; // Render calendar in a portal to avoid clipping in overflow containers
   disabled?: boolean;
+  required?: boolean;
+  error?: string;
 };
 
 const PORTAL_ID = "flatpickr-portal";
@@ -97,6 +99,8 @@ export default function DatePicker({
   placeholder,
   appendToBody = true,
   disabled = false,
+  required = false,
+  error = "",
 }: PropsType) {
   const instanceRef = useRef<FlatpickrInstance | null>(null);
   const calendarElRef = useRef<HTMLElement | null>(null);
@@ -208,19 +212,36 @@ export default function DatePicker({
     }
   }, [defaultDate]);
 
+  const errorId = error ? `${id}-error` : undefined;
+
   return (
     <div>
-      {label && <Label htmlFor={id}>{label}</Label>}
+      {label ? (
+        <Label htmlFor={id}>
+          {label}
+          {required ? (
+            <span className="text-rose-600" aria-hidden>
+              {" "}
+              *
+            </span>
+          ) : null}
+        </Label>
+      ) : null}
 
       <div className="relative">
         <input
           id={id}
           placeholder={placeholder}
           disabled={disabled}
+          aria-required={required || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={errorId}
           className={`h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 transition-colors ${
             disabled
               ? "bg-gray-100 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 cursor-not-allowed"
-              : "bg-transparent text-gray-800 border-gray-300 focus:border-brand-300 focus:ring-brand-500/20 dark:bg-gray-900 dark:text-white/90 dark:border-gray-700 dark:focus:border-brand-800"
+              : error
+                ? "bg-transparent text-gray-800 border-rose-400 focus:border-rose-500 focus:ring-rose-500/20 dark:bg-gray-900 dark:text-white/90 dark:border-rose-500/60 dark:focus:border-rose-400"
+                : "bg-transparent text-gray-800 border-gray-300 focus:border-brand-300 focus:ring-brand-500/20 dark:bg-gray-900 dark:text-white/90 dark:border-gray-700 dark:focus:border-brand-800"
           }`}
         />
 
@@ -228,6 +249,11 @@ export default function DatePicker({
           <CalenderIcon className="size-6" />
         </span>
       </div>
+      {error ? (
+        <p id={errorId} className="mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -122,6 +122,38 @@ def _stamp_status_changed_at(data: dict, instance=None) -> dict:
     return data
 
 
+def _user_signature_url(user) -> str:
+    """URL de UserSignature del usuario, o cadena vacía."""
+    if not user:
+        return ""
+    sig = UserSignature.objects.filter(user=user).first()
+    return (sig.url or "").strip() if sig else ""
+
+
+def _stamp_firma_encargado(data: dict, instance=None, fallback_user=None) -> dict:
+    """Firma del encargado = perfil del técnico asignado, no de quien guarda."""
+    if "tecnico_asignado" in data:
+        tecnico = data.get("tecnico_asignado")
+    elif instance is not None:
+        tecnico = getattr(instance, "tecnico_asignado", None)
+    else:
+        tecnico = None
+    url = _user_signature_url(tecnico)
+    if not url:
+        url = _user_signature_url(fallback_user)
+    if url:
+        data["firma_encargado_url"] = url
+    return data
+
+
+def _apply_firma_encargado_for_pdf(orden):
+    """En PDF, preferir la firma vigente del técnico asignado."""
+    url = _user_signature_url(getattr(orden, "tecnico_asignado", None))
+    if url:
+        orden.firma_encargado_url = url
+    return orden
+
+
 class ReportesPermission(ModulePermission):
     """Permisos JSON del módulo reportes (reportes semanales)."""
 
@@ -1402,14 +1434,12 @@ class OrdenViewSet(viewsets.ModelViewSet):
     def _generate_pdf_html(self, orden):
         from .pdf_templates import generate_orden_pdf_html
 
-        return generate_orden_pdf_html(orden)
+        return generate_orden_pdf_html(_apply_firma_encargado_for_pdf(orden))
 
     def perform_create(self, serializer):
         data = serializer.validated_data
-        # Firma del encargado: siempre se toma desde el perfil del usuario (no subir desde órdenes)
-        sig = UserSignature.objects.filter(user=self.request.user).first()
-        if sig and sig.url:
-            data['firma_encargado_url'] = sig.url
+        # Firma del encargado: perfil del técnico asignado (no de quien crea).
+        data = _stamp_firma_encargado(data, fallback_user=self.request.user)
         firma_cliente = data.get('firma_cliente_url')
         if isinstance(firma_cliente, str):
             if firma_cliente == "":
@@ -1453,11 +1483,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
         data = dict(serializer.validated_data)
         data = _filter_limited_orden_update(user, instance, data)
 
-        if full_edit:
-            # Firma del encargado: siempre se toma desde el perfil del usuario (no subir/borrar desde órdenes)
-            sig = UserSignature.objects.filter(user=self.request.user).first()
-            if sig and sig.url:
-                data['firma_encargado_url'] = sig.url
+        # Firma del encargado: perfil del técnico asignado (no de quien edita).
+        data = _stamp_firma_encargado(data, instance=instance)
 
         if full_edit:
             firma_cliente = data.get('firma_cliente_url')

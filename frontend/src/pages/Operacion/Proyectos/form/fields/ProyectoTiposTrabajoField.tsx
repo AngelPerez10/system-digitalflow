@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { erpInputLikeClass } from "@/layout/erpPageStyles";
+import { PROYECTO_TIPOS_TRABAJO_FIELD_ID } from "../../shared/proyectoOperacionValidation";
 import type { ProyectoTipoTrabajo } from "../../shared/proyectoTypes";
 
 type ServicioOpcion = { id: number; nombre: string };
@@ -11,6 +12,8 @@ type Props = {
   servicios: ServicioOpcion[];
   disabled?: boolean;
   placeholder?: string;
+  required?: boolean;
+  error?: string;
 };
 
 /**
@@ -23,6 +26,8 @@ export function ProyectoTiposTrabajoField({
   servicios,
   disabled = false,
   placeholder = "Buscar y seleccionar servicios…",
+  required = false,
+  error = "",
 }: Props) {
   const listboxId = useId();
   const labelId = useId();
@@ -72,17 +77,27 @@ export function ProyectoTiposTrabajoField({
         className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 sm:text-xs"
       >
         {label}
+        {required ? (
+          <span className="text-rose-600" aria-hidden>
+            {" "}
+            *
+          </span>
+        ) : null}
       </p>
       <div className="relative" ref={ref}>
         <button
           type="button"
+          id={PROYECTO_TIPOS_TRABAJO_FIELD_ID}
           className={`${erpInputLikeClass} flex w-full items-center justify-between gap-2 text-left ${
             disabled ? "cursor-not-allowed opacity-70" : ""
-          }`}
+          } ${error ? "border-rose-400 dark:border-rose-500/60" : ""}`}
           aria-labelledby={labelId}
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={listboxId}
+          aria-required={required || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${PROYECTO_TIPOS_TRABAJO_FIELD_ID}-error` : undefined}
           disabled={disabled}
           onClick={() => {
             if (disabled) return;
@@ -191,6 +206,15 @@ export function ProyectoTiposTrabajoField({
           </div>
         ) : null}
       </div>
+      {error ? (
+        <p
+          id={`${PROYECTO_TIPOS_TRABAJO_FIELD_ID}-error`}
+          className="mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

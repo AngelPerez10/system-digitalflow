@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.ordenes.models import Orden
-from apps.users.models import UserPermissions
+from apps.users.models import UserPermissions, UserSignature
 
 User = get_user_model()
 
@@ -328,6 +328,75 @@ class OrdenesLimitedEditTests(APITestCase):
         self.assertEqual(second.status_code, status.HTTP_200_OK)
         self.orden_ajena.refresh_from_db()
         self.assertEqual(self.orden_ajena.status_changed_at, stamped)
+
+
+class OrdenesFirmaEncargadoTests(APITestCase):
+    ADMIN_SIG = "https://cdn.example.com/firmas/admin.png"
+    TEC_SIG = "https://cdn.example.com/firmas/tecnico.png"
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="admin_firma",
+            password="test-pass-123",
+            is_staff=True,
+        )
+        self.tecnico = User.objects.create_user(username="tec_firma", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=self.admin,
+            permissions={"ordenes": {"view": True, "create": True, "edit": True, "delete": False}},
+        )
+        UserPermissions.objects.create(
+            user=self.tecnico,
+            permissions={"ordenes": {"view": True, "create": True, "edit": True, "delete": False}},
+        )
+        UserSignature.objects.create(user=self.admin, url=self.ADMIN_SIG)
+        UserSignature.objects.create(user=self.tecnico, url=self.TEC_SIG)
+        self.orden = Orden.objects.create(
+            cliente="Cliente firma",
+            direccion="Calle 1",
+            telefono_cliente="5550001111",
+            servicios_realizados=["Instalación"],
+            tecnico_asignado=self.tecnico,
+            creado_por=self.tecnico,
+            firma_encargado_url=self.ADMIN_SIG,
+        )
+        self.client.force_authenticate(user=self.admin)
+
+    def test_admin_patch_stamps_tecnico_signature_not_own(self):
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden.id}/",
+            {"problematica": "Cambio de admin"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.orden.refresh_from_db()
+        self.assertEqual(self.orden.firma_encargado_url, self.TEC_SIG)
+
+    def test_create_with_tecnico_stamps_tecnico_signature(self):
+        response = self.client.post(
+            "/api/ordenes/",
+            {
+                "cliente": "Cliente nuevo",
+                "direccion": "Calle 2",
+                "telefono_cliente": "5550002222",
+                "servicios_realizados": ["Revisión"],
+                "status": "pendiente",
+                "fecha_inicio": "2026-08-11",
+                "tipo_orden": "servicio_tecnico",
+                "tecnico_asignado": self.tecnico.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created = Orden.objects.get(id=response.data["id"])
+        self.assertEqual(created.firma_encargado_url, self.TEC_SIG)
+
+    def test_pdf_prefers_tecnico_signature_over_stored_url(self):
+        from apps.ordenes.views import _apply_firma_encargado_for_pdf
+
+        self.assertEqual(self.orden.firma_encargado_url, self.ADMIN_SIG)
+        _apply_firma_encargado_for_pdf(self.orden)
+        self.assertEqual(self.orden.firma_encargado_url, self.TEC_SIG)
 
 
 class OrdenesEnviarPdfTests(APITestCase):

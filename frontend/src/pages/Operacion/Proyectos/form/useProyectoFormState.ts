@@ -3,6 +3,10 @@ import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { canCerrarProyecto } from "../shared/proyectoCloseValidation";
 import {
+  validateProyectoOperacionRequired,
+  type ProyectoOperacionRequiredErrors,
+} from "../shared/proyectoOperacionValidation";
+import {
   buildEquiposFromCotizaciones,
   clampPorcentajeAvance,
   createEmptyNotaDia,
@@ -88,6 +92,11 @@ export function useProyectoFormState({
   const [notasLiveMessage, setNotasLiveMessage] = useState("");
   const [clienteStepError, setClienteStepError] = useState("");
   const [horaSalidaError, setHoraSalidaError] = useState("");
+  const [operacionErrors, setOperacionErrors] = useState<ProyectoOperacionRequiredErrors>({
+    tipos: "",
+    fechaAuth: "",
+    fechaDesde: "",
+  });
 
   const [activeTab, setActiveTab] = useState<ProyectoFormTab>("cliente");
   const activeTabRef = useRef<ProyectoFormTab>(activeTab);
@@ -171,6 +180,9 @@ export function useProyectoFormState({
 
   const onMergeTiposTrabajo = useCallback((incoming: ProyectoTipoTrabajo[]) => {
     setTiposTrabajo((prev) => mergeTiposTrabajo(prev, incoming));
+    if (incoming.some((t) => t?.id != null)) {
+      setOperacionErrors((prev) => (prev.tipos ? { ...prev, tipos: "" } : prev));
+    }
   }, []);
 
   const assignedTechnicianLocked =
@@ -292,6 +304,7 @@ export function useProyectoFormState({
     setCloseBlockedMessage("");
     setClienteStepError("");
     setHoraSalidaError("");
+    setOperacionErrors({ tipos: "", fechaAuth: "", fechaDesde: "" });
     setInstalacionDraft(emptyInstalacionDraft());
     resetPicker();
     setModeloPickerLineaId(null);
@@ -579,10 +592,27 @@ export function useProyectoFormState({
 
   const diasRangoCount = fechasInicio.filter((d) => String(d || "").trim()).length;
 
+  const handleTiposTrabajoChange = (next: ProyectoTipoTrabajo[]) => {
+    setTiposTrabajo(next);
+    if (next.some((t) => t?.id != null)) {
+      setOperacionErrors((prev) => (prev.tipos ? { ...prev, tipos: "" } : prev));
+    }
+  };
+
+  const handleFechaAutorizacionChange = (value: string) => {
+    setFechaAutorizacion(value);
+    if (String(value || "").trim()) {
+      setOperacionErrors((prev) => (prev.fechaAuth ? { ...prev, fechaAuth: "" } : prev));
+    }
+  };
+
   const setFechaRangoStart = (value: string) => {
     const next = String(value || "").trim().slice(0, 10);
     setFechaDesde(next);
     setFechasInicio(expandFechasInicioRange(next, fechaHasta));
+    if (next) {
+      setOperacionErrors((prev) => (prev.fechaDesde ? { ...prev, fechaDesde: "" } : prev));
+    }
   };
 
   const setFechaRangoEnd = (value: string) => {
@@ -694,6 +724,21 @@ export function useProyectoFormState({
         return;
       }
 
+      if (current === "operacion") {
+        const check = validateProyectoOperacionRequired({
+          tiposTrabajo,
+          fechaAutorizacion,
+          fechaDesde,
+        });
+        setOperacionErrors(check.errors);
+        if (!check.ok) {
+          requestAnimationFrame(() => {
+            document.getElementById(check.firstFieldId)?.focus();
+          });
+          return;
+        }
+      }
+
       setClienteStepError("");
       const apply = () => {
         const next = TAB_ORDER[idx + 1];
@@ -707,7 +752,7 @@ export function useProyectoFormState({
       if (fromPointer) window.setTimeout(apply, 0);
       else apply();
     },
-    [cliente]
+    [cliente, tiposTrabajo, fechaAutorizacion, fechaDesde]
   );
 
   const goToPrevTab = useCallback(() => {
@@ -759,6 +804,19 @@ export function useProyectoFormState({
       setClienteStepError("Escribe el nombre del cliente para continuar.");
       requestAnimationFrame(() => {
         document.getElementById("proyecto-modal-cliente")?.focus();
+      });
+      return;
+    }
+    const operacionCheck = validateProyectoOperacionRequired({
+      tiposTrabajo,
+      fechaAutorizacion,
+      fechaDesde,
+    });
+    setOperacionErrors(operacionCheck.errors);
+    if (!operacionCheck.ok) {
+      setActiveTab("operacion");
+      requestAnimationFrame(() => {
+        document.getElementById(operacionCheck.firstFieldId)?.focus();
       });
       return;
     }
@@ -821,13 +879,13 @@ export function useProyectoFormState({
     cotizaciones,
     equipos,
     tiposTrabajo,
-    setTiposTrabajo,
+    setTiposTrabajo: handleTiposTrabajoChange,
     assignedTechnicianLocked,
     status,
     motivoPausa,
     setMotivoPausa,
     fechaAutorizacion,
-    setFechaAutorizacion,
+    setFechaAutorizacion: handleFechaAutorizacionChange,
     quienAutorizo,
     setQuienAutorizo,
     fechasInicio,
@@ -874,6 +932,7 @@ export function useProyectoFormState({
     notasLiveMessage,
     clienteStepError,
     setClienteStepError,
+    operacionErrors,
     horaSalidaError,
     setHoraSalidaError,
     presupuesto,
