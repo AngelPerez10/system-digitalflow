@@ -24,6 +24,10 @@ Generar PDF de un proyecto con la misma cáscara visual que órdenes de trabajo,
 6. Firmas técnico + cliente  
 7. Página evidencias si hay URLs
 
+## Tipografía
+
+Arial / Helvetica (no `system-ui`). En Windows y en Playwright/Linux se ve la misma métrica; `system-ui` en Render se ve más alta y grande.
+
 ## Fuera de alcance
 
 Enviar por correo, PDF del mes, precios, instalaciones GPS detalladas.

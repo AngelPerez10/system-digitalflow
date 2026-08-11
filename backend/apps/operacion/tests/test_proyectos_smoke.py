@@ -134,6 +134,8 @@ class ProyectosSmokeTests(APITestCase):
         body = pdf_res.content.decode("utf-8", errors="replace")
         self.assertIn("text/html", pdf_res["Content-Type"])
         self.assertIn("Proyecto", body)
+        self.assertIn("PdfSans", body)
+        self.assertIn("Arial", body)
         self.assertIn("Cliente PDF", body)
         self.assertIn("Av. Elías Zamora 149, Manzanillo", body)
         self.assertIn("3141130469", body)

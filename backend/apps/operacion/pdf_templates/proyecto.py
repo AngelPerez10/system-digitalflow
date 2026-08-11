@@ -371,11 +371,33 @@ def generate_proyecto_pdf_html(proyecto) -> str:
         margin-bottom: 14mm;
       }}
       * {{ box-sizing: border-box; }}
+      /* Arial en Windows y Liberation/Arimo en Linux (Playwright).
+         Evitar system-ui/Segoe: en producción se ve más alta y grande. */
+      @font-face {{
+        font-family: 'PdfSans';
+        src: local('Arial'), local('Helvetica'), local('Liberation Sans'), local('Arimo'), local('Nimbus Sans');
+        font-style: normal;
+        font-weight: 400;
+      }}
+      @font-face {{
+        font-family: 'PdfSans';
+        src: local('Arial Bold'), local('Helvetica Bold'), local('Liberation Sans Bold'), local('Arimo Bold'), local('Nimbus Sans Bold');
+        font-style: normal;
+        font-weight: 700;
+      }}
+      html {{ -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }}
       body {{
-        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-        font-size: 14px; color: var(--text); background: var(--bg); margin: 0;
+        font-family: PdfSans, Arial, Helvetica, sans-serif;
+        font-size: 12.5px;
+        line-height: 1.35;
+        letter-spacing: 0;
+        font-synthesis: none;
+        color: var(--text); background: var(--bg); margin: 0;
       }}
       .page {{ width: 210mm; min-height: 297mm; padding: 0; margin: 0 auto; }}
+      @media print {{
+        .page {{ width: auto; min-height: 0; }}
+      }}
       .content {{ padding: 0; }}
       .topbar {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }}
       .brandwrap {{ display: flex; align-items: flex-start; gap: 12px; min-width: 0; }}
