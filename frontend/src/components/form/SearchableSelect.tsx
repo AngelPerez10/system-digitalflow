@@ -54,7 +54,7 @@ export default function SearchableSelect({
   }, [open]);
 
   return (
-    <div>
+    <div className="min-w-0 w-full">
       <Label className="!mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 sm:!text-xs">
         {label} {required && <span className="text-red-500">*</span>}
       </Label>

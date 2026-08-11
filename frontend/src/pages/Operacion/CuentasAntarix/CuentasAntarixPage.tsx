@@ -45,7 +45,13 @@ const statIconWrapClass =
   "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#fb923c] sm:h-10 sm:w-10";
 
 const mobileUserCardClass =
-  "w-full min-w-0 overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fcfaf6]/90 p-4 text-left font-normal shadow-[0_8px_24px_-16px_rgba(28,25,23,0.2)] transition-all hover:border-[#ff801f]/35 hover:bg-[#fff8f1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff801f] dark:border-[#273244] dark:bg-[#111a2b]/80 dark:hover:border-[#fb923c]/40 dark:hover:bg-white/[0.04] sm:p-5";
+  "w-full min-w-0 overflow-hidden rounded-2xl border border-[#e7ded0] bg-gradient-to-br from-[#fffdfa] via-[#fcfaf6] to-[#fff4eb]/40 p-4 text-left font-normal shadow-[0_8px_24px_-16px_rgba(28,25,23,0.2)] transition-all hover:border-[#ff801f]/35 hover:shadow-[0_12px_28px_-18px_rgba(234,88,12,0.28)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff801f] dark:border-[#273244] dark:from-[#111a2b]/90 dark:via-[#111a2b]/80 dark:to-[#1e293b]/50 dark:hover:border-[#fb923c]/40 sm:p-5";
+
+function accountInitial(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "?";
+  return trimmed.slice(0, 1).toUpperCase();
+}
 
 function StatusBadge({ status }: { status: string }) {
   const active = status === "Activo";
@@ -53,11 +59,16 @@ function StatusBadge({ status }: { status: string }) {
     <span
       className={cn(
         uiBadge,
+        "inline-flex items-center gap-1.5 py-1",
         active
-          ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-          : "bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
+          ? "bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/50"
+          : "bg-rose-50 text-rose-800 ring-1 ring-inset ring-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-800/50"
       )}
     >
+      <span
+        className={cn("h-1.5 w-1.5 rounded-full", active ? "bg-emerald-500" : "bg-rose-500")}
+        aria-hidden
+      />
       {status}
     </span>
   );
@@ -69,10 +80,13 @@ function DealerBadge({ value }: { value: string }) {
     <span
       className={cn(
         uiBadge,
-        yes ? "bg-[#fff3e6] text-[#c45f00] dark:bg-[#ff801f]/15 dark:text-[#ffb366]" : erpChipNeutralClass
+        "py-1",
+        yes
+          ? "bg-[#fff3e6] text-[#c45f00] ring-1 ring-inset ring-[#ff801f]/25 dark:bg-[#ff801f]/15 dark:text-[#ffb366] dark:ring-[#ff801f]/30"
+          : cn(erpChipNeutralClass, "ring-1 ring-inset ring-[#e2d9ca] dark:ring-[#334155]")
       )}
     >
-      {value}
+      {yes ? "Distribuidor" : "Sin distrib."}
     </span>
   );
 }
@@ -495,17 +509,17 @@ export default function CuentasAntarixPage() {
           )}
           compact
         >
-          <div className="mb-4 flex flex-col gap-1 border-b border-[#e7ded0]/80 pb-4 dark:border-[#273244] sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-4 flex flex-col gap-3 border-b border-[#e7ded0]/80 pb-4 dark:border-[#273244] sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className={uiLabel}>Listado</p>
+              <p className={cn(uiLabel, "text-[#ea580c] dark:text-[#fb923c]")}>Directorio</p>
               <h2 className={cn("mt-1", erpSectionHeadingClass)}>Usuarios Wialon</h2>
               <p className={cn("mt-1", uiCaption)}>
-                Edita la cuenta y sus unidades en Wialon desde Acciones.
+                Cada fila es una cuenta. Abre la ficha para editar datos, flota y accesos.
               </p>
             </div>
             {!loading && !error ? (
-              <p className={cn("tabular-nums", uiCaption)}>
-                {filteredRows.length} de {rows.length} registros
+              <p className="inline-flex items-center gap-1.5 rounded-full border border-[#e2d9ca] bg-[#fcfaf6] px-3 py-1.5 text-[11px] font-medium tabular-nums text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]">
+                {filteredRows.length} de {rows.length}
               </p>
             ) : null}
           </div>
@@ -532,9 +546,19 @@ export default function CuentasAntarixPage() {
                 {filteredRows.map((row) => (
                   <article key={row.wialon_id} className={mobileUserCardClass}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <p className={cn("break-words", uiCardTitle)}>{row.name || "—"}</p>
-                        <p className={cn("mt-1.5 break-all tabular-nums", uiCaption)}>ID {row.user_id || "—"}</p>
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <span
+                          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#ff801f]/12 text-lg font-medium text-[#9a3412] [font-family:Georgia,'Times_New_Roman',serif] dark:bg-[#fb923c]/15 dark:text-[#fdba74]"
+                          aria-hidden
+                        >
+                          {accountInitial(row.name || "")}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className={cn("break-words", uiCardTitle)}>{row.name || "Sin nombre"}</p>
+                          <p className={cn("mt-1 break-all font-mono text-[11px] tabular-nums tracking-wide text-[#ea580c] dark:text-[#fb923c]")}>
+                            {row.user_id || "—"}
+                          </p>
+                        </div>
                       </div>
                       <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
                         <StatusBadge status={row.status} />
