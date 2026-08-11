@@ -2,12 +2,14 @@ import json
 import logging
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.cotizaciones.pdf_render import PdfRenderError, any_provider_configured, render_html_to_pdf
 from apps.ordenes.image_services import (
     ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES,
     cloudinary,
@@ -62,6 +64,33 @@ def _firma_cloudinary_overrides(validated_data: dict) -> dict:
     return overrides
 
 
+def _pdf_response_from_html(html: str, filename: str, *, wants_html: bool = False):
+    """HTML → PDF; si no hay motor o se pide HTML, regresa HTML imprimible."""
+    if not html:
+        return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
+
+    # Preferir HTML explícito (query) o fallback sin motor PDF.
+    if wants_html or not any_provider_configured():
+        response = HttpResponse(html, content_type="text/html; charset=utf-8")
+        stem = filename[:-4] if filename.lower().endswith(".pdf") else filename
+        response["Content-Disposition"] = f'inline; filename="{stem}.html"'
+        return response
+
+    try:
+        pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)
+    except PdfRenderError as e:
+        logger.exception("Proyecto PDF render failed: %s", e.detail)
+        # Fallback útil en local sin Chromium/Playwright instalado.
+        response = HttpResponse(html, content_type="text/html; charset=utf-8")
+        stem = filename[:-4] if filename.lower().endswith(".pdf") else filename
+        response["Content-Disposition"] = f'inline; filename="{stem}.html"'
+        return response
+
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+
 class ProyectoViewSet(viewsets.ModelViewSet):
     """CRUD de proyectos de operación. Permisos del módulo `proyectos`."""
 
@@ -97,7 +126,12 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         if lookup_value is None:
             raise NotFound()
 
-        obj = Proyecto.objects.filter(**{self.lookup_field: lookup_value}).first()
+        obj = (
+            Proyecto.objects.select_related("cliente")
+            .prefetch_related("cliente__contactos")
+            .filter(**{self.lookup_field: lookup_value})
+            .first()
+        )
         if not obj:
             raise NotFound()
 
@@ -120,6 +154,21 @@ class ProyectoViewSet(viewsets.ModelViewSet):
             serializer.save(**firma_overrides)
         except DjangoValidationError as exc:
             _raise_drf_validation(exc)
+
+    def _generate_pdf_html(self, proyecto: Proyecto) -> str:
+        from .pdf_templates import generate_proyecto_pdf_html
+
+        return generate_proyecto_pdf_html(proyecto)
+
+    @action(detail=True, methods=["get"], url_path="pdf")
+    def pdf(self, request, pk=None):
+        """PDF del proyecto (híbrido operativo + equipos sin precios)."""
+        proyecto = self.get_object()
+        html = self._generate_pdf_html(proyecto)
+        folio = getattr(proyecto, "folio", None) or getattr(proyecto, "idx", None) or proyecto.id
+        filename = f"Proyecto_{folio}.pdf"
+        wants_html = (request.query_params.get("format") or "").lower() == "html"
+        return _pdf_response_from_html(html, filename, wants_html=wants_html)
 
     @action(detail=False, methods=["post"], url_path="upload-image")
     def upload_image(self, request):

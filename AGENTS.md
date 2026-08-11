@@ -152,6 +152,7 @@ Las páginas de ventas viven en subcarpetas; el `import()` de `App.tsx` debe coi
 | Cotizaciones | `Ventas/Cotizacion/CotizacionesPage.tsx` | `@/pages/Ventas/Cotizacion/CotizacionesPage` |
 | Nueva / editar cotización | `Ventas/Cotizacion/NuevaCotizacionPage.tsx` | `@/pages/Ventas/Cotizacion/NuevaCotizacionPage` |
 | PDF cotización | `Ventas/Cotizacion/CotizacionPdfPage.tsx` | `@/pages/Ventas/Cotizacion/CotizacionPdfPage` |
+| PDF proyecto | `Operacion/Proyectos/ProyectoPdfPage.tsx` | `@/pages/Operacion/Proyectos/ProyectoPdfPage` |
 | Facturas CFDI (SICAR) | `Ventas/FacturasCFDI/FacturasCfdiPage.tsx` | `@/pages/Ventas/FacturasCFDI/FacturasCfdiPage` |
 
 Si el import apunta a `@/pages/Ventas/FacturasCfdiPage` (sin `FacturasCFDI/`), Vite devuelve HTML (404 del SPA) y el navegador reporta `MIME type "text/html"`. Windows tolera mayúsculas en disco; CI/Linux no — usar siempre `FacturasCFDI`.
@@ -176,6 +177,7 @@ En `backend/config/middleware.py`, las peticiones a `/api/*` con cabecera `Autho
 
 - HTML de cotizaciones: `backend/apps/cotizaciones/pdf_templates/cotizacion.py`
 - HTML de órdenes: `backend/apps/ordenes/pdf_templates/orden.py`
+- HTML de proyectos: `backend/apps/operacion/pdf_templates/proyecto.py` (`GET /api/proyectos/{id}/pdf/`, bitácora por jornada, sin precios)
 - HTML de facturas CFDI (SICAR): `backend/apps/cotizaciones/sicar_cfdi_pdf.py`
 - Helpers compartidos: `backend/apps/common/pdf_html.py`, `backend/apps/common/pdf_images.py`
 - **Proyectos CRUD** (`apps/operacion`): `GET/POST /api/proyectos/`, `GET/PATCH/DELETE /api/proyectos/{id}/`, `POST /api/proyectos/upload-image/` y `delete-image/`. Permisos del módulo **`proyectos`** (`ProyectosPermission`). Folio `PRJ-{idx}`. Carpetas Cloudinary: `proyectos/evidencias`, `proyectos/bitacora`, `proyectos/firmas`, `proyectos/instalacion/dibujos`.

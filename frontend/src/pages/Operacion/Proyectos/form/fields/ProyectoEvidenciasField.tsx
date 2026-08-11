@@ -158,8 +158,8 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
   return (
     <div className="space-y-3">
       <p className={proyectoSectionHintClass}>
-        Máximo {PROYECTO_MAX_FOTOS} fotos · JPG o PNG en celular. En iPhone usa «Más compatible» (no
-        HEIC). Sube de a pocas si la red es lenta; guarda el proyecto al terminar.
+        Máximo {PROYECTO_MAX_FOTOS} fotos · JPG o PNG en celular. 
+        Sube de a pocas si la red es lenta; guarda el proyecto al terminar.
       </p>
 
       {uploadError ? (

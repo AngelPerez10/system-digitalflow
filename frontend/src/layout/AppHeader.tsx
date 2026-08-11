@@ -5,9 +5,28 @@ import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import UserDropdown from "../components/header/UserDropdown";
 
+const SEARCH_ROUTES = [
+  { label: "Dashboard", path: "/dashboard" },
+  { label: "Agenda", path: "/calendar" },
+  { label: "Tareas", path: "/tareas" },
+  { label: "Clientes", path: "/clientes" },
+  { label: "Empresas", path: "/empresas" },
+  { label: "Personas", path: "/personas" },
+  { label: "Proveedores", path: "/proveedores" },
+  { label: "Gestión de usuarios", path: "/usuarios" },
+  { label: "Productos", path: "/productos" },
+  { label: "Servicios", path: "/servicios" },
+  { label: "Inventario", path: "/inventario" },
+  { label: "Cotización", path: "/cotizacion" },
+  { label: "Orden de trabajo", path: "/ordenes" },
+  { label: "Proyectos", path: "/proyectos" },
+] as const;
+
 export default function AppHeader() {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const navigate = useNavigate();
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
@@ -25,40 +44,57 @@ export default function AppHeader() {
   };
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const searchRoutes = useMemo(
-    () => [
-      { label: "Dashboard", path: "/dashboard" },
-      { label: "Agenda", path: "/calendar" },
-      { label: "Tareas", path: "/tareas" },
-      { label: "Clientes", path: "/clientes" },
-      { label: "Empresas", path: "/empresas" },
-      { label: "Personas", path: "/personas" },
-      { label: "Proveedores", path: "/proveedores" },
-      { label: "Gestión de usuarios", path: "/usuarios" },
-      { label: "Productos", path: "/productos" },
-      { label: "Servicios", path: "/servicios" },
-      { label: "Cotización", path: "/cotizacion" },
-      { label: "Orden de trabajo", path: "/ordenes" },
-    ],
-    []
-  );
+  const searchWrapRef = useRef<HTMLDivElement>(null);
+
+  const filteredRoutes = useMemo(() => {
+    const q = searchValue.trim().toLowerCase();
+    if (!q) return SEARCH_ROUTES;
+    return SEARCH_ROUTES.filter((x) => x.label.toLowerCase().includes(q));
+  }, [searchValue]);
+
+  const selectRoute = (path: string) => {
+    navigate(path);
+    setSearchValue("");
+    setSearchOpen(false);
+    setActiveIndex(0);
+  };
 
   const goFromSearch = () => {
+    const highlighted = filteredRoutes[activeIndex];
+    if (highlighted) {
+      selectRoute(highlighted.path);
+      return;
+    }
     const q = searchValue.trim().toLowerCase();
     if (!q) return;
-    const exact = searchRoutes.find((x) => x.label.toLowerCase() === q);
-    const partial = searchRoutes.find((x) => x.label.toLowerCase().includes(q));
+    const exact = SEARCH_ROUTES.find((x) => x.label.toLowerCase() === q);
+    const partial = SEARCH_ROUTES.find((x) => x.label.toLowerCase().includes(q));
     const target = exact || partial;
     if (!target) return;
-    navigate(target.path);
-    setSearchValue("");
+    selectRoute(target.path);
   };
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [searchValue]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(event.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [searchOpen]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "k") {
         event.preventDefault();
         inputRef.current?.focus();
+        setSearchOpen(true);
       }
     };
 
@@ -147,7 +183,7 @@ export default function AppHeader() {
                 goFromSearch();
               }}
             >
-              <div className="relative">
+              <div className="relative" ref={searchWrapRef}>
                 <span className="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
                   <svg
                     className="fill-[#8b7b69] dark:fill-[#8ea0b8]"
@@ -168,17 +204,79 @@ export default function AppHeader() {
                 <input
                   ref={inputRef}
                   type="text"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={searchOpen}
+                  aria-controls="app-header-routes"
+                  aria-activedescendant={
+                    searchOpen && filteredRoutes[activeIndex]
+                      ? `app-header-route-${activeIndex}`
+                      : undefined
+                  }
                   placeholder="Buscar o escribir comando..."
                   value={searchValue}
-                  onChange={(e) => setSearchValue(e.target.value)}
-                  list="app-header-routes"
+                  onChange={(e) => {
+                    setSearchValue(e.target.value);
+                    setSearchOpen(true);
+                  }}
+                  onFocus={() => setSearchOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setSearchOpen(true);
+                      setActiveIndex((i) =>
+                        filteredRoutes.length ? (i + 1) % filteredRoutes.length : 0
+                      );
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setSearchOpen(true);
+                      setActiveIndex((i) =>
+                        filteredRoutes.length
+                          ? (i - 1 + filteredRoutes.length) % filteredRoutes.length
+                          : 0
+                      );
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      setSearchOpen(false);
+                    }
+                  }}
+                  autoComplete="off"
                   className="h-11 w-full rounded-full border border-[#e2d9ca] bg-[#fffdfa] py-2.5 pl-12 pr-14 text-sm font-normal leading-[1.6] text-[#1c1917] placeholder:text-[#a8a29e] shadow-none focus:border-[#ff801f] focus:outline-hidden focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/25 xl:w-[430px]"
                 />
-                <datalist id="app-header-routes">
-                  {searchRoutes.map((r) => (
-                    <option key={r.path} value={r.label} />
-                  ))}
-                </datalist>
+                {searchOpen && (
+                  <ul
+                    id="app-header-routes"
+                    role="listbox"
+                    aria-label="Rutas del sistema"
+                    className="absolute left-0 right-0 top-full z-[100000] mt-1 max-h-72 overflow-auto rounded-xl border border-[#e2d9ca] bg-[#fffdfa] py-1 shadow-[0_16px_40px_-18px_rgba(28,25,23,0.35)] dark:border-[#334155] dark:bg-[#111a2b]"
+                  >
+                    {filteredRoutes.length === 0 ? (
+                      <li className="px-3 py-2.5 text-center text-xs text-[#a8a29e] dark:text-[#8ea0b8]">
+                        Sin resultados
+                      </li>
+                    ) : (
+                      filteredRoutes.map((r, idx) => (
+                        <li key={r.path} role="presentation">
+                          <button
+                            type="button"
+                            id={`app-header-route-${idx}`}
+                            role="option"
+                            aria-selected={idx === activeIndex}
+                            onMouseEnter={() => setActiveIndex(idx)}
+                            onClick={() => selectRoute(r.path)}
+                            className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                              idx === activeIndex
+                                ? "bg-[#fff4eb] font-medium text-[#9a3412] dark:bg-[#fb923c]/15 dark:text-[#fdba74]"
+                                : "text-[#1c1917] hover:bg-[#fff8f1] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
+                            }`}
+                          >
+                            {r.label}
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
 
                 <button
                   type="submit"

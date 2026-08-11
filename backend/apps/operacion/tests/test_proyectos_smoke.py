@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.clientes.models import Cliente
 from apps.operacion.close_validation import CLOSE_BLOCKED_MESSAGE
 from apps.operacion.models import Proyecto
 from apps.users.models import UserPermissions
@@ -91,6 +92,62 @@ class ProyectosSmokeTests(APITestCase):
         self.assertEqual(patch_res.status_code, status.HTTP_200_OK, patch_res.data)
         self.assertEqual(patch_res.data["status"], "pausado")
         self.assertEqual(Proyecto.objects.get(pk=proyecto_id).motivo_pausa, "Clima")
+
+    def test_proyecto_pdf_html_smoke(self):
+        cliente = Cliente.objects.create(
+            nombre="Cliente PDF",
+            direccion="Av. Elías Zamora 149, Manzanillo",
+            telefono="3141130469",
+        )
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_id": cliente.id,
+                "cliente_nombre": "Cliente PDF",
+                "status": "en_proceso",
+                "tipo_trabajo_nombre": "Instalación",
+                "fechas_inicio": ["2026-08-10", "2026-08-12"],
+                "notas_por_dia": [
+                    {
+                        "id": "nota-pdf-1",
+                        "nota": "Se instaló el GPS en unidad 12.",
+                        "imagenesUrls": [],
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
+        proyecto_id = create_res.data["id"]
+
+        with self.settings():
+            pass
+        from unittest.mock import patch
+
+        with patch("apps.operacion.views.any_provider_configured", return_value=False):
+            pdf_res = self.client.get(f"/api/proyectos/{proyecto_id}/pdf/")
+        self.assertEqual(
+            pdf_res.status_code,
+            status.HTTP_200_OK,
+            getattr(pdf_res, "data", None) or pdf_res.content[:500],
+        )
+        body = pdf_res.content.decode("utf-8", errors="replace")
+        self.assertIn("text/html", pdf_res["Content-Type"])
+        self.assertIn("Proyecto", body)
+        self.assertIn("Cliente PDF", body)
+        self.assertIn("Av. Elías Zamora 149, Manzanillo", body)
+        self.assertIn("3141130469", body)
+        self.assertIn("Fecha de finalización", body)
+        self.assertIn("10/08/2026", body)
+        self.assertIn("12/08/2026", body)
+        self.assertIn("Bitácora por jornada", body)
+        self.assertIn("Día 1", body)
+        self.assertIn("Se instaló el GPS en unidad 12.", body)
+        self.assertNotIn("Equipos / partidas", body)
+        self.assertNotIn("GPS Pro", body)
+        self.assertNotIn("Otros técnicos", body)
+        self.assertNotIn("Auxiliares", body)
+        self.assertNotIn("$", body)
 
     def test_reject_invalid_close_without_cotizacion_adicional(self):
         create_res = self.client.post(
