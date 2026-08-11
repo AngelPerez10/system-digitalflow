@@ -576,3 +576,115 @@ class ProyectosSmokeTests(APITestCase):
         self.assertEqual(pend.status, "AUTORIZADA")
         self.assertEqual(canc.status, "CANCELADA")
         self.assertEqual(already.status, "AUTORIZADA")
+
+
+class ProyectosEnviarPdfTests(APITestCase):
+    def setUp(self):
+        from apps.clientes.models import ClienteContacto
+        from apps.users.models import UserSmtpCredentials
+        from apps.users.smtp_crypto import encrypt_smtp_password
+
+        self.user = User.objects.create_user(username="proy_envio_pdf", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=self.user,
+            permissions={
+                "proyectos": {"view": True, "create": True, "edit": True, "delete": False},
+            },
+        )
+        self.client.force_authenticate(user=self.user)
+        self.cliente = Cliente.objects.create(nombre="Cliente proyecto correo", correo="")
+        ClienteContacto.objects.create(
+            cliente=self.cliente,
+            nombre_apellido="Contacto Principal",
+            correo="contacto.proyecto@example.com",
+            is_principal=True,
+        )
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_id": self.cliente.id,
+                "cliente_nombre": "Cliente proyecto correo",
+                "status": "en_proceso",
+                "tipo_trabajo_nombre": "Instalación",
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
+        self.proyecto_id = create_res.data["id"]
+        UserSmtpCredentials.objects.create(
+            user=self.user,
+            smtp_email="tecnico.proy@example.com",
+            smtp_password_encrypted=encrypt_smtp_password("webmail-secret"),
+        )
+
+    def test_correo_sugerido_usa_contacto_si_cliente_vacio(self):
+        response = self.client.get(f"/api/proyectos/{self.proyecto_id}/correo-sugerido/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data.get("correo"), "contacto.proyecto@example.com")
+        self.assertFalse(response.data.get("cliente_tiene_correo"))
+
+    def test_enviar_pdf_requiere_correo_valido(self):
+        response = self.client.post(
+            f"/api/proyectos/{self.proyecto_id}/enviar-pdf/",
+            {"correo": "no-es-correo"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_enviar_pdf_sin_smtp_usuario_bloquea(self):
+        from apps.users.models import UserSmtpCredentials
+
+        UserSmtpCredentials.objects.filter(user=self.user).delete()
+        response = self.client.post(
+            f"/api/proyectos/{self.proyecto_id}/enviar-pdf/",
+            {"correo": "alguien@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("proy_envio_pdf", response.data.get("detail", ""))
+
+    def test_enviar_pdf_ok_guarda_correo_y_envia(self):
+        from unittest.mock import patch
+
+        from django.core import mail
+        from django.test import override_settings
+
+        with override_settings(
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            EMAIL_HOST="mail.example.com",
+            EMAIL_HOST_USER="",
+            EMAIL_HOST_PASSWORD="",
+            DEFAULT_FROM_EMAIL="",
+        ):
+            with patch(
+                "apps.operacion.views.render_html_to_pdf",
+                return_value=b"%PDF-1.4 test",
+            ), patch(
+                "apps.operacion.views.any_provider_configured",
+                return_value=True,
+            ):
+                response = self.client.post(
+                    f"/api/proyectos/{self.proyecto_id}/enviar-pdf/",
+                    {"correo": "nuevo.proyecto@example.com"},
+                    format="json",
+                )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(response.data.get("ok"))
+        self.assertTrue(response.data.get("correo_guardado_en_cliente"))
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.correo, "nuevo.proyecto@example.com")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["nuevo.proyecto@example.com"])
+        self.assertEqual(mail.outbox[0].from_email, "tecnico.proy@example.com")
+        self.assertEqual(len(mail.outbox[0].attachments), 1)
+
+    def test_enviar_pdf_denied_without_proyectos_view(self):
+        denied = User.objects.create_user(username="proy_sin_view", password="test-pass-123")
+        UserPermissions.objects.create(user=denied, permissions={"ordenes": {"view": True}})
+        self.client.force_authenticate(user=denied)
+        response = self.client.post(
+            f"/api/proyectos/{self.proyecto_id}/enviar-pdf/",
+            {"correo": "alguien@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

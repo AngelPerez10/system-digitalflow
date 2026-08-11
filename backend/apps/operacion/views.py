@@ -5,7 +5,8 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError as DRFValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -15,7 +16,12 @@ from apps.ordenes.image_services import (
     cloudinary,
     upload_data_url,
 )
-from apps.users.permissions import ProyectosAttachmentPermission, ProyectosPermission, user_module_own_only
+from apps.users.permissions import (
+    ProyectosAttachmentPermission,
+    ProyectosPermission,
+    ProyectosSendPdfPermission,
+    user_module_own_only,
+)
 
 from .asignados import (
     filter_proyectos_visible_to_user,
@@ -107,6 +113,8 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         # Técnicos suelen tener edit sin create; adjuntos no deben exigir create.
         if self.action in ("upload_image", "delete_image"):
             return [IsAuthenticated(), ProyectosAttachmentPermission()]
+        if self.action in ("enviar_pdf", "correo_sugerido"):
+            return [IsAuthenticated(), ProyectosSendPdfPermission()]
         return super().get_permissions()
 
     def get_queryset(self):
@@ -171,6 +179,124 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         filename = f"Proyecto_{folio}.pdf"
         wants_html = (request.query_params.get("format") or "").lower() == "html"
         return _pdf_response_from_html(html, filename, wants_html=wants_html)
+
+    @action(detail=True, methods=["get"], url_path="correo-sugerido")
+    def correo_sugerido(self, request, pk=None):
+        """Correo precargable: cliente.correo o contacto principal."""
+        from apps.ordenes.email_pdf import normalize_email, resolve_cliente_correo
+
+        proyecto = self.get_object()
+        cliente = getattr(proyecto, "cliente", None)
+        correo = resolve_cliente_correo(cliente)
+        return Response(
+            {
+                "correo": correo,
+                "cliente_id": getattr(cliente, "pk", None),
+                "cliente_tiene_correo": bool(
+                    cliente and normalize_email(getattr(cliente, "correo", None))
+                ),
+                "status": proyecto.status,
+            }
+        )
+
+    @action(detail=True, methods=["post"], url_path="enviar-pdf")
+    def enviar_pdf(self, request, pk=None):
+        """Genera el PDF del proyecto y lo envía por SMTP al correo indicado."""
+        from apps.ordenes.email_pdf import (
+            UserSmtpCredentialsError,
+            is_valid_email,
+            maybe_save_cliente_correo,
+            normalize_email,
+            resolve_cliente_correo,
+            resolve_user_smtp_credentials,
+            send_pdf_email,
+            smtp_host_configured,
+        )
+
+        from .email_pdf import build_proyecto_email_body, build_proyecto_email_subject
+
+        proyecto = self.get_object()
+        cliente = getattr(proyecto, "cliente", None)
+
+        body = request.data if isinstance(request.data, dict) else {}
+        correo = normalize_email(body.get("correo") or body.get("email") or body.get("to"))
+        if not correo:
+            correo = resolve_cliente_correo(cliente)
+        if not is_valid_email(correo):
+            return Response(
+                {"detail": "Indique un correo electrónico válido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not smtp_host_configured():
+            return Response(
+                {
+                    "detail": (
+                        "El correo de salida no está configurado en el servidor. "
+                        "Contacte al administrador."
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        try:
+            smtp_user, smtp_password = resolve_user_smtp_credentials(request.user)
+        except UserSmtpCredentialsError as exc:
+            return Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not any_provider_configured():
+            return Response(
+                {"detail": "No hay motor de PDF disponible en el servidor."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        html = self._generate_pdf_html(proyecto)
+        if not html:
+            return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
+
+        folio = getattr(proyecto, "folio", None) or getattr(proyecto, "idx", None) or proyecto.id
+        filename = f"Proyecto_{folio}.pdf"
+        try:
+            pdf_bytes = render_html_to_pdf(
+                html, size="A4", landscape=False, timeout=45, prefer_local=True
+            )
+        except PdfRenderError as e:
+            logger.exception("PDF render failed for proyecto email %s: %s", pk, e.detail)
+            return Response({"detail": "No se pudo generar el PDF."}, status=502)
+
+        try:
+            send_pdf_email(
+                to_email=correo,
+                subject=build_proyecto_email_subject(proyecto),
+                body=build_proyecto_email_body(proyecto),
+                pdf_bytes=pdf_bytes,
+                filename=filename,
+                from_email=smtp_user,
+                smtp_user=smtp_user,
+                smtp_password=smtp_password,
+            )
+        except Exception as e:
+            logger.exception("Failed to send proyecto PDF email")
+            return Response(
+                {
+                    "detail": (
+                        f"No se pudo enviar el correo: {type(e).__name__}. "
+                        "Verifique la configuración SMTP o intente más tarde."
+                    )
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        correo_guardado = maybe_save_cliente_correo(cliente, correo)
+        return Response(
+            {
+                "ok": True,
+                "correo": correo,
+                "correo_guardado_en_cliente": correo_guardado,
+                "detail": f"PDF enviado a {correo}.",
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["post"], url_path="upload-image")
     def upload_image(self, request):

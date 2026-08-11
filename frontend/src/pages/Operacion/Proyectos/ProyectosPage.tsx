@@ -5,7 +5,7 @@ import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
-import { PencilIcon, TrashBinIcon } from "@/icons";
+import { MailIcon, PencilIcon, TrashBinIcon } from "@/icons";
 import { erpSansStyle } from "@/layout/erpPageStyles";
 import { fetchApi } from "@/config/api";
 import {
@@ -38,6 +38,9 @@ import {
 } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
 import { parseYearMonth } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageUtils";
 import ProyectoFormModal from "./form/ProyectoFormModal";
+import ProyectoEnviarPdfModal, {
+  type ProyectoEnviarPdfTarget,
+} from "./list/ProyectoEnviarPdfModal";
 import {
   ProyectosListFiltersPopover,
   type ProyectoListFilterStatus,
@@ -177,6 +180,9 @@ export default function ProyectosPage() {
   const [editingRow, setEditingRow] = useState<ProyectoRow | null>(null);
   const [deletingRow, setDeletingRow] = useState<ProyectoRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [enviarPdfProyecto, setEnviarPdfProyecto] = useState<ProyectoEnviarPdfTarget | null>(
+    null
+  );
   const [alert, setAlert] = useState<{
     show: boolean;
     variant: "success" | "warning" | "error";
@@ -378,6 +384,17 @@ export default function ProyectosPage() {
 
   const openPdf = (row: ProyectoRow) => {
     navigate(`/proyectos/${row.id}/pdf`, { state: { from: "/proyectos" } });
+  };
+
+  const openEnviarPdf = (row: ProyectoRow) => {
+    const id = Number(row.id);
+    if (!Number.isFinite(id) || id <= 0) return;
+    setEnviarPdfProyecto({
+      id,
+      folio: row.folio,
+      cliente: row.cliente,
+      estado: row.estado,
+    });
   };
 
   const closeModal = () => {
@@ -623,6 +640,7 @@ export default function ProyectosPage() {
               onEdit={openEdit}
               onDelete={openDelete}
               onPdf={openPdf}
+              onEnviarPdf={openEnviarPdf}
             />
 
             {loading ? (
@@ -636,7 +654,7 @@ export default function ProyectosPage() {
             ) : (
               <>
                 <div className={"hidden md:block " + erpTableWrapClass}>
-                  <Table className="w-full min-w-[1180px] table-fixed sm:min-w-0 xl:min-w-full">
+                  <Table className="w-full min-w-[1240px] table-fixed sm:min-w-0 xl:min-w-full">
                     <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                       <TableRow>
                         <TableCell isHeader scope="col" className="w-[96px] min-w-[88px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300">
@@ -663,7 +681,7 @@ export default function ProyectosPage() {
                         <TableCell isHeader scope="col" className="w-[100px] min-w-[96px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300">
                           Fecha
                         </TableCell>
-                        <TableCell isHeader scope="col" className="w-[120px] min-w-[110px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300">
+                        <TableCell isHeader scope="col" className="w-[168px] min-w-[160px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300">
                           Acciones
                         </TableCell>
                       </TableRow>
@@ -803,6 +821,15 @@ export default function ProyectosPage() {
                                     <path d="M361.167,252.785h-44.812c-5.432,0-8.7,3.533-8.7,8.825v73.754c0,6.388,4.218,10.599,10.055,10.599 c5.697,0,9.914-4.21,9.914-10.599v-26.351c0-0.538,0.265-0.81,0.81-0.81h26.086c5.837,0,9.23-3.532,9.23-8.56 c0-5.028-3.393-8.553-9.23-8.553h-26.086c-0.545,0-0.81-0.272-0.81-0.817v-19.425c0-0.545,0.265-0.816,0.81-0.816h32.733 c5.572,0,9.245-3.666,9.245-8.553C370.411,256.45,366.738,252.785,361.167,252.785z" />
                                   </svg>
                                 </button>
+                                <button
+                                  type="button"
+                                  className={`${erpRowActionBtnClass} hover:border-sky-400 hover:text-sky-600`}
+                                  onClick={() => openEnviarPdf(row)}
+                                  aria-label={`Enviar PDF del proyecto ${displayProyectoFolio(row.folio)} por correo`}
+                                  title="Enviar PDF por correo"
+                                >
+                                  <MailIcon className="h-4 w-4" />
+                                </button>
                                 {canProyectosEdit ? (
                                   <button
                                     type="button"
@@ -912,6 +939,19 @@ export default function ProyectosPage() {
             </div>
           </div>
         ) : null}
+
+        <ProyectoEnviarPdfModal
+          open={enviarPdfProyecto != null}
+          proyecto={enviarPdfProyecto}
+          onClose={() => setEnviarPdfProyecto(null)}
+          onSent={(correo) => {
+            setEnviarPdfProyecto(null);
+            showAlert("success", "Correo enviado", `El PDF se envió a ${correo}.`, 3500);
+          }}
+          onError={(message) => {
+            showAlert("error", "Correo", message, 5000);
+          }}
+        />
 
         <ProyectoFormModal
           key={editingRow?.id ?? "new"}

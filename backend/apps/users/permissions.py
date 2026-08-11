@@ -335,6 +335,21 @@ class OrdenesSendPdfPermission(BasePermission):
         return _as_bool_value(module_perms.get('view'), False)
 
 
+class ProyectosSendPdfPermission(BasePermission):
+    """Enviar PDF de proyecto por correo: basta con `view` en proyectos."""
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, 'proyectos')
+        return _as_bool_value(module_perms.get('view'), False)
+
+
 class CotizacionesSendPdfPermission(BasePermission):
     """Enviar PDF de cotización por correo: basta con `view` en cotizaciones."""
 

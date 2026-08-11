@@ -1,4 +1,4 @@
-import { PencilIcon, TrashBinIcon } from "@/icons";
+import { MailIcon, PencilIcon, TrashBinIcon } from "@/icons";
 import {
   displayCotizacionFolio,
   displayProyectoFolio,
@@ -31,6 +31,7 @@ type Props = {
   onEdit: (row: ProyectoRow) => void;
   onDelete: (row: ProyectoRow) => void;
   onPdf: (row: ProyectoRow) => void;
+  onEnviarPdf: (row: ProyectoRow) => void;
 };
 
 function teamLabel(row: ProyectoRow): { tecnico: string; auxiliar: string } {
@@ -65,6 +66,7 @@ export function ProyectosMobileList({
   onEdit,
   onDelete,
   onPdf,
+  onEnviarPdf,
 }: Props) {
   if (loading) {
     return (
@@ -159,6 +161,15 @@ export function ProyectosMobileList({
                 title="Ver PDF"
               >
                 <ProyectoPdfGlyph className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className={`${actionBtnClass} hover:border-sky-400 hover:text-sky-600`}
+                onClick={() => onEnviarPdf(row)}
+                aria-label={`Enviar PDF del proyecto ${displayProyectoFolio(row.folio)} por correo`}
+                title="Enviar PDF por correo"
+              >
+                <MailIcon className="h-4 w-4" />
               </button>
               {canEdit ? (
                 <button
