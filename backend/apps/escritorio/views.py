@@ -10,11 +10,13 @@ from PIL import Image
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.users.permissions import TareasPermission
 
+from .dashboard_stats import build_dashboard_stats
 from .models import Tarea
 from .serializers import TareaSerializer
 
@@ -278,3 +280,13 @@ class TareaViewSet(viewsets.ModelViewSet):
         except Exception:
             logger.exception("Error eliminando imagen en Cloudinary")
             return Response({"detail": "Error eliminando imagen en Cloudinary"}, status=502)
+
+
+class DashboardStatsView(APIView):
+    """Métricas agregadas del panel admin (staff). Sin dumps de listados."""
+
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get(self, request):
+        return Response(build_dashboard_stats())
+

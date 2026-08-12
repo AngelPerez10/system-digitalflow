@@ -508,6 +508,19 @@ class OrdenViewSet(viewsets.ModelViewSet):
             return OrdenListSerializer
         return OrdenSerializer
 
+    def list(self, request, *args, **kwargs):
+        """Listado; `limit` opcional (1–200) para feeds livianos (p. ej. panel)."""
+        queryset = self.filter_queryset(self.get_queryset())
+        limit_raw = (request.query_params.get('limit') or '').strip()
+        if limit_raw.isdigit():
+            queryset = queryset[: min(max(int(limit_raw), 1), 200)]
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     def get_queryset(self):
         # IMPORTANTE: usar `.all()` para obtener un queryset fresco en cada request
         # y evitar cache accidental de resultados en el queryset de clase.

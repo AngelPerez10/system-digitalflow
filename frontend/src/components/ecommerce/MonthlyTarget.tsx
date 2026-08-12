@@ -218,11 +218,12 @@ export default function MonthlyTarget() {
       setLoading(true);
       setError("");
       try {
+        // Listados acotados: el dump completo de órdenes/cotizaciones colgaba el panel.
         const [ordenesData, cotizacionesData, clientesData, tareasData, serviciosData, reportesData, usersData] =
           await Promise.all([
-            getJson("/api/ordenes/"),
-            getJson("/api/cotizaciones/"),
-            getJson("/api/clientes/"),
+            getJson("/api/ordenes/?limit=80"),
+            getJson("/api/cotizaciones/?page=1&page_size=50"),
+            getJson("/api/clientes/?page=1&page_size=40"),
             getJson("/api/tareas/"),
             getJson("/api/servicios/"),
             getJson("/api/ordenes/reportes-semanales/"),
@@ -491,8 +492,9 @@ export default function MonthlyTarget() {
         }
 
         if (isAdmin && Array.isArray(usersData)) {
+          const recentUsers = (usersData as UserAccountRow[]).slice(0, 12);
           const permsRows = await Promise.all(
-            (usersData as UserAccountRow[]).map(async (u) => {
+            recentUsers.map(async (u) => {
               const r = await fetchApi(`/api/users/accounts/${u.id}/permissions/`, {
                 cache: "no-store" as RequestCache,
               });
