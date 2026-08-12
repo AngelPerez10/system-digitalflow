@@ -41,6 +41,8 @@ import {
   getNowHHMM,
   isGoogleMapsUrl,
   isOrdenStatusChangeRecent,
+  ORDEN_RECIEN_RESUELTA_BADGE_CLASS,
+  ORDEN_RECIEN_RESUELTA_ROW_CLASS,
   parseYearMonth,
 } from "./shared/ordenesPageUtils";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
@@ -785,7 +787,7 @@ export default function Ordenes() {
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
                   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
-                  const recentStatusChange = isAdmin && isOrdenStatusChangeRecent(orden);
+                  const recentResolved = isAdmin && isOrdenStatusChangeRecent(orden);
 
                   const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
                   const tecnicoNombre = tecnico
@@ -794,8 +796,8 @@ export default function Ordenes() {
                   return (
                     <TableRow
                       key={orden.id ?? idx}
-                      className={`${erpTableRowHoverClass}${recentStatusChange ? " bg-amber-50/90 ring-1 ring-inset ring-amber-200/80 dark:bg-amber-500/10 dark:ring-amber-500/25" : ""}`}
-                      aria-label={recentStatusChange ? `Orden ${folioDisplay}, cambio de estado reciente` : undefined}
+                      className={`${erpTableRowHoverClass}${recentResolved ? ` ${ORDEN_RECIEN_RESUELTA_ROW_CLASS}` : ""}`}
+                      aria-label={recentResolved ? `Orden ${folioDisplay}, resuelta recientemente` : undefined}
                     >
                       <TableCell className="px-2 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
                       <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-1/5 min-w-[220px]">
@@ -860,12 +862,12 @@ export default function Ordenes() {
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pendiente</span>
                           )}
-                          {recentStatusChange && (
-                            <span
-                              className="inline-flex items-center rounded-full bg-amber-200/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-950 dark:bg-amber-500/25 dark:text-amber-100"
-                              aria-label="Cambio de estado reciente"
-                            >
-                              Cambio reciente
+                          {recentResolved && (
+                            <span className={ORDEN_RECIEN_RESUELTA_BADGE_CLASS}>
+                              <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                              Resuelto recién
                             </span>
                           )}
                         </div>

@@ -75,10 +75,15 @@ export function round2(value: number) {
 /** Ventana de resalte admin: 48 horas desde status_changed_at. */
 export const ORDEN_STATUS_CHANGE_RECENT_MS = 2 * 24 * 60 * 60 * 1000;
 
+/**
+ * Resalte solo si la orden está en resuelto y el status cambió hace < 48h.
+ * Si vuelve a pendiente, no resalta aunque status_changed_at sea reciente.
+ */
 export function isOrdenStatusChangeRecent(
-  orden: { status_changed_at?: string | null } | null | undefined,
+  orden: { status?: string | null; status_changed_at?: string | null } | null | undefined,
   now: Date | number = Date.now(),
 ): boolean {
+  if (normalizeStatus(orden?.status) !== "resuelto") return false;
   const raw = orden?.status_changed_at;
   if (!raw) return false;
   const ts = new Date(raw).getTime();
@@ -86,3 +91,10 @@ export function isOrdenStatusChangeRecent(
   const nowMs = typeof now === "number" ? now : now.getTime();
   return nowMs - ts < ORDEN_STATUS_CHANGE_RECENT_MS && nowMs - ts >= 0;
 }
+
+/** Clases de fila/card para resalte de resuelto reciente (admin). */
+export const ORDEN_RECIEN_RESUELTA_ROW_CLASS =
+  "relative bg-emerald-50/80 shadow-[inset_3px_0_0_0_#10b981] dark:bg-emerald-500/10 dark:shadow-[inset_3px_0_0_0_#34d399]";
+
+export const ORDEN_RECIEN_RESUELTA_BADGE_CLASS =
+  "inline-flex items-center gap-1 rounded-md border border-emerald-300/80 bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/20 dark:text-emerald-100";

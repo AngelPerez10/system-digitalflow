@@ -3,7 +3,7 @@ import { useState } from "react";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { erpMobileCardClass } from "../../ordenTrabajoStyles";
 import { displayOrdenFolio, isOrdenResuelta, isOrdenServicioTecnico } from "../shared/useOrdenesShared";
-import { isOrdenStatusChangeRecent } from "../shared/ordenesPageUtils";
+import { isOrdenStatusChangeRecent, ORDEN_RECIEN_RESUELTA_BADGE_CLASS, ORDEN_RECIEN_RESUELTA_ROW_CLASS } from "../shared/ordenesPageUtils";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;
@@ -63,14 +63,14 @@ export function MobileOrderCard({
   const fechaInicio = orden.fecha_inicio || orden.fecha_creacion || '';
   const fechaInicioFmt = fechaInicio ? formatDate(fechaInicio) : '-';
   const fechaFinFmt = orden.fecha_finalizacion ? formatDate(orden.fecha_finalizacion) : '-';
-  const showRecent = highlightRecentStatus && isOrdenStatusChangeRecent(orden);
+  const showRecentResolved = highlightRecentStatus && isOrdenStatusChangeRecent(orden);
 
   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
 
   return (
     <div
-      className={`${erpMobileCardClass}${showRecent ? " border-amber-300 bg-amber-50/90 ring-1 ring-amber-200/80 dark:border-amber-500/40 dark:bg-amber-500/10 dark:ring-amber-500/20" : ""}`}
-      aria-label={showRecent ? `Orden ${folioDisplay}, cambio de estado reciente` : undefined}
+      className={`${erpMobileCardClass}${showRecentResolved ? ` ${ORDEN_RECIEN_RESUELTA_ROW_CLASS}` : ""}`}
+      aria-label={showRecentResolved ? `Orden ${folioDisplay}, resuelta recientemente` : undefined}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -81,12 +81,12 @@ export function MobileOrderCard({
           <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${orden.status === 'resuelto' ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200'}`}>
             {orden.status === 'resuelto' ? 'Resuelto' : 'Pendiente'}
           </span>
-          {showRecent && (
-            <span
-              className="inline-flex items-center rounded-md bg-amber-200/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-950 dark:bg-amber-500/25 dark:text-amber-100"
-              aria-label="Cambio de estado reciente"
-            >
-              Cambio reciente
+          {showRecentResolved && (
+            <span className={ORDEN_RECIEN_RESUELTA_BADGE_CLASS}>
+              <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Resuelto recién
             </span>
           )}
         </div>
