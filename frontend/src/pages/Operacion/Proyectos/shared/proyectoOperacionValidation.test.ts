@@ -60,24 +60,37 @@ describe("validateProyectoOperacionRequired", () => {
 describe("validateNotasPorDiaMinLength", () => {
   const longNota = "x".repeat(NOTA_DIA_MIN_CHARS);
 
-  it("acepta jornadas con el mínimo", () => {
-    const result = validateNotasPorDiaMinLength([
-      { id: "a", nota: longNota },
-      { id: "b", nota: ` ${longNota} ` },
-    ]);
+  it("acepta jornadas con el mínimo al cerrar", () => {
+    const result = validateNotasPorDiaMinLength(
+      [
+        { id: "a", nota: longNota },
+        { id: "b", nota: ` ${longNota} ` },
+      ],
+      { status: "cerrado" }
+    );
     expect(result.ok).toBe(true);
   });
 
-  it("rechaza notas cortas y apunta al primer día", () => {
-    const result = validateNotasPorDiaMinLength([
-      { id: "corta", nota: "avance" },
-      { id: "ok", nota: longNota },
-    ]);
+  it("no exige mínimo si el proyecto sigue en proceso", () => {
+    const result = validateNotasPorDiaMinLength([{ id: "corta", nota: "avance" }], {
+      status: "en_proceso",
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("rechaza notas cortas al cerrar y apunta al primer día", () => {
+    const result = validateNotasPorDiaMinLength(
+      [
+        { id: "corta", nota: "avance" },
+        { id: "ok", nota: longNota },
+      ],
+      { status: "cerrado" }
+    );
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.firstFieldId).toBe(proyectoNotaDiaFieldId("corta"));
       expect(result.firstDia).toBe(1);
-      expect(result.errorsById.corta).toMatch(/Faltan/);
+      expect(result.errorsById.corta).toMatch(/Faltan|cerrar/i);
     }
   });
 });

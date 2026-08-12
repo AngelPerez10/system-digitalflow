@@ -223,28 +223,47 @@ export function OrdenDetalleTab({
                 <label htmlFor={comentarioId} className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                   Comentario del Técnico
                 </label>
-                <textarea
-                  id={comentarioId}
-                  value={formData.comentario_tecnico}
-                  readOnly={ro("comentario_tecnico")}
-                  disabled={ro("comentario_tecnico")}
-                  onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
-                  rows={4}
-                  minLength={COMENTARIO_TECNICO_MIN_LENGTH}
-                  aria-describedby={`${comentarioId}-hint`}
-                  className={`w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${inputLockedClass("comentario_tecnico")}`}
-                  placeholder={`Observaciones del técnico (mínimo ${COMENTARIO_TECNICO_MIN_LENGTH} caracteres)...`}
-                />
-                <p
-                  id={`${comentarioId}-hint`}
-                  className={`mt-1 text-[11px] ${
-                    (formData.comentario_tecnico || "").trim().length >= COMENTARIO_TECNICO_MIN_LENGTH
-                      ? "text-emerald-700 dark:text-emerald-400"
-                      : "text-[#78716c] dark:text-[#8ea0b8]"
-                  }`}
-                >
-                  {(formData.comentario_tecnico || "").trim().length} / {COMENTARIO_TECNICO_MIN_LENGTH} caracteres mínimo
-                </p>
+                {(() => {
+                  const comentarioLen = (formData.comentario_tecnico || "").trim().length;
+                  const requiereMinimo =
+                    Boolean(editingOrden) &&
+                    (formData.status === "resuelto" || statusAdministrativo === "cerrado");
+                  const cumpleMinimo = comentarioLen >= COMENTARIO_TECNICO_MIN_LENGTH;
+                  return (
+                    <>
+                      <textarea
+                        id={comentarioId}
+                        value={formData.comentario_tecnico}
+                        readOnly={ro("comentario_tecnico")}
+                        disabled={ro("comentario_tecnico")}
+                        onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
+                        rows={4}
+                        minLength={requiereMinimo ? COMENTARIO_TECNICO_MIN_LENGTH : undefined}
+                        aria-describedby={`${comentarioId}-hint`}
+                        className={`w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${inputLockedClass("comentario_tecnico")}`}
+                        placeholder={
+                          requiereMinimo
+                            ? `Observaciones del técnico (mínimo ${COMENTARIO_TECNICO_MIN_LENGTH} caracteres)...`
+                            : "Observaciones del técnico..."
+                        }
+                      />
+                      <p
+                        id={`${comentarioId}-hint`}
+                        className={`mt-1 text-[11px] ${
+                          requiereMinimo && !cumpleMinimo
+                            ? "text-amber-700 dark:text-amber-400"
+                            : requiereMinimo && cumpleMinimo
+                              ? "text-emerald-700 dark:text-emerald-400"
+                              : "text-[#78716c] dark:text-[#8ea0b8]"
+                        }`}
+                      >
+                        {requiereMinimo
+                          ? `${comentarioLen} / ${COMENTARIO_TECNICO_MIN_LENGTH} caracteres mínimo`
+                          : `${comentarioLen} caracteres`}
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
 
               <div>

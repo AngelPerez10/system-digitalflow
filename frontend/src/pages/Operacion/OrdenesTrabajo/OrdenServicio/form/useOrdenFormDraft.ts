@@ -696,7 +696,12 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     if (!Array.isArray(formData.servicios_realizados) || formData.servicios_realizados.length === 0) {
       missing.push("Servicios Realizados");
     }
-    if (!isLimitedEdit) {
+    // Mínimo 150 solo al editar una orden ya existente en resuelto/cerrado (no en alta nueva).
+    const requiereComentarioMinimo =
+      Boolean(editingOrden) &&
+      !isLimitedEdit &&
+      (formData.status === "resuelto" || statusAdministrativo === "cerrado");
+    if (requiereComentarioMinimo) {
       const comentarioLen = (formData.comentario_tecnico || "").trim().length;
       if (comentarioLen < COMENTARIO_TECNICO_MIN_LENGTH) {
         missing.push(
@@ -705,7 +710,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       }
     }
     return { ok: missing.length === 0, missing };
-  }, [formData, isLimitedEdit]);
+  }, [editingOrden, formData, isLimitedEdit, statusAdministrativo]);
 
   const patchClienteFromOrden = useCallback(
     async (payload: Record<string, unknown>) => {

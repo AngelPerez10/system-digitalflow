@@ -202,24 +202,14 @@ class ProyectoSerializer(serializers.ModelSerializer):
         return value
 
     def validate_notas_por_dia(self, value):
-        """Cada jornada debe tener al menos 150 caracteres (admin y técnico)."""
+        """Normaliza lista de bitácora; el mínimo de 150 solo aplica al cerrar."""
         if value is None:
             return []
         if not isinstance(value, list):
             raise serializers.ValidationError("notas_por_dia debe ser una lista.")
-        min_chars = 150
-        errors = []
         for i, item in enumerate(value):
-            if not isinstance(item, dict):
-                errors.append(f"Día {i + 1}: formato inválido.")
-                continue
-            nota = str(item.get("nota") or "").strip()
-            if len(nota) < min_chars:
-                errors.append(
-                    f"Día {i + 1}: escribe al menos {min_chars} caracteres en la bitácora."
-                )
-        if errors:
-            raise serializers.ValidationError(errors)
+            if item is not None and not isinstance(item, dict):
+                raise serializers.ValidationError([f"Día {i + 1}: formato inválido."])
         return value
 
     def validate(self, attrs):
@@ -390,6 +380,32 @@ class ProyectoSerializer(serializers.ModelSerializer):
         )
         if not result.ok:
             raise serializers.ValidationError({"status": [result.message]})
+
+        # Bitácora: mínimo 150 caracteres por jornada solo al cerrar.
+        if str(status or "").strip().lower() == "cerrado":
+            if "notas_por_dia" in attrs:
+                notas = attrs.get("notas_por_dia")
+            elif instance is not None:
+                notas = getattr(instance, "notas_por_dia", None)
+            else:
+                notas = []
+            if not isinstance(notas, list):
+                notas = []
+            min_chars = 150
+            nota_errors = []
+            entries = notas if notas else [{}]
+            for i, item in enumerate(entries):
+                if not isinstance(item, dict):
+                    nota_errors.append(f"Día {i + 1}: formato inválido.")
+                    continue
+                nota = str(item.get("nota") or "").strip()
+                if len(nota) < min_chars:
+                    nota_errors.append(
+                        f"Día {i + 1}: escribe al menos {min_chars} caracteres en la bitácora para cerrar."
+                    )
+            if nota_errors:
+                raise serializers.ValidationError({"notas_por_dia": nota_errors})
+
         return attrs
 
     def create(self, validated_data):

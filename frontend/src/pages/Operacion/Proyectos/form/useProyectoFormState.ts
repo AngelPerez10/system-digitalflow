@@ -702,8 +702,21 @@ export function useProyectoFormState({
         setActiveTab("operacion");
         return;
       }
+      const notasCheck = validateNotasPorDiaMinLength(notasPorDia, { status: "cerrado" });
+      setNotaDiaErrors(notasCheck.errorsById);
+      if (!notasCheck.ok) {
+        setCloseBlockedMessage(
+          `Completa la bitácora (mínimo ${NOTA_DIA_MIN_CHARS} caracteres por día) antes de cerrar.`
+        );
+        setActiveTab("operacion");
+        requestAnimationFrame(() => {
+          document.getElementById(notasCheck.firstFieldId)?.focus();
+        });
+        return;
+      }
     }
     setCloseBlockedMessage("");
+    setNotaDiaErrors({});
     setStatus(next);
     if (next !== "pausado") setMotivoPausa("");
   };
@@ -750,14 +763,7 @@ export function useProyectoFormState({
           });
           return;
         }
-        const notasCheck = validateNotasPorDiaMinLength(notasPorDia);
-        setNotaDiaErrors(notasCheck.errorsById);
-        if (!notasCheck.ok) {
-          requestAnimationFrame(() => {
-            document.getElementById(notasCheck.firstFieldId)?.focus();
-          });
-          return;
-        }
+        setNotaDiaErrors({});
       }
 
       setClienteStepError("");
@@ -773,7 +779,7 @@ export function useProyectoFormState({
       if (fromPointer) window.setTimeout(apply, 0);
       else apply();
     },
-    [cliente, tiposTrabajo, fechaAutorizacion, fechaDesde, notasPorDia]
+    [cliente, tiposTrabajo, fechaAutorizacion, fechaDesde]
   );
 
   const goToPrevTab = useCallback(() => {
@@ -842,7 +848,7 @@ export function useProyectoFormState({
       });
       return;
     }
-    const notasCheck = validateNotasPorDiaMinLength(notasPorDia);
+    const notasCheck = validateNotasPorDiaMinLength(notasPorDia, { status });
     setNotaDiaErrors(notasCheck.errorsById);
     if (!notasCheck.ok) {
       setActiveTab("operacion");

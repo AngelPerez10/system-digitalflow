@@ -49,6 +49,11 @@ export function validateProyectoOperacionRequired(input: {
   return { ok: false, errors, firstFieldId };
 }
 
+/** El mínimo de bitácora solo aplica al cerrar el proyecto. */
+export function proyectoRequiresNotaDiaMinLength(status: string | null | undefined): boolean {
+  return String(status || "").trim().toLowerCase() === "cerrado";
+}
+
 export type ProyectoNotaDiaMinLengthResult =
   | { ok: true; errorsById: Record<string, string> }
   | {
@@ -58,10 +63,21 @@ export type ProyectoNotaDiaMinLengthResult =
       firstDia: number;
     };
 
-/** Cada jornada de bitácora debe tener al menos NOTA_DIA_MIN_CHARS caracteres. */
+/**
+ * Cada jornada debe tener al menos NOTA_DIA_MIN_CHARS caracteres.
+ * Solo se exige al cerrar (`status === "cerrado"`); en alta/edición en proceso no bloquea.
+ */
 export function validateNotasPorDiaMinLength(
-  notas: ReadonlyArray<{ id: string; nota?: string | null }>
+  notas: ReadonlyArray<{ id: string; nota?: string | null }>,
+  options?: { status?: string | null; require?: boolean }
 ): ProyectoNotaDiaMinLengthResult {
+  const require =
+    options?.require ??
+    (options?.status != null ? proyectoRequiresNotaDiaMinLength(options.status) : true);
+  if (!require) {
+    return { ok: true, errorsById: {} };
+  }
+
   const list = notas.length > 0 ? notas : [{ id: "empty", nota: "" }];
   const errorsById: Record<string, string> = {};
   let firstFieldId = "";
@@ -74,8 +90,8 @@ export function validateNotasPorDiaMinLength(
     const faltan = NOTA_DIA_MIN_CHARS - len;
     errorsById[id] =
       len === 0
-        ? `Escribe al menos ${NOTA_DIA_MIN_CHARS} caracteres en el día ${index + 1}.`
-        : `Faltan ${faltan} caracteres (mínimo ${NOTA_DIA_MIN_CHARS}).`;
+        ? `Para cerrar el proyecto escribe al menos ${NOTA_DIA_MIN_CHARS} caracteres en el día ${index + 1}.`
+        : `Faltan ${faltan} caracteres para cerrar (mínimo ${NOTA_DIA_MIN_CHARS}).`;
     if (!firstFieldId) {
       firstFieldId = proyectoNotaDiaFieldId(id);
       firstDia = index + 1;
