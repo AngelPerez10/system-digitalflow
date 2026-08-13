@@ -12,6 +12,7 @@ import OrdenesListFiltersPopover from "./list/OrdenesListFiltersPopover";
 import OrdenFormModal, { ORDEN_FORM_PANEL_IDS, ORDEN_FORM_TAB_IDS } from "./form/OrdenFormModal";
 import { OrdenClienteTab } from "./form/tabs/OrdenClienteTab";
 import { OrdenDetalleTab } from "./form/tabs/OrdenDetalleTab";
+import { OrdenEquiposTab } from "./form/tabs/OrdenEquiposTab";
 import {
   type Orden,
   type Usuario,
@@ -181,7 +182,7 @@ export default function OrdenesTecnico() {
     });
   };
 
-  const activeTabRef = useRef<"orden" | "cliente">(activeTab);
+  const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
 
   const goToOrdenTab = (fromPointer?: boolean) => {
@@ -228,6 +229,9 @@ export default function OrdenesTecnico() {
     selectQuienInstalo,
     selectQuienEntrego,
     addServicio,
+    addEquipoFromItem,
+    updateEquipo,
+    removeEquipo,
     tecnicoSignatureUrl,
   } = useOrdenFormDraft({
     variant: "tecnico",
@@ -1114,6 +1118,21 @@ export default function OrdenesTecnico() {
             serviciosDisponibles={serviciosDisponibles}
             setServiciosDisponibles={setServiciosDisponibles}
             addServicio={addServicio}
+          />
+        )}
+        {activeTab === "equipos" && (
+          <OrdenEquiposTab
+            panelId={ORDEN_FORM_PANEL_IDS.equipos}
+            labelledBy={ORDEN_FORM_TAB_IDS.equipos}
+            equipos={formData.equipos_inventario}
+            isAdmin={isAdmin}
+            isReadOnly={isReadOnly}
+            canMarkInstalacion={
+              !isReadOnly && (isAdmin || (!isLimitedEdit && canOrdenesEdit))
+            }
+            onAddFromItem={addEquipoFromItem}
+            onUpdateEquipo={updateEquipo}
+            onRemoveEquipo={removeEquipo}
           />
         )}
       </OrdenFormModal>

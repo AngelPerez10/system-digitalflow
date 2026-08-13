@@ -86,4 +86,7 @@ pytest-report.html
 # ---- Git worktrees (local isolation) ----
 .worktrees/
 
+# ---- Superpowers SDD local (no subir a GitHub) ----
+.superpowers/
+
 # Fin

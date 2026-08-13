@@ -25,6 +25,7 @@ const baseForm: OrdenFormData = {
   firma_cliente_url: "",
   fotos_urls: [],
   fotos_extra_max: 0,
+  equipos_inventario: [],
 };
 
 describe("buildOrdenWritePayload", () => {
@@ -95,5 +96,109 @@ describe("buildOrdenWritePayload", () => {
       isAdmin: false,
     });
     expect(payload.firma_encargado_url).toBeNull();
+  });
+
+  it("includes equipos_inventario from formData", () => {
+    const payload = buildOrdenWritePayload({
+      formData: {
+        ...baseForm,
+        equipos_inventario: [
+          {
+            lineaId: "l1",
+            inventarioItemId: 7,
+            codigoBarras: "750",
+            nombre: "GPS",
+            marca: "X",
+            modelo: "M1",
+            imagenUrl: "",
+            cantidad: 2,
+            equipoEntregado: true,
+            estadoInstalacion: "no_instalado",
+            movimientoSalidaId: 15,
+          },
+        ],
+      },
+      variant: "admin",
+      isAdmin: true,
+    });
+    expect(payload.equipos_inventario).toEqual([
+      expect.objectContaining({
+        lineaId: "l1",
+        inventarioItemId: 7,
+        cantidad: 2,
+        equipoEntregado: true,
+        movimientoSalidaId: 15,
+      }),
+    ]);
+  });
+
+  it("non-admin payload only allows estadoInstalacion vs baseline", () => {
+    const baseline = [
+      {
+        lineaId: "l1",
+        inventarioItemId: 7,
+        codigoBarras: "750",
+        nombre: "GPS",
+        marca: "X",
+        modelo: "M1",
+        imagenUrl: "",
+        cantidad: 2,
+        equipoEntregado: true,
+        estadoInstalacion: "no_instalado" as const,
+        movimientoSalidaId: 15,
+      },
+    ];
+    const payload = buildOrdenWritePayload({
+      formData: {
+        ...baseForm,
+        equipos_inventario: [
+          {
+            ...baseline[0],
+            cantidad: 9,
+            equipoEntregado: false,
+            estadoInstalacion: "instalado",
+          },
+        ],
+      },
+      variant: "tecnico",
+      isAdmin: false,
+      baselineEquipos: baseline,
+    });
+    expect(payload.equipos_inventario).toEqual([
+      expect.objectContaining({
+        lineaId: "l1",
+        cantidad: 2,
+        equipoEntregado: true,
+        estadoInstalacion: "instalado",
+        movimientoSalidaId: 15,
+      }),
+    ]);
+  });
+
+  it("non-admin create sends empty equipos_inventario", () => {
+    const payload = buildOrdenWritePayload({
+      formData: {
+        ...baseForm,
+        equipos_inventario: [
+          {
+            lineaId: "new",
+            inventarioItemId: 1,
+            codigoBarras: "",
+            nombre: "X",
+            marca: "",
+            modelo: "",
+            imagenUrl: "",
+            cantidad: 1,
+            equipoEntregado: false,
+            estadoInstalacion: "instalado",
+            movimientoSalidaId: null,
+          },
+        ],
+      },
+      variant: "tecnico",
+      isAdmin: false,
+      baselineEquipos: [],
+    });
+    expect(payload.equipos_inventario).toEqual([]);
   });
 });

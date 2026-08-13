@@ -57,6 +57,7 @@ class Orden(models.Model):
     )
     fecha_envio = models.DateField(blank=True, null=True)
     cotizaciones_adjuntas = models.JSONField(default=list, blank=True)
+    equipos_inventario = models.JSONField(default=list, blank=True)
 
     fecha_inicio = models.DateField(blank=True, null=True, default=timezone.now)
     hora_inicio = models.TimeField(blank=True, null=True)

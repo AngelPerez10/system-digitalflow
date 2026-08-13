@@ -13,6 +13,7 @@ import {
   type FotosExtraMax,
   type Orden,
   type OrdenCotizacionAdjunta,
+  type OrdenEquipoInventarioLinea,
   type OrdenStatusAdministrativo,
   type ServicioCatalogo,
   type Usuario,
@@ -28,6 +29,15 @@ import {
   ORDENES_PAGE_INIT_THROTTLE_MS,
 } from "../shared/useOrdenesShared";
 import { round2 } from "../shared/ordenesPageUtils";
+import type { InventarioItem } from "@/pages/Inventario/shared/inventarioTypes";
+import {
+  addEquipoFromItem as addEquipoFromItemPure,
+  filterEquiposForWritePayload,
+  normalizeEquiposInventario,
+  removeEquipoLinea,
+  updateEquipoLinea,
+  type OrdenEquipoLineaPatch,
+} from "./ordenEquiposDraft";
 
 export type OrdenFormData = {
   folio: string;
@@ -53,6 +63,7 @@ export type OrdenFormData = {
   firma_cliente_url: string;
   fotos_urls: string[];
   fotos_extra_max: FotosExtraMax;
+  equipos_inventario: OrdenEquipoInventarioLinea[];
 };
 
 export function createEmptyOrdenFormData(mySignatureUrl = ""): OrdenFormData {
@@ -80,6 +91,7 @@ export function createEmptyOrdenFormData(mySignatureUrl = ""): OrdenFormData {
     firma_cliente_url: "",
     fotos_urls: [],
     fotos_extra_max: 0,
+    equipos_inventario: [],
   };
 }
 
@@ -90,6 +102,8 @@ export function buildOrdenWritePayload(opts: {
   formData: OrdenFormData;
   variant: "admin" | "tecnico";
   isAdmin: boolean;
+  /** Equipos cargados de la orden al abrir edición (fuente de verdad para no-admin). */
+  baselineEquipos?: OrdenEquipoInventarioLinea[] | unknown;
   statusAdministrativo?: OrdenStatusAdministrativo;
   fechaEnvioAdmin?: string;
   cotizacionesAdmin?: CotizacionResumen[];
@@ -98,6 +112,7 @@ export function buildOrdenWritePayload(opts: {
     formData,
     variant,
     isAdmin,
+    baselineEquipos,
     statusAdministrativo = "pendiente",
     fechaEnvioAdmin = "",
     cotizacionesAdmin = [],
@@ -150,6 +165,14 @@ export function buildOrdenWritePayload(opts: {
     delete payload.fecha_envio;
     delete payload.cotizaciones_adjuntas;
   }
+
+  // Echo server movimientoSalidaId; never invent ids client-side.
+  // Non-admin: freeze qty/entrega/membership to baseline; only estadoInstalacion may change.
+  payload.equipos_inventario = filterEquiposForWritePayload({
+    isAdmin,
+    draft: formData.equipos_inventario,
+    baseline: baselineEquipos,
+  });
 
   return payload;
 }
@@ -313,7 +336,7 @@ export type UseOrdenFormDraftOpts = {
   setOrdenes: React.Dispatch<React.SetStateAction<Orden[]>>;
   fetchOrdenes: () => Promise<void>;
   levantamientoSnapshotRef: RefObject<LevantamientoSnap | null>;
-  activeTabRef: RefObject<"orden" | "cliente">;
+  activeTabRef: RefObject<"cliente" | "orden" | "equipos">;
   goToOrdenTab: (fromPointer?: boolean) => void;
   setAlert: React.Dispatch<React.SetStateAction<{
     show: boolean;
@@ -442,11 +465,38 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         firma_cliente_url: orden.firma_cliente_url || "",
         fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : [],
         fotos_extra_max: normalizeFotosExtraFromOrden(orden),
+        equipos_inventario: normalizeEquiposInventario(orden.equipos_inventario),
       });
       if (variant === "admin") loadAdminSeguimientoFromOrden(orden);
     },
     [bumpFormNonce, mySignatureUrl, variant, loadAdminSeguimientoFromOrden],
   );
+
+  const addEquipoFromItem = useCallback((item: InventarioItem) => {
+    setFormData((prev) => ({
+      ...prev,
+      equipos_inventario: addEquipoFromItemPure(prev.equipos_inventario, item),
+    }));
+  }, []);
+
+  const updateEquipo = useCallback(
+    (lineaId: string, patch: OrdenEquipoLineaPatch, stockMax?: number) => {
+      setFormData((prev) => ({
+        ...prev,
+        equipos_inventario: updateEquipoLinea(prev.equipos_inventario, lineaId, patch, {
+          stockMax,
+        }),
+      }));
+    },
+    [],
+  );
+
+  const removeEquipo = useCallback((lineaId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      equipos_inventario: removeEquipoLinea(prev.equipos_inventario, lineaId),
+    }));
+  }, []);
 
   const fetchClientes = useCallback(
     async (search = "") => {
@@ -825,6 +875,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
           formData,
           variant,
           isAdmin,
+          baselineEquipos: editingOrden?.equipos_inventario ?? [],
           statusAdministrativo,
           fechaEnvioAdmin,
           cotizacionesAdmin,
@@ -1105,6 +1156,9 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     selectQuienInstalo,
     selectQuienEntrego,
     addServicio,
+    addEquipoFromItem,
+    updateEquipo,
+    removeEquipo,
     loadTecnicoSignature,
     tecnicoSignatureUrl,
     statusAdministrativo,

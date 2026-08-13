@@ -16,6 +16,22 @@ export type OrdenCotizacionAdjunta = {
   contacto?: string;
 };
 
+export type OrdenEquipoEstadoInstalacion = "no_instalado" | "instalado";
+
+export type OrdenEquipoInventarioLinea = {
+  lineaId: string;
+  inventarioItemId: number;
+  codigoBarras: string;
+  nombre: string;
+  marca: string;
+  modelo: string;
+  imagenUrl: string;
+  cantidad: number;
+  equipoEntregado: boolean;
+  estadoInstalacion: OrdenEquipoEstadoInstalacion;
+  movimientoSalidaId: number | null;
+};
+
 export interface ServicioCatalogo {
   id: number;
   nombre: string;
@@ -62,6 +78,7 @@ export interface Orden {
   pdf_url?: string;
   fecha_creacion: string;
   tipo_orden?: "servicio_tecnico" | "levantamiento" | string;
+  equipos_inventario?: OrdenEquipoInventarioLinea[];
 }
 
 export interface Usuario {

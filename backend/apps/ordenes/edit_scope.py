@@ -4,7 +4,6 @@ from rest_framework.exceptions import PermissionDenied
 
 from apps.ordenes.pdf_limits import normalize_fotos_extra_max
 
-
 LIMITED_ORDEN_EDIT_FIELDS = frozenset({
     'problematica',
     'status',
@@ -65,6 +64,10 @@ def filter_limited_orden_update(user, instance, data: dict) -> dict:
     for key, value in data.items():
         if key in LIMITED_ORDEN_EDIT_FIELDS:
             allowed_data[key] = value
+            continue
+        # Limited editors must not mutate equipos; ignore the key entirely
+        # (do not compare/diff — never 403 for equipos_inventario).
+        if key == 'equipos_inventario':
             continue
         if _orden_field_values_differ(instance, key, value):
             disallowed.append(key)

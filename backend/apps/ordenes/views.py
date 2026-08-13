@@ -28,6 +28,12 @@ from apps.cotizaciones.pdf_render import (
     any_provider_configured,
     render_html_to_pdf,
 )
+from apps.ordenes.edit_scope import (
+    filter_limited_orden_update as _filter_limited_orden_update,
+)
+from apps.ordenes.edit_scope import (
+    user_has_full_orden_edit,
+)
 from apps.ordenes.email_pdf import (
     UserSmtpCredentialsError,
     build_orden_email_body,
@@ -40,17 +46,15 @@ from apps.ordenes.email_pdf import (
     send_orden_pdf_email,
     smtp_host_configured,
 )
-from apps.ordenes.edit_scope import (
-    filter_limited_orden_update as _filter_limited_orden_update,
-    orden_user_owns,
-    user_has_full_orden_edit,
-)
+from apps.ordenes.equipos_inventario import sync_orden_equipos_inventario
 from apps.ordenes.image_services import (
     ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES,
     ALLOWED_IMAGE_MIME_TYPES,
     MAX_BASE64_INPUT_MULTIPLIER,
     MAX_IMAGE_PIXELS,
     cloudinary,
+)
+from apps.ordenes.image_services import (
     is_data_url as _is_data_url,
 )
 from apps.ordenes.pdf_limits import normalize_fotos_extra_max as _normalize_fotos_extra_max
@@ -1548,7 +1552,18 @@ class OrdenViewSet(viewsets.ModelViewSet):
             data['fotos_urls'] = new_fotos
         data = _apply_resuelto_cierre_fechas(dict(data))
         data = _stamp_status_changed_at(data)
-        serializer.save(creado_por=self.request.user, **data)
+        incoming_equipos = data.get('equipos_inventario', [])
+        with transaction.atomic():
+            instance = serializer.save(creado_por=self.request.user, **data)
+            final = sync_orden_equipos_inventario(
+                orden=instance,
+                incoming=incoming_equipos,
+                user=self.request.user,
+                previous=[],
+            )
+            if final != (instance.equipos_inventario or []):
+                instance.equipos_inventario = final
+                instance.save(update_fields=['equipos_inventario'])
 
     def perform_update(self, serializer):
         instance = serializer.instance
@@ -1556,6 +1571,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         full_edit = user_has_full_orden_edit(user, instance)
         old_firma_cliente = instance.firma_cliente_url
         old_fotos = list(instance.fotos_urls) if instance.fotos_urls else []
+        previous_equipos = list(instance.equipos_inventario or [])
 
         data = dict(serializer.validated_data)
         data = _filter_limited_orden_update(user, instance, data)
@@ -1608,8 +1624,23 @@ class OrdenViewSet(viewsets.ModelViewSet):
         data = _apply_resuelto_cierre_fechas(data, instance=instance)
         data = _stamp_status_changed_at(data, instance=instance)
 
-        # Save updated instance
-        instance = serializer.save(**data)
+        # Limited editors never mutate equipos; ignore any payload value.
+        if not full_edit:
+            incoming_equipos = previous_equipos
+        else:
+            incoming_equipos = data.get('equipos_inventario', previous_equipos)
+
+        with transaction.atomic():
+            instance = serializer.save(**data)
+            final = sync_orden_equipos_inventario(
+                orden=instance,
+                incoming=incoming_equipos,
+                user=user,
+                previous=previous_equipos,
+            )
+            if final != (instance.equipos_inventario or []):
+                instance.equipos_inventario = final
+                instance.save(update_fields=['equipos_inventario'])
 
         return instance
 

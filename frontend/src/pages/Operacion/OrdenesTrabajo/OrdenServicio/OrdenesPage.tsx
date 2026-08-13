@@ -12,6 +12,7 @@ import OrdenLocationMapModal from "./form/fields/OrdenLocationMapModal";
 import OrdenFormModal, { ORDEN_FORM_PANEL_IDS, ORDEN_FORM_TAB_IDS } from "./form/OrdenFormModal";
 import { OrdenClienteTab } from "./form/tabs/OrdenClienteTab";
 import { OrdenDetalleTab } from "./form/tabs/OrdenDetalleTab";
+import { OrdenEquiposTab } from "./form/tabs/OrdenEquiposTab";
 import {
   type Orden,
   type Usuario,
@@ -288,7 +289,7 @@ export default function Ordenes() {
   const statusAdminId = useId().replace(/:/g, "");
   const fechaEnvioAdminId = useId().replace(/:/g, "");
 
-  const activeTabRef = useRef<"orden" | "cliente">(activeTab);
+  const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
 
   const goToOrdenTab = (fromPointer?: boolean) => {
@@ -335,6 +336,9 @@ export default function Ordenes() {
     selectQuienInstalo,
     selectQuienEntrego,
     addServicio,
+    addEquipoFromItem,
+    updateEquipo,
+    removeEquipo,
     tecnicoSignatureUrl,
     statusAdministrativo,
     setStatusAdministrativo,
@@ -1152,6 +1156,21 @@ export default function Ordenes() {
             setFechaEnvioAdmin={setFechaEnvioAdmin}
             cotizacionesAdmin={cotizacionesAdmin}
             setCotizacionesAdmin={setCotizacionesAdmin}
+          />
+        )}
+        {activeTab === "equipos" && (
+          <OrdenEquiposTab
+            panelId={ORDEN_FORM_PANEL_IDS.equipos}
+            labelledBy={ORDEN_FORM_TAB_IDS.equipos}
+            equipos={formData.equipos_inventario}
+            isAdmin={isAdmin}
+            isReadOnly={isReadOnly}
+            canMarkInstalacion={
+              !isReadOnly && (isAdmin || (!isLimitedEdit && canOrdenesEdit))
+            }
+            onAddFromItem={addEquipoFromItem}
+            onUpdateEquipo={updateEquipo}
+            onRemoveEquipo={removeEquipo}
           />
         )}
       </OrdenFormModal>

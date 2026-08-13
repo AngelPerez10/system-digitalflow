@@ -42,7 +42,11 @@ export async function listInventarioItems(
   searchParams.set("page_size", String(params?.page_size ?? DEFAULT_PAGE_SIZE));
   const qs = searchParams.toString();
   const res = await fetchApi(`/api/inventario/items/?${qs}`, { method: "GET" });
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) {
+    const err = new Error(await readError(res)) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
   return (await res.json()) as PaginatedResponse<InventarioItem>;
 }
 
@@ -67,6 +71,16 @@ export async function sincronizarSeccionesInventario(
     actualizados: number;
     pendientes_restantes: number;
   };
+}
+
+export async function getInventarioItem(id: number): Promise<InventarioItem> {
+  const res = await fetchApi(`/api/inventario/items/${id}/`, { method: "GET" });
+  if (!res.ok) {
+    const err = new Error(await readError(res)) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
+  return (await res.json()) as InventarioItem;
 }
 
 export async function patchInventarioItem(

@@ -7,7 +7,7 @@ import {
 } from "../shared/ordenEditScope";
 
 export type TipoOrden = "servicio_tecnico" | "levantamiento" | "mantenimiento";
-export type OrdenFormTab = "orden" | "cliente";
+export type OrdenFormTab = "cliente" | "orden" | "equipos";
 
 export function useOrdenFormModalState({
   canCreate,

@@ -85,6 +85,14 @@ class InventarioMovimiento(models.Model):
         related_name='inventario_movimientos',
     )
     nota = models.CharField(max_length=255, blank=True, default='')
+    orden = models.ForeignKey(
+        'ordenes.Orden',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='movimientos_inventario',
+    )
+    orden_linea_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:

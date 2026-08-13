@@ -2,9 +2,25 @@ import logging
 
 from rest_framework import serializers
 
+from .equipos_inventario import normalize_equipos_payload
 from .models import Orden, OrdenInstalacion, OrdenLevantamiento, ReporteSemanal
 
 logger = logging.getLogger(__name__)
+
+
+def _equipos_inventario_counts(equipos) -> tuple[int, int, int]:
+    items = equipos if isinstance(equipos, list) else []
+    total = len(items)
+    entregados = 0
+    instalados = 0
+    for eq in items:
+        if not isinstance(eq, dict):
+            continue
+        if eq.get('equipoEntregado'):
+            entregados += 1
+        if eq.get('estadoInstalacion') == 'instalado':
+            instalados += 1
+    return total, entregados, instalados
 
 
 class OrdenSerializer(serializers.ModelSerializer):
@@ -18,12 +34,17 @@ class OrdenSerializer(serializers.ModelSerializer):
     creado_por_username = serializers.CharField(source='creado_por.username', read_only=True)
     tipo_orden = serializers.SerializerMethodField()
     levantamiento_tipo = serializers.SerializerMethodField()
+    equipos_inventario_total = serializers.SerializerMethodField()
+    equipos_inventario_entregados = serializers.SerializerMethodField()
+    equipos_inventario_instalados = serializers.SerializerMethodField()
 
     def validate_folio(self, value):
         if isinstance(value, str) and value.strip() == '':
             return None
         return value
 
+    def validate_equipos_inventario(self, value):
+        return normalize_equipos_payload(value)
     def validate_fotos_extra_max(self, value):
         allowed = {0, 2, 3, 4, 5}
         try:
@@ -134,6 +155,15 @@ class OrdenSerializer(serializers.ModelSerializer):
             return obj.quien_entrego.username or obj.quien_entrego.email
         return None
 
+    def get_equipos_inventario_total(self, obj):
+        return _equipos_inventario_counts(obj.equipos_inventario)[0]
+
+    def get_equipos_inventario_entregados(self, obj):
+        return _equipos_inventario_counts(obj.equipos_inventario)[1]
+
+    def get_equipos_inventario_instalados(self, obj):
+        return _equipos_inventario_counts(obj.equipos_inventario)[2]
+
     class Meta:
         model = Orden
         fields = [
@@ -177,6 +207,10 @@ class OrdenSerializer(serializers.ModelSerializer):
             'pdf_url',
             'firma_encargado_url',
             'firma_cliente_url',
+            'equipos_inventario',
+            'equipos_inventario_total',
+            'equipos_inventario_entregados',
+            'equipos_inventario_instalados',
             'creado_por',
             'creado_por_username',
             'fecha_creacion',
@@ -194,6 +228,9 @@ class OrdenSerializer(serializers.ModelSerializer):
             'quien_instalo_full_name',
             'quien_entrego_username',
             'quien_entrego_full_name',
+            'equipos_inventario_total',
+            'equipos_inventario_entregados',
+            'equipos_inventario_instalados',
             'creado_por',
             'creado_por_username',
             'pdf_url',
@@ -204,7 +241,7 @@ class OrdenSerializer(serializers.ModelSerializer):
 
 
 class OrdenListSerializer(OrdenSerializer):
-    """Listado liviano: sin fotos, firmas ni cotizaciones."""
+    """Listado liviano: sin fotos, firmas, cotizaciones ni blob de equipos."""
 
     class Meta(OrdenSerializer.Meta):
         fields = [
@@ -236,6 +273,9 @@ class OrdenListSerializer(OrdenSerializer):
             'tecnico_asignado_full_name',
             'nombre_cliente',
             'fotos_extra_max',
+            'equipos_inventario_total',
+            'equipos_inventario_entregados',
+            'equipos_inventario_instalados',
             'creado_por',
             'creado_por_username',
             'fecha_creacion',
@@ -249,13 +289,15 @@ class OrdenListSerializer(OrdenSerializer):
             'cliente_nombre',
             'tecnico_asignado_username',
             'tecnico_asignado_full_name',
+            'equipos_inventario_total',
+            'equipos_inventario_entregados',
+            'equipos_inventario_instalados',
             'creado_por',
             'creado_por_username',
             'status_changed_at',
             'fecha_creacion',
             'fecha_actualizacion',
         ]
-
 
 class OrdenLevantamientoSerializer(serializers.ModelSerializer):
     def validate_payload(self, value):
