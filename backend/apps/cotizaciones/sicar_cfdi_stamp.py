@@ -6,7 +6,6 @@ import re
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
-from typing import Any
 
 _SW_PAC_URL = "https://services.sw.com.mx/cfdi/stamp/v4/xml"
 

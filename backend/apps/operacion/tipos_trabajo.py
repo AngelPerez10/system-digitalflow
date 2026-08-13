@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 TECNICO_LOCK_MSG = "Como técnico asignado no puedes modificar este campo."
 
 

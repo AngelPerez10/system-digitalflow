@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 CLOSE_BLOCKED_MESSAGE = (
     "No se puede cerrar el proyecto: hay presupuesto o requerimientos "
     "adicionales sin cotización vinculada."

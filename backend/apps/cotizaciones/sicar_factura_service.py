@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from num2words import num2words
@@ -132,7 +132,6 @@ def _emisor_from_empresa(empresa: dict[str, Any]) -> dict[str, Any]:
 
 
 def _receptor_from_cliente(cliente: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
-    regimen = payload.get("regimen_c") or cliente.get("rgf_id")
     regimen_label = str(payload.get("regimen_c_label") or payload.get("regimen_c") or "616-Sin obligaciones fiscales")
     return {
         "rfc": str(payload.get("rfc_c") or cliente.get("rfc") or "").strip().upper(),

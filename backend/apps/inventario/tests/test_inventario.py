@@ -1,10 +1,11 @@
+from decimal import Decimal
+from unittest.mock import MagicMock, patch
+
+import requests
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
-from decimal import Decimal
-import requests
 from rest_framework import status
 from rest_framework.test import APITestCase
-from unittest.mock import MagicMock, patch
 
 from apps.inventario.enrichment import MAX_CARACTERISTICAS, _map_product
 from apps.inventario.models import InventarioItem, InventarioMovimiento

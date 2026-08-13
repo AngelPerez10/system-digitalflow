@@ -6,8 +6,8 @@ from rest_framework.test import APITestCase
 
 from apps.clientes.models import Cliente
 from apps.cotizaciones.models import Cotizacion
-from apps.ordenes.models import Orden
 from apps.escritorio.dashboard_stats import build_dashboard_stats
+from apps.ordenes.models import Orden
 
 User = get_user_model()
 

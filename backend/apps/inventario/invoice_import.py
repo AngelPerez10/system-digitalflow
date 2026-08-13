@@ -5,7 +5,6 @@ import logging
 import re
 import urllib.parse
 from dataclasses import dataclass
-
 from decimal import Decimal, InvalidOperation
 
 import requests
