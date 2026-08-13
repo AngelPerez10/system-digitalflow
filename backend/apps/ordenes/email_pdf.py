@@ -35,9 +35,13 @@ def _env_email(key: str, default: str = "") -> str:
     val = (os.environ.get(key) or "").strip()
     if val:
         return val
-    val = (getattr(settings, key, None) or "").strip() if hasattr(settings, key) else ""
-    if val:
-        return val
+    if hasattr(settings, key):
+        raw = getattr(settings, key, None)
+        # EMAIL_PORT / timeouts / flags pueden ser int o bool en settings.
+        if raw is not None and raw != "":
+            val = str(raw).strip()
+            if val:
+                return val
     try:
         from config.settings import get_env_from_dotenv
 

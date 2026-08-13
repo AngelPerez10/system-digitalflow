@@ -6,6 +6,7 @@ import { erpInputLikeClass } from "@/layout/erpPageStyles";
 import useDebounce from "@/hooks/use-debounce";
 
 const MSG_NO_PERMISO = "Necesitas permiso de inventario para buscar productos.";
+const MIN_SEARCH_CHARS = 2;
 
 type Props = {
   onPick: (item: InventarioItem) => void;
@@ -22,20 +23,30 @@ function isForbiddenError(err: unknown): boolean {
 
 /**
  * Buscador de inventario (solo admin). No mueve stock hasta marcar Entregado.
+ * Acepta nombre, marca, modelo o código de barras (EAN / SKU).
  */
 export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
   const searchId = useId();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search.trim(), 350);
+  const [immediateSearch, setImmediateSearch] = useState<string | null>(null);
+  const activeQuery = immediateSearch ?? debouncedSearch;
   const [results, setResults] = useState<InventarioItem[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
 
   useEffect(() => {
+    // Al terminar el debounce, soltar la búsqueda forzada por Enter.
+    if (immediateSearch !== null && debouncedSearch === immediateSearch) {
+      setImmediateSearch(null);
+    }
+  }, [debouncedSearch, immediateSearch]);
+
+  useEffect(() => {
     if (disabled) return;
-    const q = debouncedSearch;
-    if (q.length < 3) {
+    const q = activeQuery;
+    if (q.length < MIN_SEARCH_CHARS) {
       setResults([]);
       setSearching(false);
       return;
@@ -61,13 +72,14 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearch, disabled]);
+  }, [activeQuery, disabled]);
 
   const handlePick = (item: InventarioItem) => {
     onPick(item);
     setInfo(`Agregado: ${item.nombre || item.modelo || item.codigo_barras}`);
     setError("");
     setSearch("");
+    setImmediateSearch(null);
     setResults([]);
   };
 
@@ -81,7 +93,7 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
           Agregar producto
         </h4>
         <p className="mt-1 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
-          Busca por nombre, modelo, marca o código. El stock solo baja al marcar Entregado.
+          Busca por código de barras, modelo, marca o nombre. El stock solo baja al marcar Entregado.
         </p>
       </div>
 
@@ -100,12 +112,22 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
             disabled={disabled}
             onChange={(e) => {
               setSearch(e.target.value);
+              setImmediateSearch(null);
               setError("");
               setInfo("");
             }}
-            placeholder="Mínimo 3 caracteres…"
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              const q = search.trim();
+              if (q.length >= MIN_SEARCH_CHARS) {
+                setImmediateSearch(q);
+              }
+            }}
+            placeholder="Código, modelo o nombre…"
             className={erpInputLikeClass}
             autoComplete="off"
+            enterKeyHint="search"
           />
         </div>
 
@@ -126,9 +148,9 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
           </p>
         ) : null}
 
-        {!searching && debouncedSearch.length >= 3 && results.length === 0 && !error ? (
+        {!searching && activeQuery.length >= MIN_SEARCH_CHARS && results.length === 0 && !error ? (
           <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]" role="status">
-            Sin resultados para «{debouncedSearch}».
+            Sin resultados para «{activeQuery}». Prueba el código de barras o el modelo exacto.
           </p>
         ) : null}
 

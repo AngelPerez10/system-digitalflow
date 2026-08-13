@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, time
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Case, Count, IntegerField, Q, Sum, Value, When
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
@@ -187,12 +187,28 @@ class InventarioItemListView(APIView):
         queryset = InventarioItem.objects.select_related('proveedor').all()
         search = (request.query_params.get('search') or '').strip()
         if search:
-            queryset = queryset.filter(
-                Q(codigo_barras__icontains=search)
-                | Q(nombre__icontains=search)
-                | Q(marca__icontains=search)
-                | Q(modelo__icontains=search)
-                | Q(folio_factura__icontains=search)
+            # Nombre, marca, modelo, código de barras, ref externa y folio.
+            # Coincidencia exacta de código/modelo primero (escáner / pegar EAN).
+            queryset = (
+                queryset.filter(
+                    Q(codigo_barras__icontains=search)
+                    | Q(nombre__icontains=search)
+                    | Q(marca__icontains=search)
+                    | Q(modelo__icontains=search)
+                    | Q(ref_externa__icontains=search)
+                    | Q(folio_factura__icontains=search)
+                )
+                .annotate(
+                    _search_rank=Case(
+                        When(codigo_barras__iexact=search, then=Value(0)),
+                        When(modelo__iexact=search, then=Value(1)),
+                        When(codigo_barras__istartswith=search, then=Value(2)),
+                        When(modelo__istartswith=search, then=Value(3)),
+                        default=Value(4),
+                        output_field=IntegerField(),
+                    )
+                )
+                .order_by('_search_rank', '-fecha_actualizacion')
             )
         seccion = (request.query_params.get('seccion') or '').strip().lower()
         if seccion == 'sin':

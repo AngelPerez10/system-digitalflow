@@ -280,12 +280,20 @@ class SicarFacturasListView(APIView):
                     pass
 
     def post(self, request):
+        data = request.data if isinstance(request.data, dict) else {}
+        cli_id = data.get("cli_id")
+        conceptos = data.get("conceptos") or []
+        if not cli_id:
+            return Response({"detail": "cli_id es obligatorio."}, status=400)
+        if not conceptos:
+            return Response({"detail": "Agrega al menos un concepto."}, status=400)
+
         cfg = _sicar_db_config()
         missing = [k for k in ("host", "user", "password", "database") if not cfg.get(k)]
         if missing:
             return Response({"detail": f"Faltan variables SICAR en entorno: {', '.join(missing)}"}, status=500)
         try:
-            result = create_timbrada_factura(request.data if isinstance(request.data, dict) else {})
+            result = create_timbrada_factura(data)
             return Response(result, status=201)
         except SicarFacturaError as exc:
             logger.warning("Alta factura SICAR rechazada: %s", exc)

@@ -163,6 +163,44 @@ class InventarioItemsTests(APITestCase):
         self.assertIn('count', res.data)
         self.assertTrue(any(i['codigo_barras'] == 'X1' for i in res.data['results']))
 
+    def test_list_items_busca_por_codigo_y_modelo(self):
+        InventarioItem.objects.create(
+            codigo_barras='6942160404431',
+            nombre='Sensor puerta',
+            modelo='XBSSW01',
+            marca='Ajax',
+            cantidad=2,
+        )
+        InventarioItem.objects.create(
+            codigo_barras='OTRO-1',
+            nombre='Cable UTP',
+            modelo='ZZZ',
+            cantidad=1,
+        )
+        # Prefijo compartido: la coincidencia exacta de código debe ir primero.
+        InventarioItem.objects.create(
+            codigo_barras='694216040443199',
+            nombre='Variante larga',
+            modelo='XBSSW01-LONG',
+            cantidad=1,
+        )
+
+        por_codigo = self.client.get('/api/inventario/items/?search=6942160404431')
+        self.assertEqual(por_codigo.status_code, status.HTTP_200_OK)
+        self.assertEqual(por_codigo.data['count'], 2)
+        self.assertEqual(por_codigo.data['results'][0]['codigo_barras'], '6942160404431')
+
+        por_modelo = self.client.get('/api/inventario/items/?search=XBSSW01')
+        self.assertEqual(por_modelo.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(por_modelo.data['count'], 1)
+        self.assertEqual(por_modelo.data['results'][0]['modelo'], 'XBSSW01')
+
+        parcial = self.client.get('/api/inventario/items/?search=XBSS')
+        self.assertEqual(parcial.status_code, status.HTTP_200_OK)
+        self.assertTrue(
+            any(i['codigo_barras'] == '6942160404431' for i in parcial.data['results'])
+        )
+
     def test_list_items_paginado(self):
         for i in range(25):
             InventarioItem.objects.create(codigo_barras=f'PAG-{i}', cantidad=1)
