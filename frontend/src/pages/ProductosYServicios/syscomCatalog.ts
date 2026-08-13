@@ -24,7 +24,10 @@ export type SyscomProducto = {
   estado?: string;
   estado_inventario?: string;
   precio_mxn?: string | number;
+  /** Clave del producto/servicio del SAT (CFDI). SYSCOM y TVC la exponen. */
   sat_key?: string;
+  /** Descripción fiscal SAT (SYSCOM); útil como título/tooltip. */
+  sat_description?: string;
   img_portada?: string;
   categorías?: Array<{ id: string; nombre: string }>;
   marca_logo?: string;
@@ -145,13 +148,15 @@ export async function fetchIntraxProductos(params: IntraxSearchParams): Promise<
 }
 
 export const mapIntraxProductoToSyscom = (p: IntraxProducto): SyscomProducto => ({
-  producto_id: String(p.id_producto),
+  // Prefijo obligatorio: id_producto de Intrax (WP) ≠ producto_id de SYSCOM.
+  // Sin esto, el modal de detalle llama a SYSCOM con un id inválido → 404.
+  producto_id: `intrax:${p.id_producto}`,
   modelo: p.sku || "",
   sku: p.sku || "",
   total_existencia: Number.isFinite(p.existencias) ? p.existencias : 0,
   titulo: p.nombre || "",
   marca: "Intrax",
-  fuente: p.fuente,
+  fuente: "intrax",
   estado: p.estado,
   estado_inventario: p.estado_inventario,
   precio_mxn: p.precio_normal,
@@ -397,7 +402,7 @@ export type SyscomProductoDetalle = SyscomProducto & {
 
 /**
  * Detalle SYSCOM por `GET /productos/{id}/`.
- * El id debe ser **numérico** (producto_id del listado); slugs/modelo devuelven 422/404 y no se consultan.
+ * El id debe ser **numérico** (producto_id del listado); slugs/modelo / prefijos `tvc:`/`intrax:` no se consultan.
  */
 export async function fetchSyscomProductoDetalle(
   productId: string,
@@ -408,7 +413,8 @@ export async function fetchSyscomProductoDetalle(
   const res = await fetchSyscom(`productos/${tid}/`, init);
   if (!res.ok) return null;
   const data = await res.json().catch(() => null);
-  return data as SyscomProductoDetalle;
+  if (!data || typeof data !== "object") return null;
+  return { ...(data as SyscomProductoDetalle), fuente: "syscom" };
 }
 
 /**

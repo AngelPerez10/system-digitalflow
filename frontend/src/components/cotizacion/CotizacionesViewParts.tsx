@@ -1,7 +1,99 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
+import {
+  groupCotizacionesByStatus,
+  getStatusSectionStyles,
+  normalizeCotizacionStatus,
+  type CotizacionRow,
+  type CotizacionStatusSectionKey,
+} from "./cotizacionStatusSections";
+
+export type { CotizacionRow };
+
+const sectionLabelClass =
+  "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
+
+const heroHeadingClass =
+  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.85rem,2.8vw,2.6rem)] font-medium leading-[1.2] tracking-[-0.01em] text-[#1c1917] dark:text-[#f8fafc]";
+
+const bodyClass = "text-sm leading-relaxed text-[#57534e] dark:text-[#b7c1d1]";
+
+function StatusSectionIcon({ statusKey }: { statusKey: CotizacionStatusSectionKey }) {
+  if (statusKey === "AUTORIZADA") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (statusKey === "CANCELADA") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (statusKey === "PENDIENTE") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M6 6h12M6 12h12M6 18h12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CotizacionStatusSectionHeader({
+  statusKey,
+  label,
+  count,
+  headingId,
+  as = "div",
+}: {
+  statusKey: CotizacionStatusSectionKey;
+  label: string;
+  count: number;
+  headingId: string;
+  as?: "div" | "h2";
+}) {
+  const tone = getStatusSectionStyles(statusKey);
+  const TitleTag = as;
+
+  return (
+    <div
+      className={`relative flex items-center justify-between gap-3 overflow-hidden rounded-xl border px-3 py-2.5 sm:px-3.5 sm:py-3 ${tone.shell}`}
+    >
+      <span className={`absolute inset-y-0 left-0 w-1 ${tone.accent}`} aria-hidden />
+      <div className="flex min-w-0 items-center gap-2.5 pl-1.5 sm:gap-3">
+        <span
+          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-black/[0.06] bg-white/80 dark:border-white/10 dark:bg-black/20 ${tone.icon}`}
+        >
+          <StatusSectionIcon statusKey={statusKey} />
+        </span>
+        <TitleTag
+          id={headingId}
+          className={`min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.12em] sm:text-xs ${tone.label}`}
+        >
+          {label}
+        </TitleTag>
+      </div>
+      <span
+        className={`inline-flex min-h-7 shrink-0 items-center rounded-full border px-2.5 text-[11px] font-semibold tabular-nums ${tone.badge}`}
+        aria-label={`${count} cotizaciones`}
+      >
+        {count}
+      </span>
+    </div>
+  );
+}
 
 /** LibreICONS / Diemen Design (MIT) — icono de hoja Excel */
 function CotizacionExcelIcon({ className }: { className?: string }) {
@@ -46,30 +138,6 @@ const buildWhatsappUrl = (row: CotizacionRow) => {
   const text = encodeURIComponent(buildWhatsappMessage(row));
   return `https://wa.me/${phone}?text=${text}`;
 };
-
-export type CotizacionRow = {
-  id: number;
-  idx: number;
-  fecha: string;
-  medioContacto: string;
-  status: string;
-  creadaPor: string;
-  editadaPor: string;
-  cliente: string;
-  clienteTelefono?: string;
-  contacto: string;
-  tipoTrabajo: string;
-  monto: string;
-  totalAmount: number;
-};
-
-const sectionLabelClass =
-  "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
-
-const heroHeadingClass =
-  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.85rem,2.8vw,2.6rem)] font-medium leading-[1.2] tracking-[-0.01em] text-[#1c1917] dark:text-[#f8fafc]";
-
-const bodyClass = "text-sm leading-relaxed text-[#57534e] dark:text-[#b7c1d1]";
 
 export type CotizacionRowActions = {
   onOpenPdf: (id: number) => void;
@@ -230,6 +298,8 @@ export function CotizacionesMobileList({
   actions,
   excelLoading = false,
 }: ListProps) {
+  const sections = useMemo(() => groupCotizacionesByStatus(rows), [rows]);
+
   if (loading) {
     return <p className="py-6 text-center text-sm text-[#78716c] dark:text-[#8ea0b8] lg:hidden">Cargando…</p>;
   }
@@ -239,102 +309,118 @@ export function CotizacionesMobileList({
   }
 
   return (
-    <ul className="space-y-3 lg:hidden">
-      {rows.map((r) => {
-        const statusUpper = String(r.status || "PENDIENTE").toUpperCase();
+    <div className="space-y-5 lg:hidden">
+      {sections.map((section) => {
+        const headingId = `cotizaciones-mobile-${section.key.toLowerCase()}`;
         return (
-          <li
-            key={r.id}
-            className="rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-[0_12px_32px_-24px_rgba(28,25,23,0.25)] dark:border-[#273244] dark:bg-[#111827]/80"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white">
-                    {formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx)}
-                  </span>
-                  <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${statusChipClass(r.status)}`}>
-                    {statusUpper === "PENDIENTE"
-                      ? "Pendiente"
-                      : String(r.status || "—").charAt(0).toUpperCase() + String(r.status || "—").slice(1).toLowerCase()}
-                  </span>
-                </div>
-                <p className="mt-2 truncate text-sm font-semibold text-[#1c1917] dark:text-white">{r.cliente}</p>
-                {r.clienteTelefono && r.clienteTelefono !== "—" ? (
-                  <a
-                    href={buildWhatsappUrl(r) || undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={`mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8] ${
-                      buildWhatsappUrl(r)
-                        ? "inline-flex hover:text-[#16a34a] hover:underline"
-                        : "inline-flex cursor-default"
-                    }`}
-                    onClick={(e) => {
-                      if (!buildWhatsappUrl(r)) e.preventDefault();
-                    }}
+          <section key={section.key} aria-labelledby={headingId} className="space-y-3">
+            <CotizacionStatusSectionHeader
+              statusKey={section.key}
+              label={section.label}
+              count={section.rows.length}
+              headingId={headingId}
+              as="h2"
+            />
+            <ul className="space-y-3">
+              {section.rows.map((r) => {
+                const statusUpper = normalizeCotizacionStatus(r.status) || "PENDIENTE";
+                return (
+                  <li
+                    key={r.id}
+                    className="rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-[0_12px_32px_-24px_rgba(28,25,23,0.25)] dark:border-[#273244] dark:bg-[#111827]/80"
                   >
-                    {r.clienteTelefono}
-                  </a>
-                ) : null}
-                {r.tipoTrabajo && r.tipoTrabajo !== "—" ? (
-                  <p className="mt-1 line-clamp-2 text-xs text-[#57534e] dark:text-[#cbd5e1]" title={r.tipoTrabajo}>
-                    {r.tipoTrabajo}
-                  </p>
-                ) : null}
-                <p className="mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">{formatDMY(r.fecha)}</p>
-                <span className={`mt-2 inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${medioChipClass}`}>
-                  {normalizeMedioLabel(r.medioContacto)}
-                </span>
-              </div>
-              <p className="shrink-0 text-sm font-semibold tabular-nums text-[#1c1917] dark:text-white">{r.monto}</p>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2 border-t border-[#e7ded0] pt-3 dark:border-[#273244]">
-              <button
-                type="button"
-                disabled={excelLoading}
-                onClick={() => actions.onEdit(r)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-[#ff801f] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
-                title="Editar"
-                aria-label="Editar"
-              >
-                <PencilIcon className="h-4 w-4" />
-              </button>
-              {actions.onDownloadExcel && (
-                <button
-                  type="button"
-                  disabled={excelLoading}
-                  onClick={() => actions.onDownloadExcel!(r)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
-                  title="Excel"
-                  aria-label="Descargar Excel"
-                >
-                  <CotizacionExcelIcon className="h-4 w-4" />
-                </button>
-              )}
-              <button
-                type="button"
-                disabled={excelLoading}
-                onClick={() => actions.onOpenPdf(r.id)}
-                className="inline-flex min-h-[40px] flex-1 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-xs font-medium text-[#57534e] hover:border-[#ff801f] hover:text-[#ea580c] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]"
-              >
-                PDF
-              </button>
-              <button
-                type="button"
-                disabled={excelLoading}
-                onClick={() => actions.onDelete(r)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-rose-400 hover:text-rose-600 disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
-                title="Eliminar"
-                aria-label="Eliminar"
-              >
-                <TrashBinIcon className="h-4 w-4" />
-              </button>
-            </div>
-          </li>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white">
+                            {formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx)}
+                          </span>
+                          <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${statusChipClass(r.status)}`}>
+                            {statusUpper === "PENDIENTE"
+                              ? "Pendiente"
+                              : String(r.status || "—").charAt(0).toUpperCase() + String(r.status || "—").slice(1).toLowerCase()}
+                          </span>
+                        </div>
+                        <p className="mt-2 truncate text-sm font-semibold text-[#1c1917] dark:text-white">{r.cliente}</p>
+                        {r.clienteTelefono && r.clienteTelefono !== "—" ? (
+                          <a
+                            href={buildWhatsappUrl(r) || undefined}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8] ${
+                              buildWhatsappUrl(r)
+                                ? "inline-flex hover:text-[#16a34a] hover:underline"
+                                : "inline-flex cursor-default"
+                            }`}
+                            onClick={(e) => {
+                              if (!buildWhatsappUrl(r)) e.preventDefault();
+                            }}
+                          >
+                            {r.clienteTelefono}
+                          </a>
+                        ) : null}
+                        {r.tipoTrabajo && r.tipoTrabajo !== "—" ? (
+                          <p className="mt-1 line-clamp-2 text-xs text-[#57534e] dark:text-[#cbd5e1]" title={r.tipoTrabajo}>
+                            {r.tipoTrabajo}
+                          </p>
+                        ) : null}
+                        <p className="mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">{formatDMY(r.fecha)}</p>
+                        <span className={`mt-2 inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${medioChipClass}`}>
+                          {normalizeMedioLabel(r.medioContacto)}
+                        </span>
+                      </div>
+                      <p className="shrink-0 text-sm font-semibold tabular-nums text-[#1c1917] dark:text-white">{r.monto}</p>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2 border-t border-[#e7ded0] pt-3 dark:border-[#273244]">
+                      <button
+                        type="button"
+                        disabled={excelLoading}
+                        onClick={() => actions.onEdit(r)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-[#ff801f] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
+                        title="Editar"
+                        aria-label="Editar"
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
+                      {actions.onDownloadExcel && (
+                        <button
+                          type="button"
+                          disabled={excelLoading}
+                          onClick={() => actions.onDownloadExcel!(r)}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
+                          title="Excel"
+                          aria-label="Descargar Excel"
+                        >
+                          <CotizacionExcelIcon className="h-4 w-4" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={excelLoading}
+                        onClick={() => actions.onOpenPdf(r.id)}
+                        className="inline-flex min-h-[40px] flex-1 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-xs font-medium text-[#57534e] hover:border-[#ff801f] hover:text-[#ea580c] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]"
+                      >
+                        PDF
+                      </button>
+                      <button
+                        type="button"
+                        disabled={excelLoading}
+                        onClick={() => actions.onDelete(r)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-rose-400 hover:text-rose-600 disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
+                        title="Eliminar"
+                        aria-label="Eliminar"
+                      >
+                        <TrashBinIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         );
       })}
-    </ul>
+    </div>
   );
 }
 
@@ -348,6 +434,8 @@ export function CotizacionesTable({
   actions,
   excelLoading = false,
 }: ListProps) {
+  const sections = useMemo(() => groupCotizacionesByStatus(rows), [rows]);
+
   return (
     <div className="hidden lg:block">
       <div className="touch-pan-x overflow-x-auto overscroll-x-contain rounded-xl border border-[#e7ded0] bg-[#fffdfa]/70 [-webkit-overflow-scrolling:touch] dark:border-[#273244] dark:bg-[#111a2b]/40">
@@ -380,130 +468,150 @@ export function CotizacionesTable({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r) => {
-                const statusUpper = String(r.status || "PENDIENTE").toUpperCase();
-                return (
-                  <TableRow key={r.id} className="align-top transition-colors hover:bg-[#fff8f1]/80 dark:hover:bg-[#1e293b]/40">
-                    <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
-                      <span className="inline-flex items-center justify-center rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white sm:text-[11px]">
-                        {formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">{formatDMY(r.fecha)}</TableCell>
-                    <TableCell className="min-w-0 max-w-[160px] px-2 py-2 align-middle sm:px-3">
-                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${medioChipClass}`}>
-                        {normalizeMedioLabel(r.medioContacto)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
-                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${statusChipClass(r.status)}`}>
-                        {statusUpper === "PENDIENTE"
-                          ? "Pendiente"
-                          : String(r.status || "—").charAt(0).toUpperCase() + String(r.status || "—").slice(1).toLowerCase()}
-                      </span>
-                    </TableCell>
-                    <TableCell className="min-w-0 max-w-[180px] px-2 py-2 align-top sm:px-3">
-                      <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
-                        <span className="truncate sm:text-[12px]" title={r.creadaPor}>
-                          {r.creadaPor}
-                        </span>
-                        <span className="shrink-0 text-[10px] leading-tight text-[#78716c] dark:text-[#8ea0b8]">Creada</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="min-w-0 max-w-[180px] px-2 py-2 align-top sm:px-3">
-                      <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
-                        <span className="truncate sm:text-[12px]" title={r.editadaPor}>
-                          {r.editadaPor}
-                        </span>
-                        <span className="shrink-0 text-[10px] leading-tight text-[#78716c] dark:text-[#8ea0b8]">Última edición</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="min-w-[160px] max-w-[280px] px-2 py-2 align-top sm:px-3">
-                      <span className="block truncate font-medium sm:text-[12px]" title={r.cliente}>
-                        {r.cliente}
-                      </span>
-                      {r.clienteTelefono && r.clienteTelefono !== "—" ? (
-                        <a
-                          href={buildWhatsappUrl(r) || undefined}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={`mt-0.5 block text-[11px] text-[#cc785c] dark:text-[#cc785c] ${
-                            buildWhatsappUrl(r)
-                              ? "hover:text-[#16a34a] hover:underline"
-                              : "cursor-default"
-                          }`}
-                          onClick={(e) => {
-                            if (!buildWhatsappUrl(r)) e.preventDefault();
-                          }}
-                        >
-                          {r.clienteTelefono}
-                        </a>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="min-w-[140px] max-w-[220px] px-2 py-2 align-top sm:px-3">
-                      <span
-                        className="block line-clamp-2 text-[11px] leading-snug text-[#57534e] dark:text-[#cbd5e1] sm:text-[12px]"
-                        title={r.tipoTrabajo}
-                      >
-                        {r.tipoTrabajo || "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-right align-middle sm:px-3">
-                      <span className="inline-flex max-w-full justify-end rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[11px] font-semibold tabular-nums dark:border-[#334155] dark:bg-[#0f172a] sm:text-[12px]">
-                        {r.monto}
-                      </span>
-                    </TableCell>
-                    <TableCell className="w-[160px] min-w-[160px] whitespace-nowrap px-2 py-2 text-center align-middle sm:px-3">
-                      <div className="inline-flex items-center gap-1 rounded-md bg-[#f5f0e8] px-1.5 py-1 dark:bg-white/10">
-                        <button
-                          type="button"
-                          disabled={excelLoading}
-                          onClick={() => actions.onEdit(r)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-[#ffa057] hover:text-[#ff801f] disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b]"
-                          title="Editar"
-                          aria-label="Editar"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                        {actions.onDownloadExcel && (
-                          <button
-                            type="button"
-                            disabled={excelLoading}
-                            onClick={() => actions.onDownloadExcel!(r)}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b] dark:hover:border-emerald-500"
-                            title="Excel"
-                            aria-label="Descargar Excel"
-                          >
-                            <CotizacionExcelIcon className="h-4 w-4" />
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          disabled={excelLoading}
-                          onClick={() => actions.onOpenPdf(r.id)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-[#ffa057] hover:text-[#ff801f] disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b] dark:hover:border-[#ff801f]"
-                          title="PDF"
-                          aria-label="Ver PDF"
-                        >
-                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <path d="M14 2v6h6" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={excelLoading}
-                          onClick={() => actions.onDelete(r)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-rose-400 hover:text-rose-600 disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b]"
-                          title="Eliminar"
-                          aria-label="Eliminar"
-                        >
-                          <TrashBinIcon className="h-4 w-4" />
-                        </button>
+              sections.flatMap((section) => {
+                const headingId = `cotizaciones-table-${section.key.toLowerCase()}`;
+                const headerRow = (
+                  <TableRow key={`${section.key}-header`} className="hover:bg-transparent dark:hover:bg-transparent">
+                    <TableCell isHeader scope="colgroup" colSpan={10} className="border-y-0 bg-transparent p-0 text-left">
+                      <div className="px-2 py-2 sm:px-3">
+                        <CotizacionStatusSectionHeader
+                          statusKey={section.key}
+                          label={section.label}
+                          count={section.rows.length}
+                          headingId={headingId}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>
                 );
+
+                const dataRows = section.rows.map((r) => {
+                  const statusUpper = normalizeCotizacionStatus(r.status) || "PENDIENTE";
+                  return (
+                    <TableRow key={r.id} className="align-top transition-colors hover:bg-[#fff8f1]/80 dark:hover:bg-[#1e293b]/40">
+                      <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
+                        <span className="inline-flex items-center justify-center rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white sm:text-[11px]">
+                          {formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">{formatDMY(r.fecha)}</TableCell>
+                      <TableCell className="min-w-0 max-w-[160px] px-2 py-2 align-middle sm:px-3">
+                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${medioChipClass}`}>
+                          {normalizeMedioLabel(r.medioContacto)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
+                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${statusChipClass(r.status)}`}>
+                          {statusUpper === "PENDIENTE"
+                            ? "Pendiente"
+                            : String(r.status || "—").charAt(0).toUpperCase() + String(r.status || "—").slice(1).toLowerCase()}
+                        </span>
+                      </TableCell>
+                      <TableCell className="min-w-0 max-w-[180px] px-2 py-2 align-top sm:px-3">
+                        <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
+                          <span className="truncate sm:text-[12px]" title={r.creadaPor}>
+                            {r.creadaPor}
+                          </span>
+                          <span className="shrink-0 text-[10px] leading-tight text-[#78716c] dark:text-[#8ea0b8]">Creada</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-0 max-w-[180px] px-2 py-2 align-top sm:px-3">
+                        <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
+                          <span className="truncate sm:text-[12px]" title={r.editadaPor}>
+                            {r.editadaPor}
+                          </span>
+                          <span className="shrink-0 text-[10px] leading-tight text-[#78716c] dark:text-[#8ea0b8]">Última edición</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[160px] max-w-[280px] px-2 py-2 align-top sm:px-3">
+                        <span className="block truncate font-medium sm:text-[12px]" title={r.cliente}>
+                          {r.cliente}
+                        </span>
+                        {r.clienteTelefono && r.clienteTelefono !== "—" ? (
+                          <a
+                            href={buildWhatsappUrl(r) || undefined}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`mt-0.5 block text-[11px] text-[#cc785c] dark:text-[#cc785c] ${
+                              buildWhatsappUrl(r)
+                                ? "hover:text-[#16a34a] hover:underline"
+                                : "cursor-default"
+                            }`}
+                            onClick={(e) => {
+                              if (!buildWhatsappUrl(r)) e.preventDefault();
+                            }}
+                          >
+                            {r.clienteTelefono}
+                          </a>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="min-w-[140px] max-w-[220px] px-2 py-2 align-top sm:px-3">
+                        <span
+                          className="block line-clamp-2 text-[11px] leading-snug text-[#57534e] dark:text-[#cbd5e1] sm:text-[12px]"
+                          title={r.tipoTrabajo}
+                        >
+                          {r.tipoTrabajo || "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-right align-middle sm:px-3">
+                        <span className="inline-flex max-w-full justify-end rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[11px] font-semibold tabular-nums dark:border-[#334155] dark:bg-[#0f172a] sm:text-[12px]">
+                          {r.monto}
+                        </span>
+                      </TableCell>
+                      <TableCell className="w-[160px] min-w-[160px] whitespace-nowrap px-2 py-2 text-center align-middle sm:px-3">
+                        <div className="inline-flex items-center gap-1 rounded-md bg-[#f5f0e8] px-1.5 py-1 dark:bg-white/10">
+                          <button
+                            type="button"
+                            disabled={excelLoading}
+                            onClick={() => actions.onEdit(r)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-[#ffa057] hover:text-[#ff801f] disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b]"
+                            title="Editar"
+                            aria-label="Editar"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
+                          {actions.onDownloadExcel && (
+                            <button
+                              type="button"
+                              disabled={excelLoading}
+                              onClick={() => actions.onDownloadExcel!(r)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b] dark:hover:border-emerald-500"
+                              title="Excel"
+                              aria-label="Descargar Excel"
+                            >
+                              <CotizacionExcelIcon className="h-4 w-4" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            disabled={excelLoading}
+                            onClick={() => actions.onOpenPdf(r.id)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-[#ffa057] hover:text-[#ff801f] disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b] dark:hover:border-[#ff801f]"
+                            title="PDF"
+                            aria-label="Ver PDF"
+                          >
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <path d="M14 2v6h6" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={excelLoading}
+                            onClick={() => actions.onDelete(r)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e2d9ca] bg-white transition hover:border-rose-400 hover:text-rose-600 disabled:opacity-50 dark:border-white/10 dark:bg-[#111a2b]"
+                            title="Eliminar"
+                            aria-label="Eliminar"
+                          >
+                            <TrashBinIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                });
+
+                return [headerRow, ...dataRows];
               })
             )}
           </TableBody>

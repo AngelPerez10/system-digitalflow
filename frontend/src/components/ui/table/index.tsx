@@ -30,7 +30,7 @@ interface TableCellProps {
   isHeader?: boolean; // If true, renders as <th>, otherwise <td>
   className?: string; // Optional className for styling
   colSpan?: number;
-  scope?: "col" | "row"; // Scope for header cells (a11y); defaults to "col" when isHeader
+  scope?: "col" | "row" | "colgroup"; // Scope for header cells (a11y); defaults to "col" when isHeader
 }
 
 // Table Component

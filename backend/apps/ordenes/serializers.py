@@ -243,6 +243,16 @@ class OrdenSerializer(serializers.ModelSerializer):
 class OrdenListSerializer(OrdenSerializer):
     """Listado liviano: sin fotos, firmas, cotizaciones ni blob de equipos."""
 
+    def get_equipos_inventario_total(self, obj):
+        # El listado hace defer de equipos_inventario; no forzar N+1.
+        return 0
+
+    def get_equipos_inventario_entregados(self, obj):
+        return 0
+
+    def get_equipos_inventario_instalados(self, obj):
+        return 0
+
     class Meta(OrdenSerializer.Meta):
         fields = [
             'id',

@@ -57,6 +57,7 @@ class ProductoManualSerializer(serializers.ModelSerializer):
             'marca',
             'modelo',
             'caracteristicas',
+            'sat_key',
             'imagen_url',
             'fuente',
             'precio',
@@ -79,6 +80,14 @@ class ProductoManualSerializer(serializers.ModelSerializer):
                 f'Ya existe un producto manual con el modelo "{modelo}".'
             )
         return modelo
+
+    def validate_sat_key(self, value):
+        clave = ''.join(str(value or '').strip().split())
+        if not clave:
+            return ''
+        if len(clave) > 32:
+            raise serializers.ValidationError('La clave SAT no puede superar 32 caracteres.')
+        return clave
 
     def validate_stock(self, value):
         if value < 0:

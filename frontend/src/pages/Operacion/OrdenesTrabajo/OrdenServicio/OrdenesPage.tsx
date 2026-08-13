@@ -27,6 +27,8 @@ import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { MobileOrderList } from "./list/MobileOrderCard";
+import { OrdenStatusSectionHeader } from "./list/OrdenStatusSectionHeader";
+import { OrdenesMonthLoadingBanner } from "./list/OrdenesMonthLoadingBanner";
 import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
 import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./list/OrdenEnviarPdfModal";
 import {
@@ -46,6 +48,7 @@ import {
   ORDEN_RECIEN_RESUELTA_ROW_CLASS,
   parseYearMonth,
 } from "./shared/ordenesPageUtils";
+import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import {
@@ -102,10 +105,11 @@ export default function Ordenes() {
     ordenes,
     setOrdenes,
     loading,
+    monthLoading,
     searchTerm,
     setSearchTerm,
     selectedMonth,
-    setSelectedMonth,
+    selectMonth,
     filterStatus,
     setFilterStatus,
     filterServicio,
@@ -514,6 +518,17 @@ export default function Ordenes() {
 
   const startIndex = 0;
   const currentOrdenes = shownList;
+  const statusSections = useMemo(
+    () => groupOrdenesByStatus(currentOrdenes),
+    [currentOrdenes],
+  );
+  const ordenIndexById = useMemo(() => {
+    const map = new Map<number, number>();
+    currentOrdenes.forEach((orden, idx) => {
+      if (typeof orden.id === "number") map.set(orden.id, idx);
+    });
+    return map;
+  }, [currentOrdenes]);
 
   const clienteActions = useMemo(
     () => buildClienteSearchActions(clientes, clienteSearch),
@@ -757,10 +772,13 @@ export default function Ordenes() {
         }
       >
         <div className="p-2 pt-0">
+          {monthLoading ? (
+            <OrdenesMonthLoadingBanner selectedMonth={selectedMonth} className="mb-3" />
+          ) : null}
           <MobileOrderList
             ordenes={currentOrdenes}
             startIndex={startIndex}
-            loading={loading}
+            loading={monthLoading}
             formatDate={formatYmdToDMY}
             onPdf={handleOrdenPdf}
             onEnviarPdf={openEnviarPdfModal}
@@ -770,6 +788,7 @@ export default function Ordenes() {
             canDelete={canOrdenesDelete}
             usuarios={usuarios}
             highlightRecentStatus={isAdmin}
+            groupByStatus
           />
           <div className={"hidden md:block " + erpTableWrapClass}>
             <Table className="w-full min-w-[900px] table-fixed sm:min-w-0 xl:min-w-full">
@@ -786,7 +805,36 @@ export default function Ordenes() {
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
-                {currentOrdenes.map((orden, idx) => {
+                {statusSections.flatMap((section) => {
+                  const headingId = `ordenes-table-${section.key.toLowerCase()}`;
+                  const headerRow = (
+                    <TableRow
+                      key={`${section.key}-header`}
+                      className="hover:bg-transparent dark:hover:bg-transparent"
+                    >
+                      <TableCell
+                        isHeader
+                        scope="colgroup"
+                        colSpan={7}
+                        className="border-y-0 bg-transparent p-0 text-left"
+                      >
+                        <div className="px-2 py-2">
+                          <OrdenStatusSectionHeader
+                            statusKey={section.key}
+                            label={section.label}
+                            count={section.ordenes.length}
+                            headingId={headingId}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+
+                  const dataRows = section.ordenes.map((orden, sectionIdx) => {
+                  const idx =
+                    typeof orden.id === "number" && ordenIndexById.has(orden.id)
+                      ? (ordenIndexById.get(orden.id) as number)
+                      : sectionIdx;
                   const fecha = orden.fecha_inicio || orden.fecha_creacion || '';
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
@@ -799,7 +847,7 @@ export default function Ordenes() {
                     : ((orden as any).nombre_encargado || '-');
                   return (
                     <TableRow
-                      key={orden.id ?? idx}
+                      key={orden.id ?? `${section.key}-${sectionIdx}`}
                       className={`${erpTableRowHoverClass}${recentResolved ? ` ${ORDEN_RECIEN_RESUELTA_ROW_CLASS}` : ""}`}
                       aria-label={recentResolved ? `Orden ${folioDisplay}, resuelta recientemente` : undefined}
                     >
@@ -910,6 +958,7 @@ export default function Ordenes() {
                               onClick={() => handleEdit(orden)}
                               className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-[#ffa057] hover:text-[#ea580c] dark:hover:border-[#ff801f] transition"
                               title="Editar"
+                              aria-label="Editar"
                             >
                               <PencilIcon className="w-4 h-4" />
                             </button>
@@ -919,6 +968,7 @@ export default function Ordenes() {
                               onClick={() => handleDeleteClick(orden)}
                               className={erpRowActionBtnClass + " hover:border-rose-400 hover:text-rose-600"}
                               title="Eliminar"
+                              aria-label="Eliminar"
                             >
                               <TrashBinIcon className="w-4 h-4" />
                             </button>
@@ -927,8 +977,23 @@ export default function Ordenes() {
                       </TableCell>
                     </TableRow>
                   );
+                  });
+
+                  return [headerRow, ...dataRows];
                 })}
-                {(!loading && shownList.length === 0) && (
+                {monthLoading && shownList.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="px-2 py-8 text-center text-[12px] text-gray-500 dark:text-gray-400"
+                    >
+                      <span role="status" aria-live="polite">
+                        Cargando órdenes del mes…
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {(!monthLoading && shownList.length === 0) && (
                   <TableRow>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
                     <TableCell className="px-2 py-2">&nbsp;</TableCell>
@@ -943,14 +1008,21 @@ export default function Ordenes() {
             </Table>
           </div>
 
-          {/* Paginación */}
-          {!loading && (
-            <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
+          {/* Navegación por mes: siempre visible (también mientras carga). */}
+          <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between sm:gap-4 flex-wrap">
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                  Mostrando <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> órdenes
+                  {monthLoading ? (
+                    <span role="status" aria-live="polite">
+                      Cargando órdenes del mes seleccionado…
+                    </span>
+                  ) : (
+                    <>
+                      Mostrando <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
+                      <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
+                      <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> órdenes
+                    </>
+                  )}
                 </p>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -961,16 +1033,17 @@ export default function Ordenes() {
                       if (!ym) return;
                       const d = new Date(ym.year, ym.month - 2, 1);
                       const mm = String(d.getMonth() + 1).padStart(2, '0');
-                      setSelectedMonth(`${d.getFullYear()}-${mm}`);
+                      selectMonth(`${d.getFullYear()}-${mm}`);
                     }}
                     className={erpMonthNavBtnClass}
                     title="Mes anterior"
+                    aria-label="Mes anterior"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M15 18l-6-6 6-6" />
                     </svg>
                   </button>
-                  <span className="min-w-[130px] sm:min-w-[160px] text-center text-[11px] sm:text-[12px] text-gray-700 dark:text-gray-300">
+                  <span className="min-w-[130px] sm:min-w-[160px] text-center text-[11px] sm:text-[12px] text-gray-700 dark:text-gray-300 capitalize">
                     {(() => {
                       const ym = parseYearMonth(selectedMonth);
                       if (!ym) return selectedMonth ? selectedMonth : 'Todos los meses';
@@ -985,10 +1058,11 @@ export default function Ordenes() {
                       const dt = new Date(ym.year, ym.month - 1, 1);
                       dt.setMonth(dt.getMonth() + 1);
                       const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
-                      setSelectedMonth(next);
+                      selectMonth(next);
                     }}
                     className={erpMonthNavBtnClass}
                     title="Mes siguiente"
+                    aria-label="Mes siguiente"
                   >
                     <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M9 18l6-6 6 6" />
@@ -997,7 +1071,6 @@ export default function Ordenes() {
                 </div>
               </div>
             </div>
-          )}
         </div>
       </ComponentCard>
 

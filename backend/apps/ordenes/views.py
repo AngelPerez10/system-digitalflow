@@ -529,30 +529,62 @@ class OrdenViewSet(viewsets.ModelViewSet):
         # IMPORTANTE: usar `.all()` para obtener un queryset fresco en cada request
         # y evitar cache accidental de resultados en el queryset de clase.
         is_list = self.action == 'list'
-        related = [
-            'cliente_id',
-            'tecnico_asignado',
-            'creado_por',
-            'quien_instalo',
-            'quien_entrego',
-        ]
-        if not is_list:
-            related = related + ['levantamiento', 'instalacion']
+        user = getattr(self.request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return self.queryset.none()
 
-        qs = (
-            self.queryset.all()
-            .annotate(
-                tiene_levantamiento=Exists(OrdenLevantamiento.objects.filter(orden_id=OuterRef('pk'))),
-                tiene_instalacion=Exists(OrdenInstalacion.objects.filter(orden_id=OuterRef('pk'))),
-            )
-            .select_related(*related)
-            .order_by(
-                F('fecha_inicio').desc(nulls_last=True),
-                F('fecha_creacion').desc(nulls_last=True),
-                '-id',
-            )
-        )
         if is_list:
+            # Listado rápido: joins 1:1 en lugar de Exists/Subquery por fila,
+            # y sin columnas pesadas (fotos/firmas/JSON de equipos).
+            qs = (
+                self.queryset.all()
+                .select_related(
+                    'cliente_id',
+                    'tecnico_asignado',
+                    'creado_por',
+                    'levantamiento',
+                    'instalacion',
+                )
+                .defer(
+                    'fotos_urls',
+                    'firma_encargado_url',
+                    'firma_cliente_url',
+                    'cotizaciones_adjuntas',
+                    'equipos_inventario',
+                )
+                .order_by(
+                    F('fecha_inicio').desc(nulls_last=True),
+                    F('fecha_creacion').desc(nulls_last=True),
+                    '-id',
+                )
+            )
+        else:
+            related = [
+                'cliente_id',
+                'tecnico_asignado',
+                'creado_por',
+                'quien_instalo',
+                'quien_entrego',
+                'levantamiento',
+                'instalacion',
+            ]
+            qs = (
+                self.queryset.all()
+                .annotate(
+                    tiene_levantamiento=Exists(
+                        OrdenLevantamiento.objects.filter(orden_id=OuterRef('pk'))
+                    ),
+                    tiene_instalacion=Exists(
+                        OrdenInstalacion.objects.filter(orden_id=OuterRef('pk'))
+                    ),
+                )
+                .select_related(*related)
+                .order_by(
+                    F('fecha_inicio').desc(nulls_last=True),
+                    F('fecha_creacion').desc(nulls_last=True),
+                    '-id',
+                )
+            )
             lev_tipo = (
                 OrdenLevantamiento.objects.filter(orden_id=OuterRef('pk'))
                 .annotate(tipo=KeyTextTransform('tipo', 'payload'))
@@ -560,9 +592,6 @@ class OrdenViewSet(viewsets.ModelViewSet):
             )
             qs = qs.annotate(levantamiento_tipo_annot=Subquery(lev_tipo))
 
-        user = getattr(self.request, 'user', None)
-        if not user or not getattr(user, 'is_authenticated', False):
-            return qs.none()
         own_only = user_module_own_only(user, 'ordenes')
         if own_only:
             qs = qs.filter(Q(tecnico_asignado=user) | Q(creado_por=user))
@@ -586,22 +615,34 @@ class OrdenViewSet(viewsets.ModelViewSet):
             if 1 <= month <= 12:
                 start = date(year, month, 1)
                 end = date(year, month, monthrange(year, month)[1])
+                # Evitar fecha_creacion__date (no usa índice): rango DateTime half-open.
+                start_naive = datetime.combine(start, time.min)
+                end_exclusive_naive = datetime.combine(end + timedelta(days=1), time.min)
+                if timezone.get_default_timezone_name() and timezone.is_aware(
+                    timezone.now()
+                ):
+                    tz = timezone.get_current_timezone()
+                    start_dt = timezone.make_aware(start_naive, tz)
+                    end_exclusive = timezone.make_aware(end_exclusive_naive, tz)
+                else:
+                    start_dt = start_naive
+                    end_exclusive = end_exclusive_naive
                 qs = qs.filter(
                     Q(fecha_inicio__gte=start, fecha_inicio__lte=end)
                     | Q(
                         fecha_inicio__isnull=True,
-                        fecha_creacion__date__gte=start,
-                        fecha_creacion__date__lte=end,
+                        fecha_creacion__gte=start_dt,
+                        fecha_creacion__lt=end_exclusive,
                     )
                 )
 
         tipo = (params.get('tipo_orden') or '').strip().lower()
         if tipo == 'levantamiento':
-            qs = qs.filter(tiene_levantamiento=True, tiene_instalacion=False)
+            qs = qs.filter(levantamiento__isnull=False, instalacion__isnull=True)
         elif tipo in ('servicio_tecnico', 'servicio'):
-            qs = qs.filter(tiene_levantamiento=False, tiene_instalacion=False)
+            qs = qs.filter(levantamiento__isnull=True, instalacion__isnull=True)
         elif tipo in ('instalaciones', 'instalacion'):
-            qs = qs.filter(tiene_instalacion=True)
+            qs = qs.filter(instalacion__isnull=False)
 
         return qs
 

@@ -11,6 +11,7 @@ import {
   fetchSyscomTipoCambio,
   formatPrecioPublicoMxnConIva,
   fetchSyscomProductoDetalle,
+  fetchSyscomProductosSugerencia,
   fetchIntraxProductos,
   isCatalogAuthReady,
   getProductoImagenesUrls,
@@ -88,6 +89,7 @@ type ManualProduct = {
   caracteristicas?: string;
   marca: string;
   modelo: string;
+  sat_key?: string;
   fuente: "manual";
   precio: number;
   stock: number;
@@ -131,6 +133,7 @@ const manualToSyscomProducto = (m: ManualProduct): SyscomProducto => ({
   titulo: m.producto, marca: m.marca, fuente: "manual",
   estado: "activo", estado_inventario: m.stock > 0 ? "con_existencia" : "sin_existencia",
   precio_mxn: Number.isFinite(m.precio) ? m.precio : 0,
+  sat_key: (m.sat_key || "").trim(),
   img_portada: m.imagen_url || "", link: "",
   precios: { precio_lista: Number.isFinite(m.precio) ? m.precio : 0 },
 });
@@ -170,7 +173,8 @@ const matchesManualSearch = (m: ManualProduct, needle: string): boolean => {
   return (
     m.producto.toLowerCase().includes(q) ||
     m.marca.toLowerCase().includes(q) ||
-    m.modelo.toLowerCase().includes(q)
+    m.modelo.toLowerCase().includes(q) ||
+    (m.sat_key || "").toLowerCase().includes(q)
   );
 };
 
@@ -339,7 +343,16 @@ export default function ProductosPage() {
   const [manualDeleteId, setManualDeleteId] = useState<string | null>(null);
   const [manualFormError, setManualFormError] = useState("");
   const [manualImageUploading, setManualImageUploading] = useState(false);
-  const [manualForm, setManualForm] = useState({ imagen_url: "", producto: "", caracteristicas: "", marca: "", modelo: "", precio: "", stock: "" });
+  const [manualForm, setManualForm] = useState({
+    imagen_url: "",
+    producto: "",
+    caracteristicas: "",
+    marca: "",
+    modelo: "",
+    sat_key: "",
+    precio: "",
+    stock: "",
+  });
 
   const fetchManualProducts = useCallback(async () => {
     if (!catalogReady) return;
@@ -381,6 +394,7 @@ export default function ProductosPage() {
             caracteristicas: String(row.caracteristicas || ""),
             marca: String(row.marca || ""),
             modelo: String(row.modelo || ""),
+            sat_key: String(row.sat_key || "").trim(),
             fuente: "manual",
             precio: toMoney2(Number(row.precio || 0)),
             stock: Number.isFinite(Number(row.stock)) ? Number(row.stock) : 0,
@@ -531,15 +545,7 @@ export default function ProductosPage() {
       }
 
       const applyManualCatalogPage = (needle: string, softError: string | null) => {
-        const qLower = needle.trim().toLowerCase();
-        const filtered = manualProducts.filter((m) => {
-          if (!qLower) return true;
-          return (
-            m.producto.toLowerCase().includes(qLower) ||
-            m.marca.toLowerCase().includes(qLower) ||
-            m.modelo.toLowerCase().includes(qLower)
-          );
-        });
+        const filtered = manualProducts.filter((m) => matchesManualSearch(m, needle));
         const pageSize = 50;
         const totalRows = filtered.length;
         const totalPages = Math.max(1, Math.ceil(totalRows / pageSize) || 1);
@@ -641,15 +647,7 @@ export default function ProductosPage() {
     } catch {
       if (isStale()) return;
       if (manualProducts.length > 0) {
-        const qLower = busqueda.trim().toLowerCase();
-        const filtered = manualProducts.filter((m) => {
-          if (!qLower) return true;
-          return (
-            m.producto.toLowerCase().includes(qLower) ||
-            m.marca.toLowerCase().includes(qLower) ||
-            m.modelo.toLowerCase().includes(qLower)
-          );
-        });
+        const filtered = manualProducts.filter((m) => matchesManualSearch(m, busqueda));
         const pageSize = 50;
         const totalRows = filtered.length;
         const totalPages = Math.max(1, Math.ceil(totalRows / pageSize) || 1);
@@ -681,31 +679,89 @@ export default function ProductosPage() {
   useEffect(() => { if (!filterOpen) return; const onPointerDown = (e: PointerEvent) => { const t = e.target as Node; if (filterRef.current?.contains(t)) return; setFilterOpen(false); }; document.addEventListener("pointerdown", onPointerDown); return () => document.removeEventListener("pointerdown", onPointerDown); }, [filterOpen]);
 
   useEffect(() => {
-    if (!detailModalOpen || !selectedProductId) { setDetailProduct(null); return; }
+    if (!detailModalOpen || !selectedProductId) {
+      setDetailProduct(null);
+      return;
+    }
     const listedProduct = productosRef.current.find((p) => p.producto_id === selectedProductId);
-    if (listedProduct?.fuente === "manual") {
+    const idLower = selectedProductId.toLowerCase();
+
+    if (listedProduct?.fuente === "manual" || idLower.startsWith("manual:")) {
       setDetailProduct((listedProduct as SyscomProductoDetalle) ?? null);
       setLoadingDetail(false);
       return;
     }
-    if (listedProduct?.fuente === "tvc" || selectedProductId.toLowerCase().startsWith("tvc:")) {
+
+    // Intrax (WP): no tiene detalle en SYSCOM; el id_producto de Intrax ≠ producto_id SYSCOM.
+    if (listedProduct?.fuente === "intrax" || idLower.startsWith("intrax:")) {
+      setDetailProduct((listedProduct as SyscomProductoDetalle) ?? null);
+      setLoadingDetail(false);
+      // Enriquecer en segundo plano si el SKU existe en SYSCOM.
+      const sku = (listedProduct?.sku || listedProduct?.modelo || "").trim();
+      if (sku.length >= 2 && isCatalogAuthReady()) {
+        let cancelado = false;
+        void (async () => {
+          try {
+            const { productos } = await fetchSyscomProductosSugerencia(sku);
+            if (cancelado || productos.length === 0) return;
+            const exact =
+              productos.find(
+                (p) =>
+                  (p.modelo || "").trim().toLowerCase() === sku.toLowerCase() ||
+                  (p.sku || "").trim().toLowerCase() === sku.toLowerCase(),
+              ) ?? productos[0];
+            if (!exact?.producto_id) return;
+            const detalle = await fetchSyscomProductoDetalle(exact.producto_id);
+            if (cancelado || !detalle) return;
+            setDetailProduct({
+              ...detalle,
+              fuente: "intrax",
+              // Conserva vínculo Intrax si el detalle SYSCOM no trae foto.
+              img_portada: detalle.img_portada || listedProduct?.img_portada,
+              sat_key: detalle.sat_key || listedProduct?.sat_key,
+              sat_description: detalle.sat_description || listedProduct?.sat_description,
+            });
+            setSelectedImageIndex(0);
+          } catch {
+            // Silencioso: ya mostramos la ficha Intrax.
+          }
+        })();
+        return () => {
+          cancelado = true;
+        };
+      }
+      return;
+    }
+
+    if (listedProduct?.fuente === "tvc" || idLower.startsWith("tvc:")) {
       if (!isCatalogAuthReady()) return;
       setLoadingDetail(true);
       setDetailProduct(null);
       fetchTvcProductoDetalle(selectedProductId)
-        .then((data) => { setDetailProduct(data ?? listedProduct ?? null); setSelectedImageIndex(0); })
+        .then((data) => {
+          setDetailProduct(data ?? listedProduct ?? null);
+          setSelectedImageIndex(0);
+        })
         .finally(() => setLoadingDetail(false));
       return;
     }
+
     if (fuente === "manual" || fuente === "tvc") {
       setDetailProduct((listedProduct as SyscomProductoDetalle) ?? null);
       setLoadingDetail(false);
       return;
     }
+
     if (!isCatalogAuthReady()) return;
     setLoadingDetail(true);
     setDetailProduct(null);
-    fetchSyscomProductoDetalle(selectedProductId).then((data) => { setDetailProduct(data ?? null); setSelectedImageIndex(0); }).finally(() => setLoadingDetail(false));
+    fetchSyscomProductoDetalle(selectedProductId)
+      .then((data) => {
+        // Si SYSCOM responde 404 (producto no disponible), no dejar el modal vacío.
+        setDetailProduct(data ?? (listedProduct as SyscomProductoDetalle) ?? null);
+        setSelectedImageIndex(0);
+      })
+      .finally(() => setLoadingDetail(false));
   }, [detailModalOpen, selectedProductId, fuente]);
 
   const openDetailModal = (productId: string) => { setSelectedProductId(productId); setDetailModalOpen(true); };
@@ -761,7 +817,16 @@ export default function ProductosPage() {
     if (!canProductosCreate) return;
     setEditingManualId(null);
     setManualFormError("");
-    setManualForm({ imagen_url: "", producto: "", caracteristicas: "", marca: "", modelo: "", precio: "", stock: "" });
+    setManualForm({
+      imagen_url: "",
+      producto: "",
+      caracteristicas: "",
+      marca: "",
+      modelo: "",
+      sat_key: "",
+      precio: "",
+      stock: "",
+    });
     setManualModalOpen(true);
   };
   const openEditManual = (id: string) => {
@@ -776,6 +841,7 @@ export default function ProductosPage() {
       caracteristicas: p.caracteristicas || "",
       marca: p.marca || "",
       modelo: p.modelo || "",
+      sat_key: p.sat_key || "",
       precio: String(p.precio ?? 0),
       stock: String(p.stock ?? 0),
     });
@@ -811,7 +877,17 @@ export default function ProductosPage() {
       setManualFormError(`Ya existe un producto manual con el modelo "${modelo}". No se puede agregar duplicado.`);
       return;
     }
-    const body = { imagen_url: manualForm.imagen_url.trim(), producto, caracteristicas: manualForm.caracteristicas.trim(), marca, modelo, precio: toMoney2(precio), stock: Math.round(stock), activo: true };
+    const body = {
+      imagen_url: manualForm.imagen_url.trim(),
+      producto,
+      caracteristicas: manualForm.caracteristicas.trim(),
+      marca,
+      modelo,
+      sat_key: manualForm.sat_key.trim(),
+      precio: toMoney2(precio),
+      stock: Math.round(stock),
+      activo: true,
+    };
     try {
       const endpoint = isEdit ? `/api/productos-manuales/${editingManualId}/` : "/api/productos-manuales/";
       const res = await fetchApi(endpoint, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -977,6 +1053,11 @@ export default function ProductosPage() {
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">{p.titulo}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{p.marca} · {p.modelo}{p.fuente ? ` · ${p.fuente}` : ""}</p>
+                            {p.sat_key ? (
+                              <p className="mt-0.5 font-mono text-[11px] text-gray-500 dark:text-gray-400" title={p.sat_description || undefined}>
+                                Clave SAT {p.sat_key}
+                              </p>
+                            ) : null}
                             <p className="mt-1 text-sm font-semibold text-[#ff801f] dark:text-[#ffa057] tabular-nums">{formatPrecioPublicoMxnConIva(p, tipoCambio)}</p>
                             {p.total_existencia != null && <p className="text-[11px] text-gray-500 dark:text-gray-400">Stock {p.total_existencia}</p>}
                             <a href={getProductoLink(p)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-[11px] font-medium text-[#ff801f] dark:text-[#ffa057] mt-1 inline-block hover:underline">Ver más →</a>
@@ -997,13 +1078,14 @@ export default function ProductosPage() {
                     </div>
                   ) : (
                     <div className="overflow-x-auto rounded-xl border border-[#e7ded0]/90 bg-[#fcfaf6]/60 dark:border-[#273244] dark:bg-[#0f172a]/35">
-                      <Table className="w-full min-w-[720px] sm:min-w-0 xl:min-w-full">
+                      <Table className="w-full min-w-[820px] sm:min-w-0 xl:min-w-full">
                         <TableHeader className="sticky top-0 z-10 border-b border-[#e7ded0] bg-[#fffdfa]/95 text-[11px] font-semibold text-[#1c1917] dark:border-[#334155] dark:bg-[#111827]/95 dark:text-[#f8fafc]">
                           <TableRow>
                             <TableCell isHeader className="px-3 py-2 text-left w-[64px] text-gray-700 dark:text-gray-300">Imagen</TableCell>
                             <TableCell isHeader className="px-3 py-2 text-left min-w-[200px] text-gray-700 dark:text-gray-300">Producto</TableCell>
                             <TableCell isHeader className="px-3 py-2 text-left w-[100px] text-gray-700 dark:text-gray-300">Marca</TableCell>
                             <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-gray-700 dark:text-gray-300">Modelo</TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-left w-[110px] text-gray-700 dark:text-gray-300">Clave SAT</TableCell>
                             <TableCell isHeader className="px-3 py-2 text-left w-[90px] text-gray-700 dark:text-gray-300">Fuente</TableCell>
                             <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-gray-700 dark:text-gray-300">Precio</TableCell>
                             <TableCell isHeader className="px-3 py-2 text-left w-[80px] text-gray-700 dark:text-gray-300">Stock</TableCell>
@@ -1011,8 +1093,8 @@ export default function ProductosPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody className="divide-y divide-[#f5f5f4] text-[12px] text-[#44403c] dark:divide-[#334155]/80 dark:text-[#e5e7eb]">
-                          {loading && (<TableRow><TableCell colSpan={8} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400"><div className="inline-flex items-center gap-2 text-sm"><svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>Cargando productos...</div></TableCell></TableRow>)}
-                          {!loading && productos.length === 0 && !error && (<TableRow><TableCell colSpan={8} className="px-3 py-10 text-center text-sm text-gray-500 dark:text-gray-400">{autoCatalog ? "No hay productos para mostrar." : "No encontramos resultados con los filtros actuales."}</TableCell></TableRow>)}
+                          {loading && (<TableRow><TableCell colSpan={9} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400"><div className="inline-flex items-center gap-2 text-sm"><svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>Cargando productos...</div></TableCell></TableRow>)}
+                          {!loading && productos.length === 0 && !error && (<TableRow><TableCell colSpan={9} className="px-3 py-10 text-center text-sm text-gray-500 dark:text-gray-400">{autoCatalog ? "No hay productos para mostrar." : "No encontramos resultados con los filtros actuales."}</TableCell></TableRow>)}
                           {!loading && productos.length > 0 && productos.map((p) => {
                             const imgUrl = getCatalogProductoImageUrl(p); const link = getProductoLink(p);
                             return (
@@ -1021,6 +1103,13 @@ export default function ProductosPage() {
                                 <TableCell className="px-3 py-2 min-w-[200px] max-w-[280px]"><button type="button" onClick={() => openDetailModal(p.producto_id)} className="block w-full text-left truncate text-gray-900 dark:text-white hover:text-[#ff801f] dark:hover:text-[#ffa057] hover:underline font-medium" title={p.titulo}>{p.titulo}</button></TableCell>
                                 <TableCell className="px-3 py-2 w-[100px] whitespace-nowrap">{p.marca}</TableCell>
                                 <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap">{p.modelo}</TableCell>
+                                <TableCell className="px-3 py-2 w-[110px] whitespace-nowrap font-mono text-[11px]">
+                                  {p.sat_key?.trim() ? (
+                                    <span title={p.sat_description || undefined}>{p.sat_key}</span>
+                                  ) : (
+                                    <span className="font-sans text-gray-400">—</span>
+                                  )}
+                                </TableCell>
                                 <TableCell className="px-3 py-2 w-[90px] whitespace-nowrap capitalize">{p.fuente || "—"}</TableCell>
                                 <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap font-medium text-[#ff801f] dark:text-[#ffa057] tabular-nums">{formatPrecioPublicoMxnConIva(p, tipoCambio)}</TableCell>
                                 <TableCell className="px-3 py-2 w-[80px] whitespace-nowrap">{p.total_existencia ?? "—"}</TableCell>
@@ -1077,6 +1166,16 @@ export default function ProductosPage() {
           </div>
         </header>
         {loadingDetail && (<div className="px-6 py-16 text-center"><div className="inline-flex h-12 w-12 animate-spin rounded-full border-2 border-gray-200 dark:border-gray-700 border-t-[#ff801f] dark:border-t-[#ffa057]" aria-hidden /><p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Cargando detalle...</p></div>)}
+        {!loadingDetail && !detailProduct && (
+          <div className="px-6 py-12 text-center" role="status">
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+              No se pudo cargar el detalle de este producto.
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Puede que ya no esté disponible en el catálogo del proveedor.
+            </p>
+          </div>
+        )}
         {!loadingDetail && detailProduct && (() => {
           const imageUrls = getProductoImagenesUrls(detailProduct); const mainImage = imageUrls[selectedImageIndex] ?? imageUrls[0];
           const precioDisplay = formatPrecioPublicoMxnConIva(detailProduct, tipoCambio);
@@ -1097,6 +1196,20 @@ export default function ProductosPage() {
                   <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                     <div><span className="text-xs text-gray-500 dark:text-gray-400">Marca</span><p className="mt-0.5 font-medium text-gray-900 dark:text-white">{detailProduct.marca || "—"}</p></div>
                     <div><span className="text-xs text-gray-500 dark:text-gray-400">Modelo / SKU</span><p className="mt-0.5 font-mono font-medium text-gray-900 dark:text-white">{detailProduct.modelo || detailProduct.sku || "—"}</p></div>
+                    <div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Clave SAT</span>
+                      <p
+                        className="mt-0.5 font-mono font-medium text-gray-900 dark:text-white"
+                        title={detailProduct.sat_description || undefined}
+                      >
+                        {detailProduct.sat_key?.trim() || "—"}
+                      </p>
+                      {detailProduct.sat_description?.trim() ? (
+                        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-gray-500 dark:text-gray-400">
+                          {detailProduct.sat_description}
+                        </p>
+                      ) : null}
+                    </div>
                     <div><span className="text-xs text-gray-500 dark:text-gray-400">Stock</span><p className="mt-0.5 font-medium text-gray-900 dark:text-white">{detailProduct.total_existencia !== null && detailProduct.total_existencia !== undefined ? detailProduct.total_existencia : "—"}</p></div>
                     <div><span className="text-xs text-gray-500 dark:text-gray-400">Fuente</span><p className="mt-0.5 font-medium text-gray-900 dark:text-white capitalize">{detailProduct.fuente || "syscom"}</p></div>
                   </div>
@@ -1174,6 +1287,23 @@ export default function ProductosPage() {
                     aria-describedby={manualFormError ? "manual-form-error" : undefined}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className={claudeFieldLabel} htmlFor="manual-sat-key">Clave SAT</label>
+                <input
+                  id="manual-sat-key"
+                  value={manualForm.sat_key}
+                  onChange={(e) => setManualForm((p) => ({ ...p, sat_key: e.target.value }))}
+                  placeholder="Ej. 43201500"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  className={`${claudeInput} font-mono tracking-wide`}
+                  aria-describedby="manual-sat-key-hint"
+                />
+                <p id="manual-sat-key-hint" className="mt-1 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                  Clave del producto/servicio del SAT para CFDI. Opcional.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

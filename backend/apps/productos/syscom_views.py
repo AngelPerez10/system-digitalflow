@@ -266,10 +266,24 @@ class SyscomProductoDetalleView(APIView):
             r = _syscom_get(url, token, timeout_seconds=15, retries=1)
             return Response(r.json())
         except requests.RequestException as e:
-            logger.exception('SYSCOM producto detalle request error')
+            upstream = getattr(getattr(e, 'response', None), 'status_code', None)
+            if upstream == 404:
+                logger.info(
+                    'SYSCOM producto detalle no disponible id=%s',
+                    product_id,
+                )
+            else:
+                logger.exception('SYSCOM producto detalle request error')
             return Response(
-                {'detail': _safe_error_text(e, 'No se pudo consultar detalle de producto en SYSCOM')},
-                status=getattr(getattr(e, 'response', None), 'status_code', status.HTTP_502_BAD_GATEWAY)
+                {
+                    'detail': _safe_error_text(
+                        e,
+                        'Producto no disponible en SYSCOM'
+                        if upstream == 404
+                        else 'No se pudo consultar detalle de producto en SYSCOM',
+                    )
+                },
+                status=upstream or status.HTTP_502_BAD_GATEWAY,
             )
 
 

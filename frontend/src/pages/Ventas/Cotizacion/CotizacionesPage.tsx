@@ -560,6 +560,7 @@ export default function CotizacionesPage() {
 
           <ComponentCard
             title="Listado de cotizaciones"
+            desc="Agrupadas por estado: pendientes, autorizadas y canceladas. Filtra por mes abajo."
             className={`!overflow-visible border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)] ${cardShellClass}`}
             compact
           >

@@ -94,6 +94,12 @@ export function useOrdenesList(opts: {
   const [alert, setAlert] = useState<AlertState>(EMPTY_ALERT);
 
   const alertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Evita que un fetch lento de un mes pise el resultado del mes actual. */
+  const fetchGenerationRef = useRef(0);
+  /** Cache en memoria por mes (cambio de mes instantáneo al volver). */
+  const monthCacheRef = useRef(new Map<string, Orden[]>());
+  /** Mes cuyo payload está en `ordenes` (null = aún no hay datos para el mes pedido). */
+  const [loadedMonth, setLoadedMonth] = useState<string | null>(null);
 
   const clearAlert = useCallback(() => {
     if (alertTimerRef.current) {
@@ -116,14 +122,24 @@ export function useOrdenesList(opts: {
   );
 
   const fetchOrdenes = useCallback(async () => {
+    const generation = ++fetchGenerationRef.current;
+    const mes = selectedMonth || getCurrentYearMonth();
+    const hadCache = monthCacheRef.current.has(mes);
     try {
       if (!canView) {
-        setOrdenes([]);
-        setLoading(false);
+        if (generation === fetchGenerationRef.current) {
+          setOrdenes([]);
+          setLoadedMonth(null);
+          setLoading(false);
+        }
         return;
       }
 
-      const mes = selectedMonth || getCurrentYearMonth();
+      // Con cache: no vaciar ni mostrar banner; refrescar en segundo plano.
+      if (!hadCache) {
+        setLoading(true);
+      }
+
       const params = new URLSearchParams({
         mes,
         _ts: String(Date.now()),
@@ -132,8 +148,12 @@ export function useOrdenesList(opts: {
         cache: "no-store" as RequestCache,
       });
 
+      if (generation !== fetchGenerationRef.current) return;
+
       if (response.ok) {
         const data = await response.json();
+        if (generation !== fetchGenerationRef.current) return;
+
         const rows = Array.isArray(data)
           ? data
           : Array.isArray((data as { results?: unknown })?.results)
@@ -142,38 +162,102 @@ export function useOrdenesList(opts: {
 
         const logLabel = variant === "admin" ? "OrdenesPage" : "OrdenesTecnicoPage";
         console.debug(
-          `[${logLabel}] fetchOrdenes idx:`,
-          rows.map((r) => Number(r?.idx || 0)).filter((n) => Number.isFinite(n)),
+          `[${logLabel}] fetchOrdenes mes=${mes} count=${rows.length}`,
         );
+        monthCacheRef.current.set(mes, rows);
         setOrdenes(rows);
+        setLoadedMonth(mes);
+
+        // Prefetch del mes anterior para que “atrás” sea instantáneo.
+        const [yStr, mStr] = mes.split("-");
+        const y = Number(yStr);
+        const m = Number(mStr);
+        if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
+          const prev = new Date(y, m - 2, 1);
+          const prevKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+          if (!monthCacheRef.current.has(prevKey)) {
+            void (async () => {
+              try {
+                const pref = new URLSearchParams({ mes: prevKey, _ts: String(Date.now()) });
+                const prefRes = await fetchApi(`/api/ordenes/?${pref.toString()}`, {
+                  cache: "no-store" as RequestCache,
+                });
+                if (!prefRes.ok) return;
+                const prefData = await prefRes.json();
+                const prefRows = Array.isArray(prefData)
+                  ? prefData
+                  : Array.isArray((prefData as { results?: unknown })?.results)
+                    ? (prefData as { results: Orden[] }).results
+                    : [];
+                if (!monthCacheRef.current.has(prevKey)) {
+                  monthCacheRef.current.set(prevKey, prefRows);
+                }
+              } catch {
+                /* prefetch best-effort */
+              }
+            })();
+          }
+        }
       } else if (response.status === 401) {
         console.error("Token inválido o expirado");
-        setOrdenes([]);
+        if (!hadCache) {
+          setOrdenes([]);
+          setLoadedMonth(null);
+        }
       } else if (response.status === 403) {
         console.error("Acceso prohibido");
-        setOrdenes([]);
+        if (!hadCache) {
+          setOrdenes([]);
+          setLoadedMonth(null);
+        }
       } else {
         console.error("Error al cargar órdenes:", response.status);
-        setOrdenes([]);
+        if (!hadCache) {
+          setOrdenes([]);
+          setLoadedMonth(null);
+        }
       }
     } catch (error) {
+      if (generation !== fetchGenerationRef.current) return;
       console.error("Error al cargar órdenes:", error);
-      setOrdenes([]);
+      if (!monthCacheRef.current.has(mes)) {
+        setOrdenes([]);
+        setLoadedMonth(null);
+      }
     } finally {
-      setLoading(false);
+      if (generation === fetchGenerationRef.current) {
+        setLoading(false);
+      }
     }
   }, [canView, variant, selectedMonth]);
 
+  /** Cambia de mes: usa cache si existe (instantáneo) o muestra loading. */
+  const selectMonth = useCallback((mes: string) => {
+    const next = (mes || "").trim() || getCurrentYearMonth();
+    fetchGenerationRef.current += 1;
+    const cached = monthCacheRef.current.get(next);
+    setSelectedMonth(next);
+    if (cached) {
+      setOrdenes(cached);
+      setLoadedMonth(next);
+      setLoading(false);
+    } else {
+      setOrdenes([]);
+      setLoadedMonth(null);
+      setLoading(true);
+    }
+  }, []);
+
   const shownList = useMemo(() => {
     if (!Array.isArray(ordenes)) return [];
+    // Mientras el mes pedido no coincide con el cargado, no pintar filas (evita mes anterior
+    // o “Sin órdenes” falso). El banner de loading cubre este estado.
+    const mesPedido = selectedMonth || getCurrentYearMonth();
+    if (loadedMonth !== mesPedido) return [];
+
     const q = (searchTerm || "").trim().toLowerCase();
     const list = ordenes.filter((o) => {
       if (!ordenMatchesSearch(o, q, usuarios)) return false;
-      if (!q && selectedMonth) {
-        const month = selectedMonth;
-        const fecha = (o.fecha_inicio || o.fecha_creacion || "").toString();
-        if (!fecha.startsWith(month)) return false;
-      }
       return ordenPassesListFilters(o, {
         status: filterStatus,
         servicio: filterServicio,
@@ -205,8 +289,9 @@ export function useOrdenesList(opts: {
     });
   }, [
     ordenes,
-    searchTerm,
+    loadedMonth,
     selectedMonth,
+    searchTerm,
     filterStatus,
     filterServicio,
     filterDate,
@@ -214,6 +299,9 @@ export function useOrdenesList(opts: {
     usuarios,
     variant,
   ]);
+
+  const monthLoading =
+    loading || loadedMonth !== (selectedMonth || getCurrentYearMonth());
 
   const statsMonthKey = selectedMonth || getCurrentYearMonth();
   const stats = useMemo(
@@ -249,10 +337,12 @@ export function useOrdenesList(opts: {
     setOrdenes,
     loading,
     setLoading,
+    monthLoading,
     searchTerm,
     setSearchTerm,
     selectedMonth,
     setSelectedMonth,
+    selectMonth,
     filterStatus,
     setFilterStatus,
     filterServicio,

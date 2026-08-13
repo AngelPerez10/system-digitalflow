@@ -1,9 +1,11 @@
 import { OrdenViewModal } from "../../OrdenTrabajoModals";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { erpMobileCardClass } from "../../ordenTrabajoStyles";
 import { displayOrdenFolio, isOrdenResuelta, isOrdenServicioTecnico } from "../shared/useOrdenesShared";
 import { isOrdenStatusChangeRecent, ORDEN_RECIEN_RESUELTA_BADGE_CLASS, ORDEN_RECIEN_RESUELTA_ROW_CLASS } from "../shared/ordenesPageUtils";
+import { groupOrdenesByStatus } from "../shared/ordenStatusSections";
+import { OrdenStatusSectionHeader } from "./OrdenStatusSectionHeader";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;
@@ -214,6 +216,8 @@ interface MobileOrderListProps {
   onNotaChange?: (ordenId: number, value: string) => void;
   /** Si true (admin), resalta órdenes con status_changed_at reciente. */
   highlightRecentStatus?: boolean;
+  /** Solo admin: agrupa cards por status técnico (Pendientes → Resueltas). */
+  groupByStatus?: boolean;
 }
 
 export function MobileOrderList({
@@ -231,6 +235,7 @@ export function MobileOrderList({
   notasMesPdf = {},
   onNotaChange,
   highlightRecentStatus = false,
+  groupByStatus = false,
 }: MobileOrderListProps) {
   const getTecnicoNombre = (orden: any): string => {
     const tecnico = usuarios.find((u: any) => u.id === orden.tecnico_asignado);
@@ -245,30 +250,72 @@ export function MobileOrderList({
     return '';
   };
 
+  const sections = useMemo(
+    () => (groupByStatus ? groupOrdenesByStatus(ordenes) : null),
+    [groupByStatus, ordenes],
+  );
+
+  const indexById = useMemo(() => {
+    const map = new Map<number, number>();
+    ordenes.forEach((orden, idx) => {
+      if (typeof orden?.id === "number") map.set(orden.id, idx);
+    });
+    return map;
+  }, [ordenes]);
+
+  const renderCard = (orden: any, idx: number) => (
+    <MobileOrderCard
+      key={orden.id ?? idx}
+      orden={orden}
+      idx={idx}
+      startIndex={startIndex}
+      formatDate={formatDate}
+      onPdf={onPdf}
+      onEnviarPdf={onEnviarPdf}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      canEdit={canEdit}
+      canDelete={canDelete}
+      tecnicoNombre={getTecnicoNombre(orden)}
+      notaPdf={notasMesPdf[orden.id] ?? ""}
+      onNotaChange={onNotaChange}
+      highlightRecentStatus={highlightRecentStatus}
+    />
+  );
+
   return (
     <div className="md:hidden space-y-3">
-      {ordenes.map((orden, idx) => (
-        <MobileOrderCard
-          key={orden.id ?? idx}
-          orden={orden}
-          idx={idx}
-          startIndex={startIndex}
-          formatDate={formatDate}
-          onPdf={onPdf}
-          onEnviarPdf={onEnviarPdf}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          canEdit={canEdit}
-          canDelete={canDelete}
-          tecnicoNombre={getTecnicoNombre(orden)}
-          notaPdf={notasMesPdf[orden.id] ?? ""}
-          onNotaChange={onNotaChange}
-          highlightRecentStatus={highlightRecentStatus}
-        />
-      ))}
+      {sections
+        ? sections.map((section) => {
+            const headingId = `ordenes-mobile-${section.key.toLowerCase()}`;
+            return (
+              <section key={section.key} aria-labelledby={headingId} className="space-y-3">
+                <OrdenStatusSectionHeader
+                  statusKey={section.key}
+                  label={section.label}
+                  count={section.ordenes.length}
+                  headingId={headingId}
+                  as="h2"
+                />
+                {section.ordenes.map((orden, sectionIdx) => {
+                  const idx =
+                    typeof orden?.id === "number" && indexById.has(orden.id)
+                      ? (indexById.get(orden.id) as number)
+                      : sectionIdx;
+                  return renderCard(orden, idx);
+                })}
+              </section>
+            );
+          })
+        : ordenes.map((orden, idx) => renderCard(orden, idx))}
       {!loading && ordenes.length === 0 && (
         <div className="text-center py-8 text-sm text-[#78716c] dark:text-[#8ea0b8]">
           Sin órdenes
+        </div>
+      )}
+      {loading && ordenes.length === 0 && (
+        <div className="text-center py-8 text-sm text-[#78716c] dark:text-[#8ea0b8]" role="status" aria-live="polite">
+          Cargando órdenes…
         </div>
       )}
     </div>

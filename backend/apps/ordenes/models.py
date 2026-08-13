@@ -152,6 +152,8 @@ class Orden(models.Model):
             models.Index(fields=['idx']),
             models.Index(fields=['cliente']),
             models.Index(fields=['fecha_inicio']),
+            models.Index(fields=['fecha_creacion']),
+            models.Index(fields=['-fecha_inicio', '-fecha_creacion', '-id']),
         ]
 
 

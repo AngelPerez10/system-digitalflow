@@ -64,6 +64,8 @@ class ProductoManual(models.Model):
     marca = models.CharField(max_length=120, blank=False, default='')
     modelo = models.CharField(max_length=120, blank=False, default='')
     caracteristicas = models.TextField(blank=True, default='')
+    # Clave del producto/servicio del SAT (CFDI), misma idea que SYSCOM/TVC `sat_key`.
+    sat_key = models.CharField(max_length=32, blank=True, default='')
     imagen_url = models.CharField(max_length=500, blank=True, default='')
     fuente = models.CharField(max_length=20, blank=False, default='manual')
     precio = models.DecimalField(max_digits=12, decimal_places=2, default=0)
