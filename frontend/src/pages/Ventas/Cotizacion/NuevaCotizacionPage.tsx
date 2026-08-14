@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
@@ -10,7 +10,9 @@ import Switch from "@/components/form/switch/Switch";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
+import { MARCA_NOMBRE_DEFAULT } from "@/config/marcaIniciales";
 import { useAuth } from "@/context/AuthContext";
+import { useMarca } from "@/context/MarcaContext";
 import { CotizacionConceptosTable, type CotizacionConceptoLine } from "@/pages/Ventas/Cotizacion/CotizacionConceptosTable";
 import {
   buildVisualTableRows,
@@ -22,6 +24,7 @@ import {
 } from "@/pages/Ventas/Cotizacion/cotizacionCategoriasUtils";
 import { CotizacionPdfOptionsPanel } from "@/pages/Ventas/Cotizacion/CotizacionPdfOptionsPanel";
 import { defaultPdfOpciones, parsePdfOpcionesFromApi } from "@/pages/Ventas/Cotizacion/cotizacionPdfTypes";
+import { terminosCotizacionDefault } from "@/pages/Ventas/Cotizacion/terminosCotizacionDefault";
 import {
   createCotizacionDraft,
   fetchCotizacionClienteById,
@@ -38,6 +41,7 @@ import {
   getCatalogProductoImageUrl,
   type SyscomProducto,
 } from "@/pages/ProductosYServicios/syscomCatalog";
+import { cotizacionListPath, listSearchFromLocationState } from "@/pages/Ventas/Cotizacion/cotizacionListNav";
 import { CotizacionSaveStatus } from "@/components/cotizacion/CotizacionSaveStatus";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 import CotizacionEnviarPdfModal, {
@@ -99,12 +103,17 @@ import {
 
 export default function NuevaCotizacionPage() {
   const { permissions, isAdmin } = useAuth();
+  const { nombre: marcaNombre } = useMarca();
   const canCotizacionesView = permissions?.cotizaciones?.view === true;
   const canCotizacionesCreate = permissions?.cotizaciones?.create === true;
 
   const navigate = useNavigate();
+  const location = useLocation();
   const params = useParams();
   const editingCotizacionId = params?.id ? String(params.id) : "";
+  const goToCotizacionList = useCallback(() => {
+    navigate(cotizacionListPath(listSearchFromLocationState(location.state)));
+  }, [location.state, navigate]);
 
   const [hydratingFromStorage, setHydratingFromStorage] = useState(false);
 
@@ -224,25 +233,21 @@ export default function NuevaCotizacionPage() {
   const [textoArribaPrecios, setTextoArribaPrecios] = useState(
     "A continuación cotización solicitada: "
   );
-  const [terminos, setTerminos] = useState(
-    "TÉRMINOS Y CONDICIONES\n\n" +
-    "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
-    "- No se programan trabajos sin anticipo confirmado.\n" +
-    "- Precios expresados en pesos mexicanos.\n" +
-    "- Vigencia de la cotización: 15 días naturales.\n" +
-    "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
-    "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
-    "- La garantía no aplica por mal uso, golpes, humedad, variaciones de voltaje o manipulación por terceros.\n" +
-    "- La cotización incluye únicamente los conceptos especificados; trabajos adicionales se cotizan aparte.\n" +
-    "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
-    "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
-    "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
-    "- El anticipo o liquidación no es reembolsable en caso de cancelación.\n" +
-    "- La aceptación de la cotización implica conformidad con estos términos."
+  const [terminos, setTerminos] = useState(() =>
+    terminosCotizacionDefault(MARCA_NOMBRE_DEFAULT)
   );
 
   const [pdfOpciones, setPdfOpciones] = useState(() => defaultPdfOpciones());
   const [pdfDescripcionCorta, setPdfDescripcionCorta] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (isEditingRoute) return;
+    setTerminos((prev) =>
+      prev === terminosCotizacionDefault(MARCA_NOMBRE_DEFAULT)
+        ? terminosCotizacionDefault(marcaNombre)
+        : prev,
+    );
+  }, [isEditingRoute, marcaNombre]);
 
   const todayIso = useMemo(() => {
     const d = new Date();
@@ -700,7 +705,7 @@ export default function NuevaCotizacionPage() {
             title: "Cotización no encontrada",
             message: "No se encontró la cotización. Regresando al listado.",
           });
-          window.setTimeout(() => navigate("/cotizacion"), 450);
+          window.setTimeout(() => goToCotizacionList(), 450);
           return;
         }
 
@@ -718,7 +723,7 @@ export default function NuevaCotizacionPage() {
     };
 
     void load();
-  }, [editingCotizacionId, hydrateFormFromCotizacionDetail, navigate]);
+  }, [editingCotizacionId, hydrateFormFromCotizacionDetail, goToCotizacionList]);
 
   const resetCloneClienteState = useCallback(() => {
     setCloneClienteMode("mismo");
@@ -1419,7 +1424,7 @@ export default function NuevaCotizacionPage() {
         }
       }
       if (navigateAfterSave) {
-        window.setTimeout(() => navigate("/cotizacion"), 350);
+        window.setTimeout(() => goToCotizacionList(), 350);
       }
       return savedId || null;
     } catch {
@@ -1439,7 +1444,7 @@ export default function NuevaCotizacionPage() {
     activeCotizacionId,
     buildCotizacionPayload,
     conceptos.length,
-    navigate,
+    goToCotizacionList,
     permissions,
     clienteId,
     contactoNombre,
@@ -1846,22 +1851,7 @@ export default function NuevaCotizacionPage() {
     setCategorias([]);
     setCategoriaIdParaAgregar("");
     setTextoArribaPrecios("A continuación cotización solicitada:");
-    setTerminos(
-      "TÉRMINOS Y CONDICIONES\n\n" +
-      "- Se requiere 60% de anticipo para iniciar trabajos y 40% al finalizar la instalación.\n" +
-      "- No se programan trabajos sin anticipo confirmado.\n" +
-      "- Precios expresados en pesos mexicanos.\n" +
-      "- Vigencia de la cotización: 15 días naturales.\n" +
-      "- Los equipos cuentan con 1 año de garantía por defectos de fábrica.\n" +
-      "- La mano de obra y configuraciones tienen 3 meses de garantía.\n" +
-      "- La garantía no aplica por mal uso, golpes, humedad, variaciones de voltaje o manipulación por terceros.\n" +
-      "- La cotización incluye únicamente los conceptos especificados; trabajos adicionales se cotizan aparte.\n" +
-      "- El cliente deberá proporcionar accesos, energía eléctrica y condiciones adecuadas para la instalación.\n" +
-      "- Retrasos por causas externas no son responsabilidad de Grupo Intrax.\n" +
-      "- Los equipos son propiedad de Grupo Intrax hasta liquidar el pago total.\n" +
-      "- El anticipo o liquidación no es reembolsable en caso de cancelación.\n" +
-      "- La aceptación de la cotización implica conformidad con estos términos."
-    );
+    setTerminos(terminosCotizacionDefault(marcaNombre));
     setPdfOpciones(defaultPdfOpciones());
     setPdfDescripcionCorta({});
   };
@@ -2646,7 +2636,7 @@ export default function NuevaCotizacionPage() {
               <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-stretch sm:justify-end sm:pt-1">
                 <button
                   type="button"
-                  onClick={() => navigate("/cotizacion")}
+                  onClick={() => goToCotizacionList()}
                   className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-[#e7ded0] bg-white px-4 py-2.5 text-sm font-medium text-[#57534e] shadow-none transition-colors hover:bg-[#fffdf8] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80 sm:w-auto sm:min-h-0"
                   aria-label="Regresar a cotizaciones"
                 >

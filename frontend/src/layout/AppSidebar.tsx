@@ -8,12 +8,14 @@ import {
   GridIcon,
   HorizontaLDots,
   PageIcon,
+  SettingsIcon,
   PieChartIcon,
   PlugInIcon,
   UserCircleIcon,
 } from "@/icons";
 import { useSidebar } from "@/context/SidebarContext";
 import { useAuth } from "@/context/AuthContext";
+import { useMarca } from "@/context/MarcaContext";
 import type { Permissions } from "@/context/authTypes";
 import { fetchApi } from "@/config/api";
 
@@ -54,22 +56,9 @@ export default function AppSidebar() {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
   const { isAdmin, permissions: authPermissions } = useAuth();
+  const { nombre: marcaNombre, logoUrl: marcaLogoUrl, iniciales: marcaIniciales } = useMarca();
 
   const [permissions, setPermissions] = useState<Permissions>(authPermissions || {});
-
-  const companyName = useMemo(() => {
-    try {
-      const fromStorage =
-        localStorage.getItem("company_name") ||
-        sessionStorage.getItem("company_name") ||
-        localStorage.getItem("empresa") ||
-        sessionStorage.getItem("empresa");
-      if (typeof fromStorage === "string" && fromStorage.trim()) return fromStorage.trim();
-    } catch {
-      /* ignore */
-    }
-    return "Workspace";
-  }, []);
 
   useEffect(() => {
     // Admins don't need to fetch permissions
@@ -156,9 +145,6 @@ export default function AppSidebar() {
         { name: "Personas", path: "/personas", pro: false },
         { name: "Proveedores", path: "/proveedores", pro: false },
       ];
-      if (isAdmin || permissions?.usuarios?.view === true) {
-        contactosSub.push({ name: "Gestión de Usuarios", path: "/usuarios", pro: false });
-      }
       items.push({
         icon: <UserCircleIcon />,
         name: "Contactos de Negocio",
@@ -319,7 +305,23 @@ export default function AppSidebar() {
     return items;
   }, [isAdmin, permissions]);
 
-  const othersItems: NavItem[] = useMemo(() => [], []);
+  const othersItems: NavItem[] = useMemo(() => {
+    const subItems: Array<{ name: string; path: string; pro?: boolean; new?: boolean }> = [];
+    if (isAdmin || permissions?.usuarios?.view === true) {
+      subItems.push({ name: "Gestión de usuarios", path: "/usuarios", pro: false });
+    }
+    if (isAdmin) {
+      subItems.push({ name: "Ajustes generales", path: "/configuracion", pro: false });
+    }
+    if (subItems.length === 0) return [];
+    return [
+      {
+        icon: <SettingsIcon />,
+        name: "Configuración",
+        subItems,
+      },
+    ];
+  }, [isAdmin, permissions]);
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
@@ -593,63 +595,63 @@ export default function AppSidebar() {
       >
         <Link to="/dashboard" className="group inline-flex items-center gap-2.5">
           {isExpanded || isHovered || isMobileOpen ? (
-            <span className="inline-flex items-center gap-2.5">
-              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#465FFF] text-xs font-bold tracking-wide text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
-                SN
-              </span>
-              <span className="flex flex-col leading-none">
-                <span className="text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc]">
-                  Sistema Intrax
+            <span className="inline-flex min-w-0 items-center gap-2.5">
+              {marcaLogoUrl ? (
+                <img
+                  src={marcaLogoUrl}
+                  alt=""
+                  className="h-8 w-8 shrink-0 rounded-lg object-contain ring-1 ring-black/5 dark:ring-white/10"
+                />
+              ) : (
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#465FFF] text-xs font-bold tracking-wide text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+                  {marcaIniciales}
                 </span>
-                <span className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-[#8b7b69] dark:text-[#8ea0b8]">
-                  {companyName}
-                </span>
+              )}
+              <span className="min-w-0 truncate text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc]">
+                {marcaNombre}
               </span>
             </span>
           ) : (
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#465FFF] text-[11px] font-bold tracking-[0.08em] text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
-              SN
-            </span>
+            marcaLogoUrl ? (
+              <img
+                src={marcaLogoUrl}
+                alt={marcaNombre}
+                className="h-9 w-9 rounded-xl object-contain ring-1 ring-black/5 dark:ring-white/10"
+              />
+            ) : (
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#465FFF] text-[11px] font-bold tracking-[0.08em] text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+                {marcaIniciales}
+              </span>
+            )
           )}
         </Link>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-6 duration-300 ease-linear no-scrollbar">
-        <nav aria-label="Main navigation" className="mb-6">
-          <div className="flex flex-col gap-4">
-            <div>
-              <h2
-                className={`mb-4 flex text-xs font-medium uppercase leading-[20px] tracking-[0.14em] text-[#8b7b69] dark:text-[#8ea0b8] ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "justify-start"
-                  }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Menú"
-                ) : (
-                  <HorizontaLDots className="size-6" />
-                )}
-              </h2>
-              {renderMenuItems(navItems, "main")}
-            </div>
-            {othersItems.length > 0 && (
-              <div className="">
-                <h2
-                  className={`mb-4 flex text-xs font-medium uppercase leading-[20px] tracking-[0.14em] text-[#8b7b69] dark:text-[#8ea0b8] ${!isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                    }`}
-                >
-                  {isExpanded || isHovered || isMobileOpen ? (
-                    ""
-                  ) : (
-                    <HorizontaLDots />
-                  )}
-                </h2>
-                {renderMenuItems(othersItems, "others")}
-              </div>
-            )}
-          </div>
-        </nav>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-4 duration-300 ease-linear no-scrollbar">
+          <nav aria-label="Navegación principal">
+            <h2
+              className={`mb-4 flex text-xs font-medium uppercase leading-[20px] tracking-[0.14em] text-[#8b7b69] dark:text-[#8ea0b8] ${!isExpanded && !isHovered
+                ? "lg:justify-center"
+                : "justify-start"
+                }`}
+            >
+              {isExpanded || isHovered || isMobileOpen ? (
+                "Menú"
+              ) : (
+                <HorizontaLDots className="size-6" />
+              )}
+            </h2>
+            {renderMenuItems(navItems, "main")}
+          </nav>
+        </div>
+        {othersItems.length > 0 && (
+          <nav
+            aria-label="Configuración"
+            className="shrink-0 border-t border-[#e7ded0] pt-4 pb-6 dark:border-[#273244]"
+          >
+            {renderMenuItems(othersItems, "others")}
+          </nav>
+        )}
       </div>
     </aside>
   );

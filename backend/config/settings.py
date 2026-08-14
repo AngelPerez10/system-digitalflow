@@ -122,6 +122,7 @@ INSTALLED_APPS = [
     'corsheaders',
 
     # Apps
+    'apps.common',
     'apps.users',
     'apps.clientes',
     'apps.productos',

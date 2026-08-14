@@ -2,6 +2,7 @@
 import logging
 
 from apps.common.document_folio import FOLIO_SERIE_COT, format_document_folio
+from apps.common.marca import logo_data_uri_for_pdf
 from apps.common.pdf_html import (
     esc,
     load_public_image_data_uri,
@@ -42,7 +43,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
             return list(items)
         return []
 
-    logo_data_uri = load_public_image_data_uri("images/logo/intrax-logo.png")
+    logo_data_uri = logo_data_uri_for_pdf()
     santander_data_uri = load_public_image_data_uri("images/logo/santander.png")
     default_concept_img = load_public_image_data_uri("images/logo/defect_concept.png")
 

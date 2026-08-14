@@ -16,3 +16,4 @@ class ApiVersioningUrlTests(SimpleTestCase):
     def test_v1_api_prefix_resolves_same_domains(self):
         self.assert_resolves("/api/v1/ordenes/")
         self.assert_resolves("/api/v1/auth/csrf/")
+        self.assert_resolves("/api/v1/marca/")

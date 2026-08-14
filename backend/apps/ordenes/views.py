@@ -22,6 +22,7 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.common.document_folio import FOLIO_SERIE_ODT, resolve_document_folio
+from apps.common.marca import logo_data_uri_for_pdf
 from apps.common.ssrf import is_cloudinary_host
 from apps.cotizaciones.pdf_render import (
     PdfRenderError,
@@ -208,15 +209,7 @@ MESES_ES_PDF = (
 
 
 def _intrax_logo_data_uri() -> str:
-    try:
-        repo_root = Path(__file__).resolve().parents[3]
-        logo_path = repo_root / 'frontend' / 'public' / 'images' / 'logo' / 'intrax-logo.png'
-        if logo_path.exists():
-            b64 = base64.b64encode(logo_path.read_bytes()).decode('ascii')
-            return f'data:image/png;base64,{b64}'
-    except Exception:
-        logger.exception('Failed to load Intrax logo for PDF')
-    return ''
+    return logo_data_uri_for_pdf()
 
 
 def _filename_listado_mes_pdf(mes: str) -> str:
@@ -812,16 +805,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 .replace("'", '&#39;')
             )
 
-        logo_data_uri = ""
-        try:
-            repo_root = Path(__file__).resolve().parents[3]
-            logo_path = repo_root / "frontend" / "public" / "images" / "logo" / "intrax-logo.png"
-            if logo_path.exists():
-                b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
-                logo_data_uri = f"data:image/png;base64,{b64}"
-        except Exception:
-            logger.exception("Failed to load Intrax logo for reporte semanal PDF")
-            logo_data_uri = ""
+        logo_data_uri = _intrax_logo_data_uri()
 
         t = reporte.tecnico
         tecnico_nombre = (

@@ -21,7 +21,8 @@ import RequireTareasPermission from "@/components/auth/RequireTareasPermission";
 
 // Lazy: cada página se descarga solo cuando se navega a su ruta (code splitting).
 const NotFound = lazy(() => import("@/pages/OtherPage/NotFound"));
-const GestionUsuario = lazy(() => import("@/pages/ContactosNegocio/Usuarios/GestionUsuario"));
+const GestionUsuario = lazy(() => import("@/pages/Configuracion/GestionUsuario"));
+const AjustesGeneralesPage = lazy(() => import("@/pages/Configuracion/AjustesGeneralesPage"));
 const ProfilePage = lazy(() => import("@/pages/Perfil/ProfilePage"));
 const Images = lazy(() => import("@/pages/UiElements/Images"));
 const LineChart = lazy(() => import("@/pages/Charts/LineChart"));
@@ -138,6 +139,14 @@ export default function App() {
             {/* Others Page */}
             <Route path="/profile" element={<ProfilePage />} />
             {/* Gestión de usuarios */}
+            <Route
+              path="/configuracion"
+              element={
+                <RequireAdmin>
+                  <AjustesGeneralesPage />
+                </RequireAdmin>
+              }
+            />
             <Route
               path="/usuarios"
               element={

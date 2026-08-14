@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from apps.common.marca import get_marca_nombre
+
 
 def build_cotizacion_email_subject(cotizacion) -> str:
     idx = getattr(cotizacion, "idx", None) or getattr(cotizacion, "id", "") or ""
@@ -18,5 +20,5 @@ def build_cotizacion_email_body(cotizacion) -> str:
         f"correspondiente a {cliente}.\n\n"
         f"Quedamos atentos a sus comentarios.\n\n"
         f"Saludos cordiales,\n"
-        f"Grupo Intrax\n"
+        f"{get_marca_nombre()}\n"
     )

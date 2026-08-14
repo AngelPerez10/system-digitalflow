@@ -1,7 +1,7 @@
 import PageMeta from "@/components/common/PageMeta";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
@@ -14,6 +14,12 @@ import {
 } from "@/components/cotizacion/CotizacionesViewParts";
 import { erpPageCanvasClass, erpPageInnerClass } from "@/layout/erpPageStyles";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
+import {
+  COTIZACION_LIST_SEARCH_PARAM,
+  cotizacionListSearchState,
+  readCotizacionListSearch,
+  writeCotizacionListSearch,
+} from "./cotizacionListNav";
 
 const cardShellClass =
   "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
@@ -56,6 +62,9 @@ const parseYearMonth = (value: string) => {
 export default function CotizacionesPage() {
   const excelLoadingTitleId = useId();
   const deleteModalTitleId = useId();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const initialSearch = (searchParams.get(COTIZACION_LIST_SEARCH_PARAM) || readCotizacionListSearch()).trim();
   const [permissions, setPermissions] = useState<
     Record<string, { view?: boolean; create?: boolean; edit?: boolean; delete?: boolean }>
   >({});
@@ -73,14 +82,13 @@ export default function CotizacionesPage() {
     navigate('/signin', { replace: true, state: { from: { pathname: '/cotizacion' } } });
   };
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchDebounced, setSearchDebounced] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
+  const [searchDebounced, setSearchDebounced] = useState(initialSearch);
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
   const [totalCount, setTotalCount] = useState(0);
   const [monthStats, setMonthStats] = useState<MonthStats | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetchSeqRef = useRef(0);
-  const navigate = useNavigate();
 
   const isSearching = Boolean(searchDebounced.trim());
 
@@ -226,6 +234,22 @@ export default function CotizacionesPage() {
     };
   }, [searchTerm]);
 
+  useEffect(() => {
+    const next = searchDebounced.trim();
+    writeCotizacionListSearch(next);
+    const current = (new URLSearchParams(window.location.search).get(COTIZACION_LIST_SEARCH_PARAM) || "").trim();
+    if (current === next) return;
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        if (next) params.set(COTIZACION_LIST_SEARCH_PARAM, next);
+        else params.delete(COTIZACION_LIST_SEARCH_PARAM);
+        return params;
+      },
+      { replace: true },
+    );
+  }, [searchDebounced, setSearchParams]);
+
   const deleteCotizacion = async (id: string) => {
     if (!canCotizacionesDelete) {
       setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar cotizaciones.' });
@@ -331,6 +355,7 @@ export default function CotizacionesPage() {
 
   const clearSearch = () => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    writeCotizacionListSearch("");
     setSearchTerm("");
     setSearchDebounced("");
   };
@@ -353,7 +378,8 @@ export default function CotizacionesPage() {
     };
   }, [monthStats]);
 
-  const handleOpenPdf = (id: number) => navigate(`/cotizacion/${id}/pdf`);
+  const handleOpenPdf = (id: number) =>
+    navigate(`/cotizacion/${id}/pdf`, { state: cotizacionListSearchState(searchDebounced || searchTerm) });
 
   const handleEditRow = (r: CotizacionRow) => {
     if (!canCotizacionesEdit) {
@@ -361,7 +387,7 @@ export default function CotizacionesPage() {
       window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 2500);
       return;
     }
-    navigate(`/cotizacion/${r.id}/editar`);
+    navigate(`/cotizacion/${r.id}/editar`, { state: cotizacionListSearchState(searchDebounced || searchTerm) });
   };
 
   const handleDownloadExcel = async (r: CotizacionRow) => {

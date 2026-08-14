@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi, hasAuthSessionFlag } from "@/config/api";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
+import { cotizacionListPath, listSearchFromLocationState } from "@/pages/Ventas/Cotizacion/cotizacionListNav";
 import {
   erpCardShellClass as cardShellClass,
   erpCardShellMutedClass,
@@ -184,6 +185,7 @@ export default function CotizacionPdfPage() {
   const cotizacionId = params.id;
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const isPreviewMode = String(cotizacionId || "").toUpperCase() === "PREVIEW" || searchParams.get("preview") === "1";
 
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
@@ -554,7 +556,7 @@ export default function CotizacionPdfPage() {
           <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
             <button
               type="button"
-              onClick={() => navigate("/cotizacion")}
+              onClick={() => navigate(cotizacionListPath(listSearchFromLocationState(location.state)))}
               className={erpSecondaryBtnClass}
               aria-label="Regresar a cotizaciones"
             >

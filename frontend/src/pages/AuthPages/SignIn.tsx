@@ -1,13 +1,15 @@
 import PageMeta from "@/components/common/PageMeta";
 import AuthLayout from "./AuthPageLayout";
 import SignInForm from "@/components/auth/SignInForm";
+import { useMarca } from "@/context/MarcaContext";
 
 export default function SignIn() {
+  const { nombre } = useMarca();
   return (
     <>
       <PageMeta
-        title="Iniciar Sesión | Panel de Administración"
-        description="Esta es la página de inicio de sesión para el Panel de Administración"
+        title={`Iniciar sesión | ${nombre}`}
+        description="Inicio de sesión del sistema"
       />
       <AuthLayout>
         <SignInForm />

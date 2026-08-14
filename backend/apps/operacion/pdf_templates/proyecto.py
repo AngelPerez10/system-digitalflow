@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 from apps.common.document_folio import FOLIO_SERIE_PRJ, resolve_document_folio
+from apps.common.marca import logo_data_uri_for_pdf
 from apps.common.pdf_html import esc, load_public_image_data_uri
 from apps.common.pdf_images import embed_remote_images
 
@@ -318,7 +319,7 @@ def generate_proyecto_pdf_html(proyecto) -> str:
 
     firma_tecnico = embedded.get(firma_tecnico_url, "")
     firma_cliente = embedded.get(firma_cliente_url, "")
-    logo_data_uri = load_public_image_data_uri("images/logo/intrax-logo.png")
+    logo_data_uri = logo_data_uri_for_pdf()
 
     vehiculo = str(getattr(proyecto, "vehiculo_asignado", "") or "").strip() or "-"
     herramientas = str(getattr(proyecto, "herramientas_generales", "") or "").strip() or "-"

@@ -1,6 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import ThemeTogglerTwo from "@/components/common/ThemeTogglerTwo";
+import { MARCA_FALLBACK_LOGO } from "@/config/marcaApi";
+import { useMarca } from "@/context/MarcaContext";
 import { erpSansStyle } from "@/layout/erpPageStyles";
 
 const BRAND_FEATURES = [
@@ -10,6 +12,9 @@ const BRAND_FEATURES = [
 ] as const;
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  const { nombre, logoUrl } = useMarca();
+  const logoSrc = logoUrl || MARCA_FALLBACK_LOGO;
+  const logoIsDefault = !logoUrl;
   return (
     <div className="auth-page" style={erpSansStyle}>
       {/* Columna izquierda — 50% en desktop */}
@@ -23,7 +28,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </main>
 
         <footer className="shrink-0 px-6 pb-6 text-center text-xs text-[#78716c] dark:text-[#8ea0b8] sm:px-10 lg:px-12 lg:text-left">
-          © {new Date().getFullYear()} Grupo Intrax · Sistema Digitalflow
+          © {new Date().getFullYear()} {nombre}
         </footer>
       </section>
 
@@ -59,9 +64,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <img
               width={231}
               height={48}
-              src="/images/logo/intrax-logo.png"
-              alt="Sistema Intrax"
-              className="h-11 w-auto brightness-0 invert"
+              src={logoSrc}
+              alt={nombre}
+              className={`h-11 w-auto ${logoIsDefault ? "brightness-0 invert" : ""}`}
             />
           </Link>
 

@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
+from apps.common.marca import logo_data_uri_for_pdf
 from apps.common.pdf_html import esc, load_public_image_data_uri, normalize_text
 
 _TIPO_COMPROBANTE = {
@@ -297,7 +298,7 @@ def generate_cfdi_pdf_html(
     if cbb_png:
         qr_src = "data:image/png;base64," + base64.b64encode(bytes(cbb_png)).decode("ascii")
 
-    logo_data_uri = load_public_image_data_uri("images/logo/intrax-logo.png")
+    logo_data_uri = logo_data_uri_for_pdf()
 
     concept_rows = _build_concept_rows(conceptos)
     short_doc = len(conceptos) <= 6

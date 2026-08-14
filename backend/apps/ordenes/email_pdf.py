@@ -12,6 +12,7 @@ from django.core.mail import EmailMessage, get_connection
 from django.core.validators import validate_email
 
 from apps.clientes.models import Cliente
+from apps.common.marca import get_marca_nombre
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +180,7 @@ def build_orden_email_body(orden) -> str:
         f"Adjuntamos el PDF de la orden de servicio #{folio} "
         f"correspondiente a {cliente}.\n\n"
         f"Saludos cordiales,\n"
-        f"Grupo Intrax\n"
+        f"{get_marca_nombre()}\n"
     )
 
 

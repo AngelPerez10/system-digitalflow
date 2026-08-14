@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from apps.common.marca import get_marca_nombre
+
 
 def build_proyecto_email_subject(proyecto) -> str:
     folio = (getattr(proyecto, "folio", None) or "").strip()
@@ -21,5 +23,5 @@ def build_proyecto_email_body(proyecto) -> str:
         f"Adjuntamos el PDF del proyecto #{folio} "
         f"correspondiente a {cliente}.\n\n"
         f"Saludos cordiales,\n"
-        f"Grupo Intrax\n"
+        f"{get_marca_nombre()}\n"
     )

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Link, useNavigate } from "react-router-dom";
 import { useSidebar } from "../context/SidebarContext";
+import { useMarca } from "../context/MarcaContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import UserDropdown from "../components/header/UserDropdown";
 
@@ -13,6 +14,8 @@ const SEARCH_ROUTES = [
   { label: "Empresas", path: "/empresas" },
   { label: "Personas", path: "/personas" },
   { label: "Proveedores", path: "/proveedores" },
+  { label: "Configuración", path: "/configuracion" },
+  { label: "Ajustes generales", path: "/configuracion" },
   { label: "Gestión de usuarios", path: "/usuarios" },
   { label: "Productos", path: "/productos" },
   { label: "Servicios", path: "/servicios" },
@@ -31,6 +34,7 @@ export default function AppHeader() {
   const navigate = useNavigate();
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const { nombre: marcaNombre } = useMarca();
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -152,7 +156,7 @@ export default function AppHeader() {
 
           <Link to="/dashboard" className="inline-flex items-center lg:hidden">
             <span className="text-sm font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc]">
-              Sistema Intrax
+              {marcaNombre}
             </span>
           </Link>
 

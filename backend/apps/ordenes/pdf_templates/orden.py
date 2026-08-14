@@ -2,6 +2,7 @@
 import logging
 
 from apps.common.document_folio import FOLIO_SERIE_ODT, resolve_document_folio
+from apps.common.marca import logo_data_uri_for_pdf
 from apps.common.pdf_html import esc, load_public_image_data_uri
 from apps.common.pdf_images import img_url_to_data_uri
 from apps.ordenes.pdf_limits import orden_max_fotos
@@ -49,7 +50,7 @@ def generate_orden_pdf_html(orden) -> str:
         f"<div class='photo-box'><img src='{esc(src)}' /></div>" for src in fotos_embedded
     ) or "<div class='muted'>No hay fotos adjuntas.</div>"
 
-    logo_data_uri = load_public_image_data_uri("images/logo/intrax-logo.png")
+    logo_data_uri = logo_data_uri_for_pdf()
 
     evidencias_html = ""
     if has_photos:

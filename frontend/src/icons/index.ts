@@ -42,6 +42,7 @@ import { ReactComponent as ChevronLeftIcon } from "./chevron-left.svg?react";
 import { ReactComponent as UserCircleIcon } from "./user-circle.svg?react";
 import { ReactComponent as TaskIcon } from "./task-icon.svg?react";
 import { ReactComponent as ListIcon } from "./list.svg?react";
+import { ReactComponent as SettingsIcon } from "./settings.svg?react";
 import { ReactComponent as TableIcon } from "./table.svg?react";
 import { ReactComponent as PageIcon } from "./page.svg?react";
 import { ReactComponent as PieChartIcon } from "./pie-chart.svg?react";
@@ -100,6 +101,7 @@ export {
   UserCircleIcon,
   TaskIcon,
   ListIcon,
+  SettingsIcon,
   TableIcon,
   PageIcon,
   PieChartIcon,

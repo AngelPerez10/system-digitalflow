@@ -16,6 +16,7 @@ Flujo obligatorio: resolver primero el library ID con Context7 y luego consultar
 
 - **Backend**: Django 5 + DRF en `backend/`. Apps por dominio (`cotizaciones`, `ordenes`, `clientes`, `users`, …).
 - **Frontend**: React 19 + TypeScript + Vite en `frontend/`. Rutas en `src/App.tsx`, layout en `src/layout/`.
+- **Configuración**: pestaña al pie del sidebar. Gestión de usuarios vive en `frontend/src/pages/Configuracion/GestionUsuario.tsx` (ruta `/usuarios`, admin o `usuarios.view`). Ajustes generales (nombre y logo de la empresa) en `frontend/src/pages/Configuracion/AjustesGeneralesPage.tsx` (ruta `/configuracion`, admin). API pública `GET /api/v1/marca/` (si falta la tabla, 200 con default); `PATCH` y `POST /api/v1/marca/logo/` son admin. El logo público es solo HTTP(S), no `data:`. Modelo `MarcaSistema` en `apps.common`.
 - **Auth**: cookies HttpOnly + CSRF. Usar siempre `fetchApi` de `src/config/api.ts` — no `localStorage.getItem("token")` ni `fetch` crudo para API autenticada.
 - **API**: las rutas nuevas deben preferir `/api/v1/`. El prefijo legado `/api/` se mantiene por compatibilidad; no eliminarlo sin plan de migración frontend/clientes.
 

@@ -812,7 +812,7 @@ export default function UserProfiles() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]">
-                    Contactos de negocio
+                    Configuración
                   </p>
                   <h1 className={`mt-0.5 ${claudeHeroHeadingClass}`}>Gestión de usuarios</h1>
                   <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
@@ -1522,7 +1522,7 @@ export default function UserProfiles() {
                   const sections = isAdmin
                     ? ([
                         { key: 'escritorio' as const, label: 'Mi escritorio', modules: [{ key: 'tareas' as const, label: 'Tareas' }] },
-                        { key: 'contactos' as const, label: 'Contacto de negocio', modules: [{ key: 'clientes' as const, label: 'Clientes' }, { key: 'usuarios' as const, label: 'Usuarios' }] },
+                        { key: 'contactos' as const, label: 'Contacto de negocio', modules: [{ key: 'clientes' as const, label: 'Clientes' }] },
                         { key: 'productos_servicios' as const, label: 'Productos y Servicios', modules: [{ key: 'productos' as const, label: 'Productos' }, { key: 'servicios' as const, label: 'Servicios' }] },
                         { key: 'compras_gastos' as const, label: 'Compras y Gastos', modules: [] as { key: keyof Required<PermissionsPayload>; label: string }[] },
                         { key: 'ventas' as const, label: 'Ventas', modules: [{ key: 'cotizaciones' as const, label: 'Cotizaciones' }] },
@@ -1537,6 +1537,7 @@ export default function UserProfiles() {
                             { key: 'cuentas_antarix' as const, label: 'Cuentas Antarix GPS' },
                           ],
                         },
+                        { key: 'configuracion' as const, label: 'Configuración', modules: [{ key: 'usuarios' as const, label: 'Usuarios' }] },
                       ] as const)
                     : ([
                         { key: 'escritorio' as const, label: 'Mi escritorio', modules: [{ key: 'tareas' as const, label: 'Tareas' }] },
