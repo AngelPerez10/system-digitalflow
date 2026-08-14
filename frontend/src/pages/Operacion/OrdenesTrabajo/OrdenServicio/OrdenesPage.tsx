@@ -322,6 +322,8 @@ export default function Ordenes() {
     isDragActive,
     handleDeletePhoto,
     deletingPhoto,
+    uploadingPhotos,
+    photoUploadProgress,
     fetchClientes,
     serviciosDisponibles,
     setServiciosDisponibles,
@@ -1150,6 +1152,7 @@ export default function Ordenes() {
         setActiveTab={setActiveTab}
         modalAlert={modalAlert}
         isSaving={isSaving}
+        uploadingPhotos={uploadingPhotos}
         triggerSaveFromFooter={triggerSaveFromFooter}
       >
         {activeTab === "cliente" && (
@@ -1194,6 +1197,8 @@ export default function Ordenes() {
             setConfirmDelete={setConfirmDelete}
             confirmDeletePhoto={confirmDeletePhoto}
             deletingPhoto={deletingPhoto}
+            uploadingPhotos={uploadingPhotos}
+            photoUploadProgress={photoUploadProgress}
           />
         )}
         {(activeTab === "orden" || tipoOrden === "levantamiento") && (

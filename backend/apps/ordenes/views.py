@@ -445,13 +445,10 @@ def _delete_cloudinary_resource(url: str, resource_type: str = "image"):
 
 
 def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
-    """Upload a data URL (base64) to Cloudinary and return the secure URL.
-    If Cloudinary is not configured, returns the original data URL.
+    """Sube un data URL a Cloudinary y regresa la URL HTTPS.
 
-    Args:
-        data_url: Base64 data URL
-        folder: Cloudinary folder path
-        max_size_kb: Maximum file size in KB (default 80KB)
+    Si Cloudinary no está configurado, conserva el data URI validado (solo local).
+    Si Cloudinary falla, no se devuelve el data URL (evita miniaturas en blanco).
     """
     try:
         # Validate + optimize first (reject invalid/unsafe payloads).
@@ -469,12 +466,19 @@ def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
             optimized_url,
             folder=folder,
             resource_type="image",
-            overwrite=True,
+            overwrite=False,
+            unique_filename=True,
+            use_filename=False,
         )
-        return res.get("secure_url") or res.get("url") or optimized_url
+        url = res.get("secure_url") or res.get("url") or ""
+        if not str(url).startswith(("http://", "https://")):
+            raise RuntimeError("Cloudinary did not return an HTTP URL")
+        return url
+    except ValidationError:
+        raise
     except Exception:
-        logger.exception("Cloudinary upload failed, returning optimized data URL")
-        return optimized_url
+        logger.exception("Cloudinary upload failed")
+        raise ValidationError("No se pudo subir la imagen a Cloudinary")
 
 
 def _resolve_fotos_extra_max(data: dict, instance=None) -> int:
@@ -1716,8 +1720,13 @@ class OrdenViewSet(viewsets.ModelViewSet):
         try:
             url = _upload_data_url(data_url, folder=folder, max_size_kb=80)
             return Response({"url": url}, status=200)
-        except ValidationError:
-            return Response({"detail": "data_url inválido"}, status=400)
+        except ValidationError as exc:
+            detail = exc.detail
+            if isinstance(detail, list) and detail:
+                detail = detail[0]
+            message = detail if isinstance(detail, str) else "data_url inválido"
+            status_code = 502 if "Cloudinary" in message else 400
+            return Response({"detail": message}, status=status_code)
         except Exception:
             logger.exception("Cloudinary upload-image failed")
             return Response({"detail": "Error subiendo imagen a Cloudinary"}, status=502)

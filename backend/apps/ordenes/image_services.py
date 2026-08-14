@@ -233,9 +233,16 @@ def upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
             optimized_url,
             folder=folder,
             resource_type="image",
-            overwrite=True,
+            overwrite=False,
+            unique_filename=True,
+            use_filename=False,
         )
-        return res.get("secure_url") or res.get("url") or optimized_url
+        url = res.get("secure_url") or res.get("url") or ""
+        if not str(url).startswith(("http://", "https://")):
+            raise RuntimeError("Cloudinary did not return an HTTP URL")
+        return url
+    except ValidationError:
+        raise
     except Exception:
-        logger.exception("Cloudinary upload failed, returning optimized data URL")
-        return optimized_url
+        logger.exception("Cloudinary upload failed")
+        raise ValidationError("No se pudo subir la imagen a Cloudinary")

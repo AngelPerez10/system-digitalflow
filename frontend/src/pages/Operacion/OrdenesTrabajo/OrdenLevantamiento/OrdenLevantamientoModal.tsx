@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
 import {
   OrdenFormModalHeader,
@@ -19,6 +19,13 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import DatePicker from "@/components/form/date-picker";
 import { fetchApi } from "@/config/api";
+import {
+  collectOrdenImageFiles,
+  formatOrdenPhotoProgress,
+  ORDEN_IMAGE_ACCEPT,
+  ordenImageRejectMessage,
+  uploadOrdenImageBatch,
+} from "../OrdenServicio/shared/ordenImageUpload";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 import LevantamientoForm from "./LevantamientoForm";
 import SignaturePad from "@/components/ui/signature/SignaturePad";
@@ -112,8 +119,15 @@ export default function OrdenServicioModal({
     url: null,
   });
   const [deletingPhoto, setDeletingPhoto] = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [photoUploadProgress, setPhotoUploadProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const [brokenPhotoUrls, setBrokenPhotoUrls] = useState<Record<string, boolean>>({});
   const formScrollRef = useRef<HTMLFormElement | null>(null);
   const formNonceRef = useRef(0);
+  const fotosUrlsRef = useRef<string[]>([]);
   const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
 
   const [showMapModal, setShowMapModal] = useState(false);
@@ -413,144 +427,82 @@ export default function OrdenServicioModal({
     setServicioSearch("");
   };
 
-  const compressImage = async (
-    file: File,
-    maxSizeKB: number,
-    maxWidth: number = 1400,
-    maxHeight: number = 1400
-  ): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          let { width, height } = img;
-          if (width > maxWidth || height > maxHeight) {
-            const ratio = Math.min(maxWidth / width, maxHeight / height);
-            width = Math.floor(width * ratio);
-            height = Math.floor(height * ratio);
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.fillStyle = "#ffffff";
-            ctx.fillRect(0, 0, width, height);
-          }
-          ctx?.drawImage(img, 0, 0, width, height);
+  const MAX_LEVANTAMIENTO_FOTOS = 5;
+  fotosUrlsRef.current = Array.isArray(formData.fotos_urls) ? formData.fotos_urls : [];
 
-          const minQuality = 0.1;
-          const maxQuality = 0.95;
-          let attempts = 0;
-          const maxAttempts = 8;
-
-          const binarySearchCompress = (low: number, high: number) => {
-            if (attempts >= maxAttempts || high - low < 0.01) {
-              const finalQuality = (low + high) / 2;
-              canvas.toBlob(
-                (blob) => {
-                  if (!blob) {
-                    reject(new Error("Error al comprimir la imagen"));
-                    return;
-                  }
-                  const r = new FileReader();
-                  r.readAsDataURL(blob);
-                  r.onloadend = () => resolve(r.result as string);
-                },
-                "image/jpeg",
-                finalQuality
-              );
-              return;
-            }
-
-            attempts++;
-            const midQuality = (low + high) / 2;
-            canvas.toBlob(
-              (blob) => {
-                if (!blob) {
-                  reject(new Error("Error al comprimir la imagen"));
-                  return;
-                }
-                const sizeKB = blob.size / 1024;
-                if (Math.abs(sizeKB - maxSizeKB) < 5) {
-                  const r = new FileReader();
-                  r.readAsDataURL(blob);
-                  r.onloadend = () => resolve(r.result as string);
-                } else if (sizeKB > maxSizeKB) {
-                  binarySearchCompress(low, midQuality);
-                } else {
-                  binarySearchCompress(midQuality, high);
-                }
-              },
-              "image/jpeg",
-              midQuality
-            );
-          };
-
-          binarySearchCompress(minQuality, maxQuality);
-        };
-        img.onerror = () => reject(new Error("Error al cargar la imagen"));
-      };
-      reader.onerror = () => reject(new Error("Error al leer el archivo"));
-    });
-  };
-
-  const onDropPhotos = async (acceptedFiles: File[]) => {
+  const onDropPhotos = async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
     const nonce = formNonceRef.current;
-    const current = Array.isArray(formData.fotos_urls) ? formData.fotos_urls : [];
-    const remainingSlots = 5 - current.length;
-    if (remainingSlots <= 0) return;
-
-    const files = acceptedFiles.slice(0, remainingSlots).filter((f) => f.type.startsWith("image/"));
-    if (!files.length) return;
-
-    const uploadOne = async (file: File): Promise<string | null> => {
-      try {
-        const compressed = await compressImage(file, 80, 1400, 1400);
-        const resp = await fetchApi("/api/ordenes/upload-image/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data_url: compressed, folder: "ordenes/fotos" }),
-        });
-        if (!resp.ok) return null;
-        const data = await resp.json().catch(() => null);
-        return data?.url ? String(data.url) : null;
-      } catch {
-        return null;
-      }
-    };
-
-    const concurrency = 5;
-    const urls: string[] = [];
-    for (let i = 0; i < files.length; i += concurrency) {
-      const chunk = files.slice(i, i + concurrency);
-      const results = await Promise.allSettled(chunk.map(uploadOne));
-      for (const r of results) {
-        if (r.status === "fulfilled" && r.value) urls.push(r.value);
-      }
+    const current = fotosUrlsRef.current;
+    const remainingSlots = MAX_LEVANTAMIENTO_FOTOS - current.length;
+    if (remainingSlots <= 0) {
+      setModalAlert({
+        show: true,
+        variant: "warning",
+        title: "Límite de fotos",
+        message: `Ya alcanzaste el máximo de ${MAX_LEVANTAMIENTO_FOTOS} fotos.`,
+      });
+      setTimeout(() => setModalAlert((p) => ({ ...p, show: false })), 4000);
+      return;
     }
 
-    if (urls.length && formNonceRef.current === nonce) {
-      setFormData((prev) => {
-        const prevCurrent = Array.isArray(prev.fotos_urls) ? prev.fotos_urls : [];
-        return { ...prev, fotos_urls: [...prevCurrent, ...urls] };
+    const rejectedAsFiles = fileRejections.map((r) => r.file);
+    const { files, heicFiles } = collectOrdenImageFiles(acceptedFiles, rejectedAsFiles, remainingSlots);
+    const failures: string[] = heicFiles.map((f) => ordenImageRejectMessage(f.name));
+
+    if (!files.length) {
+      if (failures.length) {
+        setModalAlert({
+          show: true,
+          variant: "warning",
+          title: "Fotos no válidas",
+          message: failures[0],
+        });
+        setTimeout(() => setModalAlert((p) => ({ ...p, show: false })), 6000);
+      }
+      return;
+    }
+
+    setUploadingPhotos(true);
+    setPhotoUploadProgress({ done: 0, total: files.length });
+    try {
+      const result = await uploadOrdenImageBatch({
+        files,
+        maxTotal: MAX_LEVANTAMIENTO_FOTOS,
+        getCurrentUrls: () => fotosUrlsRef.current,
+        onUrlsChange: (urls) => {
+          if (formNonceRef.current !== nonce) return;
+          setFormData((prev) => ({ ...prev, fotos_urls: urls }));
+        },
+        onProgress: (progress) => {
+          if (formNonceRef.current !== nonce) return;
+          setPhotoUploadProgress(progress);
+        },
+        isCancelled: () => formNonceRef.current !== nonce,
       });
+      failures.push(...result.failures);
+      if (failures.length) {
+        setModalAlert({
+          show: true,
+          variant: result.uploadedUrls.length ? "warning" : "error",
+          title: result.uploadedUrls.length ? "Algunas fotos no se subieron" : "No se subieron las fotos",
+          message: failures.slice(0, 3).join(" "),
+        });
+        setTimeout(() => setModalAlert((p) => ({ ...p, show: false })), 7000);
+      }
+    } finally {
+      if (formNonceRef.current === nonce) {
+        setUploadingPhotos(false);
+        setPhotoUploadProgress(null);
+      }
     }
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onDropPhotos,
     multiple: true,
-    maxFiles: 5,
-    accept: {
-      "image/png": [],
-      "image/jpeg": [],
-      "image/webp": [],
-      "image/svg+xml": [],
-    },
+    maxFiles: MAX_LEVANTAMIENTO_FOTOS,
+    disabled: uploadingPhotos,
+    accept: ORDEN_IMAGE_ACCEPT,
   });
 
   const getPublicIdFromUrl = (url: string): string | null => {
@@ -746,7 +698,7 @@ export default function OrdenServicioModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSaving) return;
+    if (isSaving || uploadingPhotos) return;
     if (activeTabRef.current === "cliente") {
       goToOrdenTab();
       return;
@@ -1523,14 +1475,28 @@ export default function OrdenServicioModal({
                   </div>
 
                   {/* Subida de Fotos - Dropzone con dz-message */}
-                  <div className="transition border border-gray-300 border-dashed cursor-pointer dark:hover:border-[#ff801f] dark:border-gray-700 rounded-lg hover:border-[#ff801f]">
+                  <div
+                    className={`rounded-lg border border-dashed transition dark:border-gray-700 ${
+                      uploadingPhotos
+                        ? "cursor-wait border-brand-300 dark:border-brand-500/40"
+                        : "cursor-pointer border-gray-300 hover:border-[#ff801f] dark:hover:border-[#ff801f]"
+                    }`}
+                  >
                     <div
                       {...getRootProps()}
-                      className={`dropzone rounded-lg border-dashed border-gray-300 p-4 sm:p-5 ${isDragActive ? "border-[#ff801f] bg-gray-100 dark:bg-gray-800" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
-                        }`}
+                      className={`dropzone rounded-lg border-dashed p-4 sm:p-5 ${
+                        uploadingPhotos
+                          ? "border-brand-400 bg-brand-50/70 dark:bg-brand-500/10"
+                          : isDragActive
+                            ? "border-[#ff801f] bg-gray-100 dark:bg-gray-800"
+                            : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+                      }`}
                       id="fotos-upload-levantamiento"
                       role="button"
                       tabIndex={0}
+                      aria-busy={uploadingPhotos}
+                      aria-disabled={uploadingPhotos}
+                      aria-label="Subir fotos del levantamiento, máximo 5"
                     >
                       {/* Input oculto */}
                       <input {...getInputProps()} />
@@ -1539,7 +1505,7 @@ export default function OrdenServicioModal({
                         {/* Contenedor del icono */}
                         <div className="mb-3 flex justify-center">
                           <div className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                            <svg className="fill-current" width="22" height="22" viewBox="0 0 29 28" xmlns="http://www.w3.org/2000/svg">
+                            <svg className="fill-current" width="22" height="22" viewBox="0 0 29 28" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                               <path
                                 fillRule="evenodd"
                                 clipRule="evenodd"
@@ -1551,16 +1517,28 @@ export default function OrdenServicioModal({
 
                         {/* Contenido de texto */}
                         <h4 className="mb-1 font-semibold text-gray-800 text-sm sm:text-base dark:text-white/90">
-                          {isDragActive ? "Suelta aquí para subir" : "Haz clic o arrastra imágenes (máx. 5)"}
+                          {uploadingPhotos
+                            ? "Procesando fotos…"
+                            : isDragActive
+                              ? "Suelta aquí para subir"
+                              : "Haz clic o arrastra imágenes (máx. 5)"}
                         </h4>
 
                         <span className="text-center mb-2 block w-full max-w-[320px] text-[12px] text-gray-700 dark:text-gray-400">
-                          Formatos: PNG, JPG, WebP o SVG
+                          {uploadingPhotos
+                            ? "Puedes elegir varias; se suben de dos en dos para que no salgan en blanco."
+                            : "JPG, PNG o WebP. En iPhone usa «Más compatible» (no HEIC)."}
                         </span>
 
-                        <span className="font-medium underline text-[12px] text-[#ff801f]">
-                          Buscar archivos
-                        </span>
+                        {photoUploadProgress ? (
+                          <p role="status" aria-live="polite" className="text-sm font-medium text-brand-700 dark:text-brand-300">
+                            {formatOrdenPhotoProgress(photoUploadProgress)}
+                          </p>
+                        ) : (
+                          <span className="font-medium underline text-[12px] text-[#ff801f]">
+                            Buscar archivos
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1569,19 +1547,28 @@ export default function OrdenServicioModal({
                   {Array.isArray(formData.fotos_urls) && formData.fotos_urls.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-3">
                       {formData.fotos_urls.map((preview, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={preview}
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-24 object-cover rounded-lg border-2 border-gray-300 dark:border-gray-700"
-                          />
+                        <div key={`${preview}-${index}`} className="relative group">
+                          {brokenPhotoUrls[preview] ? (
+                            <div className="flex h-24 w-full items-center justify-center rounded-lg border-2 border-gray-300 bg-gray-100 px-2 text-center text-[11px] text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                              No se pudo mostrar
+                            </div>
+                          ) : (
+                            <img
+                              src={preview}
+                              alt={`Foto ${index + 1} del levantamiento`}
+                              className="h-24 w-full rounded-lg border-2 border-gray-300 bg-gray-100 object-cover dark:border-gray-700 dark:bg-gray-800"
+                              loading="lazy"
+                              decoding="async"
+                              onError={() => setBrokenPhotoUrls((prev) => ({ ...prev, [preview]: true }))}
+                            />
+                          )}
                           <button
                             type="button"
                             onClick={() => setConfirmDelete({ open: true, index, url: preview })}
-                            className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-error-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error-700"
-                            title="Eliminar imagen"
+                            className="absolute right-1 top-1 z-[1] flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-error-600 text-white opacity-100 transition-opacity hover:bg-error-700 sm:h-6 sm:w-6 sm:min-h-0 sm:min-w-0 sm:opacity-0 sm:group-hover:opacity-100"
+                            aria-label={`Eliminar foto ${index + 1}`}
                           >
-                            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
                               <path
                                 fillRule="evenodd"
                                 d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
@@ -1644,8 +1631,8 @@ export default function OrdenServicioModal({
                   Siguiente
                 </OrdenModalPrimaryButton>
               ) : (
-                <OrdenModalPrimaryButton type="button" disabled={isSaving} onClick={triggerSaveFromFooter}>
-                  {isSaving ? "Guardando…" : orden?.id ? "Actualizar" : "Guardar"}
+                <OrdenModalPrimaryButton type="button" disabled={isSaving || uploadingPhotos} onClick={triggerSaveFromFooter}>
+                  {isSaving ? "Guardando…" : uploadingPhotos ? "Subiendo fotos…" : orden?.id ? "Actualizar" : "Guardar"}
                 </OrdenModalPrimaryButton>
               )
             }

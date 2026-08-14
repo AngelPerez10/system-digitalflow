@@ -212,6 +212,8 @@ export default function OrdenesTecnico() {
     isDragActive,
     handleDeletePhoto,
     deletingPhoto,
+    uploadingPhotos,
+    photoUploadProgress,
     fetchClientes,
     serviciosDisponibles,
     setServiciosDisponibles,
@@ -1070,6 +1072,7 @@ export default function OrdenesTecnico() {
         setActiveTab={setActiveTab}
         modalAlert={modalAlert}
         isSaving={isSaving}
+        uploadingPhotos={uploadingPhotos}
         triggerSaveFromFooter={triggerSaveFromFooter}
         canOrdenesEdit={canOrdenesEdit}
         canOrdenesCreate={canOrdenesCreate}
@@ -1117,6 +1120,8 @@ export default function OrdenesTecnico() {
             setConfirmDelete={setConfirmDelete}
             confirmDeletePhoto={confirmDeletePhoto}
             deletingPhoto={deletingPhoto}
+            uploadingPhotos={uploadingPhotos}
+            photoUploadProgress={photoUploadProgress}
           />
         )}
         {(activeTab === "orden" || tipoOrden === "levantamiento") && (

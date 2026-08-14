@@ -2,6 +2,8 @@ import { fetchApi } from "@/config/api";
 import { FOLIO_SERIE, matchesDocumentFolio, resolveDocumentFolio } from "@/utils/documentFolio";
 import type { Orden, ServicioCatalogo, Usuario } from "./ordenesPageTypes";
 
+export { compressImage } from "./ordenImageUpload";
+
 export type {
   Orden,
   Usuario,
@@ -308,93 +310,6 @@ export const round2 = (v: number): number => {
   const n = Number(v);
   if (!Number.isFinite(n)) return 0;
   return Math.round(n * 100) / 100;
-};
-
-// ─── Image compression ─────────────────────────────────────────────────────
-
-export const compressImage = async (
-  file: File,
-  maxSizeKB: number,
-  maxWidth: number = 1400,
-  maxHeight: number = 1400
-): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let { width, height } = img;
-        if (width > maxWidth || height > maxHeight) {
-          const ratio = Math.min(maxWidth / width, maxHeight / height);
-          width = Math.floor(width * ratio);
-          height = Math.floor(height * ratio);
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, width, height);
-        }
-        ctx?.drawImage(img, 0, 0, width, height);
-
-        const minQuality = 0.1;
-        const maxQuality = 0.95;
-        let attempts = 0;
-        const maxAttempts = 8;
-
-        const binarySearchCompress = (low: number, high: number) => {
-          if (attempts >= maxAttempts || high - low < 0.01) {
-            const finalQuality = (low + high) / 2;
-            canvas.toBlob(
-              (blob) => {
-                if (!blob) {
-                  reject(new Error('Error al comprimir la imagen'));
-                  return;
-                }
-                const r = new FileReader();
-                r.readAsDataURL(blob);
-                r.onloadend = () => resolve(r.result as string);
-              },
-              'image/jpeg',
-              finalQuality
-            );
-            return;
-          }
-
-          attempts++;
-          const midQuality = (low + high) / 2;
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                reject(new Error('Error al comprimir la imagen'));
-                return;
-              }
-              const sizeKB = blob.size / 1024;
-              if (Math.abs(sizeKB - maxSizeKB) < 5) {
-                const r = new FileReader();
-                r.readAsDataURL(blob);
-                r.onloadend = () => resolve(r.result as string);
-              } else if (sizeKB > maxSizeKB) {
-                binarySearchCompress(low, midQuality);
-              } else {
-                binarySearchCompress(midQuality, high);
-              }
-            },
-            'image/jpeg',
-            midQuality
-          );
-        };
-
-        binarySearchCompress(minQuality, maxQuality);
-      };
-      img.onerror = () => reject(new Error('Error al cargar la imagen'));
-    };
-    reader.onerror = () => reject(new Error('Error al leer el archivo'));
-  });
 };
 
 // ─── Cloudinary helpers ─────────────────────────────────────────────────────

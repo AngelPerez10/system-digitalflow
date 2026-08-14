@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import { fetchApi } from "@/config/api";
 import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
 import type { Cliente } from "@/types/cliente";
@@ -19,7 +19,6 @@ import {
   type Usuario,
 } from "../shared/ordenesPageTypes";
 import {
-  compressImage,
   deleteImageFromCloudinary,
   fetchServiciosApi,
   fetchUsuariosApi,
@@ -28,6 +27,12 @@ import {
   isOrdenServicioTecnico,
   ORDENES_PAGE_INIT_THROTTLE_MS,
 } from "../shared/useOrdenesShared";
+import {
+  collectOrdenImageFiles,
+  ORDEN_IMAGE_ACCEPT,
+  ordenImageRejectMessage,
+  uploadOrdenImageBatch,
+} from "../shared/ordenImageUpload";
 import { round2 } from "../shared/ordenesPageUtils";
 import type { InventarioItem } from "@/pages/Inventario/shared/inventarioTypes";
 import {
@@ -389,6 +394,12 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
   const [formData, setFormData] = useState<OrdenFormData>(() => createEmptyOrdenFormData());
   const [isSaving, setIsSaving] = useState(false);
   const [deletingPhoto, setDeletingPhoto] = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [photoUploadProgress, setPhotoUploadProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const fotosUrlsRef = useRef<string[]>([]);
 
   const [statusAdministrativo, setStatusAdministrativo] =
     useState<OrdenStatusAdministrativo>("pendiente");
@@ -643,61 +654,88 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
   }, [formData.tecnico_asignado, loadTecnicoSignature, mySignatureUrl, userId]);
 
   const maxPhotosAllowed = ORDEN_BASE_MAX_FOTOS + formData.fotos_extra_max;
+  fotosUrlsRef.current = Array.isArray(formData.fotos_urls) ? formData.fotos_urls : [];
 
   const onDropPhotos = useCallback(
-    async (acceptedFiles: File[]) => {
+    async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
       const nonce = formNonceRef.current;
-      const current = Array.isArray(formData.fotos_urls) ? formData.fotos_urls : [];
+      const current = fotosUrlsRef.current;
       const remainingSlots = maxPhotosAllowed - current.length;
-      if (remainingSlots <= 0) return;
-      const files = acceptedFiles.slice(0, remainingSlots).filter((f) => f.type.startsWith("image/"));
-
-      const uploadOne = async (file: File): Promise<string | null> => {
-        try {
-          const compressed = await compressImage(file, 80, 1400, 1400);
-          const resp = await fetchApi("/api/ordenes/upload-image/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ data_url: compressed, folder: "ordenes/fotos" }),
-          });
-          if (!resp.ok) return null;
-          const data = await resp.json().catch(() => null);
-          return data?.url ? String(data.url) : null;
-        } catch {
-          return null;
-        }
-      };
-
-      const concurrency = 5;
-      const urls: string[] = [];
-      for (let i = 0; i < files.length; i += concurrency) {
-        const chunk = files.slice(i, i + concurrency);
-        const results = await Promise.allSettled(chunk.map(uploadOne));
-        for (const r of results) {
-          if (r.status === "fulfilled" && r.value) urls.push(r.value);
-        }
+      if (remainingSlots <= 0) {
+        setAlert({
+          show: true,
+          variant: "warning",
+          title: "Límite de fotos",
+          message: `Ya alcanzaste el máximo de ${maxPhotosAllowed} fotos.`,
+        });
+        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
+        return;
       }
 
-      if (urls.length && formNonceRef.current === nonce) {
-        setFormData((prev) => {
-          const prevCurrent = Array.isArray(prev.fotos_urls) ? prev.fotos_urls : [];
-          return { ...prev, fotos_urls: [...prevCurrent, ...urls] };
+      const rejectedAsFiles = fileRejections.map((r) => r.file);
+      const { files, heicFiles } = collectOrdenImageFiles(
+        acceptedFiles,
+        rejectedAsFiles,
+        remainingSlots,
+      );
+      const failures: string[] = heicFiles.map((f) => ordenImageRejectMessage(f.name));
+
+      if (!files.length) {
+        if (failures.length) {
+          setAlert({
+            show: true,
+            variant: "warning",
+            title: "Fotos no válidas",
+            message: failures[0],
+          });
+          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 6000);
+        }
+        return;
+      }
+
+      setUploadingPhotos(true);
+      setPhotoUploadProgress({ done: 0, total: files.length });
+      try {
+        const result = await uploadOrdenImageBatch({
+          files,
+          maxTotal: maxPhotosAllowed,
+          getCurrentUrls: () => fotosUrlsRef.current,
+          onUrlsChange: (urls) => {
+            if (formNonceRef.current !== nonce) return;
+            setFormData((prev) => ({ ...prev, fotos_urls: urls }));
+          },
+          onProgress: (progress) => {
+            if (formNonceRef.current !== nonce) return;
+            setPhotoUploadProgress(progress);
+          },
+          isCancelled: () => formNonceRef.current !== nonce,
         });
+        failures.push(...result.failures);
+        if (failures.length) {
+          setAlert({
+            show: true,
+            variant: result.uploadedUrls.length ? "warning" : "error",
+            title: result.uploadedUrls.length ? "Algunas fotos no se subieron" : "No se subieron las fotos",
+            message: failures.slice(0, 3).join(" "),
+          });
+          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 7000);
+        }
+      } finally {
+        if (formNonceRef.current === nonce) {
+          setUploadingPhotos(false);
+          setPhotoUploadProgress(null);
+        }
       }
     },
-    [formData.fotos_urls, maxPhotosAllowed],
+    [maxPhotosAllowed, setAlert],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onDropPhotos,
     multiple: true,
     maxFiles: maxPhotosAllowed,
-    accept: {
-      "image/png": [],
-      "image/jpeg": [],
-      "image/webp": [],
-      "image/svg+xml": [],
-    },
+    disabled: uploadingPhotos,
+    accept: ORDEN_IMAGE_ACCEPT,
   });
 
   const handleDeletePhoto = useCallback(
@@ -845,7 +883,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (isSaving) return;
+      if (isSaving || uploadingPhotos) return;
       if (activeTabRef.current === "cliente") {
         goToOrdenTab();
         return;
@@ -1028,6 +1066,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       setAlert,
       setModalAlert,
       openEnviarPdfModal,
+      uploadingPhotos,
     ],
   );
 
@@ -1135,6 +1174,8 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     isDragActive,
     handleDeletePhoto,
     deletingPhoto,
+    uploadingPhotos,
+    photoUploadProgress,
     clientes,
     fetchClientes,
     fetchUsuarios,

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { DropzoneRootProps, DropzoneInputProps } from "react-dropzone";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 import DatePicker from "@/components/form/date-picker";
@@ -12,6 +13,7 @@ import {
   OrdenPhotoPreviewModal,
 } from "../../../OrdenTrabajoModals";
 import type { OrdenFormData } from "../useOrdenFormDraft";
+import { formatOrdenPhotoProgress } from "../../shared/ordenImageUpload";
 import {
   ClearSelectionButton,
   openDireccionInMaps,
@@ -60,6 +62,8 @@ export type OrdenClienteTabProps = {
   setConfirmDelete: (v: { open: boolean; index: number | null; url: string | null }) => void;
   confirmDeletePhoto: (index: number, url: string) => void | Promise<void>;
   deletingPhoto: boolean;
+  uploadingPhotos?: boolean;
+  photoUploadProgress?: { done: number; total: number } | null;
 };
 
 export function OrdenClienteTab({
@@ -103,6 +107,8 @@ export function OrdenClienteTab({
   setConfirmDelete,
   confirmDeletePhoto,
   deletingPhoto,
+  uploadingPhotos = false,
+  photoUploadProgress = null,
 }: OrdenClienteTabProps) {
   const fotosExtraId = variant === "admin" ? "fotos-extra-max" : "fotos-extra-max-tecnico";
   const fotosExtraHintId = variant === "admin" ? "fotos-extra-hint-admin" : "fotos-extra-hint-tecnico";
@@ -110,6 +116,7 @@ export function OrdenClienteTab({
   const nombreClienteId = "orden-cliente-nombre";
   const telefonoId = "orden-cliente-telefono";
   const direccionId = "orden-cliente-direccion";
+  const [brokenPhotoUrls, setBrokenPhotoUrls] = useState<Record<string, boolean>>({});
 
   const tecnicoAsignadoActions = variant === "admin" ? tecnicoActions : quienInstaloActions;
   const tecnicoAsignadoSearch = variant === "admin" ? tecnicoSearch : quienInstaloSearch;
@@ -505,19 +512,27 @@ export function OrdenClienteTab({
           )}
 
           {!ro("fotos_urls") && (
-            <div className="cursor-pointer rounded-lg border border-dashed border-gray-300 transition hover:border-[#ff801f] dark:border-gray-700 dark:hover:border-[#ff801f]">
+            <div
+              className={`rounded-lg border border-dashed transition dark:border-gray-700 ${
+                uploadingPhotos
+                  ? "cursor-wait border-brand-300 dark:border-brand-500/40"
+                  : "cursor-pointer border-gray-300 hover:border-[#ff801f] dark:hover:border-[#ff801f]"
+              }`}
+            >
               <div
                 {...getRootProps()}
                 className={`dropzone rounded-lg border-dashed p-4 sm:p-5 ${
-                  isDragActive
-                    ? "border-[#ff801f] bg-[#fff8f1] dark:bg-gray-800"
-                    : variant === "tecnico"
-                      ? "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+                  uploadingPhotos
+                    ? "border-brand-400 bg-brand-50/70 dark:bg-brand-500/10"
+                    : isDragActive
+                      ? "border-[#ff801f] bg-[#fff8f1] dark:bg-gray-800"
                       : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
                 }`}
                 id="fotos-upload"
                 role="button"
                 tabIndex={0}
+                aria-busy={uploadingPhotos}
+                aria-disabled={uploadingPhotos}
                 aria-label={`Subir fotos de la orden, máximo ${maxPhotosAllowed}`}
               >
                 <input {...getInputProps()} />
@@ -534,12 +549,24 @@ export function OrdenClienteTab({
                     </div>
                   </div>
                   <h4 className="mb-1 text-sm font-semibold text-gray-800 dark:text-white/90 sm:text-base">
-                    {isDragActive ? "Suelta aquí para subir" : `Haz clic o arrastra imágenes (máx. ${maxPhotosAllowed})`}
+                    {uploadingPhotos
+                      ? "Procesando fotos…"
+                      : isDragActive
+                        ? "Suelta aquí para subir"
+                        : `Haz clic o arrastra imágenes (máx. ${maxPhotosAllowed})`}
                   </h4>
                   <span className="mb-2 block w-full max-w-[320px] text-center text-[12px] text-gray-700 dark:text-gray-400">
-                    Formatos: PNG, JPG, WebP o SVG
+                    {uploadingPhotos
+                      ? "Puedes elegir varias; se suben de dos en dos para que no salgan en blanco."
+                      : "JPG, PNG o WebP. En iPhone usa «Más compatible» (no HEIC)."}
                   </span>
-                  <span className="text-[12px] font-medium text-[#ff801f] underline">Buscar archivos</span>
+                  {photoUploadProgress ? (
+                    <p role="status" aria-live="polite" className="text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {formatOrdenPhotoProgress(photoUploadProgress)}
+                    </p>
+                  ) : (
+                    <span className="text-[12px] font-medium text-[#ff801f] underline">Buscar archivos</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -548,14 +575,27 @@ export function OrdenClienteTab({
           {Array.isArray(formData.fotos_urls) && formData.fotos_urls.length > 0 && (
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
               {formData.fotos_urls.map((preview, index) => (
-                <div key={index} className="group relative">
+                <div key={`${preview}-${index}`} className="group relative">
                   <button
                     type="button"
                     onClick={() => setPhotoPreview({ open: true, url: preview, index })}
-                    className="block w-full cursor-zoom-in overflow-hidden rounded-lg border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#ff801f]/40 dark:border-gray-700"
+                    className="block w-full cursor-zoom-in overflow-hidden rounded-lg border-2 border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40 dark:border-gray-700"
                     aria-label={`Ver foto ${index + 1} en tamaño completo`}
                   >
-                    <img src={preview} alt={`Foto ${index + 1}`} className="pointer-events-none h-24 w-full object-cover" />
+                    {brokenPhotoUrls[preview] ? (
+                      <div className="flex h-24 w-full items-center justify-center bg-gray-100 px-2 text-center text-[11px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                        No se pudo mostrar
+                      </div>
+                    ) : (
+                      <img
+                        src={preview}
+                        alt={`Foto ${index + 1} de la orden`}
+                        className="pointer-events-none h-24 w-full bg-gray-100 object-cover dark:bg-gray-800"
+                        loading="lazy"
+                        decoding="async"
+                        onError={() => setBrokenPhotoUrls((prev) => ({ ...prev, [preview]: true }))}
+                      />
+                    )}
                   </button>
                   {!ro("fotos_urls") && (
                     <button

@@ -54,6 +54,7 @@ export type OrdenFormModalProps = {
   setActiveTab: (tab: OrdenFormTab) => void;
   modalAlert: OrdenFormModalAlert;
   isSaving: boolean;
+  uploadingPhotos?: boolean;
   triggerSaveFromFooter: () => void;
   canOrdenesEdit?: boolean;
   canOrdenesCreate?: boolean;
@@ -76,11 +77,13 @@ export default function OrdenFormModal({
   setActiveTab,
   modalAlert,
   isSaving,
+  uploadingPhotos = false,
   triggerSaveFromFooter,
   canOrdenesEdit = true,
   canOrdenesCreate = true,
   children,
 }: OrdenFormModalProps) {
+  const saveBusy = isSaving || uploadingPhotos;
   const goToEquiposTab = (fromFooter?: boolean) => {
     const apply = () => {
       setActiveTab("equipos");
@@ -153,8 +156,8 @@ export default function OrdenFormModal({
         Siguiente
       </OrdenModalPrimaryButton>
     ) : variant === "tecnico" && !(editingOrden ? canOrdenesEdit : canOrdenesCreate) ? null : (
-      <OrdenModalPrimaryButton type="button" disabled={isSaving} onClick={triggerSaveFromFooter}>
-        {isSaving ? (
+      <OrdenModalPrimaryButton type="button" disabled={saveBusy} onClick={triggerSaveFromFooter}>
+        {isSaving || uploadingPhotos ? (
           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
             <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
@@ -164,7 +167,7 @@ export default function OrdenFormModal({
             <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
-        {isSaving ? "Guardando…" : editingOrden ? "Actualizar" : "Guardar"}
+        {isSaving ? "Guardando…" : uploadingPhotos ? "Subiendo fotos…" : editingOrden ? "Actualizar" : "Guardar"}
       </OrdenModalPrimaryButton>
     );
 
