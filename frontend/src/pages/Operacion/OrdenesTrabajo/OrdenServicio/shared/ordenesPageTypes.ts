@@ -70,7 +70,11 @@ export interface Orden {
   creado_por?: number | null;
   creado_por_id?: number;
   quien_instalo?: number | null;
+  quien_instalo_username?: string;
+  quien_instalo_full_name?: string;
   quien_entrego?: number | null;
+  quien_entrego_username?: string;
+  quien_entrego_full_name?: string;
   firma_encargado_url: string;
   firma_cliente_url: string;
   fotos_urls: string[];

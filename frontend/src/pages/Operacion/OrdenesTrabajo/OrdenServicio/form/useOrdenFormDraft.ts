@@ -474,6 +474,18 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         fotos_extra_max: normalizeFotosExtraFromOrden(orden),
         equipos_inventario: normalizeEquiposInventario(orden.equipos_inventario),
       });
+      // El input usa solo el search state (sin fallback a formData), para poder borrar a mano.
+      setClienteSearch(String(orden.cliente || "").trim());
+      setTecnicoSearch(
+        String(orden.tecnico_asignado_full_name || orden.tecnico_asignado_username || "").trim(),
+      );
+      setQuienInstaloSearch(
+        String(orden.quien_instalo_full_name || orden.quien_instalo_username || "").trim(),
+      );
+      setQuienEntregoSearch(
+        String(orden.quien_entrego_full_name || orden.quien_entrego_username || "").trim(),
+      );
+      setServicioSearch("");
       if (variant === "admin") loadAdminSeguimientoFromOrden(orden);
     },
     [bumpFormNonce, mySignatureUrl, variant, loadAdminSeguimientoFromOrden],

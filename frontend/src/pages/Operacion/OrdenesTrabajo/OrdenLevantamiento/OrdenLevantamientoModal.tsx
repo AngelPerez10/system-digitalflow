@@ -315,22 +315,16 @@ export default function OrdenServicioModal({
         firma_cliente_url: orden.firma_cliente_url ?? "",
         fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : [],
       });
-      setClienteSearch(orden.cliente ?? "");
-      const tid = orden.tecnico_asignado != null ? Number(orden.tecnico_asignado) : null;
-      if (tid) {
-        const u = usuarios.find((x) => x.id === tid);
-        if (u) setTecnicoSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
-      } else setTecnicoSearch("");
-      const quienInstaloId = orden.quien_instalo != null ? Number(orden.quien_instalo) : null;
-      if (quienInstaloId) {
-        const u = usuarios.find((x) => x.id === quienInstaloId);
-        if (u) setQuienInstaloSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
-      } else setQuienInstaloSearch("");
-      const quienEntregoId = orden.quien_entrego != null ? Number(orden.quien_entrego) : null;
-      if (quienEntregoId) {
-        const u = usuarios.find((x) => x.id === quienEntregoId);
-        if (u) setQuienEntregoSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
-      } else setQuienEntregoSearch("");
+      setClienteSearch(String(orden.cliente || "").trim());
+      setTecnicoSearch(
+        String(orden.tecnico_asignado_full_name || orden.tecnico_asignado_username || "").trim(),
+      );
+      setQuienInstaloSearch(
+        String(orden.quien_instalo_full_name || orden.quien_instalo_username || "").trim(),
+      );
+      setQuienEntregoSearch(
+        String(orden.quien_entrego_full_name || orden.quien_entrego_username || "").trim(),
+      );
     } else {
       const fechaIni =
         (defaultFechaInicioForNewOrden && String(defaultFechaInicioForNewOrden).trim()) ||
@@ -344,23 +338,35 @@ export default function OrdenServicioModal({
     }
   }, [open, orden?.id, defaultFechaInicioForNewOrden]);
 
-  // Sync tecnicoSearch when usuarios load and we're editing with tecnico_asignado
+  // Rellenar etiqueta solo si el buscador está vacío (p. ej. usuarios cargaron después).
   useEffect(() => {
     if (!open || !formData.tecnico_asignado || !usuarios.length) return;
-    const u = usuarios.find((x) => x.id === formData.tecnico_asignado);
-    if (u) setTecnicoSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
+    setTecnicoSearch((prev) => {
+      if (prev.trim()) return prev;
+      const u = usuarios.find((x) => x.id === formData.tecnico_asignado);
+      if (!u) return prev;
+      return u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email;
+    });
   }, [open, formData.tecnico_asignado, usuarios]);
 
   useEffect(() => {
     if (!open || !formData.quien_instalo || !usuarios.length) return;
-    const u = usuarios.find((x) => x.id === formData.quien_instalo);
-    if (u) setQuienInstaloSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
+    setQuienInstaloSearch((prev) => {
+      if (prev.trim()) return prev;
+      const u = usuarios.find((x) => x.id === formData.quien_instalo);
+      if (!u) return prev;
+      return u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email;
+    });
   }, [open, formData.quien_instalo, usuarios]);
 
   useEffect(() => {
     if (!open || !formData.quien_entrego || !usuarios.length) return;
-    const u = usuarios.find((x) => x.id === formData.quien_entrego);
-    if (u) setQuienEntregoSearch(u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email);
+    setQuienEntregoSearch((prev) => {
+      if (prev.trim()) return prev;
+      const u = usuarios.find((x) => x.id === formData.quien_entrego);
+      if (!u) return prev;
+      return u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email;
+    });
   }, [open, formData.quien_entrego, usuarios]);
 
   const selectCliente = (cliente: Cliente | null) => {
@@ -1036,8 +1042,13 @@ export default function OrdenServicioModal({
                         defaultOpen={false}
                         label="Cliente"
                         placeholder="Buscar cliente..."
-                        value={clienteSearch || formData.cliente || ""}
-                        onQueryChange={(q: string) => setClienteSearch(q)}
+                        value={clienteSearch}
+                        onQueryChange={(q: string) => {
+                          setClienteSearch(q);
+                          if (!q.trim() && (formData.cliente_id || formData.cliente)) {
+                            selectCliente(null);
+                          }
+                        }}
                         onSelectAction={(action: any) => {
                           const rawId = String(action?.id ?? "");
                           const clienteIdStr = rawId.includes("::") ? rawId.split("::")[0] : rawId;
@@ -1082,21 +1093,17 @@ export default function OrdenServicioModal({
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
                         <ActionSearchBar
-                          actions={quienInstaloActions as any}
+                          actions={tecnicoActions as any}
                           defaultOpen={false}
                           label="Técnico Asignado"
                           placeholder="Buscar técnico..."
-                          value={
-                            tecnicoSearch ||
-                            (formData.tecnico_asignado
-                              ? (() => {
-                                const tecnicoId = Number(formData.tecnico_asignado);
-                                const u = usuarios.find((u) => u.id === tecnicoId);
-                                return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : "";
-                              })()
-                              : "")
-                          }
-                          onQueryChange={(q: string) => setTecnicoSearch(q)}
+                          value={tecnicoSearch}
+                          onQueryChange={(q: string) => {
+                            setTecnicoSearch(q);
+                            if (!q.trim() && formData.tecnico_asignado) {
+                              selectTecnico(null);
+                            }
+                          }}
                           onSelectAction={(action: any) => {
                             const id = Number(action?.id);
                             const u = (usuarios || []).find((x) => Number(x.id) === id);
@@ -1132,16 +1139,17 @@ export default function OrdenServicioModal({
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
                         <ActionSearchBar
-                          actions={quienEntregoActions as any}
+                          actions={quienInstaloActions as any}
                           defaultOpen={false}
                           label="¿Quien instaló?"
                           placeholder="Buscar técnico..."
-                          value={quienInstaloSearch || (formData.quien_instalo ? (() => {
-                            const tecnicoId = Number(formData.quien_instalo);
-                            const u = usuarios.find((u) => u.id === tecnicoId);
-                            return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : "";
-                          })() : "")}
-                          onQueryChange={(q: string) => setQuienInstaloSearch(q)}
+                          value={quienInstaloSearch}
+                          onQueryChange={(q: string) => {
+                            setQuienInstaloSearch(q);
+                            if (!q.trim() && formData.quien_instalo) {
+                              selectQuienInstalo(null);
+                            }
+                          }}
                           onSelectAction={(action: any) => {
                             const id = Number(action?.id);
                             const u = (usuarios || []).find((x) => Number(x.id) === id);
@@ -1166,16 +1174,17 @@ export default function OrdenServicioModal({
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
                         <ActionSearchBar
-                          actions={tecnicoActions as any}
+                          actions={quienEntregoActions as any}
                           defaultOpen={false}
                           label="¿Quien entregó?"
                           placeholder="Buscar técnico..."
-                          value={quienEntregoSearch || (formData.quien_entrego ? (() => {
-                            const tecnicoId = Number(formData.quien_entrego);
-                            const u = usuarios.find((u) => u.id === tecnicoId);
-                            return u ? (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email) : "";
-                          })() : "")}
-                          onQueryChange={(q: string) => setQuienEntregoSearch(q)}
+                          value={quienEntregoSearch}
+                          onQueryChange={(q: string) => {
+                            setQuienEntregoSearch(q);
+                            if (!q.trim() && formData.quien_entrego) {
+                              selectQuienEntrego(null);
+                            }
+                          }}
                           onSelectAction={(action: any) => {
                             const id = Number(action?.id);
                             const u = (usuarios || []).find((x) => Number(x.id) === id);

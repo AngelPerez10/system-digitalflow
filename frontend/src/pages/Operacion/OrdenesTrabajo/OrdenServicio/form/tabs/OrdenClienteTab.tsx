@@ -17,7 +17,6 @@ import { formatOrdenPhotoProgress } from "../../shared/ordenImageUpload";
 import {
   ClearSelectionButton,
   openDireccionInMaps,
-  tecnicoDisplayLabel,
   type OrdenFieldKey,
 } from "./ordenTabHelpers";
 
@@ -118,15 +117,33 @@ export function OrdenClienteTab({
   const direccionId = "orden-cliente-direccion";
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState<Record<string, boolean>>({});
 
-  const tecnicoAsignadoActions = variant === "admin" ? tecnicoActions : quienInstaloActions;
-  const tecnicoAsignadoSearch = variant === "admin" ? tecnicoSearch : quienInstaloSearch;
-  const setTecnicoAsignadoSearch = variant === "admin" ? setTecnicoSearch : setQuienInstaloSearch;
-  const quienInstaloFieldActions = variant === "admin" ? quienInstaloActions : quienEntregoActions;
-  const quienInstaloFieldSearch = variant === "admin" ? quienInstaloSearch : quienEntregoSearch;
-  const setQuienInstaloFieldSearch = variant === "admin" ? setQuienInstaloSearch : setQuienEntregoSearch;
-  const quienEntregoFieldActions = variant === "admin" ? quienEntregoActions : tecnicoActions;
-  const quienEntregoFieldSearch = variant === "admin" ? quienEntregoSearch : tecnicoSearch;
-  const setQuienEntregoFieldSearch = variant === "admin" ? setQuienEntregoSearch : setTecnicoSearch;
+  const onClienteQueryChange = (q: string) => {
+    setClienteSearch(q);
+    if (!q.trim() && (formData.cliente_id || formData.cliente) && !ro("cliente")) {
+      selectCliente(null);
+    }
+  };
+
+  const onTecnicoAsignadoQueryChange = (q: string) => {
+    setTecnicoSearch(q);
+    if (!q.trim() && formData.tecnico_asignado && !ro("tecnico_asignado")) {
+      selectTecnico(null);
+    }
+  };
+
+  const onQuienInstaloQueryChange = (q: string) => {
+    setQuienInstaloSearch(q);
+    if (!q.trim() && formData.quien_instalo && !ro("quien_instalo")) {
+      selectQuienInstalo(null);
+    }
+  };
+
+  const onQuienEntregoQueryChange = (q: string) => {
+    setQuienEntregoSearch(q);
+    if (!q.trim() && formData.quien_entrego && !ro("quien_entrego")) {
+      selectQuienEntrego(null);
+    }
+  };
 
   const handleClienteSelect = (action: { id?: string | number; label?: string; __contacto?: { id?: number; celular?: string; nombre_apellido?: string } }) => {
     if (variant === "admin") {
@@ -198,8 +215,8 @@ export function OrdenClienteTab({
                 defaultOpen={false}
                 label="Cliente"
                 placeholder="Buscar cliente por nombre o teléfono..."
-                value={clienteSearch || formData.cliente || ""}
-                onQueryChange={setClienteSearch}
+                value={clienteSearch}
+                onQueryChange={onClienteQueryChange}
                 onSelectAction={handleClienteSelect as never}
               />
             </div>
@@ -226,12 +243,12 @@ export function OrdenClienteTab({
             <div className="flex items-start gap-2">
               <div className="flex-1">
                 <ActionSearchBar
-                  actions={tecnicoAsignadoActions as never}
+                  actions={tecnicoActions as never}
                   defaultOpen={false}
                   label="Técnico Asignado"
                   placeholder="Buscar técnico..."
-                  value={tecnicoAsignadoSearch || tecnicoDisplayLabel(usuarios, formData.tecnico_asignado)}
-                  onQueryChange={setTecnicoAsignadoSearch}
+                  value={tecnicoSearch}
+                  onQueryChange={onTecnicoAsignadoQueryChange}
                   onSelectAction={(action: { id?: string | number }) => {
                     if (ro("tecnico_asignado")) return;
                     const id = Number(action?.id);
@@ -249,12 +266,12 @@ export function OrdenClienteTab({
             <div className="flex items-start gap-2">
               <div className="flex-1">
                 <ActionSearchBar
-                  actions={quienInstaloFieldActions as never}
+                  actions={quienInstaloActions as never}
                   defaultOpen={false}
                   label="¿Quien instaló?"
                   placeholder="Buscar técnico..."
-                  value={quienInstaloFieldSearch || tecnicoDisplayLabel(usuarios, formData.quien_instalo)}
-                  onQueryChange={setQuienInstaloFieldSearch}
+                  value={quienInstaloSearch}
+                  onQueryChange={onQuienInstaloQueryChange}
                   onSelectAction={(action: { id?: string | number }) => {
                     if (ro("quien_instalo")) return;
                     const id = Number(action?.id);
@@ -270,12 +287,12 @@ export function OrdenClienteTab({
             <div className="flex items-start gap-2">
               <div className="flex-1">
                 <ActionSearchBar
-                  actions={quienEntregoFieldActions as never}
+                  actions={quienEntregoActions as never}
                   defaultOpen={false}
                   label="¿Quien entregó?"
                   placeholder="Buscar técnico..."
-                  value={quienEntregoFieldSearch || tecnicoDisplayLabel(usuarios, formData.quien_entrego)}
-                  onQueryChange={setQuienEntregoFieldSearch}
+                  value={quienEntregoSearch}
+                  onQueryChange={onQuienEntregoQueryChange}
                   onSelectAction={(action: { id?: string | number }) => {
                     if (ro("quien_entrego")) return;
                     const id = Number(action?.id);

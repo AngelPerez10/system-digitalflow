@@ -457,7 +457,6 @@ export default function Ordenes() {
       return;
     }
     setEditingOrden(orden);
-    setTecnicoSearch('');
     setActiveTab("cliente");
     const orderType = String(orden.tipo_orden || '').toLowerCase();
     setTipoOrden(orderType === 'levantamiento' ? 'levantamiento' : 'servicio_tecnico');
