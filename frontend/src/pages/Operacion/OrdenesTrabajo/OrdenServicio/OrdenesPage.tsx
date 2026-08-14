@@ -96,6 +96,7 @@ export default function Ordenes() {
     canOrdenesCreate,
     canOrdenesEdit,
     canOrdenesDelete,
+    ordenesOwnOnly,
   } = useOrdenesPagePermissions();
   const { user, isAdmin } = useAuth();
 
@@ -151,6 +152,7 @@ export default function Ordenes() {
     canEdit: canOrdenesEdit,
     userId: user?.id ?? null,
     isAdmin,
+    ownOnly: ordenesOwnOnly,
   });
 
   const ro = isFieldReadOnly;

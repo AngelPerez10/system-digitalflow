@@ -3,6 +3,7 @@ from datetime import date, datetime, time
 from rest_framework.exceptions import PermissionDenied
 
 from apps.ordenes.pdf_limits import normalize_fotos_extra_max
+from apps.users.permissions import user_module_own_only
 
 LIMITED_ORDEN_EDIT_FIELDS = frozenset({
     'problematica',
@@ -24,9 +25,13 @@ def orden_user_owns(user, orden) -> bool:
 
 
 def user_has_full_orden_edit(user, orden) -> bool:
+    """Full edit: staff, dueño de la orden, o «Ver todas las órdenes» (own_only=false)."""
     if not user or not getattr(user, 'is_authenticated', False):
         return False
     if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+        return True
+    # Misma bandera que Gestión de usuarios → «Ver todas las órdenes».
+    if not user_module_own_only(user, 'ordenes'):
         return True
     return orden_user_owns(user, orden)
 

@@ -371,12 +371,12 @@ export function CotizacionesMobileList({
                       </div>
                       <p className="shrink-0 text-sm font-semibold tabular-nums text-[#1c1917] dark:text-white">{r.monto}</p>
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2 border-t border-[#e7ded0] pt-3 dark:border-[#273244]">
+                    <div className="mt-3 flex items-center justify-end gap-2 border-t border-[#e7ded0] pt-3 dark:border-[#273244]">
                       <button
                         type="button"
                         disabled={excelLoading}
                         onClick={() => actions.onEdit(r)}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-[#ff801f] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
+                        className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-[#ff801f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff801f] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
                         title="Editar"
                         aria-label="Editar"
                       >
@@ -387,7 +387,7 @@ export function CotizacionesMobileList({
                           type="button"
                           disabled={excelLoading}
                           onClick={() => actions.onDownloadExcel!(r)}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
+                          className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-emerald-400 hover:text-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff801f] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
                           title="Excel"
                           aria-label="Descargar Excel"
                         >
@@ -398,15 +398,20 @@ export function CotizacionesMobileList({
                         type="button"
                         disabled={excelLoading}
                         onClick={() => actions.onOpenPdf(r.id)}
-                        className="inline-flex min-h-[40px] flex-1 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-xs font-medium text-[#57534e] hover:border-[#ff801f] hover:text-[#ea580c] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]"
+                        className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-[#ff801f] hover:text-[#ea580c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff801f] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a] dark:hover:text-[#ffa057]"
+                        title="PDF"
+                        aria-label="Ver PDF"
                       >
-                        PDF
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <path d="M14 2v6h6" />
+                        </svg>
                       </button>
                       <button
                         type="button"
                         disabled={excelLoading}
                         onClick={() => actions.onDelete(r)}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-rose-400 hover:text-rose-600 disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
+                        className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[#e2d9ca] bg-white hover:border-rose-400 hover:text-rose-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff801f] disabled:opacity-50 dark:border-[#334155] dark:bg-[#0f172a]"
                         title="Eliminar"
                         aria-label="Eliminar"
                       >

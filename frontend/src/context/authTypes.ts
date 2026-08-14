@@ -11,7 +11,13 @@ export interface AuthUser {
   smtp_configured?: boolean;
 }
 
-export type Permissions = Record<
-  string,
-  { view?: boolean; create?: boolean; edit?: boolean; delete?: boolean }
->;
+export type ModuleCrudPermissions = {
+  view?: boolean;
+  create?: boolean;
+  edit?: boolean;
+  delete?: boolean;
+  /** Órdenes/proyectos: true = solo propios; false = ver todos. */
+  own_only?: boolean;
+};
+
+export type Permissions = Record<string, ModuleCrudPermissions>;

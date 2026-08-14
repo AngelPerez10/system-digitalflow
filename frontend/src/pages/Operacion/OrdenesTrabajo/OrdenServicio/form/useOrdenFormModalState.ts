@@ -15,12 +15,15 @@ export function useOrdenFormModalState({
   editingOrdenForScope,
   userId,
   isAdmin = false,
+  ownOnly = true,
 }: {
   canCreate: boolean;
   canEdit: boolean;
   editingOrdenForScope?: Orden | null;
   userId?: number | null;
   isAdmin?: boolean;
+  /** true = solo propias; false = «Ver todas las órdenes» (edición completa). */
+  ownOnly?: boolean;
 }) {
   const [showModal, setShowModal] = useState(false);
   const [showClienteModal, setShowClienteModal] = useState(false);
@@ -38,8 +41,9 @@ export function useOrdenFormModalState({
         userId: userId ?? null,
         isAdmin,
         canEdit,
+        ownOnly,
       }),
-    [scopeOrden, userId, isAdmin, canEdit],
+    [scopeOrden, userId, isAdmin, canEdit, ownOnly],
   );
 
   const isFieldReadOnly = useCallback(

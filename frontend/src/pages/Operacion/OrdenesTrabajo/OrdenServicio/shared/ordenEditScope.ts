@@ -50,13 +50,18 @@ export function isOrdenLimitedEdit({
   userId,
   isAdmin,
   canEdit,
+  ownOnly = true,
 }: {
   orden: Orden | null | undefined;
   userId: number | null | undefined;
   isAdmin: boolean;
   canEdit: boolean;
+  /** true = solo propias (edición limitada en ajenas). false = «Ver todas las órdenes». */
+  ownOnly?: boolean;
 }): boolean {
   if (!canEdit || !orden || isAdmin) return false;
+  // Misma bandera que Gestión de usuarios → «Ver todas las órdenes».
+  if (!ownOnly) return false;
   return !isOrdenOwnedByUser(orden, userId);
 }
 

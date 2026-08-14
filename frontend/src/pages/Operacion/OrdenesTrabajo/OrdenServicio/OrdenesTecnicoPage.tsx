@@ -80,6 +80,8 @@ export default function OrdenesTecnico() {
     canOrdenesCreate,
     canOrdenesEdit,
     canOrdenesDelete,
+    ordenesOwnOnly,
+    canViewAllOrdenes,
   } = useOrdenesPagePermissions();
   const { user, isAdmin } = useAuth();
 
@@ -158,6 +160,7 @@ export default function OrdenesTecnico() {
     canEdit: canOrdenesEdit,
     userId: user?.id ?? null,
     isAdmin,
+    ownOnly: ordenesOwnOnly,
   });
 
   const [modalAlert, setModalAlert] = useState<{
@@ -655,9 +658,13 @@ export default function OrdenesTecnico() {
             <p className={sectionLabelOrangeClass}>
               Operación
             </p>
-            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Mis órdenes</h1>
+            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>
+              {canViewAllOrdenes ? "Órdenes" : "Mis órdenes"}
+            </h1>
             <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
-              Órdenes donde eres el técnico asignado o el creador. Registra servicio, firmas y evidencia desde aquí.
+              {canViewAllOrdenes
+                ? "Puedes ver y editar todas las órdenes (permiso «Ver todas las órdenes»). Registra servicio, firmas y evidencia desde aquí."
+                : "Órdenes donde eres el técnico asignado o el creador. Registra servicio, firmas y evidencia desde aquí."}
             </p>
             <div className={erpHeroGradientClass} />
           </div>
