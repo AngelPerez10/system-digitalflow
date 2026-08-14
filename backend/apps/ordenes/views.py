@@ -1609,21 +1609,32 @@ class OrdenViewSet(viewsets.ModelViewSet):
         data = _stamp_firma_encargado(data, instance=instance)
 
         if full_edit:
-            firma_cliente = data.get('firma_cliente_url')
-            if isinstance(firma_cliente, str) and _is_data_url(firma_cliente):
-                if old_firma_cliente and _extract_public_id_from_url(old_firma_cliente):
-                    _delete_cloudinary_resource(old_firma_cliente)
-                data['firma_cliente_url'] = _upload_data_url(firma_cliente, folder='ordenes/firmas', max_size_kb=80)
-            elif firma_cliente == '' or firma_cliente is None:
-                if old_firma_cliente and _extract_public_id_from_url(old_firma_cliente):
-                    _delete_cloudinary_resource(old_firma_cliente)
-                data['firma_cliente_url'] = "" if firma_cliente == '' else None
-            elif isinstance(firma_cliente, str):
-                if not _extract_public_id_from_url(firma_cliente):
+            # Solo tocar firma_cliente si viene en validated_data.
+            # null = omitir (no borrar); "" = limpiar; data URL = subir.
+            if "firma_cliente_url" not in serializer.validated_data:
+                data.pop("firma_cliente_url", None)
+            else:
+                firma_cliente = data.get("firma_cliente_url")
+                if isinstance(firma_cliente, str) and _is_data_url(firma_cliente):
+                    if old_firma_cliente and _extract_public_id_from_url(old_firma_cliente):
+                        _delete_cloudinary_resource(old_firma_cliente)
+                    data["firma_cliente_url"] = _upload_data_url(
+                        firma_cliente, folder="ordenes/firmas", max_size_kb=80
+                    )
+                elif firma_cliente == "":
+                    if old_firma_cliente and _extract_public_id_from_url(old_firma_cliente):
+                        _delete_cloudinary_resource(old_firma_cliente)
+                    data["firma_cliente_url"] = ""
+                elif firma_cliente is None:
+                    # null = omitir (p. ej. cliente antiguo / listado incompleto).
+                    data.pop("firma_cliente_url", None)
+                    serializer.validated_data.pop("firma_cliente_url", None)
+                elif isinstance(firma_cliente, str):
+                    if not _extract_public_id_from_url(firma_cliente):
+                        raise ValidationError("firma_cliente_url inválida")
+                    data["firma_cliente_url"] = firma_cliente
+                else:
                     raise ValidationError("firma_cliente_url inválida")
-                data['firma_cliente_url'] = firma_cliente
-            elif firma_cliente is not None:
-                raise ValidationError("firma_cliente_url inválida")
 
         # Handle photo updates - delete removed photos
         fotos = data.get('fotos_urls')

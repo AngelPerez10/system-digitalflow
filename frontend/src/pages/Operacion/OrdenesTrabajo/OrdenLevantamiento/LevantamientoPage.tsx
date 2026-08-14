@@ -12,7 +12,7 @@ import { formatMonthLabelEs, getCurrentMonthKey } from "@/utils/statsMonthKey";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { MobileOrderList } from "../OrdenServicio/list/MobileOrderCard";
 import { OrdenPdfLoadingModal } from "../OrdenServicio/list/OrdenPdfLoadingModal";
-import { handleOrdenPdfClick, displayOrdenFolio } from "../OrdenServicio/shared/useOrdenesShared";
+import { handleOrdenPdfClick, displayOrdenFolio, fetchOrdenDetail } from "../OrdenServicio/shared/useOrdenesShared";
 import {
   claudeBodyClass,
   erpBreadcrumbLinkClass,
@@ -314,8 +314,19 @@ export default function LevantamientoPage() {
     };
   }, [levantamientos, statsMonthKey]);
 
-  const handleEdit = (orden: Orden) => {
-    setEditingOrdenForModal(orden);
+  const handleEdit = async (orden: Orden) => {
+    const detail = await fetchOrdenDetail(orden.id);
+    if (!detail) {
+      setAlert({
+        show: true,
+        variant: "error",
+        title: "No se pudo abrir",
+        message: "No se pudo cargar el detalle de la orden (firma, fotos). Intenta de nuevo.",
+      });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
+      return;
+    }
+    setEditingOrdenForModal(detail);
     setShowOrderModal(true);
   };
 

@@ -444,3 +444,19 @@ export const fetchOrdenesApi = async (canView: boolean) => {
     return [];
   }
 };
+
+/** Detalle completo (firmas, fotos, equipos). El listado usa OrdenListSerializer sin esos campos. */
+export async function fetchOrdenDetail(id: number): Promise<Orden | null> {
+  if (!Number.isFinite(id) || id <= 0) return null;
+  try {
+    const response = await fetchApi(`/api/ordenes/${id}/`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store" as RequestCache,
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as Orden;
+  } catch (error) {
+    console.error("Error al cargar detalle de orden:", error);
+    return null;
+  }
+}

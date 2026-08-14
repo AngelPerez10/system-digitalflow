@@ -37,6 +37,7 @@ import {
   displayOrdenFolio,
   resolveClienteCorreoSugerido,
   getNowHHMM,
+  fetchOrdenDetail,
 } from "./shared/useOrdenesShared";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
@@ -482,18 +483,30 @@ export default function OrdenesTecnico() {
     setOrdenToDelete(null);
   };
 
-  const handleEdit = (orden: Orden) => {
+  const handleEdit = async (orden: Orden): Promise<boolean> => {
     if (!canOrdenesEdit) {
       setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar órdenes.' });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-      return;
+      return false;
     }
-    setEditingOrden(orden);
+    const detail = await fetchOrdenDetail(orden.id);
+    if (!detail) {
+      setAlert({
+        show: true,
+        variant: "error",
+        title: "No se pudo abrir",
+        message: "No se pudo cargar el detalle de la orden (firma, fotos). Intenta de nuevo.",
+      });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
+      return false;
+    }
+    setEditingOrden(detail);
     setActiveTab("cliente");
-    const orderType = String(orden.tipo_orden || '').toLowerCase();
+    const orderType = String(detail.tipo_orden || '').toLowerCase();
     setTipoOrden(orderType === 'levantamiento' ? 'levantamiento' : 'servicio_tecnico');
-    loadFromOrden(orden);
+    loadFromOrden(detail);
     setShowModal(true);
+    return true;
   };
 
   const handleCloseModal = () => {

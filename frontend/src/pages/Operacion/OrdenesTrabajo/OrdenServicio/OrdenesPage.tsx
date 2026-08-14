@@ -38,6 +38,7 @@ import {
   isOrdenServicioTecnico,
   displayOrdenFolio,
   resolveClienteCorreoSugerido,
+  fetchOrdenDetail,
 } from "./shared/useOrdenesShared";
 import {
   formatYmdToDMY,
@@ -450,18 +451,30 @@ export default function Ordenes() {
     setOrdenToDelete(null);
   };
 
-  const handleEdit = (orden: Orden) => {
+  const handleEdit = async (orden: Orden): Promise<boolean> => {
     if (!canOrdenesEdit) {
       setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar órdenes.' });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-      return;
+      return false;
     }
-    setEditingOrden(orden);
+    const detail = await fetchOrdenDetail(orden.id);
+    if (!detail) {
+      setAlert({
+        show: true,
+        variant: "error",
+        title: "No se pudo abrir",
+        message: "No se pudo cargar el detalle de la orden (firma, fotos). Intenta de nuevo.",
+      });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
+      return false;
+    }
+    setEditingOrden(detail);
     setActiveTab("cliente");
-    const orderType = String(orden.tipo_orden || '').toLowerCase();
+    const orderType = String(detail.tipo_orden || '').toLowerCase();
     setTipoOrden(orderType === 'levantamiento' ? 'levantamiento' : 'servicio_tecnico');
-    loadFromOrden(orden);
+    loadFromOrden(detail);
     setShowModal(true);
+    return true;
   };
 
   const handleEditRef = useRef(handleEdit);
@@ -488,25 +501,12 @@ export default function Ordenes() {
     if (abrirOrdenFromQueryDoneRef.current === doneKey) return;
 
     const open = async () => {
-      let orden: Orden | undefined = ordenes.find((o) => o.id === id);
-      if (!orden) {
-        try {
-          const res = await fetchApi(`/api/ordenes/${id}/`, {
-            cache: "no-store" as RequestCache,
-          });
-          if (res.ok) {
-            orden = (await res.json()) as Orden;
-          }
-        } catch {
-          /* ignore */
-        }
+      const fromList = ordenes.find((o) => o.id === id);
+      const stub = fromList ?? ({ id } as Orden);
+      const opened = await handleEditRef.current(stub);
+      if (opened) {
+        abrirOrdenFromQueryDoneRef.current = doneKey;
       }
-      if (!orden) {
-        navigate("/ordenes", { replace: true });
-        return;
-      }
-      abrirOrdenFromQueryDoneRef.current = doneKey;
-      handleEditRef.current(orden);
       navigate("/ordenes", { replace: true });
     };
 

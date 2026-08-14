@@ -144,7 +144,12 @@ export function buildOrdenWritePayload(opts: {
   payload.hora_termino = toNullIfEmpty(payload.hora_termino);
   payload.nombre_encargado = toNullIfEmpty(payload.nombre_encargado);
   payload.nombre_cliente = toNullIfEmpty(payload.nombre_cliente);
-  payload.firma_cliente_url = toNullIfEmpty(payload.firma_cliente_url);
+  // Mantener "" (no null): en update, null se interpreta como "omitir" para no borrar firma al editar desde listado incompleto.
+  if (typeof payload.firma_cliente_url !== "string") {
+    payload.firma_cliente_url = "";
+  } else {
+    payload.firma_cliente_url = payload.firma_cliente_url.trim();
+  }
 
   if (variant === "tecnico") {
     payload.firma_encargado_url = toNullIfEmpty(formData.firma_encargado_url);

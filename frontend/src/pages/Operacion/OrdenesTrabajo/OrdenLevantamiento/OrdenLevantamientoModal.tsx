@@ -744,7 +744,11 @@ export default function OrdenServicioModal({
       payload.hora_termino = toNullIfEmpty(payload.hora_termino);
       payload.nombre_encargado = toNullIfEmpty(payload.nombre_encargado);
       payload.nombre_cliente = toNullIfEmpty(payload.nombre_cliente);
-      payload.firma_cliente_url = toNullIfEmpty(payload.firma_cliente_url);
+      if (typeof payload.firma_cliente_url !== "string") {
+        payload.firma_cliente_url = "";
+      } else {
+        payload.firma_cliente_url = payload.firma_cliente_url.trim();
+      }
       if (!Array.isArray(payload.servicios_realizados)) payload.servicios_realizados = [];
 
       const response = await fetchApi(path, {
@@ -1477,7 +1481,9 @@ export default function OrdenServicioModal({
                     <SignaturePad
                       label="Firma del Cliente"
                       value={formData.firma_cliente_url}
-                      onChange={(signature) => setFormData({ ...formData, firma_cliente_url: signature })}
+                      onChange={(signature) =>
+                        setFormData((prev) => ({ ...prev, firma_cliente_url: signature }))
+                      }
                       width={400}
                       height={250}
                     />

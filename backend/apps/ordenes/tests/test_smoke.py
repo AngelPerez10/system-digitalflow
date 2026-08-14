@@ -475,6 +475,32 @@ class OrdenesFirmaEncargadoTests(APITestCase):
         _apply_firma_encargado_for_pdf(self.orden)
         self.assertEqual(self.orden.firma_encargado_url, self.TEC_SIG)
 
+    def test_update_null_firma_cliente_does_not_clear(self):
+        firma = "https://res.cloudinary.com/demo/image/upload/v1/ordenes/firmas/cliente-test.png"
+        self.orden.firma_cliente_url = firma
+        self.orden.save(update_fields=["firma_cliente_url"])
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden.id}/",
+            {"problematica": "Sin tocar firma", "firma_cliente_url": None},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.orden.refresh_from_db()
+        self.assertEqual(self.orden.firma_cliente_url, firma)
+
+    def test_update_empty_firma_cliente_clears(self):
+        firma = "https://res.cloudinary.com/demo/image/upload/v1/ordenes/firmas/cliente-clear.png"
+        self.orden.firma_cliente_url = firma
+        self.orden.save(update_fields=["firma_cliente_url"])
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden.id}/",
+            {"firma_cliente_url": ""},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.orden.refresh_from_db()
+        self.assertEqual(self.orden.firma_cliente_url, "")
+
 
 class OrdenesEnviarPdfTests(APITestCase):
     def setUp(self):

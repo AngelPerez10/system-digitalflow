@@ -495,7 +495,9 @@ export function OrdenClienteTab({
               label="Firma del Cliente"
               value={formData.firma_cliente_url}
               disabled={ro("firma_cliente_url")}
-              onChange={(signature) => setFormData({ ...formData, firma_cliente_url: signature })}
+              onChange={(signature) =>
+                setFormData((prev) => ({ ...prev, firma_cliente_url: signature }))
+              }
               width={400}
               height={250}
             />
