@@ -63,12 +63,12 @@ export type InventarioItemPatch = Partial<
   >
 >;
 
-/** Candidato de SYSCOM/TVC para vincular a mano un código de barras. */
+/** Candidato de SYSCOM/TVC/manuales para vincular a mano un código de barras. */
 export type CatalogoCandidato = {
   nombre: string;
   marca: string;
   modelo: string;
-  fuente: InventarioFuente;
+  fuente: InventarioFuente | "manual";
   ref_externa: string;
   imagen_url: string;
   /** Ficha técnica del proveedor; la búsqueda suele traerla vacía y el detalle no. */

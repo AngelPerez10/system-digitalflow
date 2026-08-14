@@ -27,6 +27,11 @@ urlpatterns = [
         name='inventario-catalogo',
     ),
     path(
+        'inventario/registrar-catalogo/',
+        views.InventarioRegistrarCatalogoView.as_view(),
+        name='inventario-registrar-catalogo',
+    ),
+    path(
         'inventario/catalogo/detalle/',
         views.InventarioCatalogoDetallePorRefView.as_view(),
         name='inventario-catalogo-detalle',

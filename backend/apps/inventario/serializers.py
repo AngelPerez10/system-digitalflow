@@ -102,3 +102,14 @@ class ScanSerializer(serializers.Serializer):
 class ImportarFacturaSerializer(serializers.Serializer):
     proveedor = serializers.ChoiceField(choices=['syscom', 'tvc'])
     folio = serializers.CharField(required=True, max_length=64)
+
+
+class RegistrarCatalogoSerializer(serializers.Serializer):
+    """Alta en inventario (stock 0) desde SYSCOM, TVC o producto manual."""
+
+    fuente = serializers.ChoiceField(choices=['syscom', 'tvc', 'manual'])
+    ref = serializers.CharField(required=True, max_length=120, allow_blank=False)
+    modelo = serializers.CharField(required=False, max_length=120, allow_blank=True, default='')
+    nombre = serializers.CharField(required=False, max_length=255, allow_blank=True, default='')
+    marca = serializers.CharField(required=False, max_length=120, allow_blank=True, default='')
+    imagen_url = serializers.CharField(required=False, max_length=500, allow_blank=True, default='')

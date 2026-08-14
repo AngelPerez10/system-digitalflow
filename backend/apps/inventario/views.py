@@ -36,6 +36,7 @@ from .serializers import (
     InventarioItemPatchSerializer,
     InventarioItemSerializer,
     InventarioMovimientoSerializer,
+    RegistrarCatalogoSerializer,
     ScanSerializer,
 )
 
@@ -376,8 +377,38 @@ class InventarioUploadImageView(APIView):
         return Response({'url': url}, status=status.HTTP_200_OK)
 
 
+def _manuales_como_catalogo(search: str, limit: int = 8) -> list[dict]:
+    """Candidatos de productos manuales (misma lista que Productos)."""
+    from apps.productos.models import ProductoManual
+
+    term = (search or '').strip()
+    if len(term) < 2:
+        return []
+    qs = ProductoManual.objects.filter(
+        Q(producto__icontains=term) | Q(marca__icontains=term) | Q(modelo__icontains=term),
+        activo=True,
+    ).order_by('-fecha_creacion')[:limit]
+    out: list[dict] = []
+    for pm in qs:
+        modelo = (pm.modelo or '').strip()
+        out.append(
+            {
+                'nombre': (pm.producto or '').strip() or modelo,
+                'marca': (pm.marca or '').strip(),
+                'modelo': modelo,
+                'fuente': 'manual',
+                'ref_externa': str(pm.pk),
+                'imagen_url': (pm.imagen_url or '').strip(),
+                'caracteristicas': (pm.caracteristicas or '').strip(),
+                'precio_unitario': format(pm.precio, 'f') if pm.precio is not None else None,
+                'seccion': '',
+            }
+        )
+    return out
+
+
 class InventarioCatalogoSearchView(APIView):
-    """Busca candidatos en SYSCOM/TVC para vincular a un código de barras."""
+    """Busca candidatos en SYSCOM/TVC y productos manuales."""
 
     permission_classes = [IsAuthenticated, InventarioPermission]
 
@@ -385,7 +416,100 @@ class InventarioCatalogoSearchView(APIView):
         search = (request.query_params.get('search') or '').strip()
         if len(search) < 3:
             return Response([])
-        return Response(search_catalogs(search, limit=10))
+        results = list(search_catalogs(search, limit=10))
+        results.extend(_manuales_como_catalogo(search, limit=8))
+        return Response(results)
+
+
+class InventarioRegistrarCatalogoView(APIView):
+    """Crea (o reutiliza) un ítem de inventario desde el catálogo, sin mover stock."""
+
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def post(self, request):
+        serializer = RegistrarCatalogoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        fuente_in = str(data['fuente']).strip().lower()
+        ref = str(data['ref']).strip()
+        modelo = str(data.get('modelo') or '').strip()
+        nombre = str(data.get('nombre') or '').strip()
+        marca = str(data.get('marca') or '').strip()
+        imagen_url = str(data.get('imagen_url') or '').strip()
+        if imagen_url and not imagen_url.startswith(('http://', 'https://')):
+            imagen_url = ''
+
+        db_fuente = (
+            InventarioItem.Fuente.SYSCOM
+            if fuente_in == 'syscom'
+            else InventarioItem.Fuente.TVC
+            if fuente_in == 'tvc'
+            else InventarioItem.Fuente.DESCONOCIDO
+        )
+        ref_externa = f'manual:{ref}' if fuente_in == 'manual' else ref
+        codigo = modelo or ref_externa
+        if len(codigo) > 64:
+            codigo = codigo[:64]
+
+        with transaction.atomic():
+            qs = InventarioItem.objects.select_for_update()
+            item = None
+            if db_fuente != InventarioItem.Fuente.DESCONOCIDO and ref_externa:
+                item = qs.filter(fuente=db_fuente, ref_externa=ref_externa).first()
+            if item is None and fuente_in == 'manual' and ref_externa:
+                item = qs.filter(ref_externa=ref_externa).first()
+            if item is None and codigo:
+                item = qs.filter(codigo_barras=codigo).first()
+
+            creado = False
+            if item is None:
+                item = InventarioItem(
+                    codigo_barras=codigo,
+                    cantidad=0,
+                    fuente=db_fuente,
+                    ref_externa=ref_externa,
+                    nombre=nombre,
+                    marca=marca,
+                    modelo=modelo or codigo,
+                    imagen_url=imagen_url,
+                )
+                try:
+                    item.save()
+                    creado = True
+                except IntegrityError:
+                    item = qs.filter(codigo_barras=codigo).first()
+                    if item is None:
+                        raise
+
+            updates: list[str] = []
+            if nombre and not item.nombre:
+                item.nombre = nombre
+                updates.append('nombre')
+            if marca and not item.marca:
+                item.marca = marca
+                updates.append('marca')
+            if modelo and not item.modelo:
+                item.modelo = modelo
+                updates.append('modelo')
+            if imagen_url and not item.imagen_url:
+                item.imagen_url = imagen_url
+                updates.append('imagen_url')
+            if ref_externa and not item.ref_externa:
+                item.ref_externa = ref_externa
+                updates.append('ref_externa')
+            if db_fuente != InventarioItem.Fuente.DESCONOCIDO and item.fuente == InventarioItem.Fuente.DESCONOCIDO:
+                item.fuente = db_fuente
+                updates.append('fuente')
+            if updates:
+                item.save(update_fields=updates)
+
+        return Response(
+            {
+                'item': InventarioItemSerializer(item).data,
+                'creado': creado,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class InventarioCatalogoDetallePorRefView(APIView):

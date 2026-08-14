@@ -114,15 +114,41 @@ export async function uploadInventarioImagen(dataUrl: string): Promise<string> {
   return data.url;
 }
 
-/** Busca en SYSCOM/TVC por nombre o modelo; los catálogos no indexan el EAN. */
-export async function searchCatalogo(search: string): Promise<CatalogoCandidato[]> {
+/** Busca en SYSCOM/TVC/manuales por nombre o modelo; los catálogos no indexan el EAN. */
+export async function searchCatalogo(
+  search: string,
+  init?: Pick<RequestInit, "signal">,
+): Promise<CatalogoCandidato[]> {
   const term = search.trim();
   if (term.length < 3) return [];
   const res = await fetchApi(`/api/inventario/catalogo/?search=${encodeURIComponent(term)}`, {
     method: "GET",
+    signal: init?.signal,
   });
   if (!res.ok) throw new Error(await readError(res));
   return (await res.json()) as CatalogoCandidato[];
+}
+
+export type RegistrarCatalogoPayload = {
+  fuente: "syscom" | "tvc" | "manual";
+  ref: string;
+  modelo?: string;
+  nombre?: string;
+  marca?: string;
+  imagen_url?: string;
+};
+
+/** Alta en inventario con stock 0 (o reutiliza el ítem si ya existe). No mueve stock. */
+export async function registrarDesdeCatalogo(
+  payload: RegistrarCatalogoPayload,
+): Promise<{ item: InventarioItem; creado: boolean }> {
+  const res = await fetchApi("/api/inventario/registrar-catalogo/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as { item: InventarioItem; creado: boolean };
 }
 
 /** Relee el catálogo de un ítem ya vinculado (recupera datos y foto por su ref). */
@@ -138,11 +164,11 @@ export async function fetchCatalogoDetalle(id: number): Promise<CatalogoCandidat
  * que todavía no se guarda: la búsqueda no trae las características, el detalle sí.
  */
 export async function fetchCatalogoDetallePorRef(
-  fuente: InventarioFuente,
+  fuente: InventarioFuente | "manual",
   ref: string,
   modelo: string,
 ): Promise<CatalogoCandidato | null> {
-  if (fuente === "desconocido") return null;
+  if (fuente === "desconocido" || fuente === "manual") return null;
   const qs = new URLSearchParams({ fuente, ref: ref.trim(), modelo: modelo.trim() });
   const res = await fetchApi(`/api/inventario/catalogo/detalle/?${qs.toString()}`, {
     method: "GET",

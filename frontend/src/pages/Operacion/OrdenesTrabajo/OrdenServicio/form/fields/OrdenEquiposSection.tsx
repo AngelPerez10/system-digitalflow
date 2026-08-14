@@ -181,7 +181,7 @@ export function OrdenEquiposSection({
           </p>
           <p className="mt-1 text-xs text-[#78716c] dark:text-[#8ea0b8]">
             {isAdmin
-              ? "Usa el buscador de arriba para agregar productos del inventario."
+              ? "Usa el buscador de arriba: primero almacén y, si no está, SYSCOM, TVC o manuales."
               : "Esta orden no tiene equipos de inventario."}
           </p>
         </div>

@@ -67,9 +67,10 @@ function leerComoDataUrl(file: File): Promise<string> {
   });
 }
 
-function fuenteLabel(fuente: InventarioFuente): string {
+function fuenteLabel(fuente: InventarioFuente | "manual"): string {
   if (fuente === "syscom") return "SYSCOM";
   if (fuente === "tvc") return "TVC";
+  if (fuente === "manual") return "Manual";
   return "Sin catálogo";
 }
 
@@ -276,8 +277,17 @@ export default function InventarioEditModal({
     setNombre(candidato.nombre);
     setMarca(candidato.marca);
     setModelo(candidato.modelo);
-    setFuente(candidato.fuente);
-    setRefExterna(candidato.ref_externa);
+    const esManual = candidato.fuente === "manual";
+    setFuente(
+      candidato.fuente === "syscom" || candidato.fuente === "tvc"
+        ? candidato.fuente
+        : "desconocido",
+    );
+    setRefExterna(
+      esManual && !candidato.ref_externa.startsWith("manual:")
+        ? `manual:${candidato.ref_externa}`
+        : candidato.ref_externa,
+    );
     // Solo tomamos la foto del catálogo si el ítem aún no tiene una propia.
     if (candidato.imagen_url && !imagenUrl) setImagenUrl(candidato.imagen_url);
     if (candidato.caracteristicas && !notas.trim()) setNotas(candidato.caracteristicas);
@@ -732,8 +742,47 @@ export default function InventarioEditModal({
                 </p>
               ) : null}
 
-              <div aria-live="polite">
-                {candidatos.length > 0 ? (
+              <div aria-live="polite" aria-atomic="true">
+                {buscando ? (
+                  <div
+                    className="relative overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] dark:border-[#334155] dark:bg-[#0b1220]"
+                    role="status"
+                    aria-busy="true"
+                  >
+                    <span className="absolute inset-y-0 left-0 w-1 bg-[#ff801f]" aria-hidden />
+                    <div className="flex items-start gap-3 px-4 py-3.5 pl-5">
+                      <span className="relative mt-0.5 flex size-10 shrink-0 items-center justify-center">
+                        <span
+                          className="absolute -inset-0.5 rounded-xl border-2 border-[#ff801f]/45 motion-safe:animate-ping"
+                          aria-hidden
+                        />
+                        <span
+                          className="relative flex size-10 items-center justify-center rounded-xl bg-[#ff801f] text-black"
+                          aria-hidden
+                        >
+                          <SearchIcon className="h-4 w-4" />
+                        </span>
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#ea580c] dark:text-[#fb923c]">
+                          Escaneando
+                        </p>
+                        <p className="mt-0.5 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                          Buscando en SYSCOM y TVC
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                          El catálogo puede tardar unos segundos. No cierres el diálogo.
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className="mx-4 mb-3 h-1 overflow-hidden rounded-full bg-[#efe9de] dark:bg-[#1e293b]"
+                      aria-hidden
+                    >
+                      <div className="h-full w-[62%] rounded-full bg-[#ff801f] motion-safe:animate-pulse" />
+                    </div>
+                  </div>
+                ) : candidatos.length > 0 ? (
                   <ul className="max-h-64 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
                     {candidatos.map((c) => (
                       <li key={`${c.fuente}-${c.ref_externa}-${c.modelo}`}>
@@ -752,7 +801,9 @@ export default function InventarioEditModal({
                               {[c.marca, c.modelo].filter(Boolean).join(" · ") || "Sin modelo"}
                             </span>
                           </span>
-                          <span className={fuenteBadgeClass(c.fuente)}>{fuenteLabel(c.fuente)}</span>
+                          <span className={fuenteBadgeClass(c.fuente === "manual" ? "desconocido" : c.fuente)}>
+                            {fuenteLabel(c.fuente)}
+                          </span>
                         </button>
                       </li>
                     ))}

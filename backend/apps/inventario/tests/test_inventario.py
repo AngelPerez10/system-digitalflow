@@ -465,11 +465,115 @@ class InventarioCatalogoSearchTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(len(res.data), 1)
 
+    @patch('apps.inventario.enrichment._fetch_tvc', return_value=[])
+    @patch('apps.inventario.enrichment._fetch_syscom', return_value=[])
+    def test_incluye_productos_manuales(self, _syscom, _tvc):
+        from apps.productos.models import ProductoManual
+
+        ProductoManual.objects.create(
+            producto='GPS Tracker Pro',
+            marca='DigitalFlow',
+            modelo='DF-GPS-1',
+            precio=1500,
+        )
+        res = self.client.get('/api/inventario/catalogo/?search=gps')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        manuals = [row for row in res.data if row.get('fuente') == 'manual']
+        self.assertEqual(len(manuals), 1)
+        self.assertEqual(manuals[0]['modelo'], 'DF-GPS-1')
+
     def test_denegado_sin_permiso(self):
         sin_permiso = User.objects.create_user(username='inv_nope', password='test-pass-123')
         UserPermissions.objects.create(user=sin_permiso, permissions={'inventario': {}})
         self.client.force_authenticate(user=sin_permiso)
         res = self.client.get('/api/inventario/catalogo/?search=sensor')
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class InventarioRegistrarCatalogoTests(APITestCase):
+    URL = '/api/inventario/registrar-catalogo/'
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='inv_reg', password='test-pass-123')
+        UserPermissions.objects.create(
+            user=self.user,
+            permissions={'inventario': {'view': True, 'create': True}},
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def test_crea_item_con_stock_cero(self):
+        res = self.client.post(
+            self.URL,
+            {
+                'fuente': 'syscom',
+                'ref': '210627',
+                'modelo': 'DS-KIS604-P(C)',
+                'nombre': 'Kit videoportero',
+                'marca': 'HIKVISION',
+                'imagen_url': 'https://cdn.syscom.mx/kit.jpg',
+            },
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertTrue(res.data['creado'])
+        item = InventarioItem.objects.get(pk=res.data['item']['id'])
+        self.assertEqual(item.cantidad, 0)
+        self.assertEqual(item.fuente, InventarioItem.Fuente.SYSCOM)
+        self.assertEqual(item.ref_externa, '210627')
+        self.assertEqual(InventarioMovimiento.objects.count(), 0)
+
+    def test_reutiliza_item_existente_por_modelo(self):
+        existing = InventarioItem.objects.create(
+            codigo_barras='DS-KIS604-P(C)',
+            cantidad=4,
+            modelo='DS-KIS604-P(C)',
+            nombre='Ya en almacén',
+        )
+        res = self.client.post(
+            self.URL,
+            {
+                'fuente': 'syscom',
+                'ref': '210627',
+                'modelo': 'DS-KIS604-P(C)',
+                'nombre': 'Kit videoportero',
+            },
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertFalse(res.data['creado'])
+        self.assertEqual(res.data['item']['id'], existing.id)
+        existing.refresh_from_db()
+        self.assertEqual(existing.cantidad, 4)
+
+    def test_manual_guarda_ref_sin_mover_stock(self):
+        res = self.client.post(
+            self.URL,
+            {
+                'fuente': 'manual',
+                'ref': '12',
+                'modelo': 'DF-GPS-1',
+                'nombre': 'GPS Tracker Pro',
+                'marca': 'DigitalFlow',
+            },
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        item = InventarioItem.objects.get(pk=res.data['item']['id'])
+        self.assertEqual(item.cantidad, 0)
+        self.assertEqual(item.ref_externa, 'manual:12')
+        self.assertEqual(item.fuente, InventarioItem.Fuente.DESCONOCIDO)
+
+    def test_denegado_sin_create(self):
+        denied = User.objects.create_user(username='inv_view', password='test-pass-123')
+        UserPermissions.objects.create(
+            user=denied, permissions={'inventario': {'view': True, 'create': False}}
+        )
+        self.client.force_authenticate(user=denied)
+        res = self.client.post(
+            self.URL,
+            {'fuente': 'tvc', 'ref': '1', 'modelo': 'X'},
+            format='json',
+        )
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
 
