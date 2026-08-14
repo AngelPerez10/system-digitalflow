@@ -201,4 +201,42 @@ describe("buildOrdenWritePayload", () => {
     });
     expect(payload.equipos_inventario).toEqual([]);
   });
+
+  it("preserves baseline firma_cliente_url when form is empty on update", () => {
+    const payload = buildOrdenWritePayload({
+      formData: { ...baseForm, firma_cliente_url: "" },
+      variant: "admin",
+      isAdmin: true,
+      isUpdate: true,
+      baselineFirmaClienteUrl: "https://res.cloudinary.com/demo/image/upload/v1/ordenes/firmas/x.png",
+      firmaClienteExplicitlyCleared: false,
+    });
+    expect(payload.firma_cliente_url).toBe(
+      "https://res.cloudinary.com/demo/image/upload/v1/ordenes/firmas/x.png",
+    );
+  });
+
+  it("clears firma_cliente_url when user explicitly cleared", () => {
+    const payload = buildOrdenWritePayload({
+      formData: { ...baseForm, firma_cliente_url: "" },
+      variant: "admin",
+      isAdmin: true,
+      isUpdate: true,
+      baselineFirmaClienteUrl: "https://res.cloudinary.com/demo/image/upload/v1/ordenes/firmas/x.png",
+      firmaClienteExplicitlyCleared: true,
+    });
+    expect(payload.firma_cliente_url).toBe("");
+  });
+
+  it("omits empty firma_cliente_url on update without baseline", () => {
+    const payload = buildOrdenWritePayload({
+      formData: { ...baseForm, firma_cliente_url: "" },
+      variant: "admin",
+      isAdmin: true,
+      isUpdate: true,
+      baselineFirmaClienteUrl: "",
+      firmaClienteExplicitlyCleared: false,
+    });
+    expect(payload).not.toHaveProperty("firma_cliente_url");
+  });
 });

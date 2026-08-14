@@ -41,7 +41,8 @@ function paintExternalValue(
   canvas: HTMLCanvasElement,
   src: string,
   loadTokenRef: { current: number },
-  onEmpty: (empty: boolean) => void
+  onEmpty: (empty: boolean) => void,
+  onLoadError?: (failed: boolean) => void
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -52,16 +53,13 @@ function paintExternalValue(
     loadTokenRef.current += 1;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     onEmpty(true);
+    onLoadError?.(false);
     return;
   }
 
   const token = ++loadTokenRef.current;
-  const img = new Image();
-  // data: URLs + crossOrigin=anonymous fallan en varios navegadores y dejan el pad en blanco.
-  if (!src.startsWith("data:")) {
-    img.crossOrigin = "anonymous";
-  }
-  img.onload = () => {
+
+  const drawLoaded = (img: HTMLImageElement) => {
     if (token !== loadTokenRef.current) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const iw = img.naturalWidth || img.width;
@@ -69,6 +67,7 @@ function paintExternalValue(
     if (!iw || !ih) {
       ctx.drawImage(img, 0, 0);
       onEmpty(false);
+      onLoadError?.(false);
       return;
     }
     const scale = Math.min(canvas.width / iw, canvas.height / ih);
@@ -82,13 +81,31 @@ function paintExternalValue(
       dh
     );
     onEmpty(false);
+    onLoadError?.(false);
   };
-  img.onerror = () => {
-    if (token !== loadTokenRef.current) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    onEmpty(true);
+
+  const load = (useCors: boolean) => {
+    const img = new Image();
+    // data: URLs + crossOrigin=anonymous fallan en varios navegadores y dejan el pad en blanco.
+    if (useCors && !src.startsWith("data:")) {
+      img.crossOrigin = "anonymous";
+    }
+    img.onload = () => drawLoaded(img);
+    img.onerror = () => {
+      if (token !== loadTokenRef.current) return;
+      // Reintento sin CORS: al menos se ve la firma (canvas puede quedar “tainted”).
+      if (useCors && !src.startsWith("data:")) {
+        load(false);
+        return;
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      onEmpty(true);
+      onLoadError?.(true);
+    };
+    img.src = src;
   };
-  img.src = src;
+
+  load(true);
 }
 
 /**
@@ -115,8 +132,10 @@ export default function SignaturePad({
   const loadTokenRef = useRef(0);
   const scrollLockRef = useRef<{ el: HTMLElement; overflowY: string } | null>(null);
   const [isEmpty, setIsEmpty] = useState(!value);
+  const [loadError, setLoadError] = useState(false);
   const labelId = useId();
   const canvasDomId = useId();
+  const statusId = useId();
 
   onChangeRef.current = onChange;
   disabledRef.current = disabled;
@@ -131,7 +150,7 @@ export default function SignaturePad({
     const ctx = canvas.getContext("2d");
     if (ctx) applyStrokeStyle(ctx);
     const current = syncedValueRef.current;
-    if (current) paintExternalValue(canvas, current, loadTokenRef, setIsEmpty);
+    if (current) paintExternalValue(canvas, current, loadTokenRef, setIsEmpty, setLoadError);
   }, [width, height]);
 
   // Sync externo (montaje, firma del técnico, clear desde el padre).
@@ -147,7 +166,8 @@ export default function SignaturePad({
       canvas.height = height;
     }
     syncedValueRef.current = value;
-    paintExternalValue(canvas, value, loadTokenRef, setIsEmpty);
+    setLoadError(false);
+    paintExternalValue(canvas, value, loadTokenRef, setIsEmpty, setLoadError);
   }, [value, width, height]);
 
   useEffect(() => {
@@ -264,6 +284,7 @@ export default function SignaturePad({
       scrollLockRef.current = null;
     }
     setIsEmpty(true);
+    setLoadError(false);
     syncedValueRef.current = "";
     onChange("");
   };
@@ -293,10 +314,11 @@ export default function SignaturePad({
           role="img"
           aria-labelledby={label ? labelId : undefined}
           aria-label={label ? undefined : "Área para dibujar firma"}
+          aria-describedby={loadError ? statusId : undefined}
           aria-disabled={disabled || undefined}
           className={`block max-w-full touch-none rounded-[6px] ${
             disabled ? "cursor-not-allowed" : "cursor-crosshair"
-          }`}
+          } ${loadError ? "sr-only" : ""}`}
           style={{
             width: `${width}px`,
             maxWidth: "100%",
@@ -305,6 +327,14 @@ export default function SignaturePad({
             touchAction: "none",
           }}
         />
+        {loadError && value && !value.startsWith("data:") ? (
+          <img
+            src={value}
+            alt={label ? `${label} guardada` : "Firma guardada"}
+            className="block max-w-full rounded-[6px] bg-white"
+            style={{ width: `${width}px`, height: "auto", aspectRatio: `${width} / ${height}` }}
+          />
+        ) : null}
 
         {!isEmpty && !disabled ? (
           <button
@@ -316,14 +346,29 @@ export default function SignaturePad({
             Limpiar
           </button>
         ) : null}
+        {loadError && !disabled ? (
+          <button
+            type="button"
+            onClick={clear}
+            aria-label="Volver a firmar"
+            className="absolute right-2 top-2 z-10 min-h-6 min-w-6 rounded-md bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+          >
+            Volver a firmar
+          </button>
+        ) : null}
       </div>
 
-      {isEmpty && !disabled ? (
+      {isEmpty && !disabled && !loadError ? (
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Dibuja tu firma aquí</p>
       ) : null}
-      {disabled && isEmpty ? (
+      {disabled && isEmpty && !loadError ? (
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400" role="status">
           Sin firma registrada para este técnico
+        </p>
+      ) : null}
+      {loadError ? (
+        <p id={statusId} className="mt-1 text-xs text-amber-700 dark:text-amber-300" role="status">
+          No se pudo dibujar la firma en el pad; se muestra la imagen guardada.
         </p>
       ) : null}
     </div>

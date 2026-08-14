@@ -344,6 +344,7 @@ export default function Ordenes() {
     selectTecnico,
     selectQuienInstalo,
     selectQuienEntrego,
+    setFirmaClienteUrl,
     addServicio,
     addEquipoFromItem,
     updateEquipo,
@@ -1185,6 +1186,7 @@ export default function Ordenes() {
             selectTecnico={selectTecnico}
             selectQuienInstalo={selectQuienInstalo}
             selectQuienEntrego={selectQuienEntrego}
+            setFirmaClienteUrl={setFirmaClienteUrl}
             setShowMapModal={setShowMapModal}
             tecnicoSignatureUrl={tecnicoSignatureUrl}
             mySignatureUrl={mySignatureUrl}

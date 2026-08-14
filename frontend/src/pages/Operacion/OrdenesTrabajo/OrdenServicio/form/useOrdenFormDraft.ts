@@ -115,6 +115,11 @@ export function buildOrdenWritePayload(opts: {
   statusAdministrativo?: OrdenStatusAdministrativo;
   fechaEnvioAdmin?: string;
   cotizacionesAdmin?: CotizacionResumen[];
+  /** Firma del cliente al abrir la orden (detalle). Evita borrarla si el form llegó vacío sin Limpiar. */
+  baselineFirmaClienteUrl?: string;
+  /** true solo si el usuario pulsó Limpiar / vació la firma a propósito. */
+  firmaClienteExplicitlyCleared?: boolean;
+  isUpdate?: boolean;
 }): Record<string, unknown> {
   const {
     formData,
@@ -124,6 +129,9 @@ export function buildOrdenWritePayload(opts: {
     statusAdministrativo = "pendiente",
     fechaEnvioAdmin = "",
     cotizacionesAdmin = [],
+    baselineFirmaClienteUrl = "",
+    firmaClienteExplicitlyCleared = false,
+    isUpdate = false,
   } = opts;
 
   const payload: Record<string, unknown> = { ...formData };
@@ -144,11 +152,20 @@ export function buildOrdenWritePayload(opts: {
   payload.hora_termino = toNullIfEmpty(payload.hora_termino);
   payload.nombre_encargado = toNullIfEmpty(payload.nombre_encargado);
   payload.nombre_cliente = toNullIfEmpty(payload.nombre_cliente);
-  // Mantener "" (no null): en update, null se interpreta como "omitir" para no borrar firma al editar desde listado incompleto.
-  if (typeof payload.firma_cliente_url !== "string") {
+
+  const firmaTrimmed =
+    typeof payload.firma_cliente_url === "string" ? payload.firma_cliente_url.trim() : "";
+  if (firmaTrimmed) {
+    payload.firma_cliente_url = firmaTrimmed;
+  } else if (firmaClienteExplicitlyCleared) {
     payload.firma_cliente_url = "";
+  } else if (String(baselineFirmaClienteUrl || "").trim()) {
+    payload.firma_cliente_url = String(baselineFirmaClienteUrl).trim();
+  } else if (isUpdate) {
+    // No mandar vacío en update: el backend omite y conserva la firma en BD.
+    delete payload.firma_cliente_url;
   } else {
-    payload.firma_cliente_url = payload.firma_cliente_url.trim();
+    payload.firma_cliente_url = "";
   }
 
   if (variant === "tecnico") {
@@ -418,6 +435,8 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
 
   const [tecnicoSignatureUrl, setTecnicoSignatureUrl] = useState("");
   const tecnicoSignatureCacheRef = useRef<Record<number, string>>({});
+  const firmaClienteBaselineRef = useRef("");
+  const firmaClienteClearedRef = useRef(false);
 
   const resetAdminSeguimientoUi = useCallback(() => {
     setStatusAdministrativo("pendiente");
@@ -444,6 +463,8 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     setFormData(createEmptyOrdenFormData(mySignatureUrl));
     if (variant === "admin") resetAdminSeguimientoUi();
     clearSearchFields();
+    firmaClienteBaselineRef.current = "";
+    firmaClienteClearedRef.current = false;
   }, [mySignatureUrl, variant, resetAdminSeguimientoUi, clearSearchFields]);
 
   const bumpFormNonce = useCallback(() => {
@@ -479,6 +500,8 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         fotos_extra_max: normalizeFotosExtraFromOrden(orden),
         equipos_inventario: normalizeEquiposInventario(orden.equipos_inventario),
       });
+      firmaClienteBaselineRef.current = String(orden.firma_cliente_url || "").trim();
+      firmaClienteClearedRef.current = false;
       // El input usa solo el search state (sin fallback a formData), para poder borrar a mano.
       setClienteSearch(String(orden.cliente || "").trim());
       setTecnicoSearch(
@@ -930,6 +953,9 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
           statusAdministrativo,
           fechaEnvioAdmin,
           cotizacionesAdmin,
+          baselineFirmaClienteUrl: firmaClienteBaselineRef.current,
+          firmaClienteExplicitlyCleared: firmaClienteClearedRef.current,
+          isUpdate: !!editingOrden,
         });
 
         const response = await fetchApi(path, {
@@ -1166,6 +1192,12 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     }
   }, []);
 
+  const setFirmaClienteUrl = useCallback((signature: string) => {
+    const next = String(signature || "");
+    firmaClienteClearedRef.current = !next.trim();
+    setFormData((prev) => ({ ...prev, firma_cliente_url: next }));
+  }, []);
+
   const addServicio = useCallback((servicio: string) => {
     setFormData((prev) => ({ ...prev, servicios_realizados: [servicio] }));
     setServicioSearch("");
@@ -1209,6 +1241,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     selectTecnico,
     selectQuienInstalo,
     selectQuienEntrego,
+    setFirmaClienteUrl,
     addServicio,
     addEquipoFromItem,
     updateEquipo,

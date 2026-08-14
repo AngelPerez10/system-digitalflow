@@ -749,6 +749,12 @@ export default function OrdenServicioModal({
       } else {
         payload.firma_cliente_url = payload.firma_cliente_url.trim();
       }
+      // En update, no mandar vacío: evita borrar firma si el form no trajo el detalle.
+      if (orden?.id && !payload.firma_cliente_url) {
+        const baseline = String(orden.firma_cliente_url || "").trim();
+        if (baseline) payload.firma_cliente_url = baseline;
+        else delete payload.firma_cliente_url;
+      }
       if (!Array.isArray(payload.servicios_realizados)) payload.servicios_realizados = [];
 
       const response = await fetchApi(path, {

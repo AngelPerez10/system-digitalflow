@@ -48,6 +48,7 @@ export type OrdenClienteTabProps = {
   selectTecnico: (u: Usuario | null) => void;
   selectQuienInstalo: (u: Usuario | null) => void;
   selectQuienEntrego: (u: Usuario | null) => void;
+  setFirmaClienteUrl: (signature: string) => void;
   setShowMapModal: (open: boolean) => void;
   tecnicoSignatureUrl: string;
   mySignatureUrl: string;
@@ -93,6 +94,7 @@ export function OrdenClienteTab({
   selectTecnico,
   selectQuienInstalo,
   selectQuienEntrego,
+  setFirmaClienteUrl,
   setShowMapModal,
   tecnicoSignatureUrl,
   mySignatureUrl,
@@ -495,9 +497,7 @@ export function OrdenClienteTab({
               label="Firma del Cliente"
               value={formData.firma_cliente_url}
               disabled={ro("firma_cliente_url")}
-              onChange={(signature) =>
-                setFormData((prev) => ({ ...prev, firma_cliente_url: signature }))
-              }
+              onChange={setFirmaClienteUrl}
               width={400}
               height={250}
             />
