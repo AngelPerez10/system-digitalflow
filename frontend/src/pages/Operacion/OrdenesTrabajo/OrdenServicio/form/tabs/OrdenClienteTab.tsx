@@ -119,6 +119,13 @@ export function OrdenClienteTab({
   const direccionId = "orden-cliente-direccion";
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState<Record<string, boolean>>({});
 
+  const normalizePreviewUrl = (url: string) => {
+    const raw = String(url || "").trim();
+    if (!raw) return raw;
+    if (raw.startsWith("http://")) return `https://${raw.slice("http://".length)}`;
+    return raw;
+  };
+
   useEffect(() => {
     const active = new Set(Array.isArray(formData.fotos_urls) ? formData.fotos_urls : []);
     setBrokenPhotoUrls((prev) => {
@@ -609,11 +616,13 @@ export function OrdenClienteTab({
 
           {Array.isArray(formData.fotos_urls) && formData.fotos_urls.length > 0 && (
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-              {formData.fotos_urls.map((preview, index) => (
+              {formData.fotos_urls.map((preview, index) => {
+                const previewSrc = normalizePreviewUrl(preview);
+                return (
                 <div key={`${preview}-${index}`} className="group relative">
                   <button
                     type="button"
-                    onClick={() => setPhotoPreview({ open: true, url: preview, index })}
+                    onClick={() => setPhotoPreview({ open: true, url: previewSrc, index })}
                     className="block w-full cursor-zoom-in overflow-hidden rounded-lg border-2 border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40 dark:border-gray-700"
                     aria-label={`Ver foto ${index + 1} en tamaño completo`}
                   >
@@ -623,7 +632,7 @@ export function OrdenClienteTab({
                       </div>
                     ) : (
                       <img
-                        src={preview}
+                        src={previewSrc}
                         alt={`Foto ${index + 1} de la orden`}
                         className="pointer-events-none h-24 w-full bg-gray-100 object-cover dark:bg-gray-800"
                         loading="lazy"
@@ -660,7 +669,8 @@ export function OrdenClienteTab({
                     </button>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
           <OrdenPhotoPreviewModal

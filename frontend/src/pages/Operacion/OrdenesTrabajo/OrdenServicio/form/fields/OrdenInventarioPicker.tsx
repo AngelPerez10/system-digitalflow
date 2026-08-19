@@ -197,7 +197,7 @@ function SearchLoadingPanel({ id, query, phase }: SearchLoadingPanelProps) {
 
 /**
  * Buscador de inventario (solo admin). Si no hay coincidencia en almacén,
- * busca en Productos (manuales, SYSCOM y TVC) y registra el ítem con stock 0.
+ * busca en Productos (manuales, SYSCOM y TVC) y registra el ítem con stock inicial.
  */
 export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
   const searchId = useId();
@@ -330,7 +330,7 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
         </h4>
         <p id={statusId} className="mt-1 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
           Primero busca en almacén. Si no está registrado, elige SYSCOM, TVC o un
-          producto manual; se da de alta con stock 0. El stock solo baja al marcar Entregado.
+          producto manual; se da de alta con stock 1 para permitir entrega inmediata.
         </p>
       </div>
 
@@ -448,8 +448,8 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
               Catálogo de Productos
             </p>
             <p className="mb-2 text-xs text-[#78716c] dark:text-[#8ea0b8]">
-              No está en almacén. Al agregarlo se registra con stock 0; Entregado quedará
-              bloqueado hasta que haya existencias.
+              No está en almacén. Al agregarlo se registra con stock 1 para poder marcar
+              Entregado en esta orden.
             </p>
             <ul
               className="max-h-56 divide-y divide-[#efe9de] overflow-y-auto rounded-xl border border-dashed border-[#cc785c]/45 bg-white dark:divide-[#1e293b] dark:border-[#fb923c]/35 dark:bg-[#0b1220]"

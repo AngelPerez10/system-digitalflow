@@ -422,7 +422,11 @@ class InventarioCatalogoSearchView(APIView):
 
 
 class InventarioRegistrarCatalogoView(APIView):
-    """Crea (o reutiliza) un ítem de inventario desde el catálogo, sin mover stock."""
+    """Crea (o reutiliza) un ítem de inventario desde el catálogo.
+
+    Para ítems nuevos se inicializa con 1 de stock para permitir entrega inmediata
+    desde órdenes; en ítems existentes no se altera la cantidad.
+    """
 
     permission_classes = [IsAuthenticated, InventarioPermission]
 
@@ -465,7 +469,7 @@ class InventarioRegistrarCatalogoView(APIView):
             if item is None:
                 item = InventarioItem(
                     codigo_barras=codigo,
-                    cantidad=0,
+                    cantidad=1,
                     fuente=db_fuente,
                     ref_externa=ref_externa,
                     nombre=nombre,

@@ -106,6 +106,13 @@ export function createEmptyOrdenFormData(mySignatureUrl = ""): OrdenFormData {
 const toNullIfEmpty = (v: unknown): unknown =>
   typeof v === "string" && v.trim() === "" ? null : v;
 
+const normalizeHttpUrl = (url: unknown): string => {
+  const raw = typeof url === "string" ? url.trim() : "";
+  if (!raw) return "";
+  if (raw.startsWith("http://")) return `https://${raw.slice("http://".length)}`;
+  return raw;
+};
+
 export function buildOrdenWritePayload(opts: {
   formData: OrdenFormData;
   variant: "admin" | "tecnico";
@@ -494,13 +501,16 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         tecnico_asignado: orden.tecnico_asignado ? Number(orden.tecnico_asignado) : null,
         quien_instalo: orden.quien_instalo ? Number(orden.quien_instalo) : null,
         quien_entrego: orden.quien_entrego ? Number(orden.quien_entrego) : null,
-        firma_encargado_url: mySignatureUrl || orden.firma_encargado_url || "",
-        firma_cliente_url: orden.firma_cliente_url || "",
-        fotos_urls: Array.isArray(orden.fotos_urls) ? orden.fotos_urls : [],
+        firma_encargado_url:
+          normalizeHttpUrl(mySignatureUrl) || normalizeHttpUrl(orden.firma_encargado_url) || "",
+        firma_cliente_url: normalizeHttpUrl(orden.firma_cliente_url) || "",
+        fotos_urls: Array.isArray(orden.fotos_urls)
+          ? orden.fotos_urls.map((u) => normalizeHttpUrl(u)).filter(Boolean)
+          : [],
         fotos_extra_max: normalizeFotosExtraFromOrden(orden),
         equipos_inventario: normalizeEquiposInventario(orden.equipos_inventario),
       });
-      firmaClienteBaselineRef.current = String(orden.firma_cliente_url || "").trim();
+      firmaClienteBaselineRef.current = normalizeHttpUrl(orden.firma_cliente_url);
       firmaClienteClearedRef.current = false;
       // El input usa solo el search state (sin fallback a formData), para poder borrar a mano.
       setClienteSearch(String(orden.cliente || "").trim());

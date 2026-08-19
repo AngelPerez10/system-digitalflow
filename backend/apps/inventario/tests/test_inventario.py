@@ -501,7 +501,7 @@ class InventarioRegistrarCatalogoTests(APITestCase):
         )
         self.client.force_authenticate(user=self.user)
 
-    def test_crea_item_con_stock_cero(self):
+    def test_crea_item_con_stock_inicial_uno(self):
         res = self.client.post(
             self.URL,
             {
@@ -517,7 +517,7 @@ class InventarioRegistrarCatalogoTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertTrue(res.data['creado'])
         item = InventarioItem.objects.get(pk=res.data['item']['id'])
-        self.assertEqual(item.cantidad, 0)
+        self.assertEqual(item.cantidad, 1)
         self.assertEqual(item.fuente, InventarioItem.Fuente.SYSCOM)
         self.assertEqual(item.ref_externa, '210627')
         self.assertEqual(InventarioMovimiento.objects.count(), 0)
@@ -545,7 +545,7 @@ class InventarioRegistrarCatalogoTests(APITestCase):
         existing.refresh_from_db()
         self.assertEqual(existing.cantidad, 4)
 
-    def test_manual_guarda_ref_sin_mover_stock(self):
+    def test_manual_guarda_ref_con_stock_inicial_uno(self):
         res = self.client.post(
             self.URL,
             {
@@ -559,7 +559,7 @@ class InventarioRegistrarCatalogoTests(APITestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         item = InventarioItem.objects.get(pk=res.data['item']['id'])
-        self.assertEqual(item.cantidad, 0)
+        self.assertEqual(item.cantidad, 1)
         self.assertEqual(item.ref_externa, 'manual:12')
         self.assertEqual(item.fuente, InventarioItem.Fuente.DESCONOCIDO)
 
