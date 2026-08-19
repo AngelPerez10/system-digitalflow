@@ -437,6 +437,13 @@ def _delete_cloudinary_resource(url: str, resource_type: str = "image"):
         logger.exception("Failed to delete Cloudinary resource: %s", public_id)
 
 
+def _normalize_http_url(url: str) -> str:
+    value = str(url or "").strip()
+    if value.startswith("http://"):
+        return f"https://{value[len('http://'):]}"
+    return value
+
+
 def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
     """Sube un data URL a Cloudinary y regresa la URL HTTPS.
 
@@ -1559,7 +1566,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 data['firma_cliente_url'] = _upload_data_url(firma_cliente, folder='ordenes/firmas', max_size_kb=80)
             elif _extract_public_id_from_url(firma_cliente):
                 # Only allow Cloudinary URLs within our scope.
-                data['firma_cliente_url'] = firma_cliente
+                data['firma_cliente_url'] = _normalize_http_url(firma_cliente)
             else:
                 raise ValidationError("firma_cliente_url inválida")
         # Upload photos if base64 list
@@ -1575,7 +1582,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 if isinstance(f, str) and _is_data_url(f):
                     new_fotos.append(_upload_data_url(f, folder='ordenes/fotos', max_size_kb=80))
                 elif isinstance(f, str) and f and _extract_public_id_from_url(f):
-                    new_fotos.append(f)
+                    new_fotos.append(_normalize_http_url(f))
                 else:
                     raise ValidationError("fotos_urls contiene una entrada inválida")
             data['fotos_urls'] = new_fotos
@@ -1632,7 +1639,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 elif isinstance(firma_cliente, str):
                     if not _extract_public_id_from_url(firma_cliente):
                         raise ValidationError("firma_cliente_url inválida")
-                    data["firma_cliente_url"] = firma_cliente
+                    data["firma_cliente_url"] = _normalize_http_url(firma_cliente)
                 else:
                     raise ValidationError("firma_cliente_url inválida")
 
@@ -1645,9 +1652,20 @@ class OrdenViewSet(viewsets.ModelViewSet):
             if len(fotos) > max_fotos:
                 raise ValidationError(f"Máximo {max_fotos} fotos")
             new_fotos = []
-            # Find photos that were removed
+            incoming_public_ids: set[str] = set()
+            for foto in fotos:
+                if not isinstance(foto, str):
+                    continue
+                pid = _extract_public_id_from_url(foto)
+                if pid:
+                    incoming_public_ids.add(pid)
+
+            # Delete only when the Cloudinary public_id is truly absent.
             for old_foto in old_fotos:
-                if old_foto not in fotos and isinstance(old_foto, str) and _extract_public_id_from_url(old_foto):
+                if not isinstance(old_foto, str):
+                    continue
+                old_public_id = _extract_public_id_from_url(old_foto)
+                if old_public_id and old_public_id not in incoming_public_ids:
                     _delete_cloudinary_resource(old_foto)
 
             # Process new photos
@@ -1656,7 +1674,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     # Upload new optimized photo (80KB max)
                     new_fotos.append(_upload_data_url(f, folder='ordenes/fotos', max_size_kb=80))
                 elif isinstance(f, str) and f and _extract_public_id_from_url(f):
-                    new_fotos.append(f)
+                    new_fotos.append(_normalize_http_url(f))
                 else:
                     raise ValidationError("fotos_urls contiene una entrada inválida")
             data['fotos_urls'] = new_fotos

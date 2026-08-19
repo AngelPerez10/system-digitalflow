@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from unittest.mock import patch
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -500,6 +501,22 @@ class OrdenesFirmaEncargadoTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.orden.refresh_from_db()
         self.assertEqual(self.orden.firma_cliente_url, "")
+
+    def test_update_fotos_same_public_id_different_scheme_does_not_delete_asset(self):
+        old_url = "http://res.cloudinary.com/demo/image/upload/v1/ordenes/fotos/foto-protocolo.jpg"
+        self.orden.fotos_urls = [old_url]
+        self.orden.save(update_fields=["fotos_urls"])
+        new_url = "https://res.cloudinary.com/demo/image/upload/v1/ordenes/fotos/foto-protocolo.jpg"
+        with patch("apps.ordenes.views._delete_cloudinary_resource") as delete_mock:
+            response = self.client.patch(
+                f"/api/ordenes/{self.orden.id}/",
+                {"fotos_urls": [new_url]},
+                format="json",
+            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        delete_mock.assert_not_called()
+        self.orden.refresh_from_db()
+        self.assertEqual(self.orden.fotos_urls, [new_url])
 
 
 class OrdenesEnviarPdfTests(APITestCase):
