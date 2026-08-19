@@ -7,6 +7,7 @@ export const FOLIO_SERIE = {
   cotizacion: "COT",
   orden: "ODT",
   proyecto: "PRJ",
+  poliza: "POL",
 } as const;
 
 export type DocumentFolioSerie = (typeof FOLIO_SERIE)[keyof typeof FOLIO_SERIE];

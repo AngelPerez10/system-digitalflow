@@ -8,7 +8,9 @@ export async function fetchClientesCatalog(search = "", pageSize = 50): Promise<
     page_size: String(pageSize),
   });
   const res = await fetchApi(`/api/clientes/?${params.toString()}`);
-  if (!res.ok) return [];
+  if (!res.ok) {
+    throw new Error("No se pudieron cargar los contactos.");
+  }
   const data = await res.json().catch(() => ({ results: [] }));
   return Array.isArray(data) ? data : (data.results || []);
 }

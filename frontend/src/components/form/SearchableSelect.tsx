@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Label from "@/components/form/Label";
 import { erpInputLikeClass } from "@/layout/erpPageStyles";
@@ -14,6 +14,9 @@ type SearchableSelectProps = {
   disabled?: boolean;
   required?: boolean;
   placeholder?: string;
+  id?: string;
+  invalid?: boolean;
+  describedBy?: string;
   /** Búsqueda remota: el padre actualiza `options` según el texto. */
   onSearchChange?: (query: string) => void;
   /** Si es false, no filtra localmente (options ya vienen filtradas). Default true. */
@@ -39,9 +42,15 @@ export default function SearchableSelect({
   disabled,
   required,
   placeholder,
+  id,
+  invalid,
+  describedBy,
   onSearchChange,
   filterLocally = true,
 }: SearchableSelectProps) {
+  const autoId = useId();
+  const inputId = id || autoId;
+  const listboxId = `${inputId}-listbox`;
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [menuCoords, setMenuCoords] = useState<MenuCoords | null>(null);
@@ -125,6 +134,7 @@ export default function SearchableSelect({
       ? createPortal(
           <div
             ref={menuRef}
+            id={listboxId}
             role="listbox"
             className="fixed overflow-auto rounded-xl border border-[#e2d9ca] bg-white shadow-lg dark:border-[#334155] dark:bg-[#111a2b]"
             style={{
@@ -180,12 +190,18 @@ export default function SearchableSelect({
 
   return (
     <div className="min-w-0 w-full" ref={rootRef}>
-      <Label className="!mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 sm:!text-xs">
+      <Label
+        htmlFor={inputId}
+        className="!mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 sm:!text-xs"
+      >
         {label} {required && <span className="text-red-500">*</span>}
       </Label>
       <div className="relative" ref={inputWrapRef}>
         <input
+          id={inputId}
           type="text"
+          role="combobox"
+          autoComplete="off"
           value={open ? search : selected?.label || ""}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -195,6 +211,7 @@ export default function SearchableSelect({
           onFocus={() => {
             setSearch("");
             setOpen(true);
+            onSearchChange?.("");
           }}
           disabled={disabled}
           placeholder={placeholder || "Buscar..."}
@@ -202,6 +219,11 @@ export default function SearchableSelect({
           readOnly={!open}
           aria-expanded={open}
           aria-haspopup="listbox"
+          aria-controls={open ? listboxId : undefined}
+          aria-autocomplete="list"
+          aria-required={required || undefined}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
         />
       </div>
       {menu}

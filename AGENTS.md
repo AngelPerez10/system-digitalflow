@@ -37,6 +37,7 @@ Los permisos viven en `UserPermissions.permissions` (JSON por módulo: `view`, `
 - **Órdenes — `own_only`:** en Gestión de usuarios el switch «Ver todas las órdenes» guarda `ordenes.own_only=false`. Con eso el técnico lista/ve órdenes ajenas y, si también tiene `edit`, la edición es **completa** (no el modo limitado de problemática/estado/fotos). Con `own_only=true` (default técnico) solo ve/edita las suyas (asignado o creador).
 - **Catálogos en cotización**: GET a `/api/productos/syscom/*`, `/api/productos/tvc/*` y `/api/productos-manuales/` permiten usuarios con acceso a `cotizaciones` (aunque no tengan módulo `productos`). Altas/edición/baja de manuales siguen exigiendo `productos`.
 - **Proyectos**: módulo propio `proyectos` (independiente de `ordenes`). Sidebar y ruta `/proyectos` requieren `proyectos.view`.
+- **Póliza de mantenimiento**: ruta `/polizas-mantenimiento`, página `frontend/src/pages/Operacion/PolizasMantenimiento/PolizasMantenimientoPage.tsx` (listado como Proyectos; alta/edición en modal `form/PolizaFormModal.tsx`), solo admin (`RequireAdmin`). CRUD `GET/POST /api/polizas-mantenimiento/`, `GET/PATCH/DELETE /api/polizas-mantenimiento/{id}/`, `GET /api/polizas-mantenimiento/{id}/pdf/`, `GET /api/polizas-mantenimiento/{id}/xml/` (admin, `IsAdminUser`). Picker liviano `GET /api/polizas-mantenimiento/cotizaciones/?cliente_id=` (FK o misma razón social). Folio `POL-10001+`. Tipo actual `cctv`. Sin módulo de permisos `polizas`. Spec: `docs/superpowers/specs/2026-08-14-polizas-mantenimiento-placeholder-design.md`.
 - **Inventario**: módulo propio `inventario` (escáner HID / código de barras). En el sidebar vive bajo **Productos Y Servicios**; la ruta `/inventario` requiere `inventario.view`; registrar entradas y salidas (`POST /api/inventario/scan/`) requieren `inventario.create`; editar ficha de ítem (`PATCH`) requiere `inventario.create` o `inventario.edit`; buscar en catálogo para vincular (`GET /api/inventario/catalogo/`) requiere `inventario.view` (SYSCOM/TVC + productos manuales); registrar desde catálogo sin mover stock (`POST /api/inventario/registrar-catalogo/`) requiere `inventario.create` (órdenes Equipos: alta con cantidad 0); importar factura (`POST /api/inventario/importar-factura/`) requiere `inventario.create`; subir foto (`POST /api/inventario/upload-image/`) requiere `inventario.create`; eliminar ítem (`DELETE`) requiere `inventario.delete`. FE: `frontend/src/pages/Inventario/`. Ítems tienen `seccion` (12 categorías fijas + vacío); listado filtra con `?seccion=<slug|sin>`. Spec: `docs/superpowers/specs/2026-08-10-inventario-secciones-design.md`.
 
 ## Convenciones
@@ -130,6 +131,17 @@ Terminal 1: backend/.venv → migrate → runserver :8000
 Terminal 2: frontend → pnpm dev :5173
 ```
 
+### Local, no GitHub
+
+`.agents/`, `.codex/`, `.cursor/`, `.superpowers/`, `.worktrees/` y `docs/` son locales (`.gitignore`). No commitearlos.
+
+### TestSprite local
+
+- MCP y lanzador viven en `.codex/` (local; no versionar). Config: `.codex/config.toml`; script: `.codex/start-testsprite.ps1`.
+- La clave se define como `TESTSPRITE_API_KEY` en `.env` o `backend/.env`. El lanzador solo la traduce a `API_KEY`, que es el nombre esperado por TestSprite; nunca imprimirla ni commitearla.
+- Para pruebas de UI usar el frontend en el puerto `5173`; para pruebas de API usar Django en el puerto `8000`.
+- Después de agregar o cambiar la clave, reiniciar Codex antes de invocar TestSprite.
+
 ## Archivos de referencia
 
 | Tema | Archivo |
@@ -155,6 +167,7 @@ Las páginas de ventas viven en subcarpetas; el `import()` de `App.tsx` debe coi
 | Nueva / editar cotización | `Ventas/Cotizacion/NuevaCotizacionPage.tsx` | `@/pages/Ventas/Cotizacion/NuevaCotizacionPage` |
 | PDF cotización | `Ventas/Cotizacion/CotizacionPdfPage.tsx` | `@/pages/Ventas/Cotizacion/CotizacionPdfPage` |
 | PDF proyecto | `Operacion/Proyectos/ProyectoPdfPage.tsx` | `@/pages/Operacion/Proyectos/ProyectoPdfPage` |
+| PDF póliza | `Operacion/PolizasMantenimiento/PolizaPdfPage.tsx` | `@/pages/Operacion/PolizasMantenimiento/PolizaPdfPage` |
 | Facturas CFDI (SICAR) | `Ventas/FacturasCFDI/FacturasCfdiPage.tsx` | `@/pages/Ventas/FacturasCFDI/FacturasCfdiPage` |
 
 Si el import apunta a `@/pages/Ventas/FacturasCfdiPage` (sin `FacturasCFDI/`), Vite devuelve HTML (404 del SPA) y el navegador reporta `MIME type "text/html"`. Windows tolera mayúsculas en disco; CI/Linux no — usar siempre `FacturasCFDI`.
@@ -180,6 +193,7 @@ En `backend/config/middleware.py`, las peticiones a `/api/*` con cabecera `Autho
 - HTML de cotizaciones: `backend/apps/cotizaciones/pdf_templates/cotizacion.py`
 - HTML de órdenes: `backend/apps/ordenes/pdf_templates/orden.py`
 - HTML de proyectos: `backend/apps/operacion/pdf_templates/proyecto.py` (`GET /api/proyectos/{id}/pdf/`, bitácora por jornada, sin precios)
+- **Póliza de mantenimiento (CCTV)**: modelo `PolizaMantenimiento` en `apps/operacion`. CRUD admin `GET/POST /api/polizas-mantenimiento/`, `GET/PATCH/DELETE /api/polizas-mantenimiento/{id}/`, PDF guardado `GET /api/polizas-mantenimiento/{id}/pdf/`, XML `GET /api/polizas-mantenimiento/{id}/xml/` (admin, `IsAdminUser`; no es un CFDI). Plantilla de borrador `GET /api/polizas-mantenimiento/pdf/?tipo=cctv` y `GET /api/polizas-mantenimiento/xml/?tipo=cctv` con overlay opcional `folio`, `cliente`, `cotizacion`, `v1`–`v3`. Vista FE `/polizas-mantenimiento/pdf`. Folio `POL-{idx}` desde 10001. Spec: `docs/superpowers/specs/2026-08-14-polizas-mantenimiento-placeholder-design.md`.
 - **Enviar PDF de proyecto por correo**: `GET /api/proyectos/{id}/correo-sugerido/`, `POST /api/proyectos/{id}/enviar-pdf/` — mismo SMTP por usuario (`ProyectosSendPdfPermission`, basta `proyectos.view`). Asunto/cuerpo en `backend/apps/operacion/email_pdf.py`.
 - HTML de facturas CFDI (SICAR): `backend/apps/cotizaciones/sicar_cfdi_pdf.py`
 - Helpers compartidos: `backend/apps/common/pdf_html.py`, `backend/apps/common/pdf_images.py`
@@ -213,6 +227,6 @@ En `backend/config/middleware.py`, las peticiones a `/api/*` con cabecera `Autho
 
 ## No hacer
 
-- Commitear `backend/.env`, `db.sqlite3`, `frontend/dist/`, `node_modules/`.
+- Commitear `backend/.env`, `db.sqlite3`, `frontend/dist/`, `node_modules/`, `.agents/`, `.codex/`, `.cursor/`, `.superpowers/`, `.worktrees/` o `docs/`.
 - Inferir `DEBUG` por host de despliegue.
 - Guards permisivos (`view !== false`) en rutas nuevas.

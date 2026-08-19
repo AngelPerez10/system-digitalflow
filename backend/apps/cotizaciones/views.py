@@ -566,6 +566,10 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 year, month = parsed
                 queryset = queryset.filter(fecha__year=year, fecha__month=month)
 
+        cliente_id = (self.request.query_params.get('cliente_id') or '').strip()
+        if cliente_id.isdigit():
+            queryset = queryset.filter(cliente_id_id=int(cliente_id))
+
         return queryset.order_by('-idx')
 
     def paginate_queryset(self, queryset):

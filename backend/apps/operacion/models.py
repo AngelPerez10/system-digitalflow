@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.common.document_folio import FOLIO_SERIE_PRJ, format_document_folio
+from apps.common.document_folio import FOLIO_SERIE_POL, FOLIO_SERIE_PRJ, format_document_folio
 
 from .close_validation import validate_proyecto_cierre
 
@@ -200,3 +200,92 @@ class ProyectoInstalacion(models.Model):
 
     def __str__(self):
         return f"Instalación INS-{self.idx} · Proyecto #{self.proyecto_id}"
+
+
+POLIZA_TIPO_CCTV = "cctv"
+POLIZA_TIPO_CHOICES = [
+    (POLIZA_TIPO_CCTV, "Videovigilancia CCTV"),
+]
+POLIZA_TIPO_LABELS = {
+    POLIZA_TIPO_CCTV: "Videovigilancia CCTV",
+}
+POLIZA_IDX_START = 10001
+
+
+class PolizaMantenimiento(models.Model):
+    idx = models.IntegerField(unique=True, db_index=True, null=True, blank=True)
+    folio = models.CharField(max_length=50, unique=True, db_index=True, null=True, blank=True)
+
+    cliente = models.ForeignKey(
+        "clientes.Cliente",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="polizas_mantenimiento",
+    )
+    cliente_nombre = models.CharField(max_length=255, blank=True, default="")
+
+    tipo = models.CharField(
+        max_length=20,
+        choices=POLIZA_TIPO_CHOICES,
+        default=POLIZA_TIPO_CCTV,
+    )
+
+    cotizacion = models.ForeignKey(
+        "cotizaciones.Cotizacion",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="polizas_mantenimiento",
+    )
+    cotizacion_folio = models.CharField(max_length=50, blank=True, default="")
+
+    fecha1 = models.DateField(null=True, blank=True)
+    fecha2 = models.DateField(null=True, blank=True)
+    fecha3 = models.DateField(null=True, blank=True)
+
+    creado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="polizas_mantenimiento_creadas",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-idx"]
+        verbose_name = "Póliza de mantenimiento"
+        verbose_name_plural = "Pólizas de mantenimiento"
+        indexes = [
+            models.Index(fields=["idx"], name="operacion_p_idx_c8f1a1_idx"),
+            models.Index(fields=["folio"], name="operacion_p_folio_7c2e11_idx"),
+            models.Index(fields=["cliente_nombre"], name="operacion_p_cliente_9b4d22_idx"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.idx:
+            current_max = PolizaMantenimiento.objects.aggregate(models.Max("idx"))["idx__max"]
+            base = current_max if current_max is not None else POLIZA_IDX_START - 1
+            if base < POLIZA_IDX_START - 1:
+                base = POLIZA_IDX_START - 1
+            idx = int(base) + 1
+            while PolizaMantenimiento.objects.filter(idx=idx).exists():
+                idx += 1
+            self.idx = idx
+
+        if self.idx and not (self.folio or "").strip():
+            candidate = format_document_folio(FOLIO_SERIE_POL, self.idx, empty="")
+            if candidate:
+                clash = PolizaMantenimiento.objects.filter(folio=candidate)
+                if self.pk:
+                    clash = clash.exclude(pk=self.pk)
+                if not clash.exists():
+                    self.folio = candidate
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        display = (self.folio or "").strip() or self.idx
+        return f"Póliza #{display} - {self.cliente_nombre or 'Sin cliente'}"

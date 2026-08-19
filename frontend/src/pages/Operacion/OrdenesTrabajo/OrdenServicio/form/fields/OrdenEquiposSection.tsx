@@ -77,11 +77,15 @@ function EntregaControl({
   title,
   delivered,
   interactive,
+  disabled = false,
+  disabledReason,
   onChange,
 }: {
   title: string;
   delivered: boolean;
   interactive: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
   onChange?: (next: boolean) => void;
 }) {
   const body = (
@@ -91,6 +95,8 @@ function EntregaControl({
           type="checkbox"
           className="h-4 w-4 shrink-0 rounded border-[#d6d3d1] text-[#ff801f] focus:ring-[#ff801f]/30"
           checked={delivered}
+          disabled={disabled}
+          title={disabledReason}
           onChange={(e) => onChange?.(e.target.checked)}
           aria-label={`Entrega de ${title}`}
         />
@@ -107,7 +113,14 @@ function EntregaControl({
   );
 
   if (interactive) {
-    return <label className={`${deliveredClass(delivered)} cursor-pointer`}>{body}</label>;
+    return (
+      <label
+        className={`${deliveredClass(delivered)} ${disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+        title={disabledReason}
+      >
+        {body}
+      </label>
+    );
   }
 
   return (
@@ -193,6 +206,12 @@ export function OrdenEquiposSection({
               const installGroupId = `orden-eq-install-${eq.lineaId}`;
               const qtyId = `orden-eq-qty-${eq.lineaId}`;
               const stock = stockByItemId?.[eq.inventarioItemId];
+              const canDeliverWithStock =
+                typeof stock !== "number" || stock >= eq.cantidad || eq.equipoEntregado;
+              const entregaDisabledReason =
+                canAdminMutate && !canDeliverWithStock
+                  ? "No hay stock suficiente para marcar como entregado."
+                  : undefined;
               const title = eq.nombre || eq.modelo || eq.codigoBarras || "Equipo";
 
               return (
@@ -217,6 +236,11 @@ export function OrdenEquiposSection({
                                 Stock {stock}
                               </span>
                             ) : null}
+                            {typeof stock === "number" && stock < eq.cantidad && !eq.equipoEntregado ? (
+                              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-300">
+                                Sin stock para entregar
+                              </span>
+                            ) : null}
                           </div>
                           <h5
                             id={titleId}
@@ -234,6 +258,8 @@ export function OrdenEquiposSection({
                             title={title}
                             delivered={eq.equipoEntregado}
                             interactive={canAdminMutate}
+                            disabled={Boolean(canAdminMutate && !canDeliverWithStock)}
+                            disabledReason={entregaDisabledReason}
                             onChange={(next) =>
                               onUpdateEquipo(eq.lineaId, { equipoEntregado: next })
                             }

@@ -83,10 +83,12 @@ pytest-report.html
 # ---- Allow examples / templates ----
 !.env.example
 
-# ---- Git worktrees (local isolation) ----
-.worktrees/
-
-# ---- Superpowers SDD local (no subir a GitHub) ----
+# ---- Local agent / SDD / docs (no subir a GitHub) ----
+.agents/
+.codex/
+.cursor/
 .superpowers/
+.worktrees/
+docs/
 
 # Fin

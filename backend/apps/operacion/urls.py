@@ -1,6 +1,11 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from .poliza_views import (
+    PolizaMantenimientoPdfView,
+    PolizaMantenimientoViewSet,
+    PolizaMantenimientoXmlView,
+)
 from .views import ProyectoInstalacionViewSet, ProyectoViewSet
 from .wialon_unit_views import (
     WialonAccessUsersView,
@@ -19,8 +24,19 @@ from .wialon_views import (
 router = DefaultRouter()
 router.register(r"proyectos", ProyectoViewSet, basename="proyecto")
 router.register(r"proyecto-instalaciones", ProyectoInstalacionViewSet, basename="proyecto-instalacion")
+router.register(r"polizas-mantenimiento", PolizaMantenimientoViewSet, basename="poliza-mantenimiento")
 
 urlpatterns = [
+    path(
+        "polizas-mantenimiento/pdf/",
+        PolizaMantenimientoPdfView.as_view(),
+        name="poliza-mantenimiento-pdf",
+    ),
+    path(
+        "polizas-mantenimiento/xml/",
+        PolizaMantenimientoXmlView.as_view(),
+        name="poliza-mantenimiento-xml",
+    ),
     path("wialon/usuarios/", WialonUsuariosView.as_view(), name="wialon-usuarios"),
     path(
         "wialon/indice-unidades/",

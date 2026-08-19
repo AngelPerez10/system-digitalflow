@@ -3,6 +3,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from apps.clientes.models import Cliente
+from apps.cotizaciones.models import Cotizacion
 
 from .asignados import (
     hydrate_auxiliares_from_legacy,
@@ -16,7 +17,13 @@ from .asignados import (
 )
 from .close_validation import validate_proyecto_cierre
 from .cotizacion_autorizacion import authorize_pending_digitalflow_cotizaciones
-from .models import Proyecto, ProyectoInstalacion
+from .models import (
+    POLIZA_TIPO_CCTV,
+    POLIZA_TIPO_LABELS,
+    PolizaMantenimiento,
+    Proyecto,
+    ProyectoInstalacion,
+)
 from .tipos_trabajo import (
     assert_tecnico_locked_fields,
     is_assigned_technician_actor,
@@ -487,3 +494,123 @@ class ProyectoInstalacionSerializer(serializers.ModelSerializer):
         if not user_on_proyecto_team(user, proyecto):
             raise serializers.ValidationError("No tienes acceso a este proyecto.")
         return proyecto
+
+
+def _norm_nombre(value: object) -> str:
+    return " ".join(str(value or "").split()).casefold()
+
+
+def cotizacion_pertenece_al_cliente(cotizacion, cliente) -> bool:
+    """True si la cotización es del cliente por FK o por la misma razón social (listado Ventas)."""
+    if cotizacion is None or cliente is None:
+        return False
+    cot_cliente_id = getattr(cotizacion, "cliente_id_id", None)
+    if cot_cliente_id == getattr(cliente, "id", None):
+        return True
+    cot_nombre = _norm_nombre(getattr(cotizacion, "cliente", ""))
+    cli_nombre = _norm_nombre(getattr(cliente, "nombre", ""))
+    return bool(cot_nombre and cli_nombre and cot_nombre == cli_nombre)
+
+
+class PolizaMantenimientoSerializer(serializers.ModelSerializer):
+    cliente_id = serializers.PrimaryKeyRelatedField(
+        source="cliente",
+        queryset=Cliente.objects.all(),
+    )
+    cotizacion_id = serializers.PrimaryKeyRelatedField(
+        source="cotizacion",
+        queryset=Cotizacion.objects.all(),
+    )
+    tipo_label = serializers.SerializerMethodField()
+    creado_por_username = serializers.CharField(
+        source="creado_por.username", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = PolizaMantenimiento
+        fields = [
+            "id",
+            "idx",
+            "folio",
+            "cliente_id",
+            "cliente_nombre",
+            "tipo",
+            "tipo_label",
+            "cotizacion_id",
+            "cotizacion_folio",
+            "fecha1",
+            "fecha2",
+            "fecha3",
+            "creado_por",
+            "creado_por_username",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "idx",
+            "folio",
+            "cliente_nombre",
+            "tipo_label",
+            "cotizacion_folio",
+            "creado_por",
+            "creado_por_username",
+            "created_at",
+            "updated_at",
+        ]
+        extra_kwargs = {
+            "tipo": {"required": False, "default": POLIZA_TIPO_CCTV},
+            "fecha1": {"required": True, "allow_null": False},
+            "fecha2": {"required": True, "allow_null": False},
+            "fecha3": {"required": True, "allow_null": False},
+        }
+
+    def get_tipo_label(self, obj: PolizaMantenimiento) -> str:
+        return POLIZA_TIPO_LABELS.get(obj.tipo, obj.tipo or "")
+
+    def _apply_snapshots(self, attrs: dict) -> dict:
+        from apps.common.document_folio import FOLIO_SERIE_COT, format_document_folio
+
+        cliente = attrs.get("cliente")
+        if cliente is not None:
+            attrs["cliente_nombre"] = (cliente.nombre or "").strip()
+        cotizacion = attrs.get("cotizacion")
+        if cotizacion is not None:
+            attrs["cotizacion_folio"] = format_document_folio(
+                FOLIO_SERIE_COT, getattr(cotizacion, "idx", None), empty=""
+            )
+        return attrs
+
+    def validate_tipo(self, value):
+        tipo = (value or POLIZA_TIPO_CCTV).strip().lower()
+        if tipo not in POLIZA_TIPO_LABELS:
+            raise serializers.ValidationError("Tipo de póliza no soportado. Use cctv.")
+        return tipo
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        instance = getattr(self, "instance", None)
+        cliente = attrs.get("cliente", getattr(instance, "cliente", None) if instance else None)
+        cotizacion = attrs.get(
+            "cotizacion", getattr(instance, "cotizacion", None) if instance else None
+        )
+        if cliente and cotizacion:
+            if not cotizacion_pertenece_al_cliente(cotizacion, cliente):
+                raise serializers.ValidationError(
+                    {"cotizacion_id": "La cotización no pertenece a este cliente."}
+                )
+
+        fecha1 = attrs.get("fecha1", getattr(instance, "fecha1", None) if instance else None)
+        fecha2 = attrs.get("fecha2", getattr(instance, "fecha2", None) if instance else None)
+        fecha3 = attrs.get("fecha3", getattr(instance, "fecha3", None) if instance else None)
+        if fecha1 and fecha2 and fecha3 and not (fecha1 < fecha2 < fecha3):
+            raise serializers.ValidationError(
+                {"fecha2": "Las visitas deben ir en orden cronológico (cada cuatro meses)."}
+            )
+        return attrs
+
+    def create(self, validated_data):
+        return super().create(self._apply_snapshots(validated_data))
+
+    def update(self, instance, validated_data):
+        return super().update(instance, self._apply_snapshots(validated_data))

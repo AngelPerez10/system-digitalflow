@@ -715,6 +715,15 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         remainingSlots,
       );
       const failures: string[] = heicFiles.map((f) => ordenImageRejectMessage(f.name));
+      const incomingImagesCount = [...acceptedFiles, ...rejectedAsFiles].filter(
+        (f) => !!f && typeof f === "object",
+      ).length;
+      const droppedByLimit = Math.max(0, incomingImagesCount - heicFiles.length - files.length);
+      if (droppedByLimit > 0) {
+        failures.push(
+          `${droppedByLimit} foto${droppedByLimit === 1 ? "" : "s"} fuera del límite (máximo ${maxPhotosAllowed} en total).`,
+        );
+      }
 
       if (!files.length) {
         if (failures.length) {

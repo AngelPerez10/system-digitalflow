@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { DropzoneRootProps, DropzoneInputProps } from "react-dropzone";
 import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 import DatePicker from "@/components/form/date-picker";
@@ -118,6 +118,22 @@ export function OrdenClienteTab({
   const telefonoId = "orden-cliente-telefono";
   const direccionId = "orden-cliente-direccion";
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const active = new Set(Array.isArray(formData.fotos_urls) ? formData.fotos_urls : []);
+    setBrokenPhotoUrls((prev) => {
+      const next: Record<string, boolean> = {};
+      let changed = false;
+      for (const [url, isBroken] of Object.entries(prev)) {
+        if (active.has(url)) {
+          next[url] = isBroken;
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [formData.fotos_urls]);
 
   const onClienteQueryChange = (q: string) => {
     setClienteSearch(q);
@@ -612,6 +628,14 @@ export function OrdenClienteTab({
                         className="pointer-events-none h-24 w-full bg-gray-100 object-cover dark:bg-gray-800"
                         loading="lazy"
                         decoding="async"
+                        onLoad={() =>
+                          setBrokenPhotoUrls((prev) => {
+                            if (!prev[preview]) return prev;
+                            const next = { ...prev };
+                            delete next[preview];
+                            return next;
+                          })
+                        }
                         onError={() => setBrokenPhotoUrls((prev) => ({ ...prev, [preview]: true }))}
                       />
                     )}

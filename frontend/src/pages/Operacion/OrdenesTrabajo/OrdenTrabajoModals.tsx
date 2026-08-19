@@ -43,9 +43,16 @@ type OrdenFormModalHeaderProps = {
   title: string;
   subtitle?: string;
   contextLabel?: string;
+  titleId?: string;
 };
 
-export function OrdenFormModalHeader({ editing, title, subtitle, contextLabel = "Operación · Órdenes" }: OrdenFormModalHeaderProps) {
+export function OrdenFormModalHeader({
+  editing,
+  title,
+  subtitle,
+  contextLabel = "Operación · Órdenes",
+  titleId,
+}: OrdenFormModalHeaderProps) {
   return (
     <header className={erpModalHeaderClass}>
       <div className={erpModalHeaderAccentClass} aria-hidden />
@@ -66,7 +73,12 @@ export function OrdenFormModalHeader({ editing, title, subtitle, contextLabel = 
               </span>
             )}
           </div>
-          <h2 className={`mt-1 text-base sm:mt-1.5 sm:text-[clamp(1.1rem,1.3vw,1.25rem)] ${erpSubheadingClass}`}>{title}</h2>
+          <h2
+            id={titleId}
+            className={`mt-1 text-base sm:mt-1.5 sm:text-[clamp(1.1rem,1.3vw,1.25rem)] ${erpSubheadingClass}`}
+          >
+            {title}
+          </h2>
           {subtitle ? (
             <p className={`mt-1 line-clamp-2 max-w-md text-xs sm:mt-1.5 sm:line-clamp-none sm:text-sm ${claudeBodyClass}`}>
               {subtitle}
@@ -288,15 +300,23 @@ export function OrdenModalPrimaryButton({
   children,
   disabled,
   type = "button",
+  form,
   onClick,
 }: {
   children: ReactNode;
   disabled?: boolean;
   type?: "button" | "submit";
+  form?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
 }) {
   return (
-    <button type={type} disabled={disabled} onClick={onClick} className={`${erpPrimaryBtnClass} w-full sm:w-auto`}>
+    <button
+      type={type}
+      form={form}
+      disabled={disabled}
+      onClick={onClick}
+      className={`${erpPrimaryBtnClass} w-full sm:w-auto`}
+    >
       {children}
     </button>
   );

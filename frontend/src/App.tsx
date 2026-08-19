@@ -36,6 +36,10 @@ const OrdenesTecnico = lazy(() => import("@/pages/Operacion/OrdenesTrabajo/Orden
 const LevantamientoPage = lazy(() => import("@/pages/Operacion/OrdenesTrabajo/OrdenLevantamiento/LevantamientoPage"));
 const ProyectosPage = lazy(() => import("@/pages/Operacion/Proyectos/ProyectosPage"));
 const ProyectoPdfPage = lazy(() => import("@/pages/Operacion/Proyectos/ProyectoPdfPage"));
+const PolizasMantenimientoPage = lazy(
+  () => import("@/pages/Operacion/PolizasMantenimiento/PolizasMantenimientoPage"),
+);
+const PolizaPdfPage = lazy(() => import("@/pages/Operacion/PolizasMantenimiento/PolizaPdfPage"));
 const Clientes = lazy(() => import("@/pages/ContactosNegocio/Clientes/ClientesPage"));
 const EmpresaPage = lazy(() => import("@/pages/ContactosNegocio/Clientes/EmpresaPage"));
 const PersonasPage = lazy(() => import("@/pages/ContactosNegocio/Clientes/PersonasPage"));
@@ -104,6 +108,22 @@ export default function App() {
                 <RequireProyectosPermission required="view">
                   <ProyectoPdfPage />
                 </RequireProyectosPermission>
+              }
+            />
+            <Route
+              path="/polizas-mantenimiento"
+              element={
+                <RequireAdmin>
+                  <PolizasMantenimientoPage />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/polizas-mantenimiento/pdf"
+              element={
+                <RequireAdmin>
+                  <PolizaPdfPage />
+                </RequireAdmin>
               }
             />
             <Route path="/inventario" element={<RequireInventarioPermission required="view"><InventarioPage /></RequireInventarioPermission>} />
