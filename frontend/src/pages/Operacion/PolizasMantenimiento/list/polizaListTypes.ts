@@ -1,3 +1,5 @@
+import type { PolizaIntervaloMeses } from "../shared/polizaVisitas";
+
 export type PolizaTipo = "cctv";
 
 export type PolizaEstado = "vigente" | "proxima_visita" | "vencida";
@@ -6,7 +8,10 @@ export type PolizaAltaValues = {
   clienteId: string;
   clienteNombre?: string;
   tipo: PolizaTipo;
+  servicioTipo: string;
+  equiposAtendidos: string;
   cotizacionId: string;
+  intervaloMeses: PolizaIntervaloMeses;
   fecha1: string;
   fecha2: string;
   fecha3: string;
@@ -20,8 +25,11 @@ export type PolizaRow = {
   cliente: string;
   tipo: PolizaTipo;
   tipoLabel: string;
+  servicioTipo: string;
+  equiposAtendidos: string;
   cotizacionId: string;
   cotizacionFolio: string;
+  intervaloMeses: PolizaIntervaloMeses;
   fecha1: string;
   fecha2: string;
   fecha3: string;

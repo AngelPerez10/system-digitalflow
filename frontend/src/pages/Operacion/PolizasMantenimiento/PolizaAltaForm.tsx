@@ -1,13 +1,20 @@
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
 import { CalendarDays, FileText, UserRound } from "lucide-react";
 import DatePicker from "@/components/form/date-picker";
 import SearchableSelect from "@/components/form/SearchableSelect";
 import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
-import { erpSectionLabelClass, erpSelectFieldClass } from "@/layout/erpPageStyles";
+import { erpInputLikeClass, erpSectionLabelClass, erpSelectFieldClass } from "@/layout/erpPageStyles";
 import { listCotizacionesDeCliente, type CotizacionOption } from "./list/polizaApi";
 import { clienteNombreFromOptionLabel, clienteToSelectOption, mergeClienteOptions } from "./list/polizaClienteOptions";
-import { EMPTY_POLIZA_VALUES, TIPO_CCTV } from "./list/polizaDemoData";
+import {
+  inferIntervaloMeses,
+  parseIntervaloMeses,
+  POLIZA_INTERVALO_DEFAULT,
+  type PolizaIntervaloMeses,
+  visitDatesFromStart,
+} from "./shared/polizaVisitas";
 import type { PolizaAltaValues } from "./list/polizaListTypes";
+import { EMPTY_POLIZA_VALUES, TIPO_CCTV } from "./list/polizaDemoData";
 
 function CheckDot({ done, label }: { done: boolean; label: string }) {
   return (
@@ -43,6 +50,7 @@ type Props = {
   extraClienteOption?: SelectOption | null;
   extraCotizacionOption?: SelectOption | null;
   onSubmit?: (values: PolizaAltaValues) => void;
+  onRegisterGetValues?: (getter: () => PolizaAltaValues) => void;
 };
 
 export default function PolizaAltaForm({
@@ -54,16 +62,30 @@ export default function PolizaAltaForm({
   extraClienteOption = null,
   extraCotizacionOption = null,
   onSubmit,
+  onRegisterGetValues,
 }: Props) {
   const clienteErrorId = useId();
   const [clienteId, setClienteId] = useState(initialValues.clienteId);
   const [tipo, setTipo] = useState(initialValues.tipo || TIPO_CCTV);
+  const [servicioTipo, setServicioTipo] = useState(initialValues.servicioTipo);
+  const [equiposAtendidos, setEquiposAtendidos] = useState(initialValues.equiposAtendidos);
   const [cotizacionId, setCotizacionId] = useState(initialValues.cotizacionId);
+  const [intervaloMeses, setIntervaloMeses] = useState<PolizaIntervaloMeses>(() => {
+    if (initialValues.intervaloMeses === 2 || initialValues.intervaloMeses === 4) {
+      return initialValues.intervaloMeses;
+    }
+    if (initialValues.fecha1 && initialValues.fecha2) {
+      return inferIntervaloMeses(initialValues.fecha1, initialValues.fecha2);
+    }
+    return POLIZA_INTERVALO_DEFAULT;
+  });
   const [fecha1, setFecha1] = useState(initialValues.fecha1);
   const [fecha2, setFecha2] = useState(initialValues.fecha2);
   const [fecha3, setFecha3] = useState(initialValues.fecha3);
   const [clienteError, setClienteError] = useState("");
   const [cotizacionError, setCotizacionError] = useState("");
+  const [servicioError, setServicioError] = useState("");
+  const [equiposError, setEquiposError] = useState("");
   const [fechasError, setFechasError] = useState("");
   const [clienteQuery, setClienteQuery] = useState("");
   const [clienteOptions, setClienteOptions] = useState<SelectOption[]>(
@@ -139,6 +161,64 @@ export default function PolizaAltaForm({
   }, [clienteId, extraCotizacionValue, extraCotizacionLabel]);
 
   const fechasListas = Boolean(fecha1 && fecha2 && fecha3);
+  const servicioListo = Boolean(servicioTipo.trim());
+  const equiposListos = Boolean(equiposAtendidos.trim());
+
+  const applyVisitSchedule = useCallback(
+    (startIso: string, interval: PolizaIntervaloMeses) => {
+      const trimmed = startIso.trim();
+      if (!trimmed) {
+        setFecha1("");
+        setFecha2("");
+        setFecha3("");
+        return;
+      }
+      const [f1, f2, f3] = visitDatesFromStart(trimmed, interval);
+      setFecha1(f1);
+      setFecha2(f2);
+      setFecha3(f3);
+      setFechasError("");
+    },
+    []
+  );
+
+  const handleIntervaloChange = (value: PolizaIntervaloMeses) => {
+    setIntervaloMeses(value);
+    if (fecha1) applyVisitSchedule(fecha1, value);
+  };
+
+  const getCurrentValues = useCallback((): PolizaAltaValues => {
+    return {
+      clienteId,
+      clienteNombre: clienteNombreFromOptionLabel(
+        clienteOptions.find((c) => c.value === clienteId)?.label || extraClienteLabel || ""
+      ),
+      tipo,
+      servicioTipo: servicioTipo.trim(),
+      equiposAtendidos: equiposAtendidos.trim(),
+      cotizacionId,
+      intervaloMeses,
+      fecha1,
+      fecha2,
+      fecha3,
+    };
+  }, [
+    clienteId,
+    clienteOptions,
+    extraClienteLabel,
+    tipo,
+    servicioTipo,
+    equiposAtendidos,
+    cotizacionId,
+    intervaloMeses,
+    fecha1,
+    fecha2,
+    fecha3,
+  ]);
+
+  useEffect(() => {
+    onRegisterGetValues?.(getCurrentValues);
+  }, [getCurrentValues, onRegisterGetValues]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -155,6 +235,18 @@ export default function PolizaAltaForm({
     } else {
       setCotizacionError("");
     }
+    if (!servicioTipo.trim()) {
+      setServicioError("Indica el tipo de servicio de esta póliza.");
+      hasError = true;
+    } else {
+      setServicioError("");
+    }
+    if (!equiposAtendidos.trim()) {
+      setEquiposError("Indica los equipos atendidos (ej. 1 DVR y 10 cámaras).");
+      hasError = true;
+    } else {
+      setEquiposError("");
+    }
     if (!fecha1 || !fecha2 || !fecha3) {
       setFechasError("Indica las tres visitas del año.");
       hasError = true;
@@ -162,17 +254,7 @@ export default function PolizaAltaForm({
       setFechasError("");
     }
     if (hasError) return;
-    onSubmit?.({
-      clienteId,
-      clienteNombre: clienteNombreFromOptionLabel(
-        clienteOptions.find((c) => c.value === clienteId)?.label || extraClienteLabel || ""
-      ),
-      tipo,
-      cotizacionId,
-      fecha1,
-      fecha2,
-      fecha3,
-    });
+    onSubmit?.(getCurrentValues());
   };
 
   return (
@@ -203,7 +285,9 @@ export default function PolizaAltaForm({
           <div className="mt-6 h-px bg-[#e4dcd0] dark:bg-[#273244]" aria-hidden />
           <ul className="mt-5 space-y-2.5" aria-label="Campos del expediente">
             <CheckDot done={Boolean(clienteId)} label="Cliente" />
-            <CheckDot done={Boolean(tipo)} label="Tipo de servicio" />
+            <CheckDot done={Boolean(tipo)} label="Tipo de póliza" />
+            <CheckDot done={servicioListo} label="Tipo de servicio" />
+            <CheckDot done={equiposListos} label="Equipos atendidos" />
             <CheckDot done={Boolean(cotizacionId)} label="Cotización" />
             <CheckDot done={fechasListas} label="Tres visitas" />
           </ul>
@@ -287,6 +371,57 @@ export default function PolizaAltaForm({
               </select>
             </div>
 
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="poliza-servicio-tipo"
+                  className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
+                >
+                  Tipo de servicio (texto) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="poliza-servicio-tipo"
+                  type="text"
+                  value={servicioTipo}
+                  onChange={(e) => {
+                    setServicioTipo(e.target.value);
+                    if (e.target.value.trim()) setServicioError("");
+                  }}
+                  className={`${erpInputLikeClass} mt-1.5`}
+                  placeholder="Ej. Mantenimiento preventivo CCTV"
+                />
+                {servicioError ? (
+                  <p className="mt-2 text-sm text-[#c64545]" role="alert">
+                    {servicioError}
+                  </p>
+                ) : null}
+              </div>
+              <div>
+                <label
+                  htmlFor="poliza-equipos-atendidos"
+                  className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
+                >
+                  Equipos atendidos <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="poliza-equipos-atendidos"
+                  type="text"
+                  value={equiposAtendidos}
+                  onChange={(e) => {
+                    setEquiposAtendidos(e.target.value);
+                    if (e.target.value.trim()) setEquiposError("");
+                  }}
+                  className={`${erpInputLikeClass} mt-1.5`}
+                  placeholder="Ej. 1 DVR y 10 cámaras"
+                />
+                {equiposError ? (
+                  <p className="mt-2 text-sm text-[#c64545]" role="alert">
+                    {equiposError}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
             <div>
               <div className="mb-3 flex items-center gap-2 text-[#78716c] dark:text-[#94a3b8]">
                 <FileText className="size-4" strokeWidth={1.75} aria-hidden />
@@ -333,8 +468,26 @@ export default function PolizaAltaForm({
                 </span>
               </div>
               <p className="mb-4 text-sm text-[#57534e] dark:text-[#b7c1d1]">
-                Tres visitas al año, cada cuatro meses.
+                Tres visitas al año. Elige el intervalo y la fecha del 1.er mantenimiento; las
+                siguientes se calculan solas.
               </p>
+              <div className="mb-4">
+                <label
+                  htmlFor="poliza-intervalo-meses"
+                  className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
+                >
+                  Intervalo entre visitas <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="poliza-intervalo-meses"
+                  value={intervaloMeses}
+                  onChange={(e) => handleIntervaloChange(parseIntervaloMeses(Number(e.target.value)))}
+                  className={`${erpSelectFieldClass} mt-1.5 max-w-md`}
+                >
+                  <option value={4}>Cada 4 meses (3 visitas al año)</option>
+                  <option value={2}>Cada 2 meses (3 visitas al año)</option>
+                </select>
+              </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <DatePicker
                   id="poliza-fecha-visita-1"
@@ -342,15 +495,15 @@ export default function PolizaAltaForm({
                   placeholder="Elegir fecha"
                   defaultDate={fecha1 || undefined}
                   onChange={(_dates, value) => {
-                    setFecha1(value || "");
-                    if (value) setFechasError("");
+                    applyVisitSchedule(value || "", intervaloMeses);
                   }}
                 />
                 <DatePicker
                   id="poliza-fecha-visita-2"
                   label="2.º mantenimiento"
-                  placeholder="Elegir fecha"
+                  placeholder="Se calcula automáticamente"
                   defaultDate={fecha2 || undefined}
+                  disabled
                   onChange={(_dates, value) => {
                     setFecha2(value || "");
                     if (value) setFechasError("");
@@ -359,14 +512,21 @@ export default function PolizaAltaForm({
                 <DatePicker
                   id="poliza-fecha-visita-3"
                   label="3.er mantenimiento"
-                  placeholder="Elegir fecha"
+                  placeholder="Se calcula automáticamente"
                   defaultDate={fecha3 || undefined}
+                  disabled
                   onChange={(_dates, value) => {
                     setFecha3(value || "");
                     if (value) setFechasError("");
                   }}
                 />
               </div>
+              <p className="mt-2 text-sm text-[#78716c] dark:text-[#94a3b8]">
+                Con intervalo de {intervaloMeses} meses:{" "}
+                {fecha1 && fecha2 && fecha3
+                  ? `${fecha1} → ${fecha2} → ${fecha3}`
+                  : "elige la 1.ª visita para ver el calendario."}
+              </p>
               {fechasError ? (
                 <p className="mt-2 text-sm text-[#c64545]" role="alert">
                   {fechasError}

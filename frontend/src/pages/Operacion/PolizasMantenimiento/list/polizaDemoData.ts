@@ -1,4 +1,5 @@
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
+import { POLIZA_INTERVALO_DEFAULT } from "../shared/polizaVisitas";
 import type { PolizaAltaValues, PolizaEstado, PolizaRow, PolizaStats, PolizaTipo } from "./polizaListTypes";
 
 export const TIPO_CCTV: PolizaTipo = "cctv";
@@ -25,7 +26,10 @@ export const COTIZACIONES_DEMO: Record<string, { value: string; label: string }[
 export const EMPTY_POLIZA_VALUES: PolizaAltaValues = {
   clienteId: "",
   tipo: TIPO_CCTV,
+  servicioTipo: "",
+  equiposAtendidos: "",
   cotizacionId: "",
+  intervaloMeses: POLIZA_INTERVALO_DEFAULT,
   fecha1: "",
   fecha2: "",
   fecha3: "",
@@ -107,7 +111,10 @@ export function valuesFromRow(row: PolizaRow): PolizaAltaValues {
   return {
     clienteId: row.clienteId,
     tipo: row.tipo,
+    servicioTipo: row.servicioTipo,
+    equiposAtendidos: row.equiposAtendidos,
     cotizacionId: row.cotizacionId,
+    intervaloMeses: row.intervaloMeses,
     fecha1: row.fecha1,
     fecha2: row.fecha2,
     fecha3: row.fecha3,
@@ -132,8 +139,11 @@ export function buildPolizaRow(opts: {
     cliente: cliente?.label || "Cliente",
     tipo,
     tipoLabel: TIPO_LABEL[tipo],
+    servicioTipo: opts.values.servicioTipo,
+    equiposAtendidos: opts.values.equiposAtendidos,
     cotizacionId: opts.values.cotizacionId,
     cotizacionFolio: cot ? cotizacionFolioFromOption(cot.label, cot.value) : "—",
+    intervaloMeses: opts.values.intervaloMeses,
     fecha1: opts.values.fecha1,
     fecha2: opts.values.fecha2,
     fecha3: opts.values.fecha3,
@@ -162,7 +172,10 @@ export const POLIZAS_DEMO: PolizaRow[] = [
     values: {
       clienteId: "1",
       tipo: TIPO_CCTV,
+      servicioTipo: "Mantenimiento preventivo CCTV",
+      equiposAtendidos: "6 DVR y 63 cámaras",
       cotizacionId: "10261",
+      intervaloMeses: 4,
       fecha1: "2026-04-20",
       fecha2: "2026-08-20",
       fecha3: "2026-12-20",
@@ -174,7 +187,10 @@ export const POLIZAS_DEMO: PolizaRow[] = [
     values: {
       clienteId: "2",
       tipo: TIPO_CCTV,
+      servicioTipo: "Mantenimiento preventivo CCTV",
+      equiposAtendidos: "4 DVR y 28 cámaras",
       cotizacionId: "9880",
+      intervaloMeses: 4,
       fecha1: "2026-03-10",
       fecha2: "2026-07-10",
       fecha3: "2026-11-10",
@@ -186,7 +202,10 @@ export const POLIZAS_DEMO: PolizaRow[] = [
     values: {
       clienteId: "3",
       tipo: TIPO_CCTV,
+      servicioTipo: "Mantenimiento preventivo CCTV",
+      equiposAtendidos: "2 DVR y 16 cámaras",
       cotizacionId: "10042",
+      intervaloMeses: 4,
       fecha1: "2025-09-01",
       fecha2: "2026-01-01",
       fecha3: "2026-05-01",

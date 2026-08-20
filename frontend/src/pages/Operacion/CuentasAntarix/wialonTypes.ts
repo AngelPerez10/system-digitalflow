@@ -9,6 +9,8 @@ export type WialonUserRow = {
   assigned_units: number;
   status: string;
   blocked: string;
+  /** Unix epoch (segundos) del bloqueo en Wialon; null si activa o sin fecha. */
+  blocked_at?: number | null;
 };
 
 export type WialonUnitRow = {

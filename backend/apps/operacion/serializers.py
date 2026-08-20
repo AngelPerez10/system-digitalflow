@@ -535,9 +535,12 @@ class PolizaMantenimientoSerializer(serializers.ModelSerializer):
             "cliente_id",
             "cliente_nombre",
             "tipo",
+            "servicio_tipo",
+            "equipos_atendidos",
             "tipo_label",
             "cotizacion_id",
             "cotizacion_folio",
+            "intervalo_meses",
             "fecha1",
             "fecha2",
             "fecha3",
@@ -560,6 +563,9 @@ class PolizaMantenimientoSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             "tipo": {"required": False, "default": POLIZA_TIPO_CCTV},
+            "servicio_tipo": {"required": False, "allow_blank": True},
+            "equipos_atendidos": {"required": False, "allow_blank": True},
+            "intervalo_meses": {"required": False, "default": 4},
             "fecha1": {"required": True, "allow_null": False},
             "fecha2": {"required": True, "allow_null": False},
             "fecha3": {"required": True, "allow_null": False},
@@ -579,7 +585,26 @@ class PolizaMantenimientoSerializer(serializers.ModelSerializer):
             attrs["cotizacion_folio"] = format_document_folio(
                 FOLIO_SERIE_COT, getattr(cotizacion, "idx", None), empty=""
             )
+        if "servicio_tipo" in attrs:
+            attrs["servicio_tipo"] = str(attrs.get("servicio_tipo") or "").strip()
+        if "equipos_atendidos" in attrs:
+            attrs["equipos_atendidos"] = str(attrs.get("equipos_atendidos") or "").strip()
+        if "intervalo_meses" in attrs:
+            try:
+                intervalo = int(attrs.get("intervalo_meses") or 4)
+            except (TypeError, ValueError):
+                intervalo = 4
+            attrs["intervalo_meses"] = 2 if intervalo == 2 else 4
         return attrs
+
+    def validate_intervalo_meses(self, value):
+        try:
+            intervalo = int(value or 4)
+        except (TypeError, ValueError):
+            intervalo = 4
+        if intervalo not in (2, 4):
+            raise serializers.ValidationError("El intervalo debe ser 2 o 4 meses.")
+        return intervalo
 
     def validate_tipo(self, value):
         tipo = (value or POLIZA_TIPO_CCTV).strip().lower()
@@ -605,7 +630,7 @@ class PolizaMantenimientoSerializer(serializers.ModelSerializer):
         fecha3 = attrs.get("fecha3", getattr(instance, "fecha3", None) if instance else None)
         if fecha1 and fecha2 and fecha3 and not (fecha1 < fecha2 < fecha3):
             raise serializers.ValidationError(
-                {"fecha2": "Las visitas deben ir en orden cronológico (cada cuatro meses)."}
+                {"fecha2": "Las visitas deben ir en orden cronológico."}
             )
         return attrs
 

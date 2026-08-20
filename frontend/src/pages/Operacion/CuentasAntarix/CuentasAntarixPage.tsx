@@ -206,6 +206,22 @@ export default function CuentasAntarixPage() {
     }
   };
 
+  const purgeExpiredBlocked = async (): Promise<number> => {
+    if (!canEdit) return 0;
+    try {
+      const res = await fetchApi("/api/wialon/usuarios/limpiar-bloqueados/", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: 35, dry_run: false }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) return 0;
+      return typeof data?.purged_count === "number" ? data.purged_count : 0;
+    } catch {
+      return 0;
+    }
+  };
+
   const loadUnitSearchIndex = async (forceRefresh = false) => {
     setUnitIndexLoading(true);
     try {
@@ -291,8 +307,26 @@ export default function CuentasAntarixPage() {
   const handleRefresh = async () => {
     if (loading || refreshing) return;
     const ok = await loadUsers(true);
-    if (ok) {
-      showAlert("info", "Actualizado", "Usuarios e índice de unidades sincronizados con Wialon.");
+    if (!ok) return;
+    let purgedCount = 0;
+    if (canEdit) {
+      purgedCount = await purgeExpiredBlocked();
+      if (purgedCount > 0) {
+        await loadUsers(true);
+      }
+    }
+    if (purgedCount > 0) {
+      showAlert(
+        "success",
+        "Actualizado",
+        `Sincronizado con Wialon. Se limpiaron ${purgedCount} cuenta(s) bloqueada(s) hace más de 35 días (unidades desactivadas y usuarios eliminados).`
+      );
+    } else {
+      showAlert(
+        "info",
+        "Actualizado",
+        "Usuarios e índice de unidades sincronizados con Wialon."
+      );
     }
   };
 
@@ -644,11 +678,13 @@ export default function CuentasAntarixPage() {
 
         <EditWialonUserModal
           user={modalUser}
+          allUsers={rows}
           isOpen={modalOpen}
           initialTab="cuenta"
           canEdit={canEdit}
           onClose={closeModal}
           onSaved={handleUserSaved}
+          onOpenUser={openEditUser}
         />
       </div>
     </div>

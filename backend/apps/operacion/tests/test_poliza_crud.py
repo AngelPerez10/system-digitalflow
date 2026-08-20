@@ -35,7 +35,10 @@ class PolizaMantenimientoCrudTests(APITestCase):
         self.payload = {
             "cliente_id": self.cliente.id,
             "tipo": "cctv",
+            "servicio_tipo": "Mantenimiento preventivo CCTV",
+            "equipos_atendidos": "1 DVR y 10 cámaras",
             "cotizacion_id": self.cotizacion.id,
+            "intervalo_meses": 4,
             "fecha1": "2026-04-20",
             "fecha2": "2026-08-20",
             "fecha3": "2026-12-20",
@@ -63,6 +66,9 @@ class PolizaMantenimientoCrudTests(APITestCase):
         self.assertEqual(create_res.data["cliente_nombre"], self.cliente.nombre)
         self.assertEqual(create_res.data["tipo"], "cctv")
         self.assertEqual(create_res.data["tipo_label"], "Videovigilancia CCTV")
+        self.assertEqual(create_res.data["servicio_tipo"], "Mantenimiento preventivo CCTV")
+        self.assertEqual(create_res.data["equipos_atendidos"], "1 DVR y 10 cámaras")
+        self.assertEqual(create_res.data["intervalo_meses"], 4)
         self.assertTrue(str(create_res.data["cotizacion_folio"]).startswith("COT-"))
         poliza_id = create_res.data["id"]
 
@@ -185,6 +191,12 @@ class PolizaMantenimientoCrudTests(APITestCase):
         res = self.client.get(f"{LIST_URL}{poliza_id}/pdf/", {"format": "html"})
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         body = res.content.decode("utf-8")
+        self.assertIn("Mantenimiento preventivo CCTV", body)
+        self.assertIn("1 DVR y 10 cámaras", body)
+        self.assertIn("corresponde exclusivamente al servicio de Mantenimiento preventivo CCTV", body)
+        self.assertIn("El cliente (MCT LOGISTIC S.A. DE C.V.) deberá suministrar el equipo", body)
+        self.assertNotIn("Equipos instalados y amparados", body)
+        self.assertNotIn("la presente póliza ampara los siguientes equipos", body)
         self.assertIn("555 111 2222", body)
         self.assertIn("555 333 4444", body)
         self.assertIn("contacto@cliente.test", body)

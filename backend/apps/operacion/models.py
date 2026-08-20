@@ -230,6 +230,8 @@ class PolizaMantenimiento(models.Model):
         choices=POLIZA_TIPO_CHOICES,
         default=POLIZA_TIPO_CCTV,
     )
+    servicio_tipo = models.CharField(max_length=255, blank=True, default="")
+    equipos_atendidos = models.CharField(max_length=255, blank=True, default="")
 
     cotizacion = models.ForeignKey(
         "cotizaciones.Cotizacion",
@@ -240,6 +242,7 @@ class PolizaMantenimiento(models.Model):
     )
     cotizacion_folio = models.CharField(max_length=50, blank=True, default="")
 
+    intervalo_meses = models.PositiveSmallIntegerField(default=4)
     fecha1 = models.DateField(null=True, blank=True)
     fecha2 = models.DateField(null=True, blank=True)
     fecha3 = models.DateField(null=True, blank=True)

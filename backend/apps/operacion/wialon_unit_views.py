@@ -13,10 +13,28 @@ from .wialon_client import (
     fetch_users_for_access,
     grant_unit_access,
     revoke_unit_access,
+    set_wialon_unit_active,
     update_wialon_unit,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _request_has_cuentas_edit(request) -> bool:
+    user = getattr(request, "user", None)
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+        return True
+    perms_obj = getattr(user, "permissions_profile", None)
+    permissions = getattr(perms_obj, "permissions", None) or {}
+    module = permissions.get("cuentas_antarix") or {}
+    if not isinstance(module, dict) and isinstance(permissions, dict):
+        lower_map = {str(k).lower(): v for k, v in permissions.items()}
+        module = lower_map.get("cuentas_antarix") or {}
+    if not isinstance(module, dict):
+        return False
+    return module.get("edit") is True
 
 
 class WialonUnitCatalogsView(APIView):
@@ -99,6 +117,46 @@ class WialonUnitDetailView(APIView):
         except Exception:
             logger.exception("Error inesperado actualizando unidad Wialon %s", unit_id)
             return Response({"detail": "No se pudo actualizar la unidad en Wialon."}, status=502)
+
+        return Response({"source": "wialon", "unit": unit})
+
+
+class WialonUnitActiveView(APIView):
+    """Activa o desactiva una unidad (unit/set_active). No la elimina."""
+
+    permission_classes = [IsAuthenticated, CuentasAntarixPermission]
+
+    def patch(self, request, unit_id: int):
+        if not _request_has_cuentas_edit(request):
+            return Response(
+                {"detail": "Se requiere permiso de edición en Cuentas Antarix."},
+                status=403,
+            )
+        data = request.data if isinstance(request.data, dict) else {}
+        if "active" not in data:
+            return Response({"detail": "Indica active (true/false)."}, status=400)
+
+        raw = data.get("active")
+        if isinstance(raw, bool):
+            active = raw
+        elif str(raw).strip().lower() in ("1", "true", "yes", "activo", "on"):
+            active = True
+        elif str(raw).strip().lower() in ("0", "false", "no", "inactivo", "off"):
+            active = False
+        else:
+            return Response({"detail": "active debe ser true o false."}, status=400)
+
+        context_user_id = data.get("context_user_id")
+        ctx_id = int(context_user_id) if context_user_id is not None and str(context_user_id).isdigit() else None
+
+        try:
+            unit = set_wialon_unit_active(int(unit_id), active, context_user_id=ctx_id)
+        except WialonError as exc:
+            logger.warning("Wialon set_active unidad %s: %s", unit_id, exc)
+            return Response({"detail": "No se pudo completar la solicitud con Wialon."}, status=502)
+        except Exception:
+            logger.exception("Error inesperado en set_active unidad %s", unit_id)
+            return Response({"detail": "No se pudo cambiar el estado de la unidad."}, status=502)
 
         return Response({"source": "wialon", "unit": unit})
 

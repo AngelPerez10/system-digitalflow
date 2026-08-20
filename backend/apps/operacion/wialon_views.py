@@ -12,10 +12,29 @@ from .wialon_client import (
     fetch_user_units,
     fetch_users,
     invalidate_wialon_cache,
+    purge_blocked_accounts,
     update_wialon_user,
+    WIALON_BLOCKED_PURGE_DAYS_DEFAULT,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _request_has_cuentas_edit(request) -> bool:
+    user = getattr(request, "user", None)
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+        return True
+    perms_obj = getattr(user, "permissions_profile", None)
+    permissions = getattr(perms_obj, "permissions", None) or {}
+    module = permissions.get("cuentas_antarix") or {}
+    if not isinstance(module, dict):
+        lower_map = {str(k).lower(): v for k, v in permissions.items()} if isinstance(permissions, dict) else {}
+        module = lower_map.get("cuentas_antarix") or {}
+    if not isinstance(module, dict):
+        return False
+    return module.get("edit") is True
 
 
 def _wialon_error_response(exc: WialonError, fallback: str) -> Response:
@@ -53,6 +72,39 @@ class WialonUsuariosView(APIView):
                 "units_index_count": len(units_index),
             }
         )
+
+
+class WialonPurgeBlockedView(APIView):
+    """Desactiva unidades y elimina usuarios bloqueados hace más de N días."""
+
+    permission_classes = [IsAuthenticated, CuentasAntarixPermission]
+
+    def patch(self, request):
+        if not _request_has_cuentas_edit(request):
+            return Response(
+                {"detail": "Se requiere permiso de edición en Cuentas Antarix."},
+                status=403,
+            )
+        data = request.data if isinstance(request.data, dict) else {}
+        days_raw = data.get("days", WIALON_BLOCKED_PURGE_DAYS_DEFAULT)
+        dry_run = bool(data.get("dry_run", False))
+        try:
+            days = int(days_raw)
+        except (TypeError, ValueError):
+            return Response({"detail": "days debe ser un entero."}, status=400)
+        if days < 1:
+            return Response({"detail": "days debe ser al menos 1."}, status=400)
+
+        try:
+            result = purge_blocked_accounts(days=days, dry_run=dry_run)
+        except WialonError as exc:
+            logger.warning("Wialon purge bloqueados: %s", exc)
+            return _wialon_error_response(exc, "No se pudo limpiar las cuentas bloqueadas.")
+        except Exception:
+            logger.exception("Error inesperado purgando cuentas bloqueadas Wialon")
+            return Response({"detail": "No se pudo limpiar las cuentas bloqueadas."}, status=502)
+
+        return Response({"source": "wialon", **result})
 
 
 class WialonUnitsSearchIndexView(APIView):

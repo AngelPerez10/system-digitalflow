@@ -123,6 +123,44 @@ function sharingPatchFromAccess(
   };
 }
 
+/** Normaliza claves de cuenta para emparejar creador / padre / login. */
+function accountKey(value: string | null | undefined): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Cuentas espejo / hijas: las creó esta cuenta o cuelgan de su cuenta padre.
+ * (Usuarios con creator o parent_account apuntando a este login/nombre.)
+ */
+function findMirrorAccounts(
+  current: WialonUserRow,
+  allUsers: WialonUserRow[],
+): WialonUserRow[] {
+  const selfId = Number(current.wialon_id);
+  const keys = new Set(
+    [current.user_id, current.name]
+      .map(accountKey)
+      .filter((k) => k && k !== "—")
+  );
+  if (keys.size === 0) return [];
+
+  return allUsers
+    .filter((row) => {
+      if (Number(row.wialon_id) === selfId) return false;
+      const creator = accountKey(row.creator);
+      const parent = accountKey(row.parent_account);
+      return (creator !== "" && keys.has(creator)) || (parent !== "" && keys.has(parent));
+    })
+    .sort((a, b) =>
+      (a.name || a.user_id || "").localeCompare(b.name || b.user_id || "", "es", {
+        sensitivity: "base",
+      })
+    );
+}
+
 function unitRowPatchFromDetail(
   unit: WialonUnitDetail,
   contextUserId?: number | null,
@@ -302,6 +340,436 @@ function WialonErrorAlert({ message }: { message: string }) {
       </svg>
       <p className="min-w-0 flex-1 leading-relaxed">{message}</p>
     </div>
+  );
+}
+
+function WialonUnitActivePanel({
+  unitIsActive,
+  canEdit,
+  confirmDeactivate,
+  activeBusy,
+  saving,
+  loading,
+  onAskDeactivate,
+  onCancelConfirm,
+  onConfirmDeactivate,
+  onReactivate,
+}: {
+  unitIsActive: boolean;
+  canEdit: boolean;
+  confirmDeactivate: boolean;
+  activeBusy: boolean;
+  saving: boolean;
+  loading: boolean;
+  onAskDeactivate: () => void;
+  onCancelConfirm: () => void;
+  onConfirmDeactivate: () => void;
+  onReactivate: () => void;
+}) {
+  const busy = activeBusy || saving || loading;
+  const showConfirm = unitIsActive && confirmDeactivate;
+
+  return (
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-2xl border transition-[border-color,background-color,box-shadow] duration-300 motion-reduce:transition-none",
+        unitIsActive
+          ? "border-[#e7ded0]/95 bg-[#fffdfa] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.75)] dark:border-[#273244] dark:bg-[#0f172a]/70 dark:shadow-none"
+          : "border-[#d6d3d1]/90 bg-[#f5f0e8]/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.45)] dark:border-[#3f3f46]/70 dark:bg-[#18181b]/55 dark:shadow-none",
+        showConfirm &&
+          "border-[#ff801f]/45 bg-[#fff8f1] dark:border-[#fb923c]/40 dark:bg-[#431407]/35"
+      )}
+      role="region"
+      aria-labelledby="unit-active-status-label"
+      aria-describedby="unit-active-help"
+    >
+      {/* Accent rail */}
+      <span
+        className={cn(
+          "absolute inset-y-0 left-0 w-1",
+          showConfirm
+            ? "bg-[#ff801f]"
+            : unitIsActive
+              ? "bg-emerald-500"
+              : "bg-[#a8a29e] dark:bg-[#71717a]"
+        )}
+        aria-hidden
+      />
+
+      {/* Soft atmosphere */}
+      <div
+        className={cn(
+          "pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full blur-3xl",
+          showConfirm
+            ? "bg-[#ff801f]/20"
+            : unitIsActive
+              ? "bg-emerald-400/15"
+              : "bg-[#a8a29e]/20 dark:bg-zinc-500/10"
+        )}
+        aria-hidden
+      />
+
+      <div className="relative grid gap-4 p-4 pl-5 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-5 sm:p-5 sm:pl-6">
+        {/* Power glyph */}
+        <div
+          className={cn(
+            "relative mx-auto flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl sm:mx-0",
+            showConfirm
+              ? "bg-[#ff801f]/15 text-[#c2410c] ring-1 ring-[#ff801f]/35 dark:bg-[#fb923c]/15 dark:text-[#fdba74] dark:ring-[#fb923c]/30"
+              : unitIsActive
+                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800/50"
+                : "bg-[#ebe6df] text-[#78716c] ring-1 ring-[#d6d3d1] dark:bg-[#27272a] dark:text-[#a1a1aa] dark:ring-[#3f3f46]"
+          )}
+          aria-hidden
+        >
+          <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <path d="M12 2v10" strokeLinecap="round" />
+            <path d="M6.7 5.8a8 8 0 1 0 10.6 0" strokeLinecap="round" />
+          </svg>
+          <span
+            className={cn(
+              "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#fffdfa] dark:border-[#0f172a]",
+              showConfirm
+                ? "bg-[#ff801f]"
+                : unitIsActive
+                  ? "bg-emerald-500"
+                  : "bg-[#a8a29e] dark:bg-[#71717a]"
+            )}
+          />
+        </div>
+
+        {/* Copy */}
+        <div className="min-w-0 text-center sm:text-left">
+          <p className={wialonEyebrowClass}>Estado en Wialon</p>
+          <div className="mt-1 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+            <p
+              id="unit-active-status-label"
+              className="[font-family:Georgia,'Times_New_Roman',serif] text-xl font-medium tracking-[-0.02em] text-[#1c1917] dark:text-[#f8fafc] sm:text-2xl"
+            >
+              {showConfirm ? "¿Desactivar?" : unitIsActive ? "Activa" : "Inactiva"}
+            </p>
+            {!showConfirm ? (
+              <span
+                className={cn(
+                  wialonUiBadge,
+                  "ring-1 ring-inset",
+                  unitIsActive
+                    ? "bg-emerald-50 text-emerald-800 ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/50"
+                    : "bg-[#ebe6df] text-[#57534e] ring-[#d6d3d1] dark:bg-[#27272a] dark:text-[#d4d4d8] dark:ring-[#3f3f46]"
+                )}
+              >
+                {unitIsActive ? "En servicio" : "Fuera de servicio"}
+              </span>
+            ) : null}
+          </div>
+          <p className={cn("mt-1.5 max-w-md", wialonUiCaption)} id="unit-active-help">
+            {showConfirm
+              ? "La unidad dejará de contar en facturación. No se borra el dispositivo ni su historial; puedes reactivarla después."
+              : unitIsActive
+                ? "La unidad cuenta en Wialon. Desactivar no elimina el dispositivo ni su historial."
+                : "La unidad está fuera de facturación. Los datos se conservan; reactívala cuando vuelva a operar."}
+          </p>
+          {showConfirm ? (
+            <p className="sr-only" role="status" aria-live="polite">
+              Confirma si deseas desactivar esta unidad.
+            </p>
+          ) : null}
+        </div>
+
+        {/* Actions */}
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[11.5rem]">
+          {!canEdit ? (
+            <p className={cn(wialonUiCaption, "rounded-xl border border-dashed border-[#e7ded0] px-3 py-2.5 text-center dark:border-[#334155]")}>
+              Solo lectura
+            </p>
+          ) : showConfirm ? (
+            <>
+              <button
+                type="button"
+                className={cn(
+                  erpPrimaryBtnClass,
+                  "w-full min-h-11 justify-center bg-[#c2410c] hover:bg-[#9a3412] focus-visible:outline-[#c2410c]"
+                )}
+                disabled={busy}
+                aria-busy={activeBusy || undefined}
+                onClick={onConfirmDeactivate}
+              >
+                {activeBusy ? (
+                  <>
+                    <svg className="h-4 w-4 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+                      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    Desactivando…
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <path d="M12 2v10" strokeLinecap="round" />
+                      <path d="M6.7 5.8a8 8 0 1 0 10.6 0" strokeLinecap="round" />
+                    </svg>
+                    Sí, desactivar
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                className={cn(erpSecondaryBtnClass, "w-full min-h-11 justify-center")}
+                disabled={busy}
+                onClick={onCancelConfirm}
+              >
+                Cancelar
+              </button>
+            </>
+          ) : unitIsActive ? (
+            <button
+              type="button"
+              className={cn(
+                erpSecondaryBtnClass,
+                "w-full min-h-11 justify-center border-[#d6d3d1] text-[#44403c] hover:border-[#c2410c]/40 hover:bg-[#fff7ed] hover:text-[#9a3412] dark:border-[#3f3f46] dark:text-[#e7e5e4] dark:hover:border-[#fb923c]/40 dark:hover:bg-[#431407]/40 dark:hover:text-[#fdba74]"
+              )}
+              disabled={busy}
+              onClick={onAskDeactivate}
+            >
+              <svg className="h-4 w-4 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M12 2v10" strokeLinecap="round" />
+                <path d="M6.7 5.8a8 8 0 1 0 10.6 0" strokeLinecap="round" />
+              </svg>
+              Desactivar
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={cn(erpPrimaryBtnClass, "w-full min-h-11 justify-center")}
+              disabled={busy}
+              aria-busy={activeBusy || undefined}
+              onClick={onReactivate}
+            >
+              {activeBusy ? (
+                <>
+                  <svg className="h-4 w-4 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+                    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  Reactivando…
+                </>
+              ) : (
+                <>
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path d="M12 2v10" strokeLinecap="round" />
+                    <path d="M6.7 5.8a8 8 0 1 0 10.6 0" strokeLinecap="round" />
+                  </svg>
+                  Reactivar
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WialonMirrorAccountsPanel({
+  mirrors,
+  currentUser,
+  onOpenUser,
+}: {
+  mirrors: WialonUserRow[];
+  currentUser: WialonUserRow | null;
+  onOpenUser?: (row: WialonUserRow) => void;
+}) {
+  const countLabel =
+    mirrors.length === 1 ? "1 cuenta espejo" : `${mirrors.length} cuentas espejo`;
+
+  return (
+    <section className={wialonDossierZoneClass} aria-labelledby="wialon-mirrors-heading">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className={wialonEyebrowClass}>Jerarquía</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h3
+              id="wialon-mirrors-heading"
+              className={wialonDossierHeadingClass}
+            >
+              Cuentas espejo
+            </h3>
+            <span
+              className={cn(
+                wialonUiBadge,
+                "bg-[#fff3e6] text-[#c45f00] ring-1 ring-[#ff801f]/25 dark:bg-[#ff801f]/15 dark:text-[#ffb366] dark:ring-[#ff801f]/30"
+              )}
+            >
+              {countLabel}
+            </span>
+          </div>
+          <p className={cn("mt-1 max-w-xl", wialonUiCaption)}>
+            Cuentas hijas creadas por este usuario o que cuelgan de su cuenta padre
+          </p>
+        </div>
+      </div>
+
+      {mirrors.length === 0 ? (
+        <div
+          className={cn(
+            "relative overflow-hidden rounded-2xl border border-dashed border-[#e7ded0] px-5 py-8 text-center dark:border-[#334155]",
+            "bg-gradient-to-br from-[#fcfaf6] via-[#fffdfa] to-[#fff4eb]/50 dark:from-[#0f172a]/80 dark:via-[#111827]/60 dark:to-[#7c2d12]/10"
+          )}
+        >
+          <div
+            className="pointer-events-none absolute -left-6 top-4 flex -space-x-3 opacity-40"
+            aria-hidden
+          >
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ff801f]/20 ring-1 ring-[#ff801f]/25" />
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-dashed border-[#ff801f]/40 bg-[#fffdfa]/80 dark:bg-[#111827]/80" />
+          </div>
+          <div className="relative mx-auto mb-3 flex h-14 w-14 items-center justify-center">
+            <span
+              className="absolute inset-0 rounded-2xl bg-[#ff801f]/12 ring-1 ring-[#ff801f]/20 dark:bg-[#fb923c]/15 dark:ring-[#fb923c]/25"
+              aria-hidden
+            />
+            <span
+              className="absolute -right-1.5 -top-1.5 h-10 w-10 rounded-xl border border-dashed border-[#ff801f]/45 bg-[#fffdfa]/90 dark:bg-[#111827]/90"
+              aria-hidden
+            />
+            <svg
+              className="relative h-6 w-6 text-[#ea580c] dark:text-[#fb923c]"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              aria-hidden
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeLinecap="round" />
+              <circle cx="9" cy="7" r="3" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a3 3 0 0 1 0 5.74" strokeLinecap="round" />
+            </svg>
+          </div>
+          <p className="[font-family:Georgia,'Times_New_Roman',serif] text-lg font-medium tracking-[-0.02em] text-[#1c1917] dark:text-[#f8fafc]">
+            Sin cuentas espejo
+          </p>
+          <p className={cn("mx-auto mt-1.5 max-w-sm", wialonUiCaption)}>
+            Cuando este usuario cree cuentas hijas, aparecerán aquí para abrirlas en un toque.
+          </p>
+        </div>
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2" role="list">
+          {mirrors.map((row, index) => {
+            const initial = (row.name || row.user_id || "?").slice(0, 1).toUpperCase();
+            const createdBySelf =
+              accountKey(row.creator) === accountKey(currentUser?.user_id) ||
+              accountKey(row.creator) === accountKey(currentUser?.name);
+            const active = row.status === "Activo";
+            const blocked = row.status === "Bloqueado";
+
+            return (
+              <li key={row.wialon_id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenUser?.(row)}
+                  disabled={!onOpenUser}
+                  className={cn(
+                    "group relative flex w-full overflow-hidden rounded-2xl border text-left transition-[border-color,background-color,transform] duration-200 motion-reduce:transition-none",
+                    "border-[#e7ded0]/95 bg-[#fffdfa] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.7)]",
+                    "hover:border-[#ff801f]/50 hover:bg-[#fff8f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40",
+                    "disabled:cursor-default dark:border-[#273244] dark:bg-[#0f172a]/70 dark:shadow-none dark:hover:border-[#fb923c]/45 dark:hover:bg-[#1c1917]/40",
+                    onOpenUser && "active:scale-[0.99] motion-reduce:active:scale-100"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute inset-y-0 left-0 w-1",
+                      active ? "bg-[#ff801f]" : blocked ? "bg-rose-400" : "bg-[#a8a29e]"
+                    )}
+                    aria-hidden
+                  />
+                  <div
+                    className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#ff801f]/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100 motion-reduce:transition-none dark:bg-[#fb923c]/15"
+                    aria-hidden
+                  />
+
+                  <div className="relative flex w-full gap-3 p-3.5 pl-4 sm:p-4 sm:pl-5">
+                    {/* Twin avatars (espejo) */}
+                    <div className="relative h-12 w-12 shrink-0" aria-hidden>
+                      <span className="absolute left-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#ebe6df] font-serif text-sm text-[#78716c] ring-1 ring-[#d6d3d1] dark:bg-[#27272a] dark:text-[#a1a1aa] dark:ring-[#3f3f46]">
+                        {(currentUser?.name || currentUser?.user_id || "·")
+                          .slice(0, 1)
+                          .toUpperCase()}
+                      </span>
+                      <span className="absolute bottom-0 right-0 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#ff801f] font-serif text-sm font-medium text-black shadow-sm ring-2 ring-[#fffdfa] dark:ring-[#0f172a]">
+                        {initial}
+                      </span>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate [font-family:Georgia,'Times_New_Roman',serif] text-base font-medium tracking-[-0.015em] text-[#1c1917] dark:text-[#f8fafc]">
+                            {row.name || "Sin nombre"}
+                          </p>
+                          <p className="mt-0.5 truncate font-mono text-[11px] tracking-wide text-[#ea580c] dark:text-[#fb923c]">
+                            {row.user_id || "—"}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "shrink-0 font-serif text-xs tabular-nums text-[#cc785c]/80 dark:text-[#fdba74]/70"
+                          )}
+                          aria-hidden
+                        >
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                      </div>
+
+                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                        <WialonStatusBadge status={row.status} />
+                        <span
+                          className={cn(
+                            wialonUiBadge,
+                            createdBySelf
+                              ? "bg-[#fff3e6] text-[#c45f00] ring-1 ring-[#ff801f]/20 dark:bg-[#ff801f]/15 dark:text-[#ffb366] dark:ring-[#ff801f]/25"
+                              : "bg-[#f5f0e8] text-[#57534e] ring-1 ring-[#e7ded0] dark:bg-[#1e293b] dark:text-[#cbd5e1] dark:ring-[#334155]"
+                          )}
+                        >
+                          {createdBySelf ? "Creada aquí" : "Cuenta hija"}
+                        </span>
+                        <span
+                          className={cn(
+                            wialonUiBadge,
+                            "bg-[#fcfaf6] text-[#57534e] ring-1 ring-[#e7ded0] dark:bg-[#111827] dark:text-[#aeb8c8] dark:ring-[#334155]"
+                          )}
+                        >
+                          {row.assigned_units} und.
+                        </span>
+                        {row.dealer_rights === "Sí" ? (
+                          <span
+                            className={cn(
+                              wialonUiBadge,
+                              "bg-[#fff3e6] text-[#9a3412] ring-1 ring-[#ff801f]/25 dark:bg-[#ff801f]/15 dark:text-[#fdba74]"
+                            )}
+                          >
+                            Distribuidor
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {onOpenUser ? (
+                        <span className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[#ea580c] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none dark:text-[#fb923c]">
+                          Abrir cuenta
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                            <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -526,7 +994,7 @@ function WialonModalFooter({
 const uiIconOnPrimary = "h-4 w-4 shrink-0 text-black/75";
 const uiFieldInputClass = cn(erpInputLikeClass, "mt-0 w-full");
 
-type UnitBusyState = { saving: boolean; accessBusy: boolean };
+type UnitBusyState = { saving: boolean; accessBusy: boolean; activeBusy?: boolean };
 
 type UnitFormProps = {
   unitId: number | null;
@@ -573,6 +1041,8 @@ function WialonUnitEditForm({
   const [accessUsers, setAccessUsers] = useState<WialonAccessUser[]>([]);
   const [grantUserId, setGrantUserId] = useState("");
   const [accessBusy, setAccessBusy] = useState(false);
+  const [activeBusy, setActiveBusy] = useState(false);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const detailCacheRef = useRef<Map<number, WialonUnitDetail>>(new Map());
   const unitSummaryRef = useRef(unitSummary);
   unitSummaryRef.current = unitSummary;
@@ -649,8 +1119,10 @@ function WialonUnitEditForm({
       setDisplayUnitId(null);
       setError("");
       setLoading(false);
+      setConfirmDeactivate(false);
       return;
     }
+    setConfirmDeactivate(false);
     const cached = detailCacheRef.current.get(unitId);
     const summary = unitSummaryRef.current;
     if (cached) {
@@ -681,8 +1153,8 @@ function WialonUnitEditForm({
   }, [unitId, loadDetail, applyDetail]);
 
   useEffect(() => {
-    onBusyChange?.({ saving, accessBusy });
-  }, [saving, accessBusy, onBusyChange]);
+    onBusyChange?.({ saving, accessBusy, activeBusy });
+  }, [saving, accessBusy, activeBusy, onBusyChange]);
 
   const grantableUsers = useMemo(() => {
     const existing = new Set(accessUsers.map((u) => u.wialon_id));
@@ -769,6 +1241,54 @@ function WialonUnitEditForm({
       setError("No se pudo revocar acceso.");
     } finally {
       setAccessBusy(false);
+    }
+  };
+
+  const unitIsActive =
+    detail?.is_active === true ||
+    detail?.status === "Activo" ||
+    (detail?.is_active == null && detail?.status !== "Inactivo");
+
+  const handleToggleActive = async (nextActive: boolean) => {
+    if (!unitId || !canEdit || activeBusy) return;
+    setActiveBusy(true);
+    setError("");
+    try {
+      const res = await fetchApi(`/api/wialon/unidades/${unitId}/activo/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          active: nextActive,
+          ...(contextUserId ? { context_user_id: contextUserId } : {}),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(String(data?.detail || `Error HTTP ${res.status}`));
+        return;
+      }
+      const unit = data?.unit as WialonUnitDetail | undefined;
+      if (unit) {
+        detailCacheRef.current.set(unitId, unit);
+        applyDetail(unit);
+        onSaved({
+          status: unit.status,
+          is_active: unit.is_active,
+          name: unit.name,
+          uid: unit.uid,
+          phone: unit.phone,
+          device_type: unit.device_type,
+        });
+      }
+      setConfirmDeactivate(false);
+    } catch {
+      setError(
+        nextActive
+          ? "No se pudo reactivar la unidad."
+          : "No se pudo desactivar la unidad."
+      );
+    } finally {
+      setActiveBusy(false);
     }
   };
 
@@ -1049,6 +1569,38 @@ function WialonUnitEditForm({
       </WialonDossierSection>
 
       <WialonDossierSection
+        eyebrow="Servicio"
+        title="Potencia de la unidad"
+        subtitle="Activa o pausa la facturación en Wialon sin borrar el dispositivo"
+        badge={
+          <span
+            className={cn(
+              wialonUiBadge,
+              "ring-1 ring-inset",
+              unitIsActive
+                ? "bg-emerald-50 text-emerald-800 ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/50"
+                : "bg-[#ebe6df] text-[#57534e] ring-[#d6d3d1] dark:bg-[#27272a] dark:text-[#d4d4d8] dark:ring-[#3f3f46]"
+            )}
+          >
+            {unitIsActive ? "Activa" : "Inactiva"}
+          </span>
+        }
+      >
+        <WialonUnitActivePanel
+          unitIsActive={unitIsActive}
+          canEdit={canEdit}
+          confirmDeactivate={confirmDeactivate}
+          activeBusy={activeBusy}
+          saving={saving}
+          loading={loading}
+          onAskDeactivate={() => setConfirmDeactivate(true)}
+          onCancelConfirm={() => setConfirmDeactivate(false)}
+          onConfirmDeactivate={() => void handleToggleActive(false)}
+          onReactivate={() => void handleToggleActive(true)}
+        />
+      </WialonDossierSection>
+
+      <WialonDossierSection
         eyebrow="Ficha"
         title="Campos personalizados"
         subtitle="Pares nombre · valor que viajan con la unidad"
@@ -1239,20 +1791,26 @@ function WialonUnitEditForm({
 
 type EditWialonUserModalProps = {
   user: WialonUserRow | null;
+  /** Listado completo para detectar cuentas espejo creadas bajo esta cuenta. */
+  allUsers?: WialonUserRow[];
   isOpen: boolean;
   initialTab?: UserModalTab;
   canEdit: boolean;
   onClose: () => void;
   onSaved: (updated: WialonUserRow) => void;
+  /** Abre otra cuenta del listado (p. ej. una espejo). */
+  onOpenUser?: (row: WialonUserRow) => void;
 };
 
 export default function EditWialonUserModal({
   user,
+  allUsers = [],
   isOpen,
   initialTab = "cuenta",
   canEdit,
   onClose,
   onSaved,
+  onOpenUser,
 }: EditWialonUserModalProps) {
   const titleId = useId();
   const cuentaPanelId = useId();
@@ -1336,38 +1894,30 @@ export default function EditWialonUserModal({
     void loadUnits();
   }, [isOpen, user, loadUnits]);
 
-  const activeUnits = useMemo(
-    () =>
-      units.filter((u) => {
-        if (u.is_active === true || u.status === "Activo") return true;
-        if (u.is_active === false || u.status === "Inactivo") return false;
-        return true;
-      }),
-    [units]
-  );
+  const fleetUnits = useMemo(() => units, [units]);
 
-  const sharedUnits = useMemo(
-    () => activeUnits.filter((u) => u.is_shared),
-    [activeUnits]
+  const mirrorAccounts = useMemo(
+    () => (user ? findMirrorAccounts(user, allUsers) : []),
+    [user, allUsers]
   );
 
   const selectedUnit = useMemo(
-    () => activeUnits.find((u) => u.wialon_id === selectedUnitId) ?? null,
-    [activeUnits, selectedUnitId]
+    () => fleetUnits.find((u) => u.wialon_id === selectedUnitId) ?? null,
+    [fleetUnits, selectedUnitId]
   );
 
   const filteredUnits = useMemo(() => {
     const q = unitSearch.trim().toLowerCase();
-    if (!q) return activeUnits;
-    return activeUnits.filter((u) =>
+    if (!q) return fleetUnits;
+    return fleetUnits.filter((u) =>
       [u.name, u.device_type, u.uid, u.phone, u.custom_fields, u.status, u.shared_with]
         .join(" ")
         .toLowerCase()
         .includes(q)
     );
-  }, [activeUnits, unitSearch]);
+  }, [fleetUnits, unitSearch]);
 
-  const footerBusy = saving || unitBusy.saving || unitBusy.accessBusy;
+  const footerBusy = saving || unitBusy.saving || unitBusy.accessBusy || Boolean(unitBusy.activeBusy);
 
   const handleClose = useCallback(() => {
     if (footerBusy) return;
@@ -1564,14 +2114,14 @@ export default function EditWialonUserModal({
               className={wialonTabBtnClass(activeTab === "unidades")}
             >
               Flota
-              {activeUnits.length > 0 ? (
+              {fleetUnits.length > 0 ? (
                 <span
                   className={cn(
                     "rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
                     activeTab === "unidades" ? "bg-black/10 text-black" : "bg-[#fff3e6] text-[#c45f00] dark:bg-[#ff801f]/20 dark:text-[#ffb366]",
                   )}
                 >
-                  {activeUnits.length}
+                  {fleetUnits.length}
                 </span>
               ) : null}
             </button>
@@ -1593,12 +2143,12 @@ export default function EditWialonUserModal({
                 items={[
                   {
                     label: "Activas",
-                    value: unitsLoading && activeUnits.length === 0 ? "…" : String(user?.assigned_units ?? activeUnits.length),
+                    value: unitsLoading && fleetUnits.length === 0 ? "…" : String(user?.assigned_units ?? fleetUnits.length),
                     serif: true,
                   },
                   {
-                    label: "Compartidas",
-                    value: unitsLoading && sharedUnits.length === 0 ? "…" : String(sharedUnits.length),
+                    label: "Espejos",
+                    value: String(mirrorAccounts.length),
                     serif: true,
                   },
                   { label: "Creador", value: user?.creator || "—" },
@@ -1661,63 +2211,11 @@ export default function EditWialonUserModal({
                 </div>
               </WialonSectionCard>
 
-              <WialonSectionCard
-                eyebrow="Compartidas"
-                title="También en otras cuentas"
-                subtitle="Toca una unidad para abrirla en la flota"
-                badge={
-                  !unitsLoading ? (
-                    <span className={cn(wialonUiBadge, "bg-white text-[#6c6a64] ring-1 ring-[#e6dfd8] dark:bg-[#111827] dark:text-[#94a3b8] dark:ring-[#334155]")}>
-                      {sharedUnits.length}
-                    </span>
-                  ) : null
-                }
-              >
-                {unitsLoading ? (
-                  <WialonLoadingState label="Cargando unidades…" compact />
-                ) : sharedUnits.length === 0 ? (
-                  <p className={wialonUiCaption}>Ninguna unidad activa compartida con otras cuentas.</p>
-                ) : (
-                  <ul className="grid gap-2 sm:grid-cols-2" role="list">
-                    {sharedUnits.map((unit) => (
-                      <li key={unit.wialon_id}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedUnitId(unit.wialon_id);
-                            setActiveTab("unidades");
-                          }}
-                          className="flex w-full items-start gap-3 rounded-xl border border-[#e7ded0] bg-[#fffdfa] px-3 py-2.5 text-left transition-colors hover:border-[#ff801f]/40 hover:bg-[#fff8f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40 dark:border-[#334155] dark:bg-[#111827]/60 dark:hover:border-[#fb923c]/40"
-                        >
-                          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/15 font-serif text-sm font-medium text-[#9a3412] dark:bg-[#fb923c]/15 dark:text-[#fdba74]" aria-hidden>
-                            {(unit.name || "?").slice(0, 1).toUpperCase()}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-start justify-between gap-2">
-                              <span className="truncate text-sm font-medium text-[#141413] dark:text-[#f8fafc]">
-                                {unit.name || "Sin nombre"}
-                              </span>
-                              <WialonSharedBadge
-                                sharedWith={unit.shared_with}
-                                count={unit.shared_users_count}
-                                compact
-                              />
-                            </span>
-                            <span className="mt-0.5 block truncate font-mono text-[11px] text-[#ea580c] dark:text-[#fb923c]">
-                              {unit.uid !== "—" ? unit.uid : "Sin UID"}
-                            </span>
-                            {unit.shared_with && unit.shared_with !== "—" ? (
-                              <span className={cn("mt-1 block truncate", wialonUiCaption)}>
-                                Con {unit.shared_with}
-                              </span>
-                            ) : null}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </WialonSectionCard>
+              <WialonMirrorAccountsPanel
+                mirrors={mirrorAccounts}
+                currentUser={user}
+                onOpenUser={onOpenUser}
+              />
 
               {!canEdit ? (
                 <p className={cn("text-center", wialonUiCaption)}>No tienes permiso para editar esta cuenta.</p>
@@ -1746,7 +2244,7 @@ export default function EditWialonUserModal({
                     <p className="mt-0.5 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">Unidades activas</p>
                   </div>
                   <span className={cn(wialonUiCaption, "tabular-nums")}>
-                    {filteredUnits.length}/{activeUnits.length}
+                    {filteredUnits.length}/{fleetUnits.length}
                   </span>
                 </div>
 
@@ -1775,7 +2273,7 @@ export default function EditWialonUserModal({
                 <div
                   className="custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pb-2 touch-pan-y [-webkit-overflow-scrolling:touch]"
                   role="listbox"
-                  aria-label="Unidades activas"
+                  aria-label="Unidades de la flota"
                 >
                   {unitsLoading ? (
                     <WialonLoadingState label="Cargando unidades…" compact />
@@ -1783,13 +2281,15 @@ export default function EditWialonUserModal({
                     <WialonErrorAlert message={unitsError} />
                   ) : filteredUnits.length === 0 ? (
                     <p className={cn("py-8 text-center", wialonUiCaption)}>
-                      {activeUnits.length === 0
-                        ? "Sin unidades activas asignadas."
-                        : "Ninguna unidad activa coincide con la búsqueda."}
+                      {fleetUnits.length === 0
+                        ? "Sin unidades asignadas."
+                        : "Ninguna unidad coincide con la búsqueda."}
                     </p>
                   ) : (
                     filteredUnits.map((unit) => {
                       const selected = selectedUnitId === unit.wialon_id;
+                      const inactive =
+                        unit.is_active === false || unit.status === "Inactivo";
                       return (
                         <button
                           key={unit.wialon_id}
@@ -1801,9 +2301,11 @@ export default function EditWialonUserModal({
                             "relative flex w-full gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40",
                             selected
                               ? "border-[#ff801f]/55 bg-[#fff7ed] shadow-sm dark:border-[#fb923c]/50 dark:bg-[#fb923c]/10"
-                              : unit.is_shared
-                                ? "border-[#ff801f]/20 bg-[#fffdfa] hover:border-[#ff801f]/40 dark:border-[#fb923c]/25 dark:bg-[#111827]/40"
-                                : "border-[#e7ded0] bg-[#fffdfa] hover:border-[#d6d3d1] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#475569]/80"
+                              : inactive
+                                ? "border-rose-200/70 bg-rose-50/40 opacity-90 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/20"
+                                : unit.is_shared
+                                  ? "border-[#ff801f]/20 bg-[#fffdfa] hover:border-[#ff801f]/40 dark:border-[#fb923c]/25 dark:bg-[#111827]/40"
+                                  : "border-[#e7ded0] bg-[#fffdfa] hover:border-[#d6d3d1] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#475569]/80"
                           )}
                         >
                           {selected ? (
@@ -1814,7 +2316,9 @@ export default function EditWialonUserModal({
                               "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg font-serif text-sm font-medium",
                               selected
                                 ? "bg-[#ff801f] text-black"
-                                : "bg-[#ff801f]/12 text-[#9a3412] dark:bg-[#fb923c]/15 dark:text-[#fdba74]",
+                                : inactive
+                                  ? "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200"
+                                  : "bg-[#ff801f]/12 text-[#9a3412] dark:bg-[#fb923c]/15 dark:text-[#fdba74]",
                             )}
                             aria-hidden
                           >
@@ -1825,13 +2329,26 @@ export default function EditWialonUserModal({
                               <span className="truncate text-sm font-medium text-[#141413] dark:text-[#f8fafc]">
                                 {unit.name || "Sin nombre"}
                               </span>
-                              {unit.is_shared ? (
-                                <WialonSharedBadge
-                                  sharedWith={unit.shared_with}
-                                  count={unit.shared_users_count}
-                                  compact
-                                />
-                              ) : null}
+                              <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                                {inactive ? (
+                                  <span
+                                    className={cn(
+                                      wialonUiBadge,
+                                      "bg-[#ebe6df] text-[#57534e] ring-1 ring-inset ring-[#d6d3d1] dark:bg-[#27272a] dark:text-[#d4d4d8] dark:ring-[#3f3f46]"
+                                    )}
+                                  >
+                                    <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-[#a8a29e]" aria-hidden />
+                                    Inactiva
+                                  </span>
+                                ) : null}
+                                {unit.is_shared ? (
+                                  <WialonSharedBadge
+                                    sharedWith={unit.shared_with}
+                                    count={unit.shared_users_count}
+                                    compact
+                                  />
+                                ) : null}
+                              </span>
                             </span>
                             <span className="mt-0.5 block truncate font-mono text-[11px] text-[#ea580c] dark:text-[#fb923c]">
                               {unit.uid !== "—" ? unit.uid : "Sin UID"}

@@ -26,7 +26,7 @@ class PolizaCctvPlantillaTests(SimpleTestCase):
         self.assertIn("POL-CCTV-0002", html)
         self.assertIn("MCT LOGISTIC", html)
         self.assertIn("videovigilancia CCTV", html)
-        self.assertIn("Equipos instalados y amparados", html)
+        self.assertNotIn("Equipos instalados y amparados", html)
         self.assertIn("interior y exterior", html)
         self.assertIn("equipos de videovigilancia", html)
         self.assertNotIn("torniquetes", html.lower())
@@ -42,22 +42,24 @@ class PolizaCctvPlantillaTests(SimpleTestCase):
                 "folio": "POL-10001",
                 "cliente": "MCT LOGISTIC S.A. DE C.V.",
                 "cotizacion": "COT-10261",
-                "v1": "2026-04-20",
-                "v2": "2026-08-20",
-                "v3": "2026-12-20",
+                "intervalo_meses": "2",
+                "v1": "2026-08-18",
+                "v2": "2026-10-18",
+                "v3": "2026-12-18",
             }
         )
         html = generate_poliza_cctv_pdf_html(overlay_from_query(params))
         self.assertIn("POL-10001", html)
         self.assertIn("MCT LOGISTIC", html)
         self.assertIn("Cotización No. 10261", html)
-        self.assertIn("20/04/2026", html)
-        self.assertIn("20/08/2026", html)
-        self.assertIn("20/12/2026", html)
+        self.assertIn("Cada 2 meses (3 visitas al año)", html)
+        self.assertIn("18/08/2026", html)
+        self.assertIn("18/10/2026", html)
+        self.assertIn("18/12/2026", html)
         self.assertNotIn("POL-CCTV-0002", html)
         cal_idx = html.find("1er Mantenimiento")
         self.assertGreater(cal_idx, 0)
-        self.assertIn("20/04/2026", html[cal_idx:])
+        self.assertIn("18/08/2026", html[cal_idx:])
 
     def test_xml_incluye_folio_y_cliente(self):
         xml = generate_poliza_cctv_xml(
@@ -81,7 +83,7 @@ class PolizaCctvPdfTests(APITestCase):
         self.assertIn("POL-CCTV-0002", html)
         self.assertIn("MCT LOGISTIC", html)
         self.assertIn("videovigilancia CCTV", html)
-        self.assertIn("Equipos instalados y amparados", html)
+        self.assertNotIn("Equipos instalados y amparados", html)
         self.assertIn("interior y exterior", html)
         self.assertIn("equipos de videovigilancia", html)
         self.assertNotIn("torniquetes", html.lower())

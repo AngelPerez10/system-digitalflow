@@ -76,11 +76,22 @@ def overlay_from_cliente(cliente) -> dict:
     return data
 
 
+def _parse_intervalo_meses(raw) -> int:
+    try:
+        intervalo = int(str(raw or "").strip() or 4)
+    except (TypeError, ValueError):
+        intervalo = 4
+    return 2 if intervalo == 2 else 4
+
+
 def overlay_from_query(params) -> dict:
     """Cubre folio/cliente/cotización/visitas del listado sobre la plantilla CCTV."""
     folio = _clean_text(params.get("folio"), 32)
     cliente = _clean_text(params.get("cliente"), 160)
     cotizacion = _clean_text(params.get("cotizacion"), 32)
+    servicio_tipo = _clean_text(params.get("servicio_tipo"), 255)
+    equipos_atendidos = _clean_text(params.get("equipos_atendidos"), 255)
+    intervalo_meses = _parse_intervalo_meses(params.get("intervalo_meses"))
     visitas = [_clean_text(params.get(key), 10) for key in ("v1", "v2", "v3")]
     visitas = [v for v in visitas if v]
 
@@ -116,12 +127,14 @@ def overlay_from_query(params) -> dict:
         servicio_changed = True
     if visitas:
         fechas = ", ".join(_format_iso_date(v) for v in visitas)
-        servicio["frecuencia"] = f"Cada 4 meses (3 visitas al año): {fechas}"
+        servicio["frecuencia"] = (
+            f"Cada {intervalo_meses} meses (3 visitas al año): {fechas}"
+        )
         servicio_changed = True
         data["visitas"] = [_format_iso_date(v) for v in visitas]
+        data["intervalo_meses"] = intervalo_meses
     if servicio_changed:
         data["servicio"] = servicio
-
     raw_cot_id = str(params.get("cotizacion_id") or "").strip()
     if raw_cot_id.isdigit():
         cot = (
@@ -131,6 +144,13 @@ def overlay_from_query(params) -> dict:
         )
         if cot is not None:
             data = _apply_cotizacion_overlay(data, cot)
+    if servicio_tipo or equipos_atendidos:
+        servicio = dict(data.get("servicio") or POLIZA_CCTV_DEMO.get("servicio") or {})
+        if servicio_tipo:
+            servicio["tipo"] = servicio_tipo
+        if equipos_atendidos:
+            servicio["equipos"] = equipos_atendidos
+        data["servicio"] = servicio
     return data
 
 
@@ -158,6 +178,7 @@ def overlay_from_poliza(poliza: PolizaMantenimiento) -> dict:
         "folio": poliza.folio or "",
         "cliente": poliza.cliente_nombre or "",
         "cotizacion": poliza.cotizacion_folio or "",
+        "intervalo_meses": str(getattr(poliza, "intervalo_meses", 4) or 4),
         "v1": visitas[0] if len(visitas) > 0 else "",
         "v2": visitas[1] if len(visitas) > 1 else "",
         "v3": visitas[2] if len(visitas) > 2 else "",
@@ -165,6 +186,15 @@ def overlay_from_poliza(poliza: PolizaMantenimiento) -> dict:
     data = overlay_from_query(params)
     data.update(overlay_from_cliente(getattr(poliza, "cliente", None)))
     data = _apply_cotizacion_overlay(data, getattr(poliza, "cotizacion", None))
+    servicio_tipo = str(getattr(poliza, "servicio_tipo", "") or "").strip()
+    equipos_atendidos = str(getattr(poliza, "equipos_atendidos", "") or "").strip()
+    if servicio_tipo or equipos_atendidos:
+        servicio = dict(data.get("servicio") or POLIZA_CCTV_DEMO.get("servicio") or {})
+        if servicio_tipo:
+            servicio["tipo"] = servicio_tipo
+        if equipos_atendidos:
+            servicio["equipos"] = equipos_atendidos
+        data["servicio"] = servicio
     return data
 
 

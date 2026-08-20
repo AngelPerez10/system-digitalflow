@@ -1,5 +1,6 @@
 import { fetchApi } from "@/config/api";
 import { computePolizaEstado, TIPO_CCTV, TIPO_LABEL } from "./polizaDemoData";
+import { parseIntervaloMeses, POLIZA_INTERVALO_DEFAULT, inferIntervaloMeses } from "../shared/polizaVisitas";
 import type { PolizaAltaValues, PolizaRow, PolizaTipo } from "./polizaListTypes";
 
 export type ApiPoliza = {
@@ -10,8 +11,11 @@ export type ApiPoliza = {
   cliente_nombre: string;
   tipo: string;
   tipo_label: string;
+  servicio_tipo: string;
+  equipos_atendidos: string;
   cotizacion_id: number | null;
   cotizacion_folio: string;
+  intervalo_meses: number | null;
   fecha1: string | null;
   fecha2: string | null;
   fecha3: string | null;
@@ -51,12 +55,23 @@ function asTipo(value: string | null | undefined): PolizaTipo {
 
 export function mapApiPoliza(row: ApiPoliza): PolizaRow {
   const tipo = asTipo(row.tipo);
+  const fecha1 = isoDate(row.fecha1);
+  const fecha2 = isoDate(row.fecha2);
+  const intervaloMeses =
+    row.intervalo_meses === 2 || row.intervalo_meses === 4
+      ? parseIntervaloMeses(row.intervalo_meses)
+      : fecha1 && fecha2
+        ? inferIntervaloMeses(fecha1, fecha2)
+        : POLIZA_INTERVALO_DEFAULT;
   const values: PolizaAltaValues = {
     clienteId: row.cliente_id != null ? String(row.cliente_id) : "",
     tipo,
+    servicioTipo: row.servicio_tipo || "",
+    equiposAtendidos: row.equipos_atendidos || "",
     cotizacionId: row.cotizacion_id != null ? String(row.cotizacion_id) : "",
-    fecha1: isoDate(row.fecha1),
-    fecha2: isoDate(row.fecha2),
+    intervaloMeses,
+    fecha1,
+    fecha2,
     fecha3: isoDate(row.fecha3),
   };
   return {
@@ -67,8 +82,11 @@ export function mapApiPoliza(row: ApiPoliza): PolizaRow {
     cliente: row.cliente_nombre || "Cliente",
     tipo,
     tipoLabel: row.tipo_label || TIPO_LABEL[tipo],
+    servicioTipo: values.servicioTipo,
+    equiposAtendidos: values.equiposAtendidos,
     cotizacionId: values.cotizacionId,
     cotizacionFolio: row.cotizacion_folio || "—",
+    intervaloMeses: values.intervaloMeses,
     fecha1: values.fecha1,
     fecha2: values.fecha2,
     fecha3: values.fecha3,
@@ -86,7 +104,10 @@ export function payloadFromValues(values: PolizaAltaValues): Record<string, unkn
   return {
     cliente_id: Number(values.clienteId),
     tipo: values.tipo || TIPO_CCTV,
+    servicio_tipo: values.servicioTipo,
+    equipos_atendidos: values.equiposAtendidos,
     cotizacion_id: Number(values.cotizacionId),
+    intervalo_meses: values.intervaloMeses,
     fecha1: values.fecha1,
     fecha2: values.fecha2,
     fecha3: values.fecha3,

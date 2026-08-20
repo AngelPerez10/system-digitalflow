@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { erpSecondaryBtnClass } from "@/layout/erpPageStyles";
 import {
@@ -47,6 +47,7 @@ export default function PolizaFormModal({
   onViewTemplate,
 }: Props) {
   const titleId = useId();
+  const getValuesRef = useRef<(() => PolizaAltaValues) | null>(null);
 
   return (
     <Modal
@@ -77,6 +78,9 @@ export default function PolizaFormModal({
             extraClienteOption={extraClienteOption}
             extraCotizacionOption={extraCotizacionOption}
             onSubmit={onSave}
+            onRegisterGetValues={(getter) => {
+              getValuesRef.current = getter;
+            }}
           />
         </div>
       </div>
@@ -85,7 +89,7 @@ export default function PolizaFormModal({
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
-            onClick={() => onViewTemplate(initialValues)}
+            onClick={() => onViewTemplate(getValuesRef.current?.() ?? initialValues)}
             className={erpSecondaryBtnClass}
           >
             Ver plantilla PDF

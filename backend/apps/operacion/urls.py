@@ -11,10 +11,12 @@ from .wialon_unit_views import (
     WialonAccessUsersView,
     WialonUnitAccessRevokeView,
     WialonUnitAccessView,
+    WialonUnitActiveView,
     WialonUnitCatalogsView,
     WialonUnitDetailView,
 )
 from .wialon_views import (
+    WialonPurgeBlockedView,
     WialonUnitsSearchIndexView,
     WialonUsuarioDetailView,
     WialonUsuariosView,
@@ -38,6 +40,11 @@ urlpatterns = [
         name="poliza-mantenimiento-xml",
     ),
     path("wialon/usuarios/", WialonUsuariosView.as_view(), name="wialon-usuarios"),
+    path(
+        "wialon/usuarios/limpiar-bloqueados/",
+        WialonPurgeBlockedView.as_view(),
+        name="wialon-purge-blocked",
+    ),
     path(
         "wialon/indice-unidades/",
         WialonUnitsSearchIndexView.as_view(),
@@ -67,6 +74,11 @@ urlpatterns = [
         "wialon/unidades/<int:unit_id>/",
         WialonUnitDetailView.as_view(),
         name="wialon-unit-detail",
+    ),
+    path(
+        "wialon/unidades/<int:unit_id>/activo/",
+        WialonUnitActiveView.as_view(),
+        name="wialon-unit-active",
     ),
     path(
         "wialon/unidades/<int:unit_id>/accesos/",

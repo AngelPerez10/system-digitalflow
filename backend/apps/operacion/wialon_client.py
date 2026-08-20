@@ -636,31 +636,42 @@ def _format_unix_datetime(ts: int) -> str:
     return datetime.fromtimestamp(ts, tz=WIALON_TZ).strftime("%d/%m/%Y %H:%M")
 
 
-def _blocked_date_for_account(sid: str, account_id: int) -> tuple[int, str | None]:
+def _blocked_date_for_account(sid: str, account_id: int) -> tuple[int, str | None, int | None]:
+    """Devuelve (account_id, etiqueta legible, unix switchTime) si la cuenta está deshabilitada."""
     try:
         data = _call("account/get_account_data", {"itemId": account_id}, sid=sid)
     except WialonError:
-        return account_id, None
+        return account_id, None, None
     if not isinstance(data, dict) or data.get("enabled") != 0:
-        return account_id, None
+        return account_id, None, None
     switch_time = data.get("switchTime")
     if switch_time is None:
-        return account_id, None
+        return account_id, None, None
     try:
-        return account_id, _format_unix_datetime(int(switch_time))
+        ts = int(switch_time)
+        return account_id, _format_unix_datetime(ts), ts
     except (TypeError, ValueError, OSError):
-        return account_id, None
+        return account_id, None, None
 
 
-def _fetch_blocked_dates(sid: str, account_ids: set[int]) -> dict[int, str]:
+def _fetch_blocked_dates(
+    sid: str, account_ids: set[int]
+) -> tuple[dict[int, str], dict[int, int]]:
     if not account_ids:
-        return {}
-    pairs = _parallel_map(
+        return {}, {}
+    triples = _parallel_map(
         lambda aid: _blocked_date_for_account(sid, aid),
         list(account_ids),
         max_workers=6,
     )
-    return {aid: label for aid, label in pairs if label}
+    labels: dict[int, str] = {}
+    timestamps: dict[int, int] = {}
+    for aid, label, ts in triples:
+        if label:
+            labels[aid] = label
+        if ts is not None:
+            timestamps[aid] = ts
+    return labels, timestamps
 
 
 def _account_ids_by_property(sid: str, prop_name: str, prop_value: str) -> set[int]:
@@ -684,6 +695,7 @@ def _normalize_user(
     blocked_account_ids: set[int],
     dealer_account_ids: set[int],
     blocked_dates_by_account: dict[int, str],
+    blocked_ts_by_account: dict[int, int] | None = None,
     units_index: dict[int, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     prp = item.get("prp") if isinstance(item.get("prp"), dict) else {}
@@ -710,8 +722,11 @@ def _normalize_user(
         account_name = names_by_id.get(acct_int, "")
 
     blocked_label = "No"
+    blocked_at: int | None = None
     if is_blocked and acct_int is not None:
         blocked_label = blocked_dates_by_account.get(acct_int) or "—"
+        if blocked_ts_by_account:
+            blocked_at = blocked_ts_by_account.get(acct_int)
 
     return {
         "wialon_id": item.get("id"),
@@ -724,6 +739,7 @@ def _normalize_user(
         "assigned_units": units_count,
         "status": "Bloqueado" if is_blocked else "Activo",
         "blocked": blocked_label,
+        "blocked_at": blocked_at,
     }
 
 
@@ -766,6 +782,7 @@ def _load_accounts_context(sid: str) -> dict[str, Any]:
         "blocked_account_ids": blocked_account_ids,
         "dealer_account_ids": dealer_account_ids,
         "blocked_dates_by_account": {},
+        "blocked_ts_by_account": {},
     }
     expires = time.monotonic() + _USERS_CACHE_TTL_SEC
     with _cache_lock:
@@ -778,8 +795,10 @@ def _blocked_dates_for_users(
     users: list[dict[str, Any]],
     blocked_account_ids: set[int],
     cached_dates: dict[int, str],
-) -> dict[int, str]:
+    cached_ts: dict[int, int] | None = None,
+) -> tuple[dict[int, str], dict[int, int]]:
     """Solo consulta fechas de bloqueo de cuentas que aparecen en el listado de usuarios."""
+    cached_ts = cached_ts or {}
     relevant: set[int] = set()
     for item in users:
         account_id = item.get("bact")
@@ -789,10 +808,16 @@ def _blocked_dates_for_users(
         if acct_int in blocked_account_ids:
             relevant.add(acct_int)
     if not relevant:
-        return {}
-    missing = [aid for aid in relevant if aid not in cached_dates]
-    fetched = _fetch_blocked_dates(sid, set(missing)) if missing else {}
-    return {**{k: cached_dates[k] for k in relevant if k in cached_dates}, **fetched}
+        return {}, {}
+    missing = [
+        aid
+        for aid in relevant
+        if aid not in cached_dates or aid not in cached_ts
+    ]
+    fetched_labels, fetched_ts = _fetch_blocked_dates(sid, set(missing)) if missing else ({}, {})
+    labels = {**{k: cached_dates[k] for k in relevant if k in cached_dates}, **fetched_labels}
+    timestamps = {**{k: cached_ts[k] for k in relevant if k in cached_ts}, **fetched_ts}
+    return labels, timestamps
 
 
 def _build_users_payload(sid: str, users: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -807,13 +832,14 @@ def _build_users_payload(sid: str, users: list[dict[str, Any]]) -> list[dict[str
         if row_id is not None:
             names_by_id[int(row_id)] = str(row.get("nm") or "").strip()
 
-    blocked_dates_by_account = _blocked_dates_for_users(
+    blocked_dates_by_account, blocked_ts_by_account = _blocked_dates_for_users(
         sid,
         users,
         blocked_account_ids,
         ctx.get("blocked_dates_by_account") or {},
+        ctx.get("blocked_ts_by_account") or {},
     )
-    if blocked_dates_by_account:
+    if blocked_dates_by_account or blocked_ts_by_account:
         global _accounts_context_cache
         with _cache_lock:
             if _accounts_context_cache and _accounts_context_cache[1] > time.monotonic():
@@ -821,6 +847,9 @@ def _build_users_payload(sid: str, users: list[dict[str, Any]]) -> list[dict[str
                 merged_dates = dict(merged_ctx.get("blocked_dates_by_account") or {})
                 merged_dates.update(blocked_dates_by_account)
                 merged_ctx["blocked_dates_by_account"] = merged_dates
+                merged_ts = dict(merged_ctx.get("blocked_ts_by_account") or {})
+                merged_ts.update(blocked_ts_by_account)
+                merged_ctx["blocked_ts_by_account"] = merged_ts
                 _accounts_context_cache = (merged_ctx, _accounts_context_cache[1])
 
     missing_ids: set[int] = set()
@@ -846,6 +875,7 @@ def _build_users_payload(sid: str, users: list[dict[str, Any]]) -> list[dict[str
             blocked_account_ids=blocked_account_ids,
             dealer_account_ids=dealer_account_ids,
             blocked_dates_by_account=blocked_dates_by_account,
+            blocked_ts_by_account=blocked_ts_by_account,
             units_index=units_index,
         )
         for item in users
@@ -1221,6 +1251,7 @@ def _patch_row_after_update(
     dealer_rights: bool | None,
     enabled: bool | None,
     blocked_label: str | None = None,
+    blocked_at: int | None = None,
 ) -> dict[str, Any]:
     row = dict(base)
     if name is not None:
@@ -1231,10 +1262,16 @@ def _patch_row_after_update(
         row["status"] = "Activo" if enabled else "Bloqueado"
         if enabled:
             row["blocked"] = "No"
-        elif blocked_label is not None:
-            row["blocked"] = blocked_label
-        elif row.get("blocked") == "No":
-            row["blocked"] = "—"
+            row["blocked_at"] = None
+        else:
+            if blocked_label is not None:
+                row["blocked"] = blocked_label
+            elif row.get("blocked") == "No":
+                row["blocked"] = "—"
+            if blocked_at is not None:
+                row["blocked_at"] = blocked_at
+            elif "blocked_at" not in row:
+                row["blocked_at"] = None
     row["account_id"] = account_id
     return row
 
@@ -1245,6 +1282,7 @@ def _sync_accounts_context_after_update(
     dealer_rights: bool | None,
     enabled: bool | None,
     blocked_label: str | None,
+    blocked_at: int | None = None,
 ) -> None:
     global _accounts_context_cache
     with _cache_lock:
@@ -1254,6 +1292,7 @@ def _sync_accounts_context_after_update(
         blocked = set(ctx.get("blocked_account_ids") or set())
         dealer = set(ctx.get("dealer_account_ids") or set())
         dates = dict(ctx.get("blocked_dates_by_account") or {})
+        timestamps = dict(ctx.get("blocked_ts_by_account") or {})
         if dealer_rights is not None:
             if dealer_rights:
                 dealer.add(account_id)
@@ -1263,13 +1302,17 @@ def _sync_accounts_context_after_update(
             if enabled:
                 blocked.discard(account_id)
                 dates.pop(account_id, None)
+                timestamps.pop(account_id, None)
             else:
                 blocked.add(account_id)
                 if blocked_label:
                     dates[account_id] = blocked_label
+                if blocked_at is not None:
+                    timestamps[account_id] = blocked_at
         ctx["blocked_account_ids"] = blocked
         ctx["dealer_account_ids"] = dealer
         ctx["blocked_dates_by_account"] = dates
+        ctx["blocked_ts_by_account"] = timestamps
         _accounts_context_cache = (ctx, _accounts_context_cache[1])
 
 
@@ -1384,8 +1427,10 @@ def update_wialon_user(
                 fut.result()
 
     blocked_label: str | None = None
+    blocked_at_ts: int | None = None
     if apply_enabled and enabled is False:
-        blocked_label = "—"
+        blocked_at_ts = int(time.time())
+        blocked_label = _format_unix_datetime(blocked_at_ts)
 
     row = _patch_row_after_update(
         base_row,
@@ -1394,6 +1439,7 @@ def update_wialon_user(
         dealer_rights=dealer_rights if apply_dealer else None,
         enabled=enabled if apply_enabled else None,
         blocked_label=blocked_label,
+        blocked_at=blocked_at_ts,
     )
     row["wialon_id"] = user_id
     row["account_id"] = account_id
@@ -1405,6 +1451,7 @@ def update_wialon_user(
         dealer_rights=dealer_rights if apply_dealer else None,
         enabled=enabled if apply_enabled else None,
         blocked_label=blocked_label,
+        blocked_at=blocked_at_ts,
     )
     _upsert_user_list_cache(row)
 
@@ -2106,3 +2153,151 @@ def revoke_unit_access(unit_id: int, user_id: int) -> None:
         _users_list_cache = None
         _users_raw_cache = None
         _users_prp_cache = None
+
+
+WIALON_BLOCKED_PURGE_DAYS_DEFAULT = 35
+
+
+def set_wialon_unit_active(unit_id: int, active: bool, *, context_user_id: int | None = None) -> dict[str, Any]:
+    """
+    Activa o desactiva una unidad en Wialon (unit/set_active).
+    No elimina la unidad: solo cambia el estado de facturación (act / dactt).
+    """
+    target = int(unit_id)
+    sid = get_session()
+    _call(
+        "unit/set_active",
+        {"itemId": target, "active": 1 if active else 0},
+        sid=sid,
+    )
+    refreshed = _call("core/search_item", {"id": target, "flags": UNIT_DETAIL_FLAGS}, sid=sid)
+    if isinstance(refreshed, dict) and isinstance(refreshed.get("item"), dict):
+        _patch_units_index_entry(target, refreshed["item"])
+    global _unit_sharing_cache, _units_search_index_cache
+    with _cache_lock:
+        _unit_sharing_cache = None
+        _units_search_index_cache = None
+    return fetch_unit_detail(target, context_user_id=context_user_id)
+
+
+def delete_wialon_user(user_id: int) -> None:
+    """Elimina el ítem de usuario en Wialon (no borra la cuenta de facturación compartida)."""
+    sid = get_session()
+    _call("core/delete_item", {"itemId": int(user_id)}, sid=sid)
+
+
+def purge_blocked_accounts(
+    *,
+    days: int = WIALON_BLOCKED_PURGE_DAYS_DEFAULT,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """
+    Para cuentas bloqueadas con más de `days` días:
+    1) desactiva las unidades asignadas al usuario (unit/set_active active=0)
+    2) elimina el usuario Wialon (core/delete_item)
+
+    No usa account/delete_account: varias cuentas pueden compartir el mismo bact.
+    """
+    if days < 1:
+        raise WialonError("days debe ser al menos 1.")
+
+    users = fetch_users(use_cache=False)
+    cutoff = int(time.time()) - int(days) * 86400
+    purged: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+
+    for user in users:
+        if str(user.get("status") or "") != "Bloqueado":
+            continue
+        user_id = _coerce_wialon_id(user.get("wialon_id"))
+        if user_id is None:
+            continue
+        blocked_at = user.get("blocked_at")
+        try:
+            blocked_ts = int(blocked_at) if blocked_at is not None else None
+        except (TypeError, ValueError):
+            blocked_ts = None
+        if blocked_ts is None or blocked_ts > cutoff:
+            skipped.append(
+                {
+                    "wialon_id": user_id,
+                    "user_id": user.get("user_id"),
+                    "name": user.get("name"),
+                    "blocked_at": blocked_ts,
+                    "reason": "sin_fecha" if blocked_ts is None else "dentro_de_plazo",
+                }
+            )
+            continue
+
+        unit_ids: list[int] = []
+        try:
+            payload = fetch_user_units(user_id)
+            for unit in payload.get("units") or []:
+                uid = _coerce_wialon_id(unit.get("wialon_id"))
+                if uid is not None:
+                    unit_ids.append(uid)
+        except WialonError as exc:
+            errors.append(
+                {
+                    "wialon_id": user_id,
+                    "user_id": user.get("user_id"),
+                    "step": "list_units",
+                    "detail": str(exc),
+                }
+            )
+            continue
+
+        deactivated: list[int] = []
+        if not dry_run:
+            for uid in unit_ids:
+                try:
+                    set_wialon_unit_active(uid, False)
+                    deactivated.append(uid)
+                except WialonError as exc:
+                    errors.append(
+                        {
+                            "wialon_id": user_id,
+                            "unit_id": uid,
+                            "step": "deactivate_unit",
+                            "detail": str(exc),
+                        }
+                    )
+            try:
+                delete_wialon_user(user_id)
+            except WialonError as exc:
+                errors.append(
+                    {
+                        "wialon_id": user_id,
+                        "user_id": user.get("user_id"),
+                        "step": "delete_user",
+                        "detail": str(exc),
+                    }
+                )
+                continue
+
+        purged.append(
+            {
+                "wialon_id": user_id,
+                "user_id": user.get("user_id"),
+                "name": user.get("name"),
+                "blocked_at": blocked_ts,
+                "units_deactivated": deactivated if not dry_run else unit_ids,
+                "dry_run": dry_run,
+            }
+        )
+
+    if purged and not dry_run:
+        invalidate_wialon_cache()
+
+    return {
+        "days": days,
+        "dry_run": dry_run,
+        "cutoff": cutoff,
+        "purged_count": len(purged),
+        "skipped_count": len(skipped),
+        "error_count": len(errors),
+        "purged": purged,
+        "skipped": skipped,
+        "errors": errors,
+    }

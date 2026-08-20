@@ -25,7 +25,7 @@ POLIZA_CCTV_TIPO = "cctv"
 # Datos de demostración tomados del PDF de referencia (MCT Logistic).
 # Se sustituirán por el modelo de póliza cuando exista el CRUD.
 POLIZA_CCTV_DEMO: dict[str, Any] = {
-    "titulo": "Póliza de garantía de mantenimiento preventivo para videovigilancia CCTV",
+    "titulo": "Póliza de mantenimiento preventivo para videovigilancia CCTV",
     "rfc_emisor": "IMA200110CI4",
     "ssp": "SSP/DsPv/270/20v",
     "correo_emisor": "soporte@sertel.mx",
@@ -52,7 +52,7 @@ POLIZA_CCTV_DEMO: dict[str, Any] = {
         "En nombre de INTERPRO DE MANZANILLO S DE RL DE CV, nos complace informarle "
         "que la ejecución del servicio de mantenimiento preventivo para videovigilancia "
         "CCTV ha sido realizada satisfactoriamente. Valoramos la preferencia de nuestros "
-        "clientes y nos enorgullece ofrecer las siguientes condiciones de servicio y garantía."
+        "clientes y nos enorgullece ofrecer las siguientes condiciones de servicio."
     ),
     "servicio": {
         "tipo": "Mantenimiento Preventivo para 6 DVR y 63 cámaras",
@@ -131,7 +131,7 @@ POLIZA_CCTV_DEMO: dict[str, Any] = {
     "nota_altura": (
         "El cliente (MCT LOGISTIC S.A. DE C.V.) deberá suministrar el equipo necesario "
         "para poder realizar el mantenimiento en altura (grúa, montacarga, plataforma "
-        "tijera jenie etc.). El alcance será de 7 metros."
+        "tijera jenie etc.). El alcance será únicamente de 7 metros."
     ),
     "nota_correctivo": (
         "Si se determina que la falla se debe a mal uso, golpes, humedad, variaciones "
@@ -220,7 +220,7 @@ POLIZA_CCTV_DEMO: dict[str, Any] = {
         ),
         (
             "Evaluación: nuestro equipo técnico evaluará la falla y determinará si "
-            "está cubierta por la garantía o si corresponde a mantenimiento "
+            "está cubierta por el mantenimiento preventivo o si corresponde a mantenimiento "
             "correctivo con costo adicional."
         ),
         (
@@ -325,6 +325,15 @@ def _tipo_servicio_label(cotizacion) -> str:
     rows = list(related.all()) if hasattr(related, "all") else list(related)
     nombres = [str(getattr(row, "nombre", "") or "").strip() for row in rows]
     return _join_es([n for n in nombres if n])
+
+
+def _cotizacion_line_label(cotizacion_ref: str, equipos_ref: str) -> str:
+    if cotizacion_ref:
+        return cotizacion_ref
+    if equipos_ref:
+        num = equipos_ref[4:] if equipos_ref.upper().startswith("COT-") else equipos_ref
+        return f"Cotización No. {num}"
+    return "la cotización ligada"
 
 
 def overlay_from_cotizacion(cotizacion) -> dict[str, Any]:
@@ -574,7 +583,6 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
     marca = get_marca_nombre()
     servicio = p.get("servicio") if isinstance(p.get("servicio"), dict) else {}
     conceptos = p.get("conceptos") if isinstance(p.get("conceptos"), list) else []
-    equipos = p.get("equipos") if isinstance(p.get("equipos"), list) else []
     garantias = p.get("garantias") if isinstance(p.get("garantias"), list) else []
 
     head = _letterhead(
@@ -586,17 +594,6 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
         ssp=str(p.get("ssp") or ""),
         correo=str(p.get("correo_emisor") or ""),
     )
-
-    equipo_cells: list[str] = []
-    for item in equipos:
-        if not isinstance(item, (list, tuple)) or len(item) < 2:
-            continue
-        desc, cant = item[0], item[1]
-        row_class = "total-row" if str(desc).upper().startswith("TOTAL") else ""
-        equipo_cells.append(
-            f"<tr class='{row_class}'><td>{esc(desc)}</td><td class='num'>{esc(cant)}</td></tr>"
-        )
-    equipos_rows = "".join(equipo_cells)
 
     garantia_rows = "".join(
         f"<tr><td>{esc(item[0])}</td><td>{esc(item[1])}</td></tr>"
@@ -621,6 +618,40 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
     correo_cli = str(p.get("cliente_correo") or "").strip()
     web_cli = str(p.get("cliente_web") or "").strip()
     correo_linea = " | ".join(part for part in (correo_cli, web_cli) if part)
+    cliente_nombre = str(p.get("cliente_nombre") or "").strip() or "el cliente"
+    servicio_tipo_label = str(servicio.get("tipo") or "").strip() or "MANTENIMIENTO PREVENTIVO CCTV"
+    equipos_atendidos_label = str(servicio.get("equipos") or "").strip() or "equipos de videovigilancia CCTV"
+    cotizacion_ref = str(servicio.get("cotizacion_ref") or "").strip()
+    equipos_ref = str(p.get("equipos_ref") or "").strip()
+    cotizacion_line = _cotizacion_line_label(cotizacion_ref, equipos_ref)
+    nota_preventivo = (
+        f"La presente {cotizacion_line} corresponde exclusivamente al servicio de "
+        f"{servicio_tipo_label} para {equipos_atendidos_label}, el cual comprende la revisión, "
+        "limpieza y ajuste general de los equipos bajo condiciones normales de operación."
+    )
+    nota_altura = (
+        f"El cliente ({cliente_nombre}) deberá suministrar el equipo necesario para poder "
+        "realizar el mantenimiento en altura (grúa, montacarga, plataforma, etc.). "
+        "El alcance será de 7 metros."
+    )
+    nota_correctivo = (
+        "Si se determina que la falla se debe a mal uso, golpes, humedad, variaciones "
+        "de voltaje o manipulación por terceros no autorizados, dicha intervención se "
+        "clasificará como MANTENIMIENTO CORRECTIVO y generará un costo adicional, "
+        "el cual será cotizado y acordado con el cliente previamente a su ejecución."
+    )
+    try:
+        intervalo_meses = int(p.get("intervalo_meses") or 0)
+    except (TypeError, ValueError):
+        intervalo_meses = 0
+    if intervalo_meses not in (2, 4):
+        intervalo_meses = 4
+    calendario_intro = (
+        f"{marca} recomienda realizar el mantenimiento preventivo cada {intervalo_meses} meses, "
+        "con el objetivo de garantizar el correcto funcionamiento de los equipos "
+        "de videovigilancia y prolongar su vida útil. Las fechas programadas serán "
+        "acordadas con el cliente:"
+    )
     try:
         iva_pct_label = f"{float(p.get('iva_pct') or 16):g}"
     except (TypeError, ValueError):
@@ -845,17 +876,10 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
   <h2>Nota importante: mantenimiento preventivo vs. correctivo</h2>
   <div class="callout">
     <div class="label">Importante</div>
-    <p>{esc(p.get("nota_preventivo"))}</p>
-    <p>{esc(p.get("nota_altura"))}</p>
-    <p>{esc(p.get("nota_correctivo"))}</p>
+    <p>{esc(nota_preventivo)}</p>
+    <p>{esc(nota_altura)}</p>
+    <p>{esc(nota_correctivo)}</p>
   </div>
-
-  <h2>Equipos instalados y amparados por esta póliza</h2>
-  <p>Con base en la Cotización No. {esc(p.get("equipos_ref"))}, la presente póliza ampara los siguientes equipos:</p>
-  <table>
-    <thead><tr><th>Equipo / Descripción</th><th style="width:18%">Cantidad</th></tr></thead>
-    <tbody>{equipos_rows}</tbody>
-  </table>
 
   <h2>Alcance del mantenimiento preventivo amparado</h2>
   <p>Esta póliza ampara los siguientes puntos de revisión y mantenimiento en cada visita programada:</p>
@@ -874,7 +898,7 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
   <p><b>Esta póliza NO incluye:</b> {esc(p.get("no_incluye"))}</p>
 
   <h2>Calendario de mantenimientos recomendado</h2>
-  <p>{esc(p.get("calendario_intro"))}</p>
+  <p>{esc(calendario_intro)}</p>
   <table>
     <thead>
       <tr>
@@ -896,13 +920,13 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
     </tbody>
   </table>
 
-  <h2>Condiciones de garantía del servicio</h2>
+  <h2>Condiciones del servicio</h2>
   <p>{esc(p.get("garantia_intro"))}</p>
   <table>
     <thead><tr><th>Garantía de mano de obra</th><th>Período de validez</th></tr></thead>
     <tbody>{garantia_rows}</tbody>
   </table>
-  <h3>La póliza de garantía NO cubre:</h3>
+  <h3>La póliza de mantenimiento preventivo NO cubre:</h3>
   {_ul(list(p.get("no_cubre") or []))}
 
   <h2>Proceso de reclamo y atención</h2>

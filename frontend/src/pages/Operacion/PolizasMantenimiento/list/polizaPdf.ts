@@ -7,6 +7,9 @@ export function buildPolizaPdfSearch(opts: {
   folio: string;
   cliente?: string;
   clienteId?: string;
+  servicioTipo?: string;
+  equiposAtendidos?: string;
+  intervaloMeses?: number;
   cotizacionId?: string;
   cotizacionFolio?: string;
   fecha1?: string;
@@ -25,6 +28,11 @@ export function buildPolizaPdfSearch(opts: {
   if (opts.cotizacionFolio && opts.cotizacionFolio !== "—") {
     params.set("cotizacion", opts.cotizacionFolio);
   }
+  if (opts.servicioTipo) params.set("servicio_tipo", opts.servicioTipo);
+  if (opts.equiposAtendidos) params.set("equipos_atendidos", opts.equiposAtendidos);
+  if (opts.intervaloMeses === 2 || opts.intervaloMeses === 4) {
+    params.set("intervalo_meses", String(opts.intervaloMeses));
+  }
   if (opts.fecha1) params.set("v1", opts.fecha1);
   if (opts.fecha2) params.set("v2", opts.fecha2);
   if (opts.fecha3) params.set("v3", opts.fecha3);
@@ -38,6 +46,9 @@ export function polizaPdfSearchFromRow(row: PolizaRow): string {
     folio: row.folio,
     cliente: row.cliente,
     clienteId: row.clienteId,
+    servicioTipo: row.servicioTipo,
+    equiposAtendidos: row.equiposAtendidos,
+    intervaloMeses: row.intervaloMeses,
     cotizacionId: row.cotizacionId,
     cotizacionFolio: row.cotizacionFolio,
     fecha1: row.fecha1,
@@ -56,6 +67,9 @@ export function polizaPdfSearchFromDraft(opts: {
     folio: opts.folio || formatDocumentFolio(FOLIO_SERIE.poliza, 10001),
     cliente: opts.clienteLabel,
     clienteId: opts.values.clienteId,
+    servicioTipo: opts.values.servicioTipo,
+    equiposAtendidos: opts.values.equiposAtendidos,
+    intervaloMeses: opts.values.intervaloMeses,
     cotizacionId: opts.values.cotizacionId,
     cotizacionFolio: opts.values.cotizacionId
       ? formatDocumentFolio(FOLIO_SERIE.cotizacion, opts.values.cotizacionId)
