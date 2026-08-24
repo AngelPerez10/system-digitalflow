@@ -8,6 +8,7 @@ export const FOLIO_SERIE = {
   orden: "ODT",
   proyecto: "PRJ",
   poliza: "POL",
+  reporte: "RM",
 } as const;
 
 export type DocumentFolioSerie = (typeof FOLIO_SERIE)[keyof typeof FOLIO_SERIE];

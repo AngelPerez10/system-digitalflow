@@ -16,6 +16,7 @@ import {
 import { erpModalFooterClass } from "@/pages/Operacion/OrdenesTrabajo/ordenTrabajoStyles";
 import SearchableSelect from "@/components/form/SearchableSelect";
 import { ListIcon, TrashBinIcon, UserIcon } from "@/icons";
+import UnitSimPanel from "./UnitSimPanel";
 import type {
   UserModalTab,
   WialonAccessUser,
@@ -133,7 +134,7 @@ function accountKey(value: string | null | undefined): string {
 
 /**
  * Cuentas espejo / hijas: las creó esta cuenta o cuelgan de su cuenta padre.
- * (Usuarios con creator o parent_account apuntando a este login/nombre.)
+ * Prioriza creator_id (crt) y cae a comparación por login/nombre.
  */
 function findMirrorAccounts(
   current: WialonUserRow,
@@ -145,20 +146,27 @@ function findMirrorAccounts(
       .map(accountKey)
       .filter((k) => k && k !== "—")
   );
-  if (keys.size === 0) return [];
 
   return allUsers
     .filter((row) => {
       if (Number(row.wialon_id) === selfId) return false;
+
+      const creatorId = row.creator_id != null ? Number(row.creator_id) : null;
+      if (creatorId != null && creatorId === selfId) return true;
+
+      if (keys.size === 0) return false;
       const creator = accountKey(row.creator);
       const parent = accountKey(row.parent_account);
       return (creator !== "" && keys.has(creator)) || (parent !== "" && keys.has(parent));
     })
-    .sort((a, b) =>
-      (a.name || a.user_id || "").localeCompare(b.name || b.user_id || "", "es", {
+    .sort((a, b) => {
+      const aBlocked = a.status === "Bloqueado" ? 0 : 1;
+      const bBlocked = b.status === "Bloqueado" ? 0 : 1;
+      if (aBlocked !== bBlocked) return aBlocked - bBlocked;
+      return (a.name || a.user_id || "").localeCompare(b.name || b.user_id || "", "es", {
         sensitivity: "base",
-      })
-    );
+      });
+    });
 }
 
 function unitRowPatchFromDetail(
@@ -612,34 +620,15 @@ function WialonMirrorAccountsPanel({
       {mirrors.length === 0 ? (
         <div
           className={cn(
-            "relative overflow-hidden rounded-2xl border border-dashed border-[#e7ded0] px-5 py-8 text-center dark:border-[#334155]",
-            "bg-gradient-to-br from-[#fcfaf6] via-[#fffdfa] to-[#fff4eb]/50 dark:from-[#0f172a]/80 dark:via-[#111827]/60 dark:to-[#7c2d12]/10"
+            "rounded-2xl border border-[#e7ded0]/90 px-5 py-7 text-center dark:border-[#273244]",
+            "bg-[#fcfaf6]/90 dark:bg-[#0f172a]/55"
           )}
         >
           <div
-            className="pointer-events-none absolute -left-6 top-4 flex -space-x-3 opacity-40"
+            className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ff801f]/12 text-[#ea580c] ring-1 ring-[#ff801f]/20 dark:bg-[#fb923c]/15 dark:text-[#fb923c] dark:ring-[#fb923c]/25"
             aria-hidden
           >
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ff801f]/20 ring-1 ring-[#ff801f]/25" />
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-dashed border-[#ff801f]/40 bg-[#fffdfa]/80 dark:bg-[#111827]/80" />
-          </div>
-          <div className="relative mx-auto mb-3 flex h-14 w-14 items-center justify-center">
-            <span
-              className="absolute inset-0 rounded-2xl bg-[#ff801f]/12 ring-1 ring-[#ff801f]/20 dark:bg-[#fb923c]/15 dark:ring-[#fb923c]/25"
-              aria-hidden
-            />
-            <span
-              className="absolute -right-1.5 -top-1.5 h-10 w-10 rounded-xl border border-dashed border-[#ff801f]/45 bg-[#fffdfa]/90 dark:bg-[#111827]/90"
-              aria-hidden
-            />
-            <svg
-              className="relative h-6 w-6 text-[#ea580c] dark:text-[#fb923c]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              aria-hidden
-            >
+            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
               <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeLinecap="round" />
               <circle cx="9" cy="7" r="3" />
               <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a3 3 0 0 1 0 5.74" strokeLinecap="round" />
@@ -657,6 +646,9 @@ function WialonMirrorAccountsPanel({
           {mirrors.map((row, index) => {
             const initial = (row.name || row.user_id || "?").slice(0, 1).toUpperCase();
             const createdBySelf =
+              (row.creator_id != null &&
+                currentUser?.wialon_id != null &&
+                Number(row.creator_id) === Number(currentUser.wialon_id)) ||
               accountKey(row.creator) === accountKey(currentUser?.user_id) ||
               accountKey(row.creator) === accountKey(currentUser?.name);
             const active = row.status === "Activo";
@@ -1569,6 +1561,20 @@ function WialonUnitEditForm({
       </WialonDossierSection>
 
       <WialonDossierSection
+        eyebrow="Línea celular"
+        title="SIM / M2M"
+        subtitle="Estado M2M de la línea; los SMS de comando salen por Wialon (GSM)"
+      >
+        <UnitSimPanel
+          unitId={unitId}
+          uid={uid}
+          phone={phone}
+          canEdit={canEdit}
+          disabled={saving || loading || activeBusy}
+        />
+      </WialonDossierSection>
+
+      <WialonDossierSection
         eyebrow="Servicio"
         title="Potencia de la unidad"
         subtitle="Activa o pausa la facturación en Wialon sin borrar el dispositivo"
@@ -1795,6 +1801,8 @@ type EditWialonUserModalProps = {
   allUsers?: WialonUserRow[];
   isOpen: boolean;
   initialTab?: UserModalTab;
+  /** Si abre en flota, preselecciona esta unidad. */
+  initialUnitId?: number | null;
   canEdit: boolean;
   onClose: () => void;
   onSaved: (updated: WialonUserRow) => void;
@@ -1807,6 +1815,7 @@ export default function EditWialonUserModal({
   allUsers = [],
   isOpen,
   initialTab = "cuenta",
+  initialUnitId = null,
   canEdit,
   onClose,
   onSaved,
@@ -1841,8 +1850,12 @@ export default function EditWialonUserModal({
     setStatus(user.status);
     setError("");
     setUnitSearch("");
-    setSelectedUnitId(null);
-  }, [user, isOpen, initialTab]);
+    setSelectedUnitId(
+      initialTab === "unidades" && initialUnitId != null && Number.isFinite(Number(initialUnitId))
+        ? Number(initialUnitId)
+        : null
+    );
+  }, [user, isOpen, initialTab, initialUnitId]);
 
   const loadUnits = useCallback(async (opts?: { force?: boolean }) => {
     if (!user) return;

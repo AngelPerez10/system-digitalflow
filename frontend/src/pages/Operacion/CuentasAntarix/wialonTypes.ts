@@ -4,6 +4,8 @@ export type WialonUserRow = {
   user_id: string;
   name: string;
   creator: string;
+  /** ID Wialon del usuario creador (crt), para detectar cuentas espejo. */
+  creator_id?: number | null;
   parent_account: string;
   dealer_rights: string;
   assigned_units: number;
@@ -107,6 +109,9 @@ export type WialonUnitSearchEntry = {
   name: string;
   uid: string;
   phone?: string;
+  /** Activo / Inactivo / — (facturación Wialon). */
+  status?: string;
+  is_active?: boolean | null;
   custom_fields?: string;
   search_text?: string;
   users: Array<{

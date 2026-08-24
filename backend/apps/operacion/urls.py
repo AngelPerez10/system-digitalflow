@@ -1,11 +1,19 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from .m2m_views import (
+    M2mSimDetailView,
+    M2mSimResetView,
+    M2mSimSmsView,
+    M2mSimTestGprsView,
+    M2mSimTestGsmView,
+)
 from .poliza_views import (
     PolizaMantenimientoPdfView,
     PolizaMantenimientoViewSet,
     PolizaMantenimientoXmlView,
 )
+from .reporte_mantenimiento_views import ReporteMantenimientoViewSet
 from .views import ProyectoInstalacionViewSet, ProyectoViewSet
 from .wialon_unit_views import (
     WialonAccessUsersView,
@@ -14,6 +22,7 @@ from .wialon_unit_views import (
     WialonUnitActiveView,
     WialonUnitCatalogsView,
     WialonUnitDetailView,
+    WialonUnitSmsView,
 )
 from .wialon_views import (
     WialonPurgeBlockedView,
@@ -27,6 +36,11 @@ router = DefaultRouter()
 router.register(r"proyectos", ProyectoViewSet, basename="proyecto")
 router.register(r"proyecto-instalaciones", ProyectoInstalacionViewSet, basename="proyecto-instalacion")
 router.register(r"polizas-mantenimiento", PolizaMantenimientoViewSet, basename="poliza-mantenimiento")
+router.register(
+    r"reportes-mantenimiento",
+    ReporteMantenimientoViewSet,
+    basename="reporte-mantenimiento",
+)
 
 urlpatterns = [
     path(
@@ -81,6 +95,11 @@ urlpatterns = [
         name="wialon-unit-active",
     ),
     path(
+        "wialon/unidades/<int:unit_id>/sms/",
+        WialonUnitSmsView.as_view(),
+        name="wialon-unit-sms",
+    ),
+    path(
         "wialon/unidades/<int:unit_id>/accesos/",
         WialonUnitAccessView.as_view(),
         name="wialon-unit-access-grant",
@@ -90,4 +109,9 @@ urlpatterns = [
         WialonUnitAccessRevokeView.as_view(),
         name="wialon-unit-access-revoke",
     ),
+    path("m2m/sims/detalle/", M2mSimDetailView.as_view(), name="m2m-sim-detalle"),
+    path("m2m/sims/test-gsm/", M2mSimTestGsmView.as_view(), name="m2m-sim-test-gsm"),
+    path("m2m/sims/test-gprs/", M2mSimTestGprsView.as_view(), name="m2m-sim-test-gprs"),
+    path("m2m/sims/reset/", M2mSimResetView.as_view(), name="m2m-sim-reset"),
+    path("m2m/sims/sms/", M2mSimSmsView.as_view(), name="m2m-sim-sms"),
 ] + router.urls

@@ -49,6 +49,10 @@ UNIT_FLAGS = (
     | 0x00200000
 )
 UNIT_DETAIL_FLAGS = UNIT_FLAGS | 0x00800000
+# Lista de definiciones de comandos (cml) — distinta de profile fields (0x00800000).
+UNIT_COMMANDS_FLAG = 0x00080000
+# Comando custom_msg/GSM que creamos si la unidad no lo tiene.
+WIALON_SMS_COMMAND_NAME = "SMS Intrax"
 
 # Umbral de respaldo si Wialon no envía netconn: minutos desde el último mensaje.
 _ONLINE_FALLBACK_MINUTES = int(os.environ.get("WIALON_ONLINE_FALLBACK_MINUTES", "10"))
@@ -130,7 +134,8 @@ def _wialon_error_message(code: Any, reason: str) -> str:
 
     known = {
         1: "Sesión Wialon inválida. Intenta de nuevo o reinicia el servidor Django.",
-        4: "Credenciales Wialon incorrectas.",
+        4: "Credenciales Wialon incorrectas o parámetros inválidos.",
+        5: "Wialon no pudo ejecutar el comando (revisa teléfono de la unidad y permisos SMS).",
         7: "Acceso denegado en Wialon. Verifica permisos del token.",
         8: (
             "Token de Wialon inválido o expirado. Genera uno nuevo en Wialon Hosting "
@@ -734,6 +739,7 @@ def _normalize_user(
         "user_id": user_login or "—",
         "name": account_name or user_login or "—",
         "creator": creator_name or (str(creator_id) if creator_id is not None else "—"),
+        "creator_id": int(creator_id) if creator_id is not None else None,
         "parent_account": parent_name or "—",
         "dealer_rights": "Sí" if dealer_on else "No",
         "assigned_units": units_count,
@@ -880,7 +886,12 @@ def _build_users_payload(sid: str, users: list[dict[str, Any]]) -> list[dict[str
         )
         for item in users
     ]
-    result.sort(key=lambda u: (u.get("name") or u.get("user_id") or "").lower())
+    result.sort(
+        key=lambda u: (
+            0 if str(u.get("status") or "") == "Bloqueado" else 1,
+            (u.get("name") or u.get("user_id") or "").lower(),
+        )
+    )
     return result
 
 
@@ -923,19 +934,21 @@ def fetch_users(*, use_cache: bool = True) -> list[dict[str, Any]]:
     return result
 
 
-def _get_units_index(sid: str) -> dict[int, dict[str, Any]]:
+def _get_units_index(sid: str, *, use_cache: bool = True) -> dict[int, dict[str, Any]]:
+    """Índice crudo avl_unit. Con use_cache=False ignora memoria y fuerza lectura en Wialon (force=1)."""
     global _units_index_cache
     now = time.monotonic()
-    with _cache_lock:
-        if _units_index_cache and _units_index_cache[1] > now:
-            return _units_index_cache[0]
+    if use_cache:
+        with _cache_lock:
+            if _units_index_cache and _units_index_cache[1] > now:
+                return _units_index_cache[0]
 
     items = _search_items(
         sid,
         items_type="avl_unit",
         prop_name="sys_name",
         flags=UNIT_FLAGS,
-        force=0,
+        force=0 if use_cache else 1,
     )
     index: dict[int, dict[str, Any]] = {}
     for item in items:
@@ -946,6 +959,56 @@ def _get_units_index(sid: str) -> dict[int, dict[str, Any]]:
     with _cache_lock:
         _units_index_cache = (index, time.monotonic() + _UNITS_INDEX_TTL_SEC)
     return index
+
+
+def _fetch_unit_items_by_ids(sid: str, unit_ids: list[int]) -> dict[int, dict[str, Any]]:
+    """Trae unidades por id (útil cuando search_items aún no las lista)."""
+    if not unit_ids:
+        return {}
+
+    def _fetch_unit(uid: int) -> tuple[int, dict[str, Any] | None]:
+        try:
+            resp = _call("core/search_item", {"id": int(uid), "flags": UNIT_FLAGS}, sid=sid)
+        except WialonError:
+            return int(uid), None
+        if not isinstance(resp, dict):
+            return int(uid), None
+        item = resp.get("item")
+        return int(uid), item if isinstance(item, dict) else None
+
+    found: dict[int, dict[str, Any]] = {}
+    for uid, item in _parallel_map(_fetch_unit, [int(u) for u in unit_ids], max_workers=6):
+        if item is None:
+            continue
+        found[int(uid)] = item
+    return found
+
+
+def _merge_missing_units_into_index(
+    sid: str,
+    units_index: dict[int, dict[str, Any]],
+    needed_ids: list[int] | set[int],
+) -> dict[int, dict[str, Any]]:
+    missing = [int(uid) for uid in needed_ids if int(uid) not in units_index]
+    if not missing:
+        return units_index
+    fetched = _fetch_unit_items_by_ids(sid, missing)
+    if not fetched:
+        return units_index
+    merged = dict(units_index)
+    merged.update(fetched)
+    for uid, item in fetched.items():
+        _patch_units_index_entry(int(uid), item)
+    return merged
+
+
+def _all_monu_unit_ids(users_raw: list[dict[str, Any]]) -> set[int]:
+    ids: set[int] = set()
+    for item in users_raw:
+        prp = item.get("prp") if isinstance(item.get("prp"), dict) else {}
+        for unit_id in _user_unit_ids_from_prp(prp):
+            ids.add(int(unit_id))
+    return ids
 
 
 def _get_hw_type_names(sid: str, hw_ids: set[int]) -> dict[int, str]:
@@ -1207,6 +1270,17 @@ def _build_units_fast(sid: str, user_id: int) -> list[dict[str, Any]]:
         sharing_index = {}
 
     units_index = _get_units_index(sid)
+    user_item = next((u for u in users_raw if int(u.get("id") or 0) == int(user_id)), None)
+    prp = (
+        user_item.get("prp")
+        if isinstance(user_item, dict) and isinstance(user_item.get("prp"), dict)
+        else _user_prp_from_cache(user_id) or {}
+    )
+    units_index = _merge_missing_units_into_index(
+        sid,
+        units_index,
+        _user_unit_ids_from_prp(prp),
+    )
     hw_names = _get_hw_type_names(sid, _collect_hw_ids_from_units(units_index))
     return _units_for_user(
         wialon_user_id=user_id,
@@ -1489,6 +1563,7 @@ def _unit_search_haystack(
     uid: str,
     phone: str,
     custom_fields: str,
+    status: str = "",
 ) -> str:
     return " ".join(
         part
@@ -1497,6 +1572,7 @@ def _unit_search_haystack(
             uid,
             phone,
             custom_fields,
+            status,
             str(unit_id),
         )
         if part
@@ -1573,7 +1649,7 @@ def _resolve_unit_owners_for_search(
 
 def fetch_units_search_index(*, use_cache: bool = True) -> list[dict[str, Any]]:
     """Índice unidad → cuentas asignadas para búsqueda en la vista de usuarios."""
-    global _units_search_index_cache
+    global _units_search_index_cache, _unit_sharing_cache
     now = time.monotonic()
     if use_cache:
         with _cache_lock:
@@ -1584,21 +1660,38 @@ def fetch_units_search_index(*, use_cache: bool = True) -> list[dict[str, Any]]:
     users_raw = _users_raw_from_cache()
     users_normalized = _users_normalized_from_cache()
     if not users_raw or not users_normalized:
-        fetch_users(use_cache=True)
+        # En refresh forzado (use_cache=False) trae monu actualizado; si ya vienen
+        # del fetch_users del mismo request, reutiliza esa caché.
+        fetch_users(use_cache=use_cache)
         users_raw = _users_raw_from_cache() or []
         users_normalized = _users_normalized_from_cache() or []
 
-    sharing_index = _sharing_index_from_cache()
-    if sharing_index is None and users_raw and users_normalized:
+    units_index = _get_units_index(sid, use_cache=use_cache)
+    # Unidades recién creadas/asignadas a veces no salen aún en search_items;
+    # completar por id desde monu de todas las cuentas (mismo criterio que la flota).
+    units_index = _merge_missing_units_into_index(
+        sid,
+        units_index,
+        _all_monu_unit_ids(users_raw),
+    )
+    sharing_index: dict[int, list[dict[str, Any]]] = {}
+    if users_raw and users_normalized:
         sharing_index = _build_unit_sharing_index(users_raw, users_normalized)
+        with _cache_lock:
+            expires = (
+                _users_list_cache[1]
+                if _users_list_cache and _users_list_cache[1] > time.monotonic()
+                else time.monotonic() + _USERS_CACHE_TTL_SEC
+            )
+            _unit_sharing_cache = (sharing_index, expires)
 
-    units_index = _get_units_index(sid)
     entries: list[dict[str, Any]] = []
     for unit_id, item in units_index.items():
         name = str(item.get("nm") or "").strip()
         uid = str(item.get("uid") or item.get("uid2") or "").strip()
         phone = str(item.get("ph") or "").strip()
         custom_fields = _unit_custom_fields_search_text(item.get("flds"))
+        status_label, is_active = _unit_status_from_item(item)
         owners = _resolve_unit_owners_for_search(
             int(unit_id),
             item,
@@ -1611,6 +1704,8 @@ def fetch_units_search_index(*, use_cache: bool = True) -> list[dict[str, Any]]:
                 "name": name,
                 "uid": uid,
                 "phone": phone,
+                "status": status_label,
+                "is_active": is_active,
                 "custom_fields": custom_fields,
                 "search_text": _unit_search_haystack(
                     unit_id=int(unit_id),
@@ -1618,6 +1713,7 @@ def fetch_units_search_index(*, use_cache: bool = True) -> list[dict[str, Any]]:
                     uid=uid,
                     phone=phone,
                     custom_fields=custom_fields,
+                    status=status_label,
                 ),
                 "users": owners,
             }
@@ -1672,26 +1768,7 @@ def _build_units_on_demand(sid: str, user_id: int, user_login: str) -> list[dict
     units_index = _get_units_index(sid)
     prp = user.get("prp") if isinstance(user.get("prp"), dict) else {}
     unit_ids = _user_unit_ids_from_prp(prp)
-    missing_ids = [int(uid) for uid in unit_ids if int(uid) not in units_index]
-
-    if missing_ids:
-
-        def _fetch_unit(uid: int) -> dict[str, Any] | None:
-            try:
-                resp = _call("core/search_item", {"id": uid, "flags": UNIT_FLAGS}, sid=sid)
-            except WialonError:
-                return None
-            if not isinstance(resp, dict):
-                return None
-            item = resp.get("item")
-            return item if isinstance(item, dict) else None
-
-        for item in _parallel_map(_fetch_unit, missing_ids, max_workers=6):
-            if item is None:
-                continue
-            uid = item.get("id")
-            if uid is not None:
-                units_index[int(uid)] = item
+    units_index = _merge_missing_units_into_index(sid, units_index, unit_ids)
 
     hw_names = _get_hw_type_names(sid, _collect_hw_ids_from_units(units_index))
     return _units_for_user(
@@ -2117,9 +2194,10 @@ def update_wialon_unit(
     if isinstance(refreshed, dict) and isinstance(refreshed.get("item"), dict):
         _patch_units_index_entry(target, refreshed["item"])
 
-    global _unit_sharing_cache
+    global _unit_sharing_cache, _units_search_index_cache
     with _cache_lock:
         _unit_sharing_cache = None
+        _units_search_index_cache = None
 
     return fetch_unit_detail(target)
 
@@ -2133,11 +2211,13 @@ def grant_unit_access(unit_id: int, user_id: int, *, access_mask: int | None = N
         sid=sid,
     )
     global _unit_sharing_cache, _users_list_cache, _users_raw_cache, _users_prp_cache
+    global _units_search_index_cache
     with _cache_lock:
         _unit_sharing_cache = None
         _users_list_cache = None
         _users_raw_cache = None
         _users_prp_cache = None
+        _units_search_index_cache = None
 
 
 def revoke_unit_access(unit_id: int, user_id: int) -> None:
@@ -2148,11 +2228,13 @@ def revoke_unit_access(unit_id: int, user_id: int) -> None:
         sid=sid,
     )
     global _unit_sharing_cache, _users_list_cache, _users_raw_cache, _users_prp_cache
+    global _units_search_index_cache
     with _cache_lock:
         _unit_sharing_cache = None
         _users_list_cache = None
         _users_raw_cache = None
         _users_prp_cache = None
+        _units_search_index_cache = None
 
 
 WIALON_BLOCKED_PURGE_DAYS_DEFAULT = 35
@@ -2178,6 +2260,155 @@ def set_wialon_unit_active(unit_id: int, active: bool, *, context_user_id: int |
         _unit_sharing_cache = None
         _units_search_index_cache = None
     return fetch_unit_detail(target, context_user_id=context_user_id)
+
+
+def _iter_unit_command_defs(item: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extrae definiciones de comandos (cml) de un ítem de unidad Wialon."""
+    cml = item.get("cml")
+    out: list[dict[str, Any]] = []
+    if isinstance(cml, dict):
+        for raw in cml.values():
+            if isinstance(raw, dict):
+                out.append(raw)
+    elif isinstance(cml, list):
+        for raw in cml:
+            if isinstance(raw, dict):
+                out.append(raw)
+    return out
+
+
+def _find_gsm_custom_msg_command(item: dict[str, Any]) -> dict[str, Any] | None:
+    """Busca un comando custom_msg con enlace GSM; prioriza WIALON_SMS_COMMAND_NAME."""
+    preferred: dict[str, Any] | None = None
+    for cmd in _iter_unit_command_defs(item):
+        if str(cmd.get("c") or "").strip().lower() != "custom_msg":
+            continue
+        if str(cmd.get("l") or "").strip().lower() != "gsm":
+            continue
+        name = str(cmd.get("n") or "").strip()
+        if name == WIALON_SMS_COMMAND_NAME:
+            return cmd
+        if preferred is None and name:
+            preferred = cmd
+    return preferred
+
+
+def _ensure_unit_sms_command(sid: str, unit_id: int, item: dict[str, Any]) -> str:
+    """
+    Asegura un comando custom_msg por GSM en la unidad.
+    Si no existe, lo crea con unit/update_command_definition.
+    Devuelve el nombre del comando a usar en unit/exec_cmd.
+    """
+    existing = _find_gsm_custom_msg_command(item)
+    if existing:
+        name = str(existing.get("n") or "").strip()
+        if name:
+            return name
+
+    created = _call(
+        "unit/update_command_definition",
+        {
+            "itemId": int(unit_id),
+            "id": 0,
+            "callMode": "create",
+            "n": WIALON_SMS_COMMAND_NAME,
+            "c": "custom_msg",
+            "l": "gsm",
+            "p": "",
+            "a": 0,
+        },
+        sid=sid,
+    )
+    if isinstance(created, list) and len(created) >= 2 and isinstance(created[1], dict):
+        name = str(created[1].get("n") or "").strip()
+        if name:
+            logger.info(
+                "Wialon: creado comando SMS «%s» en unidad %s",
+                name,
+                unit_id,
+            )
+            return name
+    return WIALON_SMS_COMMAND_NAME
+
+
+def send_wialon_unit_sms(
+    unit_id: int,
+    message: str,
+    *,
+    timeout_sec: int = 60,
+    phone_flag: int = 0,
+) -> dict[str, Any]:
+    """
+    Envía un SMS al teléfono de la unidad vía Wialon.
+
+    Muchas unidades no tienen el comando custom_msg/GSM cargado; sin él
+    unit/send_cmd y unit/exec_cmd fallan con error 5. Por eso:
+    1) lee cml (flag 0x00080000),
+    2) crea «SMS Intrax» si falta (unit/update_command_definition),
+    3) ejecuta con unit/exec_cmd (param = texto SMS).
+
+    Requiere teléfono en la unidad y permiso ADF_ACL_AVL_UNIT_EXEC_CMDS.
+    """
+    target = int(unit_id)
+    text = str(message or "").strip()
+    if not text:
+        raise WialonError("El mensaje SMS está vacío.")
+    if len(text) > 160:
+        raise WialonError("El mensaje SMS no puede superar 160 caracteres.")
+    try:
+        timeout = max(1, min(int(timeout_sec), 300))
+    except (TypeError, ValueError):
+        timeout = 60
+    try:
+        flags = int(phone_flag)
+    except (TypeError, ValueError):
+        flags = 0
+
+    sid = get_session()
+    resp = _call(
+        "core/search_item",
+        {"id": target, "flags": UNIT_DETAIL_FLAGS | UNIT_COMMANDS_FLAG},
+        sid=sid,
+    )
+    if not isinstance(resp, dict) or not isinstance(resp.get("item"), dict):
+        raise WialonError("Unidad no encontrada en Wialon.")
+    item = resp["item"]
+    phone = str(item.get("ph") or "").strip()
+    if not phone:
+        raise WialonError(
+            "La unidad no tiene teléfono en Wialon. Configúralo antes de enviar SMS."
+        )
+
+    command_name = _ensure_unit_sms_command(sid, target, item)
+    try:
+        _call(
+            "unit/exec_cmd",
+            {
+                "itemId": target,
+                "commandName": command_name,
+                "linkType": "gsm",
+                "param": text,
+                "timeout": timeout,
+                "flags": flags,
+            },
+            sid=sid,
+        )
+    except WialonError as exc:
+        if exc.code == 5:
+            raise WialonError(
+                "Wialon no pudo enviar el SMS. Revisa teléfono de la unidad, "
+                "servicio SMS en la cuenta y que el comando GSM esté cargado.",
+                code=5,
+            ) from exc
+        raise
+    return {
+        "wialon_id": target,
+        "phone": phone,
+        "message": text,
+        "command_name": command_name,
+        "result": "ok",
+        "detail": f"Comando «{command_name}» ejecutado en Wialon (canal GSM).",
+    }
 
 
 def delete_wialon_user(user_id: int) -> None:

@@ -13,6 +13,7 @@ from .wialon_client import (
     fetch_users_for_access,
     grant_unit_access,
     revoke_unit_access,
+    send_wialon_unit_sms,
     set_wialon_unit_active,
     update_wialon_unit,
 )
@@ -159,6 +160,37 @@ class WialonUnitActiveView(APIView):
             return Response({"detail": "No se pudo cambiar el estado de la unidad."}, status=502)
 
         return Response({"source": "wialon", "unit": unit})
+
+
+class WialonUnitSmsView(APIView):
+    """Envía un SMS al teléfono de la unidad vía Wialon (unit/send_cmd, canal GSM)."""
+
+    permission_classes = [IsAuthenticated, CuentasAntarixPermission]
+
+    def post(self, request, unit_id: int):
+        if not _request_has_cuentas_edit(request):
+            return Response(
+                {"detail": "Se requiere permiso de edición en Cuentas Antarix."},
+                status=403,
+            )
+        data = request.data if isinstance(request.data, dict) else {}
+        message = str(data.get("message") or "").strip()
+        if not message:
+            return Response({"detail": "Indica el mensaje SMS."}, status=400)
+        if len(message) > 160:
+            return Response({"detail": "El mensaje SMS no puede superar 160 caracteres."}, status=400)
+
+        try:
+            result = send_wialon_unit_sms(int(unit_id), message)
+        except WialonError as exc:
+            logger.warning("Wialon SMS unidad %s: %s", unit_id, exc)
+            detail = str(exc).strip() or "No se pudo enviar el SMS por Wialon."
+            return Response({"detail": detail, "code": exc.code}, status=502)
+        except Exception:
+            logger.exception("Error inesperado enviando SMS Wialon unidad %s", unit_id)
+            return Response({"detail": "No se pudo enviar el SMS por Wialon."}, status=502)
+
+        return Response({"source": "wialon", **result})
 
 
 class WialonUnitAccessView(APIView):

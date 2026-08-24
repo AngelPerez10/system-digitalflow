@@ -1,4 +1,4 @@
-"""Folios de negocio Intrax: SERIE-número (COT / ODT / PRJ / POL)."""
+"""Folios de negocio Intrax: SERIE-número (COT / ODT / PRJ / POL / RM)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ FOLIO_SERIE_ODT = "ODT"
 FOLIO_SERIE_PRJ = "PRJ"
 FOLIO_SERIE_INS = "INS"
 FOLIO_SERIE_POL = "POL"
+FOLIO_SERIE_RM = "RM"
 
 _PREFIXED_FOLIO_RE = re.compile(r"^([A-Za-z]{3})-(\d+)$")
 

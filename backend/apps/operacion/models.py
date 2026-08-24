@@ -2,7 +2,12 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.common.document_folio import FOLIO_SERIE_POL, FOLIO_SERIE_PRJ, format_document_folio
+from apps.common.document_folio import (
+    FOLIO_SERIE_POL,
+    FOLIO_SERIE_PRJ,
+    FOLIO_SERIE_RM,
+    format_document_folio,
+)
 
 from .close_validation import validate_proyecto_cierre
 
@@ -292,3 +297,74 @@ class PolizaMantenimiento(models.Model):
     def __str__(self):
         display = (self.folio or "").strip() or self.idx
         return f"Póliza #{display} - {self.cliente_nombre or 'Sin cliente'}"
+
+
+REPORTE_MANTENIMIENTO_IDX_START = 10001
+
+
+class ReporteMantenimiento(models.Model):
+    """Reporte imprimible: orden de servicio + secciones Antes/Después con título libre."""
+
+    idx = models.IntegerField(unique=True, db_index=True, null=True, blank=True)
+    folio = models.CharField(max_length=50, unique=True, db_index=True, null=True, blank=True)
+
+    orden = models.ForeignKey(
+        "ordenes.Orden",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reportes_mantenimiento",
+    )
+    orden_folio = models.CharField(max_length=50, blank=True, default="")
+    orden_cliente = models.CharField(max_length=255, blank=True, default="")
+
+    fecha_servicio = models.DateField()
+    tecnico_nombre = models.CharField(max_length=255)
+    foto_orden_url = models.TextField(blank=True, default="")
+    secciones = models.JSONField(default=list, blank=True)
+
+    creado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reportes_mantenimiento_creados",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-idx"]
+        verbose_name = "Reporte de mantenimiento"
+        verbose_name_plural = "Reportes de mantenimiento"
+        indexes = [
+            models.Index(fields=["idx"], name="operacion_rm_idx_idx"),
+            models.Index(fields=["folio"], name="operacion_rm_folio_idx"),
+            models.Index(fields=["tecnico_nombre"], name="operacion_rm_tecnico_idx"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.idx:
+            current_max = ReporteMantenimiento.objects.aggregate(models.Max("idx"))["idx__max"]
+            base = current_max if current_max is not None else REPORTE_MANTENIMIENTO_IDX_START - 1
+            if base < REPORTE_MANTENIMIENTO_IDX_START - 1:
+                base = REPORTE_MANTENIMIENTO_IDX_START - 1
+            idx = int(base) + 1
+            while ReporteMantenimiento.objects.filter(idx=idx).exists():
+                idx += 1
+            self.idx = idx
+
+        if self.idx and not (self.folio or "").strip():
+            candidate = format_document_folio(FOLIO_SERIE_RM, self.idx, empty="")
+            if candidate:
+                clash = ReporteMantenimiento.objects.filter(folio=candidate)
+                if self.pk:
+                    clash = clash.exclude(pk=self.pk)
+                if not clash.exists():
+                    self.folio = candidate
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        display = (self.folio or "").strip() or self.idx
+        return f"Reporte #{display} - {self.tecnico_nombre or 'Sin técnico'}"

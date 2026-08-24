@@ -32,6 +32,7 @@ ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES = (
     "proyectos/instalacion/dibujos/",
     "inventario/productos/",
     "marca/logo/",
+    "reportes-mantenimiento/",
 )
 
 try:

@@ -204,6 +204,9 @@ export default function AppSidebar() {
           ...(isAdmin
             ? [{ name: "Póliza de mantenimiento", path: "/polizas-mantenimiento", pro: false } as const]
             : []),
+          ...(isAdmin
+            ? [{ name: "Reporte de mantenimiento", path: "/reportes-mantenimiento", pro: false } as const]
+            : []),
           ...(SIDEBAR_FUTURE.operacionExtended && permissions?.ordenes?.view === true
             ? ([{ name: "Órdenes del Tecnico", path: "/ordenes-tecnico", pro: false }] as const)
             : []),

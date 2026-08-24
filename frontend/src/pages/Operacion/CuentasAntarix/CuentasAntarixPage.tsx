@@ -5,8 +5,9 @@ import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import Alert from "@/components/ui/alert/Alert";
 import CuentasAntarixUsersTable from "./CuentasAntarixUsersTable";
+import CuentasAntarixUnitsTable from "./CuentasAntarixUnitsTable";
 import EditWialonUserModal from "./EditWialonUserModal";
-import type { WialonUnitSearchEntry, WialonUserRow } from "./wialonTypes";
+import type { UserModalTab, WialonUnitSearchEntry, WialonUserRow } from "./wialonTypes";
 import { fetchApi } from "@/config/api";
 import { cn } from "@/lib/utils";
 import {
@@ -35,6 +36,13 @@ const uiCardTitle = "text-base font-semibold leading-snug tracking-normal text-[
 const uiStatNumber = "text-xl font-semibold tabular-nums leading-none text-[#1c1917] dark:text-[#f8fafc] sm:text-2xl";
 const uiBadge = "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium leading-none";
 
+const viewTabClass = (active: boolean) =>
+  active
+    ? "rounded-lg bg-[#ff801f] px-3 py-1.5 text-xs font-semibold text-black shadow-sm"
+    : "rounded-lg px-3 py-1.5 text-xs font-semibold text-[#57534e] transition-colors hover:bg-[#fffdf8] dark:text-[#aeb8c8] dark:hover:bg-white/[0.06]";
+
+type DirectoryView = "cuentas" | "unidades";
+
 const pageInnerClass =
   "mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm font-normal leading-relaxed text-[#57534e] sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)] dark:text-[#b7c1d1]";
 
@@ -55,6 +63,7 @@ function accountInitial(name: string): string {
 
 function StatusBadge({ status }: { status: string }) {
   const active = status === "Activo";
+  const inactive = status === "Inactivo" || status === "Bloqueado";
   return (
     <span
       className={cn(
@@ -62,11 +71,16 @@ function StatusBadge({ status }: { status: string }) {
         "inline-flex items-center gap-1.5 py-1",
         active
           ? "bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/50"
-          : "bg-rose-50 text-rose-800 ring-1 ring-inset ring-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-800/50"
+          : inactive
+            ? "bg-rose-50 text-rose-800 ring-1 ring-inset ring-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-800/50"
+            : cn(erpChipNeutralClass, "ring-1 ring-inset ring-[#e2d9ca] dark:ring-[#334155]")
       )}
     >
       <span
-        className={cn("h-1.5 w-1.5 rounded-full", active ? "bg-emerald-500" : "bg-rose-500")}
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          active ? "bg-emerald-500" : inactive ? "bg-rose-500" : "bg-[#a8a29e]"
+        )}
         aria-hidden
       />
       {status}
@@ -102,7 +116,7 @@ function digitsOnly(value: string): string {
 function unitEntryMatchesQuery(entry: WialonUnitSearchEntry, query: string): boolean {
   const haystack = (
     entry.search_text ??
-    [entry.name, entry.uid, entry.phone, entry.custom_fields, String(entry.unit_id)].join(" ")
+    [entry.name, entry.uid, entry.phone, entry.status, entry.custom_fields, String(entry.unit_id)].join(" ")
   ).toLowerCase();
   if (haystack.includes(query)) return true;
 
@@ -141,6 +155,7 @@ export default function CuentasAntarixPage() {
   const [unitIndexLoading, setUnitIndexLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [activeView, setActiveView] = useState<DirectoryView>("cuentas");
   const [alert, setAlert] = useState<{
     show: boolean;
     variant: "success" | "error" | "warning" | "info";
@@ -150,6 +165,8 @@ export default function CuentasAntarixPage() {
 
   const [modalUser, setModalUser] = useState<WialonUserRow | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalInitialTab, setModalInitialTab] = useState<UserModalTab>("cuenta");
+  const [modalInitialUnitId, setModalInitialUnitId] = useState<number | null>(null);
 
   const loadUsers = async (forceRefresh = false): Promise<boolean> => {
     const showFullPageLoader = rows.length === 0;
@@ -249,12 +266,44 @@ export default function CuentasAntarixPage() {
     void loadUsers();
   }, [authLoading, isAuthenticated, canView]);
 
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !canView) return;
+    if (activeView !== "unidades") return;
+    // Forzar índice fresco: unidades recién asignadas a veces no están en la caché del listado.
+    void loadUnitSearchIndex(true);
+  }, [activeView, authLoading, isAuthenticated, canView]);
+
   const activosCount = useMemo(() => rows.filter((r) => r.status === "Activo").length, [rows]);
+
+  const filteredUnits = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = !q
+      ? [...unitSearchIndex]
+      : unitSearchIndex.filter((entry) => unitEntryMatchesQuery(entry, q));
+    return list.sort((a, b) =>
+      (a.name || a.uid || String(a.unit_id)).localeCompare(b.name || b.uid || String(b.unit_id), "es", {
+        sensitivity: "base",
+      })
+    );
+  }, [search, unitSearchIndex]);
 
   const { filteredRows, matchedUnitsByUser } = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const byBlockedFirst = (list: WialonUserRow[]) =>
+      [...list].sort((a, b) => {
+        const aBlocked = a.status === "Bloqueado" ? 0 : 1;
+        const bBlocked = b.status === "Bloqueado" ? 0 : 1;
+        if (aBlocked !== bBlocked) return aBlocked - bBlocked;
+        return (a.name || a.user_id || "").localeCompare(b.name || b.user_id || "", "es", {
+          sensitivity: "base",
+        });
+      });
+
     if (!q) {
-      return { filteredRows: rows, matchedUnitsByUser: new Map<number, string[]>() };
+      return {
+        filteredRows: byBlockedFirst(rows),
+        matchedUnitsByUser: new Map<number, string[]>(),
+      };
     }
 
     const matchedUnitsByUser = new Map<number, string[]>();
@@ -275,22 +324,24 @@ export default function CuentasAntarixPage() {
       }
     }
 
-    const filteredRows = rows.filter((r) => {
-      const accountHaystack = [
-        r.user_id,
-        r.name,
-        r.creator,
-        r.parent_account,
-        r.dealer_rights,
-        r.status,
-        r.blocked,
-        String(r.assigned_units),
-      ]
-        .join(" ")
-        .toLowerCase();
-      if (accountHaystack.includes(q)) return true;
-      return userIdsFromUnits.has(Number(r.wialon_id));
-    });
+    const filteredRows = byBlockedFirst(
+      rows.filter((r) => {
+        const accountHaystack = [
+          r.user_id,
+          r.name,
+          r.creator,
+          r.parent_account,
+          r.dealer_rights,
+          r.status,
+          r.blocked,
+          String(r.assigned_units),
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (accountHaystack.includes(q)) return true;
+        return userIdsFromUnits.has(Number(r.wialon_id));
+      })
+    );
 
     return { filteredRows, matchedUnitsByUser };
   }, [rows, search, unitSearchIndex]);
@@ -333,15 +384,57 @@ export default function CuentasAntarixPage() {
   const closeModal = useCallback(() => {
     setModalOpen(false);
     setModalUser(null);
+    setModalInitialTab("cuenta");
+    setModalInitialUnitId(null);
   }, []);
 
   const openEditUser = useCallback(
-    (row: WialonUserRow) => {
+    (row: WialonUserRow, opts?: { tab?: UserModalTab; unitId?: number | null }) => {
       if (!canEdit) return;
+      setModalInitialTab(opts?.tab ?? "cuenta");
+      setModalInitialUnitId(
+        opts?.unitId != null && Number.isFinite(Number(opts.unitId)) ? Number(opts.unitId) : null
+      );
       setModalUser(row);
       setModalOpen(true);
     },
     [canEdit]
+  );
+
+  const openUnitEntry = useCallback(
+    (entry: WialonUnitSearchEntry) => {
+      if (!canEdit) return;
+      const linkedOwners = entry.users ?? [];
+      const ownerFromList =
+        linkedOwners
+          .map((u) => rows.find((r) => Number(r.wialon_id) === Number(u.wialon_id)))
+          .find((row): row is WialonUserRow => Boolean(row)) ?? null;
+      const fallbackOwner =
+        linkedOwners[0] && Number.isFinite(Number(linkedOwners[0].wialon_id))
+          ? ({
+              wialon_id: Number(linkedOwners[0].wialon_id),
+              user_id: linkedOwners[0].user_id || "",
+              name: linkedOwners[0].name || "",
+              creator: "—",
+              parent_account: "—",
+              dealer_rights: "No",
+              assigned_units: 0,
+              status: "Activo",
+              blocked: "No",
+            } satisfies WialonUserRow)
+          : null;
+      const owner = ownerFromList ?? fallbackOwner;
+      if (!owner) {
+        showAlert(
+          "warning",
+          "Sin cuenta",
+          "Esta unidad no tiene una cuenta Wialon asociada en el índice."
+        );
+        return;
+      }
+      openEditUser(owner, { tab: "unidades", unitId: entry.unit_id });
+    },
+    [canEdit, openEditUser, rows]
   );
 
   const handleUserSaved = useCallback((updated: WialonUserRow) => {
@@ -451,8 +544,16 @@ export default function CuentasAntarixPage() {
                 </svg>
               </span>
               <div className="min-w-0">
-                <p className={uiLabel}>Total usuarios</p>
-                <p className={cn("mt-1", uiStatNumber)}>{loading ? "—" : rows.length.toLocaleString("es-MX")}</p>
+                <p className={uiLabel}>{activeView === "unidades" ? "Total unidades" : "Total usuarios"}</p>
+                <p className={cn("mt-1", uiStatNumber)}>
+                  {activeView === "unidades"
+                    ? unitIndexLoading && unitSearchIndex.length === 0
+                      ? "—"
+                      : unitSearchIndex.length.toLocaleString("es-MX")
+                    : loading
+                      ? "—"
+                      : rows.length.toLocaleString("es-MX")}
+                </p>
               </div>
             </div>
           </div>
@@ -466,8 +567,18 @@ export default function CuentasAntarixPage() {
                 </svg>
               </span>
               <div className="min-w-0">
-                <p className={uiLabel}>Activos</p>
-                <p className={cn("mt-1", uiStatNumber)}>{loading ? "—" : activosCount.toLocaleString("es-MX")}</p>
+                <p className={uiLabel}>{activeView === "unidades" ? "Activas" : "Activos"}</p>
+                <p className={cn("mt-1", uiStatNumber)}>
+                  {activeView === "unidades"
+                    ? unitIndexLoading && unitSearchIndex.length === 0
+                      ? "—"
+                      : unitSearchIndex
+                          .filter((u) => u.is_active === true || u.status === "Activo")
+                          .length.toLocaleString("es-MX")
+                    : loading
+                      ? "—"
+                      : activosCount.toLocaleString("es-MX")}
+                </p>
               </div>
             </div>
           </div>
@@ -482,11 +593,19 @@ export default function CuentasAntarixPage() {
               </span>
               <div className="min-w-0">
                 <p className={uiLabel}>Mostrando</p>
-                <p className={cn("mt-1", uiStatNumber)}>{loading ? "—" : filteredRows.length.toLocaleString("es-MX")}</p>
+                <p className={cn("mt-1", uiStatNumber)}>
+                  {activeView === "unidades"
+                    ? unitIndexLoading && unitSearchIndex.length === 0
+                      ? "—"
+                      : filteredUnits.length.toLocaleString("es-MX")
+                    : loading
+                      ? "—"
+                      : filteredRows.length.toLocaleString("es-MX")}
+                </p>
                 {!loading && search.trim() ? (
                   <p className={cn("mt-1 truncate", uiCaption)}>
                     Filtro: {search.trim()}
-                    {unitIndexLoading ? " · unidades…" : ""}
+                    {activeView === "cuentas" && unitIndexLoading ? " · unidades…" : ""}
                   </p>
                 ) : null}
               </div>
@@ -514,9 +633,17 @@ export default function CuentasAntarixPage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar cuenta, nombre de unidad, UID/IMEI, campo personalizado…"
+              placeholder={
+                activeView === "unidades"
+                  ? "Buscar unidad, UID/IMEI, teléfono, cuenta…"
+                  : "Buscar cuenta, nombre de unidad, UID/IMEI, campo personalizado…"
+              }
               className={erpSearchInputClass}
-              aria-label="Buscar usuarios o unidades Wialon"
+              aria-label={
+                activeView === "unidades"
+                  ? "Buscar unidades Wialon"
+                  : "Buscar usuarios o unidades Wialon"
+              }
             />
           </div>
           <button
@@ -546,17 +673,17 @@ export default function CuentasAntarixPage() {
             {loading || refreshing ? "Actualizando…" : "Actualizar"}
           </button>
         </div>
-        {search.trim() && unitIndexLoading ? (
+        {activeView === "cuentas" && search.trim() && unitIndexLoading ? (
           <p className={cn("-mt-1", uiCaption)}>Cargando índice de unidades para búsqueda por IMEI…</p>
         ) : null}
-        {search.trim() && !unitIndexLoading && unitSearchIndex.length === 0 ? (
+        {activeView === "cuentas" && search.trim() && !unitIndexLoading && unitSearchIndex.length === 0 ? (
           <p className={cn("-mt-1 text-amber-800 dark:text-amber-300", uiCaption)}>
             El índice de unidades no está disponible. Pulsa Actualizar e intenta de nuevo.
           </p>
         ) : null}
 
         <ComponentCard
-          title="Usuarios Wialon"
+          title="Directorio"
           className={cn(
             "min-w-0 overflow-hidden [&>div:first-child]:hidden",
             erpCardShellClass,
@@ -565,21 +692,57 @@ export default function CuentasAntarixPage() {
           compact
         >
           <div className="mb-4 flex flex-col gap-3 border-b border-[#e7ded0]/80 pb-4 dark:border-[#273244] sm:flex-row sm:items-end sm:justify-between">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className={cn(uiLabel, "text-[#ea580c] dark:text-[#fb923c]")}>Directorio</p>
-              <h2 className={cn("mt-1", erpSectionHeadingClass)}>Usuarios Wialon</h2>
+              <h2 className={cn("mt-1", erpSectionHeadingClass)}>
+                {activeView === "unidades" ? "Unidades Wialon" : "Usuarios Wialon"}
+              </h2>
               <p className={cn("mt-1", uiCaption)}>
-                Cada fila es una cuenta. Abre la ficha para editar datos, flota y accesos.
+                {activeView === "unidades"
+                  ? "Todas las unidades de la flota. Abre una para editar ficha, SIM y accesos desde su cuenta."
+                  : "Cada fila es una cuenta. Abre la ficha para editar datos, flota y accesos."}
               </p>
             </div>
-            {!loading && !error ? (
-              <p className="inline-flex items-center gap-1.5 rounded-full border border-[#e2d9ca] bg-[#fcfaf6] px-3 py-1.5 text-[11px] font-medium tabular-nums text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]">
-                {filteredRows.length} de {rows.length}
-              </p>
-            ) : null}
+            <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+              <div
+                className="inline-flex rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80"
+                role="tablist"
+                aria-label="Vista del directorio"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeView === "cuentas"}
+                  onClick={() => setActiveView("cuentas")}
+                  className={viewTabClass(activeView === "cuentas")}
+                >
+                  Cuentas
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeView === "unidades"}
+                  onClick={() => setActiveView("unidades")}
+                  className={viewTabClass(activeView === "unidades")}
+                >
+                  Unidades
+                </button>
+              </div>
+              {activeView === "cuentas" && !loading && !error ? (
+                <p className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#e2d9ca] bg-[#fcfaf6] px-3 py-1.5 text-[11px] font-medium tabular-nums text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]">
+                  {filteredRows.length} de {rows.length}
+                </p>
+              ) : null}
+              {activeView === "unidades" && !unitIndexLoading ? (
+                <p className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#e2d9ca] bg-[#fcfaf6] px-3 py-1.5 text-[11px] font-medium tabular-nums text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]">
+                  {filteredUnits.length} de {unitSearchIndex.length}
+                </p>
+              ) : null}
+            </div>
           </div>
 
-          {loading ? (
+          {activeView === "cuentas" ? (
+            loading ? (
             <p className={cn("py-12 text-center", uiValueMuted)}>Cargando usuarios…</p>
           ) : error ? (
             <div className="rounded-2xl border border-rose-200/80 bg-rose-50/60 px-6 py-10 text-center dark:border-rose-900/40 dark:bg-rose-950/25">
@@ -673,6 +836,99 @@ export default function CuentasAntarixPage() {
                 />
               </div>
             </>
+          )
+          ) : unitIndexLoading && unitSearchIndex.length === 0 ? (
+            <p className={cn("py-12 text-center", uiValueMuted)}>Cargando unidades…</p>
+          ) : unitSearchIndex.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 px-6 py-14 text-center dark:border-[#334155] dark:bg-[#0f172a]/40">
+              <p className={uiCardTitle}>Sin unidades</p>
+              <p className={cn("mt-1", uiCaption)}>
+                El índice de unidades no está disponible. Pulsa Actualizar e intenta de nuevo.
+              </p>
+            </div>
+          ) : filteredUnits.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 px-6 py-14 text-center dark:border-[#334155] dark:bg-[#0f172a]/40">
+              <p className={uiCardTitle}>Sin resultados</p>
+              <p className={cn("mt-1", uiCaption)}>
+                No hay unidades que coincidan con la búsqueda.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3 xl:hidden">
+                {filteredUnits.map((entry) => {
+                  const owners =
+                    entry.users?.length > 0
+                      ? entry.users
+                          .map((u) => u.name || u.user_id || `ID ${u.wialon_id}`)
+                          .filter(Boolean)
+                          .join(" · ")
+                      : "Sin cuenta";
+                  const unitStatus =
+                    entry.status === "Activo" || entry.status === "Inactivo"
+                      ? entry.status
+                      : entry.is_active === true
+                        ? "Activo"
+                        : entry.is_active === false
+                          ? "Inactivo"
+                          : entry.status?.trim() || "—";
+                  return (
+                    <article key={entry.unit_id} className={mobileUserCardClass}>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 flex-1 items-start gap-3">
+                          <span
+                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#ff801f]/12 text-lg font-medium text-[#9a3412] [font-family:Georgia,'Times_New_Roman',serif] dark:bg-[#fb923c]/15 dark:text-[#fdba74]"
+                            aria-hidden
+                          >
+                            {accountInitial(entry.name || "")}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className={cn("break-words", uiCardTitle)}>{entry.name || "Sin nombre"}</p>
+                            <p className={cn("mt-1 break-all font-mono text-[11px] tabular-nums tracking-wide text-[#ea580c] dark:text-[#fb923c]")}>
+                              {entry.uid?.trim() ? entry.uid : "Sin IMEI"}
+                            </p>
+                          </div>
+                        </div>
+                        <StatusBadge status={unitStatus} />
+                      </div>
+                      <dl className="mt-4 flex flex-col gap-4 border-t border-[#e7ded0]/80 pt-4 dark:border-[#334155]">
+                        <MetaItem label="Teléfono" value={entry.phone?.trim() || "—"} />
+                        <MetaItem label="Cuentas" value={owners} />
+                        <MetaItem label="Campos" value={entry.custom_fields?.trim() || "—"} />
+                      </dl>
+                      {canEdit ? (
+                        <div className="mt-4 flex flex-col gap-2 border-t border-[#e7ded0]/80 pt-4 dark:border-[#334155] sm:flex-row sm:items-center sm:justify-between">
+                          <p className={cn(uiCaption)}>Acciones</p>
+                          <div className={cn(erpRowActionBarClass, "w-full justify-center gap-2 p-2 sm:w-fit sm:gap-1 sm:p-1")}>
+                            <button
+                              type="button"
+                              onClick={() => openUnitEntry(entry)}
+                              className={cn(
+                                erpRowActionBtnClass,
+                                "h-10 w-10 sm:h-7 sm:w-7",
+                                "hover:border-[#ffa057] hover:text-[#ea580c] dark:hover:border-[#ff801f] dark:hover:text-[#ff801f]"
+                              )}
+                              title="Abrir unidad"
+                              aria-label={`Abrir unidad ${entry.name || entry.uid || entry.unit_id}`}
+                            >
+                              <PencilIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className="hidden min-w-0 xl:block">
+                <CuentasAntarixUnitsTable
+                  rows={filteredUnits}
+                  canEdit={canEdit}
+                  onOpen={openUnitEntry}
+                />
+              </div>
+            </>
           )}
         </ComponentCard>
 
@@ -680,7 +936,8 @@ export default function CuentasAntarixPage() {
           user={modalUser}
           allUsers={rows}
           isOpen={modalOpen}
-          initialTab="cuenta"
+          initialTab={modalInitialTab}
+          initialUnitId={modalInitialUnitId}
           canEdit={canEdit}
           onClose={closeModal}
           onSaved={handleUserSaved}

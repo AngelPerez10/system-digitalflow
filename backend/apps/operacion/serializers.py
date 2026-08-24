@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from apps.clientes.models import Cliente
 from apps.cotizaciones.models import Cotizacion
+from apps.ordenes.models import Orden
 
 from .asignados import (
     hydrate_auxiliares_from_legacy,
@@ -23,6 +24,7 @@ from .models import (
     PolizaMantenimiento,
     Proyecto,
     ProyectoInstalacion,
+    ReporteMantenimiento,
 )
 from .tipos_trabajo import (
     assert_tecnico_locked_fields,
@@ -639,3 +641,144 @@ class PolizaMantenimientoSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         return super().update(instance, self._apply_snapshots(validated_data))
+
+
+REPORTE_MAX_FOTOS_POR_LADO = 10
+
+
+def _normalize_reporte_foto_urls(raw, *, legacy_single: str = "") -> list[str]:
+    """Acepta lista nueva o URL legacy; máx. REPORTE_MAX_FOTOS_POR_LADO."""
+    urls: list[str] = []
+    if isinstance(raw, list):
+        for item in raw:
+            u = str(item or "").strip()
+            if u and u not in urls:
+                urls.append(u)
+    elif isinstance(raw, str) and raw.strip():
+        urls.append(raw.strip())
+    legacy = str(legacy_single or "").strip()
+    if legacy and legacy not in urls:
+        urls.insert(0, legacy)
+    if len(urls) > REPORTE_MAX_FOTOS_POR_LADO:
+        raise serializers.ValidationError(
+            f"Máximo {REPORTE_MAX_FOTOS_POR_LADO} fotos por lado (Antes o Después)."
+        )
+    return urls
+
+
+def normalize_reporte_secciones(raw) -> list[dict]:
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise serializers.ValidationError("secciones debe ser una lista.")
+    out: list[dict] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise serializers.ValidationError("Cada sección debe ser un objeto.")
+        titulo = " ".join(str(item.get("titulo") or "").replace("\x00", " ").split())[:200]
+        sid = str(item.get("id") or "").strip()[:80] or f"sec-{len(out) + 1}"
+        fotos_antes = _normalize_reporte_foto_urls(
+            item.get("fotos_antes"),
+            legacy_single=str(item.get("foto_antes_url") or ""),
+        )
+        fotos_despues = _normalize_reporte_foto_urls(
+            item.get("fotos_despues"),
+            legacy_single=str(item.get("foto_despues_url") or ""),
+        )
+        out.append(
+            {
+                "id": sid,
+                "titulo": titulo,
+                "fotos_antes": fotos_antes,
+                "fotos_despues": fotos_despues,
+                # Compat lecturas antiguas / PDF que aún miren un solo campo.
+                "foto_antes_url": fotos_antes[0] if fotos_antes else "",
+                "foto_despues_url": fotos_despues[0] if fotos_despues else "",
+            }
+        )
+    return out
+
+
+class ReporteMantenimientoSerializer(serializers.ModelSerializer):
+    orden_id = serializers.PrimaryKeyRelatedField(
+        source="orden",
+        queryset=Orden.objects.all(),
+        required=True,
+        allow_null=False,
+    )
+    creado_por_username = serializers.CharField(
+        source="creado_por.username", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = ReporteMantenimiento
+        fields = [
+            "id",
+            "idx",
+            "folio",
+            "orden_id",
+            "orden_folio",
+            "orden_cliente",
+            "fecha_servicio",
+            "tecnico_nombre",
+            "foto_orden_url",
+            "secciones",
+            "creado_por",
+            "creado_por_username",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "idx",
+            "folio",
+            "orden_folio",
+            "orden_cliente",
+            "creado_por",
+            "creado_por_username",
+            "created_at",
+            "updated_at",
+        ]
+        extra_kwargs = {
+            "fecha_servicio": {"required": True},
+            "tecnico_nombre": {"required": True, "allow_blank": False},
+            "foto_orden_url": {"required": False, "allow_blank": True},
+            "secciones": {"required": False},
+        }
+
+    def validate_tecnico_nombre(self, value):
+        nombre = " ".join(str(value or "").replace("\x00", " ").split())
+        if not nombre:
+            raise serializers.ValidationError("Indique el nombre del técnico.")
+        return nombre[:255]
+
+    def validate_foto_orden_url(self, value):
+        return str(value or "").strip()
+
+    def validate_secciones(self, value):
+        return normalize_reporte_secciones(value)
+
+    def validate_fecha_servicio(self, value):
+        if value is None:
+            raise serializers.ValidationError("Indique la fecha de servicio.")
+        return value
+
+    def _apply_orden_snapshot(self, attrs: dict) -> dict:
+        from apps.common.document_folio import FOLIO_SERIE_ODT, format_document_folio
+
+        orden = attrs.get("orden")
+        if orden is None and self.instance is not None:
+            orden = self.instance.orden
+        if orden is None:
+            raise serializers.ValidationError({"orden_id": "Seleccione una orden de servicio."})
+        attrs["orden_folio"] = (getattr(orden, "folio", None) or "").strip() or format_document_folio(
+            FOLIO_SERIE_ODT, getattr(orden, "idx", None) or orden.pk, empty=""
+        )
+        attrs["orden_cliente"] = (getattr(orden, "cliente", None) or "").strip()[:255]
+        return attrs
+
+    def create(self, validated_data):
+        return super().create(self._apply_orden_snapshot(validated_data))
+
+    def update(self, instance, validated_data):
+        return super().update(instance, self._apply_orden_snapshot(validated_data))
