@@ -12,6 +12,7 @@ const baseForm: OrdenFormData = {
   problematica: "",
   servicios_realizados: ["GPS"],
   status: "pendiente",
+  motivo_pausa: "",
   comentario_tecnico: "",
   fecha_inicio: "2026-07-30",
   hora_inicio: "",

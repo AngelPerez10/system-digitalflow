@@ -915,6 +915,13 @@ export default function Ordenes() {
                         <div className="inline-flex flex-col items-center gap-1">
                           {orden.status === 'resuelto' ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Resuelto</span>
+                          ) : orden.status === 'pausado' ? (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
+                              title={orden.motivo_pausa ? String(orden.motivo_pausa) : undefined}
+                            >
+                              Pausado
+                            </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pendiente</span>
                           )}

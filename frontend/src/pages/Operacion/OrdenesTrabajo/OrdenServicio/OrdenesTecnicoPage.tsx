@@ -27,9 +27,11 @@ import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { MobileOrderList } from "./list/MobileOrderCard";
+import { OrdenStatusSectionHeader } from "./list/OrdenStatusSectionHeader";
 import { OrdenesMonthLoadingBanner } from "./list/OrdenesMonthLoadingBanner";
 import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
 import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./list/OrdenEnviarPdfModal";
+import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
 import {
   handleOrdenPdfClick,
   isOrdenResuelta,
@@ -530,10 +532,20 @@ export default function OrdenesTecnico() {
     formScrollRef.current?.requestSubmit();
   };
 
-  // Paginación
   // Paginación por mes (mostrar todas las órdenes del mes seleccionado)
   const startIndex = 0;
   const currentOrdenes = shownList;
+  const statusSections = useMemo(
+    () => groupOrdenesByStatus(currentOrdenes),
+    [currentOrdenes],
+  );
+  const ordenIndexById = useMemo(() => {
+    const map = new Map<number, number>();
+    currentOrdenes.forEach((orden, idx) => {
+      if (typeof orden.id === "number") map.set(orden.id, idx);
+    });
+    return map;
+  }, [currentOrdenes]);
 
   const clienteActions = useMemo(
     () => buildClienteSearchActions(clientes, clienteSearch),
@@ -780,6 +792,7 @@ export default function OrdenesTecnico() {
             canEdit={canOrdenesEdit}
             canDelete={canOrdenesDelete}
             usuarios={usuarios}
+            groupByStatus
           />
           <div className={"hidden md:block " + erpTableWrapClass}>
             <Table className="w-full min-w-[900px] sm:table-fixed sm:min-w-0 xl:min-w-full">
@@ -795,7 +808,36 @@ export default function OrdenesTecnico() {
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
-                {currentOrdenes.map((orden, idx) => {
+                {statusSections.flatMap((section) => {
+                  const headingId = `ordenes-tecnico-table-${section.key.toLowerCase()}`;
+                  const headerRow = (
+                    <TableRow
+                      key={`${section.key}-header`}
+                      className="hover:bg-transparent dark:hover:bg-transparent"
+                    >
+                      <TableCell
+                        isHeader
+                        scope="colgroup"
+                        colSpan={7}
+                        className="border-y-0 bg-transparent p-0 text-left"
+                      >
+                        <div className="px-2 py-2">
+                          <OrdenStatusSectionHeader
+                            statusKey={section.key}
+                            label={section.label}
+                            count={section.ordenes.length}
+                            headingId={headingId}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+
+                  const dataRows = section.ordenes.map((orden, sectionIdx) => {
+                  const idx =
+                    typeof orden.id === "number" && ordenIndexById.has(orden.id)
+                      ? (ordenIndexById.get(orden.id) as number)
+                      : sectionIdx;
                   const fecha = orden.fecha_inicio || orden.fecha_creacion || '';
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
@@ -812,7 +854,7 @@ export default function OrdenesTecnico() {
                     tecnicoNombre = `ID: ${(orden as any).tecnico_asignado}`;
                   }
                   return (
-                    <TableRow key={orden.id ?? idx} className={erpTableRowHoverClass}>
+                    <TableRow key={orden.id ?? `${section.key}-${sectionIdx}`} className={erpTableRowHoverClass}>
                       <TableCell className="px-2 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
                       <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
@@ -868,6 +910,13 @@ export default function OrdenesTecnico() {
                       <TableCell className="px-2 py-2 text-center w-[110px] min-w-[110px]">
                         {orden.status === 'resuelto' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Resuelto</span>
+                        ) : orden.status === 'pausado' ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
+                            title={orden.motivo_pausa ? String(orden.motivo_pausa) : undefined}
+                          >
+                            Pausado
+                          </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pendiente</span>
                         )}
@@ -923,6 +972,9 @@ export default function OrdenesTecnico() {
                       </TableCell>
                     </TableRow>
                   );
+                  });
+
+                  return [headerRow, ...dataRows];
                 })}
                 {monthLoading && shownList.length === 0 && (
                   <TableRow>

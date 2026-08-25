@@ -88,6 +88,7 @@ export function OrdenDetalleTab({
   const tipoOrdenSelectId = "orden-tipo-select";
   const problematicaId = "orden-problematica";
   const comentarioId = "orden-comentario-tecnico";
+  const motivoPausaId = "orden-motivo-pausa";
   const statusSelectId = variant === "admin" ? statusTecnicoId : "orden-estado-problema";
 
   const tipoOrdenDisabled = variant === "tecnico" || isReadOnly || isLimitedEdit;
@@ -275,21 +276,24 @@ export function OrdenDetalleTab({
                   value={formData.status}
                   disabled={ro("status")}
                   onChange={(e) => {
-                    const next = e.target.value as "pendiente" | "resuelto";
+                    const next = e.target.value as "pendiente" | "pausado" | "resuelto";
                     setFormData((prev) => {
-                      if (next !== "resuelto") return { ...prev, status: next };
-                      const { ymd, hm } = localYmdAndHm();
-                      return {
-                        ...prev,
-                        status: next,
-                        fecha_finalizacion: prev.fecha_finalizacion || ymd,
-                        hora_termino: prev.hora_termino || hm,
-                      };
+                      if (next === "resuelto") {
+                        const { ymd, hm } = localYmdAndHm();
+                        return {
+                          ...prev,
+                          status: next,
+                          fecha_finalizacion: prev.fecha_finalizacion || ymd,
+                          hora_termino: prev.hora_termino || hm,
+                        };
+                      }
+                      return { ...prev, status: next };
                     });
                   }}
                   className={`h-10 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${inputLockedClass("status")}`}
                 >
                   <option value="pendiente">No, pendiente</option>
+                  <option value="pausado">Pausado</option>
                   <option value="resuelto">Sí, problema resuelto</option>
                 </select>
                 {formData.status === "resuelto" && formData.fecha_finalizacion ? (
@@ -299,6 +303,33 @@ export function OrdenDetalleTab({
                   </p>
                 ) : null}
               </div>
+
+              {formData.status === "pausado" ? (
+                <div>
+                  <label
+                    htmlFor={motivoPausaId}
+                    className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300"
+                  >
+                    ¿Por qué se pausó?
+                  </label>
+                  <textarea
+                    id={motivoPausaId}
+                    value={formData.motivo_pausa}
+                    readOnly={ro("motivo_pausa")}
+                    disabled={ro("motivo_pausa")}
+                    onChange={(e) => setFormData({ ...formData, motivo_pausa: e.target.value })}
+                    rows={3}
+                    required
+                    aria-required="true"
+                    aria-describedby={`${motivoPausaId}-hint`}
+                    placeholder="Describe el motivo de la pausa…"
+                    className={`w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-theme-xs outline-none focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-gray-700 ${inputLockedClass("motivo_pausa")}`}
+                  />
+                  <p id={`${motivoPausaId}-hint`} className="mt-1 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                    Obligatorio al marcar Pausado.
+                  </p>
+                </div>
+              ) : null}
 
               {variant === "admin" && isAdmin && setStatusAdministrativo && setFechaEnvioAdmin && setCotizacionesAdmin ? (
                 <div className="relative overflow-hidden rounded-xl border border-[#e7ded0] bg-gradient-to-br from-[#fffdf8] via-white to-[#fff3e8]/70 p-4 dark:border-[#334155] dark:from-[#111a2b] dark:via-[#0f172a] dark:to-[#1a1510]">

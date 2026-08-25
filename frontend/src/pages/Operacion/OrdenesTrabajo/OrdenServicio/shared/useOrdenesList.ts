@@ -21,7 +21,7 @@ import {
 
 export type OrdenesListVariant = "admin" | "tecnico";
 
-export type OrdenListFilterStatus = "" | "pendiente" | "resuelto";
+export type OrdenListFilterStatus = "" | "pendiente" | "pausado" | "resuelto";
 
 export type OrdenListFilters = {
   status: OrdenListFilterStatus;

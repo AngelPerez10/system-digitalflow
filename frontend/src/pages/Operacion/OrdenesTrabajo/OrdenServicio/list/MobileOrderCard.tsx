@@ -80,8 +80,17 @@ export function MobileOrderCard({
             {folioDisplay}
           </span>
           <span className="text-[#d6d3d1] dark:text-[#334155]">-</span>
-          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${orden.status === 'resuelto' ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200'}`}>
-            {orden.status === 'resuelto' ? 'Resuelto' : 'Pendiente'}
+          <span
+            className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${
+              orden.status === "resuelto"
+                ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300"
+                : orden.status === "pausado"
+                  ? "bg-indigo-50 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300"
+                  : "bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200"
+            }`}
+            title={orden.status === "pausado" && orden.motivo_pausa ? String(orden.motivo_pausa) : undefined}
+          >
+            {orden.status === "resuelto" ? "Resuelto" : orden.status === "pausado" ? "Pausado" : "Pendiente"}
           </span>
           {showRecentResolved && (
             <span className={ORDEN_RECIEN_RESUELTA_BADGE_CLASS}>
@@ -216,7 +225,7 @@ interface MobileOrderListProps {
   onNotaChange?: (ordenId: number, value: string) => void;
   /** Si true (admin), resalta órdenes con status_changed_at reciente. */
   highlightRecentStatus?: boolean;
-  /** Solo admin: agrupa cards por status técnico (Pendientes → Resueltas). */
+  /** Agrupa cards por status técnico (Pendientes → Pausados → Resueltas). */
   groupByStatus?: boolean;
 }
 

@@ -30,10 +30,15 @@ def generate_orden_pdf_html(orden) -> str:
     firma_tecnico = img_url_to_data_uri(getattr(orden, 'firma_encargado_url', None) or '')
     firma_cliente = img_url_to_data_uri(getattr(orden, 'firma_cliente_url', None) or '')
 
-    status_text = "RESUELTO" if orden.status == "resuelto" else "PENDIENTE"
-    status_bg = "#dcfce7" if orden.status == "resuelto" else "#fef3c7"
-    status_border = "#86efac" if orden.status == "resuelto" else "#fcd34d"
-    status_fg = "#166534" if orden.status == "resuelto" else "#92400e"
+    status_text = "RESUELTO" if orden.status == "resuelto" else (
+        "PAUSADO" if orden.status == "pausado" else "PENDIENTE"
+    )
+    if orden.status == "resuelto":
+        status_bg, status_border, status_fg = "#dcfce7", "#86efac", "#166534"
+    elif orden.status == "pausado":
+        status_bg, status_border, status_fg = "#e0e7ff", "#a5b4fc", "#3730a3"
+    else:
+        status_bg, status_border, status_fg = "#fef3c7", "#fcd34d", "#92400e"
 
     folio_display = resolve_document_folio(
         FOLIO_SERIE_ODT,
@@ -209,6 +214,10 @@ def generate_orden_pdf_html(orden) -> str:
     <div class='box'>
       <div class='label'>Problemática</div>
       <div class='value pre'>{esc(orden.problematica or '-')}</div>
+      {f'''
+      <div class='label' style='margin-top: 10px;'>Motivo de pausa</div>
+      <div class='value pre'>{esc(getattr(orden, "motivo_pausa", None) or "-")}</div>
+      ''' if getattr(orden, "status", None) == "pausado" else ""}
       <div class='label' style='margin-top: 10px;'>Comentario del técnico</div>
       <div class='value pre'>{esc(orden.comentario_tecnico or '-')}</div>
     </div>

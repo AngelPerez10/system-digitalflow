@@ -1,6 +1,6 @@
 import { isOrdenResuelta, normalizeStatus } from "./useOrdenesShared";
 
-export type OrdenStatusSectionKey = "PENDIENTE" | "RESUELTA" | "OTROS";
+export type OrdenStatusSectionKey = "PENDIENTE" | "PAUSADO" | "RESUELTA" | "OTROS";
 
 export type OrdenStatusSection<T extends { status?: string | null } = { status?: string | null }> = {
   key: OrdenStatusSectionKey;
@@ -27,6 +27,11 @@ const STATUS_SECTION_ORDER: {
     match: (s) => s === "pendiente" || !s,
   },
   {
+    key: "PAUSADO",
+    label: "Pausados",
+    match: (s) => s === "pausado",
+  },
+  {
     key: "RESUELTA",
     label: "Resueltas",
     match: (s) => isOrdenResuelta(s),
@@ -38,12 +43,13 @@ const STATUS_SECTION_ORDER: {
   },
 ];
 
-/** Agrupa órdenes: Pendientes → Resueltas (y otros al final). Omite secciones vacías. */
+/** Agrupa órdenes: Pendientes → Pausados → Resueltas (y otros al final). Omite secciones vacías. */
 export function groupOrdenesByStatus<T extends { status?: string | null }>(
   ordenes: T[],
 ): OrdenStatusSection<T>[] {
   const buckets: Record<OrdenStatusSectionKey, T[]> = {
     PENDIENTE: [],
+    PAUSADO: [],
     RESUELTA: [],
     OTROS: [],
   };
@@ -65,7 +71,7 @@ export function groupOrdenesByStatus<T extends { status?: string | null }>(
 
 /**
  * Tokens de sección con contraste AA en claro/oscuro (mismo espíritu que cotizaciones).
- * Pendientes → ámbar; Resueltas → esmeralda.
+ * Pendientes → ámbar; Pausados → índigo; Resueltas → esmeralda.
  */
 export function getOrdenStatusSectionStyles(key: OrdenStatusSectionKey): OrdenStatusSectionStyles {
   if (key === "RESUELTA") {
@@ -77,6 +83,17 @@ export function getOrdenStatusSectionStyles(key: OrdenStatusSectionKey): OrdenSt
       badge:
         "border-emerald-300/80 bg-emerald-100 text-emerald-900 dark:border-emerald-400/35 dark:bg-emerald-500/20 dark:text-emerald-100",
       label: "text-[#14532d] dark:text-emerald-100",
+    };
+  }
+  if (key === "PAUSADO") {
+    return {
+      shell:
+        "border-[#d4d8f0] bg-[#f4f5fb] dark:border-indigo-500/30 dark:bg-[#14182a]",
+      accent: "bg-indigo-600 dark:bg-indigo-400",
+      icon: "text-indigo-800 dark:text-indigo-300",
+      badge:
+        "border-indigo-300/90 bg-indigo-100 text-indigo-950 dark:border-indigo-400/35 dark:bg-indigo-500/20 dark:text-indigo-100",
+      label: "text-[#312e81] dark:text-indigo-100",
     };
   }
   if (key === "PENDIENTE") {

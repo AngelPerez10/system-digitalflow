@@ -1145,6 +1145,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
             s = str(raw or '').strip().lower()
             if s == 'resuelto':
                 return 'Resuelto'
+            if s == 'pausado':
+                return 'Pausado'
             if s == 'pendiente':
                 return 'Pendiente'
             return str(raw or '—').strip() or '—'

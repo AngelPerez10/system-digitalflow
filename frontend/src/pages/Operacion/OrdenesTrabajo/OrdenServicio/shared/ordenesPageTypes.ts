@@ -50,7 +50,9 @@ export interface Orden {
   telefono_cliente: string;
   problematica: string;
   servicios_realizados: string[];
-  status: "pendiente" | "resuelto";
+  status: "pendiente" | "pausado" | "resuelto";
+  /** Motivo cuando status = pausado. */
+  motivo_pausa?: string | null;
   /** Último cambio de status del técnico (ISO); null = sin resalte. */
   status_changed_at?: string | null;
   comentario_tecnico: string;

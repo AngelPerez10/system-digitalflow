@@ -3,6 +3,7 @@ import type { Orden } from './ordenesPageTypes';
 export const LIMITED_ORDEN_EDIT_FIELDS = [
   'problematica',
   'status',
+  'motivo_pausa',
   'fecha_inicio',
   'hora_inicio',
   'fecha_finalizacion',

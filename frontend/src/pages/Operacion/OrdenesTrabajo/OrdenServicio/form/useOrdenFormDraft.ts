@@ -57,7 +57,8 @@ export type OrdenFormData = {
   nombre_cliente: string;
   problematica: string;
   servicios_realizados: string[];
-  status: "pendiente" | "resuelto";
+  status: "pendiente" | "pausado" | "resuelto";
+  motivo_pausa: string;
   comentario_tecnico: string;
   fecha_inicio: string;
   hora_inicio: string;
@@ -86,6 +87,7 @@ export function createEmptyOrdenFormData(mySignatureUrl = ""): OrdenFormData {
     problematica: "",
     servicios_realizados: [],
     status: "pendiente",
+    motivo_pausa: "",
     comentario_tecnico: "",
     fecha_inicio: new Date().toISOString().split("T")[0],
     hora_inicio: "",
@@ -153,6 +155,7 @@ export function buildOrdenWritePayload(opts: {
   payload.telefono_cliente = toNullIfEmpty(payload.telefono_cliente);
   payload.problematica = toNullIfEmpty(payload.problematica);
   payload.comentario_tecnico = toNullIfEmpty(payload.comentario_tecnico);
+  payload.motivo_pausa = toNullIfEmpty(payload.motivo_pausa);
   payload.fecha_inicio = toNullIfEmpty(payload.fecha_inicio);
   payload.hora_inicio = toNullIfEmpty(payload.hora_inicio);
   payload.fecha_finalizacion = toNullIfEmpty(payload.fecha_finalizacion);
@@ -493,7 +496,8 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         problematica: orden.problematica || "",
         servicios_realizados: orden.servicios_realizados || [],
         comentario_tecnico: orden.comentario_tecnico || "",
-        status: orden.status || "pendiente",
+        status: (orden.status as OrdenFormData["status"]) || "pendiente",
+        motivo_pausa: orden.motivo_pausa || "",
         fecha_inicio: orden.fecha_inicio || "",
         hora_inicio: orden.hora_inicio || "",
         fecha_finalizacion: orden.fecha_finalizacion || "",
@@ -838,6 +842,9 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     if (!formData.telefono_cliente?.trim()) missing.push("Teléfono");
     if (!Array.isArray(formData.servicios_realizados) || formData.servicios_realizados.length === 0) {
       missing.push("Servicios Realizados");
+    }
+    if (formData.status === "pausado" && !(formData.motivo_pausa || "").trim()) {
+      missing.push("¿Por qué se pausó?");
     }
     // Mínimo 150 solo al editar una orden ya existente en resuelto/cerrado (no en alta nueva).
     const requiereComentarioMinimo =

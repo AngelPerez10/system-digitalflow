@@ -518,6 +518,26 @@ class OrdenesFirmaEncargadoTests(APITestCase):
         self.orden.refresh_from_db()
         self.assertEqual(self.orden.fotos_urls, [new_url])
 
+    def test_pausado_requiere_motivo(self):
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden.id}/",
+            {"status": "pausado", "motivo_pausa": ""},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("motivo_pausa", response.data)
+
+    def test_pausado_con_motivo_ok(self):
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden.id}/",
+            {"status": "pausado", "motivo_pausa": "Falta pieza del cliente"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.orden.refresh_from_db()
+        self.assertEqual(self.orden.status, "pausado")
+        self.assertEqual(self.orden.motivo_pausa, "Falta pieza del cliente")
+
 
 class OrdenesEnviarPdfTests(APITestCase):
     def setUp(self):

@@ -62,6 +62,22 @@ class OrdenSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Status administrativo inválido.")
         return raw
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        status = attrs.get("status", None)
+        if status is None and self.instance is not None:
+            status = getattr(self.instance, "status", None)
+        status_norm = str(status or "").strip().lower()
+        if status_norm == "pausado":
+            motivo = attrs.get("motivo_pausa", None)
+            if motivo is None and self.instance is not None and "motivo_pausa" not in attrs:
+                motivo = getattr(self.instance, "motivo_pausa", None)
+            if not str(motivo or "").strip():
+                raise serializers.ValidationError(
+                    {"motivo_pausa": "Indique por qué se pausó la orden."}
+                )
+        return attrs
+
     def validate_cotizaciones_adjuntas(self, value):
         if value is None:
             return []
@@ -180,6 +196,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'problematica',
             'servicios_realizados',
             'status',
+            'motivo_pausa',
             'status_changed_at',
             'prioridad',
             'comentario_tecnico',
@@ -268,6 +285,7 @@ class OrdenListSerializer(OrdenSerializer):
             'problematica',
             'servicios_realizados',
             'status',
+            'motivo_pausa',
             'status_changed_at',
             'prioridad',
             'comentario_tecnico',

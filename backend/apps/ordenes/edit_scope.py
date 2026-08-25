@@ -8,6 +8,7 @@ from apps.users.permissions import user_module_own_only
 LIMITED_ORDEN_EDIT_FIELDS = frozenset({
     'problematica',
     'status',
+    'motivo_pausa',
     'fecha_inicio',
     'hora_inicio',
     'fecha_finalizacion',

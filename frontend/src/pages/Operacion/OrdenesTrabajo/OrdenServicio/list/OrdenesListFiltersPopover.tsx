@@ -41,6 +41,7 @@ type Props = {
 const STATUS_OPTIONS: { value: OrdenListFilterStatus; label: string }[] = [
   { value: "", label: "Todos" },
   { value: "pendiente", label: "Pendiente" },
+  { value: "pausado", label: "Pausado" },
   { value: "resuelto", label: "Resuelto" },
 ];
 
