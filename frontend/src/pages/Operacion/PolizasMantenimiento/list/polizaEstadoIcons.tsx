@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import type { PolizaEstado } from "./polizaListTypes";
 
 /**
@@ -5,7 +6,7 @@ import type { PolizaEstado } from "./polizaListTypes";
  * (EstadoPolizaBadge) y el encabezado de sección (PolizaStatusSectionHeader),
  * para no redibujar el mismo path SVG en dos lugares.
  */
-export const POLIZA_ESTADO_ICON: Record<PolizaEstado, JSX.Element> = {
+export const POLIZA_ESTADO_ICON: Record<PolizaEstado, ReactElement> = {
   vigente: (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />

@@ -158,6 +158,8 @@ class ProyectosSmokeTests(APITestCase):
         self.assertNotIn("$", body)
         self.assertIn("Cotizaciones adjuntas", body)
         self.assertIn("Sin cotizaciones vinculadas.", body)
+        self.assertIn("signatures-section", body)
+        self.assertIn("break-inside: avoid", body)
 
     def test_proyecto_pdf_lists_cotizaciones_adjuntas(self):
         create_res = self.client.post(
@@ -215,12 +217,10 @@ class ProyectosSmokeTests(APITestCase):
         self.assertIn("Cotizaciones adjuntas", body)
         self.assertIn("COT-10001", body)
         self.assertIn("SIC-9", body)
-        self.assertIn("DigitalFlow", body)
-        self.assertIn("SICAR", body)
-        self.assertIn("Ana López", body)
         self.assertIn("COT-10099", body)
-        self.assertIn("Adicional", body)
         self.assertIn("01/07/2026", body)
+        self.assertNotIn("DigitalFlow", body)
+        self.assertNotIn("Ana López", body)
         self.assertNotIn("$", body)
 
     def test_reject_invalid_close_without_cotizacion_adicional(self):

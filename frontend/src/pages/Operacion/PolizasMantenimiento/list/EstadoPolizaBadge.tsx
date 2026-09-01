@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import type { PolizaEstado } from "./polizaListTypes";
 import { estadoPolizaLabel } from "./polizaDemoData";
 
@@ -6,7 +7,7 @@ import { estadoPolizaLabel } from "./polizaDemoData";
 // nivel arriba, en vez de quedarse en una pastilla de solo texto.
 const CONFIG: Record<
   PolizaEstado,
-  { badge: string; icon: JSX.Element }
+  { badge: string; icon: ReactElement }
 > = {
   vigente: {
     badge:

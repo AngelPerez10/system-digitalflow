@@ -23,11 +23,6 @@ _STATUS_STYLES = {
     "cerrado": ("#dcfce7", "#86efac", "#166534"),
 }
 
-_ORIGEN_LABELS = {
-    "digitalflow": "DigitalFlow",
-    "sicar": "SICAR",
-}
-
 
 def _fmt_date(value: Any) -> str:
     if value is None:
@@ -180,7 +175,6 @@ def _normalize_cotizacion_adjunta(
     cot: dict,
     *,
     orden: int | None = None,
-    es_adicional: bool = False,
 ) -> dict[str, Any] | None:
     if not isinstance(cot, dict):
         return None
@@ -189,22 +183,17 @@ def _normalize_cotizacion_adjunta(
     if not folio_raw and not cot_id:
         return None
     origen = str(cot.get("origen") or "digitalflow").strip().lower()
-    contacto = str(cot.get("contacto") or "").strip()
     return {
         "orden": orden,
         "folio": _display_cotizacion_folio(folio_raw, origen),
-        "origen": _ORIGEN_LABELS.get(origen, origen.upper() or "DigitalFlow"),
-        "cliente": str(cot.get("cliente") or "").strip(),
         "fecha": _fmt_date(cot.get("fecha")),
-        "contacto": contacto,
-        "es_adicional": es_adicional,
     }
 
 
 def _cotizaciones_adjuntas(proyecto) -> list[dict[str, Any]]:
-    """Cotizaciones vinculadas al proyecto (sin montos ni partidas)."""
+    """Cotizaciones vinculadas al proyecto (folio y fecha únicamente)."""
     entries: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[str] = set()
 
     bloques = getattr(proyecto, "cotizaciones", None)
     if isinstance(bloques, list):
@@ -221,20 +210,17 @@ def _cotizaciones_adjuntas(proyecto) -> list[dict[str, Any]]:
             row = _normalize_cotizacion_adjunta(cot, orden=orden)
             if not row:
                 continue
-            key = (row["folio"], row["origen"])
-            if key in seen:
+            folio = row["folio"]
+            if folio in seen:
                 continue
-            seen.add(key)
+            seen.add(folio)
             entries.append(row)
 
     adicional = getattr(proyecto, "cotizacion_adicional", None)
     if isinstance(adicional, dict):
-        row = _normalize_cotizacion_adjunta(adicional, es_adicional=True)
-        if row:
-            key = (row["folio"], row["origen"])
-            if key not in seen:
-                seen.add(key)
-                entries.append(row)
+        row = _normalize_cotizacion_adjunta(adicional, orden=len(entries) + 1)
+        if row and row["folio"] not in seen:
+            entries.append(row)
 
     return entries
 
@@ -245,20 +231,11 @@ def _render_cotizaciones_adjuntas_html(entries: list[dict[str, Any]]) -> str:
 
     rows: list[str] = []
     for row in entries:
-        if row.get("es_adicional"):
-            num_cell = "Adicional"
-        else:
-            num_cell = str(row.get("orden") or "-")
-        contacto = row.get("contacto") or "-"
-        cliente = row.get("cliente") or "-"
         rows.append(
             "<tr>"
-            f"<td class='cot-num'>{esc(num_cell)}</td>"
+            f"<td class='cot-num'>{esc(str(row.get('orden') or '-'))}</td>"
             f"<td class='cot-folio'><b>{esc(row.get('folio') or '-')}</b></td>"
-            f"<td>{esc(row.get('origen') or '-')}</td>"
             f"<td class='cot-date'>{esc(row.get('fecha') or '-')}</td>"
-            f"<td>{esc(cliente)}</td>"
-            f"<td>{esc(contacto)}</td>"
             "</tr>"
         )
 
@@ -267,10 +244,7 @@ def _render_cotizaciones_adjuntas_html(entries: list[dict[str, Any]]) -> str:
         "<thead><tr>"
         "<th scope='col'>#</th>"
         "<th scope='col'>Folio</th>"
-        "<th scope='col'>Origen</th>"
         "<th scope='col'>Fecha</th>"
-        "<th scope='col'>Cliente</th>"
-        "<th scope='col'>Contacto</th>"
         "</tr></thead>"
         f"<tbody>{''.join(rows)}</tbody>"
         "</table>"
@@ -593,9 +567,21 @@ def generate_proyecto_pdf_html(proyecto) -> str:
         background: var(--blue-50); height: 260px; display: flex; align-items: center; justify-content: center;
       }}
       .photo-box img {{ width: 100%; height: 100%; object-fit: cover; }}
-      .pagebreak {{ page-break-before: always; }}
-      .sigs {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
-      .sigbox {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
+      .pagebreak {{ page-break-before: always; break-before: page; }}
+      .signatures-section {{
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }}
+      .sigs {{
+        display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }}
+      .sigbox {{
+        border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }}
       .sigimgwrap {{
         height: 105px; border-radius: 12px; border: 1px dashed var(--border);
         display: flex; align-items: center; justify-content: center; overflow: hidden;
@@ -720,7 +706,7 @@ def generate_proyecto_pdf_html(proyecto) -> str:
           <div class='box'>{bitacora_html}</div>
         </div>
 
-        <div class='section'>
+        <div class='section signatures-section'>
           <div class='section-title'>Firmas</div>
           <div class='sigs'>
             <div class='sigbox'>

@@ -139,9 +139,21 @@ def generate_orden_pdf_html(orden) -> str:
       .photos {{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }}
       .photo-box {{ border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--blue-50); height: 260px; display: flex; align-items: center; justify-content: center; }}
       .photo-box img {{ width: 100%; height: 100%; object-fit: cover; }}
-      .pagebreak {{ page-break-before: always; }}
-      .sigs {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
-      .sigbox {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
+      .pagebreak {{ page-break-before: always; break-before: page; }}
+      .signatures-section {{
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }}
+      .sigs {{
+        display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }}
+      .sigbox {{
+        border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }}
       .sigimgwrap {{ height: 105px; border-radius: 12px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--blue-50); margin-top: 8px; }}
       .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; }}
       .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 12px; color: var(--muted); }}
@@ -223,7 +235,7 @@ def generate_orden_pdf_html(orden) -> str:
     </div>
       </div>
 
-      <div class='section'>
+      <div class='section signatures-section'>
     <div class='section-title'>Firmas</div>
     <div class='sigs'>
       <div class='sigbox'>

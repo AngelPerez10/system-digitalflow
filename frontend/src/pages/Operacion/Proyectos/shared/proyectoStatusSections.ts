@@ -57,7 +57,7 @@ export function groupProyectosByStatus(rows: ProyectoRow[]): ProyectoStatusSecti
   };
 
   for (const row of rows) {
-    const estado = normalizeProyectoEstado(row.estado);
+    const estado = normalizeProyectoEstado(row.estado ?? row.draft?.status);
     const section =
       STATUS_SECTION_ORDER.find((s) => s.key !== "OTROS" && s.match(estado)) ??
       STATUS_SECTION_ORDER[STATUS_SECTION_ORDER.length - 1];
