@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "SertelPro",
+    "slug": "digitalflow-tecnico",
+    "scheme": "digitalflow",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "mx.sertel.digitalflow.tecnico"
+    },
+    "android": {
+      "package": "mx.sertel.digitalflow.tecnico",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF",
+          "imageWidth": 180
+        }
+      ],
+  [
+        "expo-image-picker",
+        {
+          "photosPermission": "SertelPro necesita acceso a tus fotos para adjuntar evidencia a la orden.",
+          "cameraPermission": "SertelPro necesita la cámara para fotografiar la evidencia en sitio."
+        }
+      ],
+      "expo-font",
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "664db378-1f90-45b2-a41e-4dac3714b23e"
+      }
+    }
+  }
+}

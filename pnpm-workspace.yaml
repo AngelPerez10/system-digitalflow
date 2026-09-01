@@ -1,10 +1,13 @@
 packages:
   - "frontend"
+  - "mobile"
 
 # pnpm 11: declare which packages may run install scripts.
 # https://pnpm.io/settings#allowbuilds
 allowBuilds:
+  dtrace-provider: false
   esbuild: true
+  unrs-resolver: true
 
 # Fresh React patch releases can be younger than the default release-age gate.
 minimumReleaseAgeExclude:
@@ -19,3 +22,8 @@ overrides:
   "react-helmet-async>react": "^19.2.8"
   "@types/react": "^19.2.17"
   "@types/react-dom": "^19.2.3"
+
+# React Native y el CLI de Expo asumen un node_modules plano: sin esto,
+# `expo start` falla con: Cannot find module 'metro-runtime/package.json'.
+publicHoistPattern:
+  - '*metro*'
