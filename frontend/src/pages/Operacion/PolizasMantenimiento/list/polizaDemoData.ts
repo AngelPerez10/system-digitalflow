@@ -81,18 +81,6 @@ export function estadoPolizaLabel(estado: PolizaEstado): string {
   }
 }
 
-export function estadoPolizaBadgeClass(estado: PolizaEstado): string {
-  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium";
-  switch (estado) {
-    case "proxima_visita":
-      return `${base} bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300`;
-    case "vencida":
-      return `${base} bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300`;
-    default:
-      return `${base} bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300`;
-  }
-}
-
 export function formatPolizaFecha(iso: string): string {
   const raw = String(iso || "").trim();
   if (!raw) return "—";

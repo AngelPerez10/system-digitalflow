@@ -1196,7 +1196,6 @@ export default function Ordenes() {
             setFirmaClienteUrl={setFirmaClienteUrl}
             setShowMapModal={setShowMapModal}
             tecnicoSignatureUrl={tecnicoSignatureUrl}
-            mySignatureUrl={mySignatureUrl}
             maxPhotosAllowed={maxPhotosAllowed}
             getRootProps={getRootProps}
             getInputProps={getInputProps}

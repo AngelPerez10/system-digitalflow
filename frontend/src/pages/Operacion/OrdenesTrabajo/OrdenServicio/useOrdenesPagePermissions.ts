@@ -14,6 +14,15 @@ export function isOrdenesOwnOnly(
   return true;
 }
 
+/** Ruta de listado: vista completa si puede ver todas; vista técnico si solo las propias. */
+export function getOrdenesListPath(
+  permissions: Permissions | null | undefined,
+  isAdmin: boolean,
+): "/ordenes" | "/ordenes-tecnico" {
+  if (permissions?.ordenes?.view !== true) return "/ordenes-tecnico";
+  return isOrdenesOwnOnly(permissions, isAdmin) ? "/ordenes-tecnico" : "/ordenes";
+}
+
 export function useOrdenesPagePermissions() {
   const { permissions, loading: authLoading, isAuthenticated, isAdmin } = useAuth();
 

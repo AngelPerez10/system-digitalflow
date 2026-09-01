@@ -50,7 +50,6 @@ type Props = {
   extraClienteOption?: SelectOption | null;
   extraCotizacionOption?: SelectOption | null;
   onSubmit?: (values: PolizaAltaValues) => void;
-  onRegisterGetValues?: (getter: () => PolizaAltaValues) => void;
 };
 
 export default function PolizaAltaForm({
@@ -62,7 +61,6 @@ export default function PolizaAltaForm({
   extraClienteOption = null,
   extraCotizacionOption = null,
   onSubmit,
-  onRegisterGetValues,
 }: Props) {
   const clienteErrorId = useId();
   const [clienteId, setClienteId] = useState(initialValues.clienteId);
@@ -215,10 +213,6 @@ export default function PolizaAltaForm({
     fecha2,
     fecha3,
   ]);
-
-  useEffect(() => {
-    onRegisterGetValues?.(getCurrentValues);
-  }, [getCurrentValues, onRegisterGetValues]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

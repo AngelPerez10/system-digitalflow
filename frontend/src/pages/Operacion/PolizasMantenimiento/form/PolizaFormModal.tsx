@@ -1,6 +1,5 @@
-import { useId, useRef } from "react";
+import { useId } from "react";
 import { Modal } from "@/components/ui/modal";
-import { erpSecondaryBtnClass } from "@/layout/erpPageStyles";
 import {
   OrdenFormModalHeader,
   OrdenModalFooterActions,
@@ -30,7 +29,6 @@ type Props = {
   saving?: boolean;
   onClose: () => void;
   onSave: (values: PolizaAltaValues) => void;
-  onViewTemplate: (values: PolizaAltaValues) => void;
 };
 
 export default function PolizaFormModal({
@@ -44,10 +42,8 @@ export default function PolizaFormModal({
   saving = false,
   onClose,
   onSave,
-  onViewTemplate,
 }: Props) {
   const titleId = useId();
-  const getValuesRef = useRef<(() => PolizaAltaValues) | null>(null);
 
   return (
     <Modal
@@ -78,22 +74,12 @@ export default function PolizaFormModal({
             extraClienteOption={extraClienteOption}
             extraCotizacionOption={extraCotizacionOption}
             onSubmit={onSave}
-            onRegisterGetValues={(getter) => {
-              getValuesRef.current = getter;
-            }}
           />
         </div>
       </div>
 
       <footer className={erpModalFooterClass}>
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            type="button"
-            onClick={() => onViewTemplate(getValuesRef.current?.() ?? initialValues)}
-            className={erpSecondaryBtnClass}
-          >
-            Ver plantilla PDF
-          </button>
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-end">
           <OrdenModalFooterActions
             onCancel={onClose}
             cancelLabel="Cerrar"

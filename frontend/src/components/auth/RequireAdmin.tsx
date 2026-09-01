@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { getOrdenesListPath } from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/useOrdenesPagePermissions";
 
 interface RequireAdminProps {
   children: React.ReactNode;
@@ -7,7 +8,7 @@ interface RequireAdminProps {
 
 export default function RequireAdmin({ children }: RequireAdminProps) {
   const location = useLocation();
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const { isAuthenticated, isAdmin, loading, permissions } = useAuth();
 
   if (loading) {
     return (
@@ -22,7 +23,7 @@ export default function RequireAdmin({ children }: RequireAdminProps) {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/ordenes-tecnico" replace />;
+    return <Navigate to={getOrdenesListPath(permissions, isAdmin)} replace />;
   }
 
   return <>{children}</>;

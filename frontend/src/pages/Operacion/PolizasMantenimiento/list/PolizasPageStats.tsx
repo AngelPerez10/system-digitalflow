@@ -15,7 +15,7 @@ export function PolizasPageStats({ stats }: Props) {
       tone: "text-[#ea580c] dark:text-[#fb923c]",
       border: "border-[#e7ded0] bg-white/90 dark:border-[#334155] dark:bg-[#0f172a]",
       icon: (
-        <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-[18px] sm:w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
           <path d="M6 6h12M6 12h12M6 18h12" strokeLinecap="round" />
         </svg>
       ),
@@ -26,7 +26,7 @@ export function PolizasPageStats({ stats }: Props) {
       tone: "text-emerald-700 dark:text-emerald-300",
       border: "border-emerald-200/70 bg-emerald-50/80 dark:border-emerald-500/25 dark:bg-emerald-500/[0.08]",
       icon: (
-        <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-[18px] sm:w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
           <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ),
@@ -37,7 +37,7 @@ export function PolizasPageStats({ stats }: Props) {
       tone: "text-amber-800 dark:text-amber-200",
       border: "border-amber-200/70 bg-amber-50/80 dark:border-amber-500/25 dark:bg-amber-500/[0.08]",
       icon: (
-        <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-[18px] sm:w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
           <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ),
@@ -48,7 +48,7 @@ export function PolizasPageStats({ stats }: Props) {
       tone: "text-rose-800 dark:text-rose-300",
       border: "border-rose-200/70 bg-rose-50/80 dark:border-rose-500/25 dark:bg-rose-500/[0.08]",
       icon: (
-        <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-[18px] sm:w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
           <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ),
@@ -60,7 +60,7 @@ export function PolizasPageStats({ stats }: Props) {
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4"
+          className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 shadow-[0_1px_0_0_rgba(28,25,23,0.03)] dark:border-[#334155] dark:bg-[#182137] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] sm:p-4"
         >
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span

@@ -5,6 +5,7 @@ import SignIn from "@/pages/AuthPages/SignIn";
 import AppLayout from "@/layout/AppLayout";
 import { ScrollToTop } from "@/components/common/ScrollToTop";
 import RouteLoadingFallback from "@/components/common/RouteLoadingFallback";
+import ErrorBoundary from "@/components/common/ErrorBoundary";
 import RequireAuth from "@/components/auth/RequireAuth";
 import RequireAdmin from "@/components/auth/RequireAdmin";
 import RequireCuentasAntarixPermission from "@/components/auth/RequireCuentasAntarixPermission";
@@ -24,9 +25,6 @@ const NotFound = lazy(() => import("@/pages/OtherPage/NotFound"));
 const GestionUsuario = lazy(() => import("@/pages/Configuracion/GestionUsuario"));
 const AjustesGeneralesPage = lazy(() => import("@/pages/Configuracion/AjustesGeneralesPage"));
 const ProfilePage = lazy(() => import("@/pages/Perfil/ProfilePage"));
-const Images = lazy(() => import("@/pages/UiElements/Images"));
-const LineChart = lazy(() => import("@/pages/Charts/LineChart"));
-const BarChart = lazy(() => import("@/pages/Charts/BarChart"));
 const Calendar = lazy(() => import("@/pages/MiEscritorio/Calendar"));
 const TareasPage = lazy(() => import("@/pages/MiEscritorio/Tareas/TareasPage"));
 const Home = lazy(() => import("@/pages/Dashboard/Home"));
@@ -68,7 +66,7 @@ const InventarioPage = lazy(() => import("@/pages/Inventario/InventarioPage"));
 
 export default function App() {
   return (
-    <>
+    <ErrorBoundary>
       <Router>
         <ScrollToTop />
         <Suspense fallback={<RouteLoadingFallback />}>
@@ -193,6 +191,9 @@ export default function App() {
             {/* Correo */}
             <Route path="/correo" element={<RequireAdmin><CorreoPage /></RequireAdmin>} />
 
+            {/* Agenda (órdenes en calendario) — mismo permiso con el que la gatea el sidebar */}
+            <Route path="/calendar" element={<RequireOrdenesPermission required="view"><Calendar /></RequireOrdenesPermission>} />
+
             {/* Tareas */}
             <Route path="/tareas" element={<RequireTareasPermission required="view"><TareasPage /></RequireTareasPermission>} />
             <Route path="/tareas-tecnico" element={<RequireTareasPermission required="view"><TareasTecnicoPage /></RequireTareasPermission>} />
@@ -218,14 +219,6 @@ export default function App() {
                 </RequireAdmin>
               }
             />
-            <Route path="/calendar" element={<Calendar />} />
-
-            {/* Ui Elements */}
-            <Route path="/images" element={<Images />} />
-
-            {/* Charts */}
-            <Route path="/line-chart" element={<LineChart />} />
-            <Route path="/bar-chart" element={<BarChart />} />
           </Route>
 
           {/* Fallback Route */}
@@ -233,6 +226,6 @@ export default function App() {
           </Routes>
         </Suspense>
       </Router>
-    </>
+    </ErrorBoundary>
   );
 }

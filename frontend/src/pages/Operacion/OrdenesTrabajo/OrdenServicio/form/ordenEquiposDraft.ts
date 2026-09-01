@@ -16,11 +16,31 @@ function asPositiveInt(value: unknown, fallback = 1): number {
   return Math.max(1, Math.floor(n));
 }
 
+function asEquiposList(equipos: unknown): OrdenEquipoInventarioLinea[] {
+  return Array.isArray(equipos) ? equipos : [];
+}
+
+/**
+ * `crypto.randomUUID` solo existe en contextos seguros (HTTPS / localhost).
+ * En http://IP-LAN:5173 falla y tumba el ErrorBoundary al agregar un equipo.
+ */
+function newLineaId(fallbackSeed: string | number): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      // insecure context / polyfill incompleto
+    }
+  }
+  return `linea-${fallbackSeed}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 /** Snapshot de un ítem de inventario como línea de equipos de la orden. */
 export function createEquipoLineaFromItem(item: InventarioItem): OrdenEquipoInventarioLinea {
+  const inventarioItemId = Number(item.id);
   return {
-    lineaId: crypto.randomUUID(),
-    inventarioItemId: Number(item.id),
+    lineaId: newLineaId(inventarioItemId),
+    inventarioItemId,
     codigoBarras: asTrimmedString(item.codigo_barras),
     nombre: asTrimmedString(item.nombre),
     marca: asTrimmedString(item.marca),
@@ -40,12 +60,13 @@ export function addEquipoFromItem(
   equipos: OrdenEquipoInventarioLinea[],
   item: InventarioItem,
 ): OrdenEquipoInventarioLinea[] {
+  const list = asEquiposList(equipos);
   const itemId = Number(item.id);
   const stock = Math.max(0, Math.floor(Number(item.cantidad) || 0));
-  const existingIdx = equipos.findIndex((e) => e.inventarioItemId === itemId);
+  const existingIdx = list.findIndex((e) => e.inventarioItemId === itemId);
 
   if (existingIdx >= 0) {
-    const next = equipos.slice();
+    const next = list.slice();
     const row = next[existingIdx];
     const maxQty = stock > 0 ? stock : row.cantidad + 1;
     next[existingIdx] = {
@@ -65,7 +86,7 @@ export function addEquipoFromItem(
   if (stock > 0) {
     linea.cantidad = Math.min(1, stock);
   }
-  return [...equipos, linea];
+  return [...list, linea];
 }
 
 export type OrdenEquipoLineaPatch = Partial<
@@ -82,7 +103,7 @@ export function updateEquipoLinea(
   patch: OrdenEquipoLineaPatch,
   opts?: { stockMax?: number },
 ): OrdenEquipoInventarioLinea[] {
-  return equipos.map((row) => {
+  return asEquiposList(equipos).map((row) => {
     if (row.lineaId !== lineaId) return row;
     const next: OrdenEquipoInventarioLinea = { ...row };
 
@@ -112,7 +133,7 @@ export function removeEquipoLinea(
   equipos: OrdenEquipoInventarioLinea[],
   lineaId: string,
 ): OrdenEquipoInventarioLinea[] {
-  return equipos.filter((e) => e.lineaId !== lineaId);
+  return asEquiposList(equipos).filter((e) => e.lineaId !== lineaId);
 }
 
 /**
@@ -167,10 +188,7 @@ export function normalizeEquiposInventario(raw: unknown): OrdenEquipoInventarioL
     }
 
     const lineaId =
-      asTrimmedString(row.lineaId ?? row.linea_id) ||
-      (typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `linea-${inventarioItemId}-${out.length}`);
+      asTrimmedString(row.lineaId ?? row.linea_id) || newLineaId(`${inventarioItemId}-${out.length}`);
 
     out.push({
       lineaId,

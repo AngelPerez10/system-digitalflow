@@ -8,8 +8,9 @@ type InventarioThumbProps = {
 /** Miniatura del producto con marcador de posición cuando aún no hay foto. */
 export default function InventarioThumb({ src, alt, size = 40 }: InventarioThumbProps) {
   const box = { width: size, height: size } as const;
+  const safeSrc = typeof src === "string" ? src.trim() : "";
 
-  if (!src) {
+  if (!safeSrc) {
     return (
       <span
         style={box}
@@ -27,7 +28,7 @@ export default function InventarioThumb({ src, alt, size = 40 }: InventarioThumb
 
   return (
     <img
-      src={src}
+      src={safeSrc}
       alt={alt}
       style={box}
       loading="lazy"

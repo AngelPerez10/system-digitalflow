@@ -470,9 +470,10 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
   }, []);
 
   const resetForm = useCallback(() => {
-    setFormData(createEmptyOrdenFormData(mySignatureUrl));
+    setFormData(createEmptyOrdenFormData(variant === "tecnico" ? mySignatureUrl : ""));
     if (variant === "admin") resetAdminSeguimientoUi();
     clearSearchFields();
+    setTecnicoSignatureUrl("");
     firmaClienteBaselineRef.current = "";
     firmaClienteClearedRef.current = false;
   }, [mySignatureUrl, variant, resetAdminSeguimientoUi, clearSearchFields]);
@@ -506,7 +507,11 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         quien_instalo: orden.quien_instalo ? Number(orden.quien_instalo) : null,
         quien_entrego: orden.quien_entrego ? Number(orden.quien_entrego) : null,
         firma_encargado_url:
-          normalizeHttpUrl(mySignatureUrl) || normalizeHttpUrl(orden.firma_encargado_url) || "",
+          variant === "tecnico"
+            ? normalizeHttpUrl(orden.firma_encargado_url) ||
+              normalizeHttpUrl(mySignatureUrl) ||
+              ""
+            : normalizeHttpUrl(orden.firma_encargado_url) || "",
         firma_cliente_url: normalizeHttpUrl(orden.firma_cliente_url) || "",
         fotos_urls: Array.isArray(orden.fotos_urls)
           ? orden.fotos_urls.map((u) => normalizeHttpUrl(u)).filter(Boolean)
@@ -529,6 +534,10 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       );
       setServicioSearch("");
       if (variant === "admin") loadAdminSeguimientoFromOrden(orden);
+      const tecId = orden.tecnico_asignado ? Number(orden.tecnico_asignado) : null;
+      setTecnicoSignatureUrl(
+        tecId ? normalizeHttpUrl(orden.firma_encargado_url) || "" : "",
+      );
     },
     [bumpFormNonce, mySignatureUrl, variant, loadAdminSeguimientoFromOrden],
   );
@@ -536,7 +545,10 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
   const addEquipoFromItem = useCallback((item: InventarioItem) => {
     setFormData((prev) => ({
       ...prev,
-      equipos_inventario: addEquipoFromItemPure(prev.equipos_inventario, item),
+      equipos_inventario: addEquipoFromItemPure(
+        Array.isArray(prev.equipos_inventario) ? prev.equipos_inventario : [],
+        item,
+      ),
     }));
   }, []);
 
@@ -544,9 +556,14 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     (lineaId: string, patch: OrdenEquipoLineaPatch, stockMax?: number) => {
       setFormData((prev) => ({
         ...prev,
-        equipos_inventario: updateEquipoLinea(prev.equipos_inventario, lineaId, patch, {
-          stockMax,
-        }),
+        equipos_inventario: updateEquipoLinea(
+          Array.isArray(prev.equipos_inventario) ? prev.equipos_inventario : [],
+          lineaId,
+          patch,
+          {
+            stockMax,
+          },
+        ),
       }));
     },
     [],
@@ -555,7 +572,10 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
   const removeEquipo = useCallback((lineaId: string) => {
     setFormData((prev) => ({
       ...prev,
-      equipos_inventario: removeEquipoLinea(prev.equipos_inventario, lineaId),
+      equipos_inventario: removeEquipoLinea(
+        Array.isArray(prev.equipos_inventario) ? prev.equipos_inventario : [],
+        lineaId,
+      ),
     }));
   }, []);
 
@@ -676,6 +696,8 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         setTecnicoSignatureUrl(cached);
         return;
       }
+
+      setTecnicoSignatureUrl("");
 
       if (!isAuthenticated) return;
       try {

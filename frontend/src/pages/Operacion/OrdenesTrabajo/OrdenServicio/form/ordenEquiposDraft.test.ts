@@ -42,6 +42,29 @@ describe("ordenEquiposDraft", () => {
     expect(linea.lineaId.length).toBeGreaterThan(8);
   });
 
+  it("createEquipoLineaFromItem works when crypto.randomUUID throws (LAN http)", () => {
+    const cryptoObj = globalThis.crypto as Crypto;
+    const original = cryptoObj.randomUUID.bind(cryptoObj);
+    cryptoObj.randomUUID = () => {
+      throw new Error("secure context required");
+    };
+    try {
+      const linea = createEquipoLineaFromItem(makeItem({ id: 42 }));
+      expect(linea.inventarioItemId).toBe(42);
+      expect(linea.lineaId.startsWith("linea-42-")).toBe(true);
+    } finally {
+      cryptoObj.randomUUID = original;
+    }
+  });
+
+  it("addEquipoFromItem tolerates undefined equipos list", () => {
+    const item = makeItem({ id: 7, cantidad: 3 });
+    // @ts-expect-error defensive runtime path
+    const once = addEquipoFromItem(undefined, item);
+    expect(once).toHaveLength(1);
+    expect(once[0].inventarioItemId).toBe(7);
+  });
+
   it("addEquipoFromItem dedupes by inventarioItemId and clamps qty to stock", () => {
     const item = makeItem({ id: 3, cantidad: 2 });
     const once = addEquipoFromItem([], item);

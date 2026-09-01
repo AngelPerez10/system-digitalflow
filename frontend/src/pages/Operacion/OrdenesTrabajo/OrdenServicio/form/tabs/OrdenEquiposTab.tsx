@@ -37,16 +37,20 @@ export function OrdenEquiposTab({
   stockByItemId: stockByItemIdProp,
   onStockKnown,
 }: OrdenEquiposTabProps) {
+  const equiposSafe = useMemo(
+    () => (Array.isArray(equipos) ? equipos : []),
+    [equipos],
+  );
   const [localStock, setLocalStock] = useState<Record<number, number>>({});
   const canAdminMutate = isAdmin && !isReadOnly;
 
   const stockByItemId = { ...localStock, ...stockByItemIdProp };
 
   const itemIdsKey = useMemo(() => {
-    const ids = [...new Set(equipos.map((e) => e.inventarioItemId).filter((id) => id > 0))];
+    const ids = [...new Set(equiposSafe.map((e) => e.inventarioItemId).filter((id) => id > 0))];
     ids.sort((a, b) => a - b);
     return ids.join(",");
-  }, [equipos]);
+  }, [equiposSafe]);
 
   useEffect(() => {
     if (!itemIdsKey) return;
@@ -81,6 +85,7 @@ export function OrdenEquiposTab({
 
   const handlePick = useCallback(
     (item: InventarioItem) => {
+      if (!item || item.id == null) return;
       const stock = Math.max(0, Math.floor(Number(item.cantidad) || 0));
       setLocalStock((prev) => ({ ...prev, [item.id]: stock }));
       onStockKnown?.(item.id, stock);
@@ -98,7 +103,7 @@ export function OrdenEquiposTab({
     >
       {canAdminMutate ? <OrdenInventarioPicker onPick={handlePick} /> : null}
       <OrdenEquiposSection
-        equipos={equipos}
+        equipos={equiposSafe}
         isAdmin={isAdmin}
         canAdminMutate={canAdminMutate}
         canMarkInstalacion={canMarkInstalacion}
@@ -106,7 +111,7 @@ export function OrdenEquiposTab({
         onUpdateEquipo={onUpdateEquipo}
         onRemoveEquipo={onRemoveEquipo}
       />
-      {!isAdmin && !canMarkInstalacion && equipos.length > 0 ? (
+      {!isAdmin && !canMarkInstalacion && equiposSafe.length > 0 ? (
         <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]" role="status">
           Solo puedes consultar el estado de los equipos en esta orden.
         </p>

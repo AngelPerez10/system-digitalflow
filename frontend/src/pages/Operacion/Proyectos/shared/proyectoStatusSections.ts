@@ -1,0 +1,129 @@
+import type { ProyectoEstado, ProyectoRow } from "./proyectoTypes";
+
+export type ProyectoStatusSectionKey = "EN_PROCESO" | "PAUSADO" | "CERRADO" | "OTROS";
+
+export type ProyectoStatusSection = {
+  key: ProyectoStatusSectionKey;
+  label: string;
+  rows: ProyectoRow[];
+};
+
+export type ProyectoStatusSectionStyles = {
+  shell: string;
+  accent: string;
+  icon: string;
+  badge: string;
+  label: string;
+};
+
+const STATUS_SECTION_ORDER: {
+  key: ProyectoStatusSectionKey;
+  label: string;
+  match: (estado: string) => boolean;
+}[] = [
+  {
+    key: "EN_PROCESO",
+    label: "En proceso",
+    match: (s) => s === "en_proceso" || !s,
+  },
+  {
+    key: "PAUSADO",
+    label: "Pausados",
+    match: (s) => s === "pausado",
+  },
+  {
+    key: "CERRADO",
+    label: "Cerrados",
+    match: (s) => s === "cerrado",
+  },
+  {
+    key: "OTROS",
+    label: "Otros",
+    match: () => true,
+  },
+];
+
+export function normalizeProyectoEstado(raw: string | null | undefined): string {
+  return String(raw || "").trim().toLowerCase();
+}
+
+/** Agrupa proyectos: En proceso → Pausados → Cerrados (y otros al final). Omite secciones vacías. */
+export function groupProyectosByStatus(rows: ProyectoRow[]): ProyectoStatusSection[] {
+  const buckets: Record<ProyectoStatusSectionKey, ProyectoRow[]> = {
+    EN_PROCESO: [],
+    PAUSADO: [],
+    CERRADO: [],
+    OTROS: [],
+  };
+
+  for (const row of rows) {
+    const estado = normalizeProyectoEstado(row.estado);
+    const section =
+      STATUS_SECTION_ORDER.find((s) => s.key !== "OTROS" && s.match(estado)) ??
+      STATUS_SECTION_ORDER[STATUS_SECTION_ORDER.length - 1];
+    buckets[section.key].push(row);
+  }
+
+  return STATUS_SECTION_ORDER.map((s) => ({
+    key: s.key,
+    label: s.label,
+    rows: buckets[s.key],
+  })).filter((s) => s.rows.length > 0);
+}
+
+/**
+ * Tokens de sección con contraste AA en claro/oscuro (mismo espíritu que órdenes y cotizaciones).
+ * En proceso → cielo; Pausados → índigo; Cerrados → esmeralda.
+ */
+export function getProyectoStatusSectionStyles(key: ProyectoStatusSectionKey): ProyectoStatusSectionStyles {
+  if (key === "CERRADO") {
+    return {
+      shell:
+        "border-[#d8e8dc] bg-[#f4faf6] dark:border-emerald-500/30 dark:bg-[#0f1f18]",
+      accent: "bg-emerald-600 dark:bg-emerald-400",
+      icon: "text-emerald-700 dark:text-emerald-300",
+      badge:
+        "border-emerald-300/80 bg-emerald-100 text-emerald-900 dark:border-emerald-400/35 dark:bg-emerald-500/20 dark:text-emerald-100",
+      label: "text-[#14532d] dark:text-emerald-100",
+    };
+  }
+  if (key === "PAUSADO") {
+    return {
+      shell:
+        "border-[#d4d8f0] bg-[#f4f5fb] dark:border-indigo-500/30 dark:bg-[#14182a]",
+      accent: "bg-indigo-600 dark:bg-indigo-400",
+      icon: "text-indigo-800 dark:text-indigo-300",
+      badge:
+        "border-indigo-300/90 bg-indigo-100 text-indigo-950 dark:border-indigo-400/35 dark:bg-indigo-500/20 dark:text-indigo-100",
+      label: "text-[#312e81] dark:text-indigo-100",
+    };
+  }
+  if (key === "EN_PROCESO") {
+    return {
+      shell:
+        "border-[#cfe0f5] bg-[#f3f8fd] dark:border-sky-500/30 dark:bg-[#0f1a24]",
+      accent: "bg-sky-600 dark:bg-sky-400",
+      icon: "text-sky-800 dark:text-sky-300",
+      badge:
+        "border-sky-300/90 bg-sky-100 text-sky-950 dark:border-sky-400/35 dark:bg-sky-500/20 dark:text-sky-100",
+      label: "text-[#0c4a6e] dark:text-sky-100",
+    };
+  }
+  return {
+    shell: "border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]",
+    accent: "bg-[#a8a29e] dark:bg-[#64748b]",
+    icon: "text-[#57534e] dark:text-[#94a3b8]",
+    badge:
+      "border-[#e2d9ca] bg-white text-[#1c1917] dark:border-[#475569] dark:bg-[#1e293b] dark:text-[#e2e8f0]",
+    label: "text-[#292524] dark:text-[#e2e8f0]",
+  };
+}
+
+/** Clave de sección para un estado de proyecto conocido (útil en tests y badges). */
+export function proyectoEstadoToSectionKey(estado: ProyectoEstado | string): ProyectoStatusSectionKey {
+  const normalized = normalizeProyectoEstado(estado);
+  const section =
+    STATUS_SECTION_ORDER.find((s) => s.key !== "OTROS" && s.match(normalized)) ??
+    STATUS_SECTION_ORDER[STATUS_SECTION_ORDER.length - 1];
+  return section.key;
+}

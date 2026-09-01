@@ -28,14 +28,16 @@ import {
   sectionLabelOrangeClass,
 } from "../OrdenesTrabajo/ordenTrabajoStyles";
 import PolizaFormModal from "./form/PolizaFormModal";
+import { EstadoPolizaBadge } from "./list/EstadoPolizaBadge";
+import { PolizaPdfGlyph } from "./list/PolizaPdfGlyph";
 import { PolizasMobileList } from "./list/PolizasMobileList";
 import { PolizasPageStats } from "./list/PolizasPageStats";
-import { PolizaPdfGlyph } from "./list/PolizaPdfGlyph";
-import { polizaPdfSearchFromDraft, polizaPdfSearchFromRow } from "./list/polizaPdf";
+import { PolizaStatusSectionHeader } from "./list/PolizaStatusSectionHeader";
+import { groupPolizasByEstado } from "./list/polizaStatusSections";
+import { polizaPdfSearchFromRow } from "./list/polizaPdf";
 import {
   EMPTY_POLIZA_VALUES,
   computePolizaStats,
-  estadoPolizaBadgeClass,
   estadoPolizaLabel,
   formatPolizaFecha,
   nextPolizaIdx,
@@ -77,6 +79,7 @@ export default function PolizasMantenimientoPage() {
     () => rows.filter((row) => polizaMatchesSearch(row, searchTerm)),
     [rows, searchTerm]
   );
+  const statusSections = useMemo(() => groupPolizasByEstado(filteredRows), [filteredRows]);
   const hasSearch = Boolean(searchTerm.trim());
   const nextIdx = nextPolizaIdx(rows);
   const nextFolio = formatDocumentFolio(FOLIO_SERIE.poliza, nextIdx);
@@ -127,21 +130,6 @@ export default function PolizasMantenimientoPage() {
     navigate(`/polizas-mantenimiento/pdf?${polizaPdfSearchFromRow(row)}`, {
       state: { from: "/polizas-mantenimiento" },
     });
-  };
-
-  const openPdfFromDraft = (values: PolizaAltaValues) => {
-    const clienteLabel =
-      values.clienteNombre ||
-      editingRow?.cliente ||
-      "";
-    navigate(
-      `/polizas-mantenimiento/pdf?${polizaPdfSearchFromDraft({
-        folio: editingRow?.folio || nextFolio,
-        values,
-        clienteLabel,
-      })}`,
-      { state: { from: "/polizas-mantenimiento" } }
-    );
   };
 
   const closeModal = () => {
@@ -279,11 +267,11 @@ export default function PolizasMantenimientoPage() {
         <ComponentCard
           compact
           title="Listado de pólizas"
-          className={`!overflow-visible border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)] ${pageCardShellClass}`}
+          className={`!overflow-visible ${pageCardShellClass}`}
         >
           <div className="p-2 pt-0 sm:p-3 sm:pt-0">
             <PolizasMobileList
-              rows={filteredRows}
+              sections={statusSections}
               hasSearch={hasSearch}
               loading={loading}
               onEdit={openEdit}
@@ -335,56 +323,74 @@ export default function PolizasMantenimientoPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredRows.map((row) => (
-                      <TableRow key={row.id} className={erpTableRowHoverClass}>
-                        <TableCell className="whitespace-nowrap px-2 py-2 align-middle">
-                          <span className="inline-flex items-center rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white sm:text-[11px]">
-                            {row.folio}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-2 py-2 align-top">
-                          <span className="block truncate font-medium text-gray-900 dark:text-white sm:text-[12px]" title={row.cliente}>
-                            {row.cliente}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-2 py-2 align-top">
-                          <span className="block truncate text-gray-900 dark:text-white">{row.tipoLabel}</span>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap px-2 py-2 align-middle tabular-nums">
-                          {row.cotizacionFolio}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap px-2 py-2 align-middle tabular-nums">
-                          {formatPolizaFecha(nextVisitIso(row))}
-                        </TableCell>
-                        <TableCell className="px-2 py-2 text-center align-middle">
-                          <span className={estadoPolizaBadgeClass(row.estado)}>
-                            {estadoPolizaLabel(row.estado)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-2 py-2 text-center align-middle">
-                          <div className={`${erpRowActionBarClass} justify-center`}>
-                            <button
-                              type="button"
-                              className={`${erpRowActionBtnClass} hover:border-red-400 hover:text-red-600`}
-                              onClick={() => openPdf(row)}
-                              aria-label={`Ver plantilla PDF de la póliza ${row.folio}`}
-                              title="Ver plantilla PDF"
-                            >
-                              <PolizaPdfGlyph className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              className={erpRowActionBtnClass}
-                              onClick={() => openEdit(row)}
-                              aria-label={`Ver póliza ${row.folio}`}
-                              title="Ver póliza"
-                            >
-                              <PencilIcon className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    statusSections.flatMap((section) => {
+                      const headingId = `polizas-table-${section.key}`;
+                      const headerRow = (
+                        <TableRow key={`${section.key}-header`} className="hover:bg-transparent dark:hover:bg-transparent">
+                          <TableCell isHeader scope="colgroup" colSpan={7} className="border-y-0 bg-transparent p-0 text-left">
+                            <div className="px-2 py-2">
+                              <PolizaStatusSectionHeader
+                                estado={section.key}
+                                label={section.label}
+                                count={section.rows.length}
+                                headingId={headingId}
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+
+                      const dataRows = section.rows.map((row) => (
+                        <TableRow key={row.id} className={erpTableRowHoverClass} aria-labelledby={headingId}>
+                          <TableCell className="whitespace-nowrap px-2 py-2 align-middle">
+                            <span className="inline-flex items-center rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white sm:text-[11px]">
+                              {row.folio}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-2 py-2 align-top">
+                            <span className="block truncate font-medium text-gray-900 dark:text-white sm:text-[12px]" title={row.cliente}>
+                              {row.cliente}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-2 py-2 align-top">
+                            <span className="block truncate text-gray-900 dark:text-white">{row.tipoLabel}</span>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap px-2 py-2 align-middle tabular-nums">
+                            {row.cotizacionFolio}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap px-2 py-2 align-middle tabular-nums">
+                            {formatPolizaFecha(nextVisitIso(row))}
+                          </TableCell>
+                          <TableCell className="px-2 py-2 text-center align-middle">
+                            <EstadoPolizaBadge estado={row.estado} />
+                          </TableCell>
+                          <TableCell className="px-2 py-2 text-center align-middle">
+                            <div className={`${erpRowActionBarClass} justify-center`}>
+                              <button
+                                type="button"
+                                className={erpRowActionBtnClass}
+                                onClick={() => openEdit(row)}
+                                aria-label={`Ver póliza ${row.folio}`}
+                                title="Ver póliza"
+                              >
+                                <PencilIcon className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                className={erpRowActionBtnClass}
+                                onClick={() => openPdf(row)}
+                                aria-label={`Ver PDF de la póliza ${row.folio}`}
+                                title="Ver PDF"
+                              >
+                                <PolizaPdfGlyph className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ));
+
+                      return [headerRow, ...dataRows];
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -429,10 +435,6 @@ export default function PolizasMantenimientoPage() {
         saving={saving}
         onClose={closeModal}
         onSave={handleSave}
-        onViewTemplate={(values) => {
-          if (editingRow) openPdf(editingRow);
-          else openPdfFromDraft(values);
-        }}
       />
     </div>
   );

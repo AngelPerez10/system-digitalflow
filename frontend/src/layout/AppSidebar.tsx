@@ -17,6 +17,7 @@ import { useSidebar } from "@/context/SidebarContext";
 import { useAuth } from "@/context/AuthContext";
 import { useMarca } from "@/context/MarcaContext";
 import type { Permissions } from "@/context/authTypes";
+import { getOrdenesListPath } from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/useOrdenesPagePermissions";
 import { fetchApi } from "@/config/api";
 
 type PermissionsResponse = {
@@ -228,7 +229,12 @@ export default function AppSidebar() {
       }
       
       if (permissions?.ordenes?.view === true) {
-        subItems.push({ name: "Órdenes de Servicios", path: "/ordenes-tecnico", pro: false });
+        const ordenesPath = getOrdenesListPath(permissions, isAdmin);
+        subItems.push({
+          name: ordenesPath === "/ordenes" ? "Órdenes de trabajo" : "Órdenes de servicios",
+          path: ordenesPath,
+          pro: false,
+        });
       }
 
       if (permissions?.proyectos?.view === true) {

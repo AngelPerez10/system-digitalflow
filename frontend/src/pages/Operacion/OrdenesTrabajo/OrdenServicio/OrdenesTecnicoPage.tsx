@@ -92,6 +92,13 @@ export default function OrdenesTecnico() {
 
   const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
 
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    if (canViewAllOrdenes) {
+      navigate("/ordenes", { replace: true });
+    }
+  }, [authLoading, isAuthenticated, canViewAllOrdenes, navigate]);
+
   const [mySignatureUrl, setMySignatureUrl] = useState<string>('');
 
   useEffect(() => {
@@ -1182,7 +1189,6 @@ export default function OrdenesTecnico() {
             setFirmaClienteUrl={setFirmaClienteUrl}
             setShowMapModal={setShowMapModal}
             tecnicoSignatureUrl={tecnicoSignatureUrl}
-            mySignatureUrl={mySignatureUrl}
             maxPhotosAllowed={maxPhotosAllowed}
             getRootProps={getRootProps}
             getInputProps={getInputProps}

@@ -12,6 +12,8 @@ import {
 import { parseLoginError, type LoginSuccessPayload } from "@/config/loginErrors";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import type { Permissions } from "@/context/authTypes";
+import { getOrdenesListPath } from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/useOrdenesPagePermissions";
 
 type SignInLocationState = {
   from?: {
@@ -59,6 +61,20 @@ function ArrowIcon() {
   );
 }
 
+function resolvePostLoginPath(
+  isAdmin: boolean,
+  permissions: Permissions,
+  from?: string | null,
+): string {
+  if (isAdmin) {
+    return from && from !== "/" ? from : "/";
+  }
+  if (permissions?.ordenes?.view === true) {
+    return getOrdenesListPath(permissions, false);
+  }
+  return "/";
+}
+
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState<boolean>(false);
@@ -69,13 +85,13 @@ export default function SignInForm() {
   const [authReady, setAuthReady] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { refresh: refreshAuth, applyLoginSession, user } = useAuth();
+  const { refresh: refreshAuth, applyLoginSession, user, permissions } = useAuth();
 
   useEffect(() => {
     if (user?.username) {
       const isAdmin = user.is_superuser || user.is_staff;
       const from = (location.state as SignInLocationState | null)?.from?.pathname;
-      navigate(isAdmin ? from || "/" : "/ordenes-tecnico", { replace: true });
+      navigate(resolvePostLoginPath(isAdmin, permissions, from), { replace: true });
       return;
     }
     setAuthReady(true);
@@ -99,8 +115,8 @@ export default function SignInForm() {
       setMessage(null);
       const isAdmin = data.is_superuser || data.is_staff;
       const from = (location.state as SignInLocationState | null)?.from?.pathname;
-      const to = isAdmin ? (from && from !== "/" ? from : "/") : "/ordenes-tecnico";
-      navigate(to, { replace: true });
+      const loginPerms = (data.permissions as Permissions) ?? permissions;
+      navigate(resolvePostLoginPath(isAdmin, loginPerms, from), { replace: true });
     } catch (err: unknown) {
       setMessage(err instanceof Error ? err.message : "Error");
     } finally {

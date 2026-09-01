@@ -126,19 +126,19 @@ export async function searchProductosPageCatalog(
   rows.push(...manuals);
 
   if (settled[1].status === "fulfilled") {
-    for (const p of settled[1].value.productos) {
+    for (const p of settled[1].value.productos ?? []) {
       const row = fromSyscom(p, "syscom");
       if (row) rows.push(row);
     }
   }
   if (settled[2].status === "fulfilled") {
-    for (const p of settled[2].value.productos) {
+    for (const p of settled[2].value.productos ?? []) {
       const row = fromSyscom({ ...p, fuente: p.fuente || "tvc" }, "tvc");
       if (row) rows.push(row);
     }
   }
   if (settled[3].status === "fulfilled") {
-    for (const c of settled[3].value) {
+    for (const c of settled[3].value ?? []) {
       const fuente: CatalogFuenteOrden =
         c.fuente === "tvc" ? "tvc" : c.fuente === "manual" ? "manual" : "syscom";
       if (c.fuente === "desconocido") continue;
@@ -149,7 +149,7 @@ export async function searchProductosPageCatalog(
         nombre: c.nombre || c.modelo,
         marca: c.marca,
         modelo: c.modelo,
-        imagenUrl: c.imagen_url,
+        imagenUrl: c.imagen_url || "",
       });
     }
   }
@@ -168,5 +168,8 @@ export async function registrarCatalogoComoInventario(
     marca: producto.marca,
     imagen_url: producto.imagenUrl,
   });
+  if (!item || item.id == null) {
+    throw new Error("El inventario no devolvió el producto registrado.");
+  }
   return item;
 }

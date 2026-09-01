@@ -51,7 +51,6 @@ export type OrdenClienteTabProps = {
   setFirmaClienteUrl: (signature: string) => void;
   setShowMapModal: (open: boolean) => void;
   tecnicoSignatureUrl: string;
-  mySignatureUrl: string;
   maxPhotosAllowed: number;
   getRootProps: <T extends DropzoneRootProps>(props?: T) => T;
   getInputProps: <T extends DropzoneInputProps>(props?: T) => T;
@@ -97,7 +96,6 @@ export function OrdenClienteTab({
   setFirmaClienteUrl,
   setShowMapModal,
   tecnicoSignatureUrl,
-  mySignatureUrl,
   maxPhotosAllowed,
   getRootProps,
   getInputProps,
@@ -510,7 +508,7 @@ export function OrdenClienteTab({
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <SignaturePad
               label="Firma del Encargado"
-              value={tecnicoSignatureUrl || mySignatureUrl || formData.firma_encargado_url}
+              value={formData.tecnico_asignado != null ? tecnicoSignatureUrl : ""}
               disabled
               onChange={() => {}}
               width={400}

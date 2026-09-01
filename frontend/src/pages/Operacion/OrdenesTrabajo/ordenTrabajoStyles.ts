@@ -16,10 +16,16 @@ export {
   erpTextareaLikeClass,
 } from "@/layout/erpPageStyles";
 
-import { erpCardShellClass, erpInputLikeClass, erpSearchInputClass } from "@/layout/erpPageStyles";
+import { erpInputLikeClass, erpSearchInputClass } from "@/layout/erpPageStyles";
 
-/** Alias para páginas de listado (misma shell que Cotizaciones). */
-export const pageCardShellClass = erpCardShellClass;
+/**
+ * Shell de tarjeta para páginas de listado del módulo Operación (Órdenes, Proyectos,
+ * Reportes, Pólizas). Superficie propia, un tono más clara que el canvas oscuro
+ * (#0f172a) — el shell compartido (`erpCardShellClass`, #111827) queda casi
+ * indistinguible del fondo en modo oscuro.
+ */
+export const pageCardShellClass =
+  "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#334155] dark:bg-[#141b2d] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_30px_80px_-45px_rgba(0,0,0,0.7)]";
 export const pageSearchInputClass = erpSearchInputClass;
 
 export const sectionLabelOrangeClass =

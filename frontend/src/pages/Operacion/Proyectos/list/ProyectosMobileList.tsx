@@ -6,7 +6,9 @@ import {
   estadoProyectoLabel,
 } from "../shared/proyectoFormUtils";
 import { formatProyectoFecha, proyectoOrigenBadgeClass } from "../shared/proyectoPageStyles";
+import type { ProyectoStatusSection } from "../shared/proyectoStatusSections";
 import type { ProyectoRow } from "../shared/proyectoTypes";
+import { ProyectoStatusSectionHeader } from "./ProyectoStatusSectionHeader";
 
 const actionBtnClass =
   "inline-flex h-10 w-10 min-h-[40px] min-w-[40px] items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] transition hover:border-[#ff801f] hover:text-[#ea580c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]";
@@ -23,7 +25,7 @@ function ProyectoPdfGlyph({ className }: { className?: string }) {
 }
 
 type Props = {
-  rows: ProyectoRow[];
+  sections: ProyectoStatusSection[];
   loading?: boolean;
   hasSearch: boolean;
   canEdit: boolean;
@@ -57,8 +59,131 @@ function teamLabel(row: ProyectoRow): { tecnico: string; auxiliar: string } {
   return { tecnico, auxiliar };
 }
 
+function ProyectoCard({
+  row,
+  canEdit,
+  canDelete,
+  onEdit,
+  onDelete,
+  onPdf,
+  onEnviarPdf,
+}: {
+  row: ProyectoRow;
+  canEdit: boolean;
+  canDelete: boolean;
+  onEdit: (row: ProyectoRow) => void;
+  onDelete: (row: ProyectoRow) => void;
+  onPdf: (row: ProyectoRow) => void;
+  onEnviarPdf: (row: ProyectoRow) => void;
+}) {
+  const team = teamLabel(row);
+  return (
+    <li className="rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-[0_12px_32px_-24px_rgba(28,25,23,0.25)] dark:border-[#273244] dark:bg-[#111827]/80">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white">
+              {displayProyectoFolio(row.folio)}
+            </span>
+            <span className={estadoProyectoBadgeClass(row.estado)}>
+              {estadoProyectoLabel(row.estado)}
+            </span>
+          </div>
+          <p className="mt-2 truncate text-sm font-semibold text-[#1c1917] dark:text-white" title={row.cliente}>
+            {row.cliente}
+          </p>
+          <p className="mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+            {formatProyectoFecha(row.fecha)}
+          </p>
+        </div>
+        {row.equiposTotal > 0 ? (
+          <p className="shrink-0 text-right text-xs font-semibold tabular-nums text-[#1c1917] dark:text-white">
+            {row.equiposEntregados}/{row.equiposTotal}
+            <span className="mt-0.5 block text-[10px] font-medium text-[#78716c] dark:text-[#8ea0b8]">
+              equipos
+            </span>
+          </p>
+        ) : null}
+      </div>
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[#e7ded0] pt-3 text-[11px] dark:border-[#273244]">
+        <div>
+          <dt className="text-[#78716c] dark:text-[#8ea0b8]">Técnico</dt>
+          <dd className="mt-0.5 truncate font-medium text-[#1c1917] dark:text-white">{team.tecnico}</dd>
+        </div>
+        <div>
+          <dt className="text-[#78716c] dark:text-[#8ea0b8]">Auxiliar</dt>
+          <dd className="mt-0.5 truncate font-medium text-[#1c1917] dark:text-white">{team.auxiliar}</dd>
+        </div>
+        <div className="col-span-2">
+          <dt className="text-[#78716c] dark:text-[#8ea0b8]">Cotización</dt>
+          <dd className="mt-0.5 font-medium text-[#1c1917] dark:text-white">
+            {row.cotizacionFolio === "—" ? (
+              "—"
+            ) : (
+              <>
+                <span className={proyectoOrigenBadgeClass(row.cotizacionOrigen)}>
+                  {row.cotizacionOrigen === "digitalflow" ? "DF" : "SICAR"}
+                </span>
+                <span className="ml-1.5 tabular-nums">
+                  {row.cotizacionesCount > 1
+                    ? row.cotizacionFolio
+                    : displayCotizacionFolio(row.cotizacionFolio, row.cotizacionOrigen)}
+                </span>
+              </>
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-[#e7ded0] pt-3 dark:border-[#273244]">
+        <button
+          type="button"
+          className={`${actionBtnClass} hover:border-red-400 hover:text-red-600`}
+          onClick={() => onPdf(row)}
+          aria-label={`Ver PDF del proyecto ${displayProyectoFolio(row.folio)}`}
+          title="Ver PDF"
+        >
+          <ProyectoPdfGlyph className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className={`${actionBtnClass} hover:border-sky-400 hover:text-sky-600`}
+          onClick={() => onEnviarPdf(row)}
+          aria-label={`Enviar PDF del proyecto ${displayProyectoFolio(row.folio)} por correo`}
+          title="Enviar PDF por correo"
+        >
+          <MailIcon className="h-4 w-4" />
+        </button>
+        {canEdit ? (
+          <button
+            type="button"
+            className={actionBtnClass}
+            onClick={() => onEdit(row)}
+            aria-label={`Editar proyecto ${displayProyectoFolio(row.folio)}`}
+            title="Editar"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
+        ) : null}
+        {canDelete ? (
+          <button
+            type="button"
+            className={`${actionBtnClass} hover:border-rose-400 hover:text-rose-600`}
+            onClick={() => onDelete(row)}
+            aria-label={`Eliminar proyecto ${displayProyectoFolio(row.folio)}`}
+            title="Eliminar"
+          >
+            <TrashBinIcon className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
 export function ProyectosMobileList({
-  rows,
+  sections,
   loading = false,
   hasSearch,
   canEdit,
@@ -76,7 +201,7 @@ export function ProyectosMobileList({
     );
   }
 
-  if (rows.length === 0) {
+  if (sections.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-[#78716c] dark:text-[#8ea0b8] md:hidden">
         {hasSearch
@@ -87,116 +212,35 @@ export function ProyectosMobileList({
   }
 
   return (
-    <ul className="space-y-3 md:hidden" aria-label="Listado de proyectos">
-      {rows.map((row) => {
-        const team = teamLabel(row);
+    <div className="space-y-5 md:hidden" aria-label="Listado de proyectos">
+      {sections.map((section) => {
+        const headingId = `proyectos-mobile-${section.key}`;
         return (
-          <li
-            key={row.id}
-            className="rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-[0_12px_32px_-24px_rgba(28,25,23,0.25)] dark:border-[#273244] dark:bg-[#111827]/80"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white">
-                    {displayProyectoFolio(row.folio)}
-                  </span>
-                  <span className={estadoProyectoBadgeClass(row.estado)}>
-                    {estadoProyectoLabel(row.estado)}
-                  </span>
-                </div>
-                <p className="mt-2 truncate text-sm font-semibold text-[#1c1917] dark:text-white" title={row.cliente}>
-                  {row.cliente}
-                </p>
-                <p className="mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">
-                  {formatProyectoFecha(row.fecha)}
-                </p>
-              </div>
-              {row.equiposTotal > 0 ? (
-                <p className="shrink-0 text-right text-xs font-semibold tabular-nums text-[#1c1917] dark:text-white">
-                  {row.equiposEntregados}/{row.equiposTotal}
-                  <span className="mt-0.5 block text-[10px] font-medium text-[#78716c] dark:text-[#8ea0b8]">
-                    equipos
-                  </span>
-                </p>
-              ) : null}
-            </div>
-
-            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[#e7ded0] pt-3 text-[11px] dark:border-[#273244]">
-              <div>
-                <dt className="text-[#78716c] dark:text-[#8ea0b8]">Técnico</dt>
-                <dd className="mt-0.5 truncate font-medium text-[#1c1917] dark:text-white">{team.tecnico}</dd>
-              </div>
-              <div>
-                <dt className="text-[#78716c] dark:text-[#8ea0b8]">Auxiliar</dt>
-                <dd className="mt-0.5 truncate font-medium text-[#1c1917] dark:text-white">{team.auxiliar}</dd>
-              </div>
-              <div className="col-span-2">
-                <dt className="text-[#78716c] dark:text-[#8ea0b8]">Cotización</dt>
-                <dd className="mt-0.5 font-medium text-[#1c1917] dark:text-white">
-                  {row.cotizacionFolio === "—" ? (
-                    "—"
-                  ) : (
-                    <>
-                      <span className={proyectoOrigenBadgeClass(row.cotizacionOrigen)}>
-                        {row.cotizacionOrigen === "digitalflow" ? "DF" : "SICAR"}
-                      </span>
-                      <span className="ml-1.5 tabular-nums">
-                        {row.cotizacionesCount > 1
-                          ? row.cotizacionFolio
-                          : displayCotizacionFolio(row.cotizacionFolio, row.cotizacionOrigen)}
-                      </span>
-                    </>
-                  )}
-                </dd>
-              </div>
-            </dl>
-
-            <div className="mt-3 flex flex-wrap gap-2 border-t border-[#e7ded0] pt-3 dark:border-[#273244]">
-              <button
-                type="button"
-                className={`${actionBtnClass} hover:border-red-400 hover:text-red-600`}
-                onClick={() => onPdf(row)}
-                aria-label={`Ver PDF del proyecto ${displayProyectoFolio(row.folio)}`}
-                title="Ver PDF"
-              >
-                <ProyectoPdfGlyph className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className={`${actionBtnClass} hover:border-sky-400 hover:text-sky-600`}
-                onClick={() => onEnviarPdf(row)}
-                aria-label={`Enviar PDF del proyecto ${displayProyectoFolio(row.folio)} por correo`}
-                title="Enviar PDF por correo"
-              >
-                <MailIcon className="h-4 w-4" />
-              </button>
-              {canEdit ? (
-                <button
-                  type="button"
-                  className={actionBtnClass}
-                  onClick={() => onEdit(row)}
-                  aria-label={`Editar proyecto ${displayProyectoFolio(row.folio)}`}
-                  title="Editar"
-                >
-                  <PencilIcon className="h-4 w-4" />
-                </button>
-              ) : null}
-              {canDelete ? (
-                <button
-                  type="button"
-                  className={`${actionBtnClass} hover:border-rose-400 hover:text-rose-600`}
-                  onClick={() => onDelete(row)}
-                  aria-label={`Eliminar proyecto ${displayProyectoFolio(row.folio)}`}
-                  title="Eliminar"
-                >
-                  <TrashBinIcon className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
-          </li>
+          <section key={section.key} aria-labelledby={headingId}>
+            <ProyectoStatusSectionHeader
+              statusKey={section.key}
+              label={section.label}
+              count={section.rows.length}
+              headingId={headingId}
+              as="h2"
+            />
+            <ul className="mt-2.5 space-y-2.5">
+              {section.rows.map((row) => (
+                <ProyectoCard
+                  key={row.id}
+                  row={row}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onPdf={onPdf}
+                  onEnviarPdf={onEnviarPdf}
+                />
+              ))}
+            </ul>
+          </section>
         );
       })}
-    </ul>
+    </div>
   );
 }
