@@ -85,10 +85,23 @@ pytest-report.html
 
 # ---- Local agent / SDD / docs (no subir a GitHub) ----
 .agents/
+.claude/
 .codex/
 .cursor/
+.impeccable/
 .superpowers/
 .worktrees/
 docs/
+skills-lock.json
+skills.lock
+promt-mobile.md
 
 # Fin
+
+# ---- App móvil (Expo) ----
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/dist-smoke/
+mobile/.env
+mobile/expo-env.d.ts
