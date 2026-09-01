@@ -1,5 +1,7 @@
 import logging
+import os
 from datetime import datetime, time
+from time import monotonic
 
 from django.db import IntegrityError, transaction
 from django.db.models import Case, Count, IntegerField, Q, Sum, Value, When
@@ -41,6 +43,22 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _seccion_backfill_budget_s() -> float:
+    """Segundos máximos que el listado puede gastar rellenando secciones.
+
+    El backfill llama a SYSCOM/TVC (hasta 15 s por producto). Sin tope, cinco
+    productos podían bloquear un worker ~75 s — más que el timeout de Gunicorn
+    (30 s), tumbando el listado completo si el proveedor se pone lento.
+    `0` desactiva el backfill en caliente (queda `POST /sincronizar-secciones/`).
+    """
+    raw = (os.environ.get('INVENTARIO_SECCION_BACKFILL_BUDGET_S', '') or '').strip()
+    try:
+        return max(0.0, float(raw)) if raw else 3.0
+    except ValueError:
+        return 3.0
+
 
 ENRICHMENT_FIELDS = (
     'nombre',
@@ -228,8 +246,9 @@ class InventarioItemListView(APIView):
         page = paginator.paginate_queryset(queryset, request)
         if page is not None:
             filled = 0
+            deadline = monotonic() + _seccion_backfill_budget_s()
             for item in page:
-                if filled >= 5:
+                if filled >= 5 or monotonic() >= deadline:
                     break
                 if item.seccion:
                     continue
@@ -240,7 +259,10 @@ class InventarioItemListView(APIView):
 
         # Fallback sin paginación (no debería ocurrir con PageNumberPagination).
         filled = 0
+        deadline = monotonic() + _seccion_backfill_budget_s()
         for item in queryset[:5]:
+            if monotonic() >= deadline:
+                break
             if item.seccion:
                 continue
             if aplicar_seccion_desde_catalogo(item):

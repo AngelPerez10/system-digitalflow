@@ -31,6 +31,24 @@ def normalize_csd_password(password: str) -> str:
     return str(password or "").strip().strip("\x00")
 
 
+def _der_declared_length(raw: bytes) -> int | None:
+    """Longitud real de un DER SEQUENCE (header + contenido), o None si no lo es.
+
+    Permite recortar el padding de columnas BINARY de MySQL sin truncar la
+    llave: un `.strip()` de bytes borra 0x09-0x0d y 0x20, y un DER que termine
+    por azar en alguno de esos bytes quedaba corrupto (~2.7% de las llaves).
+    """
+    if len(raw) < 2 or raw[0] != 0x30:
+        return None
+    first = raw[1]
+    if first < 0x80:
+        return 2 + first
+    n_bytes = first & 0x7F
+    if n_bytes == 0 or n_bytes > 4 or len(raw) < 2 + n_bytes:
+        return None
+    return 2 + n_bytes + int.from_bytes(raw[2:2 + n_bytes], "big")
+
+
 def normalize_csd_blob(value) -> bytes:
     """Convierte fCer/fKey de MySQL a bytes sin alterar DER/PEM."""
     if value is None:
@@ -49,6 +67,11 @@ def normalize_csd_blob(value) -> bytes:
             return text.encode("latin-1")
     else:
         raw = bytes(value)
+    # DER: recortar exactamente a la longitud declarada (nunca por contenido).
+    declared = _der_declared_length(raw)
+    if declared is not None and 0 < declared <= len(raw):
+        return raw[:declared]
+    # PEM u otro formato de texto: el strip sí es seguro.
     return raw.strip(b"\x00").strip()
 
 

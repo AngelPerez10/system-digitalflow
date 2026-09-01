@@ -10,7 +10,6 @@ from rest_framework.test import APIClient
 from apps.operacion.wialon_client import purge_blocked_accounts
 from apps.users.models import UserPermissions
 
-
 User = get_user_model()
 
 

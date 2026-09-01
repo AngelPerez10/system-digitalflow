@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from apps.users.permissions import CuentasAntarixPermission
 
 from .wialon_client import (
+    WIALON_BLOCKED_PURGE_DAYS_DEFAULT,
     WialonError,
     fetch_units_search_index,
     fetch_user_units,
@@ -14,7 +15,6 @@ from .wialon_client import (
     invalidate_wialon_cache,
     purge_blocked_accounts,
     update_wialon_user,
-    WIALON_BLOCKED_PURGE_DAYS_DEFAULT,
 )
 
 logger = logging.getLogger(__name__)

@@ -4,9 +4,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.common.document_folio import FOLIO_SERIE_PRJ, resolve_document_folio
+from apps.common.document_folio import FOLIO_SERIE_COT, FOLIO_SERIE_PRJ, resolve_document_folio
 from apps.common.marca import logo_data_uri_for_pdf
-from apps.common.pdf_html import esc, load_public_image_data_uri
+from apps.common.pdf_html import esc
 from apps.common.pdf_images import embed_remote_images
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,11 @@ _STATUS_STYLES = {
     "en_proceso": ("#dbeafe", "#93c5fd", "#1e40af"),
     "pausado": ("#fef3c7", "#fcd34d", "#92400e"),
     "cerrado": ("#dcfce7", "#86efac", "#166534"),
+}
+
+_ORIGEN_LABELS = {
+    "digitalflow": "DigitalFlow",
+    "sicar": "SICAR",
 }
 
 
@@ -161,6 +166,117 @@ def _nota_fotos(item: dict) -> list[str]:
     return urls
 
 
+def _display_cotizacion_folio(folio: Any, origen: str) -> str:
+    origen_norm = str(origen or "digitalflow").strip().lower()
+    raw = str(folio or "").strip()
+    if not raw:
+        return "-"
+    if origen_norm == "sicar":
+        return raw
+    return resolve_document_folio(FOLIO_SERIE_COT, raw, raw, empty="-")
+
+
+def _normalize_cotizacion_adjunta(
+    cot: dict,
+    *,
+    orden: int | None = None,
+    es_adicional: bool = False,
+) -> dict[str, Any] | None:
+    if not isinstance(cot, dict):
+        return None
+    folio_raw = cot.get("folio")
+    cot_id = str(cot.get("id") or "").strip()
+    if not folio_raw and not cot_id:
+        return None
+    origen = str(cot.get("origen") or "digitalflow").strip().lower()
+    contacto = str(cot.get("contacto") or "").strip()
+    return {
+        "orden": orden,
+        "folio": _display_cotizacion_folio(folio_raw, origen),
+        "origen": _ORIGEN_LABELS.get(origen, origen.upper() or "DigitalFlow"),
+        "cliente": str(cot.get("cliente") or "").strip(),
+        "fecha": _fmt_date(cot.get("fecha")),
+        "contacto": contacto,
+        "es_adicional": es_adicional,
+    }
+
+
+def _cotizaciones_adjuntas(proyecto) -> list[dict[str, Any]]:
+    """Cotizaciones vinculadas al proyecto (sin montos ni partidas)."""
+    entries: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    bloques = getattr(proyecto, "cotizaciones", None)
+    if isinstance(bloques, list):
+        for bloque in bloques:
+            if not isinstance(bloque, dict):
+                continue
+            cot = bloque.get("cotizacion")
+            if not isinstance(cot, dict):
+                continue
+            try:
+                orden = int(bloque.get("orden") or len(entries) + 1)
+            except (TypeError, ValueError):
+                orden = len(entries) + 1
+            row = _normalize_cotizacion_adjunta(cot, orden=orden)
+            if not row:
+                continue
+            key = (row["folio"], row["origen"])
+            if key in seen:
+                continue
+            seen.add(key)
+            entries.append(row)
+
+    adicional = getattr(proyecto, "cotizacion_adicional", None)
+    if isinstance(adicional, dict):
+        row = _normalize_cotizacion_adjunta(adicional, es_adicional=True)
+        if row:
+            key = (row["folio"], row["origen"])
+            if key not in seen:
+                seen.add(key)
+                entries.append(row)
+
+    return entries
+
+
+def _render_cotizaciones_adjuntas_html(entries: list[dict[str, Any]]) -> str:
+    if not entries:
+        return "<div class='muted'>Sin cotizaciones vinculadas.</div>"
+
+    rows: list[str] = []
+    for row in entries:
+        if row.get("es_adicional"):
+            num_cell = "Adicional"
+        else:
+            num_cell = str(row.get("orden") or "-")
+        contacto = row.get("contacto") or "-"
+        cliente = row.get("cliente") or "-"
+        rows.append(
+            "<tr>"
+            f"<td class='cot-num'>{esc(num_cell)}</td>"
+            f"<td class='cot-folio'><b>{esc(row.get('folio') or '-')}</b></td>"
+            f"<td>{esc(row.get('origen') or '-')}</td>"
+            f"<td class='cot-date'>{esc(row.get('fecha') or '-')}</td>"
+            f"<td>{esc(cliente)}</td>"
+            f"<td>{esc(contacto)}</td>"
+            "</tr>"
+        )
+
+    return (
+        "<table class='cot-table'>"
+        "<thead><tr>"
+        "<th scope='col'>#</th>"
+        "<th scope='col'>Folio</th>"
+        "<th scope='col'>Origen</th>"
+        "<th scope='col'>Fecha</th>"
+        "<th scope='col'>Cliente</th>"
+        "<th scope='col'>Contacto</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody>"
+        "</table>"
+    )
+
+
 def _bitacora_entries(notas: Any, fechas_inicio: list[Any]) -> list[dict[str, Any]]:
     items = notas if isinstance(notas, list) else []
     entries: list[dict[str, Any]] = []
@@ -263,6 +379,9 @@ def generate_proyecto_pdf_html(proyecto) -> str:
     if not isinstance(fechas_inicio, list):
         fechas_inicio = []
     fecha_inicio_txt, fecha_fin_txt = _fecha_extremos(fechas_inicio)
+
+    cotizaciones_adjuntas = _cotizaciones_adjuntas(proyecto)
+    cotizaciones_html = _render_cotizaciones_adjuntas_html(cotizaciones_adjuntas)
 
     bitacora = _bitacora_entries(getattr(proyecto, "notas_por_dia", None), fechas_inicio)
     evidencias = getattr(proyecto, "evidencias_urls", None)
@@ -485,6 +604,17 @@ def generate_proyecto_pdf_html(proyecto) -> str:
       .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; }}
       .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 10px; color: var(--muted); }}
       .sigline b {{ font-weight: 700; color: var(--text); }}
+      .cot-table {{ width: 100%; border-collapse: collapse; font-size: 10px; }}
+      .cot-table th, .cot-table td {{
+        border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top;
+      }}
+      .cot-table th {{
+        background: var(--blue-50); color: var(--blue-900); font-size: 9px;
+        letter-spacing: .4px; text-transform: uppercase;
+      }}
+      .cot-table .cot-num {{ width: 52px; text-align: center; }}
+      .cot-table .cot-folio {{ white-space: nowrap; }}
+      .cot-table .cot-date {{ white-space: nowrap; }}
     </style>
   </head>
   <body>
@@ -578,6 +708,11 @@ def generate_proyecto_pdf_html(proyecto) -> str:
               </div>
             </div>
           </div>
+        </div>
+
+        <div class='section'>
+          <div class='section-title'>Cotizaciones adjuntas</div>
+          <div class='box'>{cotizaciones_html}</div>
         </div>
 
         <div class='section'>

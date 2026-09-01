@@ -192,11 +192,11 @@ class SicarFacturasListView(APIView):
     def get(self, request):
         try:
             page = max(1, int(request.query_params.get("page", "1")))
-        except Exception:
+        except (TypeError, ValueError):
             page = 1
         try:
             page_size = max(1, min(int(request.query_params.get("page_size", "25")), 500))
-        except Exception:
+        except (TypeError, ValueError):
             page_size = 25
 
         offset = (page - 1) * page_size
@@ -368,7 +368,7 @@ class SicarClientesSearchView(APIView):
         q = (request.query_params.get("q") or "").strip()
         try:
             limit = max(1, min(int(request.query_params.get("limit", "25")), 100))
-        except Exception:
+        except (TypeError, ValueError):
             limit = 25
         conn = None
         try:

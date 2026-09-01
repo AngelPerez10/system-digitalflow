@@ -156,6 +156,72 @@ class ProyectosSmokeTests(APITestCase):
         self.assertNotIn("Otros técnicos", body)
         self.assertNotIn("Auxiliares", body)
         self.assertNotIn("$", body)
+        self.assertIn("Cotizaciones adjuntas", body)
+        self.assertIn("Sin cotizaciones vinculadas.", body)
+
+    def test_proyecto_pdf_lists_cotizaciones_adjuntas(self):
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Cliente cotizaciones PDF",
+                "status": "en_proceso",
+                "cotizaciones": [
+                    {
+                        "vinculoId": "vin-1",
+                        "orden": 1,
+                        "cotizacion": {
+                            "id": "df-1",
+                            "origen": "digitalflow",
+                            "folio": "10001",
+                            "cliente": "Cliente cotizaciones PDF",
+                            "fecha": "2026-07-01",
+                            "contacto": "Ana López",
+                        },
+                        "lineas": [],
+                    },
+                    {
+                        "vinculoId": "vin-2",
+                        "orden": 2,
+                        "cotizacion": {
+                            "id": "sicar-9",
+                            "origen": "sicar",
+                            "folio": "SIC-9",
+                            "cliente": "Cliente cotizaciones PDF",
+                            "fecha": "2026-07-04",
+                        },
+                        "lineas": [],
+                    },
+                ],
+                "cotizacion_adicional": {
+                    "id": "df-99",
+                    "origen": "digitalflow",
+                    "folio": "10099",
+                    "cliente": "Cliente cotizaciones PDF",
+                    "fecha": "2026-08-01",
+                    "contacto": "Presupuesto extra",
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
+        proyecto_id = create_res.data["id"]
+
+        from unittest.mock import patch
+
+        with patch("apps.operacion.views.any_provider_configured", return_value=False):
+            pdf_res = self.client.get(f"/api/proyectos/{proyecto_id}/pdf/")
+        self.assertEqual(pdf_res.status_code, status.HTTP_200_OK, pdf_res.content[:500])
+        body = pdf_res.content.decode("utf-8", errors="replace")
+        self.assertIn("Cotizaciones adjuntas", body)
+        self.assertIn("COT-10001", body)
+        self.assertIn("SIC-9", body)
+        self.assertIn("DigitalFlow", body)
+        self.assertIn("SICAR", body)
+        self.assertIn("Ana López", body)
+        self.assertIn("COT-10099", body)
+        self.assertIn("Adicional", body)
+        self.assertIn("01/07/2026", body)
+        self.assertNotIn("$", body)
 
     def test_reject_invalid_close_without_cotizacion_adicional(self):
         create_res = self.client.post(

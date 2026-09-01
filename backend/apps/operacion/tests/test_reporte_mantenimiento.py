@@ -2,8 +2,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.ordenes.models import Orden
 from apps.operacion.models import ReporteMantenimiento
+from apps.ordenes.models import Orden
 
 User = get_user_model()
 

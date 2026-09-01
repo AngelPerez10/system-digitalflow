@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Max
 
@@ -125,9 +126,20 @@ class CotizacionItem(models.Model):
     # URLs de CDN/Syscom pueden superar 200 caracteres; CharField evita el límite estricto de URLField.
     thumbnail_url = models.CharField(max_length=512, blank=True, default='')
 
-    cantidad = models.DecimalField(max_digits=12, decimal_places=2, default=1)
-    precio_lista = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    descuento_pct = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Rangos validados: un payload malformado producía subtotales negativos
+    # que el backend aceptaba y acababan impresos en el PDF oficial.
+    cantidad = models.DecimalField(
+        max_digits=12, decimal_places=2, default=1,
+        validators=[MinValueValidator(0)],
+    )
+    precio_lista = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        validators=[MinValueValidator(0)],
+    )
+    descuento_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
     # True = no aplicar IVA en esta línea (concepto: no ×1.16; producto: quitar 16% del precio con IVA).
     sin_iva = models.BooleanField(default=False)
 

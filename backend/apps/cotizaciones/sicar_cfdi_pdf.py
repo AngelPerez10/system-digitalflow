@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from apps.common.marca import logo_data_uri_for_pdf
-from apps.common.pdf_html import esc, load_public_image_data_uri, normalize_text
+from apps.common.pdf_html import esc, normalize_text
 
 _TIPO_COMPROBANTE = {
     "I": "I-Ingreso",
