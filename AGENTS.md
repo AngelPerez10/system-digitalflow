@@ -16,9 +16,20 @@ Flujo obligatorio: resolver primero el library ID con Context7 y luego consultar
 
 - **Backend**: Django 5 + DRF en `backend/`. Apps por dominio (`cotizaciones`, `ordenes`, `clientes`, `users`, …).
 - **Frontend**: React 19 + TypeScript + Vite en `frontend/`. Rutas en `src/App.tsx`, layout en `src/layout/`.
+- **App móvil**: Expo (React Native) + TypeScript en `mobile/`. App de técnicos (órdenes de trabajo) sobre la **misma** API Django. Ver «App móvil» abajo.
 - **Configuración**: pestaña al pie del sidebar. Gestión de usuarios vive en `frontend/src/pages/Configuracion/GestionUsuario.tsx` (ruta `/usuarios`, admin o `usuarios.view`). Ajustes generales (nombre y logo de la empresa) en `frontend/src/pages/Configuracion/AjustesGeneralesPage.tsx` (ruta `/configuracion`, admin). API pública `GET /api/v1/marca/` (si falta la tabla, 200 con default); `PATCH` y `POST /api/v1/marca/logo/` son admin. El logo público es solo HTTP(S), no `data:`. Modelo `MarcaSistema` en `apps.common`.
 - **Auth**: cookies HttpOnly + CSRF. Usar siempre `fetchApi` de `src/config/api.ts` — no `localStorage.getItem("token")` ni `fetch` crudo para API autenticada.
+- **Auth móvil**: la app nativa usa **Bearer + SecureStore**, no cookies. `POST /api/login/` y `POST /api/token/refresh/` incluyen `refresh` en el JSON **solo** cuando la petición se identifica como móvil (`X-Client: mobile` o `client: "mobile"`; ver `_is_mobile_client` en `apps/users/views.py`). El web mantiene el refresh únicamente en cookie HttpOnly. No quitar esa frontera: los tests `apps/users/tests/test_mobile_login.py` la fijan.
 - **API**: las rutas nuevas deben preferir `/api/v1/`. El prefijo legado `/api/` se mantiene por compatibilidad; no eliminarlo sin plan de migración frontend/clientes.
+
+### Storages (Django 5.2)
+
+`backend/config/settings.py` configura storages **solo** por el dict `STORAGES`. `STATICFILES_STORAGE` y `DEFAULT_FILE_STORAGE` se eliminaron en Django 5.1: si alguien los reintroduce, Django los ignora en silencio (no fallan, simplemente no hacen nada).
+
+- **Definir `STORAGES` sobrescribe el default completo — no hay merge.** Las dos claves (`default` y `staticfiles`) son obligatorias; omitir una revienta con `InvalidStorageError: Could not find config for '<alias>' in settings.STORAGES`. ([docs](https://docs.djangoproject.com/en/5.2/ref/settings/#storages))
+- `staticfiles`: `whitenoise.storage.CompressedManifestStaticFilesStorage` en producción (compresión + manifest/cache-busting), `StaticFilesStorage` plano en `DEBUG` para no exigir `collectstatic` en cada cambio.
+- `default` (media): `FileSystemStorage`. **Cloudinary no es un backend de storage aquí** — `cloudinary_storage` no está en `INSTALLED_APPS` y todas las subidas van directo por el SDK (`cloudinary.uploader.upload`, ver `apps/ordenes/image_services.py`). `django-cloudinary-storage` queda en `requirements.txt` solo como dependencia arrastrada; no cambiar `default` a Cloudinary sin migrar los `FileField`.
+- Con manifest activo, todo `{% static %}` debe apuntar a un archivo que exista en `STATIC_ROOT` tras `collectstatic`, o el render falla con `Missing staticfiles manifest entry for…`. Hoy no hay plantillas propias (`TEMPLATES.DIRS` vacío), solo admin y DRF.
 
 ### Plantilla de feature pages (programa arquitectura)
 
@@ -78,7 +89,7 @@ pnpm exec eslint src         # ver alcance CI abajo
 ```bash
 cd backend
 ruff check apps              # imports, estilo (auto-fix: ruff check apps --fix)
-python manage.py test apps.users apps.cotizaciones apps.ordenes apps.operacion apps.common apps.clientes apps.escritorio apps.inventario
+python manage.py test apps.users apps.productos apps.cotizaciones apps.ordenes apps.operacion apps.common apps.clientes apps.escritorio apps.inventario
 ```
 
 ### Ortografía (UI)
@@ -87,10 +98,72 @@ python manage.py test apps.users apps.cotizaciones apps.ordenes apps.operacion a
 - Nombres de variables, rutas y claves API sin tilde (`telefono`, `/cotizacion`) — es correcto.
 - Revisar mensajes de toast, `title`, `placeholder`, `label` y textos de PDF al añadir copy nuevo.
 
-### Deuda conocida (auditoría 2026-06)
+### Deuda conocida (auditoría 2026-08)
 
-- ~355 usos de `any` en `frontend/src/pages/**` — priorizar tipado al editar cada módulo.
-- Páginas monolíticas (`OrdenesPage`, `NuevaCotizacionPage`, …) — extraer hooks/componentes al ampliar funcionalidad, no en refactors masivos no solicitados.
+- Usos de `any` en `frontend/src/pages/**`: bajaron de ~355 (auditoría 2026-06) a **~164**. Seguir tipando al editar cada módulo.
+- **Archivos monolíticos** — extraer hooks/componentes al ampliar funcionalidad, no en refactors masivos no solicitados. Los mayores hoy:
+
+  | Archivo | Líneas |
+  |---------|--------|
+  | `frontend/src/pages/Ventas/Cotizacion/NuevaCotizacionPage.tsx` | ~3,630 |
+  | `backend/apps/operacion/wialon_client.py` | ~2,530 |
+  | `frontend/src/pages/Operacion/CuentasAntarix/EditWialonUserModal.tsx` | ~2,400 |
+  | `frontend/src/pages/Configuracion/GestionUsuario.tsx` | ~2,200 |
+  | `frontend/src/pages/.../LevantamientoForm.tsx` | ~2,220 |
+  | `backend/apps/ordenes/views.py` | ~1,950 |
+
+- **Cobertura desigual de tests** (actualizado 2026-08-25): backend cubierto en los tres módulos que iban en rojo.
+  - `apps/ai/tests/test_chat_proxy.py` (14 tests): el proxy `POST /api/ai/chat/` exige auth, valida `messages` y la config (`AI_API_KEY`, `AI_API_URL` https) antes de tocar la red, y traduce timeout → 504 / conexión caída → 502 / 5xx del upstream → 502 en vez de reventar. **Ningún test sale a la red**: todos parchan `http.client.HTTPSConnection`. Al ampliar la app de IA, mantener esa regla.
+  - `apps/users/tests/test_permissions_matrix.py` (48 tests): matriz de bordes de `ModulePermission` (usuario sin `UserPermissions`, `view` ausente / `None` / `False` / string, claves con mayúsculas, módulo no-dict, bypass staff/superuser, método HTTP → clave CRUD, `has_object_permission` por autoría, fallback `reportes`→`ordenes`) y de `user_module_own_only`. Incluye la lista blanca de delegación de permisos.
+  - `apps/users/tests/test_smtp_crypto.py` (24 tests): round-trip Fernet, normalización de la clave pegada con comillas/espacios, derivación desde `SECRET_KEY`, error accionable al rotar clave, y que la contraseña SMTP nunca quede en claro en BD ni salga en las respuestas de `/api/users/accounts/`.
+  - `apps/clientes/tests/test_crud_permisos.py` (37 tests): CRUD con permisos del módulo (403 tanto en listado como en detalle por ID), alcance de solo lectura de `ClientesCatalogPermission` para usuarios de órdenes, tipos `EMPRESA`/`PERSONA_FISICA`/`PROVEEDOR` (el filtro `?tipo=PROVEEDOR` alimenta inventario), `idx` automático y de solo lectura, contacto principal y aislamiento de contactos/documentos.
+  - Frontend sigue con test directo en ~9% de los archivos fuente.
+- **Bugs de producción detectados por esos tests y NO corregidos** (marcados con `@expectedFailure`; al arreglarlos, unittest los reportará como «unexpected success» → quitar el decorador):
+  1. `apps/users/permissions.py` — `ModulePermission.has_permission` hace `permissions.get(module_key)` sin verificar que `permissions` sea dict (el helper `_module_perms_for_key` sí lo hace). Si `UserPermissions.permissions` guarda una lista o un string, **toda** petición de ese usuario da `AttributeError` → HTTP 500. Es alcanzable: `PUT /api/users/accounts/{id}/permissions/` acepta cualquier JSON sin validar el tipo. Arreglo: usar `_module_perms_for_key(...)` también en `has_permission` y/o validar dict en el serializer.
+  2. `apps/users/serializers.py` — `_save_smtp` escribe sobre la instancia de `UserSmtpCredentials.objects.get_or_create(...)`, distinta de la relación ya cacheada por `select_related('smtp_credentials')`. La respuesta del `PATCH` con `smtp_clear` devuelve el estado anterior (`smtp_configured: true`) aunque la BD sí quedó limpia: Gestión de usuarios sigue mostrando el buzón hasta recargar.
+  3. `apps/clientes/views.py` — el `except Exception` de `create()`/`update()` atrapa también las excepciones de DRF: un `PermissionDenied` de objeto sale como **400 «Error al actualizar el registro.»** y un `PATCH` a un ID inexistente da 400 en vez de 404 (mientras GET y DELETE del mismo ID sí dan 404). Arreglo: dejar pasar `APIException`/`Http404` antes del `except` genérico.
+- ~~**`STATICFILES_STORAGE` es un no-op**~~ — **resuelto (2026-08)**: migrado al dict `STORAGES` en `backend/config/settings.py`. Ver «Storages» abajo.
+- **Modo limitado de edición de órdenes inalcanzable**: `get_object` ya rechaza la orden ajena con `own_only=True`, y con `own_only=False` la edición es completa. La rama limitada de `filter_limited_orden_update` se mantiene como defensa en profundidad, no como camino vivo.
+- **`render.yaml` solo define el frontend**: el servicio Django/gunicorn vive configurado a mano en el dashboard de Render, fuera de control de versiones.
+- **App huérfana `documentos` con migración ya aplicada en BD** (auditoría 2026-08): `backend/apps/documentos/` conserva **solo** `migrations/0001_initial.py` (único archivo versionado; sin `__init__.py`, `models.py` ni `views.py` — fue un spike de OneDrive/Graph que nunca se commiteó). La app **nunca** estuvo en `INSTALLED_APPS`, así que Django no la carga y `showmigrations` no la lista.
+
+  **Pero la migración sí se aplicó contra la BD remota**: existe la fila `('documentos', '0001_initial')` en `django_migrations` (aplicada 2026-08-05) y la tabla `documentos_onedriveconnection`. Alguien corrió `migrate` con la app instalada en local sin commitear el `settings.py`.
+
+  **No borrar el directorio sin limpiar la BD primero.** Borrar solo el archivo deja la tabla y la fila huérfanas sin forma de revertirlas por Django, y crea una trampa: si algún día se crea otra app con label `documentos`, su `0001_initial` se considerará ya aplicada y **no** creará sus tablas. Limpieza correcta (requiere ventana de mantenimiento y confirmar con quién opera la BD): reinstalar temporalmente `apps.documentos` en `INSTALLED_APPS`, `python manage.py migrate documentos zero` (dropea la tabla y borra la fila) y recién entonces eliminar el directorio y la entrada de `INSTALLED_APPS`.
+
+## App móvil (`mobile/`)
+
+App Android de técnicos, **SertelPro** (Expo Router + TypeScript strict). Consume `backend/`; no es un WebView ni un segundo backend. Documentación de uso y build: `mobile/README.md`.
+
+- **Gestor de paquetes**: **pnpm** (workspace: `frontend` + `mobile`). `mobile/.npmrc` fija `strict-peer-dependencies=false` porque Expo SDK 57 fija `react@19.2.3` y `expo-router` arrastra peers más nuevos. Render/frontend usa `pnpm install --frozen-lockfile --filter frontend...` para **no** instalar Expo en el static site.
+- **Capas**: UI (`app/`) → hooks (`src/features/*`) → cliente HTTP (`src/api/`). Sin `fetch` suelto en pantallas.
+- **Tokens**: `access` en memoria + `expo-secure-store`; `refresh` **solo** en SecureStore. Nunca AsyncStorage sin cifrar y nunca loguear tokens ni credenciales.
+- **Refresh**: `src/api/httpClient.ts` mantiene **una sola cola**. El backend rota y blacklistea el refresh en cada uso, así que N refresh concurrentes invalidarían la sesión.
+- **Autorización**: siempre del servidor (`OrdenesPermission`, `edit_scope`, `own_only`). Los helpers de `src/auth/permissions.ts` son espejo de lectura para ocultar UI, no una segunda fuente de verdad.
+- **Edición de campo**: solo los campos de `LIMITED_ORDEN_EDIT_FIELDS` (`backend/apps/ordenes/edit_scope.py`): `comentario_tecnico`, `status`, `motivo_pausa`, fechas/horas, `fotos_urls`, `fotos_extra_max`, `firma_cliente_url`. El formulario manda un PATCH **solo con lo que cambió** y siempre parte de `GET /api/ordenes/{id}/` (el listado hace `defer` de fotos y firmas). Fechas/horas: selector nativo `@react-native-community/datetimepicker` (`DateTimeField`); el PATCH sigue mandando `YYYY-MM-DD` / `HH:MM`. Fotos: `expo-image-picker` + `POST /api/ordenes/upload-image/`. Firma: lienzo + `react-native-view-shot` → data URL en el PATCH.
+- **Tema**: la app tiene **mundo visual propio**, documentado en `mobile/DESIGN.md`: azul eléctrico `#1B5CFF` sobre blanco, tipografía **Geist**, líneas de 1 px. **No** hereda el crema + naranja del ERP web (decisión del usuario, 2026-08-26). Incluye **modo oscuro** (`ThemeProvider` + `AppNavbar` con interruptor; preferencia en SecureStore). Todo estilo de texto parte de un token de `type`: en React Native `fontFamily` no se hereda y el texto cae en Roboto. `mobile/PRODUCT.md` guarda la verdad de producto. El `CLAUDE.md` de la raíz es brand de marketing de Claude, **no** el design system de este producto.
+- **Dev contra backend local**: `runserver 0.0.0.0:8000` + `EXPO_PUBLIC_API_URL=http://<IP-LAN>:8000`. En `DEBUG`, `config/settings.py` agrega solo las IPs LAN de la máquina a `ALLOWED_HOSTS` (antes eran fijas y una IP nueva daba `400 Invalid HTTP_HOST header`). Tras tocar `.env` hay que reiniciar Metro con `-c`: las `EXPO_PUBLIC_*` se inyectan al compilar.
+- **SDK anclado a Expo Go (54)**: el proyecto va en **SDK 54** a propósito, no en el `latest` de npm. Expo Go de las tiendas solo ejecuta el SDK que trae compilado (`.data.expoGoSdkVersion` de `https://api.expo.dev/v2/versions/latest`); con SDK 57 fallaba en Android **y** iPhone con `Project is incompatible with this version of Expo Go`, y en iOS no hay sideload posible. **Antes de subir de SDK**, verificar ese número: ir por delante obliga a development builds. `npx expo-doctor` debe salir sin fallos, y las versiones exactas importan (un desfase de patch en `expo`/`react-native`, o módulos nativos duplicados por pnpm, hace que Expo Go crashee al abrir sin dejar logs en Metro).
+- **pnpm + React Native**: `pnpm-workspace.yaml` declara `publicHoistPattern: ['*metro*']`. RN y `@expo/cli` asumen un `node_modules` plano; sin eso `expo start`/`expo export` mueren con `Cannot find module 'metro-runtime/package.json'`. `@types/react` va en `expo.install.exclude` (mobile/package.json) porque el `override` de la raíz lo fija en 19.2 para el frontend, mientras el SDK 54 espera 19.1.
+- **`app.json`**: el schema del SDK 57 **rechaza** `newArchEnabled` y `splash` (la nueva arquitectura ya es el default y el splash va por el plugin `expo-splash-screen`). Un `app.json` inválido rompe el manifiesto que lee Expo Go.
+- **Nunca volcar cuerpos de error en la UI**: `src/api/errors.ts` solo muestra textos que vengan en JSON, de una línea y ≤300 caracteres. Con `DEBUG=True`, Django responde a un host no permitido con su página de depuración (22 KB de HTML con traceback y configuración) y la app llegó a mostrarla completa al fallar el login. `httpClient` descarta el cuerpo si no es JSON (en dev deja un recorte en consola). Tests: `src/api/__tests__/errors.test.ts`.
+- **`ALLOWED_HOSTS`**: `resolve_allowed_hosts` en `config/settings.py`. Con `DEBUG=True` devuelve `['*']` — **también** si `.env` trae una lista —, porque la IP LAN cambia con la red y el valor se evalúa al arrancar; con `DEBUG=False` manda la lista explícita del entorno y nunca hay comodín. Tests: `apps/common/tests/test_allowed_hosts.py`.
+- **Arranque de sesión**: `src/auth/bootstrapSession.ts` **siempre** resuelve (tope de 8 s). La app no debe poder quedarse en «Restaurando sesión…»; un fallo de red manda a Login **sin** borrar los tokens, y solo un rechazo real del servidor los borra.
+- **Distribución**: EAS, perfil `preview` → APK sideload (`pnpm exec eas build -p android --profile preview` desde `mobile/`). Sin Play Store en v1. Subir `version` y `android.versionCode` en `app.json` por build. No commitear keystores ni secretos de EAS.
+- **Calidad** (antes de cerrar un ticket de `mobile/`):
+
+```bash
+cd mobile
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm exec expo export --platform android   # el bundle debe compilar
+```
+
+# Desde la raíz:
+# pnpm mobile:typecheck && pnpm mobile:lint && pnpm mobile:test
+
+Fases: **1 (hecha)** auth + listado + detalle + edición de campo · **2 (hecha)** fotos y firma del cliente en edición · **3** equipos de inventario, mapa y envío de PDF.
 
 ## Web Performance
 
@@ -99,9 +172,10 @@ Las rutas de `src/App.tsx` usan **`React.lazy` + `Suspense`** (code splitting po
 1. **Páginas nuevas siempre lazy** — añadir con `const Pagina = lazy(() => import("@/pages/..."))`. Solo quedan eager: `SignIn`, `AppLayout`, guards (`Require*`) y `ScrollToTop`.
 2. **Las páginas lazy deben tener `export default`** (requisito de `React.lazy`).
 3. **Fallback de carga**: `src/components/common/RouteLoadingFallback.tsx` (accesible: `role="status"` + `aria-live="polite"`, compatible claro/oscuro). Reutilizarlo, no crear spinners por ruta.
-4. **Librerías pesadas** (ApexCharts, FullCalendar, Leaflet, markdown, drag & drop) solo deben importarse desde páginas/componentes lazy — nunca desde `main.tsx`, `App.tsx`, layout o guards, porque eso las mete al bundle inicial.
-5. **CSS de librerías** se importa en el componente que la usa (ej. flatpickr en `components/form/date-picker.tsx`), no en `main.tsx`.
-6. Antes de cerrar cambios de performance ejecutar:
+4. **ErrorBoundary global**: `src/components/common/ErrorBoundary.tsx` envuelve al `<Router>` en `App.tsx`. Existe porque tras un deploy los chunks viejos dejan de existir y una pestaña abierta que navega recibe un 404 al pedir su chunk: sin boundary la SPA queda en blanco. Es class component a propósito (`getDerivedStateFromError` no tiene equivalente en hooks). No quitarlo ni anidar un segundo boundary global.
+5. **Librerías pesadas** (ApexCharts, FullCalendar, Leaflet, markdown, drag & drop) solo deben importarse desde páginas/componentes lazy — nunca desde `main.tsx`, `App.tsx`, layout o guards, porque eso las mete al bundle inicial.
+6. **CSS de librerías** se importa en el componente que la usa (ej. flatpickr en `components/form/date-picker.tsx`), no en `main.tsx`.
+7. Antes de cerrar cambios de performance ejecutar:
    - `cd frontend && pnpm exec tsc -b --noEmit`
    - `cd frontend && pnpm test`
    - `cd frontend && pnpm exec eslint src/App.tsx src/components/common`
@@ -117,6 +191,13 @@ Se eliminaron 15 paquetes sin uso o duplicados: `react-dnd`, `react-dnd-html5-ba
 - **Animaciones**: solo `motion` (`motion/react`). No reintroducir `animejs`.
 - **Mapas**: Leaflet se carga vía CDN en runtime (`window.L`) — no instalar el paquete npm sin migrar también los componentes que usan el global.
 - Antes de añadir una dependencia nueva, verificar que no exista ya una equivalente en `package.json`.
+
+#### `package.json` de la raíz (auditoría 2026-08)
+
+El `package.json` de la raíz es el contenedor del workspace pnpm: `packageManager`, scripts `frontend:*` / `mobile:*` y nada de `devDependencies` propias. `render.yaml` instala con `pnpm install --frozen-lockfile --filter frontend...` para no meter Expo en el build del static site.
+
+- Se eliminaron `@qwen-code/qwen-code` (+ scripts `qwen` y `qwen:version`) y `husky`: ninguno tenía uso en el repo.
+- **Sin git hooks**: no hay `.husky/` ni script `prepare`, y es deliberado. Las puertas de calidad viven en `.github/workflows/ci.yml` (tsc, eslint, vitest, ruff, tests de Django). No reintroducir `husky` a medias — declararlo sin `prepare` ni `.husky/` no instala nada y solo engorda el build. Si algún día se quieren hooks, activarlos completos (`prepare` + hook rápido sobre archivos staged) y documentarlo aquí; la suite de Django (~10 min) nunca va en un `pre-commit`.
 
 ## Accesibilidad y semántica
 
@@ -175,6 +256,17 @@ Las páginas de ventas viven en subcarpetas; el `import()` de `App.tsx` debe coi
 Si el import apunta a `@/pages/Ventas/FacturasCfdiPage` (sin `FacturasCFDI/`), Vite devuelve HTML (404 del SPA) y el navegador reporta `MIME type "text/html"`. Windows tolera mayúsculas en disco; CI/Linux no — usar siempre `FacturasCFDI`.
 
 ## Decisiones de seguridad (documentadas)
+
+### Rate limit de login (dos ejes)
+
+`backend/apps/users/throttling.py` — la vista `login_view` aplica **dos** throttles a la vez:
+
+| Throttle | Eje | Límite | Motivo |
+|----------|-----|--------|--------|
+| `LoginRateThrottle` | IP | 20/min | Deliberadamente holgado: varios técnicos comparten la IP de la oficina. **No bajarlo.** |
+| `LoginAccountRateThrottle` | cuenta (username/email) | 10/min | Cierra el password spraying distribuido que el eje IP no ve: N IPs probando contraseñas contra el mismo usuario. |
+
+El límite por cuenta es case-insensitive (igual que el lookup de la vista) y su clave de caché es un SHA-256 salado con `SECRET_KEY`: **nunca** guardar el username en claro en la clave. Sin `username`/`email` en el body no aplica (lo cubre el eje IP). Tests: `backend/apps/users/tests/test_login_throttling.py`.
 
 ### CSRF + `Authorization: Bearer`
 

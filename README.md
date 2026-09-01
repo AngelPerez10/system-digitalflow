@@ -57,7 +57,9 @@ pnpm frontend:build
 cd frontend && pnpm lint && pnpm test && pnpm build
 
 # Backend
-cd backend && ruff check . && python manage.py test
+cd backend && ruff check apps && python manage.py test \
+  apps.users apps.productos apps.cotizaciones apps.ordenes apps.operacion \
+  apps.common apps.clientes apps.escritorio apps.inventario
 ```
 
 ## Despliegue
