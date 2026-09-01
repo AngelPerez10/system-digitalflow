@@ -18,6 +18,22 @@ class CookieJWTAuthentication(JWTAuthentication):
     access_cookie_name = 'access_token'
 
     def authenticate(self, request):
+        # Clientes que NO son el SPA web nunca entran al camino cookie + CSRF:
+        #  - `Authorization: Bearer …`  → lo resuelve `JWTAuthentication`.
+        #  - `X-Client: mobile|android|ios` → app Expo (login/refresh van sin
+        #    header Bearer).
+        # El stack HTTP de iOS/Android reenvía solo las cookies del `Set-Cookie`
+        # del login y la app no puede mandar `X-CSRFToken`; sin esta salida, el
+        # segundo login/logout de la sesión falla con
+        # "CSRF Failed: CSRF token missing". Coincide con la política de
+        # DisableCSRFFromAuthorizationMiddleware.
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            return None
+        client_header = (request.headers.get('X-Client') or '').strip().lower()
+        if client_header in ('mobile', 'android', 'ios'):
+            return None
+
         raw = request.COOKIES.get(self.access_cookie_name)
         if not raw:
             return None

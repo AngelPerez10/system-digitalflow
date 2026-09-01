@@ -153,6 +153,11 @@ class ModulePermission(BasePermission):
         # Get user's permission profile
         perms_obj = getattr(user, 'permissions_profile', None)
         permissions = getattr(perms_obj, 'permissions', None) or {}
+        # `permissions` es un JSONField sin validación de tipo: si queda como lista
+        # (payload malformado en PUT .../permissions/), `.get()` lanzaría AttributeError
+        # y cada petición de esa cuenta devolvería 500.
+        if not isinstance(permissions, dict):
+            permissions = {}
 
         # Be tolerant to inconsistent casing in stored JSON keys.
         # Some clients/admins may store module keys as "Servicios" instead of "servicios".

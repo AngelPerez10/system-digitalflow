@@ -6,7 +6,7 @@ from apps.ordenes.pdf_limits import normalize_fotos_extra_max
 from apps.users.permissions import user_module_own_only
 
 LIMITED_ORDEN_EDIT_FIELDS = frozenset({
-    'problematica',
+    'comentario_tecnico',
     'status',
     'motivo_pausa',
     'fecha_inicio',
@@ -15,6 +15,7 @@ LIMITED_ORDEN_EDIT_FIELDS = frozenset({
     'hora_termino',
     'fotos_urls',
     'fotos_extra_max',
+    'firma_cliente_url',
 })
 
 
@@ -63,6 +64,14 @@ def _orden_field_values_differ(instance, field_name: str, new_value) -> bool:
 
 
 def filter_limited_orden_update(user, instance, data: dict) -> dict:
+    """Recorta el payload a `LIMITED_ORDEN_EDIT_FIELDS` si no hay edición completa.
+
+    Hoy esta rama no se alcanza desde el ViewSet: `get_object` ya rechaza con
+    403 la orden ajena cuando `own_only=True`, y con `own_only=False` la
+    edición es completa. Se mantiene como defensa en profundidad — si mañana
+    se relaja `get_object`, este filtro evita que un técnico limitado pueda
+    editar cliente/dirección/levantamiento de una orden ajena.
+    """
     if user_has_full_orden_edit(user, instance):
         return data
     disallowed = []

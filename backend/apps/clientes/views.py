@@ -6,7 +6,9 @@ import cloudinary
 import cloudinary.uploader
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
+from django.http import Http404
 from rest_framework import filters, status, viewsets
+from rest_framework.exceptions import APIException
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser
@@ -97,6 +99,11 @@ class ClienteViewSet(viewsets.ModelViewSet):
             return Response(detail, status=status.HTTP_400_BAD_REQUEST)
         except IntegrityError:
             return Response({'detail': 'El registro ya existe o viola una restriccion.'}, status=status.HTTP_409_CONFLICT)
+        except (APIException, Http404):
+            # 403/404 de DRF deben salir con su propio status: el `except Exception`
+            # de abajo los convertía en 400 y el frontend no podía distinguir
+            # «sin permiso» de «datos inválidos».
+            raise
         except Exception:
             logger.exception("Error creando cliente")
             return Response({'detail': 'Error al crear el registro.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -109,6 +116,9 @@ class ClienteViewSet(viewsets.ModelViewSet):
             return Response(detail, status=status.HTTP_400_BAD_REQUEST)
         except IntegrityError:
             return Response({'detail': 'El registro ya existe o viola una restriccion.'}, status=status.HTTP_409_CONFLICT)
+        except (APIException, Http404):
+            # Ver nota en `create`: no degradar 403/404 a 400.
+            raise
         except Exception:
             logger.exception("Error actualizando cliente")
             return Response({'detail': 'Error al actualizar el registro.'}, status=status.HTTP_400_BAD_REQUEST)

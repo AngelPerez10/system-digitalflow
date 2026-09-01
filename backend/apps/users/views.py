@@ -18,12 +18,22 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import UserPermissions, UserSignature
 from .permissions import user_has_any_ordenes_access
 from .serializers import UserAccountSerializer, UserPermissionsSerializer, UserSignatureSerializer
-from .throttling import LoginRateThrottle, RefreshRateThrottle
+from .throttling import LoginAccountRateThrottle, LoginRateThrottle, RefreshRateThrottle
 
 logger = logging.getLogger(__name__)
 
 # Solo estos usuarios pueden asignar permisos CRUD a otros (incl. otros administradores).
 PERMISSION_DELEGATION_USERNAMES = frozenset({'angelperez10', 'ivancruz01'})
+
+
+def _es_cuenta_portal_cliente(user) -> bool:
+    """True si el `User` es una cuenta de portal cliente (no personal del ERP).
+
+    Estas cuentas se administran desde el portal; los endpoints de equipo
+    (permisos por módulo, firma) no deben tocarlas — darles permisos de módulo
+    sería una escalada de privilegios.
+    """
+    return hasattr(user, 'cliente_portal_account')
 
 
 def _request_user_can_delegate_permissions(user) -> bool:
@@ -133,7 +143,21 @@ def _delete_avatar_public_id(public_id: str) -> None:
 
 
 class UserAccountViewSet(viewsets.ModelViewSet):
-    queryset = get_user_model().objects.all().select_related('smtp_credentials').order_by('id')
+    """CRUD de cuentas del **equipo interno** (técnicos y administradores).
+
+    Excluye a propósito las cuentas de portal cliente: no son personal, se
+    administran desde el portal (solicitudes de registro y `status` de la
+    cuenta), y no deben poder editarse ni borrarse desde aquí — borrar el
+    `User` arrastraría en cascada su `ClientePortalAccount`. Al no aparecer en
+    el listado tampoco se pueden alcanzar sus rutas de detalle/permisos/firma.
+    """
+
+    queryset = (
+        get_user_model()
+        .objects.filter(cliente_portal_account__isnull=True)
+        .select_related('smtp_credentials')
+        .order_by('id')
+    )
     serializer_class = UserAccountSerializer
     permission_classes = [IsAdminUser]
 
@@ -179,9 +203,29 @@ def csrf_cookie_view(request):
     return Response({'detail': 'ok', 'csrfToken': get_token(request)})
 
 
+MOBILE_CLIENT_VALUES = frozenset({'mobile', 'android', 'ios'})
+
+
+def _is_mobile_client(request) -> bool:
+    """True si la petición viene de la app nativa (no del SPA web).
+
+    La app Expo no puede leer la cookie HttpOnly `refresh_token`, así que
+    necesita el refresh en el cuerpo del login. El web sigue **sin** recibirlo
+    (solo cookie) para no ampliar su superficie de XSS.
+
+    Se acepta el header `X-Client: mobile` o `client: "mobile"` en el body.
+    """
+    header = request.META.get('HTTP_X_CLIENT') or ''
+    if isinstance(header, str) and header.strip().lower() in MOBILE_CLIENT_VALUES:
+        return True
+    data = request.data if isinstance(request.data, dict) else {}
+    body = data.get('client')
+    return isinstance(body, str) and body.strip().lower() in MOBILE_CLIENT_VALUES
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@throttle_classes([LoginRateThrottle])
+@throttle_classes([LoginRateThrottle, LoginAccountRateThrottle])
 @ensure_csrf_cookie
 def login_view(request):
     username = request.data.get('username')
@@ -234,24 +278,33 @@ def login_view(request):
     perms_obj, _ = UserPermissions.objects.get_or_create(user=user)
     perms = perms_obj.permissions or {}
 
+    from apps.clientes.portal_services import get_portal_context_for_user
+
+    portal_ctx = get_portal_context_for_user(user)
+
     from django.middleware.csrf import get_token
 
     # access en JSON solo para SPA cross-origin cuando las cookies HttpOnly no se guardan.
     # refresh va únicamente en cookie HttpOnly (no en el cuerpo) para reducir exposición a XSS.
-    resp = Response(
-        {
-            'access': str(access),
-            'username': user.get_username(),
-            'email': getattr(user, 'email', None),
-            'is_staff': bool(getattr(user, 'is_staff', False)),
-            'is_superuser': bool(getattr(user, 'is_superuser', False)),
-            'first_name': getattr(user, 'first_name', ''),
-            'last_name': getattr(user, 'last_name', ''),
-            'id': user.id,
-            'permissions': perms,
-            'csrfToken': get_token(request),
-        }
-    )
+    # Excepción acotada: cliente móvil (`X-Client: mobile` / `client: "mobile"`), que no
+    # puede leer cookies HttpOnly y guarda el refresh en SecureStore (Keystore/Keychain).
+    payload = {
+        'access': str(access),
+        'username': user.get_username(),
+        'email': getattr(user, 'email', None),
+        'is_staff': bool(getattr(user, 'is_staff', False)),
+        'is_superuser': bool(getattr(user, 'is_superuser', False)),
+        'first_name': getattr(user, 'first_name', ''),
+        'last_name': getattr(user, 'last_name', ''),
+        'id': user.id,
+        'permissions': perms,
+        'csrfToken': get_token(request),
+    }
+    if portal_ctx:
+        payload.update(portal_ctx)
+    if _is_mobile_client(request):
+        payload['refresh'] = str(refresh)
+    resp = Response(payload)
     _set_jwt_cookies(resp, str(access), str(refresh))
     return resp
 
@@ -279,9 +332,21 @@ def me(request):
 
     if request.method == 'GET':
         UserPermissions.objects.get_or_create(user=user)
-        user = User.objects.select_related('permissions_profile', 'smtp_credentials').get(pk=user.pk)
+        user = User.objects.select_related(
+            'permissions_profile',
+            'smtp_credentials',
+            'cliente_portal_account',
+        ).get(pk=user.pk)
         serializer = UserAccountSerializer(user)
-        return Response(serializer.data)
+        data = serializer.data
+        from apps.clientes.portal_services import get_portal_context_for_user
+
+        portal_ctx = get_portal_context_for_user(user)
+        if portal_ctx:
+            data.update(portal_ctx)
+        else:
+            data['account_type'] = 'staff'
+        return Response(data)
 
     # PATCH — actualizar nombre, correo y/o foto de perfil
     UserPermissions.objects.get_or_create(user=user)
@@ -382,7 +447,7 @@ def my_signature(request):
 def user_permissions(request, user_id: int):
     User = get_user_model()
     user = User.objects.filter(id=user_id).first()
-    if not user:
+    if not user or _es_cuenta_portal_cliente(user):
         return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
     obj, _ = UserPermissions.objects.get_or_create(user=user)
@@ -426,7 +491,7 @@ def _can_read_user_signature(request, target_user_id: int) -> bool:
 def user_signature(request, user_id: int):
     User = get_user_model()
     user = User.objects.filter(id=user_id).first()
-    if not user:
+    if not user or _es_cuenta_portal_cliente(user):
         return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
     obj, _ = UserSignature.objects.get_or_create(user=user)
@@ -473,7 +538,8 @@ def user_signature(request, user_id: int):
 @permission_classes([AllowAny])
 @throttle_classes([RefreshRateThrottle])
 def token_refresh_view(request):
-    refresh_raw = request.COOKIES.get('refresh_token') or request.data.get('refresh')
+    cookie_refresh = request.COOKIES.get('refresh_token')
+    refresh_raw = cookie_refresh or request.data.get('refresh')
     if not refresh_raw:
         return Response({'detail': 'Refresh token no proporcionado'}, status=status.HTTP_401_UNAUTHORIZED)
     try:
@@ -494,7 +560,19 @@ def token_refresh_view(request):
 
         rotated_refresh = RefreshToken.for_user(user)
         access = str(rotated_refresh.access_token)
-        resp = Response({'access': access})
+        payload = {'access': access}
+        # El refresh rota en cada uso y el anterior queda en blacklist. El web
+        # recibe el nuevo por cookie; la app nativa no lee cookies, así que sin
+        # esto su cadena de refresh se rompería al segundo intento.
+        #
+        # El eco al cuerpo se condiciona a que el refresh **haya llegado por el
+        # cuerpo**, no solo al header `X-Client` (que el cliente controla). Una
+        # petición con cookie `refresh_token` es un navegador: aunque falsifique
+        # `X-Client: mobile`, un XSS mismo-origen no debe poder leer el refresh
+        # rotado desde el JSON — la cookie HttpOnly nunca es legible por JS.
+        if _is_mobile_client(request) and not cookie_refresh:
+            payload['refresh'] = str(rotated_refresh)
+        resp = Response(payload)
         _set_jwt_cookies(resp, access, str(rotated_refresh))
         return resp
     except TokenError:

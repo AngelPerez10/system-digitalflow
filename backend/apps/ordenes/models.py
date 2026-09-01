@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -234,3 +235,55 @@ class ReporteSemanal(models.Model):
             or f"#{self.tecnico_id}"
         )
         return f"Reporte {tecnico_nombre} ({self.semana_inicio} a {self.semana_fin})"
+
+
+class OrdenCalificacion(models.Model):
+    """Calificación del cliente al técnico, al cerrar el servicio.
+
+    Una por orden: el cliente califica **una vez**, como al terminar un viaje.
+    Se guarda también el técnico calificado para poder promediar por técnico sin
+    recorrer las órdenes, y sobrevive a que la orden se reasigne después.
+    """
+
+    ESTRELLAS_MIN = 1
+    ESTRELLAS_MAX = 5
+
+    orden = models.OneToOneField(
+        Orden,
+        on_delete=models.CASCADE,
+        related_name='calificacion',
+    )
+    tecnico = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='calificaciones_recibidas',
+    )
+    estrellas = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(ESTRELLAS_MIN), MaxValueValidator(ESTRELLAS_MAX)],
+    )
+    comentario = models.TextField(blank=True, default='')
+    creado_por = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='calificaciones_emitidas',
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Calificación de orden'
+        verbose_name_plural = 'Calificaciones de órdenes'
+        ordering = ['-fecha_creacion']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(estrellas__gte=1, estrellas__lte=5),
+                name='calificacion_estrellas_1_a_5',
+            ),
+        ]
+        indexes = [models.Index(fields=['tecnico', 'fecha_creacion'])]
+
+    def __str__(self):
+        return f'Orden #{self.orden_id}: {self.estrellas}★'

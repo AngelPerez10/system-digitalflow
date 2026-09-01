@@ -143,6 +143,24 @@ class UserPermissionsSerializer(serializers.ModelSerializer):
         fields = ['user', 'permissions', 'updated_at']
         read_only_fields = ['user', 'updated_at']
 
+    def validate_permissions(self, value):
+        """`permissions` es un JSONField: sin esto acepta listas o strings.
+
+        Guardar un no-dict dejaba la cuenta con permisos irrecuperables desde la
+        UI (y antes reventaba el guardián con 500). Se exige objeto por módulo.
+        """
+        if not isinstance(value, dict):
+            raise serializers.ValidationError(
+                'Debe ser un objeto JSON con un bloque por módulo, p. ej. '
+                '{"ordenes": {"view": true}}.'
+            )
+        for modulo, bloque in value.items():
+            if not isinstance(bloque, dict):
+                raise serializers.ValidationError(
+                    f'El módulo "{modulo}" debe ser un objeto con claves view/create/edit/delete.'
+                )
+        return value
+
 
 class UserSignatureSerializer(serializers.ModelSerializer):
     class Meta:

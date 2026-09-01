@@ -5,7 +5,6 @@ import logging
 import re
 from calendar import monthrange
 from datetime import date, datetime, time, timedelta
-from pathlib import Path
 from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
@@ -138,7 +137,7 @@ def _user_signature_url(user) -> str:
     return (sig.url or "").strip() if sig else ""
 
 
-def _stamp_firma_encargado(data: dict, instance=None, fallback_user=None) -> dict:
+def _stamp_firma_encargado(data: dict, instance=None) -> dict:
     """Firma del encargado = perfil del técnico asignado, no de quien guarda."""
     if "tecnico_asignado" in data:
         tecnico = data.get("tecnico_asignado")
@@ -146,11 +145,8 @@ def _stamp_firma_encargado(data: dict, instance=None, fallback_user=None) -> dic
         tecnico = getattr(instance, "tecnico_asignado", None)
     else:
         tecnico = None
-    url = _user_signature_url(tecnico)
-    if not url:
-        url = _user_signature_url(fallback_user)
-    if url:
-        data["firma_encargado_url"] = url
+    if "tecnico_asignado" in data or instance is not None:
+        data["firma_encargado_url"] = _user_signature_url(tecnico) if tecnico else ""
     return data
 
 
@@ -1538,17 +1534,20 @@ class OrdenViewSet(viewsets.ModelViewSet):
             # Limpiar IDs para evitar unique constraint violations
             qs.update(idx=None)
 
-            for i, orden in enumerate(qs, start=1):
+            ordenes = list(qs)
+            for i, orden in enumerate(ordenes, start=1):
                 if i <= 588:
-                    new_idx = i
+                    orden.idx = i
                 else:
                     # El 589 se convierte en 5000, 590 en 5001, etc.
                     # Formula: 5000 + (i - 589)
-                    new_idx = 5000 + (i - 589)
+                    orden.idx = 5000 + (i - 589)
 
-                Orden.objects.filter(id=orden.id).update(idx=new_idx)
+            # bulk_update en lotes: un UPDATE por fila bloqueaba la tabla
+            # durante toda la transacción al crecer el número de órdenes.
+            Orden.objects.bulk_update(ordenes, ['idx'], batch_size=500)
 
-        return Response({"detail": "IDX reindexado correctamente", "total": qs.count()})
+        return Response({"detail": "IDX reindexado correctamente", "total": len(ordenes)})
 
     def _generate_pdf_html(self, orden):
         from .pdf_templates import generate_orden_pdf_html
@@ -1558,7 +1557,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         data = serializer.validated_data
         # Firma del encargado: perfil del técnico asignado (no de quien crea).
-        data = _stamp_firma_encargado(data, fallback_user=self.request.user)
+        data = _stamp_firma_encargado(data)
         firma_cliente = data.get('firma_cliente_url')
         if isinstance(firma_cliente, str):
             if firma_cliente == "":

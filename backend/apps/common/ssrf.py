@@ -19,8 +19,13 @@ IMG_EMBED_ALLOW_HOSTS = {
 
 
 def is_cloudinary_host(host: str) -> bool:
+    """Cloudinary media (res.cloudinary.com, etc.).
+
+    El sufijo exige el punto: sin él, un dominio de atacante como
+    ``evilcloudinary.com`` pasaría la allowlist.
+    """
     host = (host or '').lower()
-    return host.endswith('cloudinary.com')
+    return host == 'cloudinary.com' or host.endswith('.cloudinary.com')
 
 
 def is_syscom_image_host(host: str) -> bool:

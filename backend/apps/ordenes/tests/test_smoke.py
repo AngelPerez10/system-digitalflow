@@ -1,5 +1,6 @@
-from django.contrib.auth import get_user_model
 from unittest.mock import patch
+
+from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -252,7 +253,14 @@ class OrdenesOwnOnlyScopeTests(APITestCase):
         )
 
 
-class OrdenesLimitedEditTests(APITestCase):
+class OrdenesVerTodasEditTests(APITestCase):
+    """Técnico con «Ver todas las órdenes» (``own_only=False``) + ``edit``.
+
+    Con esa combinación la edición de órdenes ajenas es **completa**: puede
+    tocar cliente, levantamiento y demás campos, no solo problemática/estado/
+    fotos. Ver `user_has_full_orden_edit` en ``apps/ordenes/edit_scope.py``.
+    """
+
     def setUp(self):
         self.jefe = User.objects.create_user(username="jefe_tecnico", password="test-pass-123")
         self.otro = User.objects.create_user(username="otro_tecnico_le", password="test-pass-123")
@@ -331,13 +339,16 @@ class OrdenesLimitedEditTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    def test_limited_patch_disallowed_cliente_returns_403(self):
+    def test_patch_cliente_allowed_con_ver_todas(self):
+        """Con «Ver todas» la edición es completa: cliente incluido."""
         response = self.client.patch(
             f"/api/ordenes/{self.orden_ajena.id}/",
             {"cliente": "Cliente modificado"},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.orden_ajena.refresh_from_db()
+        self.assertEqual(self.orden_ajena.cliente, "Cliente modificado")
 
     def test_limited_update_photos_allowed(self):
         response = self.client.patch(
@@ -347,13 +358,14 @@ class OrdenesLimitedEditTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    def test_limited_levantamiento_returns_403(self):
+    def test_levantamiento_allowed_con_ver_todas(self):
+        """El levantamiento de una orden ajena también es editable con «Ver todas»."""
         response = self.client.put(
             f"/api/ordenes/{self.orden_ajena.id}/levantamiento/",
             {"payload": {"tipo": "cerco"}, "dibujo_url": ""},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_patch_status_sets_status_changed_at(self):
         self.assertIsNone(self.orden_ajena.status_changed_at)
@@ -475,6 +487,52 @@ class OrdenesFirmaEncargadoTests(APITestCase):
         self.assertEqual(self.orden.firma_encargado_url, self.ADMIN_SIG)
         _apply_firma_encargado_for_pdf(self.orden)
         self.assertEqual(self.orden.firma_encargado_url, self.TEC_SIG)
+
+    def test_create_with_tecnico_without_signature_does_not_use_admin_fallback(self):
+        tecnico_sin_firma = User.objects.create_user(
+            username="tec_sin_firma",
+            password="test-pass-123",
+        )
+        UserPermissions.objects.create(
+            user=tecnico_sin_firma,
+            permissions={"ordenes": {"view": True, "create": True, "edit": True, "delete": False}},
+        )
+        response = self.client.post(
+            "/api/ordenes/",
+            {
+                "cliente": "Cliente sin firma tec",
+                "direccion": "Calle 3",
+                "telefono_cliente": "5550003333",
+                "servicios_realizados": ["Revisión"],
+                "status": "pendiente",
+                "fecha_inicio": "2026-08-11",
+                "tipo_orden": "servicio_tecnico",
+                "tecnico_asignado": tecnico_sin_firma.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created = Orden.objects.get(id=response.data["id"])
+        self.assertEqual(created.firma_encargado_url, "")
+
+    def test_reassign_to_tecnico_without_signature_clears_firma(self):
+        tecnico_sin_firma = User.objects.create_user(
+            username="tec_sin_firma2",
+            password="test-pass-123",
+        )
+        UserPermissions.objects.create(
+            user=tecnico_sin_firma,
+            permissions={"ordenes": {"view": True, "create": True, "edit": True, "delete": False}},
+        )
+        response = self.client.patch(
+            f"/api/ordenes/{self.orden.id}/",
+            {"tecnico_asignado": tecnico_sin_firma.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.orden.refresh_from_db()
+        self.assertEqual(self.orden.tecnico_asignado_id, tecnico_sin_firma.id)
+        self.assertEqual(self.orden.firma_encargado_url, "")
 
     def test_update_null_firma_cliente_does_not_clear(self):
         firma = "https://res.cloudinary.com/demo/image/upload/v1/ordenes/firmas/cliente-test.png"

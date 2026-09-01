@@ -3,13 +3,34 @@ from __future__ import annotations
 
 import base64
 import logging
-from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+from urllib.parse import urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from apps.common.ssrf import is_embed_url_allowed
 
 logger = logging.getLogger(__name__)
 
 MAX_EMBED_REMOTE_BYTES = 2_500_000
+
+
+class _AllowlistRedirectHandler(HTTPRedirectHandler):
+    """Revalida cada redirect contra la allowlist SSRF.
+
+    ``urlopen`` sigue los 3xx solo, así que validar la URL inicial no basta:
+    un host permitido (o comprometido) podría redirigir a una IP interna o al
+    endpoint de metadatos del proveedor cloud.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        scheme = (urlparse(newurl).scheme or '').lower()
+        if scheme not in ('http', 'https') or not is_embed_url_allowed(newurl):
+            logger.warning('Redirect bloqueado por allowlist SSRF: %s', newurl)
+            raise HTTPError(newurl, code, f'Redirect no permitido: {msg}', headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_safe_opener = build_opener(_AllowlistRedirectHandler)
 
 
 def safe_http_image_bytes(url: str, max_bytes: int = MAX_EMBED_REMOTE_BYTES) -> bytes | None:
@@ -28,7 +49,7 @@ def safe_http_image_bytes(url: str, max_bytes: int = MAX_EMBED_REMOTE_BYTES) -> 
         method="GET",
     )
     try:
-        with urlopen(req, timeout=20) as resp:
+        with _safe_opener.open(req, timeout=20) as resp:
             data = resp.read(max_bytes + 1)
     except Exception:
         logger.exception("Failed to fetch remote image bytes for PDF")
@@ -138,7 +159,7 @@ def img_url_to_data_uri(url: str, *, timeout: int = 30, max_bytes: int = MAX_EMB
             },
             method="GET",
         )
-        with urlopen(req, timeout=timeout) as resp:
+        with _safe_opener.open(req, timeout=timeout) as resp:
             content_type = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
             raw = resp.read()
 

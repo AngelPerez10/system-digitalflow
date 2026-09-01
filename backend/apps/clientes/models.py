@@ -140,3 +140,6 @@ class ClienteDocumento(models.Model):
     class Meta:
         verbose_name = 'Documento de Cliente'
         verbose_name_plural = 'Documentos de Cliente'
+
+
+from .portal_models import ClientePortalAccount, ClienteRegistroSolicitud, PortalUsernameSequence  # noqa: E402, F401

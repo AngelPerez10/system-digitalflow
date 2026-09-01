@@ -85,18 +85,28 @@ if DEBUG and not SECRET_KEY:
 if not DEBUG and not SECRET_KEY:
     raise RuntimeError('SECRET_KEY environment variable must be set in production')
 
-_allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '').strip()
-if _allowed_hosts_env:
-    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
-else:
-    # Safe defaults: explicit dev hosts only.
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+def resolve_allowed_hosts(debug: bool, env_value: str) -> list[str]:
+    """Resuelve ALLOWED_HOSTS. Frontera de seguridad: **solo** DEBUG abre el comodín.
 
-if DEBUG:
-    # Allow common LAN hosts for local development when running on 0.0.0.0
-    for h in ['0.0.0.0', '10.0.0.6', '10.0.0.5', '192.168.10.152']:
-        if h not in ALLOWED_HOSTS:
-            ALLOWED_HOSTS.append(h)
+    En desarrollo la app móvil (Expo Go en un teléfono físico) pega a la IP LAN
+    de esta máquina, que cambia al saltar de Ethernet a Wi-Fi o de red. Como
+    ALLOWED_HOSTS se evalúa al arrancar, una lista fija obliga a editar `.env` y
+    reiniciar el servidor cada vez; y con un host no permitido Django responde
+    400 con su página de depuración (traceback + configuración del servidor),
+    que es justo lo que no debe recibir un cliente.
+
+    Restringir con DEBUG=True no aporta seguridad real —ese modo ya expone
+    tracebacks y settings, y nunca debe usarse en producción—. Con DEBUG=False
+    manda la lista explícita del entorno, sin excepciones.
+    """
+    hosts = [h.strip() for h in env_value.split(',') if h.strip()] if env_value else []
+    if debug:
+        return ['*']
+    # Safe defaults: explicit dev hosts only.
+    return hosts or ['localhost', '127.0.0.1']
+
+
+ALLOWED_HOSTS = resolve_allowed_hosts(DEBUG, os.environ.get('ALLOWED_HOSTS', '').strip())
 
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
@@ -296,8 +306,31 @@ STATIC_ROOT = BASE_DIR / "staticfiles"  # Required for collectstatic on Render
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-if not DEBUG:
-    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# Django 5.1 eliminó `STATICFILES_STORAGE` y `DEFAULT_FILE_STORAGE`: la configuración
+# de storages vive en el dict `STORAGES`. Definirlo **sobrescribe** el default de Django
+# (no se hace merge), así que ambas claves especiales son obligatorias — omitir `default`
+# rompe con `InvalidStorageError: Could not find config for 'default'`.
+#   https://docs.djangoproject.com/en/5.2/ref/settings/#storages
+#
+# `default` (media) queda en disco a propósito: Cloudinary NO se usa como backend de
+# storage — `cloudinary_storage` no está en INSTALLED_APPS y los uploads van directo por
+# el SDK (`cloudinary.uploader.upload`, ver `apps/ordenes/image_services.py`). El único
+# FileField del proyecto es `Orden.pdf_generado`, que sigue escribiendo en MEDIA_ROOT.
+#
+# `staticfiles`: WhiteNoise con compresión + manifest (cache-busting) solo en producción;
+# en DEBUG se deja el storage plano para no exigir `collectstatic` en cada cambio.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        ),
+    },
+}
 
 
 # Default primary key field type
@@ -324,6 +357,10 @@ REST_FRAMEWORK = {
         'anon': '100/hour',
         'user': '1000/hour',
         'refresh_token': '60/minute',
+        'login': '20/minute',
+        'login_account': '10/minute',
+        'portal_registro': '10/minute',
+        'portal_registro_email': '5/hour',
     },
 }
 
@@ -381,3 +418,9 @@ DEFAULT_FROM_EMAIL = os.environ.get(
 ).strip()
 # Clave Fernet para cifrar contraseñas SMTP por usuario (o se deriva de SECRET_KEY).
 SMTP_CREDENTIALS_KEY = os.environ.get('SMTP_CREDENTIALS_KEY', '').strip()
+
+# --- Portal cliente (registro self-service móvil) ---
+PORTAL_CLIENT_USERNAME_START = int(os.environ.get('PORTAL_CLIENT_USERNAME_START', '105040') or '105040')
+PORTAL_CLIENT_TEMP_PASSWORD_HOURS = int(
+    os.environ.get('PORTAL_CLIENT_TEMP_PASSWORD_HOURS', '72') or '72'
+)
