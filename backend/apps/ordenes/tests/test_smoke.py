@@ -534,6 +534,20 @@ class OrdenesFirmaEncargadoTests(APITestCase):
         self.assertEqual(self.orden.tecnico_asignado_id, tecnico_sin_firma.id)
         self.assertEqual(self.orden.firma_encargado_url, "")
 
+    def test_pdf_clears_stale_signature_when_tecnico_has_none(self):
+        from apps.ordenes.views import _apply_firma_encargado_for_pdf
+
+        tecnico_sin_firma = User.objects.create_user(
+            username="tec_sin_firma_pdf",
+            password="test-pass-123",
+        )
+        self.orden.tecnico_asignado = tecnico_sin_firma
+        self.orden.firma_encargado_url = self.ADMIN_SIG
+        self.orden.save(update_fields=["tecnico_asignado", "firma_encargado_url"])
+
+        _apply_firma_encargado_for_pdf(self.orden)
+        self.assertEqual(self.orden.firma_encargado_url, "")
+
     def test_update_null_firma_cliente_does_not_clear(self):
         firma = "https://res.cloudinary.com/demo/image/upload/v1/ordenes/firmas/cliente-test.png"
         self.orden.firma_cliente_url = firma

@@ -151,10 +151,9 @@ def _stamp_firma_encargado(data: dict, instance=None) -> dict:
 
 
 def _apply_firma_encargado_for_pdf(orden):
-    """En PDF, preferir la firma vigente del técnico asignado."""
-    url = _user_signature_url(getattr(orden, "tecnico_asignado", None))
-    if url:
-        orden.firma_encargado_url = url
+    """En PDF, solo la firma del técnico asignado; vacía si no tiene perfil."""
+    tecnico = getattr(orden, "tecnico_asignado", None)
+    orden.firma_encargado_url = _user_signature_url(tecnico) if tecnico else ""
     return orden
 
 

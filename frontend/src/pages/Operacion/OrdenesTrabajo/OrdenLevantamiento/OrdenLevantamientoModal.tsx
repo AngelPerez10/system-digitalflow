@@ -125,6 +125,7 @@ export default function OrdenServicioModal({
     total: number;
   } | null>(null);
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState<Record<string, boolean>>({});
+  const [tecnicoSignatureUrl, setTecnicoSignatureUrl] = useState("");
   const formScrollRef = useRef<HTMLFormElement | null>(null);
   const formNonceRef = useRef(0);
   const fotosUrlsRef = useRef<string[]>([]);
@@ -337,6 +338,33 @@ export default function OrdenServicioModal({
       setServicioSearch("");
     }
   }, [open, orden?.id, defaultFechaInicioForNewOrden]);
+
+  useEffect(() => {
+    const tecId = formData.tecnico_asignado;
+    if (!open || !tecId) {
+      setTecnicoSignatureUrl("");
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetchApi(`/api/users/accounts/${tecId}/signature/`, {
+          cache: "no-store" as RequestCache,
+        });
+        const data = await res.json().catch(() => null);
+        if (cancelled) return;
+        const url = res.ok && typeof (data as { url?: string })?.url === "string"
+          ? (data as { url: string }).url.trim()
+          : "";
+        setTecnicoSignatureUrl(url);
+      } catch {
+        if (!cancelled) setTecnicoSignatureUrl("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, formData.tecnico_asignado]);
 
   // Rellenar etiqueta solo si el buscador está vacío (p. ej. usuarios cargaron después).
   useEffect(() => {
@@ -1477,7 +1505,7 @@ export default function OrdenServicioModal({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <SignaturePad
                     label="Firma del Encargado"
-                    value={formData.firma_encargado_url}
+                    value={formData.tecnico_asignado != null ? tecnicoSignatureUrl : ""}
                     disabled={true}
                     onChange={() => {}}
                     width={400}

@@ -75,7 +75,7 @@ export type OrdenFormData = {
   equipos_inventario: OrdenEquipoInventarioLinea[];
 };
 
-export function createEmptyOrdenFormData(mySignatureUrl = ""): OrdenFormData {
+export function createEmptyOrdenFormData(): OrdenFormData {
   return {
     folio: "",
     cliente_id: null,
@@ -97,7 +97,7 @@ export function createEmptyOrdenFormData(mySignatureUrl = ""): OrdenFormData {
     tecnico_asignado: null,
     quien_instalo: null,
     quien_entrego: null,
-    firma_encargado_url: mySignatureUrl,
+    firma_encargado_url: "",
     firma_cliente_url: "",
     fotos_urls: [],
     fotos_extra_max: 0,
@@ -361,7 +361,6 @@ export type UseOrdenFormDraftOpts = {
   userId: number | null;
   isAdmin: boolean;
   isAuthenticated: boolean;
-  mySignatureUrl: string;
   clientes: Cliente[];
   setClientes: React.Dispatch<React.SetStateAction<Cliente[]>>;
   usuarios: Usuario[];
@@ -402,7 +401,6 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     userId,
     isAdmin,
     isAuthenticated,
-    mySignatureUrl,
     clientes,
     setClientes,
     setUsuarios,
@@ -470,13 +468,13 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
   }, []);
 
   const resetForm = useCallback(() => {
-    setFormData(createEmptyOrdenFormData(variant === "tecnico" ? mySignatureUrl : ""));
+    setFormData(createEmptyOrdenFormData());
     if (variant === "admin") resetAdminSeguimientoUi();
     clearSearchFields();
     setTecnicoSignatureUrl("");
     firmaClienteBaselineRef.current = "";
     firmaClienteClearedRef.current = false;
-  }, [mySignatureUrl, variant, resetAdminSeguimientoUi, clearSearchFields]);
+  }, [variant, resetAdminSeguimientoUi, clearSearchFields]);
 
   const bumpFormNonce = useCallback(() => {
     formNonceRef.current += 1;
@@ -506,12 +504,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         tecnico_asignado: orden.tecnico_asignado ? Number(orden.tecnico_asignado) : null,
         quien_instalo: orden.quien_instalo ? Number(orden.quien_instalo) : null,
         quien_entrego: orden.quien_entrego ? Number(orden.quien_entrego) : null,
-        firma_encargado_url:
-          variant === "tecnico"
-            ? normalizeHttpUrl(orden.firma_encargado_url) ||
-              normalizeHttpUrl(mySignatureUrl) ||
-              ""
-            : normalizeHttpUrl(orden.firma_encargado_url) || "",
+        firma_encargado_url: normalizeHttpUrl(orden.firma_encargado_url) || "",
         firma_cliente_url: normalizeHttpUrl(orden.firma_cliente_url) || "",
         fotos_urls: Array.isArray(orden.fotos_urls)
           ? orden.fotos_urls.map((u) => normalizeHttpUrl(u)).filter(Boolean)
@@ -534,12 +527,9 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       );
       setServicioSearch("");
       if (variant === "admin") loadAdminSeguimientoFromOrden(orden);
-      const tecId = orden.tecnico_asignado ? Number(orden.tecnico_asignado) : null;
-      setTecnicoSignatureUrl(
-        tecId ? normalizeHttpUrl(orden.firma_encargado_url) || "" : "",
-      );
+      setTecnicoSignatureUrl("");
     },
-    [bumpFormNonce, mySignatureUrl, variant, loadAdminSeguimientoFromOrden],
+    [bumpFormNonce, variant, loadAdminSeguimientoFromOrden],
   );
 
   const addEquipoFromItem = useCallback((item: InventarioItem) => {
@@ -683,14 +673,6 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         return;
       }
 
-      if (variant === "tecnico") {
-        const currentUserId = userId != null ? Number(userId) : null;
-        if (currentUserId != null && tecUserId === currentUserId) {
-          setTecnicoSignatureUrl(mySignatureUrl || "");
-          return;
-        }
-      }
-
       const cached = tecnicoSignatureCacheRef.current[tecUserId];
       if (typeof cached === "string") {
         setTecnicoSignatureUrl(cached);
@@ -713,7 +695,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         /* ignore */
       }
     },
-    [variant, userId, mySignatureUrl, isAuthenticated],
+    [isAuthenticated],
   );
 
   useEffect(() => {
@@ -723,7 +705,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       return;
     }
     void loadTecnicoSignature(tecnicoId);
-  }, [formData.tecnico_asignado, loadTecnicoSignature, mySignatureUrl, userId]);
+  }, [formData.tecnico_asignado, loadTecnicoSignature]);
 
   const maxPhotosAllowed = ORDEN_BASE_MAX_FOTOS + formData.fotos_extra_max;
   fotosUrlsRef.current = Array.isArray(formData.fotos_urls) ? formData.fotos_urls : [];

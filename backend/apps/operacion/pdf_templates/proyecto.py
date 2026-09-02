@@ -698,7 +698,7 @@ def generate_proyecto_pdf_html(proyecto) -> str:
 
         <div class='section'>
           <div class='section-title'>Cotizaciones adjuntas</div>
-          <div class='box'>{cotizaciones_html}</div>
+          {cotizaciones_html}
         </div>
 
         <div class='section'>

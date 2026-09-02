@@ -19,10 +19,7 @@ import {
 } from "./shared/ordenesPageTypes";
 import { useOrdenFormModalState } from "./form/useOrdenFormModalState";
 import { useOrdenFormDraft } from "./form/useOrdenFormDraft";
-import {
-  ORDENES_PAGE_INIT_THROTTLE_MS,
-  useOrdenesList,
-} from "./shared/useOrdenesList";
+import { useOrdenesList } from "./shared/useOrdenesList";
 import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
@@ -70,8 +67,6 @@ import {
 } from "../ordenTrabajoStyles";
 
 
-let ordenesTecnicoSignatureLastLoadAt = 0;
-
 export default function OrdenesTecnico() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -99,27 +94,6 @@ export default function OrdenesTecnico() {
     }
   }, [authLoading, isAuthenticated, canViewAllOrdenes, navigate]);
 
-  const [mySignatureUrl, setMySignatureUrl] = useState<string>('');
-
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-    const now = Date.now();
-    if (now - ordenesTecnicoSignatureLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
-    ordenesTecnicoSignatureLastLoadAt = now;
-    const load = async () => {
-      try {
-        const res = await fetchApi('/api/me/signature/', {
-          cache: 'no-store' as RequestCache,
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) return;
-        setMySignatureUrl(data?.url || '');
-      } catch {
-        /* ignore */
-      }
-    };
-    load();
-  }, [authLoading, isAuthenticated]);
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -260,7 +234,6 @@ export default function OrdenesTecnico() {
     userId: user?.id ?? null,
     isAdmin,
     isAuthenticated,
-    mySignatureUrl,
     clientes,
     setClientes,
     usuarios,

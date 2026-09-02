@@ -19,10 +19,7 @@ import {
 } from "./shared/ordenesPageTypes";
 import { useOrdenFormModalState } from "./form/useOrdenFormModalState";
 import { useOrdenFormDraft } from "./form/useOrdenFormDraft";
-import {
-  ORDENES_PAGE_INIT_THROTTLE_MS,
-  useOrdenesList,
-} from "./shared/useOrdenesList";
+import { useOrdenesList } from "./shared/useOrdenesList";
 import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
@@ -79,8 +76,6 @@ import {
   sectionLabelOrangeClass,
 } from "../ordenTrabajoStyles";
 
-
-let ordenesPageSignatureLastLoadAt = 0;
 
 export default function Ordenes() {
   const navigate = useNavigate();
@@ -181,25 +176,6 @@ export default function Ordenes() {
     open: false,
     content: "",
   });
-  const [mySignatureUrl, setMySignatureUrl] = useState<string>('');
-
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-    const now = Date.now();
-    if (now - ordenesPageSignatureLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
-    ordenesPageSignatureLastLoadAt = now;
-    const load = async () => {
-      try {
-        const res = await fetchApi("/api/me/signature/", { cache: "no-store" as RequestCache });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) return;
-        setMySignatureUrl(data?.url || "");
-      } catch {
-        /* ignore */
-      }
-    };
-    load();
-  }, [authLoading, isAuthenticated]);
 
   // Abrir modal de nueva orden con tipo "levantamiento" al llegar desde /levantamiento (Nueva Orden)
   useEffect(() => {
@@ -366,7 +342,6 @@ export default function Ordenes() {
     userId: user?.id ?? null,
     isAdmin,
     isAuthenticated,
-    mySignatureUrl,
     clientes,
     setClientes,
     usuarios,
