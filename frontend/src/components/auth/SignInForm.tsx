@@ -9,8 +9,14 @@ import {
   resetRefreshState,
   storeCsrfTokenFromPayload,
 } from "@/config/api";
+import {
+  clearRememberedLogin,
+  loadRememberedLogin,
+  persistRememberedLogin,
+} from "@/config/rememberLogin";
 import { parseLoginError, type LoginSuccessPayload } from "@/config/loginErrors";
 import { useAuth } from "@/context/AuthContext";
+import { useMarca } from "@/context/MarcaContext";
 import { cn } from "@/lib/utils";
 import type { Permissions } from "@/context/authTypes";
 import { getOrdenesListPath } from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/useOrdenesPagePermissions";
@@ -21,16 +27,15 @@ type SignInLocationState = {
   };
 };
 
-async function login(loginValue: string, password: string) {
+async function login(loginValue: string, password: string, remember: boolean) {
   await ensureCsrfCookie();
+  const credentials = loginValue.includes("@")
+    ? { email: loginValue, password }
+    : { username: loginValue, password };
   const res = await fetchApi("/api/login/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(
-      loginValue.includes("@")
-        ? { email: loginValue, password }
-        : { username: loginValue, password }
-    ),
+    body: JSON.stringify({ ...credentials, remember }),
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new Error(parseLoginError(res, data));
@@ -40,7 +45,7 @@ async function login(loginValue: string, password: string) {
 function LoadingSpinner() {
   return (
     <span
-      className="inline-block h-[1.125rem] w-[1.125rem] animate-spin rounded-full border-2 border-[#1c1917]/20 border-t-[#1c1917]"
+      className="inline-block h-[1.125rem] w-[1.125rem] animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none"
       aria-hidden
     />
   );
@@ -76,9 +81,10 @@ function resolvePostLoginPath(
 }
 
 export default function SignInForm() {
+  const remembered = loadRememberedLogin();
   const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember] = useState<boolean>(false);
-  const [loginValue, setLoginValue] = useState("");
+  const [remember, setRemember] = useState<boolean>(() => Boolean(remembered));
+  const [loginValue, setLoginValue] = useState(remembered);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -86,6 +92,8 @@ export default function SignInForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const { refresh: refreshAuth, applyLoginSession, user, permissions } = useAuth();
+  const { nombre } = useMarca();
+  const loginErrorId = "login-error";
 
   useEffect(() => {
     if (user?.username) {
@@ -103,12 +111,17 @@ export default function SignInForm() {
     setLoading(true);
     setMessage(null);
     try {
-      const data = await login(loginValue, password);
+      const data = await login(loginValue, password, remember);
       storeCsrfTokenFromPayload(data);
       resetRefreshState();
       applyLoginSession(data as LoginSuccessPayload);
       if (!String(data.username ?? "").trim()) {
         throw new Error("Respuesta de inicio de sesión incompleta. Contacta al administrador.");
+      }
+      if (remember) {
+        persistRememberedLogin(loginValue);
+      } else {
+        clearRememberedLogin();
       }
       await refreshAuth();
       setPassword("");
@@ -129,20 +142,17 @@ export default function SignInForm() {
       <div role="status" aria-live="polite">
         <div className="flex flex-col items-center gap-4 py-14 text-center">
           <span
-            className="inline-block h-9 w-9 animate-spin rounded-full border-2 border-[#ff801f]/30 border-t-[#ff801f]"
+            className="inline-block h-9 w-9 animate-spin rounded-full border-2 border-[#1B5CFF]/30 border-t-[#1B5CFF] motion-reduce:animate-none dark:border-[#4B7CFF]/30 dark:border-t-[#4B7CFF]"
             aria-hidden
           />
-          <p className="text-sm text-[#78716c] dark:text-[#8ea0b8]">Verificando sesión…</p>
+          <p className="text-sm text-[#6E6E77] dark:text-[#8EA0B8]">Verificando sesión…</p>
         </div>
       </div>
     );
   }
 
   const hasError = Boolean(message);
-  const inputClass = cn(
-    "auth-input !h-12 !rounded-xl !px-4 !shadow-[inset_0_1px_2px_rgba(28,25,23,0.04)] dark:!shadow-none",
-    hasError && "auth-input--error"
-  );
+  const inputClass = cn("auth-input", hasError && "auth-input--error");
 
   return (
     <div className="w-full">
@@ -150,7 +160,7 @@ export default function SignInForm() {
         <p className="auth-signin__eyebrow">Acceso al sistema</p>
         <h1 className="auth-signin__title">Iniciar sesión</h1>
         <p className="auth-signin__subtitle">
-          Ingresa tus credenciales para continuar al panel de Digitalflow.
+          Ingresa tus credenciales para continuar al panel de {nombre}.
         </p>
       </header>
 
@@ -161,13 +171,20 @@ export default function SignInForm() {
           </label>
           <Input
             id="login-value"
-            name="login"
+            name="username"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={loginValue}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setLoginValue(e.target.value)}
             placeholder="correo@ejemplo.com"
             className={inputClass}
             error={hasError}
             disabled={loading}
+            required
+            aria-invalid={hasError}
+            aria-describedby={hasError ? loginErrorId : undefined}
           />
         </div>
 
@@ -179,6 +196,7 @@ export default function SignInForm() {
             <Input
               id="login-password"
               name="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               type={showPassword ? "text" : "password"}
@@ -186,6 +204,9 @@ export default function SignInForm() {
               className={cn(inputClass, "!pr-12")}
               error={hasError}
               disabled={loading}
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? loginErrorId : undefined}
             />
             <button
               type="button"
@@ -193,7 +214,7 @@ export default function SignInForm() {
               aria-pressed={showPassword}
               onClick={() => setShowPassword(!showPassword)}
               disabled={loading}
-              className="absolute right-2.5 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[#78716c] transition-colors hover:bg-[#f5f0e8] hover:text-[#44403c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 disabled:opacity-50 dark:text-[#8ea0b8] dark:hover:bg-[#1e293b] dark:hover:text-[#e5e7eb]"
+              className="absolute right-1.5 top-1/2 z-30 flex h-11 w-11 min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center rounded-[10px] text-[#6E6E77] transition-colors hover:bg-[#FAFAFA] hover:text-[#09090B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 disabled:opacity-50 dark:text-[#8EA0B8] dark:hover:bg-[#1e293b] dark:hover:text-[#F8FAFC]"
             >
               {showPassword ? (
                 <EyeIcon className="size-[1.125rem] fill-current" />
@@ -205,7 +226,7 @@ export default function SignInForm() {
         </div>
 
         {message ? (
-          <div role="alert" className="auth-alert-error">
+          <div id={loginErrorId} role="alert" className="auth-alert-error">
             <svg
               className="mt-0.5 h-4 w-4 shrink-0"
               viewBox="0 0 20 20"
@@ -223,12 +244,17 @@ export default function SignInForm() {
         ) : null}
 
         <div className="auth-form-actions">
-          <Checkbox
-            checked={remember}
-            onChange={setRemember}
-            disabled={loading}
-            label="Recordarme"
-          />
+          <div className="min-w-0">
+            <Checkbox
+              id="login-remember"
+              checked={remember}
+              onChange={setRemember}
+              disabled={loading}
+              label="Recordarme"
+              aria-describedby="login-remember-hint"
+              className="checked:border-[#1B5CFF] checked:bg-[#1B5CFF] dark:checked:border-[#4B7CFF] dark:checked:bg-[#4B7CFF]"
+            />
+          </div>
           <button
             type="submit"
             disabled={loading}
@@ -249,6 +275,14 @@ export default function SignInForm() {
           </button>
         </div>
       </form>
+
+      <p className="auth-help-text">
+        <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+          <rect x="4.5" y="8.5" width="11" height="8" rx="1.6" />
+          <path d="M7 8.5V6a3 3 0 0 1 6 0v2.5" strokeLinecap="round" />
+        </svg>
+        Acceso restringido a personal autorizado.
+      </p>
     </div>
   );
 }
