@@ -2,25 +2,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
-import Alert from "@/components/ui/alert/Alert";
 import { useAuth } from "@/context/AuthContext";
 import {
-  erpHeroHeadingClass,
-  erpPageCanvasClass,
-  erpPageInnerClass,
-  erpSansStyle,
-  erpSearchInputClass,
-} from "@/layout/erpPageStyles";
-import {
-  claudeBodyClass,
-  erpBreadcrumbLinkClass,
-  erpBreadcrumbNavClass,
-  erpHeroBlurClass,
-  erpHeroGradientClass,
-  erpHeroIconWrapClass,
-  pageCardShellClass,
-  sectionLabelOrangeClass,
-} from "../Operacion/OrdenesTrabajo/ordenTrabajoStyles";
+  invBreadcrumbCurrentClass,
+  invBreadcrumbLinkClass,
+  invBreadcrumbNavClass,
+  invHeroBandClass,
+  invHeroBlurClass,
+  invHeroBodyClass,
+  invHeroChipClass,
+  invHeroChipGoldClass,
+  invHeroEyebrowClass,
+  invHeroHeadingClass,
+  invHeroIconWrapClass,
+  invPageCanvasClass,
+  invPageInnerClass,
+  invSearchInputClass,
+  inventarioSansStyle,
+} from "./shared/inventarioStyles";
+import InventarioAlert from "./components/InventarioAlert";
 import InventarioDeleteModal from "./components/InventarioDeleteModal";
 import InventarioEditModal from "./components/InventarioEditModal";
 import InventarioImportFacturaBar from "./components/InventarioImportFacturaBar";
@@ -332,37 +332,56 @@ export default function InventarioPage() {
   return (
     <>
       <PageMeta title="Inventario | DigitalFlow" description="Control de inventario por código de barras" />
-      <div className={erpPageCanvasClass} style={erpSansStyle}>
-        <div className={erpPageInnerClass}>
-          <nav className={erpBreadcrumbNavClass} aria-label="Miga de pan">
-            <Link to="/" className={erpBreadcrumbLinkClass}>
+      <div className={invPageCanvasClass} style={inventarioSansStyle}>
+        <div className={invPageInnerClass}>
+          <nav className={invBreadcrumbNavClass} aria-label="Miga de pan">
+            <Link to="/" className={invBreadcrumbLinkClass}>
               Inicio
             </Link>
-            <span aria-hidden="true">/</span>
-            <span className="text-[#1c1917] dark:text-white">Inventario</span>
+            <span className="text-[#D3D3D8] dark:text-[#3D3D4A]" aria-hidden="true">
+              /
+            </span>
+            <span className={invBreadcrumbCurrentClass}>Inventario</span>
           </nav>
 
-          <header className={`relative ${pageCardShellClass} p-4 sm:p-6`}>
-            <div className={erpHeroBlurClass} aria-hidden="true" />
-            <div className="flex min-w-0 items-start gap-3">
-              <div className={erpHeroIconWrapClass} aria-hidden="true">
-                <BarcodeIcon className="h-5 w-5" />
+          <header className={invHeroBandClass}>
+            <div className={invHeroBlurClass} aria-hidden="true" />
+            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+              <div className="flex min-w-0 items-start gap-4">
+                <span className={invHeroIconWrapClass} aria-hidden="true">
+                  <BarcodeIcon className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className={invHeroEyebrowClass}>Operación</p>
+                  <h1 className={invHeroHeadingClass}>Inventario</h1>
+                  <p className={invHeroBodyClass}>
+                    Escanea códigos de barras para registrar entradas y salidas, consulta existencias y
+                    revisa el historial.
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className={sectionLabelOrangeClass}>Operación</p>
-                <h1 className={erpHeroHeadingClass}>Inventario</h1>
-                <p className={`mt-1 ${claudeBodyClass}`}>
-                  Escanea códigos de barras para registrar entradas y salidas, consulta existencias y
-                  revisa el historial.
-                </p>
-                <div className={erpHeroGradientClass} aria-hidden="true" />
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <span className={invHeroChipClass}>
+                  <span className="size-1.5 rounded-full bg-[#4ADE80]" aria-hidden="true" />
+                  {stats.total_items.toLocaleString("es-MX")} códigos
+                </span>
+                {stats.sin_identificar > 0 ? (
+                  <span className={invHeroChipGoldClass}>
+                    {stats.sin_identificar.toLocaleString("es-MX")} sin identificar
+                  </span>
+                ) : null}
               </div>
             </div>
           </header>
 
           {error ? (
             <div className="mt-4">
-              <Alert variant="error" title="Error" message={error} />
+              <InventarioAlert
+                variant="error"
+                title="No se pudo completar la operación"
+                message={error}
+                onDismiss={() => setError(null)}
+              />
             </div>
           ) : null}
 
@@ -408,7 +427,7 @@ export default function InventarioPage() {
                 </label>
                 <div className="relative min-w-0">
                   <span
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#a8a29e] dark:text-[#64748b]"
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]"
                     aria-hidden="true"
                   >
                     <SearchIcon className="h-4 w-4" />
@@ -419,7 +438,7 @@ export default function InventarioPage() {
                     value={searchTerm}
                     onChange={(e) => handleSearchChange(e.target.value)}
                     placeholder="Buscar por código, nombre, marca o modelo…"
-                    className={erpSearchInputClass}
+                    className={invSearchInputClass}
                   />
                 </div>
               </div>

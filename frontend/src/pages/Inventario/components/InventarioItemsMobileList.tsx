@@ -10,7 +10,7 @@ import InventarioThumb from "./InventarioThumb";
 import { LinkIcon } from "./inventarioIcons";
 
 const mobileActionBtnClass =
-  "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] transition hover:border-[#ff801f] hover:text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:border-[#ff801f]";
+  "inline-flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#1B5CFF]/50 hover:text-[#1B5CFF] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:border-[#4B7CFF]/50 dark:hover:text-[#4B7CFF]";
 
 type InventarioItemsMobileListProps = {
   items: InventarioItem[];
@@ -56,65 +56,65 @@ export default function InventarioItemsMobileList({
             >
               <button
                 type="button"
-                className="flex w-full items-start gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40"
+                className="flex w-full items-start gap-3 rounded-[12px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)]"
                 onClick={() => onSelectItem(selected ? null : item)}
                 aria-pressed={selected}
                 aria-label={`Filtrar historial por ${item.nombre || item.codigo_barras}`}
               >
                 <InventarioThumb src={item.imagen_url} alt="" size={52} />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                  <span className="block text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC]">
                     {identificado ? item.nombre : "Producto sin identificar"}
                   </span>
-                  <span className="mt-0.5 block font-mono text-[11px] tracking-wide text-[#78716c] dark:text-[#8ea0b8]">
+                  <span className="mt-0.5 block font-mono text-[11px] tracking-wide text-[#6E6E77] dark:text-[#8EA0B8]">
                     {item.codigo_barras}
                   </span>
                   {detalle ? (
-                    <span className="mt-0.5 block truncate text-xs text-[#57534e] dark:text-[#b7c1d1]">
+                    <span className="mt-0.5 block truncate text-xs text-[#52525B] dark:text-[#B7C1D1]">
                       {detalle}
                     </span>
                   ) : null}
                 </span>
                 <span className="shrink-0 text-right">
                   <span
-                    className={`[font-family:Georgia,'Times_New_Roman',serif] block text-xl font-medium leading-none ${
+                    className={`block text-xl font-bold leading-none tracking-[-0.5px] ${
                       item.cantidad > 0
-                        ? "text-[#1c1917] dark:text-[#f8fafc]"
-                        : "text-[#b45309] dark:text-[#fcd34d]"
+                        ? "text-[#09090B] dark:text-[#F8FAFC]"
+                        : "text-[#9A6B15] dark:text-[#E6A23C]"
                     }`}
                   >
                     {item.cantidad}
                   </span>
-                  <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-[#78716c] dark:text-[#8ea0b8]">
+                  <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
                     en piso
                   </span>
                 </span>
               </button>
 
-              <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-[#f0e9dd] pt-3 dark:border-[#273244]">
-                <div className="min-w-0 rounded-xl bg-[#fcfaf6] px-2.5 py-2 dark:bg-[#0f172a]/60">
-                  <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#78716c] dark:text-[#8ea0b8]">
+              <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-[#EDEDED] pt-3 dark:border-[#273244]">
+                <div className="min-w-0 rounded-[10px] bg-[#FAFAFA] px-2.5 py-2 dark:bg-[#1B2539]">
+                  <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
                     Precio
                   </dt>
                   <dd
                     className={`mt-0.5 truncate text-sm font-semibold tabular-nums ${
                       precioTxt
-                        ? "text-[#1c1917] dark:text-[#f8fafc]"
-                        : "font-normal text-[#a8a29e] dark:text-[#64748b]"
+                        ? "text-[#09090B] dark:text-[#F8FAFC]"
+                        : "font-normal text-[#A1A1AA] dark:text-[#64748b]"
                     }`}
                   >
                     {precioTxt || "—"}
                   </dd>
                 </div>
-                <div className="min-w-0 rounded-xl bg-[#fcfaf6] px-2.5 py-2 dark:bg-[#0f172a]/60">
-                  <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#78716c] dark:text-[#8ea0b8]">
+                <div className="min-w-0 rounded-[10px] bg-[#FAFAFA] px-2.5 py-2 dark:bg-[#1B2539]">
+                  <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
                     Folio
                   </dt>
                   <dd
                     className={`mt-0.5 truncate font-mono text-sm ${
                       folio
-                        ? "font-medium text-[#1c1917] dark:text-[#f8fafc]"
-                        : "font-sans font-normal text-[#a8a29e] dark:text-[#64748b]"
+                        ? "font-medium text-[#09090B] dark:text-[#F8FAFC]"
+                        : "font-sans font-normal text-[#A1A1AA] dark:text-[#64748b]"
                     }`}
                     title={folio || undefined}
                   >
@@ -128,7 +128,7 @@ export default function InventarioItemsMobileList({
                 {proveedor ? (
                   <span className={fuenteBadgeClass(badgeFuente(item))}>{proveedor}</span>
                 ) : (
-                  <span className="text-[11px] text-[#a8a29e] dark:text-[#64748b]">Sin proveedor</span>
+                  <span className="text-[11px] text-[#A1A1AA] dark:text-[#64748b]">Sin proveedor</span>
                 )}
                 <div className="ml-auto flex items-center gap-1.5">
                   {canEdit ? (

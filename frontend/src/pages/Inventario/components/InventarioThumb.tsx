@@ -14,7 +14,7 @@ export default function InventarioThumb({ src, alt, size = 40 }: InventarioThumb
     return (
       <span
         style={box}
-        className="flex shrink-0 items-center justify-center rounded-lg border border-dashed border-[#e2d9ca] bg-[#fcfaf6] text-[#c4bcae] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#475569]"
+        className="flex shrink-0 items-center justify-center rounded-lg border border-dashed border-[#D3D3D8] bg-[#FAFAFA] text-[#A1A1AA] dark:border-[#3A4661] dark:bg-[#1B2539] dark:text-[#475569]"
         aria-hidden="true"
       >
         <svg className="h-1/2 w-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -32,7 +32,7 @@ export default function InventarioThumb({ src, alt, size = 40 }: InventarioThumb
       alt={alt}
       style={box}
       loading="lazy"
-      className="shrink-0 rounded-lg border border-[#e7ded0] bg-white object-contain dark:border-[#334155] dark:bg-[#0f172a]"
+      className="shrink-0 rounded-lg border border-[#E7E7EA] bg-white object-contain dark:border-[#273244] dark:bg-[#0f172a]"
     />
   );
 }

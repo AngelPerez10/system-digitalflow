@@ -1,15 +1,15 @@
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
-import { erpTableHeaderClass, erpTableWrapClass } from "@/layout/erpPageStyles";
-import {
-  erpRowActionBarClass,
-  erpRowActionBtnClass,
-  erpTableRowHoverClass,
-} from "../../Operacion/OrdenesTrabajo/ordenTrabajoStyles";
 import {
   existenciaBadgeClass,
   fuenteBadgeClass,
   inventarioEmptyPanelClass,
+  invRowActionBarClass,
+  invRowActionBtnClass,
+  invTableHeaderClass,
+  invTableRowHoverClass,
+  invTableRowSelectedClass,
+  invTableWrapClass,
 } from "../shared/inventarioStyles";
 import type { InventarioFuente, InventarioItem } from "../shared/inventarioTypes";
 import InventarioItemsMobileList from "./InventarioItemsMobileList";
@@ -38,8 +38,8 @@ function formatoPrecio(valor: string | number | null | undefined): string {
   return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 }
 
-const thClass = "whitespace-nowrap px-2 py-2.5 text-gray-700 dark:text-gray-300";
-const tdMuted = "text-gray-500 dark:text-gray-400";
+const thClass = "whitespace-nowrap px-2 py-2.5 text-[#52525B] dark:text-[#B7C1D1]";
+const tdMuted = "text-[#A1A1AA] dark:text-[#64748b]";
 
 type InventarioItemsTableProps = {
   items: InventarioItem[];
@@ -64,7 +64,7 @@ export default function InventarioItemsTable({
 }: InventarioItemsTableProps) {
   if (loading) {
     return (
-      <p className="py-6 text-center text-sm text-[#57534e] dark:text-[#b7c1d1]" role="status" aria-live="polite">
+      <p className="py-6 text-center text-sm text-[#52525B] dark:text-[#B7C1D1]" role="status" aria-live="polite">
         Cargando ítems…
       </p>
     );
@@ -74,15 +74,15 @@ export default function InventarioItemsTable({
     return (
       <div className={inventarioEmptyPanelClass}>
         <span
-          className="mx-auto mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ff801f]/15 text-[#9a3412] dark:bg-[#fb923c]/15 dark:text-[#fdba74]"
+          className="mx-auto mb-3 inline-flex h-11 w-11 items-center justify-center rounded-[14px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]"
           aria-hidden="true"
         >
           <BarcodeIcon className="h-5 w-5" />
         </span>
-        <p className="text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
+        <p className="text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]">
           Todavía no hay nada en inventario
         </p>
-        <p className="mt-1 text-sm text-[#57534e] dark:text-[#b7c1d1]">
+        <p className="mt-1 text-sm text-[#52525B] dark:text-[#B7C1D1]">
           Escanea un código en modo Entrada para dar de alta el primer ítem.
         </p>
       </div>
@@ -104,9 +104,9 @@ export default function InventarioItemsTable({
       />
 
       {/* min-width fijo: sin sm:min-w-0, para que Folio/Precio no se aplasten fuera de vista */}
-      <div className={"hidden md:block " + erpTableWrapClass} tabIndex={0} aria-label="Tabla de ítems; desplaza horizontalmente si hace falta">
+      <div className={"hidden md:block " + invTableWrapClass} tabIndex={0} aria-label="Tabla de ítems; desplaza horizontalmente si hace falta">
         <Table className="w-full min-w-[1120px] table-fixed">
-          <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
+          <TableHeader className={invTableHeaderClass + " sticky top-0 z-10"}>
             <TableRow>
               <TableCell isHeader scope="col" className={`w-[28%] min-w-[220px] text-left ${thClass}`}>
                 Producto
@@ -134,7 +134,7 @@ export default function InventarioItemsTable({
               </TableCell>
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
+          <TableBody className="divide-y divide-[#EDEDED] text-[11px] text-[#52525B] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
             {items.map((item) => {
               const selected = selectedItemId === item.id;
               const identificado = (item.nombre ?? "").trim().length > 0;
@@ -147,12 +147,12 @@ export default function InventarioItemsTable({
               return (
                 <TableRow
                   key={item.id}
-                  className={`${erpTableRowHoverClass} ${selected ? "bg-[#fff4eb]/80 dark:bg-[#fb923c]/10" : ""}`}
+                  className={`${invTableRowHoverClass} ${selected ? invTableRowSelectedClass : ""}`}
                 >
                   <TableCell className="px-2 py-2.5 align-top">
                     <button
                       type="button"
-                      className="flex w-full items-start gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40"
+                      className="flex w-full items-start gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)]"
                       onClick={() => onSelectItem(selected ? null : item)}
                       aria-pressed={selected}
                       aria-label={`Filtrar historial por ${item.nombre || item.codigo_barras}`}
@@ -160,12 +160,12 @@ export default function InventarioItemsTable({
                       <InventarioThumb src={item.imagen_url} alt="" size={40} />
                       <span className="min-w-0 flex-1">
                         <span
-                          className="line-clamp-2 font-medium leading-snug text-gray-900 dark:text-white sm:text-[12px]"
+                          className="line-clamp-2 font-medium leading-snug text-[#09090B] dark:text-[#F8FAFC] sm:text-[12px]"
                           title={nombreVisible}
                         >
                           {nombreVisible}
                         </span>
-                        <span className="mt-1 block truncate font-mono text-[11px] tracking-wide text-gray-500 dark:text-gray-400">
+                        <span className="mt-1 block truncate font-mono text-[11px] tracking-wide text-[#6E6E77] dark:text-[#8EA0B8]">
                           {item.codigo_barras}
                         </span>
                         <span className="mt-1.5 block">
@@ -190,7 +190,7 @@ export default function InventarioItemsTable({
                   <TableCell className="px-2 py-2.5 text-right align-middle">
                     {precioTxt ? (
                       <span
-                        className="inline-block font-semibold tabular-nums tracking-tight text-[#1c1917] dark:text-[#f8fafc]"
+                        className="inline-block font-semibold tabular-nums tracking-tight text-[#09090B] dark:text-[#F8FAFC]"
                         title={`Precio unitario ${precioTxt}`}
                       >
                         {precioTxt}
@@ -202,7 +202,7 @@ export default function InventarioItemsTable({
                   <TableCell className="px-2 py-2.5 align-middle">
                     {folio ? (
                       <span
-                        className="inline-flex max-w-full items-center truncate rounded-md border border-[#e7ded0] bg-[#fcfaf6] px-2 py-1 font-mono text-[11px] font-medium text-[#44403c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]"
+                        className="inline-flex max-w-full items-center truncate rounded-md border border-[#E7E7EA] bg-[#FAFAFA] px-2 py-1 font-mono text-[11px] font-medium text-[#52525B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]"
                         title={`Folio de factura ${folio}`}
                       >
                         {folio}
@@ -222,11 +222,11 @@ export default function InventarioItemsTable({
                   </TableCell>
                   <TableCell className="px-2 py-2.5 text-center align-middle">
                     {canEdit || canDelete ? (
-                      <div className={erpRowActionBarClass}>
+                      <div className={invRowActionBarClass}>
                         {canEdit ? (
                           <button
                             type="button"
-                            className={erpRowActionBtnClass}
+                            className={invRowActionBtnClass}
                             onClick={() => onEdit(item)}
                             aria-label={
                               identificado
@@ -245,7 +245,7 @@ export default function InventarioItemsTable({
                         {canDelete ? (
                           <button
                             type="button"
-                            className={erpRowActionBtnClass}
+                            className={invRowActionBtnClass}
                             onClick={() => onDelete(item)}
                             aria-label={`Eliminar ${item.nombre || item.codigo_barras} del inventario`}
                             title="Eliminar"

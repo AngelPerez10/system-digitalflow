@@ -27,13 +27,13 @@ export default function InventarioPagination({
   const label = totalCount === 1 ? labelSingular : labelPlural;
 
   return (
-    <div className="border-t border-[#e7ded0] px-1 py-3 dark:border-[#334155]/80 sm:py-4">
+    <div className="border-t border-[#E7E7EA] px-1 py-3 dark:border-[#273244] sm:py-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
           Mostrando{" "}
-          <span className="font-medium text-gray-900 dark:text-white">{startIndex + 1}</span> a{" "}
-          <span className="font-medium text-gray-900 dark:text-white">{endIndex}</span> de{" "}
-          <span className="font-medium text-gray-900 dark:text-white">{totalCount}</span> {label}
+          <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">{startIndex + 1}</span> a{" "}
+          <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">{endIndex}</span> de{" "}
+          <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">{totalCount}</span> {label}
         </p>
 
         {totalPages > 1 ? (
@@ -43,7 +43,7 @@ export default function InventarioPagination({
               onClick={() => onPageChange(Math.max(1, page - 1))}
               disabled={page === 1}
               aria-label="Página anterior"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#09090B] transition-colors hover:bg-[#FAFAFA] disabled:cursor-not-allowed disabled:opacity-45 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:bg-[#243048]"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M15 18l-6-6 6-6" />
@@ -56,11 +56,11 @@ export default function InventarioPagination({
                   <button
                     type="button"
                     onClick={() => onPageChange(1)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-sm font-medium text-[#09090B] transition-colors hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:bg-[#243048]"
                   >
                     1
                   </button>
-                  {page > 4 ? <span className="px-1 text-gray-400">…</span> : null}
+                  {page > 4 ? <span className="px-1 text-[#A1A1AA]">…</span> : null}
                 </>
               ) : null}
 
@@ -75,10 +75,10 @@ export default function InventarioPagination({
                     key={p}
                     onClick={() => onPageChange(p)}
                     aria-current={page === p ? "page" : undefined}
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-medium transition-colors ${
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-[10px] border text-sm font-medium transition-colors ${
                       page === p
-                        ? "border-[#ff801f]/30 bg-[#ff801f] text-black"
-                        : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+                        ? "border-[#1B5CFF] bg-[#1B5CFF] text-white dark:border-[#4B7CFF] dark:bg-[#4B7CFF]"
+                        : "border-[#E7E7EA] bg-white text-[#09090B] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:bg-[#243048]"
                     }`}
                   >
                     {p}
@@ -87,11 +87,11 @@ export default function InventarioPagination({
 
               {page < totalPages - 2 ? (
                 <>
-                  {page < totalPages - 3 ? <span className="px-1 text-gray-400">…</span> : null}
+                  {page < totalPages - 3 ? <span className="px-1 text-[#A1A1AA]">…</span> : null}
                   <button
                     type="button"
                     onClick={() => onPageChange(totalPages)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-sm font-medium text-[#09090B] transition-colors hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:bg-[#243048]"
                   >
                     {totalPages}
                   </button>
@@ -104,7 +104,7 @@ export default function InventarioPagination({
               onClick={() => onPageChange(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
               aria-label="Página siguiente"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#09090B] transition-colors hover:bg-[#FAFAFA] disabled:cursor-not-allowed disabled:opacity-45 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:bg-[#243048]"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M9 18l6-6-6-6" />

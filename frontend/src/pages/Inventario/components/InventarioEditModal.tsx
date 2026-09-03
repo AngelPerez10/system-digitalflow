@@ -1,23 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import {
-  erpInputLikeClass,
-  erpPrimaryBtnClass,
-  erpSecondaryBtnClass,
-  erpSubheadingClass,
-  erpTextareaLikeClass,
-} from "@/layout/erpPageStyles";
-import {
-  claudeBodyClass,
-  erpModalBodyClass,
-  erpModalFooterClass,
-  erpModalFormScrollClass,
-  erpModalHeaderAccentClass,
-  erpModalHeaderClass,
-  erpModalShellClass,
-  sectionLabelOrangeClass,
-} from "../../Operacion/OrdenesTrabajo/ordenTrabajoStyles";
-import {
   fetchCatalogoDetallePorRef,
   scanInventario,
   searchCatalogo,
@@ -29,6 +12,19 @@ import {
   fuenteBadgeClass,
   inventarioFieldLabelClass,
   inventarioSectionIconClass,
+  invInputLikeClass,
+  invModalBodyClass,
+  invModalEyebrowClass,
+  invModalFooterClass,
+  invModalHeaderClass,
+  invModalHeaderIconClass,
+  invModalScrollClass,
+  invModalShellClass,
+  invModalSubtitleClass,
+  invModalTitleClass,
+  invPrimaryBtnClass,
+  invSecondaryBtnClass,
+  invTextareaLikeClass,
 } from "../shared/inventarioStyles";
 import InventarioFormSection from "./InventarioFormSection";
 import InventarioSeccionBadge from "./InventarioSeccionBadge";
@@ -72,6 +68,12 @@ function fuenteLabel(fuente: InventarioFuente | "manual"): string {
   if (fuente === "tvc") return "TVC";
   if (fuente === "manual") return "Manual";
   return "Sin catálogo";
+}
+
+/** El ítem solo persiste syscom/tvc/desconocido; manual se guarda como desconocido + ref. */
+function toInventarioFuente(fuente: InventarioFuente | "manual"): InventarioFuente {
+  if (fuente === "syscom" || fuente === "tvc") return fuente;
+  return "desconocido";
 }
 
 type InventarioEditModalProps = {
@@ -278,11 +280,7 @@ export default function InventarioEditModal({
     setMarca(candidato.marca);
     setModelo(candidato.modelo);
     const esManual = candidato.fuente === "manual";
-    setFuente(
-      candidato.fuente === "syscom" || candidato.fuente === "tvc"
-        ? candidato.fuente
-        : "desconocido",
-    );
+    setFuente(toInventarioFuente(candidato.fuente));
     setRefExterna(
       esManual && !candidato.ref_externa.startsWith("manual:")
         ? `manual:${candidato.ref_externa}`
@@ -420,43 +418,34 @@ export default function InventarioEditModal({
       onClose={onClose}
       ariaLabelledBy={titleId}
       mobileBottomSheet
-      className={erpModalShellClass}
+      className={invModalShellClass}
     >
       <form onSubmit={(e) => void handleSubmit(e)} className="flex min-h-0 flex-1 flex-col">
-        <header className={erpModalHeaderClass}>
-          <div className={erpModalHeaderAccentClass} aria-hidden="true" />
-          <div className="flex items-start gap-3 sm:gap-4">
-            <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black shadow-sm sm:h-11 sm:w-11 sm:rounded-2xl"
-              aria-hidden="true"
-            >
+        <header className={invModalHeaderClass}>
+          <div className="flex items-start gap-3.5 sm:gap-4">
+            <span className={invModalHeaderIconClass} aria-hidden="true">
               <BarcodeIcon className="h-5 w-5" />
-            </div>
+            </span>
             <div className="min-w-0 flex-1 pt-0.5">
               <div className="flex flex-wrap items-center gap-2">
-                <p className={sectionLabelOrangeClass}>Operación · Inventario</p>
+                <p className={invModalEyebrowClass}>Operación · Inventario</p>
                 {vinculado ? (
-                  <span className="rounded-md border border-emerald-200/80 bg-emerald-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-900 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-200">
+                  <span className="inline-flex h-5 items-center rounded-full bg-[rgba(230,162,60,0.22)] px-2 text-[10px] font-semibold uppercase tracking-wide text-[#E6A23C]">
                     Vinculado
                   </span>
                 ) : (
-                  <span className="rounded-md border border-[#e7ded0] bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#78716c] dark:border-[#334155] dark:bg-[#111827] dark:text-[#8ea0b8]">
+                  <span className="inline-flex h-5 items-center rounded-full bg-white/10 px-2 text-[10px] font-semibold uppercase tracking-wide text-white/70">
                     Sin vincular
                   </span>
                 )}
               </div>
-              <h2
-                id={titleId}
-                className={`mt-1 text-base sm:mt-1.5 sm:text-[clamp(1.1rem,1.3vw,1.25rem)] ${erpSubheadingClass}`}
-              >
+              <h2 id={titleId} className={`mt-1 sm:mt-1.5 ${invModalTitleClass}`}>
                 Ficha del ítem
               </h2>
               {item ? (
-                <p className={`mt-1 text-xs sm:mt-1.5 sm:text-sm ${claudeBodyClass}`}>
+                <p className={invModalSubtitleClass}>
                   Código{" "}
-                  <span className="font-mono tracking-wide text-[#1c1917] dark:text-[#f8fafc]">
-                    {item.codigo_barras}
-                  </span>{" "}
+                  <span className="font-mono tracking-wide text-white">{item.codigo_barras}</span>{" "}
                   · existencia {cantidad}
                 </p>
               ) : null}
@@ -464,8 +453,8 @@ export default function InventarioEditModal({
           </div>
         </header>
 
-        <div className={erpModalBodyClass}>
-          <div className={erpModalFormScrollClass}>
+        <div className={invModalBodyClass}>
+          <div className={invModalScrollClass}>
             <InventarioFormSection
               titleId={`${titleId}-sec-existencia`}
               eyebrow="Existencia"
@@ -474,7 +463,7 @@ export default function InventarioEditModal({
               icon={<BarcodeIcon className={inventarioSectionIconClass} />}
             >
               <div
-                className="overflow-hidden rounded-2xl border border-[#e7ded0] bg-gradient-to-br from-[#fffdfa] via-[#fff8f1] to-[#f5f0e8] dark:border-[#334155] dark:from-[#0f172a] dark:via-[#111827] dark:to-[#0b1220]"
+                className="overflow-hidden rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]"
                 role="group"
                 aria-labelledby={`${titleId}-existencia-label`}
               >
@@ -482,7 +471,7 @@ export default function InventarioEditModal({
                   <div className="min-w-0">
                     <p
                       id={`${titleId}-existencia-label`}
-                      className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9a3412] dark:text-[#fdba74]"
+                      className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9A6B15] dark:text-[#E6A23C]"
                     >
                       En piso ahora
                     </p>
@@ -495,13 +484,13 @@ export default function InventarioEditModal({
                         {cantidad}
                       </span>
                       <div className="pb-0.5">
-                        <p className="text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
+                        <p className="text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]">
                           {cantidad === 1 ? "unidad" : "unidades"}
                         </p>
-                        <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                        <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
                           Guardado: {cantidadGuardada}
                           {deltaExistencia !== 0 ? (
-                            <span className="ml-1.5 font-semibold text-[#9a3412] dark:text-[#fdba74]">
+                            <span className="ml-1.5 font-semibold text-[#9A6B15] dark:text-[#E6A23C]">
                               · pendiente {deltaExistencia > 0 ? `+${deltaExistencia}` : deltaExistencia}
                             </span>
                           ) : null}
@@ -514,7 +503,7 @@ export default function InventarioEditModal({
                     <div className="flex w-full gap-2 sm:w-auto sm:shrink-0">
                       <button
                         type="button"
-                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#e7ded0] bg-white px-4 text-sm font-semibold text-[#1c1917] shadow-sm transition-colors hover:border-[#f59e0b]/60 hover:bg-[#fffbeb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#334155] dark:bg-[#111827] dark:text-[#f8fafc] dark:hover:border-[#f59e0b]/50 dark:hover:bg-[#1e293b] sm:flex-none sm:min-w-[8.5rem]"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#E6A23C]/40 bg-[rgba(230,162,60,0.10)] px-4 text-sm font-semibold text-[#9A6B15] transition-colors hover:bg-[rgba(230,162,60,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E6A23C]/40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#E6A23C]/30 dark:bg-[rgba(230,162,60,0.12)] dark:text-[#E6A23C] dark:hover:bg-[rgba(230,162,60,0.2)] sm:flex-none sm:min-w-[8.5rem]"
                         onClick={() => ajustarExistenciaLocal(-1)}
                         disabled={busy || !item || cantidad <= 0}
                         aria-label="Salida: restar una unidad (se aplica al guardar)"
@@ -525,7 +514,7 @@ export default function InventarioEditModal({
                       </button>
                       <button
                         type="button"
-                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#ff801f]/35 bg-[#ff801f] px-4 text-sm font-semibold text-black shadow-sm transition-colors hover:bg-[#ea580c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/45 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:min-w-[8.5rem]"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#04724D] bg-[#04724D] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#035c3e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#04724D]/40 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:min-w-[8.5rem]"
                         onClick={() => ajustarExistenciaLocal(1)}
                         disabled={busy || !item}
                         aria-label="Entrada: sumar una unidad (se aplica al guardar)"
@@ -536,14 +525,14 @@ export default function InventarioEditModal({
                       </button>
                     </div>
                   ) : (
-                    <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                    <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
                       Necesitas permiso de crear en Inventario para meter o sacar.
                     </p>
                   )}
                 </div>
                 {deltaExistencia !== 0 ? (
                   <p
-                    className="border-t border-[#e7ded0]/80 bg-[#fff8f1]/80 px-4 py-2.5 text-xs text-[#9a3412] dark:border-[#334155] dark:bg-[#1e293b]/40 dark:text-[#fdba74] sm:px-5"
+                    className="border-t border-[#E7E7EA] bg-[rgba(230,162,60,0.08)] px-4 py-2.5 text-xs text-[#9A6B15] dark:border-[#273244] dark:bg-[rgba(230,162,60,0.10)] dark:text-[#E6A23C] sm:px-5"
                     role="status"
                     aria-live="polite"
                   >
@@ -554,7 +543,7 @@ export default function InventarioEditModal({
                 ) : null}
               </div>
               {ajusteAviso ? (
-                <p className="mt-2 text-xs text-[#047857] dark:text-[#6ee7b7]" role="status" aria-live="polite">
+                <p className="mt-2 text-xs text-[#04724D] dark:text-[#4ADE80]" role="status" aria-live="polite">
                   {ajusteAviso}
                 </p>
               ) : null}
@@ -574,14 +563,14 @@ export default function InventarioEditModal({
                   size={88}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs leading-relaxed text-[#57534e] dark:text-[#b7c1d1]">
+                  <p className="text-xs leading-relaxed text-[#52525B] dark:text-[#B7C1D1]">
                     {refrescando && !imagenUrl
                       ? "Buscando la foto en el catálogo…"
                       : "Al vincular con el catálogo se toma la foto del proveedor. También puedes subir la tuya."}
                   </p>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                     <label
-                      className={`${erpSecondaryBtnClass} cursor-pointer ${
+                      className={`${invSecondaryBtnClass} cursor-pointer ${
                         saving || subiendoImagen ? "pointer-events-none opacity-60" : ""
                       }`}
                     >
@@ -599,7 +588,7 @@ export default function InventarioEditModal({
                     {imagenUrl ? (
                       <button
                         type="button"
-                        className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-[#b91c1c] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 dark:text-[#fca5a5] sm:min-h-0 sm:py-2"
+                        className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-[#C22B2B] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(194,43,43,0.3)] dark:text-[#F87171] sm:min-h-0 sm:py-2"
                         onClick={() => setImagenUrl("")}
                         disabled={saving || subiendoImagen}
                       >
@@ -609,7 +598,7 @@ export default function InventarioEditModal({
                     ) : null}
                   </div>
                   {imagenError ? (
-                    <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
+                    <p className="mt-2 text-xs text-[#C22B2B] dark:text-[#F87171]" role="alert">
                       {imagenError}
                     </p>
                   ) : null}
@@ -628,13 +617,13 @@ export default function InventarioEditModal({
                 <dl className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <dt className={inventarioFieldLabelClass}>Proveedor</dt>
-                    <dd className="mt-1 text-sm text-[#1c1917] dark:text-[#f8fafc]">
+                    <dd className="mt-1 text-sm text-[#09090B] dark:text-[#F8FAFC]">
                       {item.proveedor_nombre || "—"}
                     </dd>
                   </div>
                   <div>
                     <dt className={inventarioFieldLabelClass}>Folio</dt>
-                    <dd className="mt-1 font-mono text-sm text-[#1c1917] dark:text-[#f8fafc]">
+                    <dd className="mt-1 font-mono text-sm text-[#09090B] dark:text-[#F8FAFC]">
                       {item.folio_factura || "—"}
                     </dd>
                   </div>
@@ -649,24 +638,24 @@ export default function InventarioEditModal({
               hint="Vincula una vez y los siguientes escaneos traerán los datos solos."
               icon={<LinkIcon className={inventarioSectionIconClass} />}
             >
-              <p className="text-xs leading-relaxed text-[#57534e] dark:text-[#b7c1d1]">
+              <p className="text-xs leading-relaxed text-[#52525B] dark:text-[#B7C1D1]">
                 SYSCOM y TVC no indexan el código de barras de la caja, solo su propio modelo. Busca
                 el producto por nombre o modelo.
               </p>
 
               {vinculado ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200/70 bg-[#f0fdf4] px-3 py-2 dark:border-emerald-500/25 dark:bg-[#047857]/15">
-                  <span className="text-emerald-700 dark:text-emerald-300" aria-hidden="true">
+                <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-[#BFE6D4] bg-[#E9F8F0] px-3 py-2 dark:border-[#1E5A42] dark:bg-[#0F2A1C]">
+                  <span className="text-[#04724D] dark:text-[#4ADE80]" aria-hidden="true">
                     <CheckIcon className="h-4 w-4" />
                   </span>
                   <span className={fuenteBadgeClass(fuente)}>{fuenteLabel(fuente)}</span>
-                  <span className="font-mono text-xs text-[#57534e] dark:text-[#b7c1d1]">
+                  <span className="font-mono text-xs text-[#52525B] dark:text-[#B7C1D1]">
                     ref {refExterna}
                   </span>
                   <div className="ml-auto flex items-center gap-1">
                     <button
                       type="button"
-                      className="inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#166534] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 disabled:opacity-60 dark:text-[#6ee7b7]"
+                      className="inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#04724D] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#04724D]/35 disabled:opacity-60 dark:text-[#4ADE80]"
                       onClick={() => void refrescarCatalogo()}
                       disabled={saving || refrescando}
                     >
@@ -675,7 +664,7 @@ export default function InventarioEditModal({
                     </button>
                     <button
                       type="button"
-                      className="inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#9a3412] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 dark:text-[#fdba74]"
+                      className="inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#C22B2B] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(194,43,43,0.3)] dark:text-[#F87171]"
                       onClick={desvincular}
                       disabled={saving}
                     >
@@ -687,7 +676,7 @@ export default function InventarioEditModal({
               ) : null}
 
               {refrescoAviso ? (
-                <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]" role="status">
+                <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]" role="status">
                   {refrescoAviso}
                 </p>
               ) : null}
@@ -698,7 +687,7 @@ export default function InventarioEditModal({
                     Buscar producto en SYSCOM o TVC
                   </label>
                   <span
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#a8a29e] dark:text-[#64748b]"
+                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]"
                     aria-hidden="true"
                   >
                     <SearchIcon className="h-4 w-4" />
@@ -715,13 +704,13 @@ export default function InventarioEditModal({
                       }
                     }}
                     placeholder="Ej. DS-2CD1023G0E-I o videoportero"
-                    className={`${erpInputLikeClass} !pl-10`}
+                    className={`${invInputLikeClass} !pl-10`}
                     disabled={saving}
                   />
                 </div>
                 <button
                   type="button"
-                  className={erpSecondaryBtnClass}
+                  className={invSecondaryBtnClass}
                   onClick={() => void buscar(termino)}
                   disabled={saving || buscando || !terminoValido}
                 >
@@ -731,13 +720,13 @@ export default function InventarioEditModal({
               </div>
 
               {!terminoValido && termino.trim().length > 0 ? (
-                <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
                   Escribe al menos {MIN_BUSQUEDA} caracteres.
                 </p>
               ) : null}
 
               {busquedaError ? (
-                <p className="text-xs text-red-600 dark:text-red-400" role="alert">
+                <p className="text-xs text-[#C22B2B] dark:text-[#F87171]" role="alert">
                   {busquedaError}
                 </p>
               ) : null}
@@ -745,41 +734,41 @@ export default function InventarioEditModal({
               <div aria-live="polite" aria-atomic="true">
                 {buscando ? (
                   <div
-                    className="relative overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] dark:border-[#334155] dark:bg-[#0b1220]"
+                    className="relative overflow-hidden rounded-[12px] border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#0f172a]"
                     role="status"
                     aria-busy="true"
                   >
-                    <span className="absolute inset-y-0 left-0 w-1 bg-[#ff801f]" aria-hidden />
+                    <span className="absolute inset-y-0 left-0 w-1 bg-[#1B5CFF] dark:bg-[#4B7CFF]" aria-hidden />
                     <div className="flex items-start gap-3 px-4 py-3.5 pl-5">
                       <span className="relative mt-0.5 flex size-10 shrink-0 items-center justify-center">
                         <span
-                          className="absolute -inset-0.5 rounded-xl border-2 border-[#ff801f]/45 motion-safe:animate-ping"
+                          className="absolute -inset-0.5 rounded-[12px] border-2 border-[#1B5CFF]/45 motion-safe:animate-ping"
                           aria-hidden
                         />
                         <span
-                          className="relative flex size-10 items-center justify-center rounded-xl bg-[#ff801f] text-black"
+                          className="relative flex size-10 items-center justify-center rounded-[12px] bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]"
                           aria-hidden
                         >
                           <SearchIcon className="h-4 w-4" />
                         </span>
                       </span>
                       <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#ea580c] dark:text-[#fb923c]">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#1B5CFF] dark:text-[#4B7CFF]">
                           Escaneando
                         </p>
-                        <p className="mt-0.5 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                        <p className="mt-0.5 text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC]">
                           Buscando en SYSCOM y TVC
                         </p>
-                        <p className="mt-1 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                        <p className="mt-1 text-xs leading-relaxed text-[#6E6E77] dark:text-[#8EA0B8]">
                           El catálogo puede tardar unos segundos. No cierres el diálogo.
                         </p>
                       </div>
                     </div>
                     <div
-                      className="mx-4 mb-3 h-1 overflow-hidden rounded-full bg-[#efe9de] dark:bg-[#1e293b]"
+                      className="mx-4 mb-3 h-1 overflow-hidden rounded-full bg-[#E7E7EA] dark:bg-[#273244]"
                       aria-hidden
                     >
-                      <div className="h-full w-[62%] rounded-full bg-[#ff801f] motion-safe:animate-pulse" />
+                      <div className="h-full w-[62%] rounded-full bg-[#1B5CFF] dark:bg-[#4B7CFF] motion-safe:animate-pulse" />
                     </div>
                   </div>
                 ) : candidatos.length > 0 ? (
@@ -794,10 +783,10 @@ export default function InventarioEditModal({
                         >
                           <InventarioThumb src={c.imagen_url} alt="" size={40} />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
+                            <span className="block truncate text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]">
                               {c.nombre || c.modelo}
                             </span>
-                            <span className="mt-0.5 block truncate text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                            <span className="mt-0.5 block truncate text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
                               {[c.marca, c.modelo].filter(Boolean).join(" · ") || "Sin modelo"}
                             </span>
                           </span>
@@ -809,7 +798,7 @@ export default function InventarioEditModal({
                     ))}
                   </ul>
                 ) : busquedaHecha && !buscando ? (
-                  <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                  <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
                     Sin resultados en SYSCOM ni TVC. Captura los datos a mano abajo.
                   </p>
                 ) : null}
@@ -833,7 +822,7 @@ export default function InventarioEditModal({
                     type="text"
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
-                    className={erpInputLikeClass}
+                    className={invInputLikeClass}
                     disabled={saving}
                   />
                 </div>
@@ -846,7 +835,7 @@ export default function InventarioEditModal({
                     type="text"
                     value={marca}
                     onChange={(e) => setMarca(e.target.value)}
-                    className={erpInputLikeClass}
+                    className={invInputLikeClass}
                     disabled={saving}
                   />
                 </div>
@@ -859,7 +848,7 @@ export default function InventarioEditModal({
                     type="text"
                     value={modelo}
                     onChange={(e) => setModelo(e.target.value)}
-                    className={erpInputLikeClass}
+                    className={invInputLikeClass}
                     disabled={saving}
                   />
                 </div>
@@ -876,7 +865,7 @@ export default function InventarioEditModal({
                     value={precioUnitario}
                     onChange={(e) => setPrecioUnitario(e.target.value)}
                     placeholder="Del catálogo o captura manual"
-                    className={erpInputLikeClass}
+                    className={invInputLikeClass}
                     disabled={saving}
                   />
                 </div>
@@ -888,7 +877,7 @@ export default function InventarioEditModal({
                     id={`${titleId}-seccion`}
                     value={seccion}
                     onChange={(e) => setSeccion(e.target.value)}
-                    className={erpInputLikeClass}
+                    className={invInputLikeClass}
                     disabled={busy}
                     aria-describedby={`${titleId}-seccion-hint`}
                   >
@@ -903,7 +892,7 @@ export default function InventarioEditModal({
                     <InventarioSeccionBadge seccion={seccion || null} showEmpty />
                     <p
                       id={`${titleId}-seccion-hint`}
-                      className="text-xs text-[#78716c] dark:text-[#8ea0b8]"
+                      className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]"
                     >
                       {seccion
                         ? "Puedes corregirla si el catálogo no acertó."
@@ -919,7 +908,7 @@ export default function InventarioEditModal({
                     {vinculado ? (
                       <button
                         type="button"
-                        className="inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#9a3412] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 disabled:opacity-60 dark:text-[#fdba74]"
+                        className="inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#1B5CFF] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] disabled:opacity-60 dark:text-[#4B7CFF]"
                         onClick={() => void traerCaracteristicas()}
                         disabled={saving || trayendoFicha}
                       >
@@ -932,7 +921,7 @@ export default function InventarioEditModal({
                     id={`${titleId}-notas`}
                     value={notas}
                     onChange={(e) => setNotas(e.target.value)}
-                    className={erpTextareaLikeClass}
+                    className={invTextareaLikeClass}
                     disabled={saving}
                     rows={6}
                     placeholder={
@@ -941,7 +930,7 @@ export default function InventarioEditModal({
                         : "Ficha técnica del producto: una característica por renglón."
                     }
                   />
-                  <p className="mt-1.5 text-xs text-[#78716c] dark:text-[#8ea0b8]" aria-live="polite">
+                  <p className="mt-1.5 text-xs text-[#6E6E77] dark:text-[#8EA0B8]" aria-live="polite">
                     {fichaAviso ??
                       (vinculado
                         ? "Se llenan solas con la ficha de SYSCOM o TVC; puedes corregirlas o escribir las tuyas."
@@ -952,20 +941,20 @@ export default function InventarioEditModal({
             </InventarioFormSection>
 
             {error ? (
-              <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+              <p className="text-sm text-[#C22B2B] dark:text-[#F87171]" role="alert">
                 {error}
               </p>
             ) : null}
           </div>
         </div>
 
-        <footer className={erpModalFooterClass}>
+        <footer className={invModalFooterClass}>
           <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end sm:gap-3">
-            <button type="button" className={erpSecondaryBtnClass} onClick={onClose} disabled={busy}>
+            <button type="button" className={invSecondaryBtnClass} onClick={onClose} disabled={busy}>
               <CloseIcon className="h-4 w-4" />
               Cancelar
             </button>
-            <button type="submit" className={erpPrimaryBtnClass} disabled={busy || !item}>
+            <button type="submit" className={invPrimaryBtnClass} disabled={busy || !item}>
               <CheckIcon className="h-4 w-4" />
               {aplicandoExistencia
                 ? "Registrando existencia…"

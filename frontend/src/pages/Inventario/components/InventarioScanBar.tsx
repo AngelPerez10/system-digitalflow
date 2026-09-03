@@ -70,8 +70,8 @@ export default function InventarioScanBar({
           <span
             className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10 ${
               modo === "entrada"
-                ? "bg-[#d1fae5] text-[#047857] dark:bg-[#047857]/25 dark:text-[#6ee7b7]"
-                : "bg-[#fef3c7] text-[#b45309] dark:bg-[#b45309]/25 dark:text-[#fcd34d]"
+                ? "bg-[#E9F8F0] text-[#04724D] dark:bg-[#0F2A1C] dark:text-[#4ADE80]"
+                : "bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:bg-[rgba(230,162,60,0.16)] dark:text-[#E6A23C]"
             }`}
             aria-hidden="true"
           >
@@ -80,11 +80,11 @@ export default function InventarioScanBar({
           <div className="min-w-0">
             <span
               id={modoGroupId}
-              className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8]"
+              className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6E6E77] dark:text-[#8EA0B8]"
             >
               Tipo de movimiento
             </span>
-            <p className="mt-1 text-sm text-[#57534e] dark:text-[#b7c1d1]">{modoActual.hint}</p>
+            <p className="mt-1 text-sm text-[#52525B] dark:text-[#B7C1D1]">{modoActual.hint}</p>
           </div>
         </div>
 
@@ -118,13 +118,13 @@ export default function InventarioScanBar({
       >
         <label
           htmlFor={scanInputId}
-          className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8]"
+          className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6E6E77] dark:text-[#8EA0B8]"
         >
           Código de barras
         </label>
         <div className="relative">
           <span
-            className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[#a8a29e] dark:text-[#64748b]"
+            className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]"
             aria-hidden="true"
           >
             <BarcodeIcon className="h-6 w-6" />
@@ -144,7 +144,7 @@ export default function InventarioScanBar({
           />
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
           {disabled ? (
             <span>Necesitas permiso de creación en inventario para registrar entradas y salidas.</span>
           ) : (
@@ -152,8 +152,8 @@ export default function InventarioScanBar({
               <span
                 className={`inline-block h-2 w-2 rounded-full ${
                   focused
-                    ? "bg-[#10b981] motion-safe:animate-pulse"
-                    : "bg-[#d6d3d1] dark:bg-[#475569]"
+                    ? "bg-[#04724D] motion-safe:animate-pulse"
+                    : "bg-[#D3D3D8] dark:bg-[#3A4661]"
                 }`}
                 aria-hidden="true"
               />
@@ -171,7 +171,7 @@ export default function InventarioScanBar({
         id={statusId}
         role="status"
         aria-live="polite"
-        className="mt-4 min-h-[1.5rem] text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]"
+        className="mt-4 min-h-[1.5rem] text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]"
       >
         {scanning ? "Procesando escaneo…" : statusMessage}
       </p>

@@ -36,7 +36,7 @@ export default function InventarioFormSection({
       <div className={inventarioSectionHeadClass}>
         <div className="flex min-w-0 flex-1 items-start gap-2.5">
           {icon ? (
-            <span className="mt-0.5 inline-flex shrink-0 text-[#ea580c] dark:text-[#fb923c]" aria-hidden="true">
+            <span className="mt-0.5 inline-flex shrink-0 text-[#9A6B15] dark:text-[#E6A23C]" aria-hidden="true">
               {icon}
             </span>
           ) : null}

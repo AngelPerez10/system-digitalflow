@@ -33,15 +33,15 @@ const OPCIONES: ChipOption[] = [
 function tonoDotClass(tono: ChipOption["tono"], selected: boolean): string {
   if (selected) return "bg-current opacity-90";
   if (tono === "empty") return "border border-dashed border-current bg-transparent opacity-50";
-  if (tono === "all") return "bg-[#ff801f] dark:bg-[#fb923c]";
+  if (tono === "all") return "bg-[#1B5CFF] dark:bg-[#4B7CFF]";
   if (tono === "amber") return "bg-[#d97706]";
   if (tono === "rose") return "bg-[#e11d48]";
   if (tono === "emerald") return "bg-[#059669]";
   if (tono === "sky") return "bg-[#0284c7]";
   if (tono === "violet") return "bg-[#7c3aed]";
-  if (tono === "orange") return "bg-[#ea580c]";
+  if (tono === "orange") return "bg-[#1B5CFF]";
   if (tono === "slate") return "bg-[#64748b]";
-  return "bg-[#a8a29e]";
+  return "bg-[#A1A1AA]";
 }
 
 function filtroAnuncio(value: InventarioSeccionFiltro): string {
@@ -132,16 +132,16 @@ export default function InventarioSeccionChips({ value, onChange }: InventarioSe
         <div className="min-w-0">
           <p
             id={labelId}
-            className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9a3412] dark:text-[#fdba74]"
+            className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9A6B15] dark:text-[#E6A23C]"
           >
             Secciones
           </p>
-          <p className="mt-0.5 text-[12px] leading-snug text-[#78716c] dark:text-[#8ea0b8]">
+          <p className="mt-0.5 text-[12px] leading-snug text-[#6E6E77] dark:text-[#8EA0B8]">
             Desliza el rail o usa ← →.
           </p>
         </div>
         <p
-          className="max-w-full truncate rounded-full border border-[#e7ded0] bg-[#fffdfa] px-2.5 py-1 text-[11px] font-medium text-[#57534e] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#b7c1d1] sm:max-w-[18rem]"
+          className="max-w-full truncate rounded-full border border-[#E7E7EA] bg-white px-2.5 py-1 text-[11px] font-medium text-[#52525B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#B7C1D1] sm:max-w-[18rem]"
           title={filtroAnuncio(value)}
         >
           {filtroAnuncio(value)}
@@ -164,7 +164,7 @@ export default function InventarioSeccionChips({ value, onChange }: InventarioSe
           role="tablist"
           aria-labelledby={labelId}
           aria-orientation="horizontal"
-          className="flex w-full min-w-0 max-w-full gap-1.5 overflow-x-auto overscroll-x-contain scroll-smooth rounded-2xl border border-[#e7ded0] bg-gradient-to-b from-[#fcfaf6] to-[#fff8f1]/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] [-ms-overflow-style:none] [scrollbar-width:none] dark:border-[#273244] dark:from-[#0f172a] dark:to-[#111827]/80 dark:shadow-none sm:gap-2 sm:p-2 [&::-webkit-scrollbar]:hidden"
+          className="flex w-full min-w-0 max-w-full gap-1.5 overflow-x-auto overscroll-x-contain scroll-smooth rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-1.5 [-ms-overflow-style:none] [scrollbar-width:none] dark:border-[#273244] dark:bg-[#1B2539] sm:gap-2 sm:p-2 [&::-webkit-scrollbar]:hidden"
         >
           {OPCIONES.map((op, index) => {
             const selected = value === op.id;
@@ -179,11 +179,11 @@ export default function InventarioSeccionChips({ value, onChange }: InventarioSe
                 title={op.label}
                 className={[
                   "group relative inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-left transition-[color,background-color,box-shadow] duration-150 sm:px-3",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0f172a]",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.5)] focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#1B2539]",
                   "motion-reduce:transition-none",
                   selected
-                    ? "bg-[#ff801f] text-[#1c1917] shadow-[0_8px_20px_-12px_rgba(234,88,12,0.85)] dark:bg-[#fb923c] dark:text-[#1c1917]"
-                    : "bg-transparent text-[#57534e] hover:bg-white/80 hover:text-[#1c1917] dark:text-[#b7c1d1] dark:hover:bg-[#1e293b] dark:hover:text-[#f8fafc]",
+                    ? "bg-[#1B5CFF] text-white shadow-[0_8px_20px_-12px_rgba(27,92,255,0.75)] dark:bg-[#4B7CFF]"
+                    : "bg-transparent text-[#52525B] hover:bg-white hover:text-[#09090B] dark:text-[#B7C1D1] dark:hover:bg-[#243048] dark:hover:text-[#F8FAFC]",
                 ].join(" ")}
                 onClick={() => onChange(op.id)}
                 onKeyDown={(e) => onTabKeyDown(e, index)}
@@ -201,7 +201,7 @@ export default function InventarioSeccionChips({ value, onChange }: InventarioSe
                 </span>
                 {selected ? (
                   <span
-                    className="pointer-events-none absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-[#1c1917]/35 dark:bg-[#1c1917]/40"
+                    className="pointer-events-none absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-white/40"
                     aria-hidden="true"
                   />
                 ) : null}

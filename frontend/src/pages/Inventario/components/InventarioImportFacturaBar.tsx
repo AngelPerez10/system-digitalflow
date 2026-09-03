@@ -1,7 +1,10 @@
 import { useId, useState } from "react";
-import { erpInputLikeClass, erpPrimaryBtnClass } from "@/layout/erpPageStyles";
 import type { FacturaProveedor, ImportarFacturaResponse } from "../shared/inventarioTypes";
-import { inventarioFieldLabelClass } from "../shared/inventarioStyles";
+import {
+  inventarioFieldLabelClass,
+  invInputLikeClass,
+  invPrimaryBtnClass,
+} from "../shared/inventarioStyles";
 import { CheckIcon, RefreshIcon } from "./inventarioIcons";
 
 type InventarioImportFacturaBarProps = {
@@ -49,15 +52,15 @@ export default function InventarioImportFacturaBar({
 
   return (
     <section
-      className="rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-[0_12px_32px_-24px_rgba(28,25,23,0.2)] dark:border-[#273244] dark:bg-[#111827]/80 sm:p-5"
+      className="rounded-[16px] border border-[#E7E7EA] bg-white p-4 shadow-[0_6px_20px_-14px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827] sm:p-5"
       aria-label="Importar factura de proveedor"
     >
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3">
         <div>
-          <p className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+          <p className="text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC]">
             Importar factura
           </p>
-          <p className="mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+          <p className="mt-0.5 text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
             Pega el folio (ej. FA26/1405777) y se cargan todos los productos como entradas.
           </p>
         </div>
@@ -71,7 +74,7 @@ export default function InventarioImportFacturaBar({
               id={`${baseId}-prov`}
               value={proveedor}
               onChange={(e) => setProveedor(e.target.value as FacturaProveedor)}
-              className={erpInputLikeClass}
+              className={invInputLikeClass}
               disabled={disabled || importing}
             >
               {PROVEEDORES.map((p) => (
@@ -91,7 +94,7 @@ export default function InventarioImportFacturaBar({
               value={folio}
               onChange={(e) => setFolio(e.target.value)}
               placeholder="FA26/1405777"
-              className={`${erpInputLikeClass} font-mono`}
+              className={`${invInputLikeClass} font-mono`}
               disabled={disabled || importing}
               autoComplete="off"
               spellCheck={false}
@@ -99,7 +102,7 @@ export default function InventarioImportFacturaBar({
           </div>
           <button
             type="submit"
-            className={erpPrimaryBtnClass}
+            className={invPrimaryBtnClass}
             disabled={disabled || importing || !folioOk || !proveedorOk}
           >
             {importing ? (
@@ -117,17 +120,17 @@ export default function InventarioImportFacturaBar({
         </div>
 
         {error ? (
-          <p className="text-xs text-red-600 dark:text-red-400" role="alert">
+          <p className="text-xs text-[#C22B2B] dark:text-[#F87171]" role="alert">
             {error}
           </p>
         ) : null}
         {okMsg ? (
-          <p className="text-xs text-[#047857] dark:text-[#6ee7b7]" role="status" aria-live="polite">
+          <p className="text-xs text-[#04724D] dark:text-[#4ADE80]" role="status" aria-live="polite">
             {okMsg}
           </p>
         ) : null}
         {!proveedorOk ? (
-          <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+          <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
             TVC aún no expone facturas en su API; el selector queda listo para cuando sí.
           </p>
         ) : null}

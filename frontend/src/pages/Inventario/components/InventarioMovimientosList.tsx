@@ -52,16 +52,16 @@ export default function InventarioMovimientosList({
   return (
     <div className="space-y-3">
       {filterItem ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#ff801f]/30 bg-[#fff7ed] px-3 py-2 text-sm dark:border-[#fb923c]/30 dark:bg-[#fb923c]/10">
-          <span className="text-[#57534e] dark:text-[#b7c1d1]">
+        <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-[rgba(27,92,255,0.25)] bg-[rgba(27,92,255,0.06)] px-3 py-2 text-sm dark:border-[#4B7CFF]/30 dark:bg-[rgba(75,124,255,0.10)]">
+          <span className="text-[#52525B] dark:text-[#B7C1D1]">
             Filtrando por{" "}
-            <strong className="font-medium text-[#1c1917] dark:text-[#f8fafc]">
+            <strong className="font-medium text-[#09090B] dark:text-[#F8FAFC]">
               {filterItem.nombre.trim() || filterItem.modelo || filterItem.codigo_barras}
             </strong>
           </span>
           <button
             type="button"
-            className="ml-auto inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2.5 text-xs font-semibold text-[#9a3412] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 dark:text-[#fdba74]"
+            className="ml-auto inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2.5 text-xs font-semibold text-[#1B5CFF] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] dark:text-[#4B7CFF]"
             onClick={onClearFilter}
           >
             <CloseIcon className="h-3.5 w-3.5" />
@@ -69,31 +69,31 @@ export default function InventarioMovimientosList({
           </button>
         </div>
       ) : (
-        <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+        <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
           Últimos movimientos registrados. Haz clic en un producto de la tabla para filtrar.
         </p>
       )}
 
       {loading ? (
-        <p className="py-6 text-center text-sm text-[#57534e] dark:text-[#b7c1d1]" role="status" aria-live="polite">
+        <p className="py-6 text-center text-sm text-[#52525B] dark:text-[#B7C1D1]" role="status" aria-live="polite">
           Cargando historial…
         </p>
       ) : movimientos.length === 0 ? (
         <div className={inventarioEmptyPanelClass}>
           <span
-            className="mx-auto mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ff801f]/15 text-[#9a3412] dark:bg-[#fb923c]/15 dark:text-[#fdba74]"
+            className="mx-auto mb-3 inline-flex h-11 w-11 items-center justify-center rounded-[14px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]"
             aria-hidden="true"
           >
             <HistoryIcon className="h-5 w-5" />
           </span>
-          <p className="text-sm text-[#57534e] dark:text-[#b7c1d1]">
+          <p className="text-sm text-[#52525B] dark:text-[#B7C1D1]">
             {filterItem
               ? "Este ítem aún no tiene movimientos."
               : "Aún no hay movimientos registrados."}
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-[#f0e9dd] dark:divide-[#273244]">
+        <ul className="divide-y divide-[#EDEDED] dark:divide-[#273244]">
           {movimientos.map((mov) => {
             const titulo = tituloMovimiento(mov, filterItem);
             const entrada = mov.tipo === "entrada";
@@ -105,12 +105,12 @@ export default function InventarioMovimientosList({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p
-                    className="truncate text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]"
+                    className="truncate text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]"
                     title={mov.item_nombre || titulo}
                   >
                     {titulo}
                   </p>
-                  <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                  <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
                     {entrada ? "Entrada" : "Salida"} · {formatFecha(mov.creado_en)} · {quien}
                     {mov.nota?.trim() ? ` · ${mov.nota.trim()}` : ""}
                   </p>
@@ -118,8 +118,8 @@ export default function InventarioMovimientosList({
                 <span
                   className={`shrink-0 text-sm font-semibold tabular-nums ${
                     entrada
-                      ? "text-[#047857] dark:text-[#6ee7b7]"
-                      : "text-[#b45309] dark:text-[#fcd34d]"
+                      ? "text-[#04724D] dark:text-[#4ADE80]"
+                      : "text-[#9A6B15] dark:text-[#E6A23C]"
                   }`}
                 >
                   {entrada ? "+" : "−"}
