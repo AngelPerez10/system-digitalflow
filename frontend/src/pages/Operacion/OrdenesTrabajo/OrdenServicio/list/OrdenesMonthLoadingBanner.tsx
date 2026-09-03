@@ -19,7 +19,7 @@ export function OrdenesMonthLoadingBanner({ selectedMonth, className = "" }: Pro
   const label = formatMonthLabel(selectedMonth);
   return (
     <div
-      className={`flex items-center gap-3 rounded-xl border border-[#ead9b8] bg-[#fbf6ea] px-3.5 py-3 text-sm text-[#78350f] dark:border-amber-500/30 dark:bg-[#1f1a10] dark:text-amber-100 ${className}`}
+      className={`flex items-center gap-3 rounded-xl border border-[#BBD0FF] bg-[#F1F5FF] px-3.5 py-3 text-sm text-[#1244D1] dark:border-amber-500/30 dark:bg-[#17235B] dark:text-amber-100 ${className}`}
       role="status"
       aria-live="polite"
       aria-busy="true"
@@ -30,7 +30,7 @@ export function OrdenesMonthLoadingBanner({ selectedMonth, className = "" }: Pro
       />
       <span>
         Cargando órdenes de <span className="font-semibold capitalize">{label}</span>…
-        <span className="mt-0.5 block text-xs font-normal text-[#92400e]/90 dark:text-amber-200/80">
+        <span className="mt-0.5 block text-xs font-normal text-[#1244D1]/90 dark:text-amber-200/80">
           El filtro por mes sigue activo; espera un momento.
         </span>
       </span>

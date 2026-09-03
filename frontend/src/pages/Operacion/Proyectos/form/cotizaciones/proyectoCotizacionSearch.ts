@@ -1,6 +1,6 @@
 import { fetchApi } from "@/config/api";
-import { fetchCotizacionDetail } from "@/pages/Ventas/Cotizacion/cotizacionApi";
-import type { CloneCotizacionRow } from "@/pages/Ventas/Cotizacion/cotizacionFormTypes";
+import { fetchCotizacionDetail } from "@/pages/Ventas/Cotizacion/shared/cotizacionApi";
+import type { CloneCotizacionRow } from "@/pages/Ventas/Cotizacion/shared/cotizacionFormTypes";
 import { fetchSicarApi } from "@/pages/Ventas/FacturasCFDI/sicarApi";
 import {
   clienteIdFromDigitalFlowDetail,
@@ -14,7 +14,7 @@ import {
   parseCotizacionApiId,
 } from "./proyectoCotizacionMappers";
 import type { CotizacionOrigen, CotizacionResumen, PresupuestoLinea } from "../../shared/proyectoTypes";
-import { normalizeTipoTrabajoIds } from "@/pages/Ventas/Cotizacion/cotizacionFormUtils";
+import { normalizeTipoTrabajoIds } from "@/pages/Ventas/Cotizacion/shared/cotizacionFormUtils";
 import { normalizeTiposTrabajo } from "../../shared/proyectoFormUtils";
 
 function tiposTrabajoFromDigitalFlowDetail(detail: {

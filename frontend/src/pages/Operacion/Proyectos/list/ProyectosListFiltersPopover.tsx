@@ -5,10 +5,11 @@ import {
   erpFilterBtnClass,
   erpFilterPopoverClass,
   erpFilterSectionLabelClass,
+  erpFilterStatusChipClass,
   erpPrimaryBtnClass,
   erpSecondaryBtnClass,
   erpSelectFieldClass,
-} from "../../OrdenesTrabajo/ordenTrabajoStyles";
+} from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import type { ProyectoEstado } from "../shared/proyectoTypes";
 
 export type ProyectoListFilterStatus = "" | ProyectoEstado;
@@ -46,9 +47,7 @@ const STATUS_OPTIONS: { value: ProyectoListFilterStatus; label: string }[] = [
 
 /** Chips sin flex-1: en móvil van en grilla 2×2 y no se cortan. */
 function statusChipClass(active: boolean): string {
-  return active
-    ? "inline-flex min-h-9 w-full items-center justify-center rounded-lg bg-[#ff801f] px-2.5 text-xs font-semibold text-black shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40"
-    : "inline-flex min-h-9 w-full items-center justify-center rounded-lg border border-[#e2d9ca] bg-[#fffdfa] px-2.5 text-xs font-medium text-[#57534e] transition-colors hover:bg-[#fff8f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/25 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]";
+  return `${erpFilterStatusChipClass(active)} !w-full !flex-none min-h-11`;
 }
 
 const proyectosFilterPanelClass = `${erpFilterPopoverClass} max-sm:!fixed max-sm:!inset-x-3 max-sm:!bottom-3 max-sm:!top-auto max-sm:!mt-0 max-sm:!w-auto max-sm:!max-h-[min(85dvh,36rem)]`;
@@ -156,7 +155,7 @@ export function ProyectosListFiltersPopover({
         Filtros
         {activeFilterCount > 0 && (
           <span
-            className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ff801f] px-1.5 text-[10px] font-bold text-black"
+            className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#1B5CFF] px-1.5 text-[10px] font-bold text-white"
             aria-label={`${activeFilterCount} filtro${activeFilterCount === 1 ? "" : "s"} activo${activeFilterCount === 1 ? "" : "s"}`}
           >
             {activeFilterCount}
@@ -180,10 +179,10 @@ export function ProyectosListFiltersPopover({
           aria-label="Filtros del listado de proyectos"
           className={proyectosFilterPanelClass}
         >
-          <div className="flex items-center justify-between gap-3 border-b border-[#e7ded0] bg-[#fcfaf6]/90 px-4 py-3 dark:border-[#273244] dark:bg-[#0f172a]/50">
+          <div className="flex items-center justify-between gap-3 border-b border-[#E7E7EA] bg-[#FAFAFA]/90 px-4 py-3 dark:border-[#273244] dark:bg-[#0f172a]/50">
             <div>
-              <p className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">Filtros</p>
-              <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+              <p className="text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">Filtros</p>
+              <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
                 {activeFilterCount > 0
                   ? `${activeFilterCount} activo${activeFilterCount === 1 ? "" : "s"}`
                   : "Sin filtros aplicados"}
@@ -196,7 +195,7 @@ export function ProyectosListFiltersPopover({
                   onClear();
                   setTipoQuery("");
                 }}
-                className="rounded-lg px-2 py-1 text-xs font-semibold text-[#9a3412] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 dark:text-[#fdba74]"
+                className="rounded-lg px-2 py-1 text-xs font-semibold text-[#1244D1] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:text-[#4B7CFF]"
               >
                 Limpiar todo
               </button>
@@ -262,7 +261,7 @@ export function ProyectosListFiltersPopover({
                   Tipo de trabajo
                 </p>
                 {filterTiposTrabajo.length > 0 && (
-                  <span className="text-[11px] font-medium text-[#9a3412] dark:text-[#fdba74]">
+                  <span className="text-[11px] font-medium text-[#1244D1] dark:text-[#4B7CFF]">
                     {filterTiposTrabajo.length} seleccionado{filterTiposTrabajo.length === 1 ? "" : "s"}
                   </span>
                 )}
@@ -284,12 +283,12 @@ export function ProyectosListFiltersPopover({
                 </>
               ) : null}
               <div
-                className="max-h-40 space-y-0.5 overflow-y-auto rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/70 p-2 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:max-h-48"
+                className="max-h-40 space-y-0.5 overflow-y-auto rounded-xl border border-[#E7E7EA] bg-[#FAFAFA]/70 p-2 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:max-h-48"
                 role="group"
                 aria-labelledby={`${panelId}-tipos-label`}
               >
                 {tiposFiltrados.length === 0 ? (
-                  <p className="px-1 py-2 text-xs text-[#78716c] dark:text-[#8ea0b8]" role="status">
+                  <p className="px-1 py-2 text-xs text-[#6E6E77] dark:text-[#8ea0b8]" role="status">
                     {tiposTrabajoDisponibles.length === 0
                       ? "No hay tipos de trabajo en el catálogo de servicios."
                       : "Ningún tipo coincide con la búsqueda."}
@@ -304,8 +303,8 @@ export function ProyectosListFiltersPopover({
                         htmlFor={inputId}
                         className={`flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors ${
                           checked
-                            ? "bg-[#fff4eb] text-[#9a3412] dark:bg-[#fb923c]/10 dark:text-[#fdba74]"
-                            : "text-[#44403c] hover:bg-white/80 dark:text-[#cbd5e1] dark:hover:bg-white/[0.04]"
+                            ? "bg-[#F1F5FF] text-[#1244D1] dark:bg-[#4B7CFF]/10 dark:text-[#4B7CFF]"
+                            : "text-[#3d3d3a] hover:bg-white/80 dark:text-[#cbd5e1] dark:hover:bg-white/[0.04]"
                         }`}
                       >
                         <input
@@ -313,7 +312,7 @@ export function ProyectosListFiltersPopover({
                           type="checkbox"
                           checked={checked}
                           onChange={(e) => toggleTipo(tipo, e.target.checked)}
-                          className="h-4 w-4 shrink-0 rounded border-[#d6d3d1] text-[#ea580c] focus:ring-[#ff801f] focus:ring-offset-0"
+                          className="h-4 w-4 shrink-0 rounded border-[#D3D3D8] text-[#1B5CFF] focus:ring-[#1B5CFF] focus:ring-offset-0"
                         />
                         <span className="leading-snug break-words">{tipo}</span>
                       </label>
@@ -337,11 +336,11 @@ export function ProyectosListFiltersPopover({
             </div>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-[#e7ded0] bg-[#fcfaf6]/90 px-4 py-3 dark:border-[#273244] dark:bg-[#0f172a]/50 sm:flex-row sm:items-center">
+          <div className="flex flex-col-reverse gap-2 border-t border-[#E7E7EA] bg-[#FAFAFA]/90 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-[#273244] dark:bg-[#0f172a]/50 sm:flex-row sm:items-center sm:pb-3">
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className={`${erpPrimaryBtnClass} h-10 flex-1 !w-full`}
+              className={`${erpPrimaryBtnClass} min-h-11 h-11 flex-1 !w-full`}
             >
               Aplicar
             </button>
@@ -352,7 +351,7 @@ export function ProyectosListFiltersPopover({
                 setTipoQuery("");
                 onOpenChange(false);
               }}
-              className={`${erpSecondaryBtnClass} h-10 flex-1 !w-full`}
+              className={`${erpSecondaryBtnClass} min-h-11 h-11 flex-1 !w-full`}
             >
               Limpiar
             </button>

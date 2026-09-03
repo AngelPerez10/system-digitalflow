@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ApiCotizacionItem } from "@/pages/Ventas/Cotizacion/cotizacionFormTypes";
+import type { ApiCotizacionItem } from "@/pages/Ventas/Cotizacion/shared/cotizacionFormTypes";
 import {
   digitalFlowCotizacionId,
   inferEsEquipoDigitalFlow,

@@ -172,13 +172,13 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
       ) : null}
 
       {!disabled ? (
-        <div className="cursor-pointer rounded-xl border border-dashed border-[#d6d3d1] transition hover:border-[#ff801f] dark:border-[#334155] dark:hover:border-[#ff801f]">
+        <div className="cursor-pointer rounded-xl border border-dashed border-[#D3D3D8] transition hover:border-[#1B5CFF] dark:border-[#334155] dark:hover:border-[#1B5CFF]">
           <div
             {...getRootProps()}
             className={`rounded-xl p-4 sm:p-5 ${
               isDragActive
-                ? "border-[#ff801f] bg-[#fff8f1] dark:bg-[#1e293b]"
-                : "bg-[#fcfaf6]/80 dark:bg-[#0f172a]/40"
+                ? "border-[#1B5CFF] bg-[#F1F5FF] dark:bg-[#1e293b]"
+                : "bg-[#FAFAFA]/80 dark:bg-[#0f172a]/40"
             }`}
             role="button"
             tabIndex={0}
@@ -224,7 +224,7 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
               <button
                 type="button"
                 onClick={() => setPreview({ open: true, url, index })}
-                className="block w-full cursor-zoom-in overflow-hidden rounded-lg border-2 border-[#e2d9ca] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40 dark:border-[#334155]"
+                className="block w-full cursor-zoom-in overflow-hidden rounded-lg border-2 border-[#E7E7EA] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:border-[#334155]"
                 aria-label={`Ver evidencia ${index + 1} en tamaño completo`}
               >
                 {brokenUrls[url] ? (
@@ -276,7 +276,7 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
         isOpen={preview.open}
         onClose={() => setPreview({ open: false, url: "", index: -1 })}
         ariaLabel={`Evidencia ${preview.index + 1}`}
-        className="w-full max-w-3xl overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 dark:border-[#273244] dark:bg-[#111a2b]"
+        className="w-full max-w-3xl overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FFFFFF] p-0 dark:border-[#273244] dark:bg-[#111a2b]"
       >
         <div className="p-3 sm:p-4">
           {preview.url ? (
@@ -294,7 +294,7 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
         isOpen={confirmDelete.open}
         onClose={() => !deleting && setConfirmDelete({ open: false, index: null, url: null })}
         ariaLabel="Confirmar eliminación de evidencia"
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-5 dark:border-[#273244] dark:bg-[#111a2b]"
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FFFFFF] p-5 dark:border-[#273244] dark:bg-[#111a2b]"
       >
         <h3 className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]">Eliminar evidencia</h3>
         <p className="mt-2 text-sm text-[#57534e] dark:text-[#b7c1d1]">
@@ -304,7 +304,7 @@ export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Pr
           <button
             type="button"
             disabled={deleting}
-            className="rounded-lg border border-[#e2d9ca] bg-white px-3 py-2 text-sm font-semibold dark:border-[#334155] dark:bg-[#0f172a]"
+            className="rounded-lg border border-[#E7E7EA] bg-white px-3 py-2 text-sm font-semibold dark:border-[#334155] dark:bg-[#0f172a]"
             onClick={() => setConfirmDelete({ open: false, index: null, url: null })}
           >
             Cancelar

@@ -3,10 +3,9 @@ import { Modal } from "@/components/ui/modal";
 import {
   erpBodyClass,
   erpInputLikeClass,
-  erpPrimaryBtnClass,
-  erpSecondaryBtnClass,
   erpSubheadingClass,
 } from "@/layout/erpPageStyles";
+import { erpModalPrimaryBtnClass, erpModalSecondaryBtnClass } from "../../../ordenTrabajoStyles";
 
 export type OrdenMapLatLng = { lat: number; lng: number };
 
@@ -329,13 +328,13 @@ export default function OrdenLocationMapModal({
       onClose={onClose}
       closeOnBackdropClick={false}
       ariaLabelledBy={titleId}
-      className="mx-0 w-[min(96vw,52rem)] max-w-4xl overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_30px_90px_-40px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111a2b] sm:mx-auto"
+      className="mx-0 w-[min(96vw,52rem)] max-w-4xl overflow-hidden rounded-3xl border border-[#E7E7EA] bg-[#FFFFFF] p-0 shadow-[0_30px_90px_-40px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111827] sm:mx-auto"
     >
       <div className="flex max-h-[92vh] flex-col">
-        <header className="relative shrink-0 border-b border-[#e7ded0] bg-gradient-to-r from-[#fcfaf6] via-[#fffaf3] to-[#fffdfa] px-4 py-4 pr-14 dark:border-[#334155] dark:from-[#111827] dark:via-[#111827] dark:to-[#0f172a] sm:px-6 sm:pr-16">
-          <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
+        <header className="relative shrink-0 border-b border-[#E7E7EA] bg-gradient-to-r from-[#FAFAFA] via-[#fffaf3] to-[#FFFFFF] px-4 py-4 pr-14 dark:border-[#273244] dark:from-[#111827] dark:via-[#111827] dark:to-[#0f172a] sm:px-6 sm:pr-16">
+          <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#1B5CFF]" aria-hidden />
           <div className="flex items-start gap-3">
-            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black shadow-sm">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] text-white shadow-sm">
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                 <path
                   d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11z"
@@ -346,7 +345,7 @@ export default function OrdenLocationMapModal({
               </svg>
             </span>
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ea580c] dark:text-[#fb923c]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1B5CFF] dark:text-[#4B7CFF]">
                 Órdenes · Ubicación
               </p>
               <h3 id={titleId} className={`mt-1 ${erpSubheadingClass}`}>
@@ -360,7 +359,7 @@ export default function OrdenLocationMapModal({
         </header>
 
         <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-          <div className="relative overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#0f172a] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:border-[#334155]">
+          <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#0f172a] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:border-[#273244]">
             <div
               className="pointer-events-none absolute inset-x-0 top-0 z-[500] flex justify-center p-3"
               aria-hidden={!mapReady}
@@ -386,8 +385,8 @@ export default function OrdenLocationMapModal({
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#334155] dark:bg-[#0f172a]/50">
-            <p className="mb-3 text-xs font-medium text-[#57534e] dark:text-[#aeb8c8]">
+          <div className="mt-4 rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#0f172a]/50">
+            <p className="mb-3 text-xs font-medium text-[#52525B] dark:text-[#aeb8c8]">
               O ingresa las coordenadas manualmente
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -436,13 +435,13 @@ export default function OrdenLocationMapModal({
                 />
               </div>
             </div>
-            <p className="mt-3 break-all text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
-              <span className="font-medium text-[#57534e] dark:text-[#aeb8c8]">Vista previa: </span>
+            <p className="mt-3 break-all text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
+              <span className="font-medium text-[#52525B] dark:text-[#aeb8c8]">Vista previa: </span>
               <a
                 href={mapsUrlFrom(location)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#c2410c] underline-offset-2 hover:underline dark:text-[#fdba74]"
+                className="text-[#1B5CFF] underline-offset-2 hover:underline dark:text-[#4B7CFF]"
               >
                 {mapsUrlFrom(location)}
               </a>
@@ -450,8 +449,8 @@ export default function OrdenLocationMapModal({
           </div>
         </div>
 
-        <footer className="flex shrink-0 flex-col-reverse gap-2.5 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-4 dark:border-[#334155] dark:bg-[#111827] sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6">
-          <button type="button" onClick={onClose} className={erpSecondaryBtnClass}>
+        <footer className="flex shrink-0 flex-col-reverse gap-2.5 border-t border-[#E7E7EA] bg-[#FAFAFA] px-4 py-4 dark:border-[#273244] dark:bg-[#111827] sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6">
+          <button type="button" onClick={onClose} className={erpModalSecondaryBtnClass}>
             Cancelar
           </button>
           <button
@@ -459,14 +458,14 @@ export default function OrdenLocationMapModal({
             onClick={handleUseMyLocation}
             disabled={geoLoading}
             aria-busy={geoLoading || undefined}
-            className={`${erpSecondaryBtnClass} border-[#fed7aa] text-[#9a3412] hover:bg-[#fff7ed] dark:border-[#fb923c]/35 dark:text-[#fdba74] dark:hover:bg-[#fb923c]/10`}
+            className={`${erpModalSecondaryBtnClass} border-[#BFD3FF] text-[#1244D1] hover:bg-[#F1F5FF] dark:border-[#4B7CFF]/35 dark:text-[#4B7CFF] dark:hover:bg-[#4B7CFF]/10`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
               <path d="M12 2v3M12 19v3M2 12h3M19 12h3M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" strokeLinecap="round" />
             </svg>
             {geoLoading ? "Obteniendo…" : "Usar mi ubicación"}
           </button>
-          <button type="button" onClick={handleConfirm} className={erpPrimaryBtnClass}>
+          <button type="button" onClick={handleConfirm} className={erpModalPrimaryBtnClass}>
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
               <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>

@@ -3,7 +3,7 @@ import { useDropzone, type FileRejection } from "react-dropzone";
 import { fetchApi } from "@/config/api";
 import { fetchMarcaPublic } from "@/config/marcaApi";
 import { MARCA_NOMBRE_DEFAULT } from "@/config/marcaIniciales";
-import { terminosCotizacionDefault } from "@/pages/Ventas/Cotizacion/terminosCotizacionDefault";
+import { terminosCotizacionDefault } from "@/pages/Ventas/Cotizacion/shared/terminosCotizacionDefault";
 import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
 import type { Cliente } from "@/types/cliente";
 import type { CotizacionResumen } from "@/pages/Operacion/Proyectos/shared/proyectoTypes";

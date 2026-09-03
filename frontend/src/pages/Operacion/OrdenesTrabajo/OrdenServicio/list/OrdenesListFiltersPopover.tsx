@@ -9,7 +9,7 @@ import {
   erpPrimaryBtnClass,
   erpSecondaryBtnClass,
   erpSelectFieldClass,
-} from "../../ordenTrabajoStyles";
+} from "../ordenServicioStyles";
 import type { Usuario } from "../shared/ordenesPageTypes";
 import type { OrdenListFilterStatus } from "../shared/useOrdenesList";
 
@@ -144,7 +144,7 @@ export default function OrdenesListFiltersPopover({
         Filtros
         {activeFilterCount > 0 && (
           <span
-            className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ff801f] px-1.5 text-[10px] font-bold text-black"
+            className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#1B5CFF] px-1.5 text-[10px] font-bold text-white"
             aria-label={`${activeFilterCount} filtro${activeFilterCount === 1 ? "" : "s"} activo${activeFilterCount === 1 ? "" : "s"}`}
           >
             {activeFilterCount}
@@ -159,10 +159,10 @@ export default function OrdenesListFiltersPopover({
           aria-label="Filtros del listado de órdenes"
           className={erpFilterPopoverClass}
         >
-          <div className="flex items-center justify-between gap-3 border-b border-[#e7ded0] bg-[#fcfaf6]/90 px-4 py-3 dark:border-[#273244] dark:bg-[#0f172a]/50">
+          <div className="flex items-center justify-between gap-3 border-b border-[#E7E7EA] bg-[#FAFAFA]/90 px-4 py-3 dark:border-[#273244] dark:bg-[#0f172a]/50">
             <div>
-              <p className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">Filtros</p>
-              <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+              <p className="text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">Filtros</p>
+              <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
                 {activeFilterCount > 0
                   ? `${activeFilterCount} activo${activeFilterCount === 1 ? "" : "s"}`
                   : "Sin filtros aplicados"}
@@ -175,7 +175,7 @@ export default function OrdenesListFiltersPopover({
                   onClear();
                   setServicioQuery("");
                 }}
-                className="rounded-lg px-2 py-1 text-xs font-semibold text-[#9a3412] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 dark:text-[#fdba74]"
+                className="rounded-lg px-2 py-1 text-xs font-semibold text-[#1244D1] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:text-[#4B7CFF]"
               >
                 Limpiar todo
               </button>
@@ -241,7 +241,7 @@ export default function OrdenesListFiltersPopover({
                   Servicios realizados
                 </p>
                 {filterServicio.length > 0 && (
-                  <span className="text-[11px] font-medium text-[#9a3412] dark:text-[#fdba74]">
+                  <span className="text-[11px] font-medium text-[#1244D1] dark:text-[#4B7CFF]">
                     {filterServicio.length} seleccionado{filterServicio.length === 1 ? "" : "s"}
                   </span>
                 )}
@@ -263,12 +263,12 @@ export default function OrdenesListFiltersPopover({
                 />
               )}
               <div
-                className="max-h-36 space-y-0.5 overflow-y-auto rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/70 p-2 dark:border-[#273244] dark:bg-[#0f172a]/40"
+                className="max-h-36 space-y-0.5 overflow-y-auto rounded-xl border border-[#E7E7EA] bg-[#FAFAFA]/70 p-2 dark:border-[#273244] dark:bg-[#0f172a]/40"
                 role="group"
                 aria-labelledby={`${panelId}-servicios-label`}
               >
                 {serviciosFiltrados.length === 0 ? (
-                  <p className="px-1 py-2 text-xs text-[#78716c] dark:text-[#8ea0b8]" role="status">
+                  <p className="px-1 py-2 text-xs text-[#6E6E77] dark:text-[#8ea0b8]" role="status">
                     {serviciosDisponibles.length === 0
                       ? "No hay servicios en el catálogo."
                       : "Ningún servicio coincide con la búsqueda."}
@@ -283,8 +283,8 @@ export default function OrdenesListFiltersPopover({
                         htmlFor={inputId}
                         className={`flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors ${
                           checked
-                            ? "bg-[#fff4eb] text-[#9a3412] dark:bg-[#fb923c]/10 dark:text-[#fdba74]"
-                            : "text-[#44403c] hover:bg-white/80 dark:text-[#cbd5e1] dark:hover:bg-white/[0.04]"
+                            ? "bg-[#F1F5FF] text-[#1244D1] dark:bg-[#4B7CFF]/10 dark:text-[#4B7CFF]"
+                            : "text-[#3d3d3a] hover:bg-white/80 dark:text-[#cbd5e1] dark:hover:bg-white/[0.04]"
                         }`}
                       >
                         <input
@@ -292,7 +292,7 @@ export default function OrdenesListFiltersPopover({
                           type="checkbox"
                           checked={checked}
                           onChange={(e) => toggleServicio(srv, e.target.checked)}
-                          className="h-4 w-4 shrink-0 rounded border-[#d6d3d1] text-[#ea580c] focus:ring-[#ff801f] focus:ring-offset-0"
+                          className="h-4 w-4 shrink-0 rounded border-[#D3D3D8] text-[#1B5CFF] focus:ring-[#1B5CFF] focus:ring-offset-0"
                         />
                         <span className="leading-snug">{srv}</span>
                       </label>
@@ -316,7 +316,7 @@ export default function OrdenesListFiltersPopover({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 border-t border-[#e7ded0] bg-[#fcfaf6]/90 px-4 py-3 dark:border-[#273244] dark:bg-[#0f172a]/50">
+          <div className="flex items-center gap-2 border-t border-[#E7E7EA] bg-[#FAFAFA]/90 px-4 py-3 dark:border-[#273244] dark:bg-[#0f172a]/50">
             <button
               type="button"
               onClick={() => onOpenChange(false)}

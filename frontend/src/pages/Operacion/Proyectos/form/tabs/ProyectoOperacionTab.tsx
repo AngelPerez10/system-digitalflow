@@ -4,7 +4,7 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import SignaturePad from "@/components/ui/signature/SignaturePad";
 import { TimeIcon } from "@/icons";
-import { erpInputLikeClass, erpPrimaryBtnClass, erpSecondaryBtnClass } from "@/layout/erpPageStyles";
+import { erpInputLikeClass, erpPrimaryBtnClass, erpSecondaryBtnClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { proyectoRequiereCotizacionAdicional } from "../../shared/proyectoCloseValidation";
 import { ProyectoAsignadosMultiField } from "../fields/ProyectoAsignadosMultiField";
 import { ProyectoEvidenciasField } from "../fields/ProyectoEvidenciasField";
@@ -377,7 +377,7 @@ export function ProyectoOperacionTab({
               />
               <button
                 type="button"
-                className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition hover:bg-[#fff4eb] hover:text-[#9a3412] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 dark:text-gray-400 dark:hover:bg-[#ff801f]/15 dark:hover:text-[#fdba74]"
+                className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition hover:bg-[#F1F5FF] hover:text-[#1244D1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:text-gray-400 dark:hover:bg-[#1B5CFF]/15 dark:hover:text-[#4B7CFF]"
                 onClick={stampHoraLlegada}
                 aria-label="Usar hora actual del dispositivo para llegada"
                 title="Usar hora actual"
@@ -411,7 +411,7 @@ export function ProyectoOperacionTab({
               />
               <button
                 type="button"
-                className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition hover:bg-[#fff4eb] hover:text-[#9a3412] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-[#ff801f]/15 dark:hover:text-[#fdba74]"
+                className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition hover:bg-[#F1F5FF] hover:text-[#1244D1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-[#1B5CFF]/15 dark:hover:text-[#4B7CFF]"
                 onClick={stampHoraSalida}
                 aria-label="Usar hora actual del dispositivo para salida"
                 title={horaLlegada.trim() ? "Usar hora actual" : "Requiere hora de llegada"}
@@ -443,7 +443,7 @@ export function ProyectoOperacionTab({
               </p>
             </div>
             {diasRangoCount > 0 ? (
-              <span className="rounded-full border border-[#e7ded0] bg-[#fcfaf6] px-2.5 py-1 text-[11px] font-semibold tabular-nums text-[#57534e] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#aeb8c8]">
+              <span className="rounded-full border border-[#E7E7EA] bg-[#FAFAFA] px-2.5 py-1 text-[11px] font-semibold tabular-nums text-[#52525B] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#aeb8c8]">
                 {diasRangoCount} {diasRangoCount === 1 ? "día" : "días"}
               </span>
             ) : null}
@@ -478,7 +478,7 @@ export function ProyectoOperacionTab({
             </div>
           </div>
           {fechaDesde && fechaHasta && fechaDesde !== fechaHasta ? (
-            <p className="mt-2 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+            <p className="mt-2 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
               Del {formatProyectoFecha(fechaDesde)} al {formatProyectoFecha(fechaHasta)}
             </p>
           ) : null}
@@ -532,7 +532,7 @@ export function ProyectoOperacionTab({
           </div>
         </div>
 
-        <div className="border-t border-[#e7ded0]/80 pt-4 dark:border-[#334155]/80">
+        <div className="border-t border-[#E7E7EA]/80 pt-4 dark:border-[#334155]/80">
           <label htmlFor="proyecto-herramientas" className={proyectoFieldLabelClass}>
             Herramientas generales
           </label>
@@ -559,7 +559,7 @@ export function ProyectoOperacionTab({
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <span
-              className="rounded-full border border-[#e7ded0] bg-[#fcfaf6] px-2.5 py-1 text-[11px] font-semibold tabular-nums text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
+              className="rounded-full border border-[#E7E7EA] bg-[#FAFAFA] px-2.5 py-1 text-[11px] font-semibold tabular-nums text-[#52525B] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
               aria-hidden
             >
               {notasPorDia.length} {notasPorDia.length === 1 ? "día" : "días"}
@@ -597,7 +597,7 @@ export function ProyectoOperacionTab({
               <li key={item.id} className="group relative flex gap-3 pb-4 last:pb-0">
                 {index < notasPorDia.length - 1 ? (
                   <span
-                    className="absolute bottom-0 left-[15px] top-10 w-px bg-gradient-to-b from-[#ff801f]/45 via-[#e7ded0] to-[#e7ded0] dark:from-[#ff801f]/40 dark:via-[#334155] dark:to-[#334155]"
+                    className="absolute bottom-0 left-[15px] top-10 w-px bg-gradient-to-b from-[#1B5CFF]/45 via-[#E7E7EA] to-[#E7E7EA] dark:from-[#1B5CFF]/40 dark:via-[#334155] dark:to-[#334155]"
                     aria-hidden
                   />
                 ) : null}
@@ -611,15 +611,15 @@ export function ProyectoOperacionTab({
                   className={proyectoNotaCardClass}
                   aria-labelledby={`proyecto-nota-title-${item.id}`}
                 >
-                  <div className="flex items-start justify-between gap-2 border-b border-[#f0e8dc] bg-gradient-to-r from-[#fff8f1]/90 to-transparent px-3 py-2.5 dark:border-[#273244] dark:from-[#ff801f]/10 dark:to-transparent">
+                  <div className="flex items-start justify-between gap-2 border-b border-[#E7E7EA] bg-gradient-to-r from-[#F1F5FF]/90 to-transparent px-3 py-2.5 dark:border-[#273244] dark:from-[#1B5CFF]/10 dark:to-transparent">
                     <div className="min-w-0">
                       <h5
                         id={`proyecto-nota-title-${item.id}`}
-                        className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]"
+                        className="text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]"
                       >
                         Día {index + 1}
                         {fechaLabel ? (
-                          <span className="font-medium text-[#78716c] dark:text-[#8ea0b8]"> · {fechaLabel}</span>
+                          <span className="font-medium text-[#6E6E77] dark:text-[#8ea0b8]"> · {fechaLabel}</span>
                         ) : null}
                         {bitacoraMinRequired ? (
                           <span className="text-rose-600" aria-hidden>
@@ -678,7 +678,7 @@ export function ProyectoOperacionTab({
                         <p
                           className={`${proyectoNotaMetaClass}${
                             bitacoraMinRequired && faltan > 0
-                              ? " text-[#9a3412] dark:text-[#fdba74]"
+                              ? " text-[#1244D1] dark:text-[#4B7CFF]"
                               : faltan === 0 && charCount > 0
                                 ? " text-emerald-700 dark:text-emerald-400"
                                 : ""
@@ -707,7 +707,7 @@ export function ProyectoOperacionTab({
                       ) : null}
                     </div>
 
-                    <div className="border-t border-[#f0e8dc]/80 pt-2 dark:border-[#273244]/80">
+                    <div className="border-t border-[#E7E7EA]/80 pt-2 dark:border-[#273244]/80">
                       <ProyectoNotaDiaFotosField
                         urls={item.imagenesUrls ?? []}
                         onChange={(urls) => updateNotaDiaImagenes(index, urls)}
@@ -839,10 +839,10 @@ export function ProyectoOperacionTab({
           />
         </div>
 
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/70 px-3 py-3 dark:border-[#334155] dark:bg-[#0f172a]/40">
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E7E7EA] bg-[#FAFAFA]/70 px-3 py-3 dark:border-[#334155] dark:bg-[#0f172a]/40">
           <input
             type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-[#d6d3d1] text-[#ff801f] focus:ring-[#ff801f]/30"
+            className="mt-0.5 h-4 w-4 rounded border-[#D3D3D8] text-[#1B5CFF] focus:ring-[#1B5CFF]/30"
             checked={requierePresupuestoAdicional}
             onChange={(e) => {
               setRequierePresupuestoAdicional(e.target.checked);
@@ -851,10 +851,10 @@ export function ProyectoOperacionTab({
             aria-describedby="proyecto-presupuesto-adicional-hint"
           />
           <span>
-            <span className="block text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+            <span className="block text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
               Requiere presupuesto adicional
             </span>
-            <span id="proyecto-presupuesto-adicional-hint" className="mt-0.5 block text-[12px] text-[#78716c] dark:text-[#8ea0b8]">
+            <span id="proyecto-presupuesto-adicional-hint" className="mt-0.5 block text-[12px] text-[#6E6E77] dark:text-[#8ea0b8]">
               Al activarlo, debes vincular una cotización antes de cerrar.
             </span>
           </span>
@@ -872,7 +872,7 @@ export function ProyectoOperacionTab({
                   <span className={proyectoOrigenBadgeClass(cotizacionAdicional.origen)}>
                     {cotizacionAdicional.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
                   </span>
-                  <p className="mt-2 text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
+                  <p className="mt-2 text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">
                     {displayCotizacionFolio(cotizacionAdicional.folio, cotizacionAdicional.origen)} —{" "}
                     {cotizacionAdicional.cliente}
                   </p>
@@ -892,7 +892,7 @@ export function ProyectoOperacionTab({
               </div>
             ) : (
               <div className="mt-3">
-                <p className="text-sm text-[#57534e] dark:text-[#b7c1d1]">
+                <p className="text-sm text-[#52525B] dark:text-[#b7c1d1]">
                   Vincula la cotización correspondiente para poder cerrar el proyecto.
                 </p>
                 <button

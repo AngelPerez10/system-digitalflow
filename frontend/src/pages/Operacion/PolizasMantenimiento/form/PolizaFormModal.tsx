@@ -52,7 +52,7 @@ export default function PolizaFormModal({
       onClose={onClose}
       closeOnBackdropClick={false}
       ariaLabelledBy={titleId}
-      className={`${erpModalShellClass} sm:max-w-5xl sm:w-[min(96vw,64rem)]`}
+      className={`${erpModalShellClass} font-[Geist,Outfit,system-ui,sans-serif] sm:max-w-5xl sm:w-[min(96vw,64rem)]`}
     >
       <OrdenFormModalHeader
         editing={editing}

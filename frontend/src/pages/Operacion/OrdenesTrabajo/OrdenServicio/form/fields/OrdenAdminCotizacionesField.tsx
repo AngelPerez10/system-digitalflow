@@ -73,11 +73,11 @@ export default function OrdenAdminCotizacionesField({
   };
 
   return (
-    <div className="relative mt-4 border-t border-[#e7ded0]/80 pt-4 dark:border-[#334155]">
+    <div className="relative mt-4 border-t border-[#E7E7EA]/80 pt-4 dark:border-[#273244]">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-medium text-gray-600 dark:text-gray-300">Cotizaciones adjuntas</p>
-          <p className="mt-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+          <p className="mt-0.5 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
             DigitalFlow o SICAR · {value.length}{" "}
             {value.length === 1 ? "vinculada" : "vinculadas"}
           </p>
@@ -94,7 +94,7 @@ export default function OrdenAdminCotizacionesField({
 
       {value.length === 0 ? (
         <div className={`${proyectoEmptyPanelClass} !py-5`} role="status">
-          <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+          <p className="text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
             Aún no hay cotizaciones. Adjunta una de DigitalFlow o SICAR.
           </p>
         </div>
@@ -103,18 +103,18 @@ export default function OrdenAdminCotizacionesField({
           {value.map((item) => (
             <li
               key={item.id}
-              className="flex items-start justify-between gap-3 rounded-xl border border-[#e7ded0] bg-white/80 px-3 py-2.5 dark:border-[#334155] dark:bg-[#0f172a]/60"
+              className="flex items-start justify-between gap-3 rounded-xl border border-[#E7E7EA] bg-white/80 px-3 py-2.5 dark:border-[#273244] dark:bg-[#0f172a]/60"
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={proyectoOrigenBadgeClass(item.origen)}>
                     {item.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
                   </span>
-                  <span className="truncate text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                  <span className="truncate text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
                     {displayCotizacionFolio(item.folio, item.origen)}
                   </span>
                 </div>
-                <p className="mt-0.5 truncate text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                <p className="mt-0.5 truncate text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
                   {item.cliente}
                   {item.fecha ? ` · ${item.fecha}` : ""}
                   {item.contacto ? ` · ${item.contacto}` : ""}
@@ -143,15 +143,15 @@ export default function OrdenAdminCotizacionesField({
         className={`${proyectoPickerModalClass} z-[100001]`}
       >
         <header className={proyectoPickerModalHeaderClass}>
-          <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
+          <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#1B5CFF]" aria-hidden />
           <div className="min-w-0 pr-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ea580c] dark:text-[#fb923c]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1B5CFF] dark:text-[#4B7CFF]">
               Órdenes · Admin
             </p>
             <h3 id={pickerTitleId} className={`mt-1 ${erpSubheadingClass}`}>
               Adjuntar cotización
             </h3>
-            <p className="mt-1 text-sm text-[#78716c] dark:text-[#8ea0b8]">
+            <p className="mt-1 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
               Busca y vincula cotizaciones de DigitalFlow o SICAR a esta orden.
             </p>
           </div>
@@ -159,7 +159,7 @@ export default function OrdenAdminCotizacionesField({
 
         <div className={proyectoPickerModalBodyClass}>
           <div
-            className="flex rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]"
+            className="flex rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#273244] dark:bg-[#0f172a]"
             role="tablist"
             aria-label="Origen de cotización"
           >
@@ -180,10 +180,10 @@ export default function OrdenAdminCotizacionesField({
                   setPickerResults([]);
                   setPickerError("");
                 }}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/25 ${
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/25 ${
                   pickerTab === tab.id
-                    ? "bg-white text-[#1c1917] shadow-sm dark:bg-[#1e293b] dark:text-[#f8fafc]"
-                    : "text-[#78716c] dark:text-[#8ea0b8]"
+                    ? "bg-white text-[#09090B] shadow-sm dark:bg-[#1e293b] dark:text-[#f8fafc]"
+                    : "text-[#6E6E77] dark:text-[#8ea0b8]"
                 }`}
               >
                 {tab.label}
@@ -230,10 +230,10 @@ export default function OrdenAdminCotizacionesField({
                     className={proyectoCotizacionOptionClass}
                     onClick={() => attach(item)}
                   >
-                    <span className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                    <span className="text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
                       {displayCotizacionFolio(item.folio, item.origen)} — {item.cliente}
                     </span>
-                    <span className="mt-0.5 block text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                    <span className="mt-0.5 block text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
                       {item.fecha}
                       {item.contacto ? ` · ${item.contacto}` : ""}
                     </span>

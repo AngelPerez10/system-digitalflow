@@ -11,7 +11,10 @@ import type { ProyectoRow } from "../shared/proyectoTypes";
 import { ProyectoStatusSectionHeader } from "./ProyectoStatusSectionHeader";
 
 const actionBtnClass =
-  "inline-flex h-10 w-10 min-h-[40px] min-w-[40px] items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] transition hover:border-[#ff801f] hover:text-[#ea580c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]";
+  "inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[#E7E7EA] bg-white text-[#52525B] transition hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:border-[#273244] dark:bg-[#111827] dark:text-[#B7C1D1] dark:hover:border-[#4B7CFF] dark:hover:text-[#4B7CFF]";
+
+const folioChipClass =
+  "inline-flex rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF]";
 
 function ProyectoPdfGlyph({ className }: { className?: string }) {
   return (
@@ -78,46 +81,44 @@ function ProyectoCard({
 }) {
   const team = teamLabel(row);
   return (
-    <li className="rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-[0_12px_32px_-24px_rgba(28,25,23,0.25)] dark:border-[#273244] dark:bg-[#111827]/80">
+    <li className="min-w-0 rounded-2xl border border-[#E7E7EA] bg-white p-3.5 shadow-sm dark:border-[#273244] dark:bg-[#111827] sm:p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white">
-              {displayProyectoFolio(row.folio)}
-            </span>
+            <span className={folioChipClass}>{displayProyectoFolio(row.folio)}</span>
             <span className={estadoProyectoBadgeClass(row.estado)}>
               {estadoProyectoLabel(row.estado)}
             </span>
           </div>
-          <p className="mt-2 truncate text-sm font-semibold text-[#1c1917] dark:text-white" title={row.cliente}>
+          <p className="mt-2 truncate text-sm font-semibold text-[#09090B] dark:text-white" title={row.cliente}>
             {row.cliente}
           </p>
-          <p className="mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+          <p className="mt-0.5 text-xs text-[#52525B] dark:text-[#8EA0B8]">
             {formatProyectoFecha(row.fecha)}
           </p>
         </div>
         {row.equiposTotal > 0 ? (
-          <p className="shrink-0 text-right text-xs font-semibold tabular-nums text-[#1c1917] dark:text-white">
+          <p className="shrink-0 text-right text-xs font-semibold tabular-nums text-[#09090B] dark:text-white">
             {row.equiposEntregados}/{row.equiposTotal}
-            <span className="mt-0.5 block text-[10px] font-medium text-[#78716c] dark:text-[#8ea0b8]">
+            <span className="mt-0.5 block text-[10px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]">
               equipos
             </span>
           </p>
         ) : null}
       </div>
 
-      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[#e7ded0] pt-3 text-[11px] dark:border-[#273244]">
-        <div>
-          <dt className="text-[#78716c] dark:text-[#8ea0b8]">Técnico</dt>
-          <dd className="mt-0.5 truncate font-medium text-[#1c1917] dark:text-white">{team.tecnico}</dd>
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[#E7E7EA] pt-3 text-[11px] dark:border-[#273244]">
+        <div className="min-w-0">
+          <dt className="text-[#6E6E77] dark:text-[#8EA0B8]">Técnico</dt>
+          <dd className="mt-0.5 truncate font-medium text-[#09090B] dark:text-white">{team.tecnico}</dd>
         </div>
-        <div>
-          <dt className="text-[#78716c] dark:text-[#8ea0b8]">Auxiliar</dt>
-          <dd className="mt-0.5 truncate font-medium text-[#1c1917] dark:text-white">{team.auxiliar}</dd>
+        <div className="min-w-0">
+          <dt className="text-[#6E6E77] dark:text-[#8EA0B8]">Auxiliar</dt>
+          <dd className="mt-0.5 truncate font-medium text-[#09090B] dark:text-white">{team.auxiliar}</dd>
         </div>
-        <div className="col-span-2">
-          <dt className="text-[#78716c] dark:text-[#8ea0b8]">Cotización</dt>
-          <dd className="mt-0.5 font-medium text-[#1c1917] dark:text-white">
+        <div className="col-span-2 min-w-0">
+          <dt className="text-[#6E6E77] dark:text-[#8EA0B8]">Cotización</dt>
+          <dd className="mt-0.5 font-medium text-[#09090B] dark:text-white">
             {row.cotizacionFolio === "—" ? (
               "—"
             ) : (
@@ -136,7 +137,7 @@ function ProyectoCard({
         </div>
       </dl>
 
-      <div className="mt-3 flex flex-wrap gap-2 border-t border-[#e7ded0] pt-3 dark:border-[#273244]">
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-[#E7E7EA] pt-3 dark:border-[#273244]">
         <button
           type="button"
           className={`${actionBtnClass} hover:border-red-400 hover:text-red-600`}
@@ -195,7 +196,7 @@ export function ProyectosMobileList({
 }: Props) {
   if (loading) {
     return (
-      <p className="py-6 text-center text-sm text-[#78716c] dark:text-[#8ea0b8] md:hidden" role="status" aria-live="polite">
+      <p className="py-6 text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8] md:hidden" role="status" aria-live="polite">
         Cargando…
       </p>
     );
@@ -203,7 +204,7 @@ export function ProyectosMobileList({
 
   if (sections.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-[#78716c] dark:text-[#8ea0b8] md:hidden">
+      <p className="py-8 text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8] md:hidden">
         {hasSearch
           ? "No hay proyectos que coincidan con la búsqueda o los filtros."
           : "Aún no hay proyectos registrados."}

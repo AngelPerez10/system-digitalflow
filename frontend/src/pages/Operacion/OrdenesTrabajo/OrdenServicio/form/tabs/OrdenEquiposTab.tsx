@@ -99,7 +99,8 @@ export function OrdenEquiposTab({
       id={panelId}
       role="tabpanel"
       aria-labelledby={labelledBy}
-      className="space-y-5"
+      tabIndex={-1}
+      className="space-y-5 focus:outline-none"
     >
       {canAdminMutate ? <OrdenInventarioPicker onPick={handlePick} /> : null}
       <OrdenEquiposSection
@@ -112,7 +113,7 @@ export function OrdenEquiposTab({
         onRemoveEquipo={onRemoveEquipo}
       />
       {!isAdmin && !canMarkInstalacion && equiposSafe.length > 0 ? (
-        <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]" role="status">
+        <p className="text-xs text-[#6E6E77] dark:text-[#8ea0b8]" role="status">
           Solo puedes consultar el estado de los equipos en esta orden.
         </p>
       ) : null}

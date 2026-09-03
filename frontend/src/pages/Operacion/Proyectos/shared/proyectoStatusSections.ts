@@ -110,12 +110,12 @@ export function getProyectoStatusSectionStyles(key: ProyectoStatusSectionKey): P
     };
   }
   return {
-    shell: "border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]",
-    accent: "bg-[#a8a29e] dark:bg-[#64748b]",
-    icon: "text-[#57534e] dark:text-[#94a3b8]",
+    shell: "border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#334155] dark:bg-[#0f172a]",
+    accent: "bg-[#A1A1AA] dark:bg-[#64748b]",
+    icon: "text-[#52525B] dark:text-[#94a3b8]",
     badge:
-      "border-[#e2d9ca] bg-white text-[#1c1917] dark:border-[#475569] dark:bg-[#1e293b] dark:text-[#e2e8f0]",
-    label: "text-[#292524] dark:text-[#e2e8f0]",
+      "border-[#E7E7EA] bg-white text-[#09090B] dark:border-[#475569] dark:bg-[#1e293b] dark:text-[#e2e8f0]",
+    label: "text-[#27272A] dark:text-[#e2e8f0]",
   };
 }
 

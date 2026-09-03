@@ -10,11 +10,15 @@ import {
   erpHeroHeadingClass,
   erpPageCanvasClass,
   erpPageInnerClass,
-  erpPrimaryBtnClass,
-  erpSecondaryBtnClass,
   erpSubheadingClass,
 } from "@/layout/erpPageStyles";
-import { claudeBodyClass, outlineCoralBtnClass, sectionLabelOrangeClass } from "../ordenTrabajoStyles";
+import {
+  claudeBodyClass,
+  erpModalEyebrowClass,
+  erpModalOutlineBtnClass,
+  erpModalPrimaryBtnClass as erpPrimaryBtnClass,
+  erpModalSecondaryBtnClass as erpSecondaryBtnClass,
+} from "../ordenTrabajoStyles";
 import { downloadOrdenPdfById, isOrdenPdfDirectDownload } from "./shared/useOrdenesShared";
 
 const externalLinkIcon = (
@@ -171,28 +175,28 @@ export default function OrdenPdfPage() {
         <OrdenPdfLoadingModal open={loading} downloading={directDownload} />
 
         <nav
-          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
+          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#6E6E77] dark:text-[#8ea0b8] sm:text-[13px]"
           aria-label="Migas de pan"
         >
           <Link
             to="/"
-            className="rounded-md px-1 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Inicio
           </Link>
-          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+          <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
             /
           </span>
           <Link
             to="/ordenes"
-            className="rounded-md px-1 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Órdenes de servicio
           </Link>
-          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+          <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
             /
           </span>
-          <span className="text-[#44403c] dark:text-[#cbd5e1]">Vista PDF</span>
+          <span className="text-[#3F3F46] dark:text-[#cbd5e1]">Vista PDF</span>
         </nav>
 
         {alert.show && (
@@ -202,16 +206,16 @@ export default function OrdenPdfPage() {
         )}
 
         <header className={`relative flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
-          <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
+          <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#1B5CFF]/10 blur-2xl sm:right-6 sm:top-6" />
           <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] text-white sm:h-11 sm:w-11">
               <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <p className={sectionLabelOrangeClass}>Orden de servicio</p>
+              <p className={erpModalEyebrowClass}>Orden de servicio</p>
               <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
                 <h1 className={erpHeroHeadingClass}>Vista PDF</h1>
                 {ordenIdx != null && (
@@ -223,7 +227,7 @@ export default function OrdenPdfPage() {
               <p className={`mt-1.5 max-w-2xl sm:mt-2 ${claudeBodyClass}`}>
                 Revise el PDF en el panel principal; el lateral permite abrir en otra pestaña o descargar. El documento puede incluir fotos y firmas.
               </p>
-              <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
+              <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#1B5CFF]/35 via-[#93B4FF]/30 to-transparent dark:from-[#4B7CFF]/35 dark:via-[#64748b]/25 dark:to-transparent" />
             </div>
           </div>
           <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
@@ -241,31 +245,31 @@ export default function OrdenPdfPage() {
         <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
           <div className="min-w-0 lg:col-span-8">
             <div className={`flex min-h-0 flex-col ${cardShellClass} lg:min-h-[calc(100vh-13.5rem)]`}>
-              <div className="border-b border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 dark:border-[#273244] dark:bg-[#111a2b] sm:px-5 sm:py-3.5">
+              <div className="border-b border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 dark:border-[#273244] dark:bg-[#111827] sm:px-5 sm:py-3.5">
                 <div className="flex flex-wrap items-end justify-between gap-2">
                   <div>
-                    <p className={sectionLabelOrangeClass}>Vista previa</p>
-                    <p className="mt-0.5 text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">Orden de servicio</p>
+                    <p className={erpModalEyebrowClass}>Vista previa</p>
+                    <p className="mt-0.5 text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">Orden de servicio</p>
                   </div>
-                  <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">El visor usa el motor PDF del navegador.</p>
+                  <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">El visor usa el motor PDF del navegador.</p>
                 </div>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col bg-[#fcfaf6] p-2 dark:bg-[#0f172a] sm:p-3">
+              <div className="flex min-h-0 flex-1 flex-col bg-[#FAFAFA] p-2 dark:bg-[#0f172a] sm:p-3">
                 {loading ? (
                   <div
-                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
+                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
                     aria-busy="true"
                     aria-live="polite"
                     aria-label="Cargando documento"
                   >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#ff801f]/10">
-                      <span className="h-7 w-7 animate-spin rounded-full border-2 border-[#e7ded0] border-t-[#ff801f] dark:border-[#334155] dark:border-t-[#ffa057]" aria-hidden />
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#1B5CFF]/10">
+                      <span className="h-7 w-7 animate-spin rounded-full border-2 border-[#E7E7EA] border-t-[#1B5CFF] dark:border-[#273244] dark:border-t-[#4B7CFF]" aria-hidden />
                     </div>
-                    <p className="mt-4 text-sm text-[#78716c] dark:text-[#8ea0b8]">Preparando vista previa…</p>
+                    <p className="mt-4 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">Preparando vista previa…</p>
                   </div>
                 ) : pdfObjectUrl ? (
-                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#273244] dark:bg-[#0f172a]">
+                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]">
                     <iframe
                       title="Vista previa del PDF de la orden"
                       aria-label={`Vista previa del PDF de la orden${ordenIdx != null ? ` ${ordenIdx}` : ""}`}
@@ -275,8 +279,8 @@ export default function OrdenPdfPage() {
                     />
                   </div>
                 ) : (
-                  <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 px-6 py-12 text-center dark:border-[#273244] dark:bg-[#0f172a]/40 lg:min-h-[calc(100vh-13.5rem)]">
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#ff801f]/10 text-[#ea580c] dark:text-[#fb923c]">
+                  <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 px-6 py-12 text-center dark:border-[#273244] dark:bg-[#0f172a]/40 lg:min-h-[calc(100vh-13.5rem)]">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#1B5CFF]/10 text-[#1B5CFF] dark:text-[#4B7CFF]">
                       <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <path d="M14 2v6h6" />
@@ -284,11 +288,11 @@ export default function OrdenPdfPage() {
                         <path d="M10 17h7" />
                       </svg>
                     </div>
-                    <p className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]">No hay documento disponible</p>
-                    <p className="mt-1.5 max-w-sm text-sm text-[#78716c] dark:text-[#8ea0b8]">
+                    <p className="text-base font-semibold text-[#09090B] dark:text-[#f8fafc]">No hay documento disponible</p>
+                    <p className="mt-1.5 max-w-sm text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
                       No se pudo generar la vista previa. Compruebe la orden o vuelva al listado.
                     </p>
-                    <Link to="/ordenes" className="mt-6 text-sm font-medium text-[#ea580c] underline-offset-4 hover:underline dark:text-[#fb923c]">
+                    <Link to="/ordenes" className="mt-6 text-sm font-medium text-[#1B5CFF] underline-offset-4 hover:underline dark:text-[#4B7CFF]">
                       Ir a órdenes de servicio
                     </Link>
                   </div>
@@ -299,15 +303,15 @@ export default function OrdenPdfPage() {
 
           <div className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:top-6 lg:self-start xl:top-8">
             <div className={cardShellClass}>
-              <div className="border-b border-[#e7ded0] px-4 py-4 dark:border-[#273244] sm:px-5">
-                <p className={sectionLabelOrangeClass}>Documento</p>
+              <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-5">
+                <p className={erpModalEyebrowClass}>Documento</p>
                 <h2 className={`mt-1 ${erpSubheadingClass}`}>Archivo y acciones</h2>
-                <p className="mt-1 text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">Nombre sugerido al descargar y accesos rápidos.</p>
+                <p className="mt-1 text-xs text-[#6E6E77] dark:text-[#8ea0b8] sm:text-sm">Nombre sugerido al descargar y accesos rápidos.</p>
               </div>
               <div className="space-y-4 px-4 py-5 sm:px-5">
                 <div className={`${erpCardShellMutedClass} px-3 py-2.5`}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#78716c] dark:text-[#8ea0b8]">Nombre de archivo</p>
-                  <code className="mt-1 block break-all rounded-md border border-[#e7ded0] bg-[#fffdfa] px-2.5 py-1.5 text-xs font-medium text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">Nombre de archivo</p>
+                  <code className="mt-1 block break-all rounded-md border border-[#E7E7EA] bg-[#FFFFFF] px-2.5 py-1.5 text-xs font-medium text-[#09090B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
                     {filename}
                   </code>
                 </div>
@@ -318,7 +322,7 @@ export default function OrdenPdfPage() {
                     target="_blank"
                     rel="noreferrer"
                     tabIndex={pdfObjectUrl ? undefined : -1}
-                    className={`${outlineCoralBtnClass} ${!pdfObjectUrl ? "pointer-events-none opacity-50" : ""}`}
+                    className={`${erpModalOutlineBtnClass} ${!pdfObjectUrl ? "pointer-events-none opacity-50" : ""}`}
                     aria-disabled={!pdfObjectUrl}
                     onClick={(e) => {
                       if (!pdfObjectUrl) e.preventDefault();
@@ -348,7 +352,7 @@ export default function OrdenPdfPage() {
                   </button>
                 </div>
 
-                <p className="text-[11px] leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                <p className="text-[11px] leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
                   Si la vista previa se ve cortada o es pesada (fotos), abra el archivo en una pestaña nueva o descárguelo.
                 </p>
               </div>

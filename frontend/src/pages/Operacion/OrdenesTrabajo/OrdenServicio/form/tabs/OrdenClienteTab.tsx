@@ -203,19 +203,25 @@ export function OrdenClienteTab({
   };
 
   return (
-    <div id={panelId} role="tabpanel" aria-labelledby={labelledBy} className="space-y-5">
+    <div
+      id={panelId}
+      role="tabpanel"
+      aria-labelledby={labelledBy}
+      tabIndex={-1}
+      className="space-y-5 focus:outline-none"
+    >
       {/* SECCIÓN 1: Detalles Generales */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 border-b border-gray-200 pb-2 dark:border-gray-700">
-          <svg className="h-5 w-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <div className="flex items-center gap-2 border-b border-[#E7E7EA] pb-2 dark:border-[#273244]">
+          <svg className="h-5 w-5 text-[#1B5CFF] dark:text-[#4B7CFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles Generales</h4>
+          <h3 className="text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC]">Detalles Generales</h3>
         </div>
-        <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-white/10 dark:bg-gray-900/40">
+        <div className="space-y-4 rounded-xl border border-[#E7E7EA] bg-white p-4 shadow-sm dark:border-[#273244] dark:bg-[#111827]">
           {editingOrden && (
             <div>
-              <label htmlFor={folioInputId} className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+              <label htmlFor={folioInputId} className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">
                 Folio
               </label>
               <input
@@ -225,7 +231,7 @@ export function OrdenClienteTab({
                 readOnly={ro("folio")}
                 disabled={ro("folio")}
                 onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
-                className={`h-10 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${inputLockedClass("folio")}`}
+                className={`h-11 w-full rounded-[10px] border border-[#E7E7EA] px-3.5 text-sm outline-none transition-colors dark:border-[#273244] ${inputLockedClass("folio")}`}
                 placeholder="Ej: ATX2000"
               />
             </div>
@@ -249,7 +255,7 @@ export function OrdenClienteTab({
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label htmlFor={nombreClienteId} className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+              <label htmlFor={nombreClienteId} className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">
                 Nombre del Cliente
               </label>
               <input
@@ -259,7 +265,7 @@ export function OrdenClienteTab({
                 readOnly={ro("nombre_cliente")}
                 disabled={ro("nombre_cliente")}
                 onChange={(e) => setFormData({ ...formData, nombre_cliente: e.target.value })}
-                className={`h-10 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${inputLockedClass("nombre_cliente")}`}
+                className={`h-11 w-full rounded-[10px] border border-[#E7E7EA] px-3.5 text-sm outline-none transition-colors dark:border-[#273244] ${inputLockedClass("nombre_cliente")}`}
                 placeholder="Nombre completo del cliente"
               />
             </div>
@@ -334,33 +340,33 @@ export function OrdenClienteTab({
 
       {/* SECCIÓN 2: Detalles del Cliente */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 border-b border-gray-200 pb-2 dark:border-gray-700">
-          <svg className="h-5 w-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <div className="flex items-center gap-2 border-b border-[#E7E7EA] pb-2 dark:border-[#273244]">
+          <svg className="h-5 w-5 text-[#1B5CFF] dark:text-[#4B7CFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z" strokeLinecap="round" strokeLinejoin="round" />
             {variant === "tecnico" && <path d="M12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" strokeLinecap="round" strokeLinejoin="round" />}
           </svg>
-          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles del Cliente</h4>
+          <h3 className="text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC]">Detalles del Cliente</h3>
         </div>
-        <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-white/10 dark:bg-gray-900/40">
+        <div className="space-y-4 rounded-xl border border-[#E7E7EA] bg-white p-4 shadow-sm dark:border-[#273244] dark:bg-[#111827]">
           <div>
-            <label htmlFor={telefonoId} className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+            <label htmlFor={telefonoId} className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">
               Teléfono
             </label>
             <div className="flex items-center gap-2">
               <input
                 id={telefonoId}
                 type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                pattern="[0-9]*"
                 value={formData.telefono_cliente}
                 readOnly={ro("telefono_cliente")}
                 disabled={ro("telefono_cliente")}
                 onChange={(e) => {
-                  setFormData({ ...formData, telefono_cliente: e.target.value.replace(/\D/g, "") });
+                  setFormData({ ...formData, telefono_cliente: e.target.value.replace(/\D/g, "").slice(0, 10) });
                 }}
-                onKeyPress={(e) => {
-                  if (!/[0-9]/.test(e.key)) e.preventDefault();
-                }}
-                className={`h-10 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${inputLockedClass("telefono_cliente")}`}
-                placeholder="Teléfono del cliente"
+                className={`h-11 w-full rounded-[10px] border border-[#E7E7EA] px-3.5 text-sm outline-none transition-colors dark:border-[#273244] ${inputLockedClass("telefono_cliente")}`}
+                placeholder="10 dígitos"
                 maxLength={10}
               />
               <a
@@ -368,7 +374,9 @@ export function OrdenClienteTab({
                 onClick={(e) => {
                   if (!formData.telefono_cliente) e.preventDefault();
                 }}
-                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 ${!formData.telefono_cliente ? "pointer-events-none opacity-50" : ""}`}
+                aria-disabled={!formData.telefono_cliente || undefined}
+                tabIndex={formData.telefono_cliente ? undefined : -1}
+                className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#B7C1D1] dark:hover:bg-[#243048] ${!formData.telefono_cliente ? "pointer-events-none opacity-50" : ""}`}
                 aria-label="Llamar al cliente"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -379,7 +387,7 @@ export function OrdenClienteTab({
           </div>
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <label htmlFor={direccionId} className="block text-xs font-medium text-gray-600 dark:text-gray-300">
+              <label htmlFor={direccionId} className="block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">
                 Dirección
               </label>
               <button
@@ -402,7 +410,7 @@ export function OrdenClienteTab({
                 disabled={ro("direccion")}
                 onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
                 rows={2}
-                className={`w-full resize-none rounded-lg border border-gray-300 px-3 py-2 pr-12 text-sm shadow-theme-xs outline-none dark:border-gray-700 ${inputLockedClass("direccion")}`}
+                className={`w-full resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 pr-12 text-sm outline-none transition-colors dark:border-[#273244] ${inputLockedClass("direccion")}`}
                 placeholder="Dirección, coordenadas o URL de Google Maps"
               />
               {formData.direccion && (
@@ -424,13 +432,13 @@ export function OrdenClienteTab({
 
       {/* SECCIÓN 3: Detalles de Tiempo */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 border-b border-gray-200 pb-2 dark:border-gray-700">
-          <svg className="h-5 w-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <div className="flex items-center gap-2 border-b border-[#E7E7EA] pb-2 dark:border-[#273244]">
+          <svg className="h-5 w-5 text-[#1B5CFF] dark:text-[#4B7CFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Detalles de Tiempo</h4>
+          <h3 className="text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC]">Detalles de Tiempo</h3>
         </div>
-        <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-white/10 dark:bg-gray-900/40">
+        <div className="space-y-4 rounded-xl border border-[#E7E7EA] bg-white p-4 shadow-sm dark:border-[#273244] dark:bg-[#111827]">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <DatePicker
@@ -456,7 +464,7 @@ export function OrdenClienteTab({
                   value={formData.hora_inicio}
                   onChange={(e) => setFormData({ ...formData, hora_inicio: e.target.value })}
                 />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#6E6E77] dark:text-[#8ea0b8]">
                   <TimeIcon className="size-6" />
                 </span>
               </div>
@@ -487,7 +495,7 @@ export function OrdenClienteTab({
                   value={formData.hora_termino}
                   onChange={(e) => setFormData({ ...formData, hora_termino: e.target.value })}
                 />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#6E6E77] dark:text-[#8ea0b8]">
                   <TimeIcon className="size-6" />
                 </span>
               </div>
@@ -498,13 +506,13 @@ export function OrdenClienteTab({
 
       {/* SECCIÓN 4: Firmas y Archivos */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 border-b border-gray-200 pb-2 dark:border-gray-700">
-          <svg className="h-5 w-5 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <div className="flex items-center gap-2 border-b border-[#E7E7EA] pb-2 dark:border-[#273244]">
+          <svg className="h-5 w-5 text-[#1B5CFF] dark:text-[#4B7CFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Firmas y Archivos</h4>
+          <h3 className="text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC]">Firmas y Archivos</h3>
         </div>
-        <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-white/10 dark:bg-gray-900/40">
+        <div className="space-y-4 rounded-xl border border-[#E7E7EA] bg-white p-4 shadow-sm dark:border-[#273244] dark:bg-[#111827]">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <SignaturePad
               label="Firma del Encargado"
@@ -525,8 +533,8 @@ export function OrdenClienteTab({
           </div>
 
           {!ro("fotos_extra_max") && (
-            <div className={`rounded-lg border border-gray-200 p-3 dark:border-white/10 sm:p-4 ${variant === "tecnico" ? "mb-3" : ""} space-y-2`}>
-              <label htmlFor={fotosExtraId} className="block text-sm font-medium text-gray-800 dark:text-gray-100">
+            <div className={`rounded-lg border border-[#E7E7EA] p-3 dark:border-[#273244] sm:p-4 ${variant === "tecnico" ? "mb-3" : ""} space-y-2`}>
+              <label htmlFor={fotosExtraId} className="block text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]">
                 Fotos adicionales (además de las {ORDEN_BASE_MAX_FOTOS} base)
               </label>
               <select
@@ -536,7 +544,7 @@ export function OrdenClienteTab({
                   const n = Number(e.target.value) as FotosExtraMax;
                   setFormData({ ...formData, fotos_extra_max: n });
                 }}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#ff801f]/80 focus:ring-2 focus:ring-[#ff801f]/20 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100"
+                className="w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3.5 py-2.5 text-sm text-[#09090B] outline-none transition-colors focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC]"
                 aria-describedby={fotosExtraHintId}
               >
                 <option value={0}>Ninguna — máximo {ORDEN_BASE_MAX_FOTOS} en total</option>
@@ -545,7 +553,7 @@ export function OrdenClienteTab({
                 <option value={4}>+4 — máximo {ORDEN_BASE_MAX_FOTOS + 4} en total</option>
                 <option value={5}>+5 — máximo {ORDEN_BASE_MAX_FOTOS + 5} en total</option>
               </select>
-              <p id={fotosExtraHintId} className="text-xs text-gray-600 dark:text-gray-400">
+              <p id={fotosExtraHintId} className="text-xs text-[#52525B] dark:text-[#8ea0b8]">
                 Límite actual: {maxPhotosAllowed} fotos en total.
               </p>
             </div>
@@ -553,20 +561,20 @@ export function OrdenClienteTab({
 
           {!ro("fotos_urls") && (
             <div
-              className={`rounded-lg border border-dashed transition dark:border-gray-700 ${
+              className={`rounded-[10px] border border-dashed transition dark:border-[#273244] ${
                 uploadingPhotos
-                  ? "cursor-wait border-brand-300 dark:border-brand-500/40"
-                  : "cursor-pointer border-gray-300 hover:border-[#ff801f] dark:hover:border-[#ff801f]"
+                  ? "cursor-wait border-[#93B4FF] dark:border-[#4B7CFF]/40"
+                  : "cursor-pointer border-[#E7E7EA] hover:border-[#1B5CFF] dark:border-[#273244] dark:hover:border-[#4B7CFF]"
               }`}
             >
               <div
                 {...getRootProps()}
                 className={`dropzone rounded-lg border-dashed p-4 sm:p-5 ${
                   uploadingPhotos
-                    ? "border-brand-400 bg-brand-50/70 dark:bg-brand-500/10"
+                    ? "border-[#4B7CFF] bg-[#F1F5FF]/70 dark:bg-[rgba(75,124,255,0.1)]"
                     : isDragActive
-                      ? "border-[#ff801f] bg-[#fff8f1] dark:bg-gray-800"
-                      : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+                      ? "border-[#1B5CFF] bg-[#F1F5FF] dark:bg-[rgba(75,124,255,0.12)]"
+                      : "border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]"
                 }`}
                 id="fotos-upload"
                 role="button"
@@ -578,7 +586,7 @@ export function OrdenClienteTab({
                 <input {...getInputProps()} />
                 <div className="dz-message m-0! flex flex-col items-center">
                   <div className="mb-3 flex justify-center">
-                    <div className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                    <div className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-[#EDEDED] text-[#52525B] dark:bg-[#111827] dark:text-[#8ea0b8]">
                       <svg className="fill-current" width="22" height="22" viewBox="0 0 29 28" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                         <path
                           fillRule="evenodd"
@@ -588,24 +596,24 @@ export function OrdenClienteTab({
                       </svg>
                     </div>
                   </div>
-                  <h4 className="mb-1 text-sm font-semibold text-gray-800 dark:text-white/90 sm:text-base">
+                  <h4 className="mb-1 text-sm font-semibold text-[#09090B] dark:text-white/90 sm:text-base">
                     {uploadingPhotos
                       ? "Procesando fotos…"
                       : isDragActive
                         ? "Suelta aquí para subir"
                         : `Haz clic o arrastra imágenes (máx. ${maxPhotosAllowed})`}
                   </h4>
-                  <span className="mb-2 block w-full max-w-[320px] text-center text-[12px] text-gray-700 dark:text-gray-400">
+                  <span className="mb-2 block w-full max-w-[320px] text-center text-[12px] text-[#3F3F46] dark:text-[#8ea0b8]">
                     {uploadingPhotos
                       ? "Puedes elegir varias; se suben de dos en dos para que no salgan en blanco."
                       : "JPG, PNG o WebP. En iPhone usa «Más compatible» (no HEIC)."}
                   </span>
                   {photoUploadProgress ? (
-                    <p role="status" aria-live="polite" className="text-sm font-medium text-brand-700 dark:text-brand-300">
+                    <p role="status" aria-live="polite" className="text-sm font-medium text-[#1244D1] dark:text-[#4B7CFF]">
                       {formatOrdenPhotoProgress(photoUploadProgress)}
                     </p>
                   ) : (
-                    <span className="text-[12px] font-medium text-[#ff801f] underline">Buscar archivos</span>
+                    <span className="text-[12px] font-medium text-[#1B5CFF] underline">Buscar archivos</span>
                   )}
                 </div>
               </div>
@@ -613,62 +621,84 @@ export function OrdenClienteTab({
           )}
 
           {Array.isArray(formData.fotos_urls) && formData.fotos_urls.length > 0 && (
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-              {formData.fotos_urls.map((preview, index) => {
-                const previewSrc = normalizePreviewUrl(preview);
-                return (
-                <div key={`${preview}-${index}`} className="group relative">
-                  <button
-                    type="button"
-                    onClick={() => setPhotoPreview({ open: true, url: previewSrc, index })}
-                    className="block w-full cursor-zoom-in overflow-hidden rounded-lg border-2 border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40 dark:border-gray-700"
-                    aria-label={`Ver foto ${index + 1} en tamaño completo`}
-                  >
-                    {brokenPhotoUrls[preview] ? (
-                      <div className="flex h-24 w-full items-center justify-center bg-gray-100 px-2 text-center text-[11px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-                        No se pudo mostrar
-                      </div>
-                    ) : (
-                      <img
-                        src={previewSrc}
-                        alt={`Foto ${index + 1} de la orden`}
-                        className="pointer-events-none h-24 w-full bg-gray-100 object-cover dark:bg-gray-800"
-                        loading="lazy"
-                        decoding="async"
-                        onLoad={() =>
-                          setBrokenPhotoUrls((prev) => {
-                            if (!prev[preview]) return prev;
-                            const next = { ...prev };
-                            delete next[preview];
-                            return next;
-                          })
-                        }
-                        onError={() => setBrokenPhotoUrls((prev) => ({ ...prev, [preview]: true }))}
-                      />
-                    )}
-                  </button>
-                  {!ro("fotos_urls") && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConfirmDelete({ open: true, index, url: preview });
-                      }}
-                      className="absolute right-1 top-1 z-[1] flex h-6 w-6 items-center justify-center rounded-full bg-error-600 text-white opacity-100 transition-opacity hover:bg-error-700 sm:opacity-0 sm:group-hover:opacity-100"
-                      aria-label={`Eliminar foto ${index + 1}`}
-                    >
-                      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                        <path
-                          fillRule="evenodd"
-                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-                );
-              })}
+            <div className="mt-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:text-[#8ea0b8]">
+                  Fotos de la orden
+                </p>
+                <span className="text-[11px] tabular-nums text-[#6E6E77] dark:text-[#8ea0b8]">
+                  {formData.fotos_urls.length} / {maxPhotosAllowed}
+                </span>
+              </div>
+              <ul className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5">
+                {formData.fotos_urls.map((preview, index) => {
+                  const previewSrc = normalizePreviewUrl(preview);
+                  return (
+                    <li key={`${preview}-${index}`} className="group relative aspect-square">
+                      <button
+                        type="button"
+                        onClick={() => setPhotoPreview({ open: true, url: previewSrc, index })}
+                        className="relative block h-full w-full cursor-zoom-in overflow-hidden rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] focus-visible:ring-offset-2 dark:border-[#273244] dark:bg-[#0f172a] dark:focus-visible:ring-offset-[#111827]"
+                        aria-label={`Ver foto ${index + 1} en tamaño completo`}
+                      >
+                        {brokenPhotoUrls[preview] ? (
+                          <span className="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center text-[10px] text-[#6E6E77] dark:text-[#8ea0b8]">
+                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                              <rect x="3" y="5" width="18" height="14" rx="2" />
+                              <path d="M3 17l5-5 4 4 3-3 6 6" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M4 4l16 16" strokeLinecap="round" />
+                            </svg>
+                            No se pudo mostrar
+                          </span>
+                        ) : (
+                          <>
+                            <img
+                              src={previewSrc}
+                              alt={`Foto ${index + 1} de la orden`}
+                              className="pointer-events-none h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                              loading="lazy"
+                              decoding="async"
+                              onLoad={() =>
+                                setBrokenPhotoUrls((prev) => {
+                                  if (!prev[preview]) return prev;
+                                  const next = { ...prev };
+                                  delete next[preview];
+                                  return next;
+                                })
+                              }
+                              onError={() => setBrokenPhotoUrls((prev) => ({ ...prev, [preview]: true }))}
+                            />
+                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition duration-200 group-hover:bg-black/25 group-hover:opacity-100">
+                              <svg className="h-6 w-6 text-white drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                                <circle cx="11" cy="11" r="7" />
+                                <path d="M21 21l-4.3-4.3M11 8v6M8 11h6" strokeLinecap="round" />
+                              </svg>
+                            </span>
+                          </>
+                        )}
+                        <span className="pointer-events-none absolute bottom-1 left-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-md bg-black/55 px-1 text-[10px] font-semibold tabular-nums text-white">
+                          {index + 1}
+                        </span>
+                      </button>
+                      {!ro("fotos_urls") && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDelete({ open: true, index, url: preview });
+                          }}
+                          className="absolute right-1 top-1 z-[1] inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-[#C22B2B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white active:scale-95 sm:opacity-0 sm:group-hover:opacity-100"
+                          aria-label={`Eliminar foto ${index + 1}`}
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                            <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
           <OrdenPhotoPreviewModal
@@ -677,6 +707,23 @@ export function OrdenClienteTab({
             index={photoPreview.index}
             total={formData.fotos_urls.length}
             onClose={() => setPhotoPreview({ open: false, url: null, index: 0 })}
+            onPrev={
+              formData.fotos_urls.length > 1
+                ? () => {
+                    const n =
+                      (photoPreview.index - 1 + formData.fotos_urls.length) % formData.fotos_urls.length;
+                    setPhotoPreview({ open: true, url: normalizePreviewUrl(formData.fotos_urls[n]), index: n });
+                  }
+                : undefined
+            }
+            onNext={
+              formData.fotos_urls.length > 1
+                ? () => {
+                    const n = (photoPreview.index + 1) % formData.fotos_urls.length;
+                    setPhotoPreview({ open: true, url: normalizePreviewUrl(formData.fotos_urls[n]), index: n });
+                  }
+                : undefined
+            }
           />
           <OrdenPhotoDeleteModal
             open={confirmDelete.open}

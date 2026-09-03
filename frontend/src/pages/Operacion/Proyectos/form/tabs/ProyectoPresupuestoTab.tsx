@@ -1,8 +1,5 @@
 import { useId } from "react";
-import {
-  erpChipNeutralClass,
-  erpTableHeaderClass,
-} from "@/layout/erpPageStyles";
+import { erpTableHeaderClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { displayCotizacionFolio } from "../../shared/proyectoFormUtils";
 import {
   proyectoEmptyPanelClass,
@@ -12,6 +9,9 @@ import type { ProyectoCotizacionBloque, ProyectoEquipoLinea } from "../../shared
 import { ProyectoEquiposSection } from "../fields/ProyectoEquiposSection";
 import { ProyectoProductoThumb } from "../fields/ProyectoProductoThumb";
 import { ProyectoFormSection, proyectoSectionIconClass } from "../ProyectoFormSection";
+
+const erpChipNeutralClass =
+  "border border-[#E7E7EA] bg-[#FAFAFA] text-[#52525B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#B7C1D1]";
 
 export type ProyectoPresupuestoTabProps = {
   panelId: string;
@@ -89,26 +89,26 @@ export function ProyectoPresupuestoTab({
             {cotizaciones.map((bloque) => (
               <section
                 key={bloque.vinculoId}
-                className="rounded-xl border border-[#e7ded0] dark:border-[#334155]"
+                className="rounded-xl border border-[#E7E7EA] dark:border-[#334155]"
                 aria-labelledby={`proyecto-presupuesto-cot-${bloque.vinculoId}`}
               >
-                <header className="flex flex-wrap items-center gap-2 border-b border-[#e7ded0] bg-gradient-to-r from-[#fff8f1] to-[#fffdfa] px-3 py-2.5 dark:border-[#334155] dark:from-[#ff801f]/10 dark:to-[#0f172a]">
+                <header className="flex flex-wrap items-center gap-2 border-b border-[#E7E7EA] bg-gradient-to-r from-[#F1F5FF] to-[#FFFFFF] px-3 py-2.5 dark:border-[#334155] dark:from-[#1B5CFF]/10 dark:to-[#0f172a]">
                   <span
-                    className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#ff801f]/15 px-2 text-[11px] font-bold tabular-nums text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]"
+                    className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#1B5CFF]/15 px-2 text-[11px] font-bold tabular-nums text-[#1244D1] dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]"
                     aria-hidden
                   >
                     {bloque.orden}
                   </span>
                   <h5
                     id={`proyecto-presupuesto-cot-${bloque.vinculoId}`}
-                    className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]"
+                    className="text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]"
                   >
                     Cotización {bloque.orden}
                   </h5>
                   <span className={proyectoOrigenBadgeClass(bloque.cotizacion.origen)}>
                     {bloque.cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
                   </span>
-                  <span className="text-xs font-medium tabular-nums text-[#78716c] dark:text-[#8ea0b8]">
+                  <span className="text-xs font-medium tabular-nums text-[#6E6E77] dark:text-[#8ea0b8]">
                     {displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}
                   </span>
                 </header>
@@ -118,11 +118,11 @@ export function ProyectoPresupuestoTab({
                   </p>
                 ) : (
                   <div
-                    className="min-w-0 touch-pan-y"
+                    className="min-w-0 overflow-x-auto touch-pan-x [-webkit-overflow-scrolling:touch]"
                     role="region"
                     aria-label={`Partidas de cotización ${bloque.orden}`}
                   >
-                    <table className="w-full table-fixed text-left text-sm sm:table-auto">
+                    <table className="w-full min-w-[18rem] table-fixed text-left text-sm sm:min-w-0 sm:table-auto">
                       <thead className={erpTableHeaderClass}>
                         <tr>
                           <th scope="col" className="px-3 py-2.5 font-semibold">
@@ -154,11 +154,11 @@ export function ProyectoPresupuestoTab({
                                   src={linea.imagenUrl}
                                   alt={linea.descripcion}
                                   size="sm"
-                                  className="mt-0.5 border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]"
+                                  className="mt-0.5 border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#334155] dark:bg-[#0f172a]"
                                 />
                                 <div className="min-w-0 break-words [overflow-wrap:anywhere]">
                                   {linea.categoria ? (
-                                    <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#ff801f]">
+                                    <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#1B5CFF]">
                                       {linea.categoria}
                                     </span>
                                   ) : null}
@@ -166,7 +166,7 @@ export function ProyectoPresupuestoTab({
                                     {linea.descripcion}
                                   </span>
                                   {linea.detalle ? (
-                                    <p className="mt-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                                    <p className="mt-0.5 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
                                       {linea.detalle}
                                     </p>
                                   ) : null}

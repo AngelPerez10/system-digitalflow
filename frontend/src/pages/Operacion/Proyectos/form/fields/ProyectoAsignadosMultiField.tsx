@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { erpInputLikeClass } from "@/layout/erpPageStyles";
+import { erpInputLikeClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import {
   normalizeAuxiliaresAsignados,
   normalizeTecnicosAsignados,
@@ -177,7 +177,7 @@ export function ProyectoAsignadosMultiField(props: Props) {
         </p>
         {mode === "tecnicos" && responsable ? (
           <p
-            className="max-w-[55%] truncate text-[11px] font-semibold text-[#9a3412] dark:text-[#fdba74]"
+            className="max-w-[55%] truncate text-[11px] font-semibold text-[#1244D1] dark:text-[#4B7CFF]"
             aria-live="polite"
           >
             Resp. {responsable.nombre || `#${responsable.id}`}
@@ -186,12 +186,12 @@ export function ProyectoAsignadosMultiField(props: Props) {
       </div>
 
       {mode === "tecnicos" ? (
-        <p id={hintId} className="text-[11px] leading-snug text-[#78716c] dark:text-[#8ea0b8]">
-          Marca <span className="font-semibold text-[#9a3412] dark:text-[#fdba74]">un</span> responsable
+        <p id={hintId} className="text-[11px] leading-snug text-[#6E6E77] dark:text-[#8ea0b8]">
+          Marca <span className="font-semibold text-[#1244D1] dark:text-[#4B7CFF]">un</span> responsable
           (firma y referencia del proyecto).
         </p>
       ) : (
-        <p id={hintId} className="text-[11px] leading-snug text-[#78716c] dark:text-[#8ea0b8]">
+        <p id={hintId} className="text-[11px] leading-snug text-[#6E6E77] dark:text-[#8ea0b8]">
           Auxiliares del equipo en campo. Todos ven el proyecto.
         </p>
       )}
@@ -213,7 +213,7 @@ export function ProyectoAsignadosMultiField(props: Props) {
           <span
             className={
               selectedIds.size
-                ? "text-[#1c1917] dark:text-[#f8fafc]"
+                ? "text-[#09090B] dark:text-[#f8fafc]"
                 : "text-[#a8a29e] dark:text-[#64748b]"
             }
           >
@@ -221,7 +221,7 @@ export function ProyectoAsignadosMultiField(props: Props) {
           </span>
           <span className="flex items-center gap-1.5">
             {selectedIds.size > 0 ? (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[#ff801f]/15 px-1.5 text-[10px] font-bold tabular-nums text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[#1B5CFF]/15 px-1.5 text-[10px] font-bold tabular-nums text-[#1244D1] dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]">
                 {selectedIds.size}
               </span>
             ) : null}
@@ -241,7 +241,7 @@ export function ProyectoAsignadosMultiField(props: Props) {
             role="listbox"
             aria-multiselectable
             aria-labelledby={labelId}
-            className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-[#e7ded0] bg-white p-2 shadow-lg dark:border-[#334155] dark:bg-[#0f172a]"
+            className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-[#E7E7EA] bg-white p-2 shadow-lg dark:border-[#334155] dark:bg-[#0f172a]"
           >
             <input
               ref={searchRef}
@@ -253,7 +253,7 @@ export function ProyectoAsignadosMultiField(props: Props) {
               aria-label={`Buscar en ${label}`}
             />
             {filtered.length === 0 ? (
-              <p className="px-2 py-3 text-sm text-[#78716c] dark:text-[#8ea0b8]">Sin resultados</p>
+              <p className="px-2 py-3 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">Sin resultados</p>
             ) : (
               <ul className="space-y-0.5">
                 {filtered.map((opt) => {
@@ -267,16 +267,16 @@ export function ProyectoAsignadosMultiField(props: Props) {
                         aria-selected={checked}
                         className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm transition ${
                           checked
-                            ? "bg-[#ff801f]/10 font-medium text-[#1c1917] dark:text-[#f8fafc]"
-                            : "text-[#44403c] hover:bg-[#f5f0e8] dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]"
+                            ? "bg-[#1B5CFF]/10 font-medium text-[#09090B] dark:text-[#f8fafc]"
+                            : "text-[#52525B] hover:bg-[#f5f0e8] dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]"
                         }`}
                         onClick={() => toggle(opt)}
                       >
                         <span
                           className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
                             checked
-                              ? "border-[#ff801f] bg-[#ff801f] text-white"
-                              : "border-[#d6d3d1] dark:border-[#475569]"
+                              ? "border-[#1B5CFF] bg-[#1B5CFF] text-white"
+                              : "border-[#D3D3D8] dark:border-[#475569]"
                           }`}
                           aria-hidden
                         >
@@ -310,16 +310,16 @@ export function ProyectoAsignadosMultiField(props: Props) {
                 <div
                   className={
                     isResp
-                      ? "rounded-xl border border-[#ff801f]/45 bg-gradient-to-r from-[#fff4eb] to-[#fffdfa] p-3 shadow-sm dark:border-[#ff801f]/40 dark:from-[#ff801f]/15 dark:to-[#0f172a]"
-                      : "rounded-xl border border-[#e7ded0]/90 bg-[#fcfaf6]/70 p-2.5 dark:border-[#334155] dark:bg-[#0f172a]/50"
+                      ? "rounded-xl border border-[#1B5CFF]/45 bg-gradient-to-r from-[#F1F5FF] to-[#FFFFFF] p-3 shadow-sm dark:border-[#1B5CFF]/40 dark:from-[#1B5CFF]/15 dark:to-[#0f172a]"
+                      : "rounded-xl border border-[#E7E7EA]/90 bg-[#FAFAFA]/70 p-2.5 dark:border-[#334155] dark:bg-[#0f172a]/50"
                   }
                 >
                   <div className="flex items-center gap-2.5">
                     <span
                       className={
                         isResp
-                          ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-[11px] font-bold text-white shadow-sm"
-                          : "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#e7ded0] text-[11px] font-bold text-[#44403c] dark:bg-[#1e293b] dark:text-[#94a3b8]"
+                          ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] text-[11px] font-bold text-white shadow-sm"
+                          : "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#E7E7EA] text-[11px] font-bold text-[#52525B] dark:bg-[#1e293b] dark:text-[#94a3b8]"
                       }
                       aria-hidden
                     >
@@ -327,17 +327,17 @@ export function ProyectoAsignadosMultiField(props: Props) {
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="truncate text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                        <p className="truncate text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
                           {name}
                         </p>
                         {isResp ? (
-                          <span className="inline-flex items-center rounded-full border border-[#ff801f]/35 bg-[#ff801f]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#9a3412] dark:border-[#ff801f]/40 dark:bg-[#ff801f]/20 dark:text-[#fdba74]">
+                          <span className="inline-flex items-center rounded-full border border-[#1B5CFF]/35 bg-[#1B5CFF]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#1244D1] dark:border-[#1B5CFF]/40 dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]">
                             Responsable
                           </span>
                         ) : null}
                       </div>
                       {isResp ? (
-                        <p className="mt-0.5 text-[11px] text-[#9a3412]/90 dark:text-[#fdba74]/90">
+                        <p className="mt-0.5 text-[11px] text-[#1244D1]/90 dark:text-[#4B7CFF]/90">
                           Firma y referencia del equipo
                         </p>
                       ) : !disabled ? (
@@ -345,13 +345,13 @@ export function ProyectoAsignadosMultiField(props: Props) {
                           type="button"
                           role="radio"
                           aria-checked={false}
-                          className="mt-0.5 min-h-6 text-left text-[11px] font-semibold text-[#ff801f] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35"
+                          className="mt-0.5 min-h-6 text-left text-[11px] font-semibold text-[#1B5CFF] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35"
                           onClick={() => markResponsable(id)}
                         >
                           Hacer responsable
                         </button>
                       ) : (
-                        <p className="mt-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Técnico del equipo</p>
+                        <p className="mt-0.5 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">Técnico del equipo</p>
                       )}
                       {isResp ? (
                         <span className="sr-only" role="radio" aria-checked={true}>
@@ -362,7 +362,7 @@ export function ProyectoAsignadosMultiField(props: Props) {
                     {!disabled ? (
                       <button
                         type="button"
-                        className="flex h-9 w-9 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-lg text-[#78716c] transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+                        className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-[#6E6E77] transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
                         aria-label={`Quitar a ${name} de técnicos`}
                         onClick={() => remove(id)}
                       >
@@ -391,21 +391,21 @@ export function ProyectoAsignadosMultiField(props: Props) {
             return (
               <li
                 key={id}
-                className="flex items-center gap-2.5 rounded-xl border border-[#e7ded0]/90 bg-[#fcfaf6]/70 px-2.5 py-2 dark:border-[#334155] dark:bg-[#0f172a]/50"
+                className="flex items-center gap-2.5 rounded-xl border border-[#E7E7EA]/90 bg-[#FAFAFA]/70 px-2.5 py-2 dark:border-[#334155] dark:bg-[#0f172a]/50"
               >
                 <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#e7ded0] text-[10px] font-bold text-[#44403c] dark:bg-[#1e293b] dark:text-[#94a3b8]"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#E7E7EA] text-[10px] font-bold text-[#52525B] dark:bg-[#1e293b] dark:text-[#94a3b8]"
                   aria-hidden
                 >
                   {initialsFromName(name)}
                 </span>
-                <p className="min-w-0 flex-1 truncate text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
+                <p className="min-w-0 flex-1 truncate text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">
                   {name}
                 </p>
                 {!disabled ? (
                   <button
                     type="button"
-                    className="flex h-9 w-9 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-lg text-[#78716c] transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:hover:bg-rose-950/40"
+                    className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-[#6E6E77] transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:hover:bg-rose-950/40"
                     aria-label={`Quitar a ${name} de auxiliares`}
                     onClick={() => remove(id)}
                   >

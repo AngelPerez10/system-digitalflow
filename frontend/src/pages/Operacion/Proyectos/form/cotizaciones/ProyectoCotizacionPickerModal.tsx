@@ -2,11 +2,11 @@ import { useId } from "react";
 import { Modal } from "@/components/ui/modal";
 import Label from "@/components/form/Label";
 import {
-  erpBodyClass,
+  claudeBodyClass as erpBodyClass,
   erpInputLikeClass,
-  erpSectionLabelClass,
+  sectionLabelOrangeClass as erpSectionLabelClass,
   erpSubheadingClass,
-} from "@/layout/erpPageStyles";
+} from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { displayCotizacionFolio } from "../../shared/proyectoFormUtils";
 import type { CotizacionOrigen, CotizacionResumen } from "../../shared/proyectoTypes";
 import {
@@ -63,9 +63,9 @@ export function ProyectoCotizacionPickerModal({
       className={proyectoPickerModalClass}
     >
       <header className={proyectoPickerModalHeaderClass}>
-        <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
+        <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#1B5CFF]" aria-hidden />
         <div className="flex min-w-0 items-start gap-3">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black shadow-sm">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] text-white shadow-sm">
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
               <path
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"
@@ -90,7 +90,7 @@ export function ProyectoCotizacionPickerModal({
 
       <div className={proyectoPickerModalBodyClass}>
         <div
-          className="flex rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]"
+          className="flex rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#334155] dark:bg-[#0f172a]"
           role="tablist"
           aria-label="Origen de cotización"
         >
@@ -111,10 +111,10 @@ export function ProyectoCotizacionPickerModal({
                 setPickerResults([]);
                 setPickerError("");
               }}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#ff801f]/25 ${
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#1B5CFF]/25 ${
                 pickerTab === tab.id
-                  ? "bg-white text-[#1c1917] shadow-sm dark:bg-[#1e293b] dark:text-[#f8fafc]"
-                  : "text-[#78716c] dark:text-[#8ea0b8]"
+                  ? "bg-white text-[#09090B] shadow-sm dark:bg-[#1e293b] dark:text-[#f8fafc]"
+                  : "text-[#6E6E77] dark:text-[#8ea0b8]"
               }`}
             >
               {tab.label}
@@ -164,11 +164,11 @@ export function ProyectoCotizacionPickerModal({
                     className={proyectoCotizacionOptionClass}
                     onClick={() => void onSelect(item)}
                   >
-                    <span className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                    <span className="text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
                       {displayCotizacionFolio(item.folio, item.origen)} — {item.cliente}
                       {busy ? " · Cargando…" : ""}
                     </span>
-                    <span className="mt-0.5 block text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                    <span className="mt-0.5 block text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
                       {item.fecha}
                       {item.contacto ? ` · ${item.contacto}` : ""}
                     </span>

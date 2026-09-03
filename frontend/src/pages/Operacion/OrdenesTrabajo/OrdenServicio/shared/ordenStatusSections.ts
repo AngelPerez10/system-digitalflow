@@ -99,20 +99,20 @@ export function getOrdenStatusSectionStyles(key: OrdenStatusSectionKey): OrdenSt
   if (key === "PENDIENTE") {
     return {
       shell:
-        "border-[#ead9b8] bg-[#fbf6ea] dark:border-amber-500/30 dark:bg-[#1f1a10]",
+        "border-[#BBD0FF] bg-[#F1F5FF] dark:border-amber-500/30 dark:bg-[#17235B]",
       accent: "bg-amber-600 dark:bg-amber-400",
       icon: "text-amber-800 dark:text-amber-300",
       badge:
         "border-amber-300/90 bg-amber-100 text-amber-950 dark:border-amber-400/35 dark:bg-amber-500/20 dark:text-amber-100",
-      label: "text-[#78350f] dark:text-amber-100",
+      label: "text-[#1244D1] dark:text-amber-100",
     };
   }
   return {
-    shell: "border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]",
-    accent: "bg-[#a8a29e] dark:bg-[#64748b]",
-    icon: "text-[#57534e] dark:text-[#94a3b8]",
+    shell: "border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]",
+    accent: "bg-[#A1A1AA] dark:bg-[#64748b]",
+    icon: "text-[#52525B] dark:text-[#8EA0B8]",
     badge:
-      "border-[#e2d9ca] bg-white text-[#1c1917] dark:border-[#475569] dark:bg-[#1e293b] dark:text-[#e2e8f0]",
-    label: "text-[#292524] dark:text-[#e2e8f0]",
+      "border-[#E7E7EA] bg-white text-[#09090B] dark:border-[#475569] dark:bg-[#1e293b] dark:text-[#e2e8f0]",
+    label: "text-[#09090B] dark:text-[#e2e8f0]",
   };
 }

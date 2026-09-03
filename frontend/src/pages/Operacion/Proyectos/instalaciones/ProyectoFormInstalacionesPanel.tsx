@@ -5,8 +5,8 @@ import {
   erpDangerBtnClass,
   erpDeleteModalClass,
   erpDeleteModalPanelClass,
-  erpSecondaryBtnClass,
 } from "../../OrdenesTrabajo/ordenTrabajoStyles";
+import { erpSecondaryBtnClass } from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import InstalacionForm from "./InstalacionForm";
 import { InstalacionFormSection } from "./InstalacionFormSection";
 import {
@@ -192,7 +192,7 @@ export function ProyectoFormInstalacionesPanel({
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 No hay instalaciones guardadas en este proyecto.
               </p>
-              <p className="mt-1.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+              <p className="mt-1.5 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
                 Completa los datos GPS abajo y pulsa Guardar en el pie del modal.
               </p>
             </div>
@@ -215,7 +215,7 @@ export function ProyectoFormInstalacionesPanel({
                         ) : null}
                         {isEditing ? (
                           <span
-                            className="text-[10px] font-semibold uppercase tracking-wide text-[#ea580c] dark:text-[#fdba74]"
+                            className="text-[10px] font-semibold uppercase tracking-wide text-[#1B5CFF] dark:text-[#4B7CFF]"
                             aria-current="true"
                           >
                             En edición
@@ -292,20 +292,20 @@ export function ProyectoFormInstalacionesPanel({
 
         <div className="mt-1 flex flex-col gap-3 border-t border-gray-100 pt-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <div
-            className="rounded-xl border border-dashed border-[#e2d9ca] bg-[#fffdf8]/90 px-3.5 py-3 dark:border-[#334155] dark:bg-[#0f172a]/40"
+            className="rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/90 px-3.5 py-3 dark:border-[#334155] dark:bg-[#0f172a]/40"
             role="note"
           >
-            <p className="text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+            <p className="text-xs leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
               {editingId != null ? (
                 <>
                   Los cambios de esta ficha se aplican al pulsar{" "}
-                  <strong className="font-semibold text-[#1c1917] dark:text-[#f8fafc]">Guardar</strong>{" "}
+                  <strong className="font-semibold text-[#09090B] dark:text-[#f8fafc]">Guardar</strong>{" "}
                   en el pie del modal.
                 </>
               ) : (
                 <>
                   Al pulsar{" "}
-                  <strong className="font-semibold text-[#1c1917] dark:text-[#f8fafc]">Guardar</strong>{" "}
+                  <strong className="font-semibold text-[#09090B] dark:text-[#f8fafc]">Guardar</strong>{" "}
                   en el pie del modal se guarda el proyecto y, si elegiste un tipo, también esta ficha
                   GPS.
                 </>
@@ -334,11 +334,11 @@ export function ProyectoFormInstalacionesPanel({
         <div className={erpDeleteModalPanelClass}>
           <h3
             id={deleteTitleId}
-            className="text-center text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]"
+            className="text-center text-base font-semibold text-[#09090B] dark:text-[#f8fafc]"
           >
             Eliminar instalación
           </h3>
-          <p className="mt-2 text-center text-sm text-[#57534e] dark:text-[#94a3b8]">
+          <p className="mt-2 text-center text-sm text-[#52525B] dark:text-[#94a3b8]">
             ¿Eliminar {deletingRow ? displayInstalacionFolio(deletingRow.idx) : "esta instalación"}?
             Esta acción no se puede deshacer.
           </p>

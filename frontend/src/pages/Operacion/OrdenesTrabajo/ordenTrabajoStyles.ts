@@ -99,38 +99,52 @@ export const viewTabClass = (active: boolean) =>
 export const erpHeroHeaderClass = (cardShell: string) =>
   `relative flex w-full flex-col gap-4 ${cardShell} p-4 sm:p-6`;
 
-/** Modal crear/editar orden / proyecto */
+/**
+ * Modal crear/editar orden / proyecto.
+ *
+ * Lenguaje azul marino compartido con `OrdenServicio/ordenServicioStyles.ts`
+ * (`#1B5CFF` como único acento de acción, líneas de 1 px `#E7E7EA`). Estos
+ * tokens de modal los consumen también Proyectos y Pólizas vía
+ * `OrdenTrabajoModals.tsx`; las páginas de esos módulos conservan sus propios
+ * tokens naranja (no se tocan aquí).
+ */
 export const erpModalShellClass =
-  "flex max-h-[min(94dvh,94vh)] w-full flex-col overflow-hidden rounded-t-2xl border border-[#e7ded0] bg-white p-0 shadow-[0_24px_48px_-12px_rgba(28,25,23,0.18)] dark:border-[#334155] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] sm:max-h-[min(92vh,92vh)] sm:w-[min(96vw,56rem)] sm:max-w-4xl sm:rounded-2xl";
+  "flex max-h-[min(94dvh,94vh)] w-full flex-col overflow-hidden rounded-t-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)] sm:max-h-[min(92vh,92vh)] sm:w-[min(96vw,56rem)] sm:max-w-4xl sm:rounded-[20px]";
 
+/** Cabecera de modal — banda marina (mismo sistema que Clientes / Cotizaciones / Servicios). */
 export const erpModalHeaderClass =
-  "relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-4 py-3.5 pr-14 dark:border-[#334155] dark:bg-[#111827] sm:px-6 sm:py-5 sm:pr-16";
+  "relative shrink-0 bg-[#17235B] px-4 py-4 pr-14 dark:bg-[#1B2A63] sm:px-6 sm:py-5 sm:pr-16";
 
-export const erpModalHeaderAccentClass = "pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]";
+/** Se conserva por compatibilidad; en la banda marina no se pinta ninguna línea de acento. */
+export const erpModalHeaderAccentClass = "hidden";
 
-export const erpModalBodyClass = "flex min-h-0 w-full min-w-0 flex-1 flex-col bg-[#fcfaf6]/60 dark:bg-[#111827]/40";
+/** Eyebrow del encabezado de modal (antes `sectionLabelOrangeClass`). */
+export const erpModalEyebrowClass =
+  "text-[10px] font-semibold uppercase tracking-[0.12em] text-[#1B5CFF] dark:text-[#4B7CFF] sm:text-[11px]";
+
+export const erpModalBodyClass = "flex min-h-0 w-full min-w-0 flex-1 flex-col bg-white dark:bg-[#111827]";
 
 export const erpModalFormScrollClass =
-  "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-y-contain touch-pan-y p-3 custom-scrollbar sm:space-y-5 sm:p-5 sm:touch-auto";
+  "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-y-contain touch-pan-y p-4 custom-scrollbar sm:space-y-5 sm:p-6 sm:touch-auto";
 
 export const erpModalFooterClass =
-  "shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6] px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-[#334155] dark:bg-[#111827] sm:px-6 sm:py-4 sm:pb-4";
+  "shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-[#273244] dark:bg-[#151E32] sm:px-6 sm:py-4 sm:pb-4";
 
 export const erpModalPanelClass =
-  "rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5";
+  "rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#1B2539] sm:p-5";
 
 export const erpModalInnerPanelClass =
-  "space-y-4 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-3 shadow-sm dark:border-[#334155] dark:bg-[#0f172a]/40 sm:p-4";
+  "space-y-4 rounded-xl border border-[#E7E7EA] bg-white p-3 shadow-sm dark:border-[#273244] dark:bg-[#0f172a]/40 sm:p-4";
 
 export const erpModalSectionRowClass =
-  "flex items-center gap-2 border-b border-[#e7ded0] pb-2 dark:border-[#334155]/80";
+  "flex items-center gap-2 border-b border-[#E7E7EA] pb-2 dark:border-[#273244]/80";
 
-export const erpModalSectionTitleClass = "text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]";
+export const erpModalSectionTitleClass = "text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]";
 
 export const erpModalTabClass = (active: boolean) =>
   active
-    ? "inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#ff801f] bg-[#ff801f] px-3 py-2 text-xs font-semibold text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40"
-    : "inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#e7ded0] bg-white px-3 py-2 text-xs font-medium text-[#57534e] transition-colors hover:bg-[#fffdf8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/25 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#aeb8c8] dark:hover:bg-white/[0.05]";
+    ? "inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#1B5CFF] bg-[#1B5CFF] px-3 py-2 text-xs font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.4)] dark:border-[#4B7CFF] dark:bg-[#4B7CFF]"
+    : "inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white px-3 py-2 text-xs font-medium text-[#52525B] transition-colors hover:bg-[#FAFAFA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#aeb8c8] dark:hover:bg-[#243048]";
 
 /** Fila de tabs con scroll horizontal en móvil. */
 export const erpModalTabListClass =
@@ -140,19 +154,30 @@ export const erpModalTabListClass =
 export const erpDeleteModalClass = "mx-4 w-full max-w-md sm:mx-auto";
 
 export const erpDeleteModalPanelClass =
-  "rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-6 shadow-[0_24px_48px_-12px_rgba(28,25,23,0.18)] dark:border-[#273244] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]";
+  "rounded-2xl border border-[#E7E7EA] bg-white p-6 shadow-[0_24px_48px_-12px_rgba(9,9,11,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]";
 
 export const erpDangerBtnClass =
-  "inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-red-500 px-5 py-2.5 text-sm font-semibold text-white shadow-none transition-colors hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffdfa] disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:ring-offset-[#111a2b] sm:w-auto sm:min-h-0";
+  "inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-[10px] bg-[#C22B2B] px-5 py-2.5 text-sm font-semibold text-white shadow-none transition-colors hover:bg-[#A82424] focus:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(194,43,43,0.22)] focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:ring-offset-[#111827] sm:w-auto sm:min-h-[42px]";
+
+/** Botones específicos de modal — lenguaje azul marino (antes re-export naranja de `erpPageStyles`). */
+export const erpModalPrimaryBtnClass =
+  "inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-[10px] border border-[#1B5CFF] bg-[#1B5CFF] px-5 text-sm font-semibold tracking-[-0.1px] text-white transition-[background-color,border-color,transform] duration-150 hover:border-[#1244D1] hover:bg-[#1244D1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] active:scale-[0.99] disabled:cursor-not-allowed disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:border-[#3B6AF0] dark:hover:bg-[#3B6AF0] dark:disabled:border-[#1A2748] dark:disabled:bg-[#1A2748] dark:disabled:text-[#9BB0F0] sm:w-auto sm:min-h-[42px] sm:py-2.5";
+
+export const erpModalSecondaryBtnClass =
+  "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-4 text-sm font-medium tracking-[-0.1px] text-[#09090B] transition-[background-color,border-color,transform] duration-150 hover:border-[#D3D3D8] hover:bg-[#FAFAFA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048] sm:w-auto sm:min-h-[42px] sm:py-2.5";
+
+/** Botón outline azul de modal (antes `outlineCoralBtnClass`). */
+export const erpModalOutlineBtnClass =
+  "inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[10px] border border-[#BFD3FF] bg-white px-4 py-3 text-xs font-semibold text-[#1244D1] transition-colors hover:bg-[#F1F5FF] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4B7CFF]/40 dark:bg-transparent dark:text-[#4B7CFF] dark:hover:bg-[rgba(75,124,255,0.1)] sm:min-h-[42px]";
 
 /** Modal vista (problemática, servicios, comentario) */
 export const erpViewModalClass = "max-w-2xl w-[92vw]";
 
 export const erpViewModalPanelClass =
-  "overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] dark:border-[#273244] dark:bg-[#111a2b]";
+  "overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#111827]";
 
 export const erpViewModalHeaderClass =
-  "flex items-center gap-3 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 dark:border-[#334155] dark:bg-[#111827]";
+  "flex items-center gap-3 border-b border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#111827]";
 
 export const erpViewModalFooterClass =
-  "border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 text-right dark:border-[#334155] dark:bg-[#111827]";
+  "border-t border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 text-right dark:border-[#273244] dark:bg-[#111827]";

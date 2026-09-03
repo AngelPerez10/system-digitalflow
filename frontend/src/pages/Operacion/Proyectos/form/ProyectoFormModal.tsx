@@ -2,26 +2,26 @@ import { useId } from "react";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/context/AuthContext";
 import {
-  erpBodyClass,
-  erpSecondaryBtnClass,
-  erpSubheadingClass,
-} from "@/layout/erpPageStyles";
-import {
-  OrdenFormModalHeader,
-  OrdenModalFooterActions,
-  OrdenModalPrimaryButton,
-} from "../../OrdenesTrabajo/OrdenTrabajoModals";
-import {
   erpDangerBtnClass,
   erpDeleteModalClass,
   erpDeleteModalPanelClass,
   erpModalBodyClass,
   erpModalFooterClass,
   erpModalFormScrollClass,
+  erpModalSecondaryBtnClass,
   erpModalShellClass,
   erpModalTabClass,
   erpModalTabListClass,
 } from "../../OrdenesTrabajo/ordenTrabajoStyles";
+import {
+  claudeBodyClass as erpBodyClass,
+  erpSecondaryBtnClass,
+  erpSubheadingClass,
+} from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+import {
+  OrdenFormModalHeader,
+  OrdenModalPrimaryButton,
+} from "../../OrdenesTrabajo/OrdenTrabajoModals";
 import { ProyectoFormInstalacionesPanel, type ProyectoInstalacionDraft } from "../instalaciones";
 import { ProyectoCotizacionPickerModal } from "./cotizaciones/ProyectoCotizacionPickerModal";
 import { ProyectoClienteTab } from "./tabs/ProyectoClienteTab";
@@ -369,56 +369,68 @@ export default function ProyectoFormModal({
           </form>
 
           <footer className={erpModalFooterClass}>
-            <OrdenModalFooterActions
-              onCancel={activeTab === "cliente" ? onClose : goToPrevTab}
-              cancelLabel={activeTab === "cliente" ? "Cancelar" : "Anterior"}
-              primary={
-                activeTab !== "presupuesto" ? (
-                  <OrdenModalPrimaryButton
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      goToNextTab(true);
-                    }}
+            {/* En móvil: Cancelar/Anterior + Siguiente/Guardar en 2 columnas (targets ≥44px). */}
+            <div className="grid grid-cols-2 gap-2.5 sm:flex sm:justify-end sm:gap-3">
+              <button
+                type="button"
+                onClick={activeTab === "cliente" ? onClose : goToPrevTab}
+                className={erpModalSecondaryBtnClass}
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                  {activeTab === "cliente" ? (
+                    <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
+                  ) : (
+                    <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                  )}
+                </svg>
+                <span className="truncate">{activeTab === "cliente" ? "Cancelar" : "Anterior"}</span>
+              </button>
+              {activeTab !== "presupuesto" ? (
+                <OrdenModalPrimaryButton
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    goToNextTab(true);
+                  }}
+                >
+                  <svg
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    aria-hidden
                   >
-                    <svg
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      aria-hidden
-                    >
-                      <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    Siguiente
-                  </OrdenModalPrimaryButton>
-                ) : (
-                  <OrdenModalPrimaryButton
-                    type="button"
-                    disabled={!cliente.trim()}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      formRef.current?.requestSubmit();
-                    }}
+                    <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Siguiente
+                </OrdenModalPrimaryButton>
+              ) : (
+                <OrdenModalPrimaryButton
+                  type="button"
+                  disabled={!cliente.trim()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    formRef.current?.requestSubmit();
+                  }}
+                >
+                  <svg
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    aria-hidden
                   >
-                    <svg
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      aria-hidden
-                    >
-                      <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    {editing ? "Guardar cambios" : "Crear proyecto"}
-                  </OrdenModalPrimaryButton>
-                )
-              }
-            />
+                    <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className="truncate sm:hidden">{editing ? "Guardar" : "Crear"}</span>
+                  <span className="hidden truncate sm:inline">{editing ? "Guardar cambios" : "Crear proyecto"}</span>
+                </OrdenModalPrimaryButton>
+              )}
+            </div>
           </footer>
         </div>
       </Modal>

@@ -1,7 +1,7 @@
 import { OrdenViewModal } from "../../OrdenTrabajoModals";
 import { useMemo, useState } from "react";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
-import { erpMobileCardClass } from "../../ordenTrabajoStyles";
+import { erpMobileCardClass } from "../ordenServicioStyles";
 import { displayOrdenFolio, isOrdenResuelta, isOrdenServicioTecnico } from "../shared/useOrdenesShared";
 import { isOrdenStatusChangeRecent, ORDEN_RECIEN_RESUELTA_BADGE_CLASS, ORDEN_RECIEN_RESUELTA_ROW_CLASS } from "../shared/ordenesPageUtils";
 import { groupOrdenesByStatus } from "../shared/ordenStatusSections";
@@ -25,7 +25,7 @@ const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
 };
 
 const mobileActionBtnClass =
-  "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] transition hover:border-[#ff801f] hover:text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:border-[#ff801f]";
+  "inline-flex size-11 shrink-0 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:border-[#1B5CFF]";
 
 interface MobileOrderCardProps {
   orden: any;
@@ -74,12 +74,12 @@ export function MobileOrderCard({
       className={`${erpMobileCardClass}${showRecentResolved ? ` ${ORDEN_RECIEN_RESUELTA_ROW_CLASS}` : ""}`}
       aria-label={showRecentResolved ? `Orden ${folioDisplay}, resuelta recientemente` : undefined}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-[#ea580c] dark:text-[#fb923c]">
+          <span className="text-[13px] font-bold text-[#1B5CFF] dark:text-[#4B7CFF]">
             {folioDisplay}
           </span>
-          <span className="text-[#d6d3d1] dark:text-[#334155]">-</span>
+          <span className="text-[#D3D3D8] dark:text-[#273244]">-</span>
           <span
             className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${
               orden.status === "resuelto"
@@ -101,9 +101,9 @@ export function MobileOrderCard({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <button type="button" onClick={() => onPdf(orden)} className={mobileActionBtnClass} title="PDF" aria-label="PDF">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button type="button" onClick={() => onPdf(orden)} className={mobileActionBtnClass} title="PDF" aria-label="Descargar PDF">
+            <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
           </button>
           {isOrdenResuelta(orden.status) && isOrdenServicioTecnico(orden.tipo_orden) && onEnviarPdf && (
             <button
@@ -113,7 +113,7 @@ export function MobileOrderCard({
               title="Enviar PDF por correo"
               aria-label="Enviar PDF por correo"
             >
-              <MailIcon className="w-4 h-4" />
+              <MailIcon className="h-[18px] w-[18px]" />
             </button>
           )}
           <button
@@ -121,35 +121,36 @@ export function MobileOrderCard({
             onClick={() => setShowProblematicaModal(true)}
             className={mobileActionBtnClass}
             title="Ver problemática"
+            aria-label="Ver problemática"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
               <circle cx="12" cy="12" r="3" />
             </svg>
           </button>
           {canEdit && onEdit && (
-            <button type="button" onClick={() => onEdit(orden)} className={mobileActionBtnClass} title="Editar">
-              <PencilIcon className="w-4 h-4" />
+            <button type="button" onClick={() => onEdit(orden)} className={mobileActionBtnClass} title="Editar" aria-label="Editar orden">
+              <PencilIcon className="h-[18px] w-[18px]" />
             </button>
           )}
           {canDelete && onDelete && (
-            <button type="button" onClick={() => onDelete(orden)} className={`${mobileActionBtnClass} hover:border-rose-400 hover:text-rose-600`} title="Eliminar">
-              <TrashBinIcon className="w-4 h-4" />
+            <button type="button" onClick={() => onDelete(orden)} className={`${mobileActionBtnClass} hover:border-rose-400 hover:text-rose-600`} title="Eliminar" aria-label="Eliminar orden">
+              <TrashBinIcon className="h-[18px] w-[18px]" />
             </button>
           )}
         </div>
       </div>
 
       <div className="flex items-center gap-2 text-sm mt-2">
-        <svg className="w-4 h-4 text-[#78716c] shrink-0 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-        <span className="font-medium text-[#1c1917] dark:text-white truncate">{orden.cliente || 'Sin cliente'}</span>
+        <svg className="w-4 h-4 text-[#6E6E77] shrink-0 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+        <span className="font-medium text-[#09090B] dark:text-white truncate">{orden.cliente || 'Sin cliente'}</span>
       </div>
 
       {orden.direccion && (
-        <div className="flex items-start gap-2 text-[11px] text-[#57534e] dark:text-[#b7c1d1] mt-1">
-          <svg className="w-3.5 h-3.5 text-[#78716c] shrink-0 mt-0.5 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+        <div className="flex items-start gap-2 text-[11px] text-[#52525B] dark:text-[#b7c1d1] mt-1">
+          <svg className="w-3.5 h-3.5 text-[#6E6E77] shrink-0 mt-0.5 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
           {isGoogleMapsUrl(orden.direccion) ? (
-            <a href={orden.direccion} target="_blank" rel="noreferrer" className="text-[#ea580c] dark:text-[#fb923c] hover:underline truncate">{orden.direccion}</a>
+            <a href={orden.direccion} target="_blank" rel="noreferrer" className="text-[#1B5CFF] dark:text-[#4B7CFF] hover:underline truncate">{orden.direccion}</a>
           ) : (
             <span className="truncate">{orden.direccion}</span>
           )}
@@ -158,14 +159,14 @@ export function MobileOrderCard({
 
       {orden.telefono_cliente && (
         <div className="flex items-center gap-2 text-[11px] mt-1">
-          <svg className="w-3.5 h-3.5 text-[#78716c] shrink-0 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
-          <a href={`tel:${orden.telefono_cliente}`} className="text-[#ea580c] dark:text-[#fb923c]">{orden.telefono_cliente}</a>
+          <svg className="w-3.5 h-3.5 text-[#6E6E77] shrink-0 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+          <a href={`tel:${orden.telefono_cliente}`} className="text-[#1B5CFF] dark:text-[#4B7CFF]">{orden.telefono_cliente}</a>
         </div>
       )}
 
       {onNotaChange && (
-        <div className="mt-2 pt-2 border-t border-[#e7ded0] dark:border-[#273244]">
-          <label className="block text-[10px] font-medium uppercase tracking-wide text-[#78716c] dark:text-[#8ea0b8] mb-1">
+        <div className="mt-2 pt-2 border-t border-[#E7E7EA] dark:border-[#273244]">
+          <label className="block text-[10px] font-medium uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8] mb-1">
             Comentarios
           </label>
           <textarea
@@ -173,12 +174,12 @@ export function MobileOrderCard({
             onChange={(e) => onNotaChange(orden.id, e.target.value)}
             rows={2}
             placeholder="Escriba sus notas…"
-            className="w-full min-h-[40px] resize-y rounded-lg border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-1.5 text-[11px] text-[#1c1917] outline-none placeholder:text-[#a8a29e] focus:border-[#9ca3af] focus:ring-1 focus:ring-[#d1d5db] dark:border-[#334155] dark:bg-[#0f172a]/60 dark:text-[#e5e7eb]"
+            className="w-full min-h-[40px] resize-y rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] px-2 py-1.5 text-[11px] text-[#09090B] outline-none placeholder:text-[#A1A1AA] focus:border-[#9ca3af] focus:ring-1 focus:ring-[#d1d5db] dark:border-[#273244] dark:bg-[#0f172a]/60 dark:text-[#e5e7eb]"
           />
         </div>
       )}
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#78716c] dark:text-[#8ea0b8] pt-2 mt-2 border-t border-[#e7ded0] dark:border-[#273244]">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] pt-2 mt-2 border-t border-[#E7E7EA] dark:border-[#273244]">
         <div className="flex items-center gap-1">
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
           <span>Inicio: {fechaInicioFmt}</span>
@@ -201,7 +202,7 @@ export function MobileOrderCard({
         title="Problemática"
         subtitle="Detalle reportado por el cliente"
       >
-        <pre className="whitespace-pre-wrap break-words leading-relaxed rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 text-[13px] dark:border-[#334155] dark:bg-[#0f172a]/60">
+        <pre className="whitespace-pre-wrap break-words leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 text-[13px] dark:border-[#273244] dark:bg-[#0f172a]/60">
           {orden.problematica || "—"}
         </pre>
       </OrdenViewModal>
@@ -318,12 +319,12 @@ export function MobileOrderList({
           })
         : ordenes.map((orden, idx) => renderCard(orden, idx))}
       {!loading && ordenes.length === 0 && (
-        <div className="text-center py-8 text-sm text-[#78716c] dark:text-[#8ea0b8]">
+        <div className="text-center py-8 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
           Sin órdenes
         </div>
       )}
       {loading && ordenes.length === 0 && (
-        <div className="text-center py-8 text-sm text-[#78716c] dark:text-[#8ea0b8]" role="status" aria-live="polite">
+        <div className="text-center py-8 text-sm text-[#6E6E77] dark:text-[#8ea0b8]" role="status" aria-live="polite">
           Cargando órdenes…
         </div>
       )}

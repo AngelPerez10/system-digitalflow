@@ -1,4 +1,4 @@
-import { erpInputLikeClass, erpPrimaryBtnClass } from "@/layout/erpPageStyles";
+import { erpInputLikeClass, erpPrimaryBtnClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { TrashBinIcon } from "@/icons";
 import { displayCotizacionFolio } from "../../shared/proyectoFormUtils";
 import type { ProyectoCotizacionBloque } from "../../shared/proyectoTypes";
@@ -156,8 +156,8 @@ export function ProyectoClienteTab({
         {presupuestoCargado ? (
           <div className="space-y-3">
             <div className={proyectoCotizacionMetaRowClass}>
-              <p className="text-xs font-medium text-[#78716c] dark:text-[#8ea0b8]">
-                <span className="font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc]">
+              <p className="text-xs font-medium text-[#6E6E77] dark:text-[#8ea0b8]">
+                <span className="font-semibold tabular-nums text-[#09090B] dark:text-[#f8fafc]">
                   {cotizaciones.length}
                 </span>{" "}
                 {cotizaciones.length === 1 ? "vinculada" : "vinculadas"}
@@ -179,11 +179,11 @@ export function ProyectoClienteTab({
               {cotizaciones.map((bloque) => (
                 <li
                   key={bloque.vinculoId}
-                  className="flex items-start gap-3 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-3.5 dark:border-[#334155] dark:bg-[#0f172a]/50"
+                  className="flex items-start gap-3 rounded-xl border border-[#E7E7EA] bg-[white] p-3.5 dark:border-[#334155] dark:bg-[#0f172a]/50"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#ff801f]/15 px-2 text-[11px] font-bold tabular-nums text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]">
+                      <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#1B5CFF]/15 px-2 text-[11px] font-bold tabular-nums text-[#1244D1] dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]">
                         {bloque.orden}
                       </span>
                       <span className={proyectoOrigenBadgeClass(bloque.cotizacion.origen)}>

@@ -12,6 +12,7 @@ import {
   erpModalBodyClass,
   erpModalFooterClass,
   erpModalFormScrollClass,
+  erpModalSecondaryBtnClass,
   erpModalShellClass,
   erpModalTabClass,
 } from "../../ordenTrabajoStyles";
@@ -55,6 +56,8 @@ export type OrdenFormModalProps = {
   modalAlert: OrdenFormModalAlert;
   isSaving: boolean;
   uploadingPhotos?: boolean;
+  /** Al editar: el cuerpo muestra un esqueleto mientras se carga el detalle completo. */
+  bodyLoading?: boolean;
   triggerSaveFromFooter: () => void;
   canOrdenesEdit?: boolean;
   canOrdenesCreate?: boolean;
@@ -78,22 +81,33 @@ export default function OrdenFormModal({
   modalAlert,
   isSaving,
   uploadingPhotos = false,
+  bodyLoading = false,
   triggerSaveFromFooter,
   canOrdenesEdit = true,
   canOrdenesCreate = true,
   children,
 }: OrdenFormModalProps) {
   const saveBusy = isSaving || uploadingPhotos;
-  const goToEquiposTab = (fromFooter?: boolean) => {
+  const stepIndex = Math.max(0, TAB_ORDER.indexOf(activeTab));
+
+  /** Cambia de pestaña y devuelve el foco al panel para que lectores de pantalla y teclado sigan el flujo. */
+  const switchTab = (next: OrdenFormTab, fromFooter?: boolean) => {
     const apply = () => {
-      setActiveTab("equipos");
-      activeTabRef.current = "equipos";
+      setActiveTab(next);
+      activeTabRef.current = next;
       requestAnimationFrame(() => {
         formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+        document.getElementById(ORDEN_FORM_PANEL_IDS[next])?.focus({ preventScroll: true });
       });
     };
     if (fromFooter) window.setTimeout(apply, 0);
     else apply();
+  };
+
+  const goToEquiposTab = (fromFooter?: boolean) => switchTab("equipos", fromFooter);
+  const goBackTab = () => {
+    const prev = TAB_ORDER[stepIndex - 1];
+    if (prev) switchTab(prev);
   };
 
   const handleTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, current: OrdenFormTab) => {
@@ -124,7 +138,22 @@ export default function OrdenFormModal({
     });
   };
 
-  const savePrimary =
+  const backButton =
+    stepIndex > 0 ? (
+      <button
+        type="button"
+        onClick={goBackTab}
+        disabled={saveBusy}
+        className={`${erpModalSecondaryBtnClass} sm:w-auto`}
+      >
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+          <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Atrás
+      </button>
+    ) : null;
+
+  const nextOrSave =
     activeTab === "cliente" ? (
       <OrdenModalPrimaryButton
         type="button"
@@ -171,8 +200,20 @@ export default function OrdenFormModal({
       </OrdenModalPrimaryButton>
     );
 
+  // En móvil, "Atrás" y "Siguiente/Guardar" comparten fila (2 columnas); en desktop
+  // `sm:contents` disuelve el wrapper y el pie los alinea a la derecha como antes.
+  const savePrimary = backButton ? (
+    <div className="grid grid-cols-2 gap-2.5 sm:contents">
+      {backButton}
+      {nextOrSave}
+    </div>
+  ) : (
+    nextOrSave
+  );
+
   return (
     <Modal
+      mobileBottomSheet
       isOpen={isOpen}
       onClose={onClose}
       closeOnBackdropClick={false}
@@ -187,7 +228,7 @@ export default function OrdenFormModal({
       />
       <div className={erpModalBodyClass}>
         {isLimitedEdit && (
-          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+          <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:mx-6 sm:mt-6">
             Edición limitada: solo puedes actualizar problemática, estado, tiempos y fotos en órdenes de otros técnicos.
           </div>
         )}
@@ -195,16 +236,27 @@ export default function OrdenFormModal({
           ref={formScrollRef}
           onSubmit={onSubmit}
           className="flex min-h-0 min-w-0 flex-1 flex-col"
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" || e.defaultPrevented) return;
-            const t = e.target as HTMLElement;
-            if (t.tagName === "TEXTAREA") return;
-            if (activeTabRef.current !== "cliente") return;
-            e.preventDefault();
-            goToOrdenTab();
-          }}
         >
           <div className={erpModalFormScrollClass}>
+            {bodyLoading ? (
+              <div
+                className="flex min-h-[40vh] flex-col items-center justify-center gap-3 py-10 text-center"
+                role="status"
+                aria-live="polite"
+              >
+                <svg className="h-7 w-7 animate-spin text-[#1B5CFF] dark:text-[#4B7CFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <circle cx="12" cy="12" r="10" strokeOpacity="0.2" />
+                  <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+                </svg>
+                <p className="text-sm font-medium text-[#52525B] dark:text-[#B7C1D1]">
+                  Cargando la orden…
+                </p>
+                <p className="max-w-xs text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
+                  Estamos trayendo firma, fotos y equipos. Puedes cerrar y volver a intentarlo si tarda demasiado.
+                </p>
+              </div>
+            ) : (
+            <>
             {modalAlert.show && (
               <div className="mb-4" role="alert">
                 <Alert
@@ -216,7 +268,27 @@ export default function OrdenFormModal({
               </div>
             )}
 
-            <div className="flex items-center gap-2" role="tablist" aria-label="Secciones del formulario">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                Paso {stepIndex + 1} de {TAB_ORDER.length}
+              </p>
+              <span
+                className="h-1 w-24 overflow-hidden rounded-full bg-[#E7E7EA] dark:bg-[#273244]"
+                aria-hidden
+              >
+                <span
+                  className="block h-full rounded-full bg-[#1B5CFF] transition-[width] duration-300 dark:bg-[#4B7CFF]"
+                  style={{ width: `${((stepIndex + 1) / TAB_ORDER.length) * 100}%` }}
+                />
+              </span>
+            </div>
+
+            <div
+              className="flex items-center gap-2 overflow-x-auto"
+              role="tablist"
+              aria-label="Secciones del formulario"
+              aria-orientation="horizontal"
+            >
               <button
                 type="button"
                 id={ORDEN_FORM_TAB_IDS.cliente}
@@ -224,7 +296,7 @@ export default function OrdenFormModal({
                 tabIndex={activeTab === "cliente" ? 0 : -1}
                 aria-selected={activeTab === "cliente"}
                 aria-controls={ORDEN_FORM_PANEL_IDS.cliente}
-                onClick={() => setActiveTab("cliente")}
+                onClick={() => switchTab("cliente")}
                 onKeyDown={(e) => handleTabKeyDown(e, "cliente")}
                 className={erpModalTabClass(activeTab === "cliente")}
               >
@@ -237,7 +309,7 @@ export default function OrdenFormModal({
                 tabIndex={activeTab === "orden" ? 0 : -1}
                 aria-selected={activeTab === "orden"}
                 aria-controls={ORDEN_FORM_PANEL_IDS.orden}
-                onClick={() => setActiveTab("orden")}
+                onClick={() => switchTab("orden")}
                 onKeyDown={(e) => handleTabKeyDown(e, "orden")}
                 className={erpModalTabClass(activeTab === "orden")}
               >
@@ -250,7 +322,7 @@ export default function OrdenFormModal({
                 tabIndex={activeTab === "equipos" ? 0 : -1}
                 aria-selected={activeTab === "equipos"}
                 aria-controls={ORDEN_FORM_PANEL_IDS.equipos}
-                onClick={() => setActiveTab("equipos")}
+                onClick={() => switchTab("equipos")}
                 onKeyDown={(e) => handleTabKeyDown(e, "equipos")}
                 className={erpModalTabClass(activeTab === "equipos")}
               >
@@ -259,10 +331,12 @@ export default function OrdenFormModal({
             </div>
 
             {children}
+            </>
+            )}
           </div>
         </form>
         <div className={erpModalFooterClass}>
-          <OrdenModalFooterActions onCancel={onClose} primary={savePrimary} />
+          <OrdenModalFooterActions onCancel={onClose} primary={bodyLoading ? null : savePrimary} />
         </div>
       </div>
     </Modal>

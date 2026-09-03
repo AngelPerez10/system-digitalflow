@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { erpInputLikeClass } from "@/layout/erpPageStyles";
+import { erpInputLikeClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { PROYECTO_TIPOS_TRABAJO_FIELD_ID } from "../../shared/proyectoOperacionValidation";
 import type { ProyectoTipoTrabajo } from "../../shared/proyectoTypes";
 
@@ -109,7 +109,7 @@ export function ProyectoTiposTrabajoField({
             className={
               value.length === 0
                 ? "truncate text-[#a8a29e] dark:text-[#8ea0b8]"
-                : "truncate text-[#1c1917] dark:text-[#e5e7eb]"
+                : "truncate text-[#09090B] dark:text-[#e5e7eb]"
             }
           >
             {open ? search || placeholder : display || placeholder}
@@ -129,8 +129,8 @@ export function ProyectoTiposTrabajoField({
         </button>
 
         {open && !disabled ? (
-          <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-[#e2d9ca] bg-white shadow-lg dark:border-[#334155] dark:bg-[#111a2b]">
-            <div className="border-b border-[#e2d9ca] p-2 dark:border-[#334155]">
+          <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-[#E7E7EA] bg-white shadow-lg dark:border-[#334155] dark:bg-[#111a2b]">
+            <div className="border-b border-[#E7E7EA] p-2 dark:border-[#334155]">
               <input
                 type="search"
                 value={search}
@@ -157,14 +157,14 @@ export function ProyectoTiposTrabajoField({
                     <li key={s.id} role="option" aria-selected={checked}>
                       <button
                         type="button"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#1c1917] hover:bg-[#fff4eb] dark:text-[#e5e7eb] dark:hover:bg-[#ff801f]/10"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#09090B] hover:bg-[#F1F5FF] dark:text-[#e5e7eb] dark:hover:bg-[#1B5CFF]/10"
                         onClick={() => toggle(s)}
                       >
                         <span
                           className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                             checked
-                              ? "border-[#ff801f] bg-[#ff801f] text-white"
-                              : "border-[#d6d3d1] dark:border-[#475569]"
+                              ? "border-[#1B5CFF] bg-[#1B5CFF] text-white"
+                              : "border-[#D3D3D8] dark:border-[#475569]"
                           }`}
                           aria-hidden
                         >
@@ -182,16 +182,16 @@ export function ProyectoTiposTrabajoField({
               )}
             </ul>
             {value.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 border-t border-[#e2d9ca] p-2 dark:border-[#334155]">
+              <div className="flex flex-wrap gap-1.5 border-t border-[#E7E7EA] p-2 dark:border-[#334155]">
                 {value.map((t) => (
                   <span
                     key={t.id}
-                    className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#ff801f]/15 px-2 py-0.5 text-[11px] font-medium text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]"
+                    className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#1B5CFF]/15 px-2 py-0.5 text-[11px] font-medium text-[#1244D1] dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]"
                   >
                     <span className="truncate">{t.nombre || `#${t.id}`}</span>
                     <button
                       type="button"
-                      className="shrink-0 rounded-full p-0.5 hover:bg-[#ff801f]/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40"
+                      className="shrink-0 rounded-full p-0.5 hover:bg-[#1B5CFF]/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40"
                       aria-label={`Quitar ${t.nombre || t.id}`}
                       onClick={() => onChange(value.filter((x) => x.id !== t.id))}
                     >

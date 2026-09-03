@@ -40,7 +40,7 @@ export function ProyectoFormSection({
       <div className={proyectoOrdenSectionHeadClass}>
         <div className="flex min-w-0 flex-1 items-start gap-2.5">
           {icon ? (
-            <span className="mt-0.5 inline-flex shrink-0 text-[#ea580c] dark:text-[#fb923c]" aria-hidden>
+            <span className="mt-0.5 inline-flex shrink-0 text-[#1B5CFF] dark:text-[#4B7CFF]" aria-hidden>
               {icon}
             </span>
           ) : null}

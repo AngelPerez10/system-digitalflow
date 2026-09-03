@@ -1,18 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
-import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
 import { PencilIcon } from "@/icons";
-import { erpSansStyle } from "@/layout/erpPageStyles";
 import { FOLIO_SERIE, formatDocumentFolio, matchesDocumentFolio } from "@/utils/documentFolio";
 import {
-  claudeBodyClass,
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
   erpHeroBlurClass,
-  erpHeroGradientClass,
   erpHeroHeadingClass,
   erpHeroIconWrapClass,
   erpPageCanvasClass,
@@ -20,13 +16,17 @@ import {
   erpPrimaryBtnClass,
   erpRowActionBarClass,
   erpRowActionBtnClass,
+  erpSansStyle,
   erpTableHeaderClass,
   erpTableRowHoverClass,
   erpTableWrapClass,
+  osHeroBandClass,
+  osHeroBodyClass,
+  osHeroEyebrowClass,
+  osTableBodyClass,
   pageCardShellClass,
   pageSearchInputClass,
-  sectionLabelOrangeClass,
-} from "../OrdenesTrabajo/ordenTrabajoStyles";
+} from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import PolizaFormModal from "./form/PolizaFormModal";
 import { EstadoPolizaBadge } from "./list/EstadoPolizaBadge";
 import { PolizaPdfGlyph } from "./list/PolizaPdfGlyph";
@@ -164,8 +164,8 @@ export default function PolizasMantenimientoPage() {
   };
 
   return (
-    <div className={erpPageCanvasClass}>
-      <div className={erpPageInnerClass} style={erpSansStyle}>
+    <div className={erpPageCanvasClass} style={erpSansStyle}>
+      <div className={erpPageInnerClass}>
         <PageMeta
           title="Póliza de mantenimiento | Operación"
           description="Listado de pólizas de mantenimiento: cliente, tipo CCTV, cotización y visitas"
@@ -179,18 +179,18 @@ export default function PolizasMantenimientoPage() {
           <Link to="/" className={erpBreadcrumbLinkClass}>
             Inicio
           </Link>
-          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+          <span className="text-[#D3D3D8] dark:text-[#3A4661]" aria-hidden>
             /
           </span>
-          <span className="text-[#44403c] dark:text-[#cbd5e1]">Póliza de mantenimiento</span>
+          <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">Póliza de mantenimiento</span>
         </nav>
 
-        <header className={`relative flex w-full flex-col gap-4 ${pageCardShellClass} p-4 sm:p-6`}>
-          <div className={erpHeroBlurClass} />
-          <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
-            <div className={erpHeroIconWrapClass}>
+        <header className={osHeroBandClass}>
+          <div className={erpHeroBlurClass} aria-hidden />
+          <div className="relative flex min-w-0 items-start gap-4">
+            <span className={erpHeroIconWrapClass} aria-hidden>
               <svg
-                className="h-5 w-5 sm:h-6 sm:w-6"
+                className="size-5"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -203,16 +203,14 @@ export default function PolizasMantenimientoPage() {
                   strokeLinejoin="round"
                 />
               </svg>
-            </div>
+            </span>
             <div className="min-w-0 flex-1">
-              <p className={sectionLabelOrangeClass}>Operación</p>
-              <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Póliza de mantenimiento</h1>
-              <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
-                Consulta todas las pólizas, filtra por folio o cliente y abre el expediente para ligar la cotización{" "}
-                <span className="font-medium text-[#ea580c] dark:text-[#fb923c]">DigitalFlow</span> y las tres visitas
-                del año.
+              <p className={osHeroEyebrowClass}>Operación</p>
+              <h1 className={`mt-1 ${erpHeroHeadingClass}`}>Póliza de mantenimiento</h1>
+              <p className={osHeroBodyClass}>
+                Consulta todas las pólizas, filtra por folio o cliente y abre el expediente para ligar la cotización
+                y las tres visitas del año.
               </p>
-              <div className={erpHeroGradientClass} />
             </div>
           </div>
         </header>
@@ -222,7 +220,7 @@ export default function PolizasMantenimientoPage() {
         <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
           <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
             <svg
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b]"
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8EA0B8] sm:left-3 sm:h-4 sm:w-4"
               viewBox="0 0 20 20"
               fill="none"
               stroke="currentColor"
@@ -247,7 +245,7 @@ export default function PolizasMantenimientoPage() {
                 type="button"
                 onClick={() => setSearchTerm("")}
                 aria-label="Limpiar búsqueda"
-                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-w-[44px] items-center justify-center rounded-lg text-[#78716c] hover:bg-black/[0.04] hover:text-[#1c1917] dark:text-[#8ea0b8] dark:hover:bg-white/[0.06] dark:hover:text-white"
+                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
                   <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -264,12 +262,24 @@ export default function PolizasMantenimientoPage() {
           </button>
         </div>
 
-        <ComponentCard
-          compact
-          title="Listado de pólizas"
-          className={`!overflow-visible ${pageCardShellClass}`}
-        >
-          <div className="p-2 pt-0 sm:p-3 sm:pt-0">
+        <section className={`overflow-visible ${pageCardShellClass}`} aria-labelledby="polizas-listado-heading">
+          <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-6">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                  <rect x="3" y="4" width="18" height="17" rx="2.2" />
+                  <path d="M3 9.5h18" />
+                </svg>
+              </span>
+              <h2 id="polizas-listado-heading" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                Listado de pólizas
+              </h2>
+            </div>
+            <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
+              Resultados según búsqueda. En pantallas pequeñas desplázate horizontalmente si hace falta.
+            </p>
+          </div>
+          <div className="p-2 sm:p-3">
             <PolizasMobileList
               sections={statusSections}
               hasSearch={hasSearch}
@@ -279,38 +289,38 @@ export default function PolizasMantenimientoPage() {
             />
 
             <div className={"hidden md:block " + erpTableWrapClass}>
-              <Table className="w-full min-w-[920px] table-fixed sm:min-w-0 xl:min-w-full">
+              <Table className="w-full min-w-[920px] table-fixed border-collapse sm:min-w-0 xl:min-w-full">
                 <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                   <TableRow>
-                    <TableCell isHeader scope="col" className="w-[110px] min-w-[96px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                    <TableCell isHeader scope="col" className="w-[110px] min-w-[96px] whitespace-nowrap px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                       Folio
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[28%] min-w-[180px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                    <TableCell isHeader scope="col" className="w-[28%] min-w-[180px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                       Cliente
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[160px] min-w-[140px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                    <TableCell isHeader scope="col" className="w-[160px] min-w-[140px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                       Tipo
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[120px] min-w-[110px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                    <TableCell isHeader scope="col" className="w-[120px] min-w-[110px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                       Cotización
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[130px] min-w-[120px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300">
+                    <TableCell isHeader scope="col" className="w-[130px] min-w-[120px] whitespace-nowrap px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                       Próxima visita
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[130px] min-w-[120px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300">
+                    <TableCell isHeader scope="col" className="w-[130px] min-w-[120px] whitespace-nowrap px-3 py-2 text-center text-[#52525B] dark:text-[#B7C1D1]">
                       Estado
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[120px] min-w-[108px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300">
+                    <TableCell isHeader scope="col" className="w-[120px] min-w-[108px] whitespace-nowrap px-3 py-2 text-center text-[#52525B] dark:text-[#B7C1D1]">
                       Acciones
                     </TableCell>
                   </TableRow>
                 </TableHeader>
-                <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
+                <TableBody className={osTableBodyClass}>
                   {filteredRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="px-2 py-10">
+                      <TableCell colSpan={7} className="px-3 py-10">
                         <div
-                          className="text-center text-sm text-gray-500 dark:text-gray-400"
+                          className="text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8]"
                           role="status"
                           aria-busy={loading && !hasSearch}
                         >
@@ -328,7 +338,7 @@ export default function PolizasMantenimientoPage() {
                       const headerRow = (
                         <TableRow key={`${section.key}-header`} className="hover:bg-transparent dark:hover:bg-transparent">
                           <TableCell isHeader scope="colgroup" colSpan={7} className="border-y-0 bg-transparent p-0 text-left">
-                            <div className="px-2 py-2">
+                            <div className="px-3 py-2">
                               <PolizaStatusSectionHeader
                                 estado={section.key}
                                 label={section.label}
@@ -342,29 +352,29 @@ export default function PolizasMantenimientoPage() {
 
                       const dataRows = section.rows.map((row) => (
                         <TableRow key={row.id} className={erpTableRowHoverClass} aria-labelledby={headingId}>
-                          <TableCell className="whitespace-nowrap px-2 py-2 align-middle">
-                            <span className="inline-flex items-center rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white sm:text-[11px]">
+                          <TableCell className="whitespace-nowrap px-3 py-2 align-middle">
+                            <span className="inline-flex items-center justify-center rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] sm:text-[11px]">
                               {row.folio}
                             </span>
                           </TableCell>
-                          <TableCell className="px-2 py-2 align-top">
-                            <span className="block truncate font-medium text-gray-900 dark:text-white sm:text-[12px]" title={row.cliente}>
+                          <TableCell className="px-3 py-2 align-top">
+                            <span className="block truncate font-medium text-[#09090B] dark:text-white sm:text-[12px]" title={row.cliente}>
                               {row.cliente}
                             </span>
                           </TableCell>
-                          <TableCell className="px-2 py-2 align-top">
-                            <span className="block truncate text-gray-900 dark:text-white">{row.tipoLabel}</span>
+                          <TableCell className="px-3 py-2 align-top">
+                            <span className="block truncate text-[#52525B] dark:text-[#B7C1D1]">{row.tipoLabel}</span>
                           </TableCell>
-                          <TableCell className="whitespace-nowrap px-2 py-2 align-middle tabular-nums">
+                          <TableCell className="whitespace-nowrap px-3 py-2 align-middle tabular-nums text-[#52525B] dark:text-[#B7C1D1]">
                             {row.cotizacionFolio}
                           </TableCell>
-                          <TableCell className="whitespace-nowrap px-2 py-2 align-middle tabular-nums">
+                          <TableCell className="whitespace-nowrap px-3 py-2 align-middle tabular-nums text-[#52525B] dark:text-[#B7C1D1]">
                             {formatPolizaFecha(nextVisitIso(row))}
                           </TableCell>
-                          <TableCell className="px-2 py-2 text-center align-middle">
+                          <TableCell className="px-3 py-2 text-center align-middle">
                             <EstadoPolizaBadge estado={row.estado} />
                           </TableCell>
-                          <TableCell className="px-2 py-2 text-center align-middle">
+                          <TableCell className="px-3 py-2 text-center align-middle">
                             <div className={`${erpRowActionBarClass} justify-center`}>
                               <button
                                 type="button"
@@ -396,9 +406,9 @@ export default function PolizasMantenimientoPage() {
               </Table>
             </div>
           </div>
-        </ComponentCard>
+        </section>
 
-        <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+        <p className="text-xs text-[#52525B] dark:text-[#8EA0B8] sm:text-sm">
           {hasSearch ? (
             <>
               {filteredRows.length.toLocaleString("es-MX")} resultado
@@ -407,7 +417,7 @@ export default function PolizasMantenimientoPage() {
           ) : (
             <>
               Mostrando{" "}
-              <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">
+              <span className="font-medium text-[#09090B] dark:text-white">
                 {filteredRows.length.toLocaleString("es-MX")}
               </span>{" "}
               pólizas

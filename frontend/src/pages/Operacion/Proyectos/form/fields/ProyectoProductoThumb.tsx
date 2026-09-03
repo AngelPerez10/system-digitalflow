@@ -30,7 +30,7 @@ export function ProyectoProductoThumb({ src, alt, size = "md", className = "" }:
 
   return (
     <span
-      className={`inline-flex ${sizeClass[size]} shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]/60 ${className}`}
+      className={`inline-flex ${sizeClass[size]} shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#334155] dark:bg-[#0f172a]/60 ${className}`}
     >
       {showImg ? (
         <img

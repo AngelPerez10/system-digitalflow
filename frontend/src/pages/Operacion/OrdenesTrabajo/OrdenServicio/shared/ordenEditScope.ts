@@ -94,5 +94,5 @@ export function ordenInputLockedClass(
 ): string {
   return isOrdenFieldReadOnly(field, scope)
     ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400'
-    : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20';
+    : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/20 dark:focus:border-[#4B7CFF] dark:focus:ring-[#4B7CFF]/20';
 }

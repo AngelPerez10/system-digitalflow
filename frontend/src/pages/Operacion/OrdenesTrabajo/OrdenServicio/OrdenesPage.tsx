@@ -1,7 +1,6 @@
 ﻿import { useState, useEffect, useId, useMemo, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
-import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
 import { fetchApi } from "@/config/api";
@@ -54,11 +53,9 @@ import {
   OrdenViewModal,
 } from "../OrdenTrabajoModals";
 import {
-  claudeBodyClass,
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
   erpHeroBlurClass,
-  erpHeroGradientClass,
   erpHeroHeadingClass,
   erpHeroIconWrapClass,
   erpMonthNavBtnClass,
@@ -67,14 +64,17 @@ import {
   erpPrimaryBtnClass,
   erpRowActionBarClass,
   erpRowActionBtnClass,
+  erpSansStyle,
   erpSecondaryBtnClass,
   erpTableHeaderClass,
   erpTableRowHoverClass,
   erpTableWrapClass,
+  osHeroBandClass,
+  osHeroBodyClass,
+  osHeroEyebrowClass,
   pageCardShellClass,
   pageSearchInputClass,
-  sectionLabelOrangeClass,
-} from "../ordenTrabajoStyles";
+} from "./ordenServicioStyles";
 
 
 export default function Ordenes() {
@@ -125,6 +125,9 @@ export default function Ordenes() {
   } = useOrdenesList({ variant: "admin", canView: canOrdenesView, usuarios });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
+  /** Al editar: el modal se abre de inmediato y el cuerpo muestra un esqueleto mientras llega el detalle (firma/fotos). */
+  const [detailLoading, setDetailLoading] = useState(false);
+  const editDetailSeqRef = useRef(0);
 
   const {
     showModal,
@@ -154,8 +157,8 @@ export default function Ordenes() {
   const ro = isFieldReadOnly;
   const inputLockedClass = (field: Parameters<typeof isFieldReadOnly>[0]) =>
     ro(field)
-      ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400'
-      : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20';
+      ? 'bg-[#F1F5FF] text-[#52525B] cursor-not-allowed dark:bg-[#111827]/50 dark:text-[#8EA0B8]'
+      : 'bg-white text-[#09090B] dark:bg-[#111827] dark:text-[#B7C1D1] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/20 dark:focus:border-[#4B7CFF] dark:focus:ring-[#4B7CFF]/20';
   const [filterOpen, setFilterOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
   const [photoPreview, setPhotoPreview] = useState<{ open: boolean; url: string | null; index: number }>({
@@ -433,23 +436,37 @@ export default function Ordenes() {
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
       return false;
     }
-    const detail = await fetchOrdenDetail(orden.id);
-    if (!detail) {
-      setAlert({
-        show: true,
-        variant: "error",
-        title: "No se pudo abrir",
-        message: "No se pudo cargar el detalle de la orden (firma, fotos). Intenta de nuevo.",
-      });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
-      return false;
-    }
-    setEditingOrden(detail);
+
+    // Abrir el modal de inmediato con lo que ya trae el listado; el detalle
+    // completo (firma, fotos, equipos) llega en segundo plano.
+    const seq = ++editDetailSeqRef.current;
+    setEditingOrden(orden);
     setActiveTab("cliente");
+    const seedType = String(orden.tipo_orden || '').toLowerCase();
+    setTipoOrden(seedType === 'levantamiento' ? 'levantamiento' : 'servicio_tecnico');
+    loadFromOrden(orden);
+    setDetailLoading(true);
+    setShowModal(true);
+
+    const detail = await fetchOrdenDetail(orden.id);
+    if (seq !== editDetailSeqRef.current) return true; // se abrió otra orden mientras tanto
+
+    if (!detail) {
+      setDetailLoading(false);
+      setModalAlert({
+        show: true,
+        variant: "warning",
+        title: "Detalle incompleto",
+        message: "No se pudieron cargar firma y fotos. Revisa tu conexión antes de guardar.",
+      });
+      return true;
+    }
+
+    setEditingOrden(detail);
     const orderType = String(detail.tipo_orden || '').toLowerCase();
     setTipoOrden(orderType === 'levantamiento' ? 'levantamiento' : 'servicio_tecnico');
     loadFromOrden(detail);
-    setShowModal(true);
+    setDetailLoading(false);
     return true;
   };
 
@@ -490,6 +507,8 @@ export default function Ordenes() {
   }, [loading, ordenes, location.search, navigate]);
 
   const handleCloseModal = () => {
+    editDetailSeqRef.current++;
+    setDetailLoading(false);
     bumpFormNonce();
     resetOrdenModalShell();
     resetForm();
@@ -555,7 +574,7 @@ export default function Ordenes() {
         id: s,
         label: s,
         icon: (
-          <svg className='w-4 h-4 text-[#ff801f]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+          <svg className='w-4 h-4 text-[#1B5CFF]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
             <path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' />
           </svg>
         ),
@@ -570,7 +589,7 @@ export default function Ordenes() {
           id: "__new__",
           label: `Crear "${servicioSearch.trim()}"`,
           icon: (
-            <svg className='w-4 h-4 text-[#ff801f]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+            <svg className='w-4 h-4 text-[#1B5CFF]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
               <path d='M12 5v14M5 12h14M4 12h16' />
             </svg>
           ),
@@ -586,7 +605,7 @@ export default function Ordenes() {
   }, [serviciosDisponibles, servicioSearch, formData.servicios_realizados]);
 
   return (
-    <div className={erpPageCanvasClass}>
+    <div className={erpPageCanvasClass} style={erpSansStyle}>
     <div className={erpPageInnerClass}>
       <PageMeta
         title="Órdenes de Trabajo | Sistema Grupo Intrax GPS"
@@ -599,10 +618,10 @@ export default function Ordenes() {
         <Link to="/" className={erpBreadcrumbLinkClass}>
           Inicio
         </Link>
-        <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+        <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
           /
         </span>
-        <span className="text-[#44403c] dark:text-[#cbd5e1]">Órdenes de trabajo</span>
+        <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">Órdenes de trabajo</span>
       </nav>
 
       <OrdenPdfLoadingModal open={pdfDownloading || mesPdfLoading} downloading />
@@ -630,24 +649,21 @@ export default function Ordenes() {
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
       )}
 
-      <header className={`relative flex w-full flex-col gap-4 ${pageCardShellClass} p-4 sm:p-6`}>
-        <div className={erpHeroBlurClass} />
-        <div className="relative z-[1] flex min-w-0 gap-3 sm:gap-4">
-          <div className={erpHeroIconWrapClass}>
-            <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <header className={osHeroBandClass}>
+        <div className={erpHeroBlurClass} aria-hidden />
+        <div className="relative flex min-w-0 items-start gap-4">
+          <span className={erpHeroIconWrapClass} aria-hidden>
+            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </div>
+          </span>
           <div className="min-w-0 flex-1">
-            <p className={sectionLabelOrangeClass}>
-              Operación
-            </p>
-            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Órdenes de trabajo</h1>
-            <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
+            <p className={osHeroEyebrowClass}>Operación</p>
+            <h1 className={`mt-1 ${erpHeroHeadingClass}`}>Órdenes de trabajo</h1>
+            <p className={osHeroBodyClass}>
               Administra órdenes de servicio, fotos, firmas y PDF. Filtra por estado, servicio o fecha en el listado.
             </p>
-            <div className={erpHeroGradientClass} />
           </div>
         </div>
       </header>
@@ -655,7 +671,7 @@ export default function Ordenes() {
       <OrdenesPageStats stats={ordenStats} />
       <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
         <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
-          <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8EA0B8] sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <input
@@ -669,7 +685,7 @@ export default function Ordenes() {
               type="button"
               onClick={() => setSearchTerm('')}
               aria-label="Limpiar búsqueda"
-              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
                 <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -707,12 +723,28 @@ export default function Ordenes() {
         </button>
       </div>
 
-      <ComponentCard
-        compact
-        title="Listado"
-        desc="Resultados según búsqueda y filtros. En pantallas pequeñas desplázate horizontalmente si hace falta."
+      <section
         className={`overflow-visible ${pageCardShellClass}`}
-        actions={
+        aria-labelledby="ordenes-listado-heading"
+      >
+        <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                  <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                    <rect x="3" y="4" width="18" height="17" rx="2.2" />
+                    <path d="M3 9.5h18" />
+                  </svg>
+                </span>
+                <h2 id="ordenes-listado-heading" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  Listado de órdenes
+                </h2>
+              </div>
+              <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
+                Resultados según búsqueda y filtros. En pantallas pequeñas desplázate horizontalmente si hace falta.
+              </p>
+            </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
             <button
               type="button"
@@ -748,9 +780,9 @@ export default function Ordenes() {
               datePickerId="filtro-fecha-ordenes-admin"
             />
           </div>
-        }
-      >
-        <div className="p-2 pt-0">
+          </div>
+        </div>
+        <div className="p-2 sm:p-3">
           {monthLoading ? (
             <OrdenesMonthLoadingBanner selectedMonth={selectedMonth} className="mb-3" />
           ) : null}
@@ -773,17 +805,17 @@ export default function Ordenes() {
             <Table className="w-full min-w-[900px] table-fixed sm:min-w-0 xl:min-w-full">
               <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                 <TableRow>
-                  <TableCell isHeader className="px-2 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-gray-700 dark:text-gray-300">Folio</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-gray-700 dark:text-gray-300">Cliente</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/5 min-w-[220px] text-gray-700 dark:text-gray-300">Detalles</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">Fechas</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Folio</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Cliente</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-1/5 min-w-[220px] text-[#52525B] dark:text-[#B7C1D1]">Detalles</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Fechas</TableCell>
 
-                  <TableCell isHeader className="px-2 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-gray-700 dark:text-gray-300">Técnico</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Estado</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Técnico</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Estado</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Acciones</TableCell>
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
+              <TableBody className="divide-y divide-[#EDEDED] bg-white text-[12px] text-[#44403c] dark:divide-[#273244] dark:bg-[#111827] dark:text-[#e5e7eb]">
                 {statusSections.flatMap((section) => {
                   const headingId = `ordenes-table-${section.key.toLowerCase()}`;
                   const headerRow = (
@@ -797,7 +829,7 @@ export default function Ordenes() {
                         colSpan={7}
                         className="border-y-0 bg-transparent p-0 text-left"
                       >
-                        <div className="px-2 py-2">
+                        <div className="px-3 py-2">
                           <OrdenStatusSectionHeader
                             statusKey={section.key}
                             label={section.label}
@@ -830,21 +862,21 @@ export default function Ordenes() {
                       className={`${erpTableRowHoverClass}${recentResolved ? ` ${ORDEN_RECIEN_RESUELTA_ROW_CLASS}` : ""}`}
                       aria-label={recentResolved ? `Orden ${folioDisplay}, resuelta recientemente` : undefined}
                     >
-                      <TableCell className="px-2 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
-                      <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-1/5 min-w-[220px]">
+                      <TableCell className="px-3 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
+                      <TableCell className="px-3 py-2 text-[#09090B] dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
                         {orden.direccion && (
                           isGoogleMapsUrl(orden.direccion) ? (
                             <a href={orden.direccion} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-600 dark:text-blue-400 hover:underline truncate">{orden.direccion}</a>
                           ) : (
-                            <span className="block text-[11px] text-gray-600 dark:text-gray-400 truncate" title={orden.direccion}>{orden.direccion}</span>
+                            <span className="block text-[11px] text-[#52525B] dark:text-[#8EA0B8] truncate" title={orden.direccion}>{orden.direccion}</span>
                           )
                         )}
                         {orden.telefono_cliente && (
-                          <a href={`tel:${orden.telefono_cliente}`} className="inline-block text-[11px] text-gray-600 dark:text-gray-400">{orden.telefono_cliente}</a>
+                          <a href={`tel:${orden.telefono_cliente}`} className="inline-block text-[11px] text-[#52525B] dark:text-[#8EA0B8]">{orden.telefono_cliente}</a>
                         )}
                       </TableCell>
-                      <TableCell className="px-2 py-2 w-2/5 min-w-[220px] whitespace-normal">
+                      <TableCell className="px-3 py-2 w-2/5 min-w-[220px] whitespace-normal">
                         <div className="flex flex-col gap-1 items-start">
                           <button
                             type="button"
@@ -866,15 +898,15 @@ export default function Ordenes() {
                           </button>
                         </div>
                       </TableCell>
-                      <TableCell className="px-2 py-2 whitespace-nowrap w-[130px] min-w-[130px]">
-                        <div className="text-[12px] text-gray-700 dark:text-gray-300">
-                          <div><span className="text-gray-500">Inicio:</span> {fechaFmt}</div>
-                          <div><span className="text-gray-500">Fin:</span> {finFmt}</div>
+                      <TableCell className="px-3 py-2 whitespace-nowrap w-[130px] min-w-[130px]">
+                        <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
+                          <div><span className="text-[#6E6E77]">Inicio:</span> {fechaFmt}</div>
+                          <div><span className="text-[#6E6E77]">Fin:</span> {finFmt}</div>
                         </div>
                       </TableCell>
-                      <TableCell className="px-2 py-2 whitespace-nowrap w-[160px] min-w-[160px]">
+                      <TableCell className="px-3 py-2 whitespace-nowrap w-[160px] min-w-[160px]">
                         <div className="space-y-1">
-                          <div className="text-[12px] text-gray-700 dark:text-gray-300 truncate">{tecnicoNombre}</div>
+                          <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1] truncate">{tecnicoNombre}</div>
                           <button
                             type="button"
                             onClick={() => setComentarioModal({ open: true, content: (orden.comentario_tecnico || '') as string })}
@@ -886,7 +918,7 @@ export default function Ordenes() {
                           </button>
                         </div>
                       </TableCell>
-                      <TableCell className="px-2 py-2 text-center w-[110px] min-w-[110px]">
+                      <TableCell className="px-3 py-2 text-center w-[110px] min-w-[110px]">
                         <div className="inline-flex flex-col items-center gap-1">
                           {orden.status === 'resuelto' ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Resuelto</span>
@@ -910,7 +942,7 @@ export default function Ordenes() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="px-2 py-2 text-center w-[150px] min-w-[150px]">
+                      <TableCell className="px-3 py-2 text-center w-[150px] min-w-[150px]">
                         <div className={erpRowActionBarClass}>
                           <button
                             type="button"
@@ -942,7 +974,7 @@ export default function Ordenes() {
                           {canOrdenesEdit && (
                             <button
                               onClick={() => handleEdit(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-[#ffa057] hover:text-[#ea580c] dark:hover:border-[#ff801f] transition"
+                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-[#111827] border border-[#E7E7EA] dark:border-white/10 hover:border-[#1B5CFF] hover:text-[#1B5CFF] dark:hover:border-[#1B5CFF] transition"
                               title="Editar"
                               aria-label="Editar"
                             >
@@ -971,7 +1003,7 @@ export default function Ordenes() {
                   <TableRow>
                     <TableCell
                       colSpan={7}
-                      className="px-2 py-8 text-center text-[12px] text-gray-500 dark:text-gray-400"
+                      className="px-2 py-8 text-center text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]"
                     >
                       <span role="status" aria-live="polite">
                         Cargando órdenes del mes…
@@ -981,13 +1013,13 @@ export default function Ordenes() {
                 )}
                 {(!monthLoading && shownList.length === 0) && (
                   <TableRow>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2 text-center text-[12px] text-gray-500">Sin órdenes</TableCell>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2 text-center text-[12px] text-[#6E6E77]">Sin órdenes</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -995,18 +1027,18 @@ export default function Ordenes() {
           </div>
 
           {/* Navegación por mes: siempre visible (también mientras carga). */}
-          <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
+          <div className="border-t border-[#E7E7EA] px-5 py-4 dark:border-[#273244]">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between sm:gap-4 flex-wrap">
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-xs sm:text-sm text-[#52525B] dark:text-[#8EA0B8]">
                   {monthLoading ? (
                     <span role="status" aria-live="polite">
                       Cargando órdenes del mes seleccionado…
                     </span>
                   ) : (
                     <>
-                      Mostrando <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
-                      <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
-                      <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> órdenes
+                      Mostrando <span className="font-medium text-[#09090B] dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
+                      <span className="font-medium text-[#09090B] dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
+                      <span className="font-medium text-[#09090B] dark:text-white">{shownList.length}</span> órdenes
                     </>
                   )}
                 </p>
@@ -1029,7 +1061,7 @@ export default function Ordenes() {
                       <path d="M15 18l-6-6 6-6" />
                     </svg>
                   </button>
-                  <span className="min-w-[130px] sm:min-w-[160px] text-center text-[11px] sm:text-[12px] text-gray-700 dark:text-gray-300 capitalize">
+                  <span className="min-w-[130px] sm:min-w-[160px] text-center text-[11px] sm:text-[12px] text-[#52525B] dark:text-[#B7C1D1] capitalize">
                     {(() => {
                       const ym = parseYearMonth(selectedMonth);
                       if (!ym) return selectedMonth ? selectedMonth : 'Todos los meses';
@@ -1058,7 +1090,7 @@ export default function Ordenes() {
               </div>
             </div>
         </div>
-      </ComponentCard>
+      </section>
 
       {/* Modales de detalle */}
       <OrdenViewModal
@@ -1072,7 +1104,7 @@ export default function Ordenes() {
           </svg>
         }
       >
-        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#334155] dark:bg-[#0f172a]/40">
+        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
           {problematicaModal.content || "-"}
         </pre>
       </OrdenViewModal>
@@ -1091,14 +1123,14 @@ export default function Ordenes() {
         {Array.isArray(serviciosModal.content) && serviciosModal.content.length > 0 ? (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {serviciosModal.content.map((s: string, i: number) => (
-              <li key={i} className="inline-flex items-center gap-2 rounded-lg border border-[#e7ded0] bg-[#fcfaf6] px-3 py-2 dark:border-[#334155] dark:bg-[#0f172a]/40">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ff801f]" />
+              <li key={i} className="inline-flex items-center gap-2 rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] px-3 py-2 dark:border-[#273244] dark:bg-[#0f172a]/40">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#1B5CFF]" />
                 <span>{s}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <div className="rounded-lg border border-dashed border-[#e7ded0] p-4 text-center text-[#78716c] dark:border-[#334155]">
+          <div className="rounded-lg border border-dashed border-[#E7E7EA] p-4 text-center text-[#6E6E77] dark:border-[#273244]">
             Sin servicios registrados
           </div>
         )}
@@ -1115,7 +1147,7 @@ export default function Ordenes() {
           </svg>
         }
       >
-        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#334155] dark:bg-[#0f172a]/40">
+        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
           {comentarioModal.content || "-"}
         </pre>
       </OrdenViewModal>
@@ -1137,6 +1169,7 @@ export default function Ordenes() {
         modalAlert={modalAlert}
         isSaving={isSaving}
         uploadingPhotos={uploadingPhotos}
+        bodyLoading={detailLoading}
         triggerSaveFromFooter={triggerSaveFromFooter}
       >
         {activeTab === "cliente" && (

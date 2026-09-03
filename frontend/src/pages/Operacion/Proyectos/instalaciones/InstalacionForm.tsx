@@ -2,10 +2,12 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import SearchableSelect from "@/components/form/SearchableSelect";
 import {
-  erpFormPanelClass,
   erpFormInputClass,
   erpSelectFieldClass,
-} from "../../OrdenesTrabajo/ordenTrabajoStyles";
+} from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+
+const erpFormPanelClass =
+  "rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#111827] sm:p-5";
 import type { InstalacionFormValue, InstalacionSubtipo } from "./proyectoInstalacionTypes";
 
 const SUBTIPOS_INSTALACION = [
@@ -162,9 +164,9 @@ export default function InstalacionForm({
   return (
     <div className="space-y-5">
       <div className={erpFormPanelClass}>
-        <div className="flex items-center gap-2 border-b border-[#e7ded0] pb-3 dark:border-[#334155]">
+        <div className="flex items-center gap-2 border-b border-[#E7E7EA] pb-3 dark:border-[#334155]">
           <svg
-            className="h-5 w-5 text-[#ea580c] dark:text-[#fb923c]"
+            className="h-5 w-5 text-[#1B5CFF] dark:text-[#4B7CFF]"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -194,9 +196,9 @@ export default function InstalacionForm({
       {subtipo === "gps" ? (
         <>
           <div className={erpFormPanelClass}>
-            <div className="flex items-center gap-2 border-b border-[#e7ded0] pb-3 dark:border-[#334155]">
+            <div className="flex items-center gap-2 border-b border-[#E7E7EA] pb-3 dark:border-[#334155]">
               <svg
-                className="h-5 w-5 text-[#ea580c] dark:text-[#fb923c]"
+                className="h-5 w-5 text-[#1B5CFF] dark:text-[#4B7CFF]"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -324,9 +326,9 @@ export default function InstalacionForm({
           </div>
 
           <div className={erpFormPanelClass}>
-            <div className="flex items-center gap-2 border-b border-[#e7ded0] pb-3 dark:border-[#334155]">
+            <div className="flex items-center gap-2 border-b border-[#E7E7EA] pb-3 dark:border-[#334155]">
               <svg
-                className="h-5 w-5 text-[#ea580c] dark:text-[#fb923c]"
+                className="h-5 w-5 text-[#1B5CFF] dark:text-[#4B7CFF]"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"

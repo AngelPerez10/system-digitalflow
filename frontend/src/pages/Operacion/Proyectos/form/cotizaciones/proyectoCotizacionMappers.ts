@@ -1,4 +1,4 @@
-import type { ApiCotizacion, ApiCotizacionItem, CloneCotizacionRow } from "@/pages/Ventas/Cotizacion/cotizacionFormTypes";
+import type { ApiCotizacion, ApiCotizacionItem, CloneCotizacionRow } from "@/pages/Ventas/Cotizacion/shared/cotizacionFormTypes";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 import type { CotizacionResumen, PresupuestoLinea } from "../../shared/proyectoTypes";
 

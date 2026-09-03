@@ -4,7 +4,7 @@ import {
   erpRowActionBarClass,
   erpRowActionBtnClass,
   erpTableRowHoverClass,
-} from "../../OrdenesTrabajo/ordenTrabajoStyles";
+} from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import {
   displayCotizacionFolio,
   displayProyectoFolio,
@@ -51,6 +51,9 @@ function teamFromRow(row: ProyectoRow) {
   return { tecnicoNombre, tecnicoExtra, auxiliarNombre, auxiliarExtra, tecnicoTitle, auxiliarTitle };
 }
 
+const folioChipClass =
+  "inline-flex items-center rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] sm:text-[11px]";
+
 export function ProyectosListTableRow({
   row,
   canEdit,
@@ -72,87 +75,81 @@ export function ProyectosListTableRow({
 
   return (
     <TableRow className={erpTableRowHoverClass} aria-labelledby={headingId}>
-      <TableCell className="whitespace-nowrap px-2 py-2 align-middle">
-        <span className="inline-flex items-center rounded-md border border-[#e2d9ca] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-white sm:text-[11px]">
-          {displayProyectoFolio(row.folio)}
-        </span>
+      <TableCell className="whitespace-nowrap px-3 py-2 align-middle">
+        <span className={folioChipClass}>{displayProyectoFolio(row.folio)}</span>
       </TableCell>
-      <TableCell className="px-2 py-2 align-top">
+      <TableCell className="px-3 py-2 align-top">
         <span
-          className="block truncate font-medium text-gray-900 dark:text-white sm:text-[12px]"
+          className="block truncate font-medium text-[#09090B] dark:text-white sm:text-[12px]"
           title={row.cliente}
         >
           {row.cliente}
         </span>
       </TableCell>
-      <TableCell className="px-2 py-2 align-top">
+      <TableCell className="px-3 py-2 align-top">
         {tecnicoNombre ? (
-          <span className="block truncate text-gray-900 dark:text-white" title={tecnicoTitle}>
+          <span className="block truncate text-[#09090B] dark:text-white" title={tecnicoTitle}>
             {tecnicoNombre}
-            {tecnicoExtra ? (
-              <span className="text-gray-500 dark:text-gray-400">{tecnicoExtra}</span>
-            ) : null}
+            {tecnicoExtra ? <span className="text-[#6E6E77] dark:text-[#8EA0B8]">{tecnicoExtra}</span> : null}
           </span>
         ) : (
-          <span className="text-gray-500 dark:text-gray-400">—</span>
+          <span className="text-[#A1A1AA]">—</span>
         )}
       </TableCell>
-      <TableCell className="px-2 py-2 align-top">
+      <TableCell className="px-3 py-2 align-top">
         {auxiliarNombre ? (
-          <span className="block truncate text-gray-900 dark:text-white" title={auxiliarTitle}>
+          <span className="block truncate text-[#09090B] dark:text-white" title={auxiliarTitle}>
             {auxiliarNombre}
-            {auxiliarExtra ? (
-              <span className="text-gray-500 dark:text-gray-400">{auxiliarExtra}</span>
-            ) : null}
+            {auxiliarExtra ? <span className="text-[#6E6E77] dark:text-[#8EA0B8]">{auxiliarExtra}</span> : null}
           </span>
         ) : (
-          <span className="text-gray-500 dark:text-gray-400">—</span>
+          <span className="text-[#A1A1AA]">—</span>
         )}
       </TableCell>
-      <TableCell className="px-2 py-2 align-top">
+      <TableCell className="px-3 py-2 align-top">
         {row.cotizacionFolio === "—" ? (
-          <span className="text-gray-500 dark:text-gray-400">—</span>
+          <span className="text-[#A1A1AA]">—</span>
         ) : (
           <div className="leading-tight">
             <span className={proyectoOrigenBadgeClass(row.cotizacionOrigen)}>
               {row.cotizacionOrigen === "digitalflow" ? "DigitalFlow" : "SICAR"}
             </span>
-            <div className="mt-1 tabular-nums text-gray-900 dark:text-white">
+            <div className="mt-1 tabular-nums text-[#09090B] dark:text-white">
               {row.cotizacionesCount > 1
                 ? row.cotizacionFolio
                 : displayCotizacionFolio(row.cotizacionFolio, row.cotizacionOrigen)}
             </div>
             {row.cotizacionesCount > 1 ? (
-              <div className="text-[11px] text-gray-500 dark:text-gray-400">
+              <div className="text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">
                 {row.cotizacionesCount} vinculadas
               </div>
             ) : null}
           </div>
         )}
       </TableCell>
-      <TableCell className="px-2 py-2 align-top">
+      <TableCell className="px-3 py-2 align-top">
         {row.equiposTotal === 0 ? (
-          <span className="text-gray-500 dark:text-gray-400">—</span>
+          <span className="text-[#A1A1AA]">—</span>
         ) : (
           <div className="leading-tight">
-            <div className="tabular-nums text-gray-900 dark:text-white">
+            <div className="tabular-nums text-[#09090B] dark:text-white">
               {row.equiposEntregados}/{row.equiposTotal} entregados
             </div>
-            <div className="text-[11px] text-gray-500 dark:text-gray-400">
+            <div className="text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">
               {row.equiposInstalados} instalados
             </div>
           </div>
         )}
       </TableCell>
-      <TableCell className="px-2 py-2 text-center align-middle">
+      <TableCell className="px-3 py-2 text-center align-middle">
         <span className={estadoProyectoBadgeClass(row.estado)}>
           {estadoProyectoLabel(row.estado)}
         </span>
       </TableCell>
-      <TableCell className="whitespace-nowrap px-2 py-2 align-middle tabular-nums text-gray-700 dark:text-gray-300">
+      <TableCell className="whitespace-nowrap px-3 py-2 align-middle tabular-nums text-[#52525B] dark:text-[#B7C1D1]">
         {formatProyectoFecha(row.fecha)}
       </TableCell>
-      <TableCell className="px-2 py-2 text-center align-middle">
+      <TableCell className="px-3 py-2 text-center align-middle">
         <div className={erpRowActionBarClass}>
           <button
             type="button"

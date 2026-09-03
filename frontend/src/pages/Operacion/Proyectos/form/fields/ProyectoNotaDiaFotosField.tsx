@@ -174,7 +174,7 @@ export function ProyectoNotaDiaFotosField({
   return (
     <div
       className={`rounded-lg transition-colors ${
-        isDragActive ? "bg-[#ff801f]/[0.06] ring-1 ring-[#ff801f]/25" : ""
+        isDragActive ? "bg-[#1B5CFF]/[0.06] ring-1 ring-[#1B5CFF]/25" : ""
       }`}
       {...getRootProps()}
     >
@@ -196,11 +196,11 @@ export function ProyectoNotaDiaFotosField({
               <button
                 type="button"
                 onClick={() => setPreview({ open: true, url, index })}
-                className="block h-11 w-11 overflow-hidden rounded-md border border-[#e7ded0]/90 bg-[#fcfaf6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/30 dark:border-[#334155] dark:bg-[#0f172a]"
+                className="block h-11 w-11 overflow-hidden rounded-md border border-[#E7E7EA]/90 bg-[#FAFAFA] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/30 dark:border-[#334155] dark:bg-[#0f172a]"
                 aria-label={`Ver foto ${index + 1} del ${diaLabel}`}
               >
                 {brokenUrls[url] ? (
-                  <span className="flex h-full w-full items-center justify-center text-[9px] text-[#78716c]">
+                  <span className="flex h-full w-full items-center justify-center text-[9px] text-[#6E6E77]">
                     —
                   </span>
                 ) : (
@@ -221,7 +221,7 @@ export function ProyectoNotaDiaFotosField({
                     e.stopPropagation();
                     setConfirmDelete({ open: true, index, url });
                   }}
-                  className="absolute -right-1 -top-1 flex h-6 w-6 min-h-[24px] min-w-[24px] items-center justify-center rounded-full border border-[#e7ded0] bg-white text-[10px] leading-none text-[#78716c] shadow-sm transition hover:border-rose-200 hover:text-rose-600 focus:outline-none dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#94a3b8]"
+                  className="absolute -right-1 -top-1 flex h-6 w-6 min-h-[24px] min-w-[24px] items-center justify-center rounded-full border border-[#E7E7EA] bg-white text-[10px] leading-none text-[#6E6E77] shadow-sm transition hover:border-rose-200 hover:text-rose-600 focus:outline-none dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#94a3b8]"
                   aria-label={`Quitar foto ${index + 1} del ${diaLabel}`}
                   title="Quitar"
                 >
@@ -237,7 +237,7 @@ export function ProyectoNotaDiaFotosField({
                 type="button"
                 onClick={() => open()}
                 disabled={uploading}
-                className="inline-flex h-11 items-center gap-1.5 rounded-md border border-transparent px-2 text-[11px] font-medium text-[#78716c] transition hover:border-[#e7ded0] hover:bg-[#fcfaf6] hover:text-[#57534e] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/25 disabled:opacity-50 dark:text-[#8ea0b8] dark:hover:border-[#334155] dark:hover:bg-[#111a2b] dark:hover:text-[#cbd5e1]"
+                className="inline-flex h-11 items-center gap-1.5 rounded-md border border-transparent px-2 text-[11px] font-medium text-[#6E6E77] transition hover:border-[#E7E7EA] hover:bg-[#FAFAFA] hover:text-[#52525B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/25 disabled:opacity-50 dark:text-[#8ea0b8] dark:hover:border-[#334155] dark:hover:bg-[#111a2b] dark:hover:text-[#cbd5e1]"
                 aria-label={`Adjuntar foto al ${diaLabel}. Quedan ${remaining}`}
                 aria-busy={uploading}
               >
@@ -270,7 +270,7 @@ export function ProyectoNotaDiaFotosField({
         isOpen={preview.open}
         onClose={() => setPreview({ open: false, url: "", index: -1 })}
         ariaLabel={`Foto ${preview.index + 1} del ${diaLabel}`}
-        className="w-full max-w-3xl overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 dark:border-[#273244] dark:bg-[#111a2b]"
+        className="w-full max-w-3xl overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FFFFFF] p-0 dark:border-[#273244] dark:bg-[#111a2b]"
       >
         <div className="p-3 sm:p-4">
           {preview.url ? (
@@ -287,17 +287,17 @@ export function ProyectoNotaDiaFotosField({
         isOpen={confirmDelete.open}
         onClose={() => !deleting && setConfirmDelete({ open: false, index: null, url: null })}
         ariaLabel="Confirmar eliminación de foto de bitácora"
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-5 dark:border-[#273244] dark:bg-[#111a2b]"
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FFFFFF] p-5 dark:border-[#273244] dark:bg-[#111a2b]"
       >
         <h3 className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]">Quitar foto</h3>
-        <p className="mt-2 text-sm text-[#57534e] dark:text-[#b7c1d1]">
+        <p className="mt-2 text-sm text-[#52525B] dark:text-[#b7c1d1]">
           ¿Quitar esta foto del {diaLabel}?
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <button
             type="button"
             disabled={deleting}
-            className="rounded-lg border border-[#e2d9ca] bg-white px-3 py-2 text-sm font-semibold dark:border-[#334155] dark:bg-[#0f172a]"
+            className="rounded-lg border border-[#E7E7EA] bg-white px-3 py-2 text-sm font-semibold dark:border-[#334155] dark:bg-[#0f172a]"
             onClick={() => setConfirmDelete({ open: false, index: null, url: null })}
           >
             Cancelar

@@ -10,14 +10,16 @@ import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { MailIcon } from "@/icons";
 import {
-  claudeBodyClass,
   erpDeleteModalClass,
   erpDeleteModalPanelClass,
+} from "../../OrdenesTrabajo/ordenTrabajoStyles";
+import {
+  claudeBodyClass,
   erpPrimaryBtnClass,
   erpSecondaryBtnClass,
   erpSubheadingClass,
   sectionLabelOrangeClass,
-} from "../../OrdenesTrabajo/ordenTrabajoStyles";
+} from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { displayProyectoFolio, estadoProyectoLabel } from "../shared/proyectoFormUtils";
 import type { ProyectoEstado } from "../shared/proyectoTypes";
 
@@ -220,17 +222,17 @@ export default function ProyectoEnviarPdfModal({
         />
 
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#ff801f] via-[#ffa057] to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1B5CFF] via-[#4B7CFF] to-transparent"
           aria-hidden="true"
         />
         <div
-          className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#ff801f]/10 blur-2xl dark:bg-[#ff801f]/15"
+          className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#1B5CFF]/10 blur-2xl dark:bg-[#1B5CFF]/15"
           aria-hidden="true"
         />
 
         <div className={`relative space-y-5 ${sending ? "pointer-events-none select-none" : ""}`}>
           <div className="flex items-start gap-3">
-            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#1B5CFF] text-white shadow-sm">
               <MailIcon className="h-5 w-5" />
             </span>
             <div className="min-w-0 pt-0.5">
@@ -258,22 +260,22 @@ export default function ProyectoEnviarPdfModal({
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]/80">
-            <div className="flex items-center justify-between gap-3 border-b border-[#e7ded0]/80 px-3.5 py-2.5 dark:border-[#334155]">
+          <div className="overflow-hidden rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]/80">
+            <div className="flex items-center justify-between gap-3 border-b border-[#E7E7EA]/80 px-3.5 py-2.5 dark:border-[#273244]">
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#78716c] dark:text-[#8ea0b8]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8ea0b8]">
                   Folio
                 </p>
-                <p className="truncate text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                <p className="truncate text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
                   {folio || "—"}
                 </p>
               </div>
               <div className="min-w-0 text-right">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#78716c] dark:text-[#8ea0b8]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8ea0b8]">
                   Cliente
                 </p>
                 <p
-                  className="truncate text-sm font-medium text-[#44403c] dark:text-[#e5e7eb]"
+                  className="truncate text-sm font-medium text-[#3F3F46] dark:text-[#e5e7eb]"
                   title={clienteNombre}
                 >
                   {clienteNombre}
@@ -285,10 +287,10 @@ export default function ProyectoEnviarPdfModal({
                 {pdfGlyph}
               </span>
               <div className="min-w-0">
-                <p className="truncate text-xs font-semibold text-[#1c1917] dark:text-white">
+                <p className="truncate text-xs font-semibold text-[#09090B] dark:text-white">
                   {pdfFileName}
                 </p>
-                <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
                   Se adjuntará al enviar
                 </p>
               </div>
@@ -346,11 +348,11 @@ export default function ProyectoEnviarPdfModal({
                   {fieldError}
                 </p>
               ) : loadingPrefill ? (
-                <p id={statusId} className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                <p id={statusId} className="text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
                   Cargando correo del cliente…
                 </p>
               ) : (
-                <p id={hintId} className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                <p id={hintId} className="text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
                   Si el cliente no tenía correo, el que uses aquí se guardará en su ficha.
                 </p>
               )}

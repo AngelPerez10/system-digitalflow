@@ -4,7 +4,7 @@ import {
   searchCatalogo,
 } from "@/pages/Inventario/shared/inventarioApi";
 import type { InventarioItem } from "@/pages/Inventario/shared/inventarioTypes";
-import type { ProductoManualCatalogo } from "@/pages/Ventas/Cotizacion/cotizacionFormTypes";
+import type { ProductoManualCatalogo } from "@/pages/Ventas/Cotizacion/shared/cotizacionFormTypes";
 import {
   fetchSyscomProductosSugerencia,
   fetchTvcProductosSugerencia,

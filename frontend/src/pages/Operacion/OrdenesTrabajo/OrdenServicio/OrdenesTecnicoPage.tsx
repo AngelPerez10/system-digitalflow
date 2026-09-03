@@ -1,7 +1,6 @@
 ﻿import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
-import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
 import Alert from "@/components/ui/alert/Alert";
@@ -45,11 +44,9 @@ import {
   OrdenViewModal,
 } from "../OrdenTrabajoModals";
 import {
-  claudeBodyClass,
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
   erpHeroBlurClass,
-  erpHeroGradientClass,
   erpHeroHeadingClass,
   erpHeroIconWrapClass,
   erpMonthNavBtnClass,
@@ -58,13 +55,16 @@ import {
   erpPrimaryBtnClass,
   erpRowActionBarClass,
   erpRowActionBtnClass,
+  erpSansStyle,
   erpTableHeaderClass,
   erpTableRowHoverClass,
   erpTableWrapClass,
+  osHeroBandClass,
+  osHeroBodyClass,
+  osHeroEyebrowClass,
   pageCardShellClass,
   pageSearchInputClass,
-  sectionLabelOrangeClass,
-} from "../ordenTrabajoStyles";
+} from "./ordenServicioStyles";
 
 
 export default function OrdenesTecnico() {
@@ -257,8 +257,8 @@ export default function OrdenesTecnico() {
   const ro = isFieldReadOnly;
   const inputLockedClass = (field: Parameters<typeof isFieldReadOnly>[0]) =>
     ro(field)
-      ? 'bg-gray-100 text-gray-600 cursor-not-allowed dark:bg-gray-800/50 dark:text-gray-400'
-      : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20';
+      ? 'bg-[#F1F5FF] text-[#52525B] cursor-not-allowed dark:bg-[#111827]/50 dark:text-[#8EA0B8]'
+      : 'bg-white text-[#09090B] dark:bg-[#111827] dark:text-[#B7C1D1] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/20';
 
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
   const [photoPreview, setPhotoPreview] = useState<{ open: boolean; url: string | null; index: number }>({
@@ -573,7 +573,7 @@ export default function OrdenesTecnico() {
         id: s,
         label: s,
         icon: (
-          <svg className='w-4 h-4 text-[#ff801f]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+          <svg className='w-4 h-4 text-[#1B5CFF]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
             <path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' />
           </svg>
         ),
@@ -588,7 +588,7 @@ export default function OrdenesTecnico() {
           id: "__new__",
           label: `Crear "${servicioSearch.trim()}"`,
           icon: (
-            <svg className='w-4 h-4 text-[#ff801f]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+            <svg className='w-4 h-4 text-[#1B5CFF]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
               <path d='M12 5v14M5 12h14' />
             </svg>
           ),
@@ -606,7 +606,7 @@ export default function OrdenesTecnico() {
 
 
   return (
-    <div className={erpPageCanvasClass}>
+    <div className={erpPageCanvasClass} style={erpSansStyle}>
     <div className={erpPageInnerClass}>
       <PageMeta
         title="Órdenes de Trabajo | Sistema Grupo Intrax GPS"
@@ -619,10 +619,10 @@ export default function OrdenesTecnico() {
         <Link to="/" className={erpBreadcrumbLinkClass}>
           Inicio
         </Link>
-        <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+        <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
           /
         </span>
-        <span className="text-[#44403c] dark:text-[#cbd5e1]">Mis órdenes</span>
+        <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">Mis órdenes</span>
       </nav>
 
       <OrdenPdfLoadingModal open={pdfDownloading} downloading />
@@ -650,28 +650,25 @@ export default function OrdenesTecnico() {
         <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
       )}
 
-      <header className={`relative flex w-full flex-col gap-4 ${pageCardShellClass} p-4 sm:p-6`}>
-        <div className={erpHeroBlurClass} />
-        <div className="relative z-[1] flex min-w-0 gap-3 sm:gap-4">
-          <div className={erpHeroIconWrapClass}>
-            <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <header className={osHeroBandClass}>
+        <div className={erpHeroBlurClass} aria-hidden />
+        <div className="relative flex min-w-0 items-start gap-4">
+          <span className={erpHeroIconWrapClass} aria-hidden>
+            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </div>
+          </span>
           <div className="min-w-0 flex-1">
-            <p className={sectionLabelOrangeClass}>
-              Operación
-            </p>
-            <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>
+            <p className={osHeroEyebrowClass}>Operación</p>
+            <h1 className={`mt-1 ${erpHeroHeadingClass}`}>
               {canViewAllOrdenes ? "Órdenes" : "Mis órdenes"}
             </h1>
-            <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
+            <p className={osHeroBodyClass}>
               {canViewAllOrdenes
                 ? "Puedes ver y editar todas las órdenes (permiso «Ver todas las órdenes»). Registra servicio, firmas y evidencia desde aquí."
                 : "Órdenes donde eres el técnico asignado o el creador. Registra servicio, firmas y evidencia desde aquí."}
             </p>
-            <div className={erpHeroGradientClass} />
           </div>
         </div>
       </header>
@@ -680,7 +677,7 @@ export default function OrdenesTecnico() {
 
       <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
         <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
-          <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8EA0B8] sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <input
@@ -694,7 +691,7 @@ export default function OrdenesTecnico() {
               type="button"
               onClick={() => setSearchTerm('')}
               aria-label="Limpiar búsqueda"
-              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
                 <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -728,12 +725,28 @@ export default function OrdenesTecnico() {
         )}
       </div>
 
-      <ComponentCard
-        compact
-        title="Listado"
-        desc="Órdenes visibles para tu cuenta. Usa filtros para acotar por estado, servicio o fecha."
+      <section
         className={`overflow-visible ${pageCardShellClass}`}
-        actions={
+        aria-labelledby="ordenes-tecnico-listado-heading"
+      >
+        <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                  <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                    <rect x="3" y="4" width="18" height="17" rx="2.2" />
+                    <path d="M3 9.5h18" />
+                  </svg>
+                </span>
+                <h2 id="ordenes-tecnico-listado-heading" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  Listado de órdenes
+                </h2>
+              </div>
+              <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
+                Órdenes visibles para tu cuenta. Usa filtros para acotar por estado, servicio o fecha.
+              </p>
+            </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
             <OrdenesListFiltersPopover
               open={filterOpen}
@@ -754,9 +767,9 @@ export default function OrdenesTecnico() {
               datePickerId="filtro-fecha-ordenes-tecnico"
             />
           </div>
-        }
-      >
-        <div className="p-2">
+          </div>
+        </div>
+        <div className="p-2 sm:p-3">
           {monthLoading ? (
             <OrdenesMonthLoadingBanner selectedMonth={selectedMonth} className="mb-3" />
           ) : null}
@@ -778,16 +791,16 @@ export default function OrdenesTecnico() {
             <Table className="w-full min-w-[900px] sm:table-fixed sm:min-w-0 xl:min-w-full">
               <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                 <TableRow>
-                  <TableCell isHeader className="px-2 py-2 text-left w-[70px] min-w-[60px] whitespace-nowrap text-gray-700 dark:text-gray-300">ID</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-gray-700 dark:text-gray-300">Cliente</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-1/5 min-w-[220px] text-gray-700 dark:text-gray-300">Detalles</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-gray-700 dark:text-gray-300">Fechas</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-gray-700 dark:text-gray-300">Técnico</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-gray-700 dark:text-gray-300">Estado</TableCell>
-                  <TableCell isHeader className="px-2 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-gray-700 dark:text-gray-300">Acciones</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-[70px] min-w-[60px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">ID</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Cliente</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-1/5 min-w-[220px] text-[#52525B] dark:text-[#B7C1D1]">Detalles</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Fechas</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Técnico</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Estado</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Acciones</TableCell>
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
+              <TableBody className="divide-y divide-[#EDEDED] bg-white text-[12px] text-[#44403c] dark:divide-[#273244] dark:bg-[#111827] dark:text-[#e5e7eb]">
                 {statusSections.flatMap((section) => {
                   const headingId = `ordenes-tecnico-table-${section.key.toLowerCase()}`;
                   const headerRow = (
@@ -801,7 +814,7 @@ export default function OrdenesTecnico() {
                         colSpan={7}
                         className="border-y-0 bg-transparent p-0 text-left"
                       >
-                        <div className="px-2 py-2">
+                        <div className="px-3 py-2">
                           <OrdenStatusSectionHeader
                             statusKey={section.key}
                             label={section.label}
@@ -835,17 +848,17 @@ export default function OrdenesTecnico() {
                   }
                   return (
                     <TableRow key={orden.id ?? `${section.key}-${sectionIdx}`} className={erpTableRowHoverClass}>
-                      <TableCell className="px-2 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
-                      <TableCell className="px-2 py-2 text-gray-900 dark:text-white w-1/5 min-w-[220px]">
+                      <TableCell className="px-3 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
+                      <TableCell className="px-3 py-2 text-[#09090B] dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
                         {orden.direccion && (
                           <a href={orden.direccion} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-600 dark:text-blue-400 hover:underline truncate">{orden.direccion}</a>
                         )}
                         {orden.telefono_cliente && (
-                          <a href={`tel:${orden.telefono_cliente}`} className="inline-block text-[11px] text-gray-600 dark:text-gray-400">{orden.telefono_cliente}</a>
+                          <a href={`tel:${orden.telefono_cliente}`} className="inline-block text-[11px] text-[#52525B] dark:text-[#8EA0B8]">{orden.telefono_cliente}</a>
                         )}
                       </TableCell>
-                      <TableCell className="px-2 py-2 w-2/5 min-w-[220px] whitespace-normal">
+                      <TableCell className="px-3 py-2 w-2/5 min-w-[220px] whitespace-normal">
                         <div className="flex flex-col gap-1 items-start">
                           <button
                             type="button"
@@ -867,15 +880,15 @@ export default function OrdenesTecnico() {
                           </button>
                         </div>
                       </TableCell>
-                      <TableCell className="px-2 py-2 whitespace-nowrap w-[130px] min-w-[130px]">
-                        <div className="text-[12px] text-gray-700 dark:text-gray-300">
-                          <div><span className="text-gray-500">Inicio:</span> {fechaFmt}</div>
-                          <div><span className="text-gray-500">Fin:</span> {finFmt}</div>
+                      <TableCell className="px-3 py-2 whitespace-nowrap w-[130px] min-w-[130px]">
+                        <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
+                          <div><span className="text-[#6E6E77]">Inicio:</span> {fechaFmt}</div>
+                          <div><span className="text-[#6E6E77]">Fin:</span> {finFmt}</div>
                         </div>
                       </TableCell>
-                      <TableCell className="px-2 py-2 whitespace-nowrap w-[160px] min-w-[160px]">
+                      <TableCell className="px-3 py-2 whitespace-nowrap w-[160px] min-w-[160px]">
                         <div className="space-y-1">
-                          <div className="text-[12px] text-gray-700 dark:text-gray-300 truncate">{tecnicoNombre}</div>
+                          <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1] truncate">{tecnicoNombre}</div>
                           <button
                             type="button"
                             onClick={() => setComentarioModal({ open: true, content: (orden.comentario_tecnico || '') as string })}
@@ -887,7 +900,7 @@ export default function OrdenesTecnico() {
                           </button>
                         </div>
                       </TableCell>
-                      <TableCell className="px-2 py-2 text-center w-[110px] min-w-[110px]">
+                      <TableCell className="px-3 py-2 text-center w-[110px] min-w-[110px]">
                         {orden.status === 'resuelto' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Resuelto</span>
                         ) : orden.status === 'pausado' ? (
@@ -901,12 +914,12 @@ export default function OrdenesTecnico() {
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pendiente</span>
                         )}
                       </TableCell>
-                      <TableCell className="px-2 py-2 text-center w-[150px] min-w-[150px]">
+                      <TableCell className="px-3 py-2 text-center w-[150px] min-w-[150px]">
                         <div className={erpRowActionBarClass}>
                           <button
                             type="button"
                             onClick={() => handleOrdenPdf(orden)}
-                            className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 transition"
+                            className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-[#111827] border border-[#E7E7EA] dark:border-white/10 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 transition"
                             title={orden.status === "resuelto" ? "Descargar PDF" : "Ver PDF"}
                             aria-label={orden.status === "resuelto" ? "Descargar PDF" : "Ver PDF"}
                           >
@@ -942,7 +955,7 @@ export default function OrdenesTecnico() {
                           {canOrdenesDelete && (
                             <button
                               onClick={() => handleDeleteClick(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
+                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-[#111827] border border-[#E7E7EA] dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
                               title="Eliminar"
                             >
                               <TrashBinIcon className="w-4 h-4" />
@@ -960,7 +973,7 @@ export default function OrdenesTecnico() {
                   <TableRow>
                     <TableCell
                       colSpan={7}
-                      className="px-2 py-8 text-center text-[12px] text-gray-500 dark:text-gray-400"
+                      className="px-2 py-8 text-center text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]"
                     >
                       <span role="status" aria-live="polite">
                         Cargando órdenes del mes…
@@ -970,13 +983,13 @@ export default function OrdenesTecnico() {
                 )}
                 {(!monthLoading && shownList.length === 0) && (
                   <TableRow>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2 text-center text-[12px] text-gray-500">Sin órdenes</TableCell>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-2 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2 text-center text-[12px] text-[#6E6E77]">Sin órdenes</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -984,18 +997,18 @@ export default function OrdenesTecnico() {
           </div>
 
           {/* Navegación por mes: siempre visible. */}
-          <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
+          <div className="border-t border-[#E7E7EA] px-5 py-4 dark:border-[#273244]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 flex-wrap">
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-xs sm:text-sm text-[#52525B] dark:text-[#8EA0B8]">
                   {monthLoading ? (
                     <span role="status" aria-live="polite">
                       Cargando órdenes del mes seleccionado…
                     </span>
                   ) : (
                     <>
-                      Mostrando <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
-                      <span className="font-medium text-gray-900 dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
-                      <span className="font-medium text-gray-900 dark:text-white">{shownList.length}</span> órdenes
+                      Mostrando <span className="font-medium text-[#09090B] dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
+                      <span className="font-medium text-[#09090B] dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
+                      <span className="font-medium text-[#09090B] dark:text-white">{shownList.length}</span> órdenes
                     </>
                   )}
                 </p>
@@ -1018,7 +1031,7 @@ export default function OrdenesTecnico() {
                       <path d="M15 18l-6-6 6-6" />
                     </svg>
                   </button>
-                  <span className="min-w-[130px] sm:min-w-[160px] text-center text-[11px] sm:text-[12px] text-gray-700 dark:text-gray-300 capitalize">
+                  <span className="min-w-[130px] sm:min-w-[160px] text-center text-[11px] sm:text-[12px] text-[#52525B] dark:text-[#B7C1D1] capitalize">
                     {(() => {
                       const ym = parseYearMonth(selectedMonth);
                       if (!ym) return selectedMonth ? selectedMonth : 'Todos los meses';
@@ -1046,7 +1059,7 @@ export default function OrdenesTecnico() {
               </div>
             </div>
         </div>
-      </ComponentCard>
+      </section>
 
       {/* Modales de detalle */}
       <OrdenViewModal
@@ -1060,7 +1073,7 @@ export default function OrdenesTecnico() {
           </svg>
         }
       >
-        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#334155] dark:bg-[#0f172a]/40">
+        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
           {problematicaModal.content || "-"}
         </pre>
       </OrdenViewModal>
@@ -1079,14 +1092,14 @@ export default function OrdenesTecnico() {
         {Array.isArray(serviciosModal.content) && serviciosModal.content.length > 0 ? (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {serviciosModal.content.map((s: string, i: number) => (
-              <li key={i} className="inline-flex items-center gap-2 rounded-lg border border-[#e7ded0] bg-[#fcfaf6] px-3 py-2 dark:border-[#334155] dark:bg-[#0f172a]/40">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ff801f]" />
+              <li key={i} className="inline-flex items-center gap-2 rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] px-3 py-2 dark:border-[#273244] dark:bg-[#0f172a]/40">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#1B5CFF]" />
                 <span>{s}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <div className="rounded-lg border border-dashed border-[#e7ded0] p-4 text-center text-[#78716c] dark:border-[#334155]">
+          <div className="rounded-lg border border-dashed border-[#E7E7EA] p-4 text-center text-[#6E6E77] dark:border-[#273244]">
             Sin servicios registrados
           </div>
         )}
@@ -1103,7 +1116,7 @@ export default function OrdenesTecnico() {
           </svg>
         }
       >
-        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#334155] dark:bg-[#0f172a]/40">
+        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
           {comentarioModal.content || "-"}
         </pre>
       </OrdenViewModal>
@@ -1235,8 +1248,8 @@ export default function OrdenesTecnico() {
         ariaLabel="Seleccionar ubicación en el mapa"
         className="w-[96vw] sm:w-[90vw] md:w-[80vw] max-w-3xl mx-0 sm:mx-auto"
       >
-        <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-3xl">
-          <div className="px-4 sm:px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-[#0f172a] rounded-3xl">
+          <div className="px-4 sm:px-5 py-4 border-b border-[#E7E7EA] dark:border-[#273244]">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30">
                 <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1244,35 +1257,35 @@ export default function OrdenesTecnico() {
                 </svg>
               </div>
               <div>
-                <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">Seleccionar Ubicación</h5>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Haz clic en el mapa para seleccionar la ubicación</p>
+                <h5 className="text-base font-semibold text-[#09090B] dark:text-[#F8FAFC]">Seleccionar Ubicación</h5>
+                <p className="text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">Haz clic en el mapa para seleccionar la ubicación</p>
               </div>
             </div>
           </div>
           <div className="p-4 sm:p-5 flex-1 overflow-auto">
             <div className="space-y-4">
-              <div className="relative w-full h-[50vh] sm:h-[55vh] md:h-[60vh] rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+              <div className="relative w-full h-[50vh] sm:h-[55vh] md:h-[60vh] rounded-lg overflow-hidden border border-[#E7E7EA] dark:border-[#273244]">
                 <div id="leaflet-map" className="absolute inset-0" />
               </div>
               <div className="space-y-2">
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">O ingresa las coordenadas manualmente</label>
+                <label className="block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">O ingresa las coordenadas manualmente</label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <input type="text" placeholder="Latitud (ej: 19.0653)" value={selectedLocation?.lat || ''} onChange={(e) => { const lat = parseFloat(e.target.value); if (!isNaN(lat)) setSelectedLocation({ lat, lng: selectedLocation?.lng || -104.2831 }); }} className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 text-gray-800 dark:text-gray-200 outline-none" />
+                    <input type="text" placeholder="Latitud (ej: 19.0653)" value={selectedLocation?.lat || ''} onChange={(e) => { const lat = parseFloat(e.target.value); if (!isNaN(lat)) setSelectedLocation({ lat, lng: selectedLocation?.lng || -104.2831 }); }} className="w-full h-10 rounded-lg border border-[#E7E7EA] dark:border-[#273244] bg-white dark:bg-[#111827] text-sm px-3 text-[#09090B] dark:text-[#B7C1D1] outline-none" />
                   </div>
                   <div>
-                    <input type="text" placeholder="Longitud (ej: -104.2831)" value={selectedLocation?.lng || ''} onChange={(e) => { const lng = parseFloat(e.target.value); if (!isNaN(lng)) setSelectedLocation({ lat: selectedLocation?.lat || 19.0653, lng }); }} className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 text-gray-800 dark:text-gray-200 outline-none" />
+                    <input type="text" placeholder="Longitud (ej: -104.2831)" value={selectedLocation?.lng || ''} onChange={(e) => { const lng = parseFloat(e.target.value); if (!isNaN(lng)) setSelectedLocation({ lat: selectedLocation?.lat || 19.0653, lng }); }} className="w-full h-10 rounded-lg border border-[#E7E7EA] dark:border-[#273244] bg-white dark:bg-[#111827] text-sm px-3 text-[#09090B] dark:text-[#B7C1D1] outline-none" />
                   </div>
                 </div>
               </div>
             </div>
           </div>
           {/* Footer */}
-          <div className="px-4 sm:px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-end gap-2">
+          <div className="px-4 sm:px-5 py-4 border-t border-[#E7E7EA] dark:border-[#273244] flex flex-col sm:flex-row justify-end gap-2">
             <button
               type="button"
               onClick={() => setShowMapModal(false)}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-[#E7E7EA] bg-white text-[#52525B] hover:bg-[#FAFAFA] focus:ring-2 focus:ring-gray-300/40 dark:border-[#273244] dark:bg-[#111827] dark:text-[#B7C1D1] dark:hover:bg-gray-700"
             >
               Cancelar
             </button>
@@ -1322,7 +1335,7 @@ export default function OrdenesTecnico() {
                 setShowMapModal(false);
                 setSelectedLocation(null);
               }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-[#ff801f] text-white hover:bg-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/30"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-[#1B5CFF] text-white hover:bg-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/30"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />

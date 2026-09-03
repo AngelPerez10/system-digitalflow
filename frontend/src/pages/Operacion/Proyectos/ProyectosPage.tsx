@@ -1,35 +1,37 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
-import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { TrashBinIcon } from "@/icons";
-import { erpSansStyle } from "@/layout/erpPageStyles";
 import { fetchApi } from "@/config/api";
 import {
-  claudeBodyClass,
-  erpBreadcrumbLinkClass,
-  erpBreadcrumbNavClass,
   erpDangerBtnClass,
   erpDeleteModalClass,
   erpDeleteModalPanelClass,
+} from "../OrdenesTrabajo/ordenTrabajoStyles";
+import {
+  erpBreadcrumbLinkClass,
+  erpBreadcrumbNavClass,
   erpHeroBlurClass,
-  erpHeroGradientClass,
   erpHeroHeadingClass,
   erpHeroIconWrapClass,
   erpMonthNavBtnClass,
   erpPageCanvasClass,
   erpPageInnerClass,
   erpPrimaryBtnClass,
+  erpSansStyle,
   erpSecondaryBtnClass,
   erpTableHeaderClass,
   erpTableWrapClass,
+  osHeroBandClass,
+  osHeroBodyClass,
+  osHeroEyebrowClass,
+  osTableBodyClass,
   pageCardShellClass,
   pageSearchInputClass,
-  sectionLabelOrangeClass,
-} from "../OrdenesTrabajo/ordenTrabajoStyles";
+} from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import {
   getCurrentYearMonth,
 } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
@@ -502,8 +504,8 @@ export default function ProyectosPage() {
   };
 
   return (
-    <div className={erpPageCanvasClass}>
-      <div className={erpPageInnerClass} style={erpSansStyle}>
+    <div className={erpPageCanvasClass} style={erpSansStyle}>
+      <div className={erpPageInnerClass}>
         <PageMeta
           title="Proyectos | Sistema Grupo Intrax GPS"
           description="Gestión de proyectos vinculados a cotizaciones y seguimiento de equipos"
@@ -517,18 +519,18 @@ export default function ProyectosPage() {
           <Link to="/" className={erpBreadcrumbLinkClass}>
             Inicio
           </Link>
-          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+          <span className="text-[#D3D3D8] dark:text-[#3A4661]" aria-hidden>
             /
           </span>
-          <span className="text-[#44403c] dark:text-[#cbd5e1]">Proyectos</span>
+          <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">Proyectos</span>
         </nav>
 
-        <header className={`relative flex w-full flex-col gap-4 ${pageCardShellClass} p-4 sm:p-6`}>
-          <div className={erpHeroBlurClass} />
-          <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
-            <div className={erpHeroIconWrapClass}>
+        <header className={osHeroBandClass}>
+          <div className={erpHeroBlurClass} aria-hidden />
+          <div className="relative flex min-w-0 items-start gap-3 sm:gap-4">
+            <span className={`${erpHeroIconWrapClass} size-10 sm:size-11`} aria-hidden>
               <svg
-                className="h-5 w-5 sm:h-6 sm:w-6"
+                className="size-5"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -541,19 +543,14 @@ export default function ProyectosPage() {
                   strokeLinejoin="round"
                 />
               </svg>
-            </div>
+            </span>
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className={sectionLabelOrangeClass}>Operación</p>
-              </div>
-              <h1 className={`mt-0.5 ${erpHeroHeadingClass}`}>Proyectos</h1>
-              <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
-                Vincula cotizaciones{" "}
-                <span className="font-medium text-[#ea580c] dark:text-[#fb923c]">DigitalFlow</span> o{" "}
-                <span className="font-medium text-[#ea580c] dark:text-[#fb923c]">SICAR</span>, revisa el presupuesto
-                sin precios y da seguimiento a entrega e instalación de equipos.
+              <p className={osHeroEyebrowClass}>Operación</p>
+              <h1 className={`mt-1 ${erpHeroHeadingClass}`}>Proyectos</h1>
+              <p className={`${osHeroBodyClass} line-clamp-3 sm:line-clamp-none`}>
+                Vincula cotizaciones DigitalFlow o SICAR, revisa el presupuesto sin precios y da seguimiento a
+                entrega e instalación de equipos.
               </p>
-              <div className={erpHeroGradientClass} />
             </div>
           </div>
         </header>
@@ -563,7 +560,7 @@ export default function ProyectosPage() {
         <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
           <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
             <svg
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b]"
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8EA0B8] sm:left-3 sm:h-4 sm:w-4"
               viewBox="0 0 20 20"
               fill="none"
               stroke="currentColor"
@@ -579,16 +576,17 @@ export default function ProyectosPage() {
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por folio, cliente o cotización…"
+              placeholder="Buscar folio, cliente o cotización…"
               className={pageSearchInputClass}
               aria-label="Buscar proyectos"
             />
+
             {searchTerm ? (
               <button
                 type="button"
                 onClick={() => setSearchTerm("")}
                 aria-label="Limpiar búsqueda"
-                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-w-[44px] items-center justify-center rounded-lg text-[#78716c] hover:bg-black/[0.04] hover:text-[#1c1917] dark:text-[#8ea0b8] dark:hover:bg-white/[0.06] dark:hover:text-white"
+                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/[0.06] sm:h-9 sm:rounded-lg"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
                   <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -605,35 +603,54 @@ export default function ProyectosPage() {
           </button>
         </div>
 
-        <ComponentCard
-          compact
-          title="Listado de proyectos"
-          desc="Agrupados por estado: en proceso, pausados y cerrados. Filtra por mes abajo."
-          className={`!overflow-visible border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)] ${pageCardShellClass}`}
-          actions={
-            <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:items-center">
-              <ProyectosListFiltersPopover
-                open={filterOpen}
-                onOpenChange={setFilterOpen}
-                filterStatus={filterStatus}
-                setFilterStatus={setFilterStatus}
-                filterTiposTrabajo={filterTiposTrabajo}
-                setFilterTiposTrabajo={setFilterTiposTrabajo}
-                filterDate={filterDate}
-                setFilterDate={setFilterDate}
-                filterTecnicoId={filterTecnicoId}
-                setFilterTecnicoId={setFilterTecnicoId}
-                tiposTrabajoDisponibles={tiposTrabajoDisponibles}
-                tecnicos={tecnicosDisponibles}
-                activeFilterCount={activeFilterCount}
-                onClear={clearListFilters}
-                showTecnicoFilter={isAdmin}
-                datePickerId="filtro-fecha-proyectos"
-              />
+        <section className={`overflow-visible ${pageCardShellClass}`} aria-labelledby="proyectos-listado-heading">
+          <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                    <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                      <rect x="3" y="4" width="18" height="17" rx="2.2" />
+                      <path d="M3 9.5h18" />
+                    </svg>
+                  </span>
+                  <h2
+                    id="proyectos-listado-heading"
+                    className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]"
+                  >
+                    Listado de proyectos
+                  </h2>
+                </div>
+                <p className="mt-2 text-[13px] leading-[18px] text-[#52525B] dark:text-[#B7C1D1] sm:text-[14px] sm:leading-[20px]">
+                  <span className="sm:hidden">Por estado. Filtra por mes abajo.</span>
+                  <span className="hidden sm:inline">
+                    Agrupados por estado: en proceso, pausados y cerrados. Filtra por mes abajo.
+                  </span>
+                </p>
+              </div>
+              <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:items-center">
+                <ProyectosListFiltersPopover
+                  open={filterOpen}
+                  onOpenChange={setFilterOpen}
+                  filterStatus={filterStatus}
+                  setFilterStatus={setFilterStatus}
+                  filterTiposTrabajo={filterTiposTrabajo}
+                  setFilterTiposTrabajo={setFilterTiposTrabajo}
+                  filterDate={filterDate}
+                  setFilterDate={setFilterDate}
+                  filterTecnicoId={filterTecnicoId}
+                  setFilterTecnicoId={setFilterTecnicoId}
+                  tiposTrabajoDisponibles={tiposTrabajoDisponibles}
+                  tecnicos={tecnicosDisponibles}
+                  activeFilterCount={activeFilterCount}
+                  onClear={clearListFilters}
+                  showTecnicoFilter={isAdmin}
+                  datePickerId="filtro-fecha-proyectos"
+                />
+              </div>
             </div>
-          }
-        >
-          <div className="p-2 pt-0 sm:p-3 sm:pt-0">
+          </div>
+          <div className="p-2 sm:p-3">
             <ProyectosMobileList
               sections={statusSections}
               loading={loading}
@@ -648,112 +665,110 @@ export default function ProyectosPage() {
 
             {loading ? (
               <div
-                className="hidden px-4 py-10 text-center text-sm text-[#78716c] dark:text-[#8ea0b8] md:block"
+                className="hidden px-4 py-10 text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8] md:block"
                 role="status"
                 aria-live="polite"
               >
                 Cargando proyectos…
               </div>
             ) : (
-              <>
-                <div className={"hidden md:block " + erpTableWrapClass}>
-                  <Table className="w-full min-w-[1240px] table-fixed sm:min-w-0 xl:min-w-full">
-                    <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
+              <div className={"hidden md:block " + erpTableWrapClass}>
+                <Table className="w-full min-w-[1240px] table-fixed border-collapse sm:min-w-0 xl:min-w-full">
+                  <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
+                    <TableRow>
+                      <TableCell isHeader scope="col" className="w-[96px] min-w-[88px] whitespace-nowrap px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                        Folio
+                      </TableCell>
+                      <TableCell isHeader scope="col" className="w-[18%] min-w-[160px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                        Cliente
+                      </TableCell>
+                      <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                        Técnico
+                      </TableCell>
+                      <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                        Auxiliar
+                      </TableCell>
+                      <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                        Cotización
+                      </TableCell>
+                      <TableCell isHeader scope="col" className="w-[150px] min-w-[140px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                        Equipos
+                      </TableCell>
+                      <TableCell isHeader scope="col" className="w-[110px] min-w-[100px] whitespace-nowrap px-3 py-2 text-center text-[#52525B] dark:text-[#B7C1D1]">
+                        Estado
+                      </TableCell>
+                      <TableCell isHeader scope="col" className="w-[100px] min-w-[96px] whitespace-nowrap px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                        Fecha
+                      </TableCell>
+                      <TableCell isHeader scope="col" className="w-[168px] min-w-[160px] whitespace-nowrap px-3 py-2 text-center text-[#52525B] dark:text-[#B7C1D1]">
+                        Acciones
+                      </TableCell>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className={osTableBodyClass}>
+                    {filteredRows.length === 0 ? (
                       <TableRow>
-                        <TableCell isHeader scope="col" className="w-[96px] min-w-[88px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                          Folio
-                        </TableCell>
-                        <TableCell isHeader scope="col" className="w-[18%] min-w-[160px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                          Cliente
-                        </TableCell>
-                        <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                          Técnico
-                        </TableCell>
-                        <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                          Auxiliar
-                        </TableCell>
-                        <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                          Cotización
-                        </TableCell>
-                        <TableCell isHeader scope="col" className="w-[150px] min-w-[140px] px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                          Equipos
-                        </TableCell>
-                        <TableCell isHeader scope="col" className="w-[110px] min-w-[100px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300">
-                          Estado
-                        </TableCell>
-                        <TableCell isHeader scope="col" className="w-[100px] min-w-[96px] whitespace-nowrap px-2 py-2 text-left text-gray-700 dark:text-gray-300">
-                          Fecha
-                        </TableCell>
-                        <TableCell isHeader scope="col" className="w-[168px] min-w-[160px] whitespace-nowrap px-2 py-2 text-center text-gray-700 dark:text-gray-300">
-                          Acciones
+                        <TableCell colSpan={9} className="px-3 py-10">
+                          <div className="text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
+                            {hasActiveListQuery
+                              ? "No hay proyectos que coincidan con la búsqueda o los filtros."
+                              : "Aún no hay proyectos registrados."}
+                          </div>
                         </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-[#f1e8db] text-[11px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
-                      {filteredRows.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={9} className="px-2 py-10">
-                            <div className="text-center text-sm text-gray-500 dark:text-gray-400">
-                              {hasActiveListQuery
-                                ? "No hay proyectos que coincidan con la búsqueda o los filtros."
-                                : "Aún no hay proyectos registrados."}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        statusSections.flatMap((section) => {
-                          const headingId = `proyectos-table-${section.key.toLowerCase()}`;
-                          const headerRow = (
-                            <TableRow
-                              key={`${section.key}-header`}
-                              className="hover:bg-transparent dark:hover:bg-transparent"
+                    ) : (
+                      statusSections.flatMap((section) => {
+                        const headingId = `proyectos-table-${section.key.toLowerCase()}`;
+                        const headerRow = (
+                          <TableRow
+                            key={`${section.key}-header`}
+                            className="hover:bg-transparent dark:hover:bg-transparent"
+                          >
+                            <TableCell
+                              isHeader
+                              scope="colgroup"
+                              colSpan={9}
+                              className="border-y-0 bg-transparent p-0 text-left"
                             >
-                              <TableCell
-                                isHeader
-                                scope="colgroup"
-                                colSpan={9}
-                                className="border-y-0 bg-transparent p-0 text-left"
-                              >
-                                <div className="px-2 py-2">
-                                  <ProyectoStatusSectionHeader
-                                    statusKey={section.key}
-                                    label={section.label}
-                                    count={section.rows.length}
-                                    headingId={headingId}
-                                  />
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
+                              <div className="px-3 py-2">
+                                <ProyectoStatusSectionHeader
+                                  statusKey={section.key}
+                                  label={section.label}
+                                  count={section.rows.length}
+                                  headingId={headingId}
+                                />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
 
-                          const dataRows = section.rows.map((row) => (
-                            <ProyectosListTableRow
-                              key={row.id}
-                              row={row}
-                              headingId={headingId}
-                              canEdit={canProyectosEdit}
-                              canDelete={canProyectosDelete}
-                              onPdf={openPdf}
-                              onEnviarPdf={openEnviarPdf}
-                              onEdit={openEdit}
-                              onDelete={openDelete}
-                            />
-                          ));
+                        const dataRows = section.rows.map((row) => (
+                          <ProyectosListTableRow
+                            key={row.id}
+                            row={row}
+                            headingId={headingId}
+                            canEdit={canProyectosEdit}
+                            canDelete={canProyectosDelete}
+                            onPdf={openPdf}
+                            onEnviarPdf={openEnviarPdf}
+                            onEdit={openEdit}
+                            onDelete={openDelete}
+                          />
+                        ));
 
-                          return [headerRow, ...dataRows];
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </>
+                        return [headerRow, ...dataRows];
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </div>
-        </ComponentCard>
+        </section>
 
         {!loading ? (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <p className="text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">
               {hasActiveListQuery ? (
                 <>
                   {filteredRows.length.toLocaleString("es-MX")} resultado
@@ -768,14 +783,14 @@ export default function ProyectosPage() {
               ) : (
                 <>
                   Mostrando{" "}
-                  <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">
+                  <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">
                     {filteredRows.length.toLocaleString("es-MX")}
                   </span>{" "}
                   proyectos
                 </>
               )}
             </p>
-            <div className="flex items-center gap-2" role="group" aria-label="Navegación por mes">
+            <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-center" role="group" aria-label="Navegación por mes">
               <button
                 type="button"
                 onClick={() => {
@@ -793,7 +808,7 @@ export default function ProyectosPage() {
                   <path d="M15 18l-6-6 6-6" />
                 </svg>
               </button>
-              <span className="min-w-[130px] text-center text-[11px] capitalize text-[#57534e] sm:min-w-[160px] sm:text-[12px] dark:text-[#cbd5e1]">
+              <span className="min-w-0 flex-1 truncate text-center text-[12px] capitalize text-[#52525B] sm:min-w-[160px] sm:flex-none sm:text-[12px] dark:text-[#cbd5e1]">
                 {(() => {
                   const ym = parseYearMonth(selectedMonth);
                   if (!ym) return selectedMonth ? selectedMonth : "Todos los meses";

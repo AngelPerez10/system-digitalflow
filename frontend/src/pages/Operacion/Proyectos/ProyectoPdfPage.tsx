@@ -4,20 +4,20 @@ import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { fetchApi } from "@/config/api";
 import {
+  claudeBodyClass,
   erpCardShellClass as cardShellClass,
-  erpCardShellMutedClass,
   erpHeroHeadingClass,
   erpPageCanvasClass,
   erpPageInnerClass,
   erpPrimaryBtnClass,
   erpSecondaryBtnClass,
   erpSubheadingClass,
-} from "@/layout/erpPageStyles";
-import {
-  claudeBodyClass,
   outlineCoralBtnClass,
   sectionLabelOrangeClass,
-} from "@/pages/Operacion/OrdenesTrabajo/ordenTrabajoStyles";
+} from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+
+const erpCardShellMutedClass =
+  "overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827]/90";
 import { displayProyectoFolio } from "./shared/proyectoFormUtils";
 
 const viewerFrameClass =
@@ -268,25 +268,25 @@ export default function ProyectoPdfPage() {
         />
 
         <nav
-          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
+          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#6E6E77] dark:text-[#8ea0b8] sm:text-[13px]"
           aria-label="Migas de pan"
         >
           <Link
             to="/"
-            className="rounded-md px-1 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Inicio
           </Link>
-          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+          <span className="text-[#D3D3D8] dark:text-[#334155]" aria-hidden>
             /
           </span>
           <Link
             to="/proyectos"
-            className="rounded-md px-1 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Proyectos
           </Link>
-          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+          <span className="text-[#D3D3D8] dark:text-[#334155]" aria-hidden>
             /
           </span>
           <span className="text-[#44403c] dark:text-[#cbd5e1]">Vista PDF</span>
@@ -301,9 +301,9 @@ export default function ProyectoPdfPage() {
         <header
           className={`relative flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}
         >
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-2/5 bg-[radial-gradient(circle_at_80%_20%,rgba(255,128,31,0.14),transparent_58%)]" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-2/5 bg-[radial-gradient(circle_at_80%_20%,rgba(27,92,255,0.14),transparent_58%)]" />
           <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black shadow-[0_10px_24px_-12px_rgba(255,128,31,0.9)] sm:h-11 sm:w-11">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] text-white shadow-[0_10px_24px_-12px_rgba(27,92,255,0.9)] sm:h-11 sm:w-11">
               {fileIcon}
             </div>
             <div className="min-w-0 flex-1">
@@ -311,12 +311,12 @@ export default function ProyectoPdfPage() {
               <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
                 <h1 className={erpHeroHeadingClass}>Vista PDF</h1>
                 {folioLabel ? (
-                  <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/[0.12] dark:text-amber-200">
+                  <span className="inline-flex items-center rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF]">
                     {folioLabel}
                   </span>
                 ) : null}
                 {statusLabel ? (
-                  <span className="inline-flex items-center rounded-full border border-[#e7ded0] bg-[#fcfaf6] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]">
+                  <span className="inline-flex items-center rounded-full border border-[#E7E7EA] bg-[#FAFAFA] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#52525B] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]">
                     {statusLabel}
                   </span>
                 ) : null}
@@ -326,7 +326,7 @@ export default function ProyectoPdfPage() {
                   ? `Documento operativo de ${clienteNombre}: bitácora por jornada, equipo de campo, firmas y evidencias.`
                   : "Revise el documento en el panel; el lateral abre otra pestaña o descarga el archivo."}
               </p>
-              <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
+              <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#1B5CFF]/35 via-[#4B7CFF]/30 to-transparent dark:from-[#4B7CFF]/35 dark:via-[#64748b]/25 dark:to-transparent" />
             </div>
           </div>
           <div className="relative z-[1] flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
@@ -346,10 +346,10 @@ export default function ProyectoPdfPage() {
         <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
           <div className="min-w-0 lg:col-span-8">
             <div className={`flex min-h-0 flex-col ${cardShellClass} lg:min-h-[calc(100vh-13.5rem)]`}>
-              <div className="border-b border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 dark:border-[#273244] dark:bg-[#111a2b] sm:px-5 sm:py-3.5">
+              <div className="border-b border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 dark:border-[#273244] dark:bg-[#111a2b] sm:px-5 sm:py-3.5">
                 <div className="flex flex-wrap items-end justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#fb923c]/30 dark:bg-[#fb923c]/10 dark:text-[#fdba74]">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#BFD3FF] bg-[#F1F5FF] text-[#1244D1] dark:border-[#4B7CFF]/30 dark:bg-[#4B7CFF]/10 dark:text-[#4B7CFF]">
                       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                         <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" strokeLinejoin="round" />
                         <circle cx="12" cy="12" r="3" />
@@ -357,35 +357,35 @@ export default function ProyectoPdfPage() {
                     </span>
                     <div>
                       <p className={sectionLabelOrangeClass}>Vista previa</p>
-                      <p className="mt-0.5 text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
+                      <p className="mt-0.5 text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">
                         {isHtmlFallback ? "Documento HTML" : "Proyecto"}
                       </p>
                     </div>
                   </div>
-                  <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                  <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
                     {isHtmlFallback ? "Respaldo HTML: el motor PDF no está disponible." : "El visor usa el motor PDF del navegador."}
                   </p>
                 </div>
               </div>
-              <div className="flex min-h-0 flex-1 flex-col bg-[#fcfaf6] p-2 dark:bg-[#0f172a] sm:p-3">
+              <div className="flex min-h-0 flex-1 flex-col bg-[#FAFAFA] p-2 dark:bg-[#0f172a] sm:p-3">
                 {loading ? (
                   <div
-                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
+                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
                     role="status"
                     aria-busy="true"
                     aria-live="polite"
                     aria-label="Cargando documento"
                   >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#ff801f]/10">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#1B5CFF]/10">
                       <span
-                        className="h-7 w-7 animate-spin rounded-full border-2 border-[#e7ded0] border-t-[#ff801f] motion-reduce:animate-none dark:border-[#334155] dark:border-t-[#ffa057]"
+                        className="h-7 w-7 animate-spin rounded-full border-2 border-[#E7E7EA] border-t-[#1B5CFF] motion-reduce:animate-none dark:border-[#334155] dark:border-t-[#4B7CFF]"
                         aria-hidden
                       />
                     </div>
-                    <p className="mt-4 text-sm text-[#78716c] dark:text-[#8ea0b8]">Preparando vista previa…</p>
+                    <p className="mt-4 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">Preparando vista previa…</p>
                   </div>
                 ) : pdfObjectUrl ? (
-                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#273244] dark:bg-[#0f172a]">
+                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]">
                     <iframe
                       title={viewerTitle}
                       aria-label={viewerTitle}
@@ -395,12 +395,12 @@ export default function ProyectoPdfPage() {
                     />
                   </div>
                 ) : (
-                  <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 px-6 py-12 text-center dark:border-[#273244] dark:bg-[#0f172a]/40 lg:min-h-[calc(100vh-13.5rem)]">
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#ff801f]/10 text-[#ea580c] dark:text-[#fb923c]">
+                  <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 px-6 py-12 text-center dark:border-[#273244] dark:bg-[#0f172a]/40 lg:min-h-[calc(100vh-13.5rem)]">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#1B5CFF]/10 text-[#1B5CFF] dark:text-[#4B7CFF]">
                       {emptyDocIcon}
                     </div>
-                    <p className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]">No hay documento disponible</p>
-                    <p className="mt-1.5 max-w-sm text-sm text-[#78716c] dark:text-[#8ea0b8]">
+                    <p className="text-base font-semibold text-[#09090B] dark:text-[#f8fafc]">No hay documento disponible</p>
+                    <p className="mt-1.5 max-w-sm text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
                       No se pudo generar la vista previa. Compruebe el proyecto o vuelva al listado.
                     </p>
                     <div className="mt-6 flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
@@ -414,7 +414,7 @@ export default function ProyectoPdfPage() {
                       </button>
                       <Link
                         to="/proyectos"
-                        className="text-sm font-medium text-[#ea580c] underline-offset-4 hover:underline dark:text-[#fb923c]"
+                        className="text-sm font-medium text-[#1B5CFF] underline-offset-4 hover:underline dark:text-[#4B7CFF]"
                       >
                         Ir a proyectos
                       </Link>
@@ -427,10 +427,10 @@ export default function ProyectoPdfPage() {
 
           <aside className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:top-6 lg:self-start xl:top-8">
             <div className={cardShellClass}>
-              <div className="border-b border-[#e7ded0] px-4 py-4 dark:border-[#273244] sm:px-5">
+              <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-5">
                 <p className={sectionLabelOrangeClass}>Documento</p>
                 <h2 className={`mt-1 ${erpSubheadingClass}`}>Archivo y acciones</h2>
-                <p className="mt-1 text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">
+                <p className="mt-1 text-xs text-[#6E6E77] dark:text-[#8ea0b8] sm:text-sm">
                   Nombre sugerido al descargar y accesos rápidos.
                 </p>
               </div>
@@ -439,19 +439,19 @@ export default function ProyectoPdfPage() {
                   {CONTENT_CHIPS.map((chip) => (
                     <li
                       key={chip.id}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[#e7ded0] bg-[#fcfaf6] px-2.5 py-1 text-[11px] font-medium text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#E7E7EA] bg-[#FAFAFA] px-2.5 py-1 text-[11px] font-medium text-[#52525B] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
                     >
-                      <span className="text-[#ea580c] dark:text-[#fb923c]">{chip.icon}</span>
+                      <span className="text-[#1B5CFF] dark:text-[#4B7CFF]">{chip.icon}</span>
                       {chip.label}
                     </li>
                   ))}
                 </ul>
 
                 <div className={`${erpCardShellMutedClass} px-3 py-2.5`}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#78716c] dark:text-[#8ea0b8]">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">
                     Nombre de archivo
                   </p>
-                  <code className="mt-1 block break-all rounded-md border border-[#e7ded0] bg-[#fffdfa] px-2.5 py-1.5 text-xs font-medium text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
+                  <code className="mt-1 block break-all rounded-md border border-[#E7E7EA] bg-[#FFFFFF] px-2.5 py-1.5 text-xs font-medium text-[#09090B] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
                     {filename}
                   </code>
                 </div>
@@ -492,7 +492,7 @@ export default function ProyectoPdfPage() {
                   </button>
                 </div>
 
-                <p className="text-[11px] leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                <p className="text-[11px] leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
                   Si la vista previa se ve cortada o es pesada (fotos), abra el archivo en una pestaña nueva o descárguelo.
                 </p>
               </div>

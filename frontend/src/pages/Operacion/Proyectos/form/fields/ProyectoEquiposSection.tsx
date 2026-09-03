@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { erpSecondaryBtnClass } from "@/layout/erpPageStyles";
+import { erpSecondaryBtnClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { ProyectoFormSection } from "../ProyectoFormSection";
 import { displayCotizacionFolio, estadoBadgeClass, estadoInstalacionLabel } from "../../shared/proyectoFormUtils";
 import {
@@ -121,21 +121,21 @@ export function ProyectoEquiposSection({
               className={proyectoEquipoGroupClass}
               aria-labelledby={headingId}
             >
-              <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[#e7ded0]/80 px-3.5 py-3 dark:border-[#334155]/80 sm:px-4">
+              <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[#E7E7EA]/80 px-3.5 py-3 dark:border-[#334155]/80 sm:px-4">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ea580c] dark:text-[#fb923c]">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1B5CFF] dark:text-[#4B7CFF]">
                     Estación de equipo
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <span
-                      className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#ff801f]/15 px-2 text-[11px] font-bold tabular-nums text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]"
+                      className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#1B5CFF]/15 px-2 text-[11px] font-bold tabular-nums text-[#1244D1] dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]"
                       aria-hidden
                     >
                       {bloque.orden}
                     </span>
                     <h5
                       id={headingId}
-                      className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]"
+                      className="text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]"
                     >
                       Cotización {bloque.orden} · {displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}
                     </h5>
@@ -146,7 +146,7 @@ export function ProyectoEquiposSection({
                   className="flex min-w-[11rem] flex-1 flex-col gap-1.5 sm:max-w-[14rem] sm:flex-none"
                   aria-label={`Avance cotización ${bloque.orden}: ${prog.entregados} entregados, ${prog.instalados} instalados de ${prog.total}`}
                 >
-                  <div className="flex items-center justify-between gap-2 text-[10px] font-medium tabular-nums text-[#78716c] dark:text-[#8ea0b8]">
+                  <div className="flex items-center justify-between gap-2 text-[10px] font-medium tabular-nums text-[#6E6E77] dark:text-[#8ea0b8]">
                     <span>Entrega</span>
                     <span>
                       {prog.entregados}/{prog.total}
@@ -161,11 +161,11 @@ export function ProyectoEquiposSection({
                     aria-label={`Entrega ${entregaPct} por ciento`}
                   >
                     <span
-                      className="block h-full rounded-full bg-[#ff801f] transition-[width] duration-300 ease-out"
+                      className="block h-full rounded-full bg-[#1B5CFF] transition-[width] duration-300 ease-out"
                       style={{ width: `${entregaPct}%` }}
                     />
                   </div>
-                  <div className="flex items-center justify-between gap-2 text-[10px] font-medium tabular-nums text-[#78716c] dark:text-[#8ea0b8]">
+                  <div className="flex items-center justify-between gap-2 text-[10px] font-medium tabular-nums text-[#6E6E77] dark:text-[#8ea0b8]">
                     <span>Instalación</span>
                     <span>
                       {prog.instalados}/{prog.total}
@@ -211,7 +211,7 @@ export function ProyectoEquiposSection({
                                 src={eq.imagenUrl}
                                 alt={eq.modelo}
                                 size="lg"
-                                className="border-[#e7ded0] bg-[#fcfaf6] shadow-sm dark:border-[#334155] dark:bg-[#0f172a]"
+                                className="border-[#E7E7EA] bg-[#FAFAFA] shadow-sm dark:border-[#334155] dark:bg-[#0f172a]"
                               />
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -226,7 +226,7 @@ export function ProyectoEquiposSection({
                                 </div>
                                 <h6
                                   id={titleId}
-                                  className="mt-1.5 text-sm font-semibold leading-snug text-[#1c1917] dark:text-[#f8fafc]"
+                                  className="mt-1.5 text-sm font-semibold leading-snug text-[#09090B] dark:text-[#f8fafc]"
                                 >
                                   {eq.modelo}
                                 </h6>
@@ -251,7 +251,7 @@ export function ProyectoEquiposSection({
                             <label className={proyectoEquipoDeliveredClass(eq.equipoEntregado)}>
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 rounded border-[#d6d3d1] text-[#ff801f] focus:ring-[#ff801f]/30"
+                                className="h-4 w-4 rounded border-[#D3D3D8] text-[#1B5CFF] focus:ring-[#1B5CFF]/30"
                                 checked={eq.equipoEntregado}
                                 disabled={!presupuestoCargado}
                                 onChange={(e) =>
@@ -260,10 +260,10 @@ export function ProyectoEquiposSection({
                                 aria-label={`Equipo entregado: ${eq.modelo}`}
                               />
                               <span className="leading-tight">
-                                <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#78716c] dark:text-[#8ea0b8]">
+                                <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">
                                   Entrega
                                 </span>
-                                <span className="text-xs font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                                <span className="text-xs font-semibold text-[#09090B] dark:text-[#f8fafc]">
                                   {eq.equipoEntregado ? "Entregado" : "Pendiente"}
                                 </span>
                               </span>
@@ -274,14 +274,14 @@ export function ProyectoEquiposSection({
                             <div>
                               <p
                                 id={installGroupId}
-                                className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#78716c] dark:text-[#8ea0b8]"
+                                className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6E6E77] dark:text-[#8ea0b8]"
                               >
                                 Instalación
                               </p>
                               <div
                                 role="radiogroup"
                                 aria-labelledby={installGroupId}
-                                className="inline-flex max-w-full flex-wrap rounded-xl border border-[#e2d9ca] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0b1220]"
+                                className="inline-flex max-w-full flex-wrap rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#334155] dark:bg-[#0b1220]"
                               >
                                 {(
                                   [
@@ -327,7 +327,7 @@ export function ProyectoEquiposSection({
                                     <button
                                       type="button"
                                       disabled={!presupuestoCargado}
-                                      className="rounded-lg border border-[#e2d9ca] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#57534e] transition hover:border-[#ff801f]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/25 disabled:opacity-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
+                                      className="rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#52525B] transition hover:border-[#1B5CFF]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/25 disabled:opacity-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
                                       onClick={() => onRestaurarModelo(eq)}
                                       aria-label={`Restaurar modelo original de ${eq.modeloOriginal}`}
                                     >
@@ -336,7 +336,7 @@ export function ProyectoEquiposSection({
                                   ) : null}
                                 </>
                               ) : (
-                                <p className="max-w-[16rem] text-[11px] leading-snug text-[#78716c] dark:text-[#8ea0b8]">
+                                <p className="max-w-[16rem] text-[11px] leading-snug text-[#6E6E77] dark:text-[#8ea0b8]">
                                   Solo un administrador puede cambiar el modelo desde el catálogo
                                   (Syscom, TVC o Manual).
                                 </p>

@@ -3,7 +3,13 @@ import { CalendarDays, FileText, UserRound } from "lucide-react";
 import DatePicker from "@/components/form/date-picker";
 import SearchableSelect from "@/components/form/SearchableSelect";
 import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
-import { erpInputLikeClass, erpSectionLabelClass, erpSelectFieldClass } from "@/layout/erpPageStyles";
+import {
+  erpInputLikeClass,
+  erpSelectFieldClass,
+} from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+
+const sectionLabelClass =
+  "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6E6E77] dark:text-[#8EA0B8] sm:text-xs";
 import { listCotizacionesDeCliente, type CotizacionOption } from "./list/polizaApi";
 import { clienteNombreFromOptionLabel, clienteToSelectOption, mergeClienteOptions } from "./list/polizaClienteOptions";
 import {
@@ -22,8 +28,8 @@ function CheckDot({ done, label }: { done: boolean; label: string }) {
       <span
         className={`inline-flex size-4 shrink-0 items-center justify-center rounded-full border ${
           done
-            ? "border-[#ff801f] bg-[#ff801f] text-[#1c1917]"
-            : "border-[#d6d3d1] bg-transparent text-transparent"
+            ? "border-[#1B5CFF] bg-[#1B5CFF] text-white"
+            : "border-[#D3D3D8] bg-transparent text-transparent dark:border-[#3A4661]"
         }`}
         aria-hidden
       >
@@ -31,7 +37,7 @@ function CheckDot({ done, label }: { done: boolean; label: string }) {
           <path d="M2.5 6.2 4.8 8.5 9.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </svg>
       </span>
-      <span className={done ? "text-[#1c1917] dark:text-[#f8fafc]" : "text-[#78716c] dark:text-[#94a3b8]"}>
+      <span className={done ? "text-[#09090B] dark:text-[#F8FAFC]" : "text-[#6E6E77] dark:text-[#8EA0B8]"}>
         {label}
         <span className="sr-only">{done ? ", completo" : ", pendiente"}</span>
       </span>
@@ -258,25 +264,25 @@ export default function PolizaAltaForm({
       noValidate
       className={
         embedded
-          ? "overflow-hidden rounded-[1.15rem] border border-[#e4dcd0] bg-[#faf8f4] dark:border-[#273244] dark:bg-[#111827]"
-          : "overflow-hidden rounded-[1.35rem] border border-[#e4dcd0] bg-[#faf8f4] shadow-[0_40px_80px_-48px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111827]"
+          ? "overflow-hidden rounded-[1.15rem] border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#111827]"
+          : "overflow-hidden rounded-[1.35rem] border border-[#E7E7EA] bg-white shadow-[0_40px_80px_-48px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:bg-[#111827]"
       }
     >
       <div className="grid lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside
-          className="relative border-b border-[#e4dcd0] bg-[#f3eee6] px-5 py-6 dark:border-[#273244] dark:bg-[#0c1322] lg:border-b-0 lg:border-r"
+          className="relative border-b border-[#E7E7EA] bg-[#FAFAFA] px-5 py-6 dark:border-[#273244] dark:bg-[#0f172a] lg:border-b-0 lg:border-r"
           aria-label="Resumen de la póliza"
         >
-          <p className={erpSectionLabelClass}>Folio</p>
-          <p className="mt-3 [font-family:Georgia,'Times_New_Roman',serif] text-[1.85rem] leading-none tracking-[-0.03em] text-[#1c1917] dark:text-[#f8fafc]">
+          <p className={sectionLabelClass}>Folio</p>
+          <p className="mt-3 text-[1.85rem] font-bold leading-none tracking-[-0.03em] text-[#09090B] dark:text-[#F8FAFC]">
             {folio}
           </p>
-          <p className="mt-2 text-[12px] text-[#78716c] dark:text-[#94a3b8]">
+          <p className="mt-2 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">
             {folioIsPreview
               ? `El siguiente número al guardar será ${folio.replace(/^[A-Z]+-/, "")}. Aún no se asigna.`
               : "Folio de esta póliza."}
           </p>
-          <div className="mt-6 h-px bg-[#e4dcd0] dark:bg-[#273244]" aria-hidden />
+          <div className="mt-6 h-px bg-[#E7E7EA] dark:bg-[#273244]" aria-hidden />
           <ul className="mt-5 space-y-2.5" aria-label="Campos del expediente">
             <CheckDot done={Boolean(clienteId)} label="Cliente" />
             <CheckDot done={Boolean(tipo)} label="Tipo de póliza" />
@@ -290,11 +296,11 @@ export default function PolizaAltaForm({
         <div className={embedded ? "p-5 sm:p-7" : "p-6 sm:p-9"}>
           {embedded ? null : (
             <>
-              <p className={erpSectionLabelClass}>Expediente</p>
-              <h2 id="poliza-alta-heading" className="mt-2 text-lg font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+              <p className={sectionLabelClass}>Expediente</p>
+              <h2 id="poliza-alta-heading" className="mt-2 text-lg font-semibold text-[#09090B] dark:text-[#F8FAFC]">
                 Nueva póliza
               </h2>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#57534e] dark:text-[#b7c1d1]">
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#52525B] dark:text-[#B7C1D1]">
                 Elige cliente, tipo de servicio, cotización y las tres visitas.
               </p>
             </>
@@ -304,7 +310,7 @@ export default function PolizaAltaForm({
             <legend className="sr-only">Datos de la póliza de mantenimiento</legend>
 
             <div>
-              <div className="mb-3 flex items-center gap-2 text-[#78716c] dark:text-[#94a3b8]">
+              <div className="mb-3 flex items-center gap-2 text-[#1B5CFF] dark:text-[#4B7CFF]">
                 <UserRound className="size-4" strokeWidth={1.75} aria-hidden />
                 <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">Cliente</span>
               </div>
@@ -338,11 +344,11 @@ export default function PolizaAltaForm({
                   {clienteLoadError}
                 </p>
               ) : !loadingClientes && clienteOptions.length === 0 ? (
-                <p className="mt-2 text-sm text-[#78716c] dark:text-[#94a3b8]">
+                <p className="mt-2 text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
                   No hay contactos para mostrar. Revísalos en Contactos: Empresa, Personas o Proveedores.
                 </p>
               ) : (
-                <p className="mt-2 text-sm text-[#78716c] dark:text-[#94a3b8]">
+                <p className="mt-2 text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
                   Incluye empresas, personas y proveedores. Escribe el nombre para buscar más allá de la primera página.
                 </p>
               )}
@@ -353,7 +359,7 @@ export default function PolizaAltaForm({
                 htmlFor="poliza-tipo-servicio"
                 className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
               >
-                Tipo de servicio <span className="text-red-500">*</span>
+                Tipo de servicio <span className="text-[#C22B2B]" aria-hidden>*</span>
               </label>
               <select
                 id="poliza-tipo-servicio"
@@ -371,7 +377,7 @@ export default function PolizaAltaForm({
                   htmlFor="poliza-servicio-tipo"
                   className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
                 >
-                  Tipo de servicio (texto) <span className="text-red-500">*</span>
+                  Tipo de servicio (texto) <span className="text-[#C22B2B]" aria-hidden>*</span>
                 </label>
                 <input
                   id="poliza-servicio-tipo"
@@ -395,7 +401,7 @@ export default function PolizaAltaForm({
                   htmlFor="poliza-equipos-atendidos"
                   className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
                 >
-                  Equipos atendidos <span className="text-red-500">*</span>
+                  Equipos atendidos <span className="text-[#C22B2B]" aria-hidden>*</span>
                 </label>
                 <input
                   id="poliza-equipos-atendidos"
@@ -417,7 +423,7 @@ export default function PolizaAltaForm({
             </div>
 
             <div>
-              <div className="mb-3 flex items-center gap-2 text-[#78716c] dark:text-[#94a3b8]">
+              <div className="mb-3 flex items-center gap-2 text-[#1B5CFF] dark:text-[#4B7CFF]">
                 <FileText className="size-4" strokeWidth={1.75} aria-hidden />
                 <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">Cotización</span>
               </div>
@@ -441,6 +447,7 @@ export default function PolizaAltaForm({
                 }
                 disabled={!clienteId}
                 filterLocally
+                invalid={Boolean(cotizacionError)}
               />
               {cotizacionError ? (
                 <p className="mt-2 text-sm text-[#c64545]" role="alert">
@@ -448,20 +455,20 @@ export default function PolizaAltaForm({
                 </p>
               ) : null}
               {clienteId && !loadingCotizaciones && cotizacionOptions.length === 0 ? (
-                <p className="mt-2 text-sm text-[#78716c] dark:text-[#94a3b8]">
+                <p className="mt-2 text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
                   No hay cotizaciones DigitalFlow para este cliente. Revísalas en Ventas → Cotización.
                 </p>
               ) : null}
             </div>
 
             <div>
-              <div className="mb-3 flex items-center gap-2 text-[#78716c] dark:text-[#94a3b8]">
+              <div className="mb-3 flex items-center gap-2 text-[#1B5CFF] dark:text-[#4B7CFF]">
                 <CalendarDays className="size-4" strokeWidth={1.75} aria-hidden />
                 <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">
                   Planificación
                 </span>
               </div>
-              <p className="mb-4 text-sm text-[#57534e] dark:text-[#b7c1d1]">
+              <p className="mb-4 text-sm text-[#52525B] dark:text-[#B7C1D1]">
                 Tres visitas al año. Elige el intervalo y la fecha del 1.er mantenimiento; las
                 siguientes se calculan solas.
               </p>
@@ -470,7 +477,7 @@ export default function PolizaAltaForm({
                   htmlFor="poliza-intervalo-meses"
                   className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
                 >
-                  Intervalo entre visitas <span className="text-red-500">*</span>
+                  Intervalo entre visitas <span className="text-[#C22B2B]" aria-hidden>*</span>
                 </label>
                 <select
                   id="poliza-intervalo-meses"
@@ -482,7 +489,7 @@ export default function PolizaAltaForm({
                   <option value={2}>Cada 2 meses (3 visitas al año)</option>
                 </select>
               </div>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-3 [&_input:focus]:!border-[#1B5CFF] [&_input:focus]:!ring-[#1B5CFF]/20 dark:[&_input:focus]:!border-[#4B7CFF]">
                 <DatePicker
                   id="poliza-fecha-visita-1"
                   label="1.er mantenimiento"
@@ -515,7 +522,7 @@ export default function PolizaAltaForm({
                   }}
                 />
               </div>
-              <p className="mt-2 text-sm text-[#78716c] dark:text-[#94a3b8]">
+              <p className="mt-2 text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
                 Con intervalo de {intervaloMeses} meses:{" "}
                 {fecha1 && fecha2 && fecha3
                   ? `${fecha1} → ${fecha2} → ${fecha3}`

@@ -35,13 +35,13 @@ function fuenteBadgeClass(fuente: CatalogoProductoOrden["fuente"]): string {
   if (fuente === "tvc") {
     return "bg-[#1e3a5f] text-[#f8fafc]";
   }
-  return "bg-[#efe9de] text-[#141413] dark:bg-[#334155] dark:text-[#f8fafc]";
+  return "bg-[#E4E4E7] text-[#141413] dark:bg-[#273244] dark:text-[#f8fafc]";
 }
 
 function SearchSpinner({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <span
-      className={`inline-block shrink-0 motion-safe:animate-spin rounded-full border-2 border-[#ff801f] border-r-transparent dark:border-[#fb923c] dark:border-r-transparent ${className}`}
+      className={`inline-block shrink-0 motion-safe:animate-spin rounded-full border-2 border-[#1B5CFF] border-r-transparent dark:border-[#4B7CFF] dark:border-r-transparent ${className}`}
       aria-hidden
     />
   );
@@ -75,24 +75,24 @@ function sourceStateLabel(state: "done" | "active" | "wait"): string {
 
 function SearchSkeletonRows() {
   return (
-    <ul className="divide-y divide-[#efe9de] dark:divide-[#1e293b]" aria-hidden>
+    <ul className="divide-y divide-[#E4E4E7] dark:divide-[#1e293b]" aria-hidden>
       {[0, 1, 2].map((i) => (
         <li key={i} className="flex min-h-11 items-center gap-3 px-3 py-2.5">
           <span
-            className="size-10 shrink-0 rounded-lg border border-dashed border-[#e2d9ca] bg-[#fcfaf6] motion-safe:animate-pulse dark:border-[#334155] dark:bg-[#0f172a]"
+            className="size-10 shrink-0 rounded-lg border border-dashed border-[#E7E7EA] bg-[#FAFAFA] motion-safe:animate-pulse dark:border-[#273244] dark:bg-[#0f172a]"
             style={{ animationDelay: `${i * 90}ms` }}
           />
           <span className="min-w-0 flex-1 space-y-2">
             <span
-              className="block h-3 w-[72%] rounded-sm bg-[#efe9de] motion-safe:animate-pulse dark:bg-[#1e293b]"
+              className="block h-3 w-[72%] rounded-sm bg-[#E4E4E7] motion-safe:animate-pulse dark:bg-[#1e293b]"
               style={{ animationDelay: `${i * 90 + 40}ms` }}
             />
             <span
-              className="block h-2 w-[44%] rounded-sm bg-[#e7ded0] motion-safe:animate-pulse dark:bg-[#334155]"
+              className="block h-2 w-[44%] rounded-sm bg-[#E7E7EA] motion-safe:animate-pulse dark:bg-[#273244]"
               style={{ animationDelay: `${i * 90 + 80}ms` }}
             />
           </span>
-          <span className="h-2.5 w-10 shrink-0 rounded-sm bg-[#ff801f]/25 motion-safe:animate-pulse dark:bg-[#fb923c]/25" />
+          <span className="h-2.5 w-10 shrink-0 rounded-sm bg-[#1B5CFF]/25 motion-safe:animate-pulse dark:bg-[#4B7CFF]/25" />
         </li>
       ))}
     </ul>
@@ -116,48 +116,48 @@ function SearchLoadingPanel({ id, query, phase }: SearchLoadingPanelProps) {
   return (
     <div
       id={id}
-      className="relative overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] dark:border-[#334155] dark:bg-[#0b1220]"
+      className="relative overflow-hidden rounded-xl border border-[#E7E7EA] bg-[#FFFFFF] dark:border-[#273244] dark:bg-[#0b1220]"
       role="status"
       aria-live="polite"
       aria-busy="true"
       aria-atomic="true"
     >
       <span
-        className="absolute inset-y-0 left-0 w-1 bg-[#ff801f]"
+        className="absolute inset-y-0 left-0 w-1 bg-[#1B5CFF]"
         aria-hidden
       />
       <div className="flex items-start gap-3 px-4 py-3.5 pl-5">
         <span className="relative mt-0.5 flex size-10 shrink-0 items-center justify-center">
           <span
-            className="absolute -inset-0.5 rounded-xl border-2 border-[#ff801f]/45 motion-safe:animate-ping"
+            className="absolute -inset-0.5 rounded-xl border-2 border-[#1B5CFF]/45 motion-safe:animate-ping"
             aria-hidden
           />
           <span
-            className="relative flex size-10 items-center justify-center rounded-xl bg-[#ff801f] text-black"
+            className="relative flex size-10 items-center justify-center rounded-xl bg-[#1B5CFF] text-white"
             aria-hidden
           >
             <SearchIcon className="h-4 w-4" />
           </span>
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#ea580c] dark:text-[#fb923c]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#1B5CFF] dark:text-[#4B7CFF]">
             Escaneando
           </p>
-          <p className="mt-0.5 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+          <p className="mt-0.5 text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
             {title}
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+          <p className="mt-1 text-xs leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
             {detail}
           </p>
         </div>
       </div>
 
       <div
-        className="mx-4 mb-3 h-1 overflow-hidden rounded-full bg-[#efe9de] dark:bg-[#1e293b]"
+        className="mx-4 mb-3 h-1 overflow-hidden rounded-full bg-[#E4E4E7] dark:bg-[#1e293b]"
         aria-hidden
       >
         <div
-          className="h-full rounded-full bg-[#ff801f] transition-[width] duration-500 ease-out motion-reduce:transition-none"
+          className="h-full rounded-full bg-[#1B5CFF] transition-[width] duration-500 ease-out motion-reduce:transition-none"
           style={{ width: phase === "catalogo" ? "78%" : "42%" }}
         />
       </div>
@@ -171,14 +171,14 @@ function SearchLoadingPanel({ id, query, phase }: SearchLoadingPanelProps) {
               <span
                 className={
                   state === "active"
-                    ? "inline-flex min-h-7 items-center gap-1.5 rounded-md bg-[#ff801f] px-2 py-1 text-[10px] font-semibold text-black"
+                    ? "inline-flex min-h-7 items-center gap-1.5 rounded-md bg-[#1B5CFF] px-2 py-1 text-[10px] font-semibold text-white"
                     : state === "done"
-                      ? "inline-flex min-h-7 items-center gap-1.5 rounded-md border border-[#d6d3d1] bg-[#fcfaf6] px-2 py-1 text-[10px] font-semibold text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
-                      : "inline-flex min-h-7 items-center gap-1.5 rounded-md border border-[#e7ded0] bg-white px-2 py-1 text-[10px] font-medium text-[#a8a29e] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#64748b]"
+                      ? "inline-flex min-h-7 items-center gap-1.5 rounded-md border border-[#D3D3D8] bg-[#FAFAFA] px-2 py-1 text-[10px] font-semibold text-[#52525B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#cbd5e1]"
+                      : "inline-flex min-h-7 items-center gap-1.5 rounded-md border border-[#E7E7EA] bg-white px-2 py-1 text-[10px] font-medium text-[#A1A1AA] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#64748b]"
                 }
               >
                 {state === "active" ? (
-                  <SearchSpinner className="h-2.5 w-2.5 border-[#1c1917] border-r-transparent" />
+                  <SearchSpinner className="h-2.5 w-2.5 border-[#09090B] border-r-transparent" />
                 ) : null}
                 {source.label}
                 <span className="font-medium opacity-80">· {stateLabel}</span>
@@ -188,7 +188,7 @@ function SearchLoadingPanel({ id, query, phase }: SearchLoadingPanelProps) {
         })}
       </ol>
 
-      <div className="border-t border-[#efe9de] dark:border-[#1e293b]">
+      <div className="border-t border-[#E4E4E7] dark:border-[#1e293b]">
         <SearchSkeletonRows />
       </div>
     </div>
@@ -318,17 +318,17 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
 
   return (
     <div
-      className="overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]/40"
+      className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]/40"
       aria-busy={busy || undefined}
     >
-      <div className="border-b border-[#efe9de] px-4 py-3 dark:border-[#1e293b]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c]">
+      <div className="border-b border-[#E4E4E7] px-4 py-3 dark:border-[#1e293b]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1B5CFF] dark:text-[#4B7CFF]">
           Inventario
         </p>
-        <h4 className="mt-0.5 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+        <h4 className="mt-0.5 text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
           Agregar producto
         </h4>
-        <p id={statusId} className="mt-1 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+        <p id={statusId} className="mt-1 text-xs leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
           Primero busca en almacén. Si no está registrado, elige SYSCOM, TVC o un
           producto manual; se da de alta con stock 1 para permitir entrega inmediata.
         </p>
@@ -338,7 +338,7 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
         <div>
           <label
             htmlFor={searchId}
-            className="mb-1.5 block text-xs font-semibold text-[#57534e] dark:text-[#cbd5e1]"
+            className="mb-1.5 block text-xs font-semibold text-[#52525B] dark:text-[#cbd5e1]"
           >
             Buscar producto
           </label>
@@ -399,14 +399,14 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
         )}
 
         {showEmpty ? (
-          <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]" role="status">
+          <p className="text-xs text-[#6E6E77] dark:text-[#8ea0b8]" role="status">
             Sin resultados en almacén ni en el catálogo de Productos para «{activeQuery}».
           </p>
         ) : null}
 
         {results.length > 0 && !waitingDebounce && !searching ? (
           <ul
-            className="max-h-56 divide-y divide-[#efe9de] overflow-y-auto rounded-xl border border-[#e7ded0] bg-white dark:divide-[#1e293b] dark:border-[#334155] dark:bg-[#0b1220]"
+            className="max-h-56 divide-y divide-[#E4E4E7] overflow-y-auto rounded-xl border border-[#E7E7EA] bg-white dark:divide-[#1e293b] dark:border-[#273244] dark:bg-[#0b1220]"
             role="listbox"
             aria-label="Resultados de inventario"
           >
@@ -419,20 +419,20 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
                     role="option"
                     disabled={disabled || Boolean(pickingKey)}
                     onClick={() => handlePick(item)}
-                    className="flex min-h-11 w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-[#fff4eb]/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff801f]/35 disabled:opacity-50 dark:hover:bg-[#111a2b]/80"
+                    className="flex min-h-11 w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-[#F1F5FF]/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/35 disabled:opacity-50 dark:hover:bg-[#111827]/80"
                   >
                     <InventarioThumb src={item.imagen_url} alt={label} size={40} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                      <span className="block truncate text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
                         {label}
                       </span>
-                      <span className="mt-0.5 block truncate text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                      <span className="mt-0.5 block truncate text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
                         {[item.marca, item.modelo, item.codigo_barras].filter(Boolean).join(" · ")}
                         {" · "}
                         Stock {item.cantidad}
                       </span>
                     </span>
-                    <span className="shrink-0 text-[11px] font-semibold text-[#ea580c] dark:text-[#fb923c]">
+                    <span className="shrink-0 text-[11px] font-semibold text-[#1B5CFF] dark:text-[#4B7CFF]">
                       Agregar
                     </span>
                   </button>
@@ -444,15 +444,15 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
 
         {catalog.length > 0 && !waitingDebounce && !searching && !searchingCatalog ? (
           <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6c6a64] dark:text-[#94a3b8]">
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#94a3b8]">
               Catálogo de Productos
             </p>
-            <p className="mb-2 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+            <p className="mb-2 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
               No está en almacén. Al agregarlo se registra con stock 1 para poder marcar
               Entregado en esta orden.
             </p>
             <ul
-              className="max-h-56 divide-y divide-[#efe9de] overflow-y-auto rounded-xl border border-dashed border-[#cc785c]/45 bg-white dark:divide-[#1e293b] dark:border-[#fb923c]/35 dark:bg-[#0b1220]"
+              className="max-h-56 divide-y divide-[#E4E4E7] overflow-y-auto rounded-xl border border-dashed border-[#1B5CFF]/45 bg-white dark:divide-[#1e293b] dark:border-[#4B7CFF]/35 dark:bg-[#0b1220]"
               role="listbox"
               aria-label="Resultados de SYSCOM, TVC y productos manuales"
             >
@@ -468,14 +468,14 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
                       aria-busy={picking || undefined}
                       disabled={disabled || Boolean(pickingKey)}
                       onClick={() => void handlePickCatalog(producto)}
-                      className="flex min-h-11 w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-[#fff4eb]/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff801f]/35 disabled:opacity-50 dark:hover:bg-[#111a2b]/80"
+                      className="flex min-h-11 w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-[#F1F5FF]/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/35 disabled:opacity-50 dark:hover:bg-[#111827]/80"
                     >
                       <InventarioThumb src={producto.imagenUrl} alt={label} size={40} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                        <span className="block truncate text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
                           {label}
                         </span>
-                        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+                        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
                           <span
                             className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide ${fuenteBadgeClass(producto.fuente)}`}
                           >
@@ -487,7 +487,7 @@ export function OrdenInventarioPicker({ onPick, disabled = false }: Props) {
                           </span>
                         </span>
                       </span>
-                      <span className="shrink-0 text-[11px] font-semibold text-[#cc785c] dark:text-[#fb923c]">
+                      <span className="shrink-0 text-[11px] font-semibold text-[#1B5CFF] dark:text-[#4B7CFF]">
                         {picking ? "Registrando…" : "Agregar"}
                       </span>
                     </button>

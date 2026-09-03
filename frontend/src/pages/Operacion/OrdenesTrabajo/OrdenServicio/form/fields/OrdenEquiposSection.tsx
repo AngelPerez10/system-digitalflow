@@ -7,23 +7,23 @@ import type {
 import type { OrdenEquipoLineaPatch } from "../ordenEquiposDraft";
 
 const listShellClass =
-  "overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] dark:border-[#334155] dark:bg-[#0f172a]/35";
+  "overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FFFFFF] dark:border-[#273244] dark:bg-[#0f172a]/35";
 
 const accentClass = (estado: OrdenEquipoEstadoInstalacion) =>
   estado === "instalado"
     ? "w-1 shrink-0 self-stretch bg-sky-500"
-    : "w-1 shrink-0 self-stretch bg-[#ff801f]/80";
+    : "w-1 shrink-0 self-stretch bg-[#1B5CFF]/80";
 
 const summaryChipClass = (tone: "neutral" | "entrega" | "instalacion") => {
   const base =
     "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tabular-nums";
   switch (tone) {
     case "entrega":
-      return `${base} border-[#ff801f]/30 bg-[#fff4eb] text-[#9a3412] dark:border-[#ff801f]/40 dark:bg-[#ff801f]/15 dark:text-[#fdba74]`;
+      return `${base} border-[#1B5CFF]/30 bg-[#F1F5FF] text-[#1244D1] dark:border-[#1B5CFF]/40 dark:bg-[#1B5CFF]/15 dark:text-[#4B7CFF]`;
     case "instalacion":
       return `${base} border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-700/50 dark:bg-sky-950/40 dark:text-sky-300`;
     default:
-      return `${base} border-[#e2d9ca] bg-white text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]`;
+      return `${base} border-[#E7E7EA] bg-white text-[#52525B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#cbd5e1]`;
   }
 };
 
@@ -31,21 +31,21 @@ const deliveredClass = (delivered: boolean) =>
   [
     "flex h-[3.25rem] w-full min-w-[10.5rem] max-w-[12rem] items-center gap-2.5 rounded-xl border px-3 transition",
     "has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50",
-    "focus-within:outline-none focus-within:ring-2 focus-within:ring-[#ff801f]/30",
+    "focus-within:outline-none focus-within:ring-2 focus-within:ring-[#1B5CFF]/30",
     delivered
       ? "border-emerald-300/80 bg-emerald-50 dark:border-emerald-600/50 dark:bg-emerald-950/35"
-      : "border-[#e2d9ca] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111a2b]",
+      : "border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827]",
   ].join(" ");
 
 const installBtnClass = (active: boolean, value: OrdenEquipoEstadoInstalacion) => {
   const base =
-    "min-h-9 min-w-[5.75rem] flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/35 disabled:opacity-50 sm:flex-none";
+    "min-h-9 min-w-[5.75rem] flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 disabled:opacity-50 sm:flex-none";
   if (!active) {
-    return `${base} text-[#57534e] hover:bg-white dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]/60`;
+    return `${base} text-[#52525B] hover:bg-white dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]/60`;
   }
   return value === "instalado"
     ? `${base} bg-sky-100 text-sky-900 shadow-sm dark:bg-sky-950/55 dark:text-sky-200`
-    : `${base} bg-[#fff4eb] text-[#9a3412] shadow-sm dark:bg-[#ff801f]/20 dark:text-[#fdba74]`;
+    : `${base} bg-[#F1F5FF] text-[#1244D1] shadow-sm dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]`;
 };
 
 const estadoLabel = (estado: OrdenEquipoEstadoInstalacion) =>
@@ -54,7 +54,7 @@ const estadoLabel = (estado: OrdenEquipoEstadoInstalacion) =>
 const estadoBadgeClass = (estado: OrdenEquipoEstadoInstalacion) =>
   estado === "instalado"
     ? "inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-800 dark:border-sky-700/50 dark:bg-sky-950/40 dark:text-sky-300"
-    : "inline-flex items-center rounded-full border border-[#ff801f]/25 bg-[#fff4eb] px-2 py-0.5 text-[10px] font-semibold text-[#9a3412] dark:border-[#ff801f]/35 dark:bg-[#ff801f]/15 dark:text-[#fdba74]";
+    : "inline-flex items-center rounded-full border border-[#1B5CFF]/25 bg-[#F1F5FF] px-2 py-0.5 text-[10px] font-semibold text-[#1244D1] dark:border-[#1B5CFF]/35 dark:bg-[#1B5CFF]/15 dark:text-[#4B7CFF]";
 
 type Props = {
   equipos: OrdenEquipoInventarioLinea[];
@@ -93,7 +93,7 @@ function EntregaControl({
       {interactive ? (
         <input
           type="checkbox"
-          className="h-4 w-4 shrink-0 rounded border-[#d6d3d1] text-[#ff801f] focus:ring-[#ff801f]/30"
+          className="h-4 w-4 shrink-0 rounded border-[#D3D3D8] text-[#1B5CFF] focus:ring-[#1B5CFF]/30"
           checked={delivered}
           disabled={disabled}
           title={disabledReason}
@@ -102,10 +102,10 @@ function EntregaControl({
         />
       ) : null}
       <span className="min-w-0 leading-tight">
-        <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#78716c] dark:text-[#8ea0b8]">
+        <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">
           Entrega
         </span>
-        <span className="text-xs font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+        <span className="text-xs font-semibold text-[#09090B] dark:text-[#f8fafc]">
           {delivered ? "Entregado" : "Pendiente"}
         </span>
       </span>
@@ -152,16 +152,16 @@ export function OrdenEquiposSection({
     <section className="space-y-3" aria-labelledby="orden-sec-equipos-title">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1B5CFF] dark:text-[#4B7CFF]">
             Campo
           </p>
           <h4
             id="orden-sec-equipos-title"
-            className="mt-0.5 text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]"
+            className="mt-0.5 text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]"
           >
             Equipos de la orden
           </h4>
-          <p className="mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+          <p className="mt-0.5 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
             Entrega e instalación de piezas tomadas del inventario.
           </p>
         </div>
@@ -186,13 +186,13 @@ export function OrdenEquiposSection({
 
       {equipos.length === 0 ? (
         <div
-          className="rounded-2xl border border-dashed border-[#e2d9ca] bg-[#fcfaf6] px-4 py-8 text-center dark:border-[#334155] dark:bg-[#0f172a]/40"
+          className="rounded-2xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA] px-4 py-8 text-center dark:border-[#273244] dark:bg-[#0f172a]/40"
           role="status"
         >
-          <p className="text-sm font-medium text-[#57534e] dark:text-[#cbd5e1]">
+          <p className="text-sm font-medium text-[#52525B] dark:text-[#cbd5e1]">
             {isAdmin ? "Sin equipos todavía" : "Sin equipos registrados"}
           </p>
-          <p className="mt-1 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+          <p className="mt-1 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
             {isAdmin
               ? "Usa el buscador de arriba: primero almacén y, si no está, SYSCOM, TVC o manuales."
               : "Esta orden no tiene equipos de inventario."}
@@ -200,7 +200,7 @@ export function OrdenEquiposSection({
         </div>
       ) : (
         <div className={listShellClass}>
-          <ul className="divide-y divide-[#efe9de] dark:divide-[#1e293b]">
+          <ul className="divide-y divide-[#E4E4E7] dark:divide-[#1e293b]">
             {equipos.map((eq) => {
               const titleId = `orden-eq-title-${eq.lineaId}`;
               const installGroupId = `orden-eq-install-${eq.lineaId}`;
@@ -217,7 +217,7 @@ export function OrdenEquiposSection({
               return (
                 <li key={eq.lineaId}>
                   <article
-                    className="relative flex bg-[#fffdfa] dark:bg-transparent"
+                    className="relative flex bg-[#FFFFFF] dark:bg-transparent"
                     aria-labelledby={titleId}
                   >
                     <div className={accentClass(eq.estadoInstalacion)} aria-hidden />
@@ -232,7 +232,7 @@ export function OrdenEquiposSection({
                               {estadoLabel(eq.estadoInstalacion)}
                             </span>
                             {typeof stock === "number" ? (
-                              <span className="inline-flex items-center rounded-full border border-[#e2d9ca] bg-white px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]">
+                              <span className="inline-flex items-center rounded-full border border-[#E7E7EA] bg-white px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#52525B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#cbd5e1]">
                                 Stock {stock}
                               </span>
                             ) : null}
@@ -244,11 +244,11 @@ export function OrdenEquiposSection({
                           </div>
                           <h5
                             id={titleId}
-                            className="mt-1.5 line-clamp-2 text-sm font-semibold leading-snug text-[#1c1917] dark:text-[#f8fafc]"
+                            className="mt-1.5 line-clamp-2 text-sm font-semibold leading-snug text-[#09090B] dark:text-[#f8fafc]"
                           >
                             {title}
                           </h5>
-                          <p className="mt-1 truncate text-[11px] leading-snug text-[#78716c] dark:text-[#8ea0b8]">
+                          <p className="mt-1 truncate text-[11px] leading-snug text-[#6E6E77] dark:text-[#8ea0b8]">
                             {[eq.marca, eq.modelo, eq.codigoBarras].filter(Boolean).join(" · ")}
                           </p>
                         </div>
@@ -268,13 +268,13 @@ export function OrdenEquiposSection({
                       </div>
 
                       {/* Controles inferiores */}
-                      <div className="grid gap-3 border-t border-[#efe9de]/90 pt-3 dark:border-[#1e293b]/90 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:items-start">
+                      <div className="grid gap-3 border-t border-[#E4E4E7]/90 pt-3 dark:border-[#1e293b]/90 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:items-start">
                         <div>
                           {canAdminMutate ? (
                             <>
                               <label
                                 htmlFor={qtyId}
-                                className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#78716c] dark:text-[#8ea0b8]"
+                                className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6E6E77] dark:text-[#8ea0b8]"
                               >
                                 Cantidad
                               </label>
@@ -306,7 +306,7 @@ export function OrdenEquiposSection({
                                     typeof stock === "number" ? stock : undefined,
                                   );
                                 }}
-                                className="h-10 w-full max-w-[7.5rem] rounded-xl border border-[#e2d9ca] bg-white px-3 text-sm tabular-nums text-[#1c1917] outline-none focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 disabled:cursor-not-allowed disabled:bg-[#f5f0e8] disabled:opacity-70 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:disabled:bg-[#111a2b]"
+                                className="h-10 w-full max-w-[7.5rem] rounded-xl border border-[#E7E7EA] bg-white px-3 text-sm tabular-nums text-[#09090B] outline-none focus:border-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/20 disabled:cursor-not-allowed disabled:bg-[#F4F4F5] disabled:opacity-70 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:disabled:bg-[#111827]"
                               />
                               {/* Hint en sr-only: no empuja Instalación hacia abajo al marcar Entregado */}
                               {eq.equipoEntregado ? (
@@ -317,10 +317,10 @@ export function OrdenEquiposSection({
                             </>
                           ) : (
                             <>
-                              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#78716c] dark:text-[#8ea0b8]">
+                              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6E6E77] dark:text-[#8ea0b8]">
                                 Cantidad
                               </p>
-                              <p className="text-sm font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc]">
+                              <p className="text-sm font-semibold tabular-nums text-[#09090B] dark:text-[#f8fafc]">
                                 {eq.cantidad}
                               </p>
                             </>
@@ -330,14 +330,14 @@ export function OrdenEquiposSection({
                         <div>
                           <p
                             id={installGroupId}
-                            className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#78716c] dark:text-[#8ea0b8]"
+                            className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6E6E77] dark:text-[#8ea0b8]"
                           >
                             Instalación
                           </p>
                           <div
                             role="radiogroup"
                             aria-labelledby={installGroupId}
-                            className="inline-flex max-w-full flex-wrap rounded-xl border border-[#e2d9ca] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0b1220]"
+                            className="inline-flex max-w-full flex-wrap rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#273244] dark:bg-[#0b1220]"
                           >
                             {(
                               [
