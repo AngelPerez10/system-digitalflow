@@ -38,8 +38,12 @@ const SIDEBAR_FUTURE = {
   reportesOperator: false,
   /** Submenú Operación: ítem "Agenda" (/agenda) */
   operacionAgenda: false,
-  /** Submenú Operación: Órdenes del Técnico y Reportes (Levantamiento ya está visible) */
+  /** Submenú Operación: Órdenes del Técnico y Reportes */
   operacionExtended: false,
+  /** Submenú Operación: ítem "Levantamiento" (/levantamiento) — vista oculta, sin borrar */
+  operacionLevantamiento: false,
+  /** Submenú Operación: ítem "Reporte de mantenimiento" (/reportes-mantenimiento) — vista oculta, sin borrar */
+  mantenimientoReporte: false,
 } as const;
 
 type NavItem = {
@@ -196,7 +200,7 @@ export default function AppSidebar() {
           ...(permissions?.ordenes?.view === true
             ? [{ name: "Órdenes de Trabajo", path: "/ordenes", pro: false } as const]
             : []),
-          ...(permissions?.ordenes?.view === true
+          ...(SIDEBAR_FUTURE.operacionLevantamiento && permissions?.ordenes?.view === true
             ? [{ name: "Levantamiento", path: "/levantamiento", pro: false } as const]
             : []),
           ...(permissions?.proyectos?.view === true || isAdmin
@@ -205,7 +209,7 @@ export default function AppSidebar() {
           ...(isAdmin
             ? [{ name: "Póliza de mantenimiento", path: "/polizas-mantenimiento", pro: false } as const]
             : []),
-          ...(isAdmin
+          ...(SIDEBAR_FUTURE.mantenimientoReporte && isAdmin
             ? [{ name: "Reporte de mantenimiento", path: "/reportes-mantenimiento", pro: false } as const]
             : []),
           ...(SIDEBAR_FUTURE.operacionExtended && permissions?.ordenes?.view === true
@@ -439,7 +443,7 @@ export default function AppSidebar() {
                 <ChevronDownIcon
                   className={`ml-auto w-5 h-5 transition-transform duration-200 ${openSubmenu?.type === menuType &&
                     openSubmenu?.index === index
-                    ? "rotate-180 text-brand-500"
+                    ? "rotate-180 text-[#1B5CFF] dark:text-[#4B7CFF]"
                     : ""
                     }`}
                 />
@@ -533,7 +537,7 @@ export default function AppSidebar() {
                         aria-expanded={isOpen}
                         aria-controls={nestedPanelId}
                         onClick={() => toggleNestedSubmenu(nestedKey)}
-                        className={`menu-dropdown-item w-full justify-between gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#465FFF] ${
+                        className={`menu-dropdown-item w-full justify-between gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] ${
                           isOpen || hasActiveChild
                             ? "menu-dropdown-item-active"
                             : "menu-dropdown-item-inactive"
@@ -542,7 +546,7 @@ export default function AppSidebar() {
                         <span className="truncate">{subItem.name}</span>
                         <ChevronDownIcon
                           className={`h-4 w-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${
-                            isOpen ? "rotate-180 text-[#465FFF] dark:text-[#3b9eff]" : "opacity-70"
+                            isOpen ? "rotate-180 text-[#1B5CFF] dark:text-[#4B7CFF]" : "opacity-70"
                           }`}
                           aria-hidden
                         />
@@ -556,7 +560,7 @@ export default function AppSidebar() {
                         className={isOpen ? "mt-1" : undefined}
                       >
                         <ul
-                          className="space-y-1 border-l border-[#e7ded0]/80 pl-2.5 ml-3 dark:border-[#334155]"
+                          className="space-y-1 border-l border-[#e7ded0] pl-2.5 ml-3 dark:border-[#273244]"
                         >
                           {subItem.subItems.map((child) => (
                             <li key={child.name}>
@@ -589,7 +593,7 @@ export default function AppSidebar() {
 
   return (
     <aside
-      className={`fixed bottom-0 left-0 top-16 z-50 flex flex-col border-r border-[#e7ded0] bg-[#f9f7f3] px-5 text-[#1c1917] shadow-[0_18px_45px_-34px_rgba(28,25,23,0.35)] transition-all duration-300 ease-in-out dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#f8fafc] dark:shadow-[0_18px_45px_-34px_rgba(0,0,0,0.8)] lg:top-0 [font-family:'Arial','Helvetica_Neue',Helvetica,sans-serif]
+      className={`fixed bottom-0 left-0 top-16 z-50 flex flex-col border-r border-[#e7ded0] bg-[#f9f7f3] px-4 text-[#09090B] shadow-[0_18px_45px_-34px_rgba(28,25,23,0.30)] transition-[width,transform] duration-300 ease-in-out motion-reduce:transition-none dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#F8FAFC] dark:shadow-[0_18px_45px_-34px_rgba(0,0,0,0.8)] lg:top-0 [font-family:'Geist','Outfit',system-ui,sans-serif]
         ${isExpanded || isMobileOpen
           ? "w-[290px]"
           : isHovered
@@ -615,11 +619,11 @@ export default function AppSidebar() {
                   className="h-8 w-8 shrink-0 rounded-lg object-contain ring-1 ring-black/5 dark:ring-white/10"
                 />
               ) : (
-                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#465FFF] text-xs font-bold tracking-wide text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#1B5CFF] text-xs font-bold tracking-wide text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
                   {marcaIniciales}
                 </span>
               )}
-              <span className="min-w-0 truncate text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc]">
+              <span className="min-w-0 truncate text-base font-semibold tracking-tight text-[#09090B] dark:text-[#F8FAFC]">
                 {marcaNombre}
               </span>
             </span>
@@ -631,7 +635,7 @@ export default function AppSidebar() {
                 className="h-9 w-9 rounded-xl object-contain ring-1 ring-black/5 dark:ring-white/10"
               />
             ) : (
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#465FFF] text-[11px] font-bold tracking-[0.08em] text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#1B5CFF] text-[11px] font-bold tracking-[0.08em] text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
                 {marcaIniciales}
               </span>
             )
@@ -642,7 +646,7 @@ export default function AppSidebar() {
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-4 duration-300 ease-linear no-scrollbar">
           <nav aria-label="Navegación principal">
             <h2
-              className={`mb-4 flex text-xs font-medium uppercase leading-[20px] tracking-[0.14em] text-[#8b7b69] dark:text-[#8ea0b8] ${!isExpanded && !isHovered
+              className={`mb-4 flex text-[11px] font-semibold uppercase leading-[20px] tracking-[0.16em] text-[#6E6E77] dark:text-[#8EA0B8] ${!isExpanded && !isHovered
                 ? "lg:justify-center"
                 : "justify-start"
                 }`}

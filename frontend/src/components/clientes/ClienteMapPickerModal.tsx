@@ -177,32 +177,32 @@ export function ClienteMapPickerModal({
       isOpen={isOpen}
       onClose={onClose}
       ariaLabel="Seleccionar ubicación en el mapa"
-      className="w-[94vw] max-w-3xl overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"
+      className="w-[94vw] max-w-3xl overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827]"
     >
       <div>
-        <div className="border-b border-[#e7ded0] bg-[#fcfaf6] px-5 pb-4 pt-5 dark:border-[#273244] dark:bg-[#0f172a]/70">
+        <div className="relative bg-[#17235B] px-5 pb-4 pt-5 dark:bg-[#1B2A63]">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fff3e8] dark:bg-[#7c2d12]/30">
-              <svg className="h-5 w-5 text-[#ff801f] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]">
+              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path
                   d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
               </svg>
-            </div>
+            </span>
             <div>
-              <h5 className="text-base font-semibold text-gray-800 dark:text-gray-100">Seleccionar ubicación</h5>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">Haz clic en el mapa para seleccionar la ubicación</p>
+              <h5 className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-white">Seleccionar ubicación</h5>
+              <p className="mt-0.5 text-[13px] text-white/70">Haz clic en el mapa para seleccionar la ubicación.</p>
             </div>
           </div>
         </div>
-        <div className="p-4">
-          <div className="overflow-hidden rounded-xl border border-[#e7ded0] dark:border-[#334155]">
+        <div className="bg-white p-4 dark:bg-[#111827]">
+          <div className="overflow-hidden rounded-[14px] border border-[#E7E7EA] dark:border-[#273244]">
             <div id={mapContainerId} className="w-full" style={{ height: 420 }} />
           </div>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="text-xs text-gray-600 dark:text-gray-300">
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="text-[13px] text-[#52525B] dark:text-[#B7C1D1]">
               {selectedLocation ? (
                 <span>
                   Lat: {selectedLocation.lat.toFixed(6)} | Lng: {selectedLocation.lng.toFixed(6)}
@@ -215,7 +215,7 @@ export function ClienteMapPickerModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-[12px] text-gray-700 hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-4 text-[14px] font-medium text-[#09090B] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048]"
               >
                 Cancelar
               </button>
@@ -223,7 +223,7 @@ export function ClienteMapPickerModal({
                 type="button"
                 disabled={!selectedLocation}
                 onClick={onConfirm}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#ff801f] px-4 py-2 text-[12px] text-black hover:bg-[#ff6a00] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#1B5CFF] bg-[#1B5CFF] px-4 text-[14px] font-medium text-white transition-colors hover:border-[#1244D1] hover:bg-[#1244D1] disabled:cursor-not-allowed disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:border-[#3B6AF0] dark:hover:bg-[#3B6AF0]"
               >
                 Usar ubicación
               </button>

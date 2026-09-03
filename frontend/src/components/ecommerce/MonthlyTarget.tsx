@@ -563,13 +563,18 @@ export default function MonthlyTarget() {
   const filteredItems = useMemo(() => allItems, [allItems]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
-      <div className="mb-4 border-b border-gray-100 pb-4 dark:border-white/10">
-        <div className="flex items-center justify-between gap-3">
+    <div className="overflow-hidden rounded-[16px] border border-[#e7ded0] bg-white px-4 pb-3 pt-4 shadow-[0_6px_20px_-14px_rgba(9,9,11,0.16)] [font-family:'Geist','Outfit',system-ui,sans-serif] dark:border-[#273244] dark:bg-[#111827] sm:px-6">
+      <div className="mb-4 border-b border-[#e7ded0] pb-4 dark:border-[#273244]">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+            <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Historial global del sistema</h3>
-            <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
-              Historial global del sistema de seguimiento de actividades.
+            <h3 className="text-[16px] font-semibold tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]">Historial global del sistema</h3>
+            <p className="mt-0.5 text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">
+              Seguimiento de actividades en todos los módulos.
             </p>
           </div>
         </div>
@@ -577,11 +582,11 @@ export default function MonthlyTarget() {
 
         <div>
         {loading ? (
-          <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Cargando historial...</div>
+          <div className="py-10 text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8]">Cargando historial…</div>
         ) : error ? (
-          <div className="py-10 text-center text-sm text-red-500">{error}</div>
+          <div className="py-10 text-center text-sm text-[#C22B2B] dark:text-[#F87171]">{error}</div>
         ) : filteredItems.length === 0 ? (
-          <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">No hay movimientos para este filtro.</div>
+          <div className="py-10 text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8]">No hay movimientos para este filtro.</div>
         ) : (
           <div className="max-h-[380px] space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">
             {filteredItems.map((i) => {
@@ -599,32 +604,32 @@ export default function MonthlyTarget() {
                     }
                     navigate(i.viewPath);
                   }}
-                  className="group w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-left shadow-theme-xs transition hover:border-brand-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-500/40 dark:hover:bg-white/[0.04]"
+                  className="group w-full rounded-[12px] border border-[#e7ded0] bg-white px-3.5 py-3 text-left transition-colors hover:border-[#1B5CFF]/40 hover:bg-[#FAFAFA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:border-[#273244] dark:bg-[#151E32] dark:hover:border-[#4B7CFF]/40 dark:hover:bg-[#1B2539]"
                 >
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg ${mod.tone}`}>
                         <mod.Icon className="h-4 w-4" />
                       </span>
-                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                      <span className="rounded-md bg-[#f5f0e8] px-2 py-0.5 text-[11px] font-medium text-[#52525B] dark:bg-[#243048] dark:text-[#B7C1D1]">
                         {i.viewName}
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="block text-[11px] text-gray-500 dark:text-gray-400">{timeAgo(i.when)}</span>
-                      <span className="block text-[10px] text-gray-400 dark:text-gray-500">{formatDateTime(i.when)}</span>
+                      <span className="block text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">{timeAgo(i.when)}</span>
+                      <span className="block text-[10px] text-[#A1A1AA] dark:text-[#8EA0B8]/70">{formatDateTime(i.when)}</span>
                     </div>
         </div>
                   <div className="flex items-center gap-2">
                     <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${action.tone}`}>
                       <action.Icon className="h-3.5 w-3.5" />
                     </span>
-                    <p className="text-sm text-gray-800 dark:text-gray-100">
-                      <span className="font-semibold">{i.actor}</span> {i.text}
+                    <p className="text-sm text-[#3d3d3a] dark:text-[#e5e7eb]">
+                      <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">{i.actor}</span> {i.text}
                     </p>
-                    <ArrowRightIcon className="ml-auto h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500" />
+                    <ArrowRightIcon className="ml-auto h-4 w-4 shrink-0 text-[#A1A1AA] transition-transform group-hover:translate-x-0.5 group-hover:text-[#1B5CFF] dark:group-hover:text-[#4B7CFF]" />
         </div>
-                  {!!i.detail && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{i.detail}</p>}
+                  {!!i.detail && <p className="mt-2 text-xs text-[#6E6E77] dark:text-[#8EA0B8]">{i.detail}</p>}
                 </button>
               );
             })}

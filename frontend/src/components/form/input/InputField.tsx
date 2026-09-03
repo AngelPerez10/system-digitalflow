@@ -20,6 +20,10 @@ interface InputProps {
   success?: boolean;
   error?: boolean;
   hint?: string;
+  autoComplete?: string;
+  autoCapitalize?: string;
+  autoCorrect?: string;
+  spellCheck?: boolean;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean | "true" | "false";
 }
@@ -42,6 +46,10 @@ const Input: FC<InputProps> = ({
   success = false,
   error = false,
   hint,
+  autoComplete,
+  autoCapitalize,
+  autoCorrect,
+  spellCheck,
   "aria-describedby": ariaDescribedBy,
   "aria-invalid": ariaInvalid,
 }) => {
@@ -78,6 +86,10 @@ const Input: FC<InputProps> = ({
         step={step}
         disabled={disabled}
         required={required}
+        autoComplete={autoComplete}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={autoCorrect}
+        spellCheck={spellCheck}
         className={inputClasses}
         aria-invalid={ariaInvalid ?? (error || undefined)}
         aria-describedby={describedBy}

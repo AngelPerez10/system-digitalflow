@@ -7,10 +7,10 @@ export function CotizacionSaveStatus({ isAutoSaving, lastAutoSavedAt }: Props) {
   if (!lastAutoSavedAt) return null;
 
   return (
-    <p className="mt-2 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+    <p className="mt-2 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
       {isAutoSaving ? (
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ff801f]" aria-hidden />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#1B5CFF]" aria-hidden />
           Guardando cambios…
         </span>
       ) : (

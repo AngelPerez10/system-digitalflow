@@ -1,10 +1,21 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Label from "@/components/form/Label";
-import { erpInputLikeClass } from "@/layout/erpPageStyles";
 import { cn } from "@/lib/utils";
 
-type Option = { value: string; label: string };
+/** Acento eléctrico del ERP (no naranja legado de erpPageStyles). */
+const selectInputClass =
+  "w-full min-h-[44px] rounded-[10px] border border-[#E7E7EA] bg-white px-3.5 py-2 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] sm:py-2.5";
+
+const optionSelectedClass =
+  "bg-[rgba(27,92,255,0.10)] font-medium text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]";
+
+type Option = {
+  value: string;
+  label: string;
+  /** Prefijo en azul (p. ej. user_id Wialon); se muestra antes de `label`. */
+  accentPrefix?: string;
+};
 
 type SearchableSelectProps = {
   label: string;
@@ -59,13 +70,21 @@ export default function SearchableSelect({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const selected = options.find((o) => o.value === value);
+  const selectedDisplay = selected
+    ? selected.accentPrefix
+      ? `${selected.accentPrefix} · ${selected.label}`
+      : selected.label
+    : "";
 
   const filtered = useMemo(() => {
     if (!filterLocally) return options;
     if (!search.trim()) return options;
     const q = search.toLowerCase();
     return options.filter(
-      (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)
+      (o) =>
+        o.label.toLowerCase().includes(q) ||
+        o.value.toLowerCase().includes(q) ||
+        (o.accentPrefix ?? "").toLowerCase().includes(q)
     );
   }, [search, options, filterLocally]);
 
@@ -136,7 +155,7 @@ export default function SearchableSelect({
             ref={menuRef}
             id={listboxId}
             role="listbox"
-            className="fixed overflow-auto rounded-xl border border-[#e2d9ca] bg-white shadow-lg dark:border-[#334155] dark:bg-[#111a2b]"
+            className="fixed overflow-auto rounded-[10px] border border-[#E7E7EA] bg-white shadow-lg dark:border-[#273244] dark:bg-[#111827]"
             style={{
               top: menuCoords.top,
               bottom: menuCoords.bottom,
@@ -153,33 +172,46 @@ export default function SearchableSelect({
                 setSearch("");
                 setOpen(false);
               }}
-              className="w-full px-3 py-2.5 text-left text-sm text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+              className="w-full min-h-[44px] px-3 py-2.5 text-left text-sm text-[#A1A1AA] hover:bg-[#F1F5FF] dark:text-[#8EA0B8] dark:hover:bg-white/[0.06]"
             >
-              {placeholder || "Seleccionar..."}
+              — Seleccionar —
             </button>
-            {filtered.map((o) => (
+            {filtered.map((o) => {
+              const isSelected = Boolean(value) && o.value === value;
+              return (
               <button
                 key={o.value}
                 type="button"
                 role="option"
-                aria-selected={o.value === value}
+                aria-selected={isSelected}
                 onClick={() => {
                   onChange(o.value);
                   setSearch("");
                   setOpen(false);
                 }}
                 className={cn(
-                  "w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-white/5",
-                  o.value === value
-                    ? "bg-[#ff801f]/10 font-medium text-[#9a3412] dark:bg-[#ff801f]/20 dark:text-[#fdba74]"
-                    : "text-gray-700 dark:text-gray-200"
+                  "w-full min-h-[44px] px-3 py-2.5 text-left text-sm transition-colors hover:bg-[#F1F5FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-white/[0.06]",
+                  isSelected
+                    ? optionSelectedClass
+                    : "text-[#09090B] dark:text-[#F8FAFC]"
                 )}
               >
-                {o.label}
+                {o.accentPrefix ? (
+                  <>
+                    <span className="font-mono tabular-nums text-[#1B5CFF] dark:text-[#4B7CFF]">
+                      {o.accentPrefix}
+                    </span>
+                    <span className="text-[#A1A1AA] dark:text-[#8EA0B8]"> · </span>
+                    <span>{o.label}</span>
+                  </>
+                ) : (
+                  o.label
+                )}
               </button>
-            ))}
+              );
+            })}
             {filtered.length === 0 ? (
-              <div className="px-3 py-2.5 text-center text-xs text-gray-400 dark:text-gray-500">
+              <div className="px-3 py-2.5 text-center text-xs text-[#A1A1AA] dark:text-[#8EA0B8]">
                 Sin resultados
               </div>
             ) : null}
@@ -202,7 +234,7 @@ export default function SearchableSelect({
           type="text"
           role="combobox"
           autoComplete="off"
-          value={open ? search : selected?.label || ""}
+          value={open ? search : selectedDisplay}
           onChange={(e) => {
             setSearch(e.target.value);
             setOpen(true);
@@ -215,7 +247,7 @@ export default function SearchableSelect({
           }}
           disabled={disabled}
           placeholder={placeholder || "Buscar..."}
-          className={erpInputLikeClass}
+          className={selectInputClass}
           readOnly={!open}
           aria-expanded={open}
           aria-haspopup="listbox"

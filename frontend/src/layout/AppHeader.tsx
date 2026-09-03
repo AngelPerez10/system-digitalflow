@@ -26,6 +26,19 @@ const SEARCH_ROUTES = [
   { label: "Proyectos", path: "/proyectos" },
 ] as const;
 
+/* --------------------------------------------------------------------------
+   Mismo lenguaje que AppSidebar: lienzo crema (#f9f7f3), líneas de 1 px
+   (#e7ded0), tinta cálida (#09090B) y azul eléctrico (#1B5CFF) como único
+   acento de acción. En oscuro, la familia slate del contenedor
+   (#0f172a → #111827 → #243048). Tipografía Geist / Outfit.
+   -------------------------------------------------------------------------- */
+
+const iconBtnClass =
+  "z-99999 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] text-[#6E6E77] transition-colors hover:bg-[#f2ece1] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:border-[#273244] dark:text-[#8EA0B8] dark:hover:bg-[#243048] dark:hover:text-[#F8FAFC] lg:h-11 lg:w-11";
+
+const iconBtnGhostClass =
+  "z-99999 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#6E6E77] transition-colors hover:bg-[#f2ece1] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:text-[#8EA0B8] dark:hover:bg-[#243048] dark:hover:text-[#F8FAFC] lg:hidden";
+
 export default function AppHeader() {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -34,7 +47,7 @@ export default function AppHeader() {
   const navigate = useNavigate();
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
-  const { nombre: marcaNombre } = useMarca();
+  const { nombre: marcaNombre, logoUrl: marcaLogoUrl, iniciales: marcaIniciales } = useMarca();
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -111,19 +124,19 @@ export default function AppHeader() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-99999 flex w-full border-b border-[#e7ded0] bg-[#f9f7f3]/90 backdrop-blur-md [font-family:'Arial','Helvetica_Neue',Helvetica,sans-serif] dark:border-[#273244] dark:bg-[#0f172a]/90">
+    <header className="sticky top-0 z-99999 flex w-full border-b border-[#e7ded0] bg-[#f9f7f3]/90 shadow-[0_10px_30px_-24px_rgba(28,25,23,0.35)] backdrop-blur-md [font-family:'Geist','Outfit',system-ui,sans-serif] dark:border-[#273244] dark:bg-[#0f172a]/90 dark:shadow-[0_10px_30px_-22px_rgba(0,0,0,0.75)]">
       <div className="flex flex-col items-center justify-between grow lg:flex-row lg:px-6">
-        <div className="flex w-full items-center justify-between gap-2 border-b border-[#e7ded0] px-3 py-3 sm:gap-4 dark:border-[#273244] lg:justify-normal lg:border-b-0 lg:px-0 lg:py-4">
+        <div className="flex w-full items-center justify-between gap-2 border-b border-[#e7ded0] px-3 py-3 sm:gap-4 dark:border-[#273244] lg:justify-normal lg:border-b-0 lg:px-0 lg:py-3">
           <button
-            className="z-99999 h-10 w-10 items-center justify-center rounded-xl border border-[#e2d9ca] text-[#57534e] transition-colors hover:bg-[#f5efe4] hover:text-[#1c1917] dark:border-[#334155] dark:text-[#aeb8c8] dark:hover:bg-[#111a2b] dark:hover:text-[#f8fafc] lg:flex lg:h-11 lg:w-11"
+            className={iconBtnClass}
             onClick={handleToggle}
             aria-label={isMobileOpen ? "Cerrar menú lateral" : "Abrir menú lateral"}
             aria-expanded={isMobileOpen}
           >
             {isMobileOpen ? (
               <svg
-                width="24"
-                height="24"
+                width="22"
+                height="22"
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -137,8 +150,8 @@ export default function AppHeader() {
               </svg>
             ) : (
               <svg
-                width="16"
-                height="12"
+                width="18"
+                height="14"
                 viewBox="0 0 16 12"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -151,11 +164,25 @@ export default function AppHeader() {
                 />
               </svg>
             )}
-            {/* Cross Icon */}
           </button>
 
-          <Link to="/dashboard" className="inline-flex items-center lg:hidden">
-            <span className="text-sm font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc]">
+          <Link
+            to="/dashboard"
+            className="inline-flex min-w-0 items-center gap-2.5 rounded-lg pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 lg:hidden"
+            aria-label={`Ir al inicio · ${marcaNombre}`}
+          >
+            {marcaLogoUrl ? (
+              <img
+                src={marcaLogoUrl}
+                alt=""
+                className="h-8 w-8 shrink-0 rounded-lg object-contain ring-1 ring-black/5 dark:ring-white/10"
+              />
+            ) : (
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#1B5CFF] text-[11px] font-bold tracking-wide text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+                {marcaIniciales}
+              </span>
+            )}
+            <span className="min-w-0 truncate text-sm font-semibold tracking-tight text-[#09090B] dark:text-[#F8FAFC]">
               {marcaNombre}
             </span>
           </Link>
@@ -163,11 +190,12 @@ export default function AppHeader() {
           <button
             onClick={toggleApplicationMenu}
             aria-label="Abrir menú de aplicación"
-            className="z-99999 flex h-10 w-10 items-center justify-center rounded-xl text-[#57534e] hover:bg-[#f5efe4] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-[#111a2b] dark:hover:text-[#f8fafc] lg:hidden"
+            aria-expanded={isApplicationMenuOpen}
+            className={iconBtnGhostClass}
           >
             <svg
-              width="24"
-              height="24"
+              width="22"
+              height="22"
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -189,9 +217,9 @@ export default function AppHeader() {
               }}
             >
               <div className="relative" ref={searchWrapRef}>
-                <span className="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
                   <svg
-                    className="fill-[#8b7b69] dark:fill-[#8ea0b8]"
+                    className="fill-[#8b8578] dark:fill-[#8EA0B8]"
                     width="20"
                     height="20"
                     viewBox="0 0 20 20"
@@ -246,17 +274,17 @@ export default function AppHeader() {
                     }
                   }}
                   autoComplete="off"
-                  className="h-11 w-full rounded-full border border-[#e2d9ca] bg-[#fffdfa] py-2.5 pl-12 pr-14 text-sm font-normal leading-[1.6] text-[#1c1917] placeholder:text-[#a8a29e] shadow-none focus:border-[#ff801f] focus:outline-hidden focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/25 xl:w-[430px]"
+                  className="h-11 w-full rounded-xl border border-[#e7ded0] bg-white py-2.5 pl-12 pr-14 text-sm font-normal leading-[1.6] text-[#09090B] shadow-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#d9cfbc] focus:border-[#1B5CFF] focus:outline-hidden focus:ring-4 focus:ring-[#1B5CFF]/15 dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[#4B7CFF]/25 xl:w-[430px]"
                 />
                 {searchOpen && (
                   <ul
                     id="app-header-routes"
                     role="listbox"
                     aria-label="Rutas del sistema"
-                    className="absolute left-0 right-0 top-full z-[100000] mt-1 max-h-72 overflow-auto rounded-xl border border-[#e2d9ca] bg-[#fffdfa] py-1 shadow-[0_16px_40px_-18px_rgba(28,25,23,0.35)] dark:border-[#334155] dark:bg-[#111a2b]"
+                    className="absolute left-0 right-0 top-full z-[100000] mt-2 max-h-72 overflow-auto rounded-xl border border-[#e7ded0] bg-white py-1.5 shadow-[0_16px_40px_-18px_rgba(28,25,23,0.35)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_18px_45px_-24px_rgba(0,0,0,0.8)]"
                   >
                     {filteredRoutes.length === 0 ? (
-                      <li className="px-3 py-2.5 text-center text-xs text-[#a8a29e] dark:text-[#8ea0b8]">
+                      <li className="px-3 py-2.5 text-center text-xs text-[#A1A1AA] dark:text-[#8EA0B8]">
                         Sin resultados
                       </li>
                     ) : (
@@ -269,12 +297,20 @@ export default function AppHeader() {
                             aria-selected={idx === activeIndex}
                             onMouseEnter={() => setActiveIndex(idx)}
                             onClick={() => selectRoute(r.path)}
-                            className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                            className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${
                               idx === activeIndex
-                                ? "bg-[#fff4eb] font-medium text-[#9a3412] dark:bg-[#fb923c]/15 dark:text-[#fdba74]"
-                                : "text-[#1c1917] hover:bg-[#fff8f1] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
+                                ? "bg-[rgba(27,92,255,0.08)] font-medium text-[#1244D1] dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF]"
+                                : "text-[#09090B] hover:bg-[#f5f0e8] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]"
                             }`}
                           >
+                            <span
+                              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                                idx === activeIndex
+                                  ? "bg-[#1B5CFF] dark:bg-[#4B7CFF]"
+                                  : "bg-[#d9cfbc] dark:bg-[#3A4661]"
+                              }`}
+                              aria-hidden
+                            />
                             {r.label}
                           </button>
                         </li>
@@ -285,7 +321,8 @@ export default function AppHeader() {
 
                 <button
                   type="submit"
-                  className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-full border border-[#e2d9ca] bg-[#fffdfa] px-[9px] py-[4.5px] [font-family:'SFMono-Regular',Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace] text-xs text-[#8b7b69] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#8ea0b8]"
+                  aria-label="Buscar"
+                  className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-[#e7ded0] bg-white px-[9px] py-[4.5px] [font-family:'SFMono-Regular',Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace] text-xs text-[#6E6E77] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8]"
                 >
                   <span> ⌘ </span>
                   <span> K </span>
@@ -297,7 +334,7 @@ export default function AppHeader() {
         <div
           className={`${
             isApplicationMenuOpen ? "flex" : "hidden"
-          } w-full items-center justify-between gap-4 bg-[#f9f7f3] px-5 py-4 dark:bg-[#0f172a] lg:flex lg:justify-end lg:bg-transparent lg:px-0`}
+          } w-full items-center justify-between gap-4 bg-[#f9f7f3] px-5 py-4 dark:bg-[#0f172a] lg:flex lg:justify-end lg:bg-transparent lg:px-0 lg:py-0`}
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
             {/* <!-- Dark Mode Toggler --> */}

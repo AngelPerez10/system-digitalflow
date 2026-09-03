@@ -21,7 +21,7 @@ function LayoutContent() {
       </div>
       <main
         id="main-content"
-        className={`flex-1 min-w-0 min-h-screen bg-[#f9f7f3] text-[#1c1917] transition-all duration-300 ease-in-out dark:bg-[#0f172a] dark:text-[#f8fafc] ${
+        className={`flex-1 min-w-0 min-h-screen bg-[#f9f7f3] text-[#1c1917] transition-[margin] duration-300 ease-in-out motion-reduce:transition-none dark:bg-[#0f172a] dark:text-[#f8fafc] ${
           isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"
         } ${isMobileOpen ? "ml-0" : ""}`}
       >

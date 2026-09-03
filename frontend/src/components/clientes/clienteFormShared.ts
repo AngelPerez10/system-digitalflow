@@ -12,20 +12,27 @@ export const TIPO_OPTIONS: { value: ClienteTipo; label: string }[] = [
   { value: "PROVEEDOR", label: "Proveedor" },
 ];
 
+/* --------------------------------------------------------------------------
+   Mismo sistema que `ContactosNegocio/Clientes/ClientesPage` y el resto de
+   vistas ya rediseñadas: marino + dorado sobre lienzo blanco, azul eléctrico
+   como único acento de acción. En oscuro, la familia slate del contenedor de
+   la app (panel #111827 → tarjeta hundida #1B2539).
+   -------------------------------------------------------------------------- */
+
 export const selectLikeClassName =
-  "h-10 w-full rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 text-sm text-[#1c1917] outline-none transition-colors focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20";
+  "h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
 
 export const modalPanelClass =
-  "rounded-2xl border border-[#ecdcc8] bg-[#fffdfa] p-4 shadow-[0_18px_40px_-28px_rgba(28,25,23,0.35)] dark:border-[#334155] dark:bg-[#0f172a]/80 sm:p-5";
+  "rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#1B2539] sm:p-5";
 
 export const modalSectionTitleClass =
-  "text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8b7b69] dark:text-[#8ea0b8]";
+  "text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]";
 
 export const modalTextareaClass =
-  "w-full rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 py-2 text-sm text-[#1c1917] shadow-theme-xs outline-none transition-colors placeholder:text-[#78716c] focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20 resize-none";
+  "w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 py-2.5 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] resize-none";
 
 export const modalTabBaseClass =
-  "rounded-xl px-3.5 py-2.5 [font-family:'Arial','Helvetica_Neue',Helvetica,sans-serif] text-xs font-medium leading-[1.6] tracking-[0.12px] transition-all";
+  "rounded-[8px] px-3.5 py-2.5 text-[13px] font-medium leading-[1.5] tracking-[-0.05px] transition-colors";
 
 const trimOrEmpty = (value: unknown) => String(value ?? "").trim();
 
