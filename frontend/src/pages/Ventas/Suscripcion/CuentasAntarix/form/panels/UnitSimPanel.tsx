@@ -6,15 +6,15 @@ import {
   erpPrimaryBtnClass,
   erpSecondaryBtnClass,
   erpSectionLabelClass,
-} from "@/layout/erpPageStyles";
+} from "../../shared/cuentasAntarixStyles";
 import { Modal } from "@/components/ui/modal";
-import type { M2mConnectivityProbe, M2mSimDetailView, UnitSimPanelProps } from "./m2mTypes";
+import type { M2mConnectivityProbe, M2mSimDetailView, UnitSimPanelProps } from "../../shared/m2mTypes";
 
 const eyebrow =
   "text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8e8b82] dark:text-[#8ea0b8]";
-const caption = "text-[12px] leading-snug text-[#6c6a64] dark:text-[#94a3b8]";
+const caption = "text-[12px] leading-snug text-[#6E6E77] dark:text-[#8EA0B8]";
 const serifDisplay =
-  "[font-family:Georgia,'Times_New_Roman',serif] font-medium tracking-[-0.02em] text-[#1c1917] dark:text-[#f8fafc]";
+  "font-medium tracking-[-0.02em] text-[#09090B] dark:text-[#f8fafc]";
 
 type SmsPresetTone = "off" | "on" | "reset" | "factory";
 
@@ -43,10 +43,10 @@ function smsPresetToneClass(tone: SmsPresetTone, selected: boolean): string {
       case "factory":
         return "border-amber-500/55 bg-amber-50 ring-2 ring-amber-500/25 dark:border-amber-500/45 dark:bg-amber-950/35 dark:ring-amber-400/20";
       default:
-        return "border-[#ff801f]/55 bg-[#fff3e6] ring-2 ring-[#ff801f]/30 dark:border-[#fb923c]/50 dark:bg-[#431407]/40 dark:ring-[#fb923c]/25";
+        return "border-[#1B5CFF]/55 bg-[#F1F5FF] ring-2 ring-[#1B5CFF]/30 dark:border-[#4B7CFF]/50 dark:bg-[#0f172a]/40 dark:ring-[#4B7CFF]/25";
     }
   }
-  return "border-[#e7ded0]/95 bg-[#fffdfa]/95 hover:border-[#ff801f]/35 hover:bg-[#fff8f1] dark:border-[#334155] dark:bg-[#0f172a]/55 dark:hover:border-[#fb923c]/35 dark:hover:bg-[#1e293b]/50";
+  return "border-[#E7E7EA]/95 bg-[#ffffff]/95 hover:border-[#1B5CFF]/35 hover:bg-[#F1F5FF] dark:border-[#273244] dark:bg-[#0f172a]/55 dark:hover:border-[#4B7CFF]/35 dark:hover:bg-[#243048]/50";
 }
 
 function SmsPresetGlyph({ tone }: { tone: SmsPresetTone }) {
@@ -180,13 +180,13 @@ function simStateMeta(state: string) {
   }
   return {
     label: state || "Desconocido",
-    rail: "bg-[#a8a29e] dark:bg-[#71717a]",
-    blob: "bg-[#a8a29e]/20",
+    rail: "bg-[#A1A1AA] dark:bg-[#71717a]",
+    blob: "bg-[#A1A1AA]/20",
     glyph:
-      "bg-[#ebe6df] text-[#78716c] ring-[#d6d3d1] dark:bg-[#27272a] dark:text-[#a1a1aa] dark:ring-[#3f3f46]",
+      "bg-[#ebe6df] text-[#6E6E77] ring-[#D3D3D8] dark:bg-[#27272a] dark:text-[#a1a1aa] dark:ring-[#273244]",
     badge:
-      "bg-[#ebe6df] text-[#57534e] ring-[#d6d3d1] dark:bg-[#27272a] dark:text-[#d4d4d8] dark:ring-[#3f3f46]",
-    dot: "bg-[#a8a29e]",
+      "bg-[#ebe6df] text-[#52525B] ring-[#D3D3D8] dark:bg-[#27272a] dark:text-[#d4d4d8] dark:ring-[#273244]",
+    dot: "bg-[#A1A1AA]",
     signal: 2,
   };
 }
@@ -201,7 +201,7 @@ function SignalBars({ level }: { level: number }) {
           className={cn(
             "w-1 rounded-sm transition-colors duration-300",
             h,
-            i < level ? "bg-[#ff801f] dark:bg-[#fb923c]" : "bg-[#e7ded0] dark:bg-[#334155]"
+            i < level ? "bg-[#1B5CFF] dark:bg-[#4B7CFF]" : "bg-[#E7E7EA] dark:bg-[#273244]",
           )}
         />
       ))}
@@ -224,18 +224,18 @@ function probeTone(state: M2mConnectivityProbe) {
   }
   if (state === "pending") {
     return {
-      chip: "bg-[#fff7ed] text-[#9a3412] ring-[#ff801f]/30 dark:bg-[#fb923c]/10 dark:text-[#fdba74]",
+      chip: "bg-[#F1F5FF] text-[#1244D1] ring-[#1B5CFF]/30 dark:bg-[#4B7CFF]/10 dark:text-[#4B7CFF]",
       text: "…",
     };
   }
   if (state === "unavailable") {
     return {
-      chip: "bg-[#fcfaf6] text-[#6c6a64] ring-[#e7ded0] dark:bg-[#111a2b] dark:text-[#94a3b8] dark:ring-[#334155]",
+      chip: "bg-[#FAFAFA] text-[#6E6E77] ring-[#E7E7EA] dark:bg-[#111827] dark:text-[#8EA0B8] dark:ring-[#273244]",
       text: "N/D",
     };
   }
   return {
-    chip: "bg-[#fcfaf6] text-[#6c6a64] ring-[#e7ded0] dark:bg-[#111a2b] dark:text-[#94a3b8] dark:ring-[#334155]",
+    chip: "bg-[#FAFAFA] text-[#6E6E77] ring-[#E7E7EA] dark:bg-[#111827] dark:text-[#8EA0B8] dark:ring-[#273244]",
     text: "—",
   };
 }
@@ -255,12 +255,12 @@ function UsageMeter({
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-2">
         <p className={eyebrow}>{label}</p>
-        <p className="font-mono text-[12px] tabular-nums text-[#9a3412] dark:text-[#fdba74]">
+        <p className="font-mono text-[12px] tabular-nums text-[#1244D1] dark:text-[#4B7CFF]">
           {formatBytes(bytes)}
         </p>
       </div>
       <div
-        className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#ebe6df] dark:bg-[#1e293b]"
+        className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#ebe6df] dark:bg-[#243048]"
         role="meter"
         aria-label={`Consumo ${label}`}
         aria-valuemin={0}
@@ -269,7 +269,7 @@ function UsageMeter({
         aria-valuetext={formatBytes(bytes)}
       >
         <span
-          className="block h-full rounded-full bg-[#ff801f] transition-[width] duration-700 ease-out motion-reduce:transition-none dark:bg-[#fb923c]"
+          className="block h-full rounded-full bg-[#1B5CFF] transition-[width] duration-700 ease-out motion-reduce:transition-none dark:bg-[#4B7CFF]"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -279,10 +279,10 @@ function UsageMeter({
 
 function IdTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-xl border border-[#e7ded0]/80 bg-[#fcfaf6]/90 px-3 py-2.5 dark:border-[#334155]/80 dark:bg-[#0f172a]/55">
+    <div className="min-w-0 rounded-xl border border-[#E7E7EA]/80 bg-[#FAFAFA]/90 px-3 py-2.5 dark:border-[#273244]/80 dark:bg-[#0f172a]/55">
       <p className={eyebrow}>{label}</p>
       <p
-        className="mt-1 truncate font-mono text-[12.5px] leading-snug tracking-wide text-[#ea580c] dark:text-[#fb923c]"
+        className="mt-1 truncate font-mono text-[12.5px] leading-snug tracking-wide text-[#1B5CFF] dark:text-[#4B7CFF]"
         title={value}
       >
         {value || "—"}
@@ -318,25 +318,25 @@ function ActionTile({
       aria-label={ariaLabel}
       aria-busy={busy || undefined}
       className={cn(
-        "group flex min-h-[4.25rem] flex-col items-start justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-[border-color,background-color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f]/40 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+        "group flex min-h-[4.25rem] flex-col items-start justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-[border-color,background-color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
         active
-          ? "border-[#ff801f]/55 bg-[#fff7ed] dark:border-[#fb923c]/45 dark:bg-[#fb923c]/10"
-          : "border-[#e7ded0] bg-[#fffdfa] hover:-translate-y-0.5 hover:border-[#ff801f]/35 dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#fb923c]/35"
+          ? "border-[#1B5CFF]/55 bg-[#F1F5FF] dark:border-[#4B7CFF]/45 dark:bg-[#4B7CFF]/10"
+          : "border-[#E7E7EA] bg-[#ffffff] hover:-translate-y-0.5 hover:border-[#1B5CFF]/35 dark:border-[#273244] dark:bg-[#111827] dark:hover:border-[#4B7CFF]/35",
       )}
     >
       <span
         className={cn(
           "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
           active
-            ? "bg-[#ff801f] text-black"
-            : "bg-[#ff801f]/12 text-[#9a3412] group-hover:bg-[#ff801f]/18 dark:bg-[#fb923c]/15 dark:text-[#fdba74]"
+            ? "bg-[#1B5CFF] text-white"
+            : "bg-[#1B5CFF]/12 text-[#1244D1] group-hover:bg-[#1B5CFF]/18 dark:bg-[#4B7CFF]/15 dark:text-[#4B7CFF]",
         )}
         aria-hidden
       >
         {icon}
       </span>
       <span>
-        <span className="block text-[13px] font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+        <span className="block text-[13px] font-semibold text-[#09090B] dark:text-[#f8fafc]">
           {busy ? "…" : label}
         </span>
         <span className={cn("mt-0.5 block", caption)}>{hint}</span>
@@ -474,7 +474,6 @@ export default function UnitSimPanel({
     if (!smsConfirmOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      // Evita cerrar el modal padre (ficha de unidad) al cancelar la confirmación.
       event.stopImmediatePropagation();
       if (smsConfirmPhase === "sending" || actionBusy === "sms") return;
       setSmsConfirmOpen(false);
@@ -525,7 +524,7 @@ export default function UnitSimPanel({
         if (cached?.kind === "sim") return cached.sim;
         if (cached?.kind === "missing") {
           const err = new Error(
-            "Esta unidad no tiene una SIM registrada en M2M."
+            "Esta unidad no tiene una SIM registrada en M2M.",
           ) as Error & { code?: string };
           err.code = "not_found";
           throw err;
@@ -548,7 +547,7 @@ export default function UnitSimPanel({
         const detail = String(data?.detail || `Error HTTP ${res.status}`);
         if (res.status === 503) {
           const err = new Error(
-            detail.includes("M2M") ? detail : "M2M no configurado (M2M_API_KEY)."
+            detail.includes("M2M") ? detail : "M2M no configurado (M2M_API_KEY).",
           ) as Error & { code?: string };
           err.code = "not_configured";
           throw err;
@@ -574,7 +573,7 @@ export default function UnitSimPanel({
         if (simInflight.get(cacheKey) === request) simInflight.delete(cacheKey);
       }
     },
-    [cacheKey, lookup.imei, lookup.msisdn]
+    [cacheKey, lookup.imei, lookup.msisdn],
   );
 
   const loadSim = useCallback(
@@ -642,8 +641,12 @@ export default function UnitSimPanel({
         setNotFound(false);
       } catch (err) {
         if (stale()) return;
-        const message = err instanceof Error ? err.message : "No se pudo consultar la SIM en M2M.";
-        const code = err && typeof err === "object" && "code" in err ? String((err as { code?: string }).code) : "";
+        const message =
+          err instanceof Error ? err.message : "No se pudo consultar la SIM en M2M.";
+        const code =
+          err && typeof err === "object" && "code" in err
+            ? String((err as { code?: string }).code)
+            : "";
         setSim(null);
         if (code === "not_found" || isNotFoundMessage(404, message)) {
           setNotFound(true);
@@ -662,7 +665,7 @@ export default function UnitSimPanel({
         }
       }
     },
-    [cacheKey, fetchSimDetail, hasLookup]
+    [cacheKey, fetchSimDetail, hasLookup],
   );
 
   useEffect(() => {
@@ -719,9 +722,7 @@ export default function UnitSimPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          kind === "sms"
-            ? { ...smsLookupBody, message: pendingSms }
-            : lookup
+          kind === "sms" ? { ...smsLookupBody, message: pendingSms } : lookup,
         ),
       });
       const data = await res.json().catch(() => null);
@@ -732,11 +733,7 @@ export default function UnitSimPanel({
         setActionNote(detail);
         if (kind === "sms") {
           setSmsConfirmPhase("done");
-          setSmsResult({
-            ok: false,
-            sentMessage: pendingSms,
-            responseMessage: detail,
-          });
+          setSmsResult({ ok: false, sentMessage: pendingSms, responseMessage: detail });
         }
         return;
       }
@@ -755,11 +752,7 @@ export default function UnitSimPanel({
       setActionNote(combined);
       if (kind === "sms") {
         setSmsConfirmPhase("done");
-        setSmsResult({
-          ok: true,
-          sentMessage: pendingSms,
-          responseMessage: combined,
-        });
+        setSmsResult({ ok: true, sentMessage: pendingSms, responseMessage: combined });
         setSmsDraft("");
       }
       if (kind === "reset") {
@@ -776,11 +769,7 @@ export default function UnitSimPanel({
       setActionNote(fallback);
       if (kind === "sms") {
         setSmsConfirmPhase("done");
-        setSmsResult({
-          ok: false,
-          sentMessage: pendingSms,
-          responseMessage: fallback,
-        });
+        setSmsResult({ ok: false, sentMessage: pendingSms, responseMessage: fallback });
       }
     } finally {
       setActionBusy(null);
@@ -790,10 +779,10 @@ export default function UnitSimPanel({
   if (!hasLookup) {
     return (
       <div
-        className="relative overflow-hidden rounded-2xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/80 px-5 py-10 text-center dark:border-[#334155] dark:bg-[#0f172a]/40"
+        className="relative overflow-hidden rounded-2xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/80 px-5 py-10 text-center dark:border-[#273244] dark:bg-[#0f172a]/40"
         role="status"
       >
-        <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ff801f]/12 text-[#9a3412] ring-1 ring-[#ff801f]/25 dark:bg-[#fb923c]/15 dark:text-[#fdba74]">
+        <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1B5CFF]/12 text-[#1244D1] ring-1 ring-[#1B5CFF]/25 dark:bg-[#4B7CFF]/15 dark:text-[#4B7CFF]">
           <SimChipIcon className="h-6 w-6" />
         </span>
         <p className="mx-auto mt-3 max-w-sm text-sm text-[#3d3d3a] dark:text-[#e2e8f0]">
@@ -807,12 +796,12 @@ export default function UnitSimPanel({
   if (loading && !sim) {
     return (
       <div
-        className="rounded-2xl border border-[#e7ded0]/90 bg-[#fffdfa] px-4 py-10 text-center dark:border-[#273244] dark:bg-[#0f172a]/50"
+        className="rounded-2xl border border-[#E7E7EA]/90 bg-[#ffffff] px-4 py-10 text-center dark:border-[#273244] dark:bg-[#0f172a]/50"
         role="status"
         aria-live="polite"
         aria-busy="true"
       >
-        <span className="mx-auto inline-flex h-10 w-10 animate-pulse rounded-2xl bg-[#ff801f]/20" aria-hidden />
+        <span className="mx-auto inline-flex h-10 w-10 animate-pulse rounded-2xl bg-[#1B5CFF]/20" aria-hidden />
         <p className={cn("mt-3", caption)}>Consultando SIM en M2M…</p>
       </div>
     );
@@ -822,25 +811,25 @@ export default function UnitSimPanel({
     const idHint = lookup.imei || lookup.msisdn || "—";
     return (
       <div
-        className="relative overflow-hidden rounded-2xl border border-[#e7ded0]/95 bg-[#fffdfa] px-4 py-8 text-center dark:border-[#273244] dark:bg-[#0f172a]/55 sm:px-6"
+        className="relative overflow-hidden rounded-2xl border border-[#E7E7EA]/95 bg-[#ffffff] px-4 py-8 text-center dark:border-[#273244] dark:bg-[#0f172a]/55 sm:px-6"
         role="status"
         aria-live="polite"
       >
         <span
-          className="absolute inset-y-0 left-0 w-1 bg-[#a8a29e] dark:bg-[#71717a]"
+          className="absolute inset-y-0 left-0 w-1 bg-[#A1A1AA] dark:bg-[#71717a]"
           aria-hidden
         />
-        <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ebe6df] text-[#78716c] ring-1 ring-[#d6d3d1] dark:bg-[#27272a] dark:text-[#a1a1aa] dark:ring-[#3f3f46]">
+        <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ebe6df] text-[#6E6E77] ring-1 ring-[#D3D3D8] dark:bg-[#27272a] dark:text-[#a1a1aa] dark:ring-[#273244]">
           <SimChipIcon className="h-6 w-6" />
         </span>
-        <p className={cn("mt-3 text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]")}>
+        <p className="mt-3 text-base font-semibold text-[#09090B] dark:text-[#f8fafc]">
           Sin SIM en M2M
         </p>
         <p className={cn("mx-auto mt-1.5 max-w-md", caption)}>
           Esta unidad no tiene una tarjeta SIM registrada en M2M Dataglobal. Puede usar otra
           operadora, no tener línea, o el IMEI/teléfono en Wialon no coincide con el de M2M.
         </p>
-        <p className="mx-auto mt-3 max-w-full truncate font-mono text-[12px] tracking-wide text-[#ea580c] dark:text-[#fb923c]">
+        <p className="mx-auto mt-3 max-w-full truncate font-mono text-[12px] tracking-wide text-[#1B5CFF] dark:text-[#4B7CFF]">
           {lookup.imei ? `IMEI ${lookup.imei}` : null}
           {lookup.imei && lookup.msisdn ? " · " : null}
           {lookup.msisdn ? `Tel. ${lookup.msisdn}` : null}
@@ -900,14 +889,17 @@ export default function UnitSimPanel({
   return (
     <div className="space-y-3" aria-busy={loading || refreshing || actionBusy != null || undefined}>
       <div
-        className="relative overflow-hidden rounded-2xl border border-[#e7ded0]/95 bg-[#fffdfa] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.75)] dark:border-[#273244] dark:bg-[#0f172a]/70 dark:shadow-none"
+        className="relative overflow-hidden rounded-2xl border border-[#E7E7EA]/95 bg-[#ffffff] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.75)] dark:border-[#273244] dark:bg-[#0f172a]/70 dark:shadow-none"
         role="region"
         aria-labelledby="unit-sim-status-label"
         aria-describedby={statusLiveId}
       >
         <span className={cn("absolute inset-y-0 left-0 w-1", meta.rail)} aria-hidden />
         <div
-          className={cn("pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full blur-3xl", meta.blob)}
+          className={cn(
+            "pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full blur-3xl",
+            meta.blob,
+          )}
           aria-hidden
         />
 
@@ -915,15 +907,15 @@ export default function UnitSimPanel({
           <div
             className={cn(
               "relative mx-auto flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl ring-1 sm:mx-0",
-              meta.glyph
+              meta.glyph,
             )}
             aria-hidden
           >
             <SimChipIcon className="h-7 w-7" />
             <span
               className={cn(
-                "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#fffdfa] dark:border-[#0f172a]",
-                meta.dot
+                "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#ffffff] dark:border-[#0f172a]",
+                meta.dot,
               )}
             />
           </div>
@@ -931,17 +923,12 @@ export default function UnitSimPanel({
           <div className="min-w-0 text-center sm:text-left">
             <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               <p className={eyebrow}>Línea M2M</p>
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset",
-                  "bg-emerald-50 text-emerald-800 ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/50"
-                )}
-              >
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset bg-emerald-50 text-emerald-800 ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/50">
                 En vivo
               </span>
               <button
                 type="button"
-                className={cn(caption, "underline-offset-2 hover:text-[#ea580c] hover:underline")}
+                className={cn(caption, "underline-offset-2 hover:text-[#1B5CFF] hover:underline")}
                 onClick={() => void loadSim({ force: true })}
                 disabled={loading || refreshing || actionBusy != null}
               >
@@ -952,30 +939,25 @@ export default function UnitSimPanel({
               <p id="unit-sim-status-label" className={cn(serifDisplay, "text-xl sm:text-2xl")}>
                 {meta.label}
               </p>
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
-                  meta.badge
-                )}
-              >
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset">
                 <span className={cn("mr-1.5 inline-block h-1.5 w-1.5 rounded-full", meta.dot)} aria-hidden />
                 {sim.simCycleState}
               </span>
             </div>
             <p className={cn("mt-1.5 max-w-lg", caption)}>
               {sim.planName || "Sin plan"}
-              <span className="text-[#a8a29e]"> · </span>
+              <span className="text-[#A1A1AA]"> · </span>
               {sim.operator || "Sin operador"}
               {moduleLabel ? (
                 <>
-                  <span className="text-[#a8a29e]"> · </span>
+                  <span className="text-[#A1A1AA]"> · </span>
                   {moduleLabel}
                 </>
               ) : null}
             </p>
             <p className={cn("mt-1", caption)}>
               Última conexión {formatIsoShort(sim.lastConnStart)}
-              <span className="text-[#a8a29e]"> · </span>
+              <span className="text-[#A1A1AA]"> · </span>
               GPRS {gprsUp ? "activo" : sim.gprsStatus === 0 ? "inactivo" : "sin dato"}
             </p>
           </div>
@@ -984,20 +966,10 @@ export default function UnitSimPanel({
             <SignalBars level={meta.signal} />
             <p className={cn(caption, "tabular-nums")}>Estado de línea</p>
             <div className="flex flex-wrap justify-center gap-1.5 sm:justify-end">
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
-                  gsmTone.chip
-                )}
-              >
+              <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset", gsmTone.chip)}>
                 GSM {gsmTone.text}
               </span>
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
-                  gprsTone.chip
-                )}
-              >
+              <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset", gprsTone.chip)}>
                 GPRS {gprsTone.text}
               </span>
             </div>
@@ -1012,45 +984,45 @@ export default function UnitSimPanel({
       </div>
 
       <div className="grid grid-cols-1 gap-3 @min-[36rem]:grid-cols-2">
-        <div className="rounded-2xl border border-[#e7ded0]/90 bg-[#fffdfa] p-3.5 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:p-4">
+        <div className="rounded-2xl border border-[#E7E7EA]/90 bg-[#ffffff] p-3.5 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:p-4">
           <p className={eyebrow}>Sesión de datos</p>
           <dl className="mt-3 space-y-2.5">
-            <div className="flex items-baseline justify-between gap-3 border-b border-[#e7ded0]/70 pb-2 dark:border-[#334155]/60">
+            <div className="flex items-baseline justify-between gap-3 border-b border-[#E7E7EA]/70 pb-2 dark:border-[#273244]/60">
               <dt className={caption}>APN</dt>
               <dd
                 className={cn(
                   "truncate text-right text-[12.5px]",
                   sim.apn
-                    ? "font-mono text-[#1c1917] dark:text-[#f8fafc]"
-                    : "text-[#8e8b82] dark:text-[#94a3b8]"
+                    ? "font-mono text-[#09090B] dark:text-[#f8fafc]"
+                    : "text-[#8e8b82] dark:text-[#8EA0B8]",
                 )}
                 title={sim.apn || "M2M no incluye APN en este plan (p. ej. Emnify)"}
               >
                 {sim.apn || "No reportado por M2M"}
               </dd>
             </div>
-            <div className="flex items-baseline justify-between gap-3 border-b border-[#e7ded0]/70 pb-2 dark:border-[#334155]/60">
+            <div className="flex items-baseline justify-between gap-3 border-b border-[#E7E7EA]/70 pb-2 dark:border-[#273244]/60">
               <dt className={caption}>IP</dt>
-              <dd className="truncate font-mono text-[12.5px] text-[#1c1917] dark:text-[#f8fafc]">
+              <dd className="truncate font-mono text-[12.5px] text-[#09090B] dark:text-[#f8fafc]">
                 {sim.ip || "—"}
               </dd>
             </div>
-            <div className="flex items-baseline justify-between gap-3 border-b border-[#e7ded0]/70 pb-2 dark:border-[#334155]/60">
+            <div className="flex items-baseline justify-between gap-3 border-b border-[#E7E7EA]/70 pb-2 dark:border-[#273244]/60">
               <dt className={caption}>Tipo SIM</dt>
-              <dd className="truncate text-[12.5px] font-medium text-[#1c1917] dark:text-[#f8fafc]">
+              <dd className="truncate text-[12.5px] font-medium text-[#09090B] dark:text-[#f8fafc]">
                 {sim.simType || sim.operator || "—"}
               </dd>
             </div>
             <div className="flex items-baseline justify-between gap-3">
               <dt className={caption}>Código de plan</dt>
-              <dd className="truncate font-mono text-[12.5px] text-[#ea580c] dark:text-[#fb923c]">
+              <dd className="truncate font-mono text-[12.5px] text-[#1B5CFF] dark:text-[#4B7CFF]">
                 {sim.planCode || "—"}
               </dd>
             </div>
           </dl>
         </div>
 
-        <div className="rounded-2xl border border-[#e7ded0]/90 bg-[#fffdfa] p-3.5 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:p-4">
+        <div className="rounded-2xl border border-[#E7E7EA]/90 bg-[#ffffff] p-3.5 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:p-4">
           <p className={eyebrow}>Consumo</p>
           <div className="mt-3 space-y-4">
             <UsageMeter label="Mes" bytes={sim.consumptionMonthlyData} maxBytes={monthlyMax} />
@@ -1065,7 +1037,7 @@ export default function UnitSimPanel({
 
       {actionNote ? (
         <p
-          className="rounded-xl border border-[#e7ded0] bg-[#fcfaf6] px-3.5 py-2 text-[12.5px] text-[#57534e] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#94a3b8]"
+          className="rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] px-3.5 py-2 text-[12.5px] text-[#52525B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8]"
           role="status"
           aria-live="polite"
         >
@@ -1074,7 +1046,9 @@ export default function UnitSimPanel({
       ) : null}
 
       {!canEdit ? (
-        <p className={cn("text-center", caption)}>Solo lectura: necesitas permiso de edición para pruebas, reset o SMS.</p>
+        <p className={cn("text-center", caption)}>
+          Solo lectura: necesitas permiso de edición para pruebas, reset o SMS.
+        </p>
       ) : null}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Acciones de SIM">
@@ -1146,17 +1120,19 @@ export default function UnitSimPanel({
       {smsOpen ? (
         <div
           id={smsId}
-          className="relative overflow-hidden rounded-2xl border border-[#ff801f]/30 bg-gradient-to-br from-[#fffdfa] via-[#fff8f1] to-[#ffe8d4]/70 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-[#fb923c]/30 dark:from-[#1a120c] dark:via-[#431407]/35 dark:to-[#0f172a]/80 dark:shadow-none sm:p-4"
+          className="relative overflow-hidden rounded-2xl border border-[#1B5CFF]/30 bg-gradient-to-br from-[#ffffff] via-[#F1F5FF] to-[#F1F5FF]/70 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-[#4B7CFF]/30 dark:from-[#0f172a] dark:via-[#0f172a]/35 dark:to-[#0f172a]/80 dark:shadow-none sm:p-4"
         >
           <span
-            className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#ff801f]/15 blur-2xl dark:bg-[#fb923c]/10"
+            className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#1B5CFF]/15 blur-2xl dark:bg-[#4B7CFF]/10"
             aria-hidden
           />
           <div className="relative space-y-3">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div className="min-w-0">
-                <p className={cn(eyebrow, "text-[#c2410c] dark:text-[#fb923c]")}>Comandos SMS · M2M</p>
-                <p className={cn("mt-0.5 text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]")}>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1244D1] dark:text-[#4B7CFF] sm:text-[11px]">
+                  Comandos SMS · M2M
+                </p>
+                <p className="mt-0.5 text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">
                   Se envían a la SIM por M2M (IMEI / MSISDN)
                 </p>
               </div>
@@ -1165,11 +1141,7 @@ export default function UnitSimPanel({
               </span>
             </div>
 
-            <div
-              className="grid grid-cols-1 gap-2 sm:grid-cols-2"
-              role="group"
-              aria-label="Mensajes predeterminados"
-            >
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="group" aria-label="Mensajes predeterminados">
               {SMS_PRESETS.map((preset) => {
                 const selected = smsDraft.trim() === preset.message;
                 return (
@@ -1182,10 +1154,10 @@ export default function UnitSimPanel({
                     onClick={() => setSmsDraft(preset.message)}
                     className={cn(
                       "group flex min-h-[3.25rem] items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-[border-color,background-color,box-shadow,transform] duration-150",
-                      "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff801f]",
+                      "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF]",
                       "disabled:cursor-not-allowed disabled:opacity-50",
                       "motion-safe:active:scale-[0.99] motion-reduce:active:scale-100",
-                      smsPresetToneClass(preset.tone, selected)
+                      smsPresetToneClass(preset.tone, selected),
                     )}
                   >
                     <span
@@ -1194,7 +1166,7 @@ export default function UnitSimPanel({
                         preset.tone === "on" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
                         preset.tone === "off" && "bg-rose-500/15 text-rose-700 dark:text-rose-300",
                         preset.tone === "factory" && "bg-amber-500/15 text-amber-800 dark:text-amber-300",
-                        preset.tone === "reset" && "bg-[#ff801f]/15 text-[#c2410c] dark:text-[#fdba74]"
+                        preset.tone === "reset" && "bg-[#1B5CFF]/15 text-[#1244D1] dark:text-[#4B7CFF]",
                       )}
                       aria-hidden
                     >
@@ -1202,10 +1174,10 @@ export default function UnitSimPanel({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-                        <span className="text-[13px] font-semibold text-[#1c1917] dark:text-[#f8fafc]">
+                        <span className="text-[13px] font-semibold text-[#09090B] dark:text-[#f8fafc]">
                           {preset.label}
                         </span>
-                        <span className="font-mono text-[11px] font-semibold tracking-wide text-[#ea580c] dark:text-[#fb923c]">
+                        <span className="font-mono text-[11px] font-semibold tracking-wide text-[#1B5CFF] dark:text-[#4B7CFF]">
                           {preset.message}
                         </span>
                       </span>
@@ -1231,7 +1203,7 @@ export default function UnitSimPanel({
                 aria-describedby={`${smsId}-hint`}
                 className={cn(
                   erpInputLikeClass,
-                  "w-full resize-y bg-white/90 font-mono text-[13px] tracking-wide dark:bg-[#0f172a]/70"
+                  "w-full resize-y bg-white/90 font-mono text-[13px] tracking-wide dark:bg-[#0f172a]/70",
                 )}
               />
               <p id={`${smsId}-hint`} className={caption}>
@@ -1243,7 +1215,7 @@ export default function UnitSimPanel({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#ff801f]/15 pt-3 dark:border-[#fb923c]/15">
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#1B5CFF]/15 pt-3 dark:border-[#4B7CFF]/15">
               <button
                 type="button"
                 className={cn(erpSecondaryBtnClass, "min-h-10 min-w-[6.5rem]")}
@@ -1273,21 +1245,21 @@ export default function UnitSimPanel({
         showCloseButton={smsConfirmPhase !== "sending"}
         ariaLabelledBy={smsConfirmTitleId}
         ariaDescribedBy={smsConfirmDescId}
-        className="w-full max-w-lg overflow-hidden rounded-t-[1.75rem] border border-[#e7ded0] bg-[#fffdfa] shadow-[0_32px_80px_-28px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111a2b] sm:rounded-3xl"
+        className="w-full max-w-lg overflow-hidden rounded-t-[1.75rem] border border-[#E7E7EA] bg-[#ffffff] shadow-[0_32px_80px_-28px_rgba(9,9,11,0.55)] dark:border-[#273244] dark:bg-[#111827] sm:rounded-3xl"
       >
         <div className="relative overflow-hidden">
           <div
             className={cn(
               "relative px-5 pb-4 pt-5 sm:px-6 sm:pt-6",
               smsConfirmPhase === "done" && smsResult?.ok
-                ? "bg-gradient-to-br from-emerald-50 via-[#fffdfa] to-[#fff8f1] dark:from-emerald-950/40 dark:via-[#111a2b] dark:to-[#0f172a]"
+                ? "bg-gradient-to-br from-emerald-50 via-[#ffffff] to-[#F1F5FF] dark:from-emerald-950/40 dark:via-[#111827] dark:to-[#0f172a]"
                 : smsConfirmPhase === "done" && smsResult && !smsResult.ok
-                  ? "bg-gradient-to-br from-rose-50 via-[#fffdfa] to-[#fff8f1] dark:from-rose-950/40 dark:via-[#111a2b] dark:to-[#0f172a]"
-                  : "bg-gradient-to-br from-[#fff3e6] via-[#fffdfa] to-[#fff8f1] dark:from-[#431407]/50 dark:via-[#111a2b] dark:to-[#0f172a]"
+                  ? "bg-gradient-to-br from-rose-50 via-[#ffffff] to-[#F1F5FF] dark:from-rose-950/40 dark:via-[#111827] dark:to-[#0f172a]"
+                  : "bg-gradient-to-br from-[#F1F5FF] via-[#ffffff] to-[#F1F5FF] dark:from-[#0f172a]/50 dark:via-[#111827] dark:to-[#0f172a]",
             )}
           >
             <span
-              className="pointer-events-none absolute -right-6 -top-8 h-32 w-32 rounded-full bg-[#ff801f]/20 blur-3xl dark:bg-[#fb923c]/15"
+              className="pointer-events-none absolute -right-6 -top-8 h-32 w-32 rounded-full bg-[#1B5CFF]/20 blur-3xl dark:bg-[#4B7CFF]/15"
               aria-hidden
             />
             <div className="relative flex items-start gap-3.5 pr-8">
@@ -1298,14 +1270,18 @@ export default function UnitSimPanel({
                     ? "bg-emerald-500/15 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300"
                     : smsConfirmPhase === "done" && smsResult && !smsResult.ok
                       ? "bg-rose-500/15 text-rose-700 ring-rose-500/30 dark:text-rose-300"
-                      : smsConfirmPhase === "sending"
-                        ? "bg-[#ff801f]/15 text-[#c2410c] ring-[#ff801f]/30 dark:text-[#fdba74]"
-                        : "bg-[#ff801f]/15 text-[#c2410c] ring-[#ff801f]/30 dark:text-[#fdba74]"
+                      : "bg-[#1B5CFF]/15 text-[#1244D1] ring-[#1B5CFF]/30 dark:text-[#4B7CFF]",
                 )}
                 aria-hidden
               >
                 {smsConfirmPhase === "sending" ? (
-                  <svg className="h-5 w-5 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    className="h-5 w-5 animate-spin motion-reduce:animate-none"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <path d="M12 3a9 9 0 1 1-9 9" strokeLinecap="round" />
                   </svg>
                 ) : smsConfirmPhase === "done" && smsResult?.ok ? (
@@ -1325,10 +1301,13 @@ export default function UnitSimPanel({
                 )}
               </span>
               <div className="min-w-0 flex-1">
-                <p className={cn(eyebrow, "text-[#c2410c] dark:text-[#fb923c]")}>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1244D1] dark:text-[#4B7CFF] sm:text-[11px]">
                   {smsConfirmPhase === "done" ? "Respuesta M2M" : "SMS · M2M"}
                 </p>
-                <h3 id={smsConfirmTitleId} className={cn(serifDisplay, "mt-1 text-xl leading-snug")}>
+                <h3
+                  id={smsConfirmTitleId}
+                  className="mt-1 text-xl font-medium leading-snug tracking-[-0.02em] text-[#09090B] dark:text-[#f8fafc]"
+                >
                   {smsConfirmPhase === "sending"
                     ? "Enviando por M2M…"
                     : smsConfirmPhase === "done" && smsResult?.ok
@@ -1351,20 +1330,20 @@ export default function UnitSimPanel({
           </div>
 
           <div className="space-y-3 px-5 py-4 sm:px-6 sm:pb-5">
-            <div className="overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fcfaf6]/95 dark:border-[#334155] dark:bg-[#0f172a]/60">
-              <div className="flex items-center justify-between gap-2 border-b border-[#e7ded0]/90 px-3.5 py-2 dark:border-[#334155]">
+            <div className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA]/95 dark:border-[#273244] dark:bg-[#0f172a]/60">
+              <div className="flex items-center justify-between gap-2 border-b border-[#E7E7EA]/90 px-3.5 py-2 dark:border-[#273244]">
                 <span className={erpSectionLabelClass}>Destino · {smsDestinationKind}</span>
-                <span className="rounded-full bg-[#ff801f]/12 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-[#c2410c] dark:bg-[#fb923c]/15 dark:text-[#fdba74]">
+                <span className="rounded-full bg-[#1B5CFF]/12 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-[#1244D1] dark:bg-[#4B7CFF]/15 dark:text-[#4B7CFF]">
                   M2M
                 </span>
               </div>
-              <p className="break-all px-3.5 py-2.5 font-mono text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
+              <p className="break-all px-3.5 py-2.5 font-mono text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">
                 {smsDestination}
               </p>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-[#e7ded0] dark:border-[#334155]">
-              <div className="border-b border-[#e7ded0]/90 bg-[#fff8f1]/80 px-3.5 py-2 dark:border-[#334155] dark:bg-[#431407]/25">
+            <div className="overflow-hidden rounded-2xl border border-[#E7E7EA] dark:border-[#273244]">
+              <div className="border-b border-[#E7E7EA]/90 bg-[#F1F5FF]/80 px-3.5 py-2 dark:border-[#273244] dark:bg-[#0f172a]/25">
                 <span className={erpSectionLabelClass}>
                   {smsConfirmPhase === "done" ? "Mensaje enviado" : "Mensaje a enviar"}
                 </span>
@@ -1372,20 +1351,23 @@ export default function UnitSimPanel({
                   <span className={cn("mt-0.5 block", caption)}>Acción: {smsPresetHint}</span>
                 ) : null}
               </div>
-              <pre className="overflow-x-auto bg-[#181715] px-3.5 py-3 font-mono text-[13px] font-semibold leading-relaxed tracking-wide text-[#fdba74]">
+              <pre className="overflow-x-auto bg-[#181715] px-3.5 py-3 font-mono text-[13px] font-semibold leading-relaxed tracking-wide text-[#4B7CFF]">
                 {(smsConfirmPhase === "done" ? smsResult?.sentMessage : smsDraft.trim()) || "—"}
               </pre>
             </div>
 
             {smsConfirmPhase === "sending" ? (
               <div
-                className="flex items-center gap-3 rounded-2xl border border-[#ff801f]/25 bg-[#fff8f1] px-3.5 py-3 dark:border-[#fb923c]/25 dark:bg-[#431407]/30"
+                className="flex items-center gap-3 rounded-2xl border border-[#1B5CFF]/25 bg-[#F1F5FF] px-3.5 py-3 dark:border-[#4B7CFF]/25 dark:bg-[#0f172a]/30"
                 role="status"
                 aria-live="polite"
                 aria-busy="true"
               >
-                <span className="inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-[#ff801f] motion-reduce:animate-none" aria-hidden />
-                <p className="text-sm text-[#57534e] dark:text-[#cbd5e1]">
+                <span
+                  className="inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-[#1B5CFF] motion-reduce:animate-none"
+                  aria-hidden
+                />
+                <p className="text-sm text-[#52525B] dark:text-[#cbd5e1]">
                   Enviando comando SMS por M2M…
                 </p>
               </div>
@@ -1397,7 +1379,7 @@ export default function UnitSimPanel({
                   "overflow-hidden rounded-2xl border",
                   smsResult.ok
                     ? "border-emerald-300/70 bg-emerald-50/90 dark:border-emerald-700/50 dark:bg-emerald-950/35"
-                    : "border-rose-300/70 bg-rose-50/90 dark:border-rose-800/50 dark:bg-rose-950/35"
+                    : "border-rose-300/70 bg-rose-50/90 dark:border-rose-800/50 dark:bg-rose-950/35",
                 )}
                 role="status"
                 aria-live="polite"
@@ -1407,14 +1389,11 @@ export default function UnitSimPanel({
                     "flex items-center gap-2 border-b px-3.5 py-2",
                     smsResult.ok
                       ? "border-emerald-200/80 dark:border-emerald-800/40"
-                      : "border-rose-200/80 dark:border-rose-900/40"
+                      : "border-rose-200/80 dark:border-rose-900/40",
                   )}
                 >
                   <span
-                    className={cn(
-                      "h-2 w-2 rounded-full",
-                      smsResult.ok ? "bg-emerald-500" : "bg-rose-500"
-                    )}
+                    className={cn("h-2 w-2 rounded-full", smsResult.ok ? "bg-emerald-500" : "bg-rose-500")}
                     aria-hidden
                   />
                   <span
@@ -1422,7 +1401,7 @@ export default function UnitSimPanel({
                       "text-[10px] font-semibold uppercase tracking-[0.14em]",
                       smsResult.ok
                         ? "text-emerald-800 dark:text-emerald-300"
-                        : "text-rose-800 dark:text-rose-300"
+                        : "text-rose-800 dark:text-rose-300",
                     )}
                   >
                     {smsResult.ok ? "Confirmación M2M" : "Error M2M"}
@@ -1433,7 +1412,7 @@ export default function UnitSimPanel({
                     "px-3.5 py-3 text-sm leading-relaxed",
                     smsResult.ok
                       ? "text-emerald-950 dark:text-emerald-100"
-                      : "text-rose-950 dark:text-rose-100"
+                      : "text-rose-950 dark:text-rose-100",
                   )}
                 >
                   {smsResult.responseMessage}

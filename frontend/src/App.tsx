@@ -61,7 +61,7 @@ const NuevaCotizacionPage = lazy(() => import("@/pages/Ventas/Cotizacion/NuevaCo
 const CotizacionPdfPage = lazy(() => import("@/pages/Ventas/Cotizacion/CotizacionPdfPage"));
 const IaPage = lazy(() => import("@/pages/IA/iaPage"));
 const ReportesPage = lazy(() => import("@/pages/Operacion/Reportes/ReportesPage"));
-const CuentasAntarixPage = lazy(() => import("@/pages/Operacion/CuentasAntarix/CuentasAntarixPage"));
+const CuentasAntarixPage = lazy(() => import("@/pages/Ventas/Suscripcion/CuentasAntarix/CuentasAntarixPage"));
 const InventarioPage = lazy(() => import("@/pages/Inventario/InventarioPage"));
 
 export default function App() {
