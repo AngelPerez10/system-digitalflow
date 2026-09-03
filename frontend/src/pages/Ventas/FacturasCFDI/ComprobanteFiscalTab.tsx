@@ -1,12 +1,20 @@
 import Label from "@/components/form/Label";
-import { erpSectionLabelClass, erpSelectFieldClass, erpSubheadingClass } from "@/layout/erpPageStyles";
 import type { CatalogOption } from "./facturaCfdiFormTypes";
-import { FacturaCfdiBadge, FacturaNeutralBadge, facturaHintClass } from "./facturaTabUi";
+import {
+  FacturaCfdiBadge,
+  FacturaNeutralBadge,
+  facturaHintClass,
+  facturaSectionLabelClass,
+  facturaSubheadingClass,
+} from "./facturaTabUi";
 
 const SICAR_SERIE_FIJA = "IMA";
 
 const shellClass =
-  "overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]/90";
+  "overflow-hidden rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]";
+
+const selectFieldClass =
+  "h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 text-sm text-[#09090B] outline-none transition-colors scheme-light focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:scheme-dark dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
 
 type Props = {
   proximoFolioLabel: string | null;
@@ -25,8 +33,8 @@ type ClaveTone = "primary" | "neutral";
 function ClaveBadge({ clave, tone }: { clave: string; tone: ClaveTone }) {
   const toneClass =
     tone === "primary"
-      ? "border-[#ff801f]/30 bg-[#ff801f]/12 text-[#c2410c] dark:border-[#fb923c]/35 dark:bg-[#ff801f]/15 dark:text-[#fb923c]"
-      : "border-[#e7ded0] bg-[#fffdfa] text-[#57534e] dark:border-[#334155] dark:bg-[#111827] dark:text-[#cbd5e1]";
+      ? "border-[rgba(27,92,255,0.28)] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:border-[rgba(75,124,255,0.35)] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]"
+      : "border-[#E7E7EA] bg-white text-[#52525B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#cbd5e1]";
 
   return (
     <span
@@ -53,14 +61,14 @@ function PagoField({ id, hintId, label, clave, claveTone, value, options, hint, 
   return (
     <div className="min-w-0">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <Label htmlFor={id} className="!mb-0 text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
+        <Label htmlFor={id} className="!mb-0 text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]">
           {label}
         </Label>
         <ClaveBadge clave={clave} tone={claveTone} />
       </div>
       <select
         id={id}
-        className={erpSelectFieldClass}
+        className={selectFieldClass}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-describedby={hintId}
@@ -93,22 +101,17 @@ export default function ComprobanteFiscalTab({
 
   return (
     <section className={shellClass} aria-labelledby="comprobante-fiscal-heading">
-      <div className="relative border-b border-[#e7ded0]/90 bg-[#fffdfa]/70 px-4 py-4 dark:border-[#334155] dark:bg-[#111827]/55 sm:px-5 sm:py-5">
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#ff801f]/45 to-transparent"
-          aria-hidden
-        />
-
+      <div className="relative border-b border-[#E7E7EA] bg-white px-4 py-4 dark:border-[#273244] dark:bg-[#111827]/55 sm:px-5 sm:py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <p id="comprobante-fiscal-heading" className={erpSectionLabelClass}>
+            <p id="comprobante-fiscal-heading" className={facturaSectionLabelClass}>
               Comprobante fiscal
             </p>
-            <p className="mt-1 font-mono text-[clamp(1.5rem,3.5vw,2.1rem)] font-semibold leading-none tracking-tight text-[#1c1917] dark:text-[#f8fafc]">
+            <p className="mt-1 font-mono text-[clamp(1.5rem,3.5vw,2.1rem)] font-semibold leading-none tracking-tight text-[#09090B] dark:text-[#F8FAFC]">
               {folioDisplay}
             </p>
             <p className={`mt-2 ${facturaHintClass}`}>
-              Serie <span className="font-mono font-medium text-[#1c1917] dark:text-[#f8fafc]">{SICAR_SERIE_FIJA}</span>
+              Serie <span className="font-mono font-medium text-[#09090B] dark:text-[#F8FAFC]">{SICAR_SERIE_FIJA}</span>
               {" · "}
               folio automático al timbrar
             </p>
@@ -122,12 +125,12 @@ export default function ComprobanteFiscalTab({
       </div>
 
       <div className="px-4 py-4 sm:px-5 sm:py-5" aria-labelledby="comprobante-condiciones-pago">
-        <p className={erpSectionLabelClass}>Catálogos SAT</p>
-        <h4 id="comprobante-condiciones-pago" className={`mt-0.5 ${erpSubheadingClass}`}>
+        <p className={facturaSectionLabelClass}>Catálogos SAT</p>
+        <h4 id="comprobante-condiciones-pago" className={`mt-0.5 ${facturaSubheadingClass}`}>
           Condiciones de pago
         </h4>
 
-        <div className="mt-5 grid gap-5 border-t border-[#e7ded0]/70 pt-5 dark:border-white/[0.06] sm:grid-cols-2">
+        <div className="mt-5 grid gap-5 border-t border-[#E7E7EA] pt-5 dark:border-[#273244] sm:grid-cols-2">
           <PagoField
             id="factura-forma-pago"
             hintId="factura-forma-pago-hint"

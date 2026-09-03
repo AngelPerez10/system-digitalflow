@@ -1,6 +1,6 @@
 import { emptyFormData } from "@/components/clientes/clienteFormShared";
 import { estadosMX, paisOptions } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
-import type { ApiCotizacionItem } from "@/pages/Ventas/Cotizacion/cotizacionFormTypes";
+import type { ApiCotizacionItem } from "@/pages/Ventas/Cotizacion/shared/cotizacionFormTypes";
 
 export type SicarSerieOption = {
   scf_id: number;

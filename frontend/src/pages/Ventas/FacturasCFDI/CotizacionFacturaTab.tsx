@@ -1,5 +1,4 @@
 import SearchableSelect from "@/components/form/SearchableSelect";
-import { erpSectionLabelClass, erpSubheadingClass, erpTableHeaderClass, erpTableWrapClass } from "@/layout/erpPageStyles";
 import type { CotizacionOrigen, FacturaConceptoForm } from "./facturaCfdiFormTypes";
 import { sumConceptosSubtotal } from "./facturaCfdiFormTypes";
 import {
@@ -7,10 +6,18 @@ import {
   FacturaTotalsBar,
   facturaHintClass,
   facturaSectionClass,
+  facturaSectionLabelClass,
+  facturaSubheadingClass,
 } from "./facturaTabUi";
 
 const money = (n: number) =>
   n.toLocaleString("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 2 });
+
+const tableWrapClass =
+  "overflow-x-auto rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]";
+
+const tableHeaderClass =
+  "sticky top-0 z-10 border-b border-[#E7E7EA] bg-white text-[10px] font-semibold uppercase tracking-wider text-[#6E6E77] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] sm:text-[11px]";
 
 type CotizacionOption = { value: string; label: string };
 
@@ -69,7 +76,7 @@ export default function CotizacionFacturaTab({
         />
 
         <div
-          className="inline-grid w-full max-w-md grid-cols-2 gap-1 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-1 dark:border-[#334155] dark:bg-[#111827]"
+          className="inline-grid w-full max-w-md grid-cols-2 gap-1 rounded-[12px] border border-[#E7E7EA] bg-white p-1 dark:border-[#273244] dark:bg-[#111827]"
           role="tablist"
           aria-label="Origen de cotización"
         >
@@ -85,10 +92,10 @@ export default function CotizacionFacturaTab({
                 aria-controls={ORIGEN_PANEL_ID}
                 disabled={disabled || loadingDetail}
                 onClick={() => onOrigenChange(tab.id)}
-                className={`min-h-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff801f]/50 ${
+                className={`min-h-[44px] rounded-[10px] px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] ${
                   selected
-                    ? "bg-[#ff801f] text-black shadow-sm"
-                    : "text-[#57534e] hover:bg-white dark:text-[#cbd5e1] dark:hover:bg-white/[0.06]"
+                    ? "bg-[#1B5CFF] text-white shadow-sm dark:bg-[#4B7CFF]"
+                    : "text-[#52525B] hover:bg-[#FAFAFA] dark:text-[#cbd5e1] dark:hover:bg-white/[0.06]"
                 } disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {tab.label}
@@ -102,7 +109,7 @@ export default function CotizacionFacturaTab({
           id={ORIGEN_PANEL_ID}
           role="tabpanel"
           aria-labelledby={`cotizacion-origen-tab-${origen}`}
-          className="mt-5 border-t border-[#e7ded0]/80 pt-5 dark:border-white/[0.06]"
+          className="mt-5 border-t border-[#E7E7EA] pt-5 dark:border-[#273244]"
         >
           <SearchableSelect
             label="Cotización"
@@ -129,9 +136,9 @@ export default function CotizacionFacturaTab({
 
       {conceptos.length > 0 ? (
         <section className={`${facturaSectionClass} !p-0`} aria-labelledby="cotizacion-conceptos-heading">
-          <div className="border-b border-[#e7ded0] px-4 py-4 dark:border-[#334155] sm:px-5">
-            <p className={erpSectionLabelClass}>Conceptos importados</p>
-            <h4 id="cotizacion-conceptos-heading" className={`mt-0.5 ${erpSubheadingClass}`}>
+          <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-5">
+            <p className={facturaSectionLabelClass}>Conceptos importados</p>
+            <h4 id="cotizacion-conceptos-heading" className={`mt-0.5 ${facturaSubheadingClass}`}>
               {conceptos.length} línea{conceptos.length === 1 ? "" : "s"}
             </h4>
           </div>
@@ -145,10 +152,10 @@ export default function CotizacionFacturaTab({
             ]}
           />
 
-          <div className={`${erpTableWrapClass} !rounded-none !border-0`}>
+          <div className={`${tableWrapClass} !rounded-none !border-0`}>
             <table className="min-w-full text-left text-sm">
               <caption className="sr-only">Conceptos importados de la cotización seleccionada</caption>
-              <thead className={erpTableHeaderClass}>
+              <thead className={tableHeaderClass}>
                 <tr>
                   <th scope="col" className="px-4 py-2.5 text-left font-semibold uppercase tracking-wider">
                     Descripción
@@ -164,13 +171,15 @@ export default function CotizacionFacturaTab({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#e7ded0]/80 dark:divide-[#334155]">
+              <tbody className="divide-y divide-[#EDEDED] dark:divide-[#273244]">
                 {conceptos.map((c, idx) => (
-                  <tr key={`${c.clave || ""}-${idx}`} className="text-[#1c1917] dark:text-[#e5e7eb]">
-                    <td className="max-w-[16rem] px-4 py-2.5">
-                      <span className="line-clamp-2">{c.descripcion}</span>
+                  <tr key={`${c.clave || ""}-${idx}`} className="text-[#09090B] dark:text-[#e5e7eb]">
+                    <td className="max-w-[16rem] overflow-hidden px-4 py-2.5">
+                      <span className="block truncate" title={c.descripcion}>
+                        {c.descripcion}
+                      </span>
                       {c.clave ? (
-                        <span className="mt-0.5 block font-mono text-[11px] text-[#78716c] dark:text-[#94a3b8]">
+                        <span className="mt-0.5 block font-mono text-[11px] text-[#6E6E77] dark:text-[#94a3b8]">
                           {c.clave}
                         </span>
                       ) : null}
@@ -188,11 +197,11 @@ export default function CotizacionFacturaTab({
         </section>
       ) : (
         <div
-          className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 px-6 py-10 text-center dark:border-[#334155] dark:bg-[#0f172a]/40"
+          className="flex flex-col items-center gap-3 rounded-[16px] border border-dashed border-[#E7E7EA] bg-[#FAFAFA] px-6 py-10 text-center dark:border-[#273244] dark:bg-[#1B2539]"
           role="status"
         >
           <span
-            className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#ff801f]/12 text-[#ea580c] dark:bg-[#fb923c]/12 dark:text-[#fb923c]"
+            className="inline-flex size-12 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]"
             aria-hidden
           >
             <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
@@ -200,7 +209,7 @@ export default function CotizacionFacturaTab({
               <path d="M4 21h16" strokeLinecap="round" />
             </svg>
           </span>
-          <p className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">Sin conceptos importados</p>
+          <p className="text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC]">Sin conceptos importados</p>
           <p className={`max-w-sm ${facturaHintClass}`}>
             Selecciona una cotización para importar sus conceptos al comprobante.
           </p>

@@ -4,8 +4,8 @@ import { emptyFormData } from "@/components/clientes/clienteFormShared";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
 import { fetchSicarApi } from "./sicarApi";
-import { fetchCotizacionDetail, searchCotizacionesLite } from "@/pages/Ventas/Cotizacion/cotizacionApi";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchCotizacionDetail, searchCotizacionesLite } from "@/pages/Ventas/Cotizacion/shared/cotizacionApi";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import ComprobanteFiscalTab from "./ComprobanteFiscalTab";
 import CotizacionFacturaTab from "./CotizacionFacturaTab";
 import {
@@ -22,7 +22,6 @@ import {
   payloadFromFacturaForm,
 } from "./facturaCfdiFormTypes";
 
-const MODAL_TITLE_ID = "nueva-factura-cfdi-title";
 const MAP_CONTAINER_ID = "nueva-factura-cfdi-leaflet-map";
 const CLIENTE_SEARCH_DEBOUNCE_MS = 300;
 const CLIENTE_SEARCH_MIN_CHARS = 2;
@@ -38,16 +37,22 @@ const FACTURA_TABS: { id: FacturaModalTab; label: string; shortLabel: string }[]
 ];
 
 const facturaTabBtnClass =
-  "flex min-h-[44px] w-full items-center justify-center rounded-xl border px-2 py-2 text-center text-xs font-medium leading-snug transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff801f]/50 sm:px-3 sm:py-2.5 sm:text-sm";
+  "flex min-h-[44px] w-full items-center justify-center rounded-[10px] border px-2 py-2 text-center text-xs font-medium leading-snug transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] sm:px-3 sm:py-2.5 sm:text-sm";
 
-const facturaTabActiveClass = "border-[#ff801f]/30 bg-[#ff801f] text-black shadow-sm";
+const facturaTabActiveClass = "border-[#1B5CFF] bg-[#1B5CFF] text-white shadow-sm dark:border-[#4B7CFF] dark:bg-[#4B7CFF]";
 const facturaTabIdleClass =
-  "border-transparent bg-transparent text-[#57534e] hover:bg-white dark:text-[#e5e7eb] dark:hover:bg-white/[0.06]";
+  "border-transparent bg-transparent text-[#52525B] hover:bg-white dark:text-[#e5e7eb] dark:hover:bg-white/[0.06]";
 
 const SICAR_SERIE_FIJA = "IMA";
 
 const actionButtonClass =
-  "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:min-w-[8.5rem] sm:w-auto";
+  "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] sm:min-w-[8.5rem] sm:w-auto";
+
+const primaryActionClass =
+  `${actionButtonClass} border border-[#1B5CFF] bg-[#1B5CFF] text-white hover:border-[#1244D1] hover:bg-[#1244D1] disabled:cursor-not-allowed disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:border-[#3B6AF0] dark:hover:bg-[#3B6AF0] sm:min-w-[11rem]`;
+
+const secondaryActionClass =
+  `${actionButtonClass} border border-[#E7E7EA] bg-white text-[#09090B] hover:bg-[#FAFAFA] disabled:opacity-50 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:bg-[#243048]`;
 
 type Props = {
   isOpen: boolean;
@@ -56,6 +61,7 @@ type Props = {
 };
 
 export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Props) {
+  const modalTitleId = useId();
   const [loadingCatalogos, setLoadingCatalogos] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -467,46 +473,51 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        ariaLabelledBy={MODAL_TITLE_ID}
-        className="flex max-h-[min(92dvh,100%)] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-h-[92vh] sm:rounded-2xl"
+        ariaLabelledBy={modalTitleId}
+        className="flex max-h-[min(92dvh,100%)] w-full max-w-5xl flex-col overflow-hidden rounded-t-[20px] border border-[#E7E7EA] bg-white shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827] sm:max-h-[92vh] sm:rounded-[20px]"
+        mobileBottomSheet
       >
-        <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 pr-12 dark:border-[#334155] dark:bg-[#111827] sm:px-5 sm:py-4 sm:pr-14">
-          <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c]">
-            Ventas · SICAR
-          </p>
-          <h2
-            id={MODAL_TITLE_ID}
-            className="mt-1 text-base font-semibold text-[#1c1917] dark:text-[#f8fafc] sm:text-lg"
-          >
-            Nueva factura CFDI
-          </h2>
-          <p className="mt-1 text-xs text-[#57534e] dark:text-[#94a3b8] sm:text-sm">
-            Captura el receptor y datos del comprobante para timbrar en SICAR.
-          </p>
+        <header className="relative shrink-0 bg-[#17235B] px-4 py-4 pr-14 dark:bg-[#1B2A63] sm:px-6 sm:py-5 sm:pr-16">
+          <div className="flex items-start gap-3.5">
+            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]">
+              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">Ventas · SICAR</p>
+              <h2 id={modalTitleId} className="mt-1 text-[20px] font-semibold leading-[1.25] tracking-[-0.5px] text-white">
+                Nueva factura CFDI
+              </h2>
+              <p className="mt-1 text-[14px] leading-[20px] text-white/70">
+                Captura el receptor y datos del comprobante para timbrar en SICAR.
+              </p>
+            </div>
+          </div>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col">
           {error ? (
             <div className="shrink-0 px-4 pt-4 sm:px-5">
               <div
-                className="rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
+                className="flex items-start gap-3 rounded-[14px] border border-[#F6CFCF] bg-[#FEF2F2] px-4 py-3 dark:border-[#7F1D1D] dark:bg-[#3F1518]"
                 role="alert"
               >
-                {error}
+                <span className="mt-1.5 size-[7px] shrink-0 rounded-full bg-[#C22B2B] dark:bg-[#F87171]" aria-hidden />
+                <p className="text-[14px] font-medium text-[#C22B2B] dark:text-[#F87171]">{error}</p>
               </div>
             </div>
           ) : null}
 
           <form onSubmit={(e) => void handleSubmit(e)} className="flex min-h-0 flex-1 flex-col">
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-white px-4 py-4 dark:bg-[#111827] sm:px-5 sm:py-5">
                 {loadingCatalogos ? (
-                  <p className="text-xs text-[#78716c] dark:text-[#94a3b8]" role="status">
+                  <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]" role="status">
                     Conectando con SICAR…
                   </p>
                 ) : null}
                 <div
-                  className="grid w-full grid-cols-2 gap-1 rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80 min-[560px]:grid-cols-4"
+                  className="grid w-full grid-cols-2 gap-1 rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#273244] dark:bg-[#1B2539] min-[560px]:grid-cols-4"
                   role="tablist"
                   aria-label="Secciones de la factura"
                 >
@@ -586,24 +597,15 @@ export default function NuevaFacturaCfdiModal({ isOpen, onClose, onCreated }: Pr
                 </div>
               </div>
 
-              <footer className="shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6]/95 px-4 py-3 dark:border-[#334155] dark:bg-[#0f172a]/95 sm:px-5 sm:py-4">
+              <footer className="shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 dark:border-[#273244] dark:bg-[#151E32] sm:px-5 sm:py-4">
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    disabled={saving}
-                    className={`${actionButtonClass} border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus-visible:outline-gray-400 disabled:opacity-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]`}
-                  >
+                  <button type="button" onClick={onClose} disabled={saving} className={secondaryActionClass}>
                     <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                       <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
                     </svg>
                     <span>Cancelar</span>
                   </button>
-                  <button
-                    type="submit"
-                    disabled={saving || loadingCatalogos}
-                    className={`${actionButtonClass} bg-[#ff801f] font-semibold text-black hover:bg-[#ff6a00] focus-visible:outline-[#ff801f] disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[11rem]`}
-                  >
+                  <button type="submit" disabled={saving || loadingCatalogos} className={primaryActionClass}>
                     {saving ? (
                       <>
                         <svg className="h-4 w-4 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
