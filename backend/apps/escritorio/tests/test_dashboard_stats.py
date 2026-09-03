@@ -28,10 +28,14 @@ class DashboardStatsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_stats_ok_for_staff(self):
+        # La vista usa la fecha real del sistema; anclamos los datos de prueba
+        # al mes en curso para que el test no dependa del calendario.
+        hoy = date.today()
+        primero_de_mes = hoy.replace(day=1)
         Cotizacion.objects.create(
             cliente="Cliente Dash",
             cliente_id=self.cliente,
-            fecha=date(2026, 8, 1),
+            fecha=primero_de_mes,
             status="PENDIENTE",
             creado_por=self.admin,
         )
@@ -39,8 +43,8 @@ class DashboardStatsTests(APITestCase):
             cliente="Cliente Dash",
             cliente_id=self.cliente,
             status="resuelto",
-            fecha_inicio=date(2026, 8, 2),
-            fecha_finalizacion=date(2026, 8, 3),
+            fecha_inicio=primero_de_mes,
+            fecha_finalizacion=hoy,
             creado_por=self.admin,
         )
         self.client.force_authenticate(user=self.admin)
@@ -54,7 +58,7 @@ class DashboardStatsTests(APITestCase):
         self.assertEqual(len(body["ordenes_completadas_meses"]), 12)
         self.assertGreaterEqual(body["mes_actual"]["cotizaciones_mes"], 1)
         self.assertGreaterEqual(body["mes_actual"]["ordenes_mes"], 1)
-        self.assertGreaterEqual(body["ordenes_completadas_meses"][7], 1)  # agosto = idx 7
+        self.assertGreaterEqual(body["ordenes_completadas_meses"][hoy.month - 1], 1)
 
     def test_build_dashboard_stats_unit(self):
         data = build_dashboard_stats(today=date(2026, 8, 12))

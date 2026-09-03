@@ -6,7 +6,9 @@ from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
 
 class LoginRateThrottle(AnonRateThrottle):
     # Varios técnicos pueden compartir la misma IP (oficina / datos móviles).
-    rate = '20/minute'
+    # El `rate` sale de settings.DEFAULT_THROTTLE_RATES['login'] (default 20/min,
+    # overridable con THROTTLE_LOGIN_RATE) — así CI/tests pueden aflojarlo sin
+    # tocar código. Sin `rate` en la clase, DRF lee THROTTLE_RATES[scope].
     scope = 'login'
 
 
@@ -28,7 +30,8 @@ class LoginAccountRateThrottle(SimpleRateThrottle):
     usuarios conocidos.
     """
 
-    rate = '10/minute'
+    # `rate` desde settings.DEFAULT_THROTTLE_RATES['login_account']
+    # (default 10/min, overridable con THROTTLE_LOGIN_ACCOUNT_RATE).
     scope = 'login_account'
 
     def get_cache_key(self, request, view):
@@ -52,5 +55,6 @@ class LoginAccountRateThrottle(SimpleRateThrottle):
 
 class RefreshRateThrottle(AnonRateThrottle):
     """Refresh puede llamarse sin usuario autenticado (solo cookie refresh_token)."""
-    rate = '60/minute'
+    # `rate` desde settings.DEFAULT_THROTTLE_RATES['refresh_token']
+    # (default 60/min, overridable con THROTTLE_REFRESH_RATE).
     scope = 'refresh_token'

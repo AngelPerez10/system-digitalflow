@@ -4,12 +4,24 @@ from rest_framework import exceptions
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
+from .access_blacklist import is_access_token_blacklisted
 from .csrf_utils import (
     csrf_header_format_valid,
     get_csrf_header_token,
     is_trusted_origin,
     request_origin_header,
 )
+
+
+class BearerJWTAuthentication(JWTAuthentication):
+    """`JWTAuthentication` estándar (header `Authorization: Bearer …`) que además
+    rechaza los access tokens revocados por logout (ver `access_blacklist`)."""
+
+    def get_validated_token(self, raw_token):
+        validated = super().get_validated_token(raw_token)
+        if is_access_token_blacklisted(validated):
+            raise InvalidToken('Token revocado (logout).')
+        return validated
 
 
 class CookieJWTAuthentication(JWTAuthentication):
@@ -41,6 +53,11 @@ class CookieJWTAuthentication(JWTAuthentication):
         try:
             validated_token = self.get_validated_token(raw)
         except (TokenError, InvalidToken):
+            return None
+
+        # Access token revocado por logout: la cookie sigue en el navegador
+        # hasta que expire, pero la sesión ya terminó.
+        if is_access_token_blacklisted(validated_token):
             return None
 
         if request.method not in ('GET', 'HEAD', 'OPTIONS', 'TRACE'):

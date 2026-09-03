@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .access_blacklist import blacklist_access_token
 from .models import UserPermissions, UserSignature
 from .permissions import user_has_any_ordenes_access
 from .serializers import UserAccountSerializer, UserPermissionsSerializer, UserSignatureSerializer
@@ -162,24 +163,56 @@ class UserAccountViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
 
 
-def _set_jwt_cookies(response, access_token: str, refresh_token: str):
+def _truthy_flag(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'si', 'sí', 'on'}
+    return False
+
+
+def _wants_persistent_session(request) -> bool:
+    """Web: `remember` en el body. App nativa: siempre persistente."""
+    if _is_mobile_client(request):
+        return True
+    data = request.data if isinstance(request.data, dict) else {}
+    return _truthy_flag(data.get('remember'))
+
+
+def _remember_claim(token) -> bool:
+    """Tokens anteriores a este campo se tratan como persistentes (7 días)."""
+    if 'remember' not in token.payload:
+        return True
+    return bool(token.get('remember'))
+
+
+def _cookie_max_age(persistent: bool, lifetime) -> int | None:
+    if not persistent:
+        return None
+    return int(lifetime.total_seconds())
+
+
+def _set_jwt_cookies(response, access_token: str, refresh_token: str, *, persistent: bool = True):
     secure = not settings.DEBUG
+    samesite = settings.SIMPLE_JWT.get('AUTH_COOKIE_SAMESITE', 'Lax')
     response.set_cookie(
         key='access_token',
         value=access_token,
-        max_age=settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds(),
+        max_age=_cookie_max_age(persistent, settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME']),
         httponly=True,
         secure=secure,
-        samesite=settings.SIMPLE_JWT.get('AUTH_COOKIE_SAMESITE', 'Lax'),
+        samesite=samesite,
         path='/',
     )
     response.set_cookie(
         key='refresh_token',
         value=refresh_token,
-        max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds(),
+        max_age=_cookie_max_age(persistent, settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']),
         httponly=True,
         secure=secure,
-        samesite=settings.SIMPLE_JWT.get('AUTH_COOKIE_SAMESITE', 'Lax'),
+        samesite=samesite,
         path='/',
     )
 
@@ -272,7 +305,9 @@ def login_view(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
+    remember = _wants_persistent_session(request)
     refresh = RefreshToken.for_user(user)
+    refresh['remember'] = remember
     access = refresh.access_token
 
     perms_obj, _ = UserPermissions.objects.get_or_create(user=user)
@@ -305,7 +340,7 @@ def login_view(request):
     if _is_mobile_client(request):
         payload['refresh'] = str(refresh)
     resp = Response(payload)
-    _set_jwt_cookies(resp, str(access), str(refresh))
+    _set_jwt_cookies(resp, str(access), str(refresh), persistent=remember)
     return resp
 
 
@@ -319,6 +354,10 @@ def logout_view(request):
             token.blacklist()
         except TokenError:
             pass
+    # Revocar también el access token en curso: sin esto seguía siendo válido
+    # (stateless) hasta 30 min después del logout.
+    if getattr(request, 'auth', None) is not None:
+        blacklist_access_token(request.auth)
     resp = Response({'detail': 'ok'})
     _clear_jwt_cookies(resp)
     return resp
@@ -558,7 +597,9 @@ def token_refresh_view(request):
         except Exception:
             logger.exception("Failed to blacklist refresh token for user %s", user_id)
 
+        remember = _remember_claim(current_refresh)
         rotated_refresh = RefreshToken.for_user(user)
+        rotated_refresh['remember'] = remember
         access = str(rotated_refresh.access_token)
         payload = {'access': access}
         # El refresh rota en cada uso y el anterior queda en blacklist. El web
@@ -573,7 +614,7 @@ def token_refresh_view(request):
         if _is_mobile_client(request) and not cookie_refresh:
             payload['refresh'] = str(rotated_refresh)
         resp = Response(payload)
-        _set_jwt_cookies(resp, access, str(rotated_refresh))
+        _set_jwt_cookies(resp, access, str(rotated_refresh), persistent=remember)
         return resp
     except TokenError:
         resp = Response({'detail': 'Token invalido o expirado.'}, status=status.HTTP_401_UNAUTHORIZED)

@@ -347,18 +347,20 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'apps.users.authentication.CookieJWTAuthentication',
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'apps.users.authentication.BearerJWTAuthentication',
     ],
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ],
+    # Los rates de auth son overridables por entorno (CI / pruebas E2E que
+    # autentican en ráfaga sin quemar el default de producción).
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour',
-        'refresh_token': '60/minute',
-        'login': '20/minute',
-        'login_account': '10/minute',
+        'refresh_token': os.environ.get('THROTTLE_REFRESH_RATE', '60/minute'),
+        'login': os.environ.get('THROTTLE_LOGIN_RATE', '20/minute'),
+        'login_account': os.environ.get('THROTTLE_LOGIN_ACCOUNT_RATE', '10/minute'),
         'portal_registro': '10/minute',
         'portal_registro_email': '5/hour',
     },

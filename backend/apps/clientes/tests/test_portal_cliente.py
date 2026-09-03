@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APIClient, APITestCase
 
 from apps.clientes.models import Cliente, ClienteContacto
 from apps.clientes.portal_models import ClientePortalAccount, ClienteRegistroSolicitud
