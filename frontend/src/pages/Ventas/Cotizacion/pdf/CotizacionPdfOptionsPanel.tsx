@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import Label from "@/components/form/Label";
-import { cardShellClass, labelPageClass, textareaLikeClassName } from "./cotizacionFormStyles";
-import type { CotizacionPdfOpciones } from "./cotizacionPdfTypes";
+import { cardShellClass, labelPageClass, textareaLikeClassName } from "../shared/cotizacionFormStyles";
+import type { CotizacionPdfOpciones } from "../shared/cotizacionPdfTypes";
 
 type PdfLine = {
   id: string;
@@ -62,16 +62,16 @@ function PdfOptionCheckbox({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/90 px-3 py-3 transition-colors hover:bg-[#fff8f1] dark:border-[#273244] dark:bg-[#0f172a]/50 dark:hover:bg-[#111a2b]/80 sm:px-4">
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E7E7EA] bg-[#FAFAFA]/90 px-3 py-3 transition-colors hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]/50 dark:hover:bg-[#111827]/80 sm:px-4">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#d6d3d1] text-[#ff801f] focus:ring-[#ff801f]/30 dark:border-[#475569] dark:bg-[#111a2b]"
+        className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#D3D3D8] text-[#1B5CFF] focus:ring-[#1B5CFF]/30 dark:border-[#475569] dark:bg-[#111827]"
       />
       <span className="min-w-0">
-        <span className="block text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">{label}</span>
-        <span className="mt-0.5 block text-xs text-[#78716c] dark:text-[#8ea0b8]">{hint}</span>
+        <span className="block text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">{label}</span>
+        <span className="mt-0.5 block text-xs text-[#6E6E77] dark:text-[#8ea0b8]">{hint}</span>
       </span>
     </label>
   );
@@ -150,9 +150,9 @@ export function CotizacionPdfOptionsPanel({
       {opciones.simplificar_descripcion && lines.length > 0 && (
         <div
           ref={simplificarSectionRef}
-          className="mt-5 space-y-4 border-t border-[#e7ded0] pt-5 dark:border-[#273244]"
+          className="mt-5 space-y-4 border-t border-[#E7E7EA] pt-5 dark:border-[#273244]"
         >
-          <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">
+          <p className="text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
             Este texto reemplaza el nombre del producto en el PDF y Excel (columna Descripción). El detalle sigue mostrando
             la descripción completa. Si lo dejas en blanco, se usa un resumen automático en el producto.
           </p>
@@ -160,12 +160,12 @@ export function CotizacionPdfOptionsPanel({
             {lines.map((line) => (
               <li
                 key={line.id}
-                className="rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-3 dark:border-[#273244] dark:bg-[#111827]/60 sm:p-4"
+                className="rounded-xl border border-[#E7E7EA] bg-[#ffffff] p-3 dark:border-[#273244] dark:bg-[#111827]/60 sm:p-4"
               >
-                <div className="text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">
+                <div className="text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">
                   {line.producto_nombre || "Sin nombre"}
                 </div>
-                <p className="mt-1 text-[11px] leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                <p className="mt-1 text-[11px] leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
                   Descripción completa: {hintPreview(line.producto_descripcion)}
                 </p>
                 <div className="mt-3">
@@ -185,7 +185,7 @@ export function CotizacionPdfOptionsPanel({
       )}
 
       {opciones.simplificar_descripcion && lines.length === 0 && (
-        <p className="mt-4 text-xs text-[#78716c] dark:text-[#8ea0b8]">
+        <p className="mt-4 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
           Agrega conceptos para configurar descripciones cortas.
         </p>
       )}

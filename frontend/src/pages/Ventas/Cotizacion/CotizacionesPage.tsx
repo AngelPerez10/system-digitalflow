@@ -1,37 +1,42 @@
 import PageMeta from "@/components/common/PageMeta";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import ComponentCard from "@/components/common/ComponentCard";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
 import {
   CotizacionPageHeader,
-  CotizacionStatsCards,
   CotizacionesMobileList,
   CotizacionesTable,
   type CotizacionRow,
 } from "@/components/cotizacion/CotizacionesViewParts";
-import { erpPageCanvasClass, erpPageInnerClass } from "@/layout/erpPageStyles";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 import {
   COTIZACION_LIST_SEARCH_PARAM,
   cotizacionListSearchState,
   readCotizacionListSearch,
   writeCotizacionListSearch,
-} from "./cotizacionListNav";
-
-const cardShellClass =
-  "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
+} from "./shared/cotizacionListNav";
+import {
+  cardShellClass,
+  cotPageCanvasClass,
+  cotPageInnerClass,
+  cotSansStyle,
+  dangerActionBtnClass,
+  modalSmallShellClass,
+  primaryActionInlineBtnClass,
+  secondaryActionBtnClass,
+} from "./shared/cotizacionFormStyles";
+import { CotizacionExportOverlay } from "./form/CotizacionExportOverlay";
 
 const searchInputClass =
-  "min-h-[44px] w-full rounded-2xl border border-[#e2d9ca] bg-[#fffdf8] py-2 pl-10 pr-10 text-sm text-[#1c1917] outline-none transition-all placeholder:text-[#7c7a74] focus:border-[#ff801f]/60 focus:ring-4 focus:ring-[#ff801f]/12 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c]/70 dark:focus:ring-[#fb923c]/20 sm:min-h-[46px] sm:pl-11";
+  "min-h-[44px] w-full rounded-[10px] border border-[#E7E7EA] bg-white py-2 pl-10 pr-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] sm:min-h-[44px] sm:pl-11";
 
 const medioChipClass =
-  "border border-[#e2d9ca] bg-[#fff8f1] text-[#57534e] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1]";
+  "border border-[#E7E7EA] bg-[#FAFAFA] text-[#52525B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#cbd5e1]";
 
 const monthNavBtnClass =
-  "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-[#fffdfa] text-[#57534e] transition-colors hover:bg-[#fffdf8] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]";
+  "inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048]";
 
 const LIST_PAGE_SIZE = 500;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -60,7 +65,6 @@ const parseYearMonth = (value: string) => {
 };
 
 export default function CotizacionesPage() {
-  const excelLoadingTitleId = useId();
   const deleteModalTitleId = useId();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -460,58 +464,11 @@ export default function CotizacionesPage() {
   };
 
   return (
-    <div className={erpPageCanvasClass}>
-      <div className={erpPageInnerClass}>
+    <div className={cotPageCanvasClass} style={cotSansStyle}>
+      <div className={cotPageInnerClass}>
       <PageMeta title="Cotizaciones | Sistema Grupo Intrax GPS" description="Gestión de cotizaciones" />
 
-      <Modal
-        isOpen={excelLoading}
-        onClose={() => {}}
-        showCloseButton={false}
-        className="mx-4 max-w-md sm:mx-auto"
-        ariaLabelledBy={excelLoadingTitleId}
-      >
-        <div className="p-7 sm:p-8">
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="relative mb-6">
-              <div className="relative flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111a2b]/90">
-                <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#e2d9ca] bg-[#fffdfa] dark:border-[#334155] dark:bg-[#0f172a]">
-                  <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#ff801f] dark:border-t-[#ffa057]" />
-                  <svg className="relative h-7 w-7 text-emerald-700 dark:text-emerald-300" viewBox="0 0 24 24" fill="none" aria-hidden>
-                    <path
-                      d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinejoin="round"
-                    />
-                    <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                    <path d="M8.5 13h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    <path d="M8.5 16.5H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    <path d="M8.5 10H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <h3 id={excelLoadingTitleId} className="text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">Generando Excel</h3>
-            <p className="mt-1.5 text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">Esto puede tardar unos segundos. No cierres esta ventana.</p>
-
-            <div className="mt-6 w-full">
-              <div className="flex items-center justify-between text-xs text-[#78716c] dark:text-[#8ea0b8]">
-                <span>Progreso</span>
-                <span className="font-medium tabular-nums">{Math.min(99, Math.max(0, Math.round(excelLoadingProgress)))}%</span>
-              </div>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full border border-[#e2d9ca] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]">
-                <div
-                  className="h-full bg-[#ff801f] transition-[width] duration-500 ease-out dark:bg-[#ff801f]"
-                  style={{ width: `${Math.min(100, Math.max(0, excelLoadingProgress))}%` }}
-                />
-              </div>
-              <div className="mt-3 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Preparando archivo XLSX…</div>
-            </div>
-          </div>
-        </div>
-      </Modal>
+      <CotizacionExportOverlay open={excelLoading} isExcel progress={excelLoadingProgress} />
 
       {alert.show && (
         <div role="alert" aria-live={alert.variant === "error" ? "assertive" : "polite"}>
@@ -520,22 +477,22 @@ export default function CotizacionesPage() {
       )}
 
       {!canCotizacionesView ? (
-        <div className="rounded-3xl border border-[#e7ded0] bg-[#fffdfa] px-4 py-10 text-center text-sm text-[#57534e] shadow-[0_20px_50px_-36px_rgba(28,25,23,0.2)] dark:border-[#273244] dark:bg-[#111827]/80 dark:text-[#b7c1d1] sm:px-6">
+        <div className="rounded-[24px] border border-[#E7E7EA] bg-white px-4 py-10 text-center text-sm text-[#52525B] shadow-[0_6px_20px_-10px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#B7C1D1] sm:px-6">
           No tienes permiso para ver Cotizaciones.
         </div>
       ) : (
         <>
-          <CotizacionPageHeader cardShellClass={cardShellClass} />
-          <CotizacionStatsCards cardShellClass={cardShellClass} stats={stats} />
+          <CotizacionPageHeader stats={stats} />
 
           <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
             <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
               <svg
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b]"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E6E77] dark:text-[#64748b]"
                 viewBox="0 0 20 20"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
+                aria-hidden
               >
                 <path
                   d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5"
@@ -545,7 +502,11 @@ export default function CotizacionesPage() {
                   strokeLinejoin="round"
                 />
               </svg>
+              <label htmlFor="cotizaciones-search" className="absolute -left-[10000px] h-px w-px overflow-hidden">
+                Buscar cotizaciones
+              </label>
               <input
+                id="cotizaciones-search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar por folio, cliente, contacto o usuario…"
@@ -556,9 +517,9 @@ export default function CotizacionesPage() {
                   type="button"
                   onClick={clearSearch}
                   aria-label="Limpiar búsqueda"
-                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-w-[44px] items-center justify-center rounded-lg text-[#78716c] hover:bg-black/[0.04] hover:text-[#1c1917] dark:text-[#8ea0b8] dark:hover:bg-white/[0.06] dark:hover:text-white"
+                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-w-[44px] items-center justify-center rounded-lg text-[#6E6E77] hover:bg-black/[0.04] hover:text-[#09090B] dark:text-[#8ea0b8] dark:hover:bg-white/[0.06] dark:hover:text-white"
                 >
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
                     <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
                   </svg>
                 </button>
@@ -575,45 +536,65 @@ export default function CotizacionesPage() {
                 }
                 navigate("/cotizacion/nueva");
               }}
-              className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-xs font-semibold text-black shadow-none transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:scale-[0.99] sm:w-auto sm:min-h-0 lg:shrink-0"
+              className={`${primaryActionInlineBtnClass} shrink-0 lg:shrink-0`}
             >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                 <path d="M12 5v14M5 12h14" strokeLinecap="round" />
               </svg>
               Nueva cotización
             </button>
           </div>
 
-          <ComponentCard
-            title="Listado de cotizaciones"
-            desc="Agrupadas por estado: pendientes, autorizadas y canceladas. Filtra por mes abajo."
-            className={`!overflow-visible border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)] ${cardShellClass}`}
-            compact
-          >
-            <CotizacionesMobileList
-              rows={rows}
-              loading={loading}
-              formatDMY={formatDMY}
-              normalizeMedioLabel={normalizeMedioLabel}
-              statusChipClass={statusChipClass}
-              medioChipClass={medioChipClass}
-              actions={rowActions}
-              excelLoading={excelLoading}
-            />
-            <CotizacionesTable
-              rows={rows}
-              loading={loading}
-              formatDMY={formatDMY}
-              normalizeMedioLabel={normalizeMedioLabel}
-              statusChipClass={statusChipClass}
-              medioChipClass={medioChipClass}
-              actions={rowActions}
-              excelLoading={excelLoading}
-            />
-          </ComponentCard>
+          <section className={`${cardShellClass} !overflow-visible`} aria-labelledby="cotizaciones-listado-heading">
+            <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                    <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                      <rect x="3" y="4" width="18" height="17" rx="2.2" />
+                      <path d="M3 9.5h18" />
+                    </svg>
+                  </span>
+                  <h2 id="cotizaciones-listado-heading" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                    Listado de cotizaciones
+                  </h2>
+                </div>
+                <p className="text-[12px] font-medium tabular-nums text-[#6E6E77] dark:text-[#8EA0B8]">
+                  {isSearching
+                    ? `${totalCount.toLocaleString("es-MX")} resultado${totalCount === 1 ? "" : "s"}`
+                    : `${totalCount.toLocaleString("es-MX")} en el mes`}
+                </p>
+              </div>
+              <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
+                Agrupadas por estado: pendientes, autorizadas y canceladas. Filtra por mes abajo.
+              </p>
+            </div>
+            <div className="p-2 sm:p-3">
+              <CotizacionesMobileList
+                rows={rows}
+                loading={loading}
+                formatDMY={formatDMY}
+                normalizeMedioLabel={normalizeMedioLabel}
+                statusChipClass={statusChipClass}
+                medioChipClass={medioChipClass}
+                actions={rowActions}
+                excelLoading={excelLoading}
+              />
+              <CotizacionesTable
+                rows={rows}
+                loading={loading}
+                formatDMY={formatDMY}
+                normalizeMedioLabel={normalizeMedioLabel}
+                statusChipClass={statusChipClass}
+                medioChipClass={medioChipClass}
+                actions={rowActions}
+                excelLoading={excelLoading}
+              />
+            </div>
+          </section>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
+            <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
               {isSearching ? (
                 <>
                   {totalCount.toLocaleString("es-MX")} resultado{totalCount === 1 ? "" : "s"} para «{searchDebounced}»
@@ -621,7 +602,7 @@ export default function CotizacionesPage() {
               ) : (
                 <>
                   Mostrando{" "}
-                  <span className="font-medium text-[#1c1917] dark:text-[#f8fafc]">{totalCount}</span> cotizaciones
+                  <span className="font-medium text-[#09090B] dark:text-[#f8fafc]">{totalCount}</span> cotizaciones
                 </>
               )}
             </p>
@@ -639,11 +620,11 @@ export default function CotizacionesPage() {
                 title="Mes anterior"
                 aria-label="Mes anterior"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                   <path d="M15 18l-6-6 6-6" />
                 </svg>
               </button>
-              <span className="min-w-[130px] text-center text-[11px] text-[#57534e] sm:min-w-[160px] sm:text-[12px] dark:text-[#cbd5e1]">
+              <span className="min-w-[130px] text-center text-[11px] text-[#52525B] sm:min-w-[160px] sm:text-[12px] dark:text-[#cbd5e1]">
                 {(() => {
                   const ym = parseYearMonth(selectedMonth);
                   if (!ym) return selectedMonth || "Todos los meses";
@@ -667,7 +648,7 @@ export default function CotizacionesPage() {
                 title="Mes siguiente"
                 aria-label="Mes siguiente"
               >
-                <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                   <path d="M9 18l6-6 6 6" />
                 </svg>
               </button>
@@ -678,44 +659,55 @@ export default function CotizacionesPage() {
             <Modal
               isOpen={showDeleteModal}
               onClose={handleCancelDelete}
-              className="mx-4 w-full max-w-md sm:mx-auto"
+              closeOnBackdropClick={false}
+              className={`${modalSmallShellClass} mx-4 sm:mx-auto`}
               ariaLabelledBy={deleteModalTitleId}
             >
-              <div className="border-b border-gray-100 p-5 dark:border-white/[0.06] sm:p-6">
-                <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-error-200/80 bg-error-50/90 dark:border-error-500/25 dark:bg-error-500/[0.12]">
-                  <svg className="h-5 w-5 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
+              <div className="bg-white p-6 dark:bg-[#111827]">
+                <div className="mb-5 flex items-start gap-3.5">
+                  <span
+                    className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]"
+                    aria-hidden="true"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                  </span>
+                  <div className="min-w-0">
+                    <h3
+                      id={deleteModalTitleId}
+                      className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]"
+                    >
+                      ¿Eliminar cotización?
+                    </h3>
+                    <p className="mt-1 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
+                      Se eliminará la cotización de{" "}
+                      <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                        {cotizacionToDelete.cliente}
+                      </span>
+                      . Esta acción no se puede deshacer.
+                    </p>
+                  </div>
                 </div>
-                <h3
-                  id={deleteModalTitleId}
-                  className="mb-2 text-center text-base font-semibold tracking-tight text-gray-900 dark:text-white sm:text-lg"
-                >
-                  ¿Eliminar cotización?
-                </h3>
-                <p className="mb-6 text-center text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:text-sm">
-                  ¿Seguro que deseas eliminar la cotización de{" "}
-                  <span className="font-semibold text-gray-900 dark:text-white">{cotizacionToDelete.cliente}</span>? Esta acción no se puede deshacer.
-                </p>
-                <div className="flex gap-2 sm:gap-3">
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
                   <button
                     type="button"
                     onClick={handleCancelDelete}
-                    className="flex-1 rounded-lg border border-gray-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-200 dark:hover:bg-white/[0.04] sm:text-sm"
+                    className={`${secondaryActionBtnClass} sm:flex-1`}
                   >
                     Cancelar
                   </button>
                   <button
                     type="button"
                     onClick={handleConfirmDelete}
-                    className="flex-1 rounded-lg bg-error-600 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-error-500/40 sm:text-sm"
+                    className={`${dangerActionBtnClass} sm:flex-1`}
                   >
-                    Eliminar
+                    Sí, eliminar
                   </button>
                 </div>
               </div>

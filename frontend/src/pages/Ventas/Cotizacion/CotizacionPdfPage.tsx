@@ -5,25 +5,28 @@ import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi, hasAuthSessionFlag } from "@/config/api";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
-import { cotizacionListPath, listSearchFromLocationState } from "@/pages/Ventas/Cotizacion/cotizacionListNav";
+import { cotizacionListPath, listSearchFromLocationState } from "@/pages/Ventas/Cotizacion/shared/cotizacionListNav";
 import {
-  erpCardShellClass as cardShellClass,
-  erpCardShellMutedClass,
-  erpHeroHeadingClass,
-  erpPageCanvasClass,
-  erpPageInnerClass,
-  erpPrimaryBtnClass,
-  erpSecondaryBtnClass,
-  erpSubheadingClass,
-} from "@/layout/erpPageStyles";
+  cardShellClass,
+  cardShellMutedClass as erpCardShellMutedClass,
+  cotPageCanvasClass as erpPageCanvasClass,
+  cotPageInnerClass as erpPageInnerClass,
+  cotSansStyle,
+  cotSubheadingClass as erpSubheadingClass,
+  heroBandClass,
+  heroBlurClass,
+  heroEyebrowClass,
+  heroIconWrapClass,
+  primaryActionBtnClass as erpPrimaryBtnClass,
+  secondaryActionBtnClass as erpSecondaryBtnClass,
+} from "./shared/cotizacionFormStyles";
 
-const claudeBodyClass = "text-sm leading-relaxed text-[#57534e] dark:text-[#b7c1d1]";
 
 const sectionLabelOrangeClass =
-  "text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]";
+  "text-[10px] font-semibold uppercase tracking-[0.12em] text-[#1B5CFF] dark:text-[#4B7CFF] sm:text-[11px]";
 
 const outlineCoralBtnClass =
-  "inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border border-[#fed7aa] bg-white px-4 py-3 text-xs font-semibold text-[#9a3412] transition-colors hover:bg-[#fff3e8] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#fb923c]/40 dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#fb923c]/10 sm:min-h-0";
+  "inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border border-[#BBD0FF] bg-white px-4 py-3 text-xs font-semibold text-[#1B5CFF] transition-colors hover:bg-[#EAF1FF] focus:outline-none focus:ring-2 focus:ring-[#1B5CFF]/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4B7CFF]/40 dark:bg-transparent dark:text-[#4B7CFF] dark:hover:bg-[#4B7CFF]/10 sm:min-h-0";
 
 const externalLinkIcon = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -443,7 +446,7 @@ export default function CotizacionPdfPage() {
   const pct = Math.min(99, Math.max(0, Math.round(loadingProgress)));
 
   return (
-    <div className={erpPageCanvasClass}>
+    <div className={erpPageCanvasClass} style={cotSansStyle}>
       <div className={erpPageInnerClass}>
         <PageMeta title="PDF Cotización | Digitalflow" description="Vista previa y descarga del PDF de cotización" />
 
@@ -451,13 +454,13 @@ export default function CotizacionPdfPage() {
           <div className="p-7 sm:p-8" aria-busy="true" aria-live="polite">
             <div className="flex flex-col items-center justify-center text-center">
               <div className="relative mb-6">
-                <div className="relative flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111a2b]/90">
-                  <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#e2d9ca] bg-[#fffdfa] dark:border-[#334155] dark:bg-[#0f172a]">
+                <div className="relative flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827]/90">
+                  <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#E7E7EA] bg-[#ffffff] dark:border-[#273244] dark:bg-[#0f172a]">
                     <div
-                      className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#ff801f] dark:border-t-[#ffa057]"
+                      className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#1B5CFF] dark:border-t-[#4B7CFF]"
                       aria-hidden
                     />
-                    <svg className="relative h-7 w-7 text-[#ea580c] dark:text-[#fb923c]" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <svg className="relative h-7 w-7 text-[#1B5CFF] dark:text-[#4B7CFF]" viewBox="0 0 24 24" fill="none" aria-hidden>
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
                       <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
                       <path d="M10 13h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -468,18 +471,18 @@ export default function CotizacionPdfPage() {
               </div>
 
               <p className={sectionLabelOrangeClass}>Documento</p>
-              <h2 className="mt-1 text-base font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc] sm:text-lg">Generando PDF</h2>
-              <p className="mt-1.5 max-w-xs text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">
+              <h2 className="mt-1 text-base font-semibold tracking-tight text-[#09090B] dark:text-[#f8fafc] sm:text-lg">Generando PDF</h2>
+              <p className="mt-1.5 max-w-xs text-xs text-[#6E6E77] dark:text-[#8ea0b8] sm:text-sm">
                 Puede tardar unos segundos. No cierre esta ventana.
               </p>
 
               <div className="mt-6 w-full">
-                <div className="flex items-center justify-between text-xs text-[#78716c] dark:text-[#8ea0b8]">
+                <div className="flex items-center justify-between text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
                   <span>Progreso</span>
                   <span className="font-medium tabular-nums">{pct}%</span>
                 </div>
                 <div
-                  className="mt-2 h-2 w-full overflow-hidden rounded-full border border-[#e2d9ca] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#0f172a]"
+                  className="mt-2 h-2 w-full overflow-hidden rounded-full border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]"
                   role="progressbar"
                   aria-valuenow={pct}
                   aria-valuemin={0}
@@ -487,39 +490,39 @@ export default function CotizacionPdfPage() {
                   aria-label="Progreso de generación del PDF"
                 >
                   <div
-                    className="h-full bg-[#ff801f] transition-[width] duration-500 ease-out dark:bg-[#ff801f]"
+                    className="h-full bg-[#1B5CFF] transition-[width] duration-500 ease-out dark:bg-[#1B5CFF]"
                     style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
                   />
                 </div>
-                <p className="mt-3 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Preparando archivo…</p>
+                <p className="mt-3 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">Preparando archivo…</p>
               </div>
             </div>
           </div>
         </Modal>
 
         <nav
-          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
+          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#6E6E77] dark:text-[#8ea0b8] sm:text-[13px]"
           aria-label="Migas de pan"
         >
           <Link
             to="/"
-            className="rounded-md px-1 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Inicio
           </Link>
-          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+          <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
             /
           </span>
           <Link
             to="/cotizacion"
-            className="rounded-md px-1 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Cotizaciones
           </Link>
-          <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+          <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
             /
           </span>
-          <span className="text-[#44403c] dark:text-[#cbd5e1]">Vista PDF</span>
+          <span className="text-[#52525B] dark:text-[#cbd5e1]">Vista PDF</span>
         </nav>
 
         {alert.show && (
@@ -528,76 +531,77 @@ export default function CotizacionPdfPage() {
           </div>
         )}
 
-        <header className={`relative flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
-          <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
-          <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
-              <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className={sectionLabelOrangeClass}>{isPreviewMode ? "Vista previa" : "Cotización"}</p>
-              <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
-                <h1 className={erpHeroHeadingClass}>Vista PDF</h1>
-                {cotizacionFolio != null && (
-                  <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/[0.12] dark:text-amber-200">
-                    {cotizacionFolio}
-                  </span>
-                )}
+        <header className={heroBandClass}>
+          <div className={heroBlurClass} aria-hidden />
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-10">
+            <div className="flex min-w-0 items-start gap-4">
+              <span className={heroIconWrapClass} aria-hidden>
+                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={heroEyebrowClass}>{isPreviewMode ? "Vista previa" : "Cotización"}</p>
+                  {cotizacionFolio != null && (
+                    <span className="inline-flex h-5 items-center rounded-full bg-[rgba(230,162,60,0.22)] px-2 font-mono text-[10px] font-semibold uppercase tracking-wide text-[#E6A23C]">
+                      {cotizacionFolio}
+                    </span>
+                  )}
+                </div>
+                <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]">Vista PDF</h1>
+                <p className="mt-1.5 max-w-[62ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70 sm:mt-2">
+                  Revise el documento en el panel principal y use el lateral para abrir en otra pestaña o descargar.
+                </p>
               </div>
-              <p className={`mt-1.5 max-w-2xl sm:mt-2 ${claudeBodyClass}`}>
-                Revise el documento en el panel principal y use el lateral para abrir en otra pestaña o descargar.
-              </p>
-              <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
             </div>
-          </div>
-          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
-            <button
-              type="button"
-              onClick={() => navigate(cotizacionListPath(listSearchFromLocationState(location.state)))}
-              className={erpSecondaryBtnClass}
-              aria-label="Regresar a cotizaciones"
-            >
-              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M10 19 3 12l7-7" />
-                <path d="M3 12h18" />
-              </svg>
-              <span className="hidden sm:inline">Volver al listado</span>
-              <span className="sm:hidden">Volver</span>
-            </button>
+            <div className="flex shrink-0 sm:pt-1">
+              <button
+                type="button"
+                onClick={() => navigate(cotizacionListPath(listSearchFromLocationState(location.state)))}
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[10px] border border-white/20 bg-white/10 px-4 text-sm font-medium text-white transition-colors hover:bg-white/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:w-auto"
+                aria-label="Regresar a cotizaciones"
+              >
+                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M10 19 3 12l7-7" />
+                  <path d="M3 12h18" />
+                </svg>
+                <span className="hidden sm:inline">Volver al listado</span>
+                <span className="sm:hidden">Volver</span>
+              </button>
+            </div>
           </div>
         </header>
 
         <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
           <div className="min-w-0 lg:col-span-8">
             <div className={`flex min-h-0 flex-col ${cardShellClass} lg:min-h-[calc(100vh-13.5rem)]`}>
-              <div className="border-b border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 dark:border-[#273244] dark:bg-[#111a2b] sm:px-5 sm:py-3.5">
+              <div className="border-b border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 dark:border-[#273244] dark:bg-[#111827] sm:px-5 sm:py-3.5">
                 <div className="flex flex-wrap items-end justify-between gap-2">
                   <div>
                     <p className={sectionLabelOrangeClass}>Vista previa</p>
-                    <p className="mt-0.5 text-sm font-medium text-[#1c1917] dark:text-[#f8fafc]">Documento generado</p>
+                    <p className="mt-0.5 text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">Documento generado</p>
                   </div>
-                  <p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">El visor usa el motor PDF del navegador.</p>
+                  <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">El visor usa el motor PDF del navegador.</p>
                 </div>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col bg-[#fcfaf6] p-2 dark:bg-[#0f172a] sm:p-3">
+              <div className="flex min-h-0 flex-1 flex-col bg-[#FAFAFA] p-2 dark:bg-[#0f172a] sm:p-3">
                 {loading ? (
                   <div
-                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
+                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
                     aria-busy="true"
                     aria-live="polite"
                     aria-label="Cargando documento"
                   >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#ff801f]/10">
-                      <span className="h-7 w-7 animate-spin rounded-full border-2 border-[#e7ded0] border-t-[#ff801f] dark:border-[#334155] dark:border-t-[#ffa057]" aria-hidden />
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#1B5CFF]/10">
+                      <span className="h-7 w-7 animate-spin rounded-full border-2 border-[#E7E7EA] border-t-[#1B5CFF] dark:border-[#273244] dark:border-t-[#4B7CFF]" aria-hidden />
                     </div>
-                    <p className="mt-4 text-sm text-[#78716c] dark:text-[#8ea0b8]">Preparando vista previa…</p>
+                    <p className="mt-4 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">Preparando vista previa…</p>
                   </div>
                 ) : pdfObjectUrl ? (
-                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#273244] dark:bg-[#0f172a]">
+                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]">
                     <iframe
                       title="Vista previa del PDF"
                       aria-label={`Vista previa del PDF de la cotización${cotizacionFolio != null ? ` ${cotizacionFolio}` : ""}`}
@@ -607,8 +611,8 @@ export default function CotizacionPdfPage() {
                     />
                   </div>
                 ) : (
-                  <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 px-6 py-12 text-center dark:border-[#273244] dark:bg-[#0f172a]/40 lg:min-h-[calc(100vh-13.5rem)]">
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#ff801f]/10 text-[#ea580c] dark:text-[#fb923c]">
+                  <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 px-6 py-12 text-center dark:border-[#273244] dark:bg-[#0f172a]/40 lg:min-h-[calc(100vh-13.5rem)]">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#1B5CFF]/10 text-[#1B5CFF] dark:text-[#4B7CFF]">
                       <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <path d="M14 2v6h6" />
@@ -616,8 +620,8 @@ export default function CotizacionPdfPage() {
                         <path d="M10 17h7" />
                       </svg>
                     </div>
-                    <p className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]">No hay documento disponible</p>
-                    <p className="mt-1.5 max-w-sm text-sm text-[#78716c] dark:text-[#8ea0b8]">
+                    <p className="text-base font-semibold text-[#09090B] dark:text-[#f8fafc]">No hay documento disponible</p>
+                    <p className="mt-1.5 max-w-sm text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
                       No se pudo generar la vista previa. Compruebe la cotización o vuelva al listado.
                     </p>
                     {hasError && (
@@ -636,7 +640,7 @@ export default function CotizacionPdfPage() {
                     )}
                     <Link
                       to="/cotizacion"
-                      className="mt-6 text-sm font-medium text-[#ea580c] underline-offset-4 hover:underline dark:text-[#fb923c]"
+                      className="mt-6 text-sm font-medium text-[#1B5CFF] underline-offset-4 hover:underline dark:text-[#4B7CFF]"
                     >
                       Ir a cotizaciones
                     </Link>
@@ -648,15 +652,15 @@ export default function CotizacionPdfPage() {
 
           <div className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:top-6 lg:self-start xl:top-8">
             <div className={cardShellClass}>
-              <div className="border-b border-[#e7ded0] px-4 py-4 dark:border-[#273244] sm:px-5">
+              <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-5">
                 <p className={sectionLabelOrangeClass}>Documento</p>
                 <h2 className={`mt-1 ${erpSubheadingClass}`}>Archivo y acciones</h2>
-                <p className="mt-1 text-xs text-[#78716c] dark:text-[#8ea0b8] sm:text-sm">Nombre sugerido al descargar y accesos rápidos.</p>
+                <p className="mt-1 text-xs text-[#6E6E77] dark:text-[#8ea0b8] sm:text-sm">Nombre sugerido al descargar y accesos rápidos.</p>
               </div>
               <div className="space-y-4 px-4 py-5 sm:px-5">
                 <div className={`${erpCardShellMutedClass} px-3 py-2.5`}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#78716c] dark:text-[#8ea0b8]">Nombre de archivo</p>
-                  <code className="mt-1 block break-all rounded-md border border-[#e7ded0] bg-[#fffdfa] px-2.5 py-1.5 text-xs font-medium text-[#1c1917] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">Nombre de archivo</p>
+                  <code className="mt-1 block break-all rounded-md border border-[#E7E7EA] bg-[#ffffff] px-2.5 py-1.5 text-xs font-medium text-[#09090B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
                     {filename}
                   </code>
                 </div>
@@ -716,7 +720,7 @@ export default function CotizacionPdfPage() {
                   )}
                 </div>
 
-                <p className="text-[11px] leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
+                <p className="text-[11px] leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
                   Si la vista previa se ve cortada, abra el archivo en una pestaña nueva o descárguelo para verlo con su lector PDF.
                 </p>
               </div>

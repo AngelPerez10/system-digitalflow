@@ -92,6 +92,13 @@ export const formatCotizacionApiError = (data: unknown): string => {
   return parts.length ? parts.join(" | ") : JSON.stringify(data);
 };
 
+/** ISO `yyyy-mm-dd` → `dd/mm/yyyy` (vacío si no hay fecha). */
+export const formatDMY = (iso: string) => {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+};
+
 export const formatMoney = (n: number) => {
   const v = Number.isFinite(n) ? n : 0;
   return v.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
