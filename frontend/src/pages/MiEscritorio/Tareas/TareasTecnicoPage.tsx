@@ -1,8 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
-import ComponentCard from "@/components/common/ComponentCard";
-import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { useDropzone } from "react-dropzone";
 import { fetchApi } from "@/config/api";
@@ -10,22 +8,129 @@ import { useAuth } from "@/context/AuthContext";
 import { MobileTareaList } from "../MobileTareaCard";
 import { PencilIcon, TrashBinIcon } from "../../../icons";
 import { draggable, dropTargetForElements, monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
-import {
-  erpCardShellClass as cardShellClass,
-  erpPageCanvasClass,
-  erpPageInnerTightClass,
-  erpSearchInputClass as searchInputClass,
-} from "@/layout/erpPageStyles";
-const sectionLabelClass = "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
-const modalFieldLabelClass = "mb-1.5 block font-sans text-xs font-medium leading-[1.6] tracking-[0.12px] text-[#57534e] dark:text-[#b7c1d1] sm:text-sm";
-const claudeHeroHeading = "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.85rem,2.8vw,2.6rem)] font-medium leading-[1.2] tracking-[-0.01em] text-[#1c1917] dark:text-[#f8fafc]";
-const claudeSubheading = "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.1rem,1.3vw,1.25rem)] font-medium leading-[1.2] text-gray-900 dark:text-white";
-const claudeBody = "text-base font-normal leading-[1.6] text-[#57534e] dark:text-[#b7c1d1]";
-const modalTextareaClass = "w-full min-h-[7.5rem] rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 py-2.5 text-sm text-[#1c1917] outline-none transition-all placeholder:text-[#78716c] focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] resize-none";
-const modalPanelClass = "rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5";
-const modalRequiredMark = "ml-0.5 text-gray-400 dark:text-gray-500";
-const orangeBtn = "inline-flex items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-sm font-semibold text-black shadow-none transition-colors hover:bg-[#ff6a00] active:brightness-95";
-const orangeBtnOutline = "inline-flex items-center justify-center gap-2 rounded-xl border border-[#e2d9ca] bg-white px-5 py-2.5 text-sm font-semibold text-[#44403c] transition-colors hover:bg-[#fafaf9] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-white/[0.05]";
+
+/* --------------------------------------------------------------------------
+   Mismo sistema que `TareasPage`, `Perfil/ProfilePage`, `Configuracion/*`:
+   marino + dorado sobre lienzo blanco, azul eléctrico como único acento de
+   acción, líneas de 1 px. En oscuro, la familia slate del contenedor de la
+   app (lienzo #0f172a → panel #111827 → tarjeta hundida #1B2539).
+   -------------------------------------------------------------------------- */
+
+const sheetFontStyle = { fontFamily: "Geist, Outfit, system-ui, sans-serif" } as const;
+
+const sectionLabelClass =
+  "text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]";
+
+const panelClass =
+  "overflow-hidden rounded-[24px] border border-[#E7E7EA] bg-white shadow-[0_6px_20px_-10px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_10px_28px_-12px_rgba(0,0,0,0.6)]";
+
+const sunkenCardClass =
+  "rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]";
+
+const searchInputClass =
+  "h-12 w-full rounded-[10px] border border-[#E7E7EA] bg-white pl-10 pr-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] sm:h-11";
+
+const inputBaseClass =
+  "w-full rounded-[10px] border border-[#E7E7EA] bg-white text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
+
+const modalTextareaClass = `${inputBaseClass} min-h-[7.5rem] resize-none px-4 py-3`;
+
+const fieldLabelClass =
+  "mb-2 block text-[13px] font-medium tracking-[-0.05px] text-[#52525B] dark:text-[#B7C1D1]";
+
+const requiredMark = "ml-0.5 text-[#C22B2B] dark:text-[#F87171]";
+
+const primaryBtnClass =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#1B5CFF] bg-[#1B5CFF] px-6 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,border-color,transform] duration-150 hover:border-[#1244D1] hover:bg-[#1244D1] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:border-[#3B6AF0] dark:hover:bg-[#3B6AF0] dark:disabled:border-[#1A2748] dark:disabled:bg-[#1A2748] dark:disabled:text-[#9BB0F0] max-sm:w-full sm:h-11";
+
+const secondaryBtnClass =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-5 text-[15px] font-medium tracking-[-0.1px] text-[#09090B] transition-[background-color,border-color,transform] duration-150 hover:border-[#D3D3D8] hover:bg-[#FAFAFA] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048] max-sm:w-full sm:h-11";
+
+const dangerBtnClass =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#C22B2B] bg-[#C22B2B] px-5 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,transform] duration-150 hover:bg-[#A82424] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(194,43,43,0.22)] disabled:cursor-not-allowed disabled:opacity-60 max-sm:w-full sm:h-11";
+
+/* --- Sistema de modales — cascarón blanco, cabecera marina, cuerpo en
+   lienzo y pie hundido con las acciones ancladas. --- */
+const modalShellClass =
+  "flex max-h-[min(92vh,820px)] w-[min(94vw,40rem)] flex-col overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827] sm:max-w-xl";
+
+const modalSmallShellClass =
+  "w-full max-w-md overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827]";
+
+const modalHeaderClass = "relative shrink-0 bg-[#17235B] px-6 py-5 pr-16 dark:bg-[#1B2A63]";
+const modalHeaderIconClass =
+  "inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]";
+const modalEyebrowClass = "text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55";
+const modalTitleClass = "text-[20px] font-semibold leading-[1.25] tracking-[-0.5px] text-white";
+const modalSubtitleClass = "mt-1 text-[14px] leading-[20px] text-white/70";
+const modalBodyClass =
+  "custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-white px-5 py-5 dark:bg-[#111827] sm:px-6";
+const modalFooterClass =
+  "shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:px-6";
+const modalSectionClass =
+  "rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#1B2539] sm:p-5";
+
+type AlertVariant = "success" | "error" | "warning" | "info";
+type AlertState = { show: boolean; variant: AlertVariant; title: string; message: string };
+
+const alertTone: Record<AlertVariant, { border: string; bg: string; dot: string; title: string; msg: string }> = {
+  success: {
+    border: "border-[#BFE6D4] dark:border-[#1E5A42]",
+    bg: "bg-[#E9F8F0] dark:bg-[#0F2A1C]",
+    dot: "bg-[#04724D] dark:bg-[#4ADE80]",
+    title: "text-[#04724D] dark:text-[#4ADE80]",
+    msg: "text-[#04724D]/85 dark:text-[#4ADE80]/80",
+  },
+  error: {
+    border: "border-[#F6CFCF] dark:border-[#7F1D1D]",
+    bg: "bg-[#FEF2F2] dark:bg-[#3F1518]",
+    dot: "bg-[#C22B2B] dark:bg-[#F87171]",
+    title: "text-[#C22B2B] dark:text-[#F87171]",
+    msg: "text-[#C22B2B]/85 dark:text-[#F87171]/80",
+  },
+  warning: {
+    border: "border-[rgba(230,162,60,0.4)] dark:border-[rgba(230,162,60,0.3)]",
+    bg: "bg-[rgba(230,162,60,0.10)] dark:bg-[rgba(230,162,60,0.10)]",
+    dot: "bg-[#9A6B15] dark:bg-[#E6A23C]",
+    title: "text-[#9A6B15] dark:text-[#E6A23C]",
+    msg: "text-[#9A6B15]/85 dark:text-[#E6A23C]/85",
+  },
+  info: {
+    border: "border-[rgba(27,92,255,0.28)] dark:border-[rgba(75,124,255,0.3)]",
+    bg: "bg-[rgba(27,92,255,0.06)] dark:bg-[rgba(75,124,255,0.10)]",
+    dot: "bg-[#1B5CFF] dark:bg-[#4B7CFF]",
+    title: "text-[#1B5CFF] dark:text-[#4B7CFF]",
+    msg: "text-[#1B5CFF]/85 dark:text-[#4B7CFF]/85",
+  },
+};
+
+function InlineAlert({ variant, title, message }: { variant: AlertVariant; title: string; message: string }) {
+  const tone = alertTone[variant];
+  const assertive = variant === "error" || variant === "warning";
+  return (
+    <div
+      role={assertive ? "alert" : "status"}
+      aria-live={assertive ? "assertive" : "polite"}
+      className={`flex items-start gap-3 rounded-[14px] border px-4 py-3 ${tone.border} ${tone.bg}`}
+    >
+      <span className={`mt-1.5 size-[7px] shrink-0 rounded-full ${tone.dot}`} aria-hidden />
+      <div className="min-w-0">
+        <p className={`text-[15px] font-medium ${tone.title}`}>{title}</p>
+        <p className={`mt-0.5 text-[13px] ${tone.msg}`}>{message}</p>
+      </div>
+    </div>
+  );
+}
+
+const iconSvgProps = {
+  viewBox: "0 0 24 24",
+  fill: "none" as const,
+  stroke: "currentColor" as const,
+  strokeWidth: 1.6,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
 
 let tareasFlight: Promise<void> | null = null;
 interface Tarea { id: number; usuario_asignado: number | null; usuario_asignado_username?: string; usuario_asignado_full_name?: string; estado?: "BACKLOG" | "TODO" | "EN_PROGRESO" | "HECHO"; orden?: number; descripcion: string; fotos_urls: string[]; fecha_creacion: string; fecha_actualizacion: string; creado_por?: number; creado_por_username?: string; }
@@ -38,6 +143,12 @@ function rowsFromResponse<T>(data: unknown): T[] {
   return [];
 }
 
+const COL_TONE: Record<string, { dot: string }> = {
+  TODO: { dot: "bg-[#1B5CFF] dark:bg-[#4B7CFF]" },
+  EN_PROGRESO: { dot: "bg-[#E6A23C]" },
+  HECHO: { dot: "bg-[#04724D] dark:bg-[#4ADE80]" },
+};
+
 export default function TareasTecnicoPage() {
   const taskFormTitleId = useId();
   const descModalTitleId = useId();
@@ -49,13 +160,14 @@ export default function TareasTecnicoPage() {
   const V = tareasPerms?.view === true; const C = tareasPerms?.create === true; const E = tareasPerms?.edit === true; const D = tareasPerms?.delete === true;
   const lastIdRef = useRef<number | null>(null);
   const [tareas, setTareas] = useState<Tarea[]>([]); const [loading, setLoading] = useState(true); const [search, setSearch] = useState("");
+  const [statFilter, setStatFilter] = useState<"all" | "asignadas" | "conFotos">("all");
   const [showModal, setShowModal] = useState(false); const [delM, setDelM] = useState(false); const [delTarget, setDelTarget] = useState<Tarea | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState<Tarea | null>(null);
   const [confirmDel, setConfirmDel] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
   const me = user;
-  const [alert, setAlert] = useState<{ show: boolean; variant: "success" | "error" | "warning" | "info"; title: string; message: string }>({ show: false, variant: "success", title: "", message: "" });
-  const [mAlert, setMAlert] = useState<{ show: boolean; variant: "success" | "error" | "warning" | "info"; title: string; message: string }>({ show: false, variant: "success", title: "", message: "" });
+  const [alert, setAlert] = useState<AlertState>({ show: false, variant: "success", title: "", message: "" });
+  const [mAlert, setMAlert] = useState<AlertState>({ show: false, variant: "success", title: "", message: "" });
   const [descM, setDescM] = useState<{ open: boolean; content: string }>({ open: false, content: "" }); const [fotosM, setFotosM] = useState<{ open: boolean; urls: string[] }>({ open: false, urls: [] });
   const openDesc = (t: Tarea) => setDescM({ open: true, content: t.descripcion || "-" }); const openFotos = (t: Tarea) => setFotosM({ open: true, urls: Array.isArray(t.fotos_urls) ? t.fotos_urls : [] });
 
@@ -135,7 +247,16 @@ export default function TareasTecnicoPage() {
   };
   useEffect(() => { if (!V) { lastIdRef.current = null; setTareas([]); setLoading(false); return; } if (!myId || lastIdRef.current === myId) return; lastIdRef.current = myId; fetchTareas(); }, [myId, V]);
 
-  const shown = useMemo(() => { if (!Array.isArray(tareas)) return []; const q = (search || "").trim().toLowerCase(); return tareas.filter(t => !q || String(t.descripcion || "").toLowerCase().includes(q) || String(t.usuario_asignado_full_name || "").toLowerCase().includes(q) || String(t.usuario_asignado_username || "").toLowerCase().includes(q)); }, [tareas, search]);
+  const shown = useMemo(() => {
+    if (!Array.isArray(tareas)) return [];
+    const q = (search || "").trim().toLowerCase();
+    return tareas.filter(t => {
+      if (q && !(String(t.descripcion || "").toLowerCase().includes(q) || String(t.usuario_asignado_full_name || "").toLowerCase().includes(q) || String(t.usuario_asignado_username || "").toLowerCase().includes(q))) return false;
+      if (statFilter === "asignadas" && !t.usuario_asignado) return false;
+      if (statFilter === "conFotos" && !(Array.isArray(t.fotos_urls) && t.fotos_urls.length > 0)) return false;
+      return true;
+    });
+  }, [tareas, search, statFilter]);
   const fmtDate = (d: string | null | undefined) => { if (!d) return "-"; try { return new Date(d).toLocaleDateString("es-MX", { year: "numeric", month: "short", day: "numeric" }); } catch { return "-"; } };
   const stats = useMemo(() => { const l = Array.isArray(tareas) ? tareas : []; return { total: l.length, asignadas: l.filter(t => !!t.usuario_asignado).length, conFotos: l.filter(t => Array.isArray(t.fotos_urls) && t.fotos_urls.length > 0).length }; }, [tareas]);
 
@@ -198,78 +319,563 @@ export default function TareasTecnicoPage() {
   return (
     <>
       <PageMeta title="Mis tareas" description="Tareas asignadas al técnico" />
-      <div className={`${erpPageCanvasClass} overflow-x-hidden`}>
-        <div className={erpPageInnerTightClass} style={{ fontFamily: "Outfit, sans-serif" }}>
-          <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]" aria-label="Migas de pan">
-            <Link to="/" className="rounded-md px-1.5 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white">Inicio</Link>
-            <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>/</span>
-            <span className="text-[#44403c] dark:text-[#cbd5e1]">Mis tareas</span>
+      <div className="w-full min-w-0 overflow-x-hidden">
+        <div className="mx-auto w-full max-w-[1400px]" style={sheetFontStyle}>
+          <nav
+            className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]"
+            aria-label="Migas de pan"
+          >
+            <Link
+              to="/"
+              className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+            >
+              Inicio
+            </Link>
+            <span aria-hidden className="text-[#D3D3D8] dark:text-[#3A4661]">
+              /
+            </span>
+            <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">Mis tareas</span>
           </nav>
-          {alert.show && <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />}
-          <div className="space-y-6">
-            <header className={`relative z-30 ${cardShellClass} !overflow-visible p-4 sm:p-5 lg:p-6`}>
-              <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-full bg-[#ff801f]/10 blur-2xl" />
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11"><svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]">Mi escritorio</p>
-                    <h1 className={`mt-0.5 ${claudeHeroHeading}`}>Mis tareas</h1>
-                    <p className={`mt-1 max-w-2xl ${claudeBody}`}>Solo ve lo asignado a usted. Arrastre tarjetas en el tablero y adjunte fotos como evidencia.</p>
-                    <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#6b7280]/20 dark:to-transparent" />
+
+          {alert.show && (
+            <div className="mb-4">
+              <InlineAlert variant={alert.variant} title={alert.title} message={alert.message} />
+            </div>
+          )}
+
+          <div className="space-y-5">
+            {/* Banda marina de cabecera con los conteos a la derecha. */}
+            <header className="relative overflow-hidden rounded-[24px] bg-[#17235B] px-5 py-6 dark:bg-[#1B2A63] sm:px-8 sm:py-8">
+              <div
+                className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-[#E6A23C]/15 blur-3xl"
+                aria-hidden
+              />
+              <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+                <div className="flex min-w-0 items-start gap-4">
+                  <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]">
+                    <svg {...iconSvgProps} className="size-5">
+                      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+                    </svg>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">Mi escritorio</p>
+                    <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]">
+                      Mis tareas
+                    </h1>
+                    <p className="mt-1.5 max-w-[58ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70">
+                      Solo ve lo asignado a usted. Arrastre tarjetas en el tablero y adjunte fotos como evidencia.
+                    </p>
                   </div>
+                </div>
+
+                {/* Los conteos son el filtro: mismo patrón de píldoras que
+                    `Configuracion/GestionUsuario` y `Tareas/TareasPage`. */}
+                <div
+                  className="flex w-full shrink-0 flex-wrap items-center gap-2 lg:w-auto"
+                  role="group"
+                  aria-label="Filtrar tareas"
+                >
+                  {([
+                    { value: "all" as const, label: "Totales", count: stats.total },
+                    { value: "asignadas" as const, label: "Asignadas", count: stats.asignadas },
+                    { value: "conFotos" as const, label: "Con evidencia", count: stats.conFotos },
+                  ]).map((chip) => {
+                    const active = statFilter === chip.value;
+                    return (
+                      <button
+                        key={chip.value}
+                        type="button"
+                        onClick={() => setStatFilter(chip.value)}
+                        aria-pressed={active}
+                        className={`inline-flex h-10 items-center gap-2 rounded-full px-4 text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
+                          active ? "bg-[#E6A23C] text-[#17235B]" : "bg-white/10 text-white/80 hover:bg-white/[0.16] hover:text-white"
+                        }`}
+                      >
+                        <span className="text-[15px] font-semibold tabular-nums">{chip.count}</span>
+                        {chip.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </header>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
-              <div className="relative min-w-0 flex-1"><svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 sm:left-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" /></svg><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar en su cartera…" className={searchInputClass} aria-label="Buscar tareas" />{search && <button type="button" onClick={() => setSearch("")} aria-label="Limpiar búsqueda" className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-7 min-w-[32px] items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-8"><svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" /></svg></button>}</div>
-              {C && <button type="button" onClick={openCreate} className={orangeBtn}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>Nueva tarea</button>}
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative min-w-0 flex-1">
+                <svg {...iconSvgProps} className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#A1A1AA]">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar en su cartera…"
+                  className={searchInputClass}
+                  aria-label="Buscar tareas"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    aria-label="Limpiar búsqueda"
+                    className="absolute inset-y-0 right-0 my-1.5 mr-1.5 inline-flex h-8 min-w-[32px] items-center justify-center rounded-[8px] text-[#A1A1AA] transition-colors hover:bg-[#FAFAFA] hover:text-[#52525B] dark:hover:bg-white/[0.06] dark:hover:text-[#F8FAFC]"
+                  >
+                    <svg viewBox="0 0 24 24" className="size-3.5" fill="currentColor">
+                      <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              {C && (
+                <button type="button" onClick={openCreate} className={primaryBtnClass}>
+                  <svg {...iconSvgProps} className="size-[18px]" strokeWidth={2}>
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Nueva tarea
+                </button>
+              )}
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90"><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8]">Totales</p><p className="mt-1 text-2xl font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc]">{stats.total}</p></div>
-              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90"><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8]">Asignadas</p><p className="mt-1 text-2xl font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc]">{stats.asignadas}</p></div>
-              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90"><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8]">Con evidencia</p><p className="mt-1 text-2xl font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc]">{stats.conFotos}</p></div>
-            </div>
-            <ComponentCard compact title="Tablero Kanban" desc="Arrastra tarjetas entre columnas. Solo puede editar lo suyo." className="overflow-hidden border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)]">
-              {!V ? (<div className="flex flex-col items-center justify-center gap-4 py-14 text-center"><span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400 dark:bg-white/5 dark:text-gray-500"><svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 3l7 4v6c0 5-3 8-7 8s-7-3-7-8V7l7-4Z" strokeLinecap="round" strokeLinejoin="round" /><path d="M9 12h6" strokeLinecap="round" /></svg></span><div><div className="text-sm font-semibold text-gray-700 dark:text-gray-300">Sin acceso</div><div className="mt-1 text-xs text-gray-400 dark:text-gray-500">No tienes permisos para ver las tareas.</div></div></div>)
-              : loading ? (<div className="flex items-center justify-center py-12"><div className="flex items-center gap-2.5 text-sm text-gray-400 dark:text-gray-500"><svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>Cargando tareas...</div></div>)
-              : shown.length === 0 ? (<div className="flex flex-col items-center justify-center gap-4 py-14 text-center"><span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ff801f]/10 text-[#ea580c]"><svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" strokeLinejoin="round" /><path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" strokeLinejoin="round" /><path d="M9 11h6" strokeLinecap="round" /><path d="M9 15h3" strokeLinecap="round" /></svg></span><div><div className="text-sm font-semibold text-gray-700 dark:text-gray-300">No hay tareas</div><div className="mt-1 text-xs text-gray-400 dark:text-gray-500">Cree una nueva tarea para empezar.</div></div>{C && <button type="button" onClick={openCreate} className={orangeBtn}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>Crear tarea</button>}</div>)
-              : (<>
-                <MobileTareaList tareas={shown} startIndex={0} loading={loading} formatDate={(d: string) => fmtDate(d)} onDescripcion={openDesc} onFotos={openFotos} onEdit={E ? edit : undefined} onDelete={D ? delClick : undefined} canEdit={E} canDelete={D} />
-                <div ref={rootRef} className="hidden md:block"><div className="-mx-1 overflow-x-auto px-1 md:overflow-visible">
-                  <table className="erp-tasks-table w-full min-w-[720px] table-fixed border-collapse" aria-label="Sus tareas por estado en tres columnas">
-                    <caption className="sr-only">Tres columnas: por hacer, en proceso y hecho. Arrastre tarjetas para cambiar estado.</caption>
-                    <colgroup><col className="w-[33.333%]" /><col className="w-[33.333%]" /><col className="w-[33.333%]" /></colgroup>
-                    <thead><tr>{COLS.map(col => { const count = (byE[col.key] || []).length; const colors: Record<string, string> = { TODO: "bg-[#ff801f]", EN_PROGRESO: "bg-amber-500", HECHO: "bg-emerald-500" }; return (<th key={`hd-${col.key}`} scope="col" className="border border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 text-left align-bottom dark:border-[#334155] dark:bg-[#111827]"><div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${colors[col.key]}`} aria-hidden /><span className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#1c1917] dark:text-white">{col.label}</span></div><span className="mt-1.5 block font-mono text-[10px] tabular-nums font-medium text-[#78716c] dark:text-[#8ea0b8]">{count} tarea{count !== 1 ? "s" : ""}</span></th>); })}</tr></thead>
-                    <tbody><tr className="align-top">{COLS.map(col => { const cr = (el: HTMLTableCellElement | null) => { if (!el) return; cm.current.get(el)?.(); const c = dropTargetForElements({ element: el, getData: () => ({ kind: "column", estado: col.key, index: (byE[col.key] || []).length }) }); cm.current.set(el, c); }; const list = byE[col.key] || []; return (<td key={col.key} ref={cr} className="border border-[#e7ded0] bg-white p-2.5 align-top dark:border-[#334155] dark:bg-[#111827]/50"><div className="flex min-h-[60px] flex-col gap-2">{list.map((t, idx) => { const name = t.usuario_asignado_full_name || t.usuario_asignado_username || "—"; const ini = name !== "—" ? name.slice(0, 1).toUpperCase() : "?"; const fc = Array.isArray(t.fotos_urls) ? t.fotos_urls.length : 0; const canE = E && isOwn(t); const canD = D && isOwn(t); const rr = (el: HTMLDivElement | null) => { if (!el) return; cm.current.get(el)?.(); const d = draggable({ element: el, getInitialData: () => ({ type: "tarea", id: t.id }) }); const tgt = dropTargetForElements({ element: el, getData: () => ({ kind: "card", estado: col.key, index: idx, id: t.id }) }); cm.current.set(el, () => { d(); tgt(); }); }; return (<div key={t.id} ref={rr} className="group cursor-grab rounded-lg border border-[#e7ded0] bg-white p-3 shadow-sm transition-all hover:border-[#d6d3d1] hover:shadow active:cursor-grabbing dark:border-[#334155] dark:bg-[#111827] dark:hover:border-[#475569]/80"><div className="flex items-start justify-between gap-2"><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#ff801f]/10 text-[11px] font-bold text-[#ea580c] dark:bg-[#ff801f]/20 dark:text-[#fb923c]">{ini}</span><div className="min-w-0"><div className="text-[12px] font-semibold text-[#1c1917] truncate dark:text-white">{name}</div><div className="text-[10px] text-[#78716c] dark:text-[#8ea0b8]"><span>#{t.id}</span> · <time dateTime={t.fecha_creacion}>{fmtDate(t.fecha_creacion)}</time></div></div></div></div><div className="flex shrink-0 items-center gap-0.5">{(canE || canD) && (<>{canE && <button type="button" onClick={() => edit(t)} className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e7ded0] bg-white text-[#78716c] transition hover:border-[#ff801f]/50 hover:text-[#ff801f] dark:border-[#334155] dark:bg-[#111827] dark:hover:text-[#ffa057]" aria-label={`Editar tarea ${t.id}`} title="Editar"><PencilIcon className="h-3.5 w-3.5" /></button>}{canD && <button type="button" onClick={() => delClick(t)} className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#e7ded0] bg-white text-[#78716c] transition hover:border-red-400 hover:text-red-600 dark:border-[#334155] dark:bg-[#111827] dark:hover:text-red-400" aria-label={`Eliminar tarea ${t.id}`} title="Eliminar"><TrashBinIcon className="h-3.5 w-3.5" /></button>}</>)}</div></div><div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-[#f5f5f4] pt-2 dark:border-[#334155]/80"><button type="button" onClick={() => openDesc(t)} className="text-[11px] font-medium text-[#ff801f] hover:underline dark:text-[#ffa057]">Descripción</button><span className="text-[#d6d3d1] dark:text-[#475569] select-none">|</span><button type="button" onClick={() => openFotos(t)} className="inline-flex items-center gap-1 text-[11px] font-medium text-[#ff801f] hover:underline dark:text-[#ffa057]">Fotos{fc > 0 ? ` (${fc})` : ""}</button></div></div>); })}</div></td>); })}</tr></tbody></table>
-                </div></div></>)}
-            </ComponentCard>
+
+            <section className={panelClass} aria-labelledby="mis-tareas-board-heading">
+              <div className="border-b border-[#E7E7EA] px-5 py-4 dark:border-[#273244] sm:px-6">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                    <svg {...iconSvgProps} className="size-4">
+                      <rect x="3" y="4" width="18" height="17" rx="2.2" />
+                      <path d="M3 9.5h18M9 4v17" />
+                    </svg>
+                  </span>
+                  <h2 id="mis-tareas-board-heading" className={sectionLabelClass}>
+                    Tablero Kanban
+                  </h2>
+                </div>
+                <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
+                  Arrastra tarjetas entre columnas. Solo puede editar lo suyo.
+                </p>
+              </div>
+
+              <div className="p-5 sm:p-6">
+                {!V ? (
+                  <div className="flex flex-col items-center justify-center gap-4 py-14 text-center">
+                    <span className="inline-flex size-14 items-center justify-center rounded-[16px] bg-[#FAFAFA] text-[#A1A1AA] dark:bg-[#1B2539] dark:text-[#8EA0B8]">
+                      <svg {...iconSvgProps} className="size-7">
+                        <path d="M12 3l7 4v6c0 5-3 8-7 8s-7-3-7-8V7l7-4Z" />
+                        <path d="M9 12h6" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div className="text-[15px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">Sin acceso</div>
+                      <div className="mt-1 text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">No tienes permisos para ver las tareas.</div>
+                    </div>
+                  </div>
+                ) : loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex items-center gap-2.5 text-[14px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                      <svg {...iconSvgProps} className="size-4.5 animate-spin" strokeWidth={2}>
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                      </svg>
+                      Cargando tareas...
+                    </div>
+                  </div>
+                ) : shown.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-4 py-14 text-center">
+                    <span className="inline-flex size-14 items-center justify-center rounded-[16px] bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:text-[#E6A23C]">
+                      <svg {...iconSvgProps} className="size-7">
+                        <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" />
+                        <path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" />
+                        <path d="M9 11h6M9 15h3" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div className="text-[15px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">No hay tareas</div>
+                      <div className="mt-1 text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">Cree una nueva tarea para empezar.</div>
+                    </div>
+                    {C && (
+                      <button type="button" onClick={openCreate} className={primaryBtnClass}>
+                        <svg {...iconSvgProps} className="size-[18px]" strokeWidth={2}>
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        Crear tarea
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <MobileTareaList tareas={shown} startIndex={0} loading={loading} formatDate={(d: string) => fmtDate(d)} onDescripcion={openDesc} onFotos={openFotos} onEdit={E ? edit : undefined} onDelete={D ? delClick : undefined} canEdit={E} canDelete={D} />
+                    <div ref={rootRef} className="hidden md:block">
+                      <div className="-mx-1 overflow-x-auto px-1 md:overflow-visible">
+                        <table className="w-full min-w-[820px] table-fixed border-separate border-spacing-2.5" aria-label="Sus tareas por estado en tres columnas">
+                          <caption className="sr-only">Tres columnas: por hacer, en proceso y hecho. Arrastre tarjetas para cambiar estado.</caption>
+                          <colgroup><col className="w-[33.333%]" /><col className="w-[33.333%]" /><col className="w-[33.333%]" /></colgroup>
+                          <thead>
+                            <tr>
+                              {COLS.map(col => {
+                                const count = (byE[col.key] || []).length;
+                                const tone = COL_TONE[col.key];
+                                return (
+                                  <th key={`hd-${col.key}`} scope="col" className="rounded-[14px] border border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 text-left align-bottom dark:border-[#273244] dark:bg-[#1B2539]">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`size-[7px] shrink-0 rounded-full ${tone.dot}`} aria-hidden />
+                                      <span className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#09090B] dark:text-[#F8FAFC]">{col.label}</span>
+                                    </div>
+                                    <span className="mt-1.5 block font-mono text-[10px] tabular-nums font-medium text-[#6E6E77] dark:text-[#8EA0B8]">{count} tarea{count !== 1 ? "s" : ""}</span>
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="align-top">
+                              {COLS.map(col => {
+                                const cr = (el: HTMLTableCellElement | null) => { if (!el) return; cm.current.get(el)?.(); const c = dropTargetForElements({ element: el, getData: () => ({ kind: "column", estado: col.key, index: (byE[col.key] || []).length }) }); cm.current.set(el, c); };
+                                const list = byE[col.key] || [];
+                                return (
+                                  <td key={col.key} ref={cr} className="rounded-[14px] border border-dashed border-[#E7E7EA] bg-white p-2.5 align-top dark:border-[#273244] dark:bg-[#111827]/50">
+                                    <div className="flex min-h-[60px] flex-col gap-2">
+                                      {list.map((t, idx) => {
+                                        const name = t.usuario_asignado_full_name || t.usuario_asignado_username || "—";
+                                        const ini = name !== "—" ? name.slice(0, 1).toUpperCase() : "?";
+                                        const fc = Array.isArray(t.fotos_urls) ? t.fotos_urls.length : 0;
+                                        const canE = E && isOwn(t);
+                                        const canD = D && isOwn(t);
+                                        const rr = (el: HTMLDivElement | null) => { if (!el) return; cm.current.get(el)?.(); const d = draggable({ element: el, getInitialData: () => ({ type: "tarea", id: t.id }) }); const tgt = dropTargetForElements({ element: el, getData: () => ({ kind: "card", estado: col.key, index: idx, id: t.id }) }); cm.current.set(el, () => { d(); tgt(); }); };
+                                        return (
+                                          <div key={t.id} ref={rr} className={`${sunkenCardClass} group cursor-grab p-3 transition-colors hover:border-[#D3D3D8] active:cursor-grabbing dark:hover:border-[#3A4661]`}>
+                                            <div className="flex items-start justify-between gap-2">
+                                              <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                  <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-[rgba(230,162,60,0.16)] text-[11px] font-bold text-[#9A6B15] dark:text-[#E6A23C]">{ini}</span>
+                                                  <div className="min-w-0">
+                                                    <div className="truncate text-[12px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{name}</div>
+                                                    <div className="text-[10px] text-[#6E6E77] dark:text-[#8EA0B8]"><span>#{t.id}</span> · <time dateTime={t.fecha_creacion}>{fmtDate(t.fecha_creacion)}</time></div>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              <div className="flex shrink-0 items-center gap-0.5">
+                                                {(canE || canD) && (
+                                                  <>
+                                                    {canE && <button type="button" onClick={() => edit(t)} className="inline-flex size-7 items-center justify-center rounded-[8px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#1B5CFF]/50 hover:text-[#1B5CFF] dark:border-[#273244] dark:bg-[#111827] dark:hover:text-[#4B7CFF]" aria-label={`Editar tarea ${t.id}`} title="Editar"><PencilIcon className="size-3.5" /></button>}
+                                                    {canD && <button type="button" onClick={() => delClick(t)} className="inline-flex size-7 items-center justify-center rounded-[8px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#C22B2B]/50 hover:text-[#C22B2B] dark:border-[#273244] dark:bg-[#111827] dark:hover:text-[#F87171]" aria-label={`Eliminar tarea ${t.id}`} title="Eliminar"><TrashBinIcon className="size-3.5" /></button>}
+                                                  </>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-[#E7E7EA] pt-2 dark:border-[#273244]">
+                                              <button type="button" onClick={() => openDesc(t)} className="text-[11px] font-medium text-[#1B5CFF] hover:underline dark:text-[#4B7CFF]">Descripción</button>
+                                              <span className="select-none text-[#D3D3D8] dark:text-[#3A4661]">|</span>
+                                              <button type="button" onClick={() => openFotos(t)} className="inline-flex items-center gap-1 text-[11px] font-medium text-[#1B5CFF] hover:underline dark:text-[#4B7CFF]">Fotos{fc > 0 ? ` (${fc})` : ""}</button>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
           </div>
         </div>
       </div>
 
-      <Modal isOpen={showModal} onClose={closeModal} closeOnBackdropClick={false} className="flex max-h-[min(92vh,720px)] w-[min(96vw,36rem)] flex-col overflow-hidden rounded-2xl border border-[#e7ded0] bg-white p-0 shadow-[0_24px_48px_-12px_rgba(28,25,23,0.18)] dark:border-[#334155] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] sm:max-w-xl" ariaLabelledBy={taskFormTitleId}>
+      {/* Modal: crear / editar tarea */}
+      <Modal isOpen={showModal} onClose={closeModal} closeOnBackdropClick={false} className={modalShellClass} ariaLabelledBy={taskFormTitleId}>
         <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-          <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-[#111827] sm:pr-16"><div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden /><div className="flex items-start gap-4"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden><path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" strokeLinejoin="round" /><path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" strokeLinejoin="round" /><path d="M9 11h6M9 15h3" strokeLinecap="round" /></svg></div><div className="min-w-0 flex-1 pt-0.5"><div className="flex flex-wrap items-center gap-2"><p className={sectionLabelClass}>Mi escritorio · Mis tareas</p>{editing ? <span className="rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">Edición</span> : <span className="rounded-md border border-[#e7ded0] bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#78716c] dark:border-[#334155] dark:bg-[#111827] dark:text-[#8ea0b8]">Nueva</span>}</div><h2 id={taskFormTitleId} className={`mt-1.5 ${claudeSubheading}`}>{editing ? "Editar tarea" : "Crear tarea"}</h2><p className={`mt-1.5 max-w-md ${claudeBody} text-sm`}>La tarea queda asignada a usted; describa el trabajo y adjunte hasta 2 fotos si aplica.</p></div></div></header>
-          <form onSubmit={submit} className="flex min-h-0 w-full flex-1 flex-col bg-[#fcfaf6]/60 dark:bg-[#111827]/40">
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 pb-6 sm:px-6 custom-scrollbar">
-              {mAlert.show && <Alert variant={mAlert.variant} title={mAlert.title} message={mAlert.message} showLink={false} />}
-              <section className={modalPanelClass}><div className="mb-4 flex flex-col gap-0.5 border-b border-[#f5f5f4] pb-3 dark:border-[#334155]/80"><p className={sectionLabelClass}>Asignación</p><p className="text-sm font-semibold text-[#1c1917] dark:text-white">Persona responsable</p><p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">En esta vista las tareas se registran siempre a su usuario.</p></div><div className="flex items-center gap-3 rounded-lg border border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 dark:border-[#334155] dark:bg-[#111827]/60"><span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ff801f]/10 text-sm font-semibold text-[#ea580c] dark:bg-[#ff801f]/20 dark:text-[#fb923c]">{myName.slice(0, 1).toUpperCase()}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-[#1c1917] dark:text-white">{myName}</p>{me?.email ? <p className="truncate text-xs text-[#78716c] dark:text-[#8ea0b8]">{String(me.email)}</p> : null}</div></div></section>
-              <section className={modalPanelClass}><div className="mb-3 border-b border-[#f5f5f4] pb-3 dark:border-[#334155]/80"><p className={sectionLabelClass}>Descripción</p><p className="mt-1 text-sm text-[#78716c] dark:text-[#8ea0b8]">Qué hay que hacer y en qué contexto.</p></div><label htmlFor="descripcion-tecnico" className={modalFieldLabelClass}>Detalle de la tarea<span className={modalRequiredMark}>*</span></label><textarea id="descripcion-tecnico" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} rows={4} placeholder="Ej. Revisar cableado en cuarto de servicio antes del viernes." className={`${modalTextareaClass} mt-2`} /></section>
-              <section className={modalPanelClass}><div className="mb-3 flex flex-wrap items-end justify-between gap-2 border-b border-[#f5f5f4] pb-3 dark:border-[#334155]/80"><div><p className={sectionLabelClass}>Evidencia</p><p className="mt-1 text-sm font-semibold text-[#1c1917] dark:text-white">Fotos adjuntas</p><p className="mt-0.5 text-xs text-[#78716c] dark:text-[#8ea0b8]">Opcional · PNG, JPG o WEBP · máx. 2</p></div><span className="tabular-nums text-xs font-medium text-gray-400 dark:text-gray-500">{form.fotos_urls.length}/2</span></div><div {...getRootProps()} className={`flex cursor-pointer flex-col gap-3 rounded-xl border border-dashed border-[#e7ded0] bg-[#fcfaf6]/60 px-4 py-5 transition-all dark:border-[#334155] dark:bg-[#0f172a]/40 sm:flex-row sm:items-center sm:gap-4 sm:px-5 ${isDragActive ? "border-[#ff801f]/70 bg-[#ff801f]/5 ring-2 ring-[#ff801f]/20 dark:border-[#ff801f]/50 dark:bg-[#ff801f]/10" : "hover:border-[#d6d3d1] dark:hover:border-[#475569]"} ${form.fotos_urls.length >= 2 ? "pointer-events-none opacity-45" : ""}`}><input {...getInputProps()} /><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white text-gray-500 dark:border-[#334155] dark:bg-[#111827] dark:text-gray-400"><svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" aria-hidden><path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" strokeLinejoin="round" /><path d="M12 10v6M9 13h6" strokeLinecap="round" /></svg></div><div className="min-w-0 flex-1 text-left"><p className="text-sm font-medium text-[#1c1917] dark:text-white">{form.fotos_urls.length >= 2 ? "Límite de 2 fotos" : "Añadir imágenes"}</p><p className="mt-0.5 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">{form.fotos_urls.length >= 2 ? "Elimine una foto para subir otra." : "Arrastre archivos aquí o pulse para elegir desde su equipo."}</p></div></div>{form.fotos_urls.length > 0 && (<ul className="mt-4 grid grid-cols-2 gap-3 sm:gap-3.5">{form.fotos_urls.map((url, idx) => (<li key={idx} className="relative overflow-hidden rounded-xl border border-[#e7ded0] bg-white shadow-sm dark:border-[#334155] dark:bg-[#111827] dark:shadow-none"><img src={url} alt={`Vista previa ${idx + 1}`} className="aspect-[4/3] h-28 w-full object-cover sm:h-32" /><button type="button" onClick={() => setConfirmDel({ open: true, index: idx, url })} className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/95 text-gray-700 shadow-md backdrop-blur-sm transition-colors hover:bg-white hover:text-red-600 dark:border-white/10 dark:bg-[#111827]/90 dark:text-gray-200 dark:hover:text-red-400" aria-label={`Eliminar foto ${idx + 1}`}><TrashBinIcon className="h-4 w-4" /></button></li>))}</ul>)}</section>
+          <header className={modalHeaderClass}>
+            <div className="flex items-start gap-3.5">
+              <span className={modalHeaderIconClass}>
+                <svg {...iconSvgProps} className="size-5">
+                  <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2Z" />
+                  <path d="M7 7h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7Z" />
+                  <path d="M9 11h6M9 15h3" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={modalEyebrowClass}>Mi escritorio · Mis tareas</p>
+                  {editing ? (
+                    <span className="inline-flex h-5 items-center rounded-full bg-[rgba(230,162,60,0.22)] px-2 text-[10px] font-semibold uppercase tracking-wide text-[#E6A23C]">Edición</span>
+                  ) : (
+                    <span className="inline-flex h-5 items-center rounded-full bg-white/10 px-2 text-[10px] font-semibold uppercase tracking-wide text-white/70">Nueva</span>
+                  )}
+                </div>
+                <h2 id={taskFormTitleId} className={`mt-1 ${modalTitleClass}`}>{editing ? "Editar tarea" : "Crear tarea"}</h2>
+                <p className={modalSubtitleClass}>La tarea queda asignada a usted; describa el trabajo y adjunte hasta 2 fotos si aplica.</p>
+              </div>
             </div>
-            <div className="shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 dark:border-[#334155] dark:bg-[#111827] sm:px-6"><div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end sm:gap-3"><button type="button" onClick={closeModal} className={orangeBtnOutline}>Cancelar</button><button type="submit" className={orangeBtn}>{editing ? "Guardar cambios" : "Crear tarea"}</button></div></div>
+          </header>
+          <form onSubmit={submit} className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+            <div className={modalBodyClass}>
+              {mAlert.show && <InlineAlert variant={mAlert.variant} title={mAlert.title} message={mAlert.message} />}
+
+              <section className={modalSectionClass}>
+                <div className="mb-4 flex items-center gap-2.5 border-b border-[#E7E7EA] pb-3 dark:border-[#273244]">
+                  <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                    <svg {...iconSvgProps} className="size-4">
+                      <path d="M20 21v-1.6a4.4 4.4 0 0 0-4.4-4.4H8.4A4.4 4.4 0 0 0 4 19.4V21" />
+                      <circle cx="12" cy="7.5" r="3.8" />
+                    </svg>
+                  </span>
+                  <p className={sectionLabelClass}>Asignación</p>
+                </div>
+                <p className="-mt-2 mb-3 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  En esta vista las tareas se registran siempre a su usuario.
+                </p>
+                <div className={`${sunkenCardClass} flex items-center gap-3 border-[#E7E7EA] bg-white px-4 py-3 dark:border-[#273244] dark:bg-[#111827]`}>
+                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[rgba(230,162,60,0.16)] text-[14px] font-semibold text-[#9A6B15] dark:text-[#E6A23C]">
+                    {myName.slice(0, 1).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{myName}</p>
+                    {me?.email ? <p className="truncate text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">{String(me.email)}</p> : null}
+                  </div>
+                </div>
+              </section>
+
+              <section className={modalSectionClass}>
+                <div className="mb-3 flex items-center gap-2.5 border-b border-[#E7E7EA] pb-3 dark:border-[#273244]">
+                  <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:text-[#E6A23C]">
+                    <svg {...iconSvgProps} className="size-4">
+                      <path d="M4 19.5V4a2 2 0 0 1 2-2h10l4 4v13.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+                      <path d="M14 2v4h4" />
+                      <path d="M8 10h8M8 14h8" />
+                    </svg>
+                  </span>
+                  <p className={sectionLabelClass}>Descripción</p>
+                </div>
+                <p className="-mt-1 mb-3 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  Qué hay que hacer y en qué contexto.
+                </p>
+                <label htmlFor="descripcion-tecnico" className={fieldLabelClass}>
+                  Detalle de la tarea<span className={requiredMark}>*</span>
+                </label>
+                <textarea
+                  id="descripcion-tecnico"
+                  value={form.descripcion}
+                  onChange={e => setForm({ ...form, descripcion: e.target.value })}
+                  rows={4}
+                  placeholder="Ej. Revisar cableado en cuarto de servicio antes del viernes."
+                  className={modalTextareaClass}
+                />
+              </section>
+
+              <section className={modalSectionClass}>
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-2 border-b border-[#E7E7EA] pb-3 dark:border-[#273244]">
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(23,35,91,0.10)] text-[#17235B] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                      <svg {...iconSvgProps} className="size-4">
+                        <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
+                        <circle cx="12" cy="13" r="3" />
+                      </svg>
+                    </span>
+                    <p className={sectionLabelClass}>Evidencia</p>
+                  </div>
+                  <span className="tabular-nums text-[12px] font-medium text-[#A1A1AA] dark:text-[#8EA0B8]">{form.fotos_urls.length}/2</span>
+                </div>
+                <p className="-mt-1 mb-3 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  Opcional · PNG, JPG o WEBP · máx. 2
+                </p>
+                <div
+                  {...getRootProps()}
+                  className={`flex cursor-pointer flex-col gap-3 rounded-[14px] border border-dashed border-[#D3D3D8] bg-white px-4 py-5 transition-colors dark:border-[#3A4661] dark:bg-[#111827] sm:flex-row sm:items-center sm:gap-4 sm:px-5 ${
+                    isDragActive
+                      ? "border-[#1B5CFF] bg-[rgba(27,92,255,0.06)] ring-4 ring-[rgba(27,92,255,0.14)] dark:border-[#4B7CFF] dark:bg-[rgba(75,124,255,0.10)]"
+                      : "hover:border-[#1B5CFF]/50 dark:hover:border-[#4B7CFF]/50"
+                  } ${form.fotos_urls.length >= 2 ? "pointer-events-none opacity-45" : ""}`}
+                >
+                  <input {...getInputProps()} />
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-[12px] border border-[#E7E7EA] bg-[#FAFAFA] text-[#6E6E77] dark:border-[#273244] dark:bg-[#1B2539] dark:text-[#8EA0B8]">
+                    <svg {...iconSvgProps} className="size-6">
+                      <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
+                      <path d="M12 10v6M9 13h6" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">
+                      {form.fotos_urls.length >= 2 ? "Límite de 2 fotos" : "Añadir imágenes"}
+                    </p>
+                    <p className="mt-0.5 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                      {form.fotos_urls.length >= 2 ? "Elimine una foto para subir otra." : "Arrastre archivos aquí o pulse para elegir desde su equipo."}
+                    </p>
+                  </div>
+                </div>
+                {form.fotos_urls.length > 0 && (
+                  <ul className="mt-4 grid grid-cols-2 gap-3 sm:gap-3.5">
+                    {form.fotos_urls.map((url, idx) => (
+                      <li key={idx} className="relative overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#111827]">
+                        <img src={url} alt={`Vista previa ${idx + 1}`} className="aspect-[4/3] h-28 w-full object-cover sm:h-32" />
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDel({ open: true, index: idx, url })}
+                          className="absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-[10px] border border-white/20 bg-white/95 text-[#52525B] shadow-md backdrop-blur-sm transition-colors hover:bg-white hover:text-[#C22B2B] dark:border-white/10 dark:bg-[#111827]/90 dark:text-[#F8FAFC] dark:hover:text-[#F87171]"
+                          aria-label={`Eliminar foto ${idx + 1}`}
+                        >
+                          <TrashBinIcon className="size-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+            <div className={modalFooterClass}>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                <button type="button" onClick={closeModal} className={secondaryBtnClass}>Cancelar</button>
+                <button type="submit" className={primaryBtnClass}>{editing ? "Guardar cambios" : "Crear tarea"}</button>
+              </div>
+            </div>
           </form>
         </div>
       </Modal>
 
-      <Modal isOpen={descM.open} onClose={() => setDescM({ open: false, content: "" })} closeOnBackdropClick={false} className="max-w-2xl w-[92vw]" ariaLabelledBy={descModalTitleId}><div className="overflow-hidden rounded-2xl border border-[#e7ded0] bg-white dark:border-[#273244] dark:bg-[#111a2b]"><div className="flex items-center gap-3 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 dark:border-[#334155] dark:bg-[#111827]"><span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ea580c] dark:bg-[#ff801f]/15 dark:text-[#fb923c]"><svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 19.5V4a2 2 0 0 1 2-2h10l4 4v13.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" /><path d="M14 2v4h4" /><path d="M8 10h8" /><path d="M8 14h8" /></svg></span><div className="min-w-0"><h3 id={descModalTitleId} className={`${claudeSubheading}`}>Descripción</h3><p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Detalle completo de la tarea</p></div></div><div className="p-4 text-sm text-[#1c1917] dark:text-gray-200 max-h-[60vh] overflow-y-auto custom-scrollbar"><pre className="whitespace-pre-wrap rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-3 text-[13px] leading-relaxed dark:border-[#334155] dark:bg-[#111827]/60">{descM.content || "—"}</pre></div><div className="border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 text-right dark:border-[#334155] dark:bg-[#111827]"><button type="button" onClick={() => setDescM({ open: false, content: "" })} className={orangeBtnOutline}>Cerrar</button></div></div></Modal>
+      {/* Modal: descripción completa */}
+      <Modal isOpen={descM.open} onClose={() => setDescM({ open: false, content: "" })} closeOnBackdropClick={false} className={`${modalSmallShellClass} max-w-2xl`} ariaLabelledBy={descModalTitleId}>
+        <header className={modalHeaderClass}>
+          <div className="flex items-center gap-3">
+            <span className={modalHeaderIconClass}>
+              <svg {...iconSvgProps} className="size-5">
+                <path d="M4 19.5V4a2 2 0 0 1 2-2h10l4 4v13.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+                <path d="M14 2v4h4" />
+                <path d="M8 10h8M8 14h8" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className={modalEyebrowClass}>Mis tareas</p>
+              <h3 id={descModalTitleId} className={`mt-1 ${modalTitleClass}`}>Descripción</h3>
+            </div>
+          </div>
+        </header>
+        <div className="max-h-[60vh] overflow-y-auto bg-white p-5 dark:bg-[#111827] custom-scrollbar">
+          <pre className={`${sunkenCardClass} whitespace-pre-wrap p-3.5 text-[13px] leading-relaxed text-[#09090B] dark:text-[#F8FAFC]`}>
+            {descM.content || "—"}
+          </pre>
+        </div>
+        <div className={modalFooterClass}>
+          <div className="flex justify-end">
+            <button type="button" onClick={() => setDescM({ open: false, content: "" })} className={secondaryBtnClass}>Cerrar</button>
+          </div>
+        </div>
+      </Modal>
 
-      <Modal isOpen={fotosM.open} onClose={() => setFotosM({ open: false, urls: [] })} closeOnBackdropClick={false} className="max-w-3xl w-[92vw]" ariaLabelledBy={fotosModalTitleId}><div className="overflow-hidden rounded-2xl border border-[#e7ded0] bg-white dark:border-[#273244] dark:bg-[#111a2b]"><div className="flex items-center gap-3 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 dark:border-[#334155] dark:bg-[#111827]"><span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ea580c] dark:bg-[#ff801f]/15 dark:text-[#fb923c]"><svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" /><circle cx="12" cy="13" r="3" /></svg></span><div className="min-w-0"><h3 id={fotosModalTitleId} className={`${claudeSubheading}`}>Fotos</h3><p className="text-[11px] text-[#78716c] dark:text-[#8ea0b8]">Imágenes adjuntas a la tarea</p></div></div><div className="p-4 text-sm max-h-[70vh] overflow-y-auto custom-scrollbar">{Array.isArray(fotosM.urls) && fotosM.urls.length > 0 ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{fotosM.urls.map((url, idx) => (<a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer" className="group relative block overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fcfaf6] dark:border-[#334155] dark:bg-[#111827]/50"><img src={url} alt={`Foto ${idx + 1}`} className="h-44 w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]" /><div className="absolute inset-x-0 bottom-0 p-2 bg-linear-to-t from-black/40 to-transparent"><div className="text-[11px] text-white/95">Ver en tamaño completo</div></div></a>))}</div> : <div className="rounded-lg border border-dashed border-[#e7ded0] p-4 text-center text-[#78716c] dark:border-[#334155] dark:text-[#8ea0b8]">Sin fotos adjuntas</div>}</div><div className="border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 text-right dark:border-[#334155] dark:bg-[#111827]"><button type="button" onClick={() => setFotosM({ open: false, urls: [] })} className={orangeBtnOutline}>Cerrar</button></div></div></Modal>
+      {/* Modal: fotos adjuntas */}
+      <Modal isOpen={fotosM.open} onClose={() => setFotosM({ open: false, urls: [] })} closeOnBackdropClick={false} className={`${modalSmallShellClass} max-w-3xl`} ariaLabelledBy={fotosModalTitleId}>
+        <header className={modalHeaderClass}>
+          <div className="flex items-center gap-3">
+            <span className={modalHeaderIconClass}>
+              <svg {...iconSvgProps} className="size-5">
+                <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
+                <circle cx="12" cy="13" r="3" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className={modalEyebrowClass}>Mis tareas</p>
+              <h3 id={fotosModalTitleId} className={`mt-1 ${modalTitleClass}`}>Fotos</h3>
+            </div>
+          </div>
+        </header>
+        <div className="max-h-[70vh] overflow-y-auto bg-white p-5 dark:bg-[#111827] custom-scrollbar">
+          {Array.isArray(fotosM.urls) && fotosM.urls.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {fotosM.urls.map((url, idx) => (
+                <a
+                  key={`${url}-${idx}`}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group relative block overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]"
+                >
+                  <img src={url} alt={`Foto ${idx + 1}`} className="h-44 w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]" />
+                  <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/50 to-transparent p-2">
+                    <div className="text-[11px] text-white/95">Ver en tamaño completo</div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className={`${sunkenCardClass} border-dashed p-4 text-center text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]`}>
+              Sin fotos adjuntas
+            </div>
+          )}
+        </div>
+        <div className={modalFooterClass}>
+          <div className="flex justify-end">
+            <button type="button" onClick={() => setFotosM({ open: false, urls: [] })} className={secondaryBtnClass}>Cerrar</button>
+          </div>
+        </div>
+      </Modal>
 
-      <Modal isOpen={delM} onClose={delCancel} closeOnBackdropClick={false} className="w-full max-w-md" ariaLabelledBy={deleteModalTitleId}><div className="rounded-2xl border border-[#e7ded0] bg-white p-6 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"><div className="flex items-center gap-3 mb-4"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18" strokeLinecap="round" /><path d="M8 6V4h8v2" strokeLinecap="round" /><path d="M6 6l1 16h10l1-16" strokeLinejoin="round" /><path d="M10 11v6M14 11v6" strokeLinecap="round" /></svg></span><div><h3 id={deleteModalTitleId} className={`${claudeSubheading}`}>Confirmar eliminación</h3><p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Esta acción no se puede deshacer.</p></div></div><p className={`${claudeBody} text-sm mb-6`}>¿Estás seguro de que deseas eliminar esta tarea?</p><div className="flex justify-end gap-3"><button type="button" onClick={delCancel} disabled={deleting} className={orangeBtnOutline}>Cancelar</button><button type="button" onClick={delConfirm} disabled={deleting} className="inline-flex items-center justify-center rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-theme-xs hover:bg-red-600 disabled:opacity-60">{deleting ? "Eliminando…" : "Eliminar"}</button></div></div></Modal>
+      {/* Modal: confirmar eliminación de tarea */}
+      <Modal isOpen={delM} onClose={delCancel} closeOnBackdropClick={false} className={modalSmallShellClass} ariaLabelledBy={deleteModalTitleId}>
+        <div className="bg-white p-6 dark:bg-[#111827]">
+          <div className="mb-5 flex items-start gap-3.5">
+            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]">
+              <svg {...iconSvgProps} className="size-5">
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M6 6l1 16h10l1-16" />
+                <path d="M10 11v6M14 11v6" />
+              </svg>
+            </span>
+            <div>
+              <h3 id={deleteModalTitleId} className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
+                Confirmar eliminación
+              </h3>
+              <p className="mt-1 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">Esta acción no se puede deshacer.</p>
+            </div>
+          </div>
+          <p className="mb-6 text-[15px] leading-[22px] text-[#52525B] dark:text-[#B7C1D1]">
+            ¿Estás seguro de que deseas eliminar esta tarea?
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={delCancel} disabled={deleting} className={secondaryBtnClass}>Cancelar</button>
+            <button type="button" onClick={delConfirm} disabled={deleting} className={dangerBtnClass} aria-busy={deleting}>
+              {deleting ? "Eliminando…" : "Eliminar"}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
-      <Modal isOpen={confirmDel.open} onClose={() => setConfirmDel({ open: false, index: null, url: null })} closeOnBackdropClick={false} className="w-full max-w-md" ariaLabelledBy={deletePhotoModalTitleId}><div className="rounded-2xl border border-[#e7ded0] bg-white p-6 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"><div className="flex items-center gap-3 mb-4"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18" strokeLinecap="round" /><path d="M8 6V4h8v2" strokeLinecap="round" /><path d="M6 6l1 16h10l1-16" strokeLinejoin="round" /><path d="M10 11v6M14 11v6" strokeLinecap="round" /></svg></span><div><h3 id={deletePhotoModalTitleId} className={`${claudeSubheading}`}>Eliminar foto</h3><p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Se eliminará permanentemente.</p></div></div><p className={`${claudeBody} text-sm mb-6`}>¿Estás seguro de que deseas eliminar esta foto?</p><div className="flex justify-end gap-3"><button onClick={() => setConfirmDel({ open: false, index: null, url: null })} className={orangeBtnOutline}>Cancelar</button><button onClick={() => { if (confirmDel.index !== null && confirmDel.url) deletePhoto(confirmDel.index, confirmDel.url); }} className="inline-flex items-center justify-center rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-theme-xs hover:bg-red-600">Eliminar</button></div></div></Modal>
+      {/* Modal: confirmar eliminación de foto */}
+      <Modal isOpen={confirmDel.open} onClose={() => setConfirmDel({ open: false, index: null, url: null })} closeOnBackdropClick={false} className={modalSmallShellClass} ariaLabelledBy={deletePhotoModalTitleId}>
+        <div className="bg-white p-6 dark:bg-[#111827]">
+          <div className="mb-5 flex items-start gap-3.5">
+            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]">
+              <svg {...iconSvgProps} className="size-5">
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M6 6l1 16h10l1-16" />
+                <path d="M10 11v6M14 11v6" />
+              </svg>
+            </span>
+            <div>
+              <h3 id={deletePhotoModalTitleId} className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
+                Eliminar foto
+              </h3>
+              <p className="mt-1 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">Se eliminará permanentemente.</p>
+            </div>
+          </div>
+          <p className="mb-6 text-[15px] leading-[22px] text-[#52525B] dark:text-[#B7C1D1]">
+            ¿Estás seguro de que deseas eliminar esta foto?
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={() => setConfirmDel({ open: false, index: null, url: null })} className={secondaryBtnClass}>Cancelar</button>
+            <button
+              type="button"
+              onClick={() => { if (confirmDel.index !== null && confirmDel.url) deletePhoto(confirmDel.index, confirmDel.url); }}
+              className={dangerBtnClass}
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }

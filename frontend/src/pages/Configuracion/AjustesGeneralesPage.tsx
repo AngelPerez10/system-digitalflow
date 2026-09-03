@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
+  Building2,
   Check,
   FileText,
   ImagePlus,
@@ -8,41 +9,55 @@ import {
   LogIn,
   PanelLeft,
   ReceiptText,
+  RotateCcw,
   SquareCheckBig,
   Trash2,
   Upload,
   Users,
 } from "lucide-react";
 import PageMeta from "@/components/common/PageMeta";
-import Alert from "@/components/ui/alert/Alert";
 import { fileToDataUrl, MARCA_FALLBACK_LOGO, patchMarca, uploadMarcaLogo } from "@/config/marcaApi";
 import { inicialesDeNombre } from "@/config/marcaIniciales";
 import { useMarca } from "@/context/MarcaContext";
 import { useTheme } from "@/context/ThemeContext";
-import {
-  erpHeroHeadingClass,
-  erpPrimaryBtnClass,
-  erpSansStyle,
-  erpSectionLabelClass,
-} from "@/layout/erpPageStyles";
 
 const NOMBRE_MAX = 120;
 
-// Superficie propia de esta página: un tono más claro que el canvas (#0f172a) en oscuro
-// para que las tarjetas se distingan del fondo en vez de fundirse con él.
-const settingsCardClass =
-  "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#334155] dark:bg-[#141b2d] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_30px_80px_-45px_rgba(0,0,0,0.7)]";
+/* --------------------------------------------------------------------------
+   Mismo sistema que `Perfil/ProfilePage` y `Configuracion/GestionUsuario`:
+   marino + dorado sobre lienzo blanco, azul eléctrico como único acento de
+   acción, líneas de 1 px. En oscuro, la familia slate del contenedor de la
+   app (lienzo #0f172a → panel #111827 → tarjeta hundida #1B2539).
+   -------------------------------------------------------------------------- */
+
+const sheetFontStyle = { fontFamily: "Geist, Outfit, system-ui, sans-serif" } as const;
+
+const sectionLabelClass =
+  "text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]";
+
+const panelClass =
+  "overflow-hidden rounded-[24px] border border-[#E7E7EA] bg-white shadow-[0_6px_20px_-10px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_10px_28px_-12px_rgba(0,0,0,0.6)]";
+
+const sunkenCardClass =
+  "rounded-[20px] border border-[#E7E7EA] bg-[#FAFAFA] p-5 dark:border-[#273244] dark:bg-[#1B2539] sm:p-6";
+
+const inputClass =
+  "h-12 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-4 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] lg:h-11";
+
+const primaryBtnClass =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#1B5CFF] bg-[#1B5CFF] px-6 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,border-color,transform] duration-150 hover:border-[#1244D1] hover:bg-[#1244D1] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] disabled:hover:border-[#DCE7FF] disabled:hover:bg-[#DCE7FF] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:border-[#3B6AF0] dark:hover:bg-[#3B6AF0] dark:disabled:border-[#1A2748] dark:disabled:bg-[#1A2748] dark:disabled:text-[#9BB0F0] max-sm:w-full sm:h-11";
+
+const secondaryBtnClass =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-5 text-[15px] font-medium tracking-[-0.1px] text-[#09090B] transition-[background-color,border-color,transform] duration-150 hover:border-[#D3D3D8] hover:bg-[#FAFAFA] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048] max-sm:w-full sm:h-11";
 
 const previewCaptionClass =
-  "flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#94a3b8]";
+  "flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]";
 
-function BtnIcon({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex size-4 shrink-0 items-center justify-center" aria-hidden>
-      {children}
-    </span>
-  );
-}
+const previewFootnoteClass =
+  "mt-3 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]";
+
+/** Cada vista previa es una columna: recuadro flexible + nota anclada abajo. */
+const previewColumnClass = "flex min-w-0 flex-col";
 
 export default function AjustesGeneralesPage() {
   const titleId = useId();
@@ -152,361 +167,440 @@ export default function AjustesGeneralesPage() {
 
   return (
     <>
-      <PageMeta
-        title={`Ajustes generales | ${nombre}`}
-        description="Nombre y logo de la empresa"
-      />
+      <PageMeta title={`Ajustes generales | ${nombre}`} description="Nombre y logo de la empresa" />
       <div className="w-full min-w-0 overflow-x-hidden">
-        <div
-          className="mx-auto w-full max-w-[1100px] space-y-5 px-0 pb-8 pt-0 text-sm sm:px-2 sm:pb-10 sm:text-base lg:px-4"
-          style={erpSansStyle}
-        >
+        <div className="mx-auto w-full max-w-6xl" style={sheetFontStyle}>
           <nav
-            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 px-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
+            className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]"
             aria-label="Migas de pan"
           >
             <Link
               to="/"
-              className="rounded-md px-1.5 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+              className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
             >
               Inicio
             </Link>
-            <span aria-hidden className="text-[#a8a29e]">
+            <span aria-hidden className="text-[#D3D3D8] dark:text-[#3A4661]">
               /
             </span>
-            <span className="px-1.5 py-0.5 text-[#1c1917] dark:text-[#f8fafc]">Ajustes generales</span>
+            <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">Ajustes generales</span>
           </nav>
 
-          <header className="px-1 pt-2">
-            <p className={erpSectionLabelClass}>Configuración</p>
-            <h1 id={titleId} className={`mt-2 ${erpHeroHeadingClass}`}>
-              Nombre y logo
-            </h1>
-            <p className="mt-3 max-w-xl text-[15px] leading-[1.65] text-[#57534e] dark:text-[#cbd5e1]">
-              Así se presenta la empresa en el menú, los PDFs y la pantalla para entrar.
-            </p>
-          </header>
+          <form onSubmit={(e) => void onSubmit(e)} aria-labelledby={titleId} className={panelClass}>
+            {/* Banda marina de cabecera. */}
+            <header className="relative overflow-hidden bg-[#17235B] px-5 py-6 dark:bg-[#1B2A63] sm:px-8 sm:py-8">
+              <div
+                className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-[#E6A23C]/15 blur-3xl"
+                aria-hidden
+              />
+              <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+                <div className="flex min-w-0 items-start gap-4">
+                  <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]">
+                    <Building2 className="size-5" strokeWidth={1.6} aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">
+                      Configuración
+                    </p>
+                    <h1
+                      id={titleId}
+                      className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]"
+                    >
+                      Nombre y logo
+                    </h1>
+                    <p className="mt-1.5 max-w-[58ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70">
+                      Así se presenta la empresa en el menú, los PDFs y la pantalla para entrar.
+                    </p>
+                  </div>
+                </div>
 
-          <div className="mt-6 space-y-3">
-            <div id={statusErrId} role="alert" aria-live="assertive" aria-atomic="true">
-              {errorMsg ? <Alert variant="error" title="No se pudo guardar" message={errorMsg} /> : null}
-            </div>
-            <div id={statusOkId} role="status" aria-live="polite" aria-atomic="true">
-              {okMsg ? <Alert variant="success" title="Listo" message={okMsg} /> : null}
-            </div>
-          </div>
+                <span
+                  className={
+                    dirty
+                      ? "inline-flex h-8 shrink-0 items-center gap-2 self-start rounded-full bg-[#E6A23C] px-3.5 text-[13px] font-semibold text-[#17235B] lg:self-center"
+                      : "inline-flex h-8 shrink-0 items-center gap-2 self-start rounded-full bg-white/10 px-3.5 text-[13px] font-medium text-white/85 lg:self-center"
+                  }
+                >
+                  <span
+                    className={`size-[7px] shrink-0 rounded-full ${dirty ? "bg-[#17235B]" : "bg-[#4ADE80]"}`}
+                    aria-hidden
+                  />
+                  {dirty ? "Cambios sin guardar" : "Publicado"}
+                </span>
+              </div>
+            </header>
 
-          {/* Identidad: logo compacto + nombre en fila horizontal, sin centrado vacío */}
-          <form
-            onSubmit={(e) => void onSubmit(e)}
-            aria-labelledby={titleId}
-            className={`${settingsCardClass} relative mt-8 p-5 pt-7 sm:p-7 sm:pt-8`}
-          >
-            <span className="absolute inset-x-0 top-0 h-[3px] bg-[#ff801f]" aria-hidden />
-            <fieldset className="min-w-0">
-              <legend className="sr-only">Editar nombre y logo de la empresa</legend>
+            <div className="space-y-5 p-5 sm:p-6 lg:p-8">
+              <div id={statusErrId} role="alert" aria-live="assertive" aria-atomic="true">
+                {errorMsg ? (
+                  <div className="flex items-start gap-3 rounded-[14px] border border-[#F6CFCF] bg-[#FEF2F2] px-4 py-3 dark:border-[#7F1D1D] dark:bg-[#3F1518]">
+                    <span className="mt-1.5 size-[7px] shrink-0 rounded-full bg-[#C22B2B] dark:bg-[#F87171]" aria-hidden />
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-medium text-[#C22B2B] dark:text-[#F87171]">No se pudo guardar</p>
+                      <p className="mt-0.5 text-[13px] text-[#C22B2B]/85 dark:text-[#F87171]/80">{errorMsg}</p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <div id={statusOkId} role="status" aria-live="polite" aria-atomic="true">
+                {okMsg ? (
+                  <div className="flex items-start gap-3 rounded-[14px] border border-[#BFE6D4] bg-[#E9F8F0] px-4 py-3 dark:border-[#1E5A42] dark:bg-[#0F2A1C]">
+                    <span className="mt-1.5 size-[7px] shrink-0 rounded-full bg-[#04724D] dark:bg-[#4ADE80]" aria-hidden />
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-medium text-[#04724D] dark:text-[#4ADE80]">Listo</p>
+                      <p className="mt-0.5 text-[13px] text-[#04724D]/85 dark:text-[#4ADE80]/80">{okMsg}</p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
 
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-                <div className="shrink-0">
-                  <label
-                    htmlFor={logoInputId}
-                    aria-describedby={logoHintId}
-                    aria-busy={uploading || undefined}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      if (!busy) setDragging(true);
-                    }}
-                    onDragLeave={() => setDragging(false)}
-                    onDrop={onDropLogo}
-                    className={`group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border shadow-[0_10px_24px_-16px_rgba(28,25,23,0.4)] transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#ff801f] has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-[#fffdfa] dark:shadow-[0_10px_24px_-14px_rgba(0,0,0,0.6)] dark:has-[:focus-visible]:ring-offset-[#141b2d] sm:h-28 sm:w-28 ${
-                      busy ? "pointer-events-none opacity-60" : "cursor-pointer"
-                    } ${
-                      dragging
-                        ? "border-[#ff801f] bg-[#fff4ea] dark:border-[#fb923c] dark:bg-[#1c1917]"
-                        : logoUrl
-                          ? "border-[#e4dcd0] bg-[#fffdf9] hover:border-[#ff801f]/50 dark:border-[#334155] dark:bg-[#0f172a]"
-                          : "border-dashed border-[#d8cdbb] bg-[#fffdf9] hover:border-[#ff801f]/60 hover:bg-[#fff8f0] dark:border-[#334155] dark:bg-[#0f172a] dark:hover:border-[#fb923c]/60"
-                    }`}
-                  >
-                    <input
-                      ref={fileRef}
-                      id={logoInputId}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      className="sr-only"
-                      disabled={busy}
-                      onChange={(e) => void onPickLogo(e.target.files?.[0])}
-                    />
-                    {logoUrl ? (
-                      <>
-                        <img
-                          src={logoUrl}
-                          alt={`Logo actual de ${nombre}`}
-                          className="h-full w-full object-contain p-3"
-                        />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-[#1c1917]/0 text-[#faf8f4] opacity-0 transition-all duration-150 group-hover:bg-[#1c1917]/60 group-hover:opacity-100 group-focus-within:bg-[#1c1917]/60 group-focus-within:opacity-100">
+              {/* Identidad: zona de logo + nombre, en una sola tarjeta hundida. */}
+              <fieldset className={`${sunkenCardClass} min-w-0`}>
+                <legend className="sr-only">Editar nombre y logo de la empresa</legend>
+
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                    <Building2 className="size-4" strokeWidth={1.6} aria-hidden />
+                  </span>
+                  <p className={sectionLabelClass}>Identidad</p>
+                </div>
+
+                <div className="mt-5 flex flex-col gap-6 sm:flex-row sm:items-start">
+                  <div className="shrink-0">
+                    <label
+                      htmlFor={logoInputId}
+                      aria-describedby={logoHintId}
+                      aria-busy={uploading || undefined}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (!busy) setDragging(true);
+                      }}
+                      onDragLeave={() => setDragging(false)}
+                      onDrop={onDropLogo}
+                      className={`group relative flex size-28 items-center justify-center overflow-hidden rounded-[16px] border transition-colors has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-[rgba(27,92,255,0.18)] ${
+                        busy ? "pointer-events-none opacity-60" : "cursor-pointer"
+                      } ${
+                        dragging
+                          ? "border-[#1B5CFF] bg-[rgba(27,92,255,0.06)] dark:border-[#4B7CFF] dark:bg-[rgba(75,124,255,0.10)]"
+                          : logoUrl
+                            ? "border-[#E7E7EA] bg-white hover:border-[#1B5CFF] dark:border-[#273244] dark:bg-[#111827] dark:hover:border-[#4B7CFF]"
+                            : "border-dashed border-[#D3D3D8] bg-white hover:border-[#1B5CFF] dark:border-[#3A4661] dark:bg-[#111827] dark:hover:border-[#4B7CFF]"
+                      }`}
+                    >
+                      <input
+                        ref={fileRef}
+                        id={logoInputId}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="sr-only"
+                        disabled={busy}
+                        onChange={(e) => void onPickLogo(e.target.files?.[0])}
+                      />
+                      {logoUrl ? (
+                        <>
+                          <img
+                            src={logoUrl}
+                            alt={`Logo actual de ${nombre}`}
+                            className="h-full w-full object-contain p-3"
+                          />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-[#17235B]/0 text-white opacity-0 transition-all duration-150 group-hover:bg-[#17235B]/65 group-hover:opacity-100 group-focus-within:bg-[#17235B]/65 group-focus-within:opacity-100">
+                            {uploading ? (
+                              <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" strokeWidth={1.6} />
+                            ) : (
+                              <>
+                                <ImagePlus className="size-4" strokeWidth={1.6} />
+                                <span className="text-[12px] font-semibold">Cambiar</span>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1.5 px-2 text-center">
                           {uploading ? (
-                            <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" strokeWidth={1.75} />
+                            <LoaderCircle
+                              className="size-5 animate-spin text-[#1B5CFF] motion-reduce:animate-none dark:text-[#4B7CFF]"
+                              strokeWidth={1.6}
+                            />
                           ) : (
                             <>
-                              <ImagePlus className="size-4" strokeWidth={1.75} />
-                              <span className="text-[10px] font-semibold">Cambiar</span>
+                              <span
+                                className="text-[26px] font-semibold leading-none tracking-[-0.5px] text-[#9A6B15] dark:text-[#E6A23C]"
+                                aria-hidden
+                              >
+                                {previewIniciales}
+                              </span>
+                              <span className="flex items-center gap-1 text-[12px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]">
+                                <Upload className="size-3" strokeWidth={2} />
+                                Subir
+                              </span>
                             </>
                           )}
                         </div>
-                      </>
-                    ) : (
-                      <div className="flex flex-col items-center gap-1 px-2 text-center">
-                        {uploading ? (
-                          <LoaderCircle className="size-5 animate-spin text-[#ff801f] motion-reduce:animate-none" strokeWidth={1.75} />
-                        ) : (
-                          <>
-                            <span
-                              className="[font-family:Georgia,'Times_New_Roman',serif] text-[1.65rem] leading-none tracking-[0.08em] text-[#1c1917] dark:text-[#f8fafc]"
-                              aria-hidden
-                            >
-                              {previewIniciales}
-                            </span>
-                            <span className="flex items-center gap-1 text-[9px] font-medium text-[#57534e] dark:text-[#94a3b8]">
-                              <Upload className="size-2.5" strokeWidth={2} />
-                              Subir
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </label>
-                  {logoUrl ? (
-                    <button
-                      type="button"
-                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-[#57534e] transition-colors hover:text-[#c64545] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff801f] disabled:pointer-events-none disabled:opacity-50 dark:text-[#94a3b8] dark:hover:text-[#f87171]"
-                      onClick={() => void onClearLogo()}
-                      disabled={busy}
-                    >
-                      <Trash2 className="size-3" strokeWidth={1.75} />
-                      Quitar
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="hidden h-20 w-px shrink-0 bg-[#e4dcd0] dark:bg-[#273244] sm:block" aria-hidden />
-
-                <div className="min-w-0 flex-1">
-                  <label
-                    htmlFor={nombreId}
-                    className="block text-[11px] font-medium uppercase tracking-[0.16em] text-[#78716c] dark:text-[#94a3b8]"
-                  >
-                    Nombre de la empresa
-                  </label>
-                  <input
-                    ref={nombreRef}
-                    id={nombreId}
-                    name="nombre"
-                    value={nombreDraft}
-                    onChange={(e) => {
-                      setNombreDraft(e.target.value.slice(0, NOMBRE_MAX));
-                      if (nombreError) setNombreError("");
-                    }}
-                    required
-                    maxLength={NOMBRE_MAX}
-                    disabled={busy}
-                    autoComplete="organization"
-                    aria-invalid={nombreError ? true : undefined}
-                    aria-describedby={nombreDescribedBy}
-                    className={`mt-2 min-h-12 w-full border-0 border-b bg-transparent pb-1.5 [font-family:Georgia,'Times_New_Roman',serif] text-[1.75rem] leading-tight tracking-[-0.02em] text-[#1c1917] outline-none transition-[border-color] focus-visible:border-[#ff801f] disabled:opacity-50 dark:text-[#f8fafc] ${
-                      nombreError ? "border-[#c64545] dark:border-[#f87171]" : "border-[#1c1917]/20 dark:border-white/25"
-                    }`}
-                  />
-                  <p id={logoHintId} className="mt-2 text-xs leading-relaxed text-[#57534e] dark:text-[#cbd5e1]">
-                    Iniciales en el menú:{" "}
-                    <span className="font-semibold text-[#1c1917] dark:text-[#f8fafc]">{previewIniciales}</span>
-                    {" · "}
-                    PNG, JPG o WebP, máximo 4&nbsp;MB.
-                  </p>
-                  <p id={nombreHintId} className="sr-only">
-                    Nombre de la empresa, hasta {NOMBRE_MAX} caracteres.
-                  </p>
-                  {dirty ? (
-                    <p className="mt-1.5 text-xs font-medium text-[#9a3412] dark:text-[#fdba74]">
-                      Hay cambios sin guardar.
-                    </p>
-                  ) : null}
-                  {nombreError ? (
-                    <p id={nombreErrorId} className="mt-1.5 text-xs font-medium text-[#c64545] dark:text-[#f87171]" role="alert">
-                      {nombreError}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="flex shrink-0 sm:self-end">
-                  <button
-                    type="submit"
-                    className={`${erpPrimaryBtnClass} w-full sm:w-auto`}
-                    disabled={busy || !dirty}
-                    aria-busy={saving || undefined}
-                  >
-                    <BtnIcon>
-                      {saving ? (
-                        <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" strokeWidth={1.75} />
-                      ) : (
-                        <Check className="size-4" strokeWidth={1.75} />
                       )}
-                    </BtnIcon>
-                    {saving ? "Guardando…" : "Guardar"}
-                  </button>
-                </div>
-              </div>
-            </fieldset>
-          </form>
-
-          {/* Dónde aparece: las tres superficies reales, visibles a la vez (no pestañas escondiendo contenido) */}
-          <div className={settingsCardClass}>
-            <div className="border-b border-[#e4dcd0] px-5 py-4 dark:border-[#273244] sm:px-7">
-              <h2 className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]">Dónde aparece tu marca</h2>
-              <p className="mt-0.5 text-sm text-[#57534e] dark:text-[#cbd5e1]">
-                Cada cambio de nombre o logo se refleja de inmediato en estos tres lugares.
-              </p>
-            </div>
-
-            <div className="grid divide-y divide-[#e4dcd0] dark:divide-[#273244] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-              {/* Menú */}
-              <section className="p-5 sm:p-6" aria-label="Vista previa del menú">
-                <p className={previewCaptionClass}>
-                  <PanelLeft className="size-3.5 text-[#ff801f]" strokeWidth={1.75} />
-                  Menú lateral
-                </p>
-                <p className="sr-only">
-                  En el menú se verá {previewNombre}
-                  {logoUrl ? " con el logo que subiste" : ` con las iniciales ${previewIniciales}`}.
-                </p>
-                <div
-                  aria-hidden
-                  className="mt-3 overflow-hidden rounded-xl border border-[#e4dcd0] bg-[#f3eee6] p-4 dark:border-[#273244] dark:bg-[#0c1322]"
-                >
-                  <div className="flex items-center gap-2.5">
+                    </label>
                     {logoUrl ? (
-                      <img
-                        src={logoUrl}
-                        alt=""
-                        className="h-8 w-8 rounded-md object-contain ring-1 ring-[#1c1917]/8 dark:ring-white/10"
-                      />
-                    ) : (
-                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#1c1917] text-[10px] font-semibold tracking-[0.12em] text-[#faf8f4] dark:bg-[#f8fafc] dark:text-[#0f172a]">
-                        {previewIniciales}
-                      </span>
-                    )}
-                    <span className="min-w-0 truncate text-sm font-semibold tracking-tight text-[#1c1917] dark:text-[#f8fafc]">
-                      {previewNombre}
-                    </span>
+                      <button
+                        type="button"
+                        className="mt-2.5 inline-flex w-28 items-center justify-center gap-1.5 text-[13px] font-medium text-[#6E6E77] transition-colors hover:text-[#C22B2B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] disabled:pointer-events-none disabled:opacity-50 dark:text-[#8EA0B8] dark:hover:text-[#F87171]"
+                        onClick={() => void onClearLogo()}
+                        disabled={busy}
+                      >
+                        <Trash2 className="size-3.5" strokeWidth={1.6} />
+                        Quitar logo
+                      </button>
+                    ) : null}
                   </div>
-                  <div className="mt-4 h-px bg-[#e4dcd0] dark:bg-[#273244]" />
-                  <ul className="mt-3 space-y-1 text-[12px] text-[#57534e] dark:text-[#94a3b8]">
-                    <li className="relative flex items-center gap-2 rounded-md py-1.5 pl-3 font-medium text-[#1c1917] dark:text-[#f8fafc]">
-                      <span className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-[#ff801f]" />
-                      <ReceiptText className="size-3.5 text-[#ff801f]" strokeWidth={1.75} />
-                      Cotizaciones
-                    </li>
-                    <li className="flex items-center gap-2 py-1.5 pl-3">
-                      <SquareCheckBig className="size-3.5 text-[#a8a29e] dark:text-[#64748b]" strokeWidth={1.75} />
-                      Órdenes
-                    </li>
-                    <li className="flex items-center gap-2 py-1.5 pl-3">
-                      <Users className="size-3.5 text-[#a8a29e] dark:text-[#64748b]" strokeWidth={1.75} />
-                      Clientes
-                    </li>
-                  </ul>
-                </div>
-                <p className="mt-2.5 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
-                  Lo ve cualquier persona que entre al sistema.
-                </p>
-              </section>
 
-              {/* Pantalla de acceso */}
-              <section className="p-5 sm:p-6" aria-label="Vista previa de la pantalla para entrar">
-                <p className={previewCaptionClass}>
-                  <LogIn className="size-3.5 text-[#ff801f]" strokeWidth={1.75} />
-                  Pantalla de acceso
-                </p>
-                <p className="sr-only">
-                  Tema actual: {isDarkPreview ? "oscuro" : "claro"}. En la pantalla para entrar se muestra{" "}
-                  {logoUrl ? "el logo que subiste" : "el logo de Intrax"} y el nombre {previewNombre}.
-                </p>
-                <div
-                  aria-hidden
-                  className={`relative mt-3 overflow-hidden rounded-xl border p-5 ${
-                    isDarkPreview ? "border-[#273244] bg-[#1c1917]" : "border-[#e4dcd0] bg-[#fcfaf6]"
-                  }`}
-                >
-                  {isDarkPreview ? (
-                    <div
-                      className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#ff801f]/15 via-transparent to-transparent"
-                      aria-hidden
-                    />
-                  ) : null}
-                  <div className="relative flex flex-col items-center gap-3 py-2 text-center">
-                    <img
-                      src={logoUrl || MARCA_FALLBACK_LOGO}
-                      alt=""
-                      className={`h-9 w-auto max-w-[9rem] object-contain ${
-                        !logoUrl && isDarkPreview ? "brightness-0 invert" : ""
+                  <div className="min-w-0 flex-1">
+                    <label
+                      htmlFor={nombreId}
+                      className="mb-2 block text-[13px] font-medium tracking-[-0.05px] text-[#52525B] dark:text-[#B7C1D1]"
+                    >
+                      Nombre de la empresa
+                    </label>
+                    <input
+                      ref={nombreRef}
+                      id={nombreId}
+                      name="nombre"
+                      value={nombreDraft}
+                      onChange={(e) => {
+                        setNombreDraft(e.target.value.slice(0, NOMBRE_MAX));
+                        if (nombreError) setNombreError("");
+                      }}
+                      required
+                      maxLength={NOMBRE_MAX}
+                      disabled={busy}
+                      autoComplete="organization"
+                      aria-invalid={nombreError ? true : undefined}
+                      aria-describedby={nombreDescribedBy}
+                      className={`${inputClass} ${
+                        nombreError
+                          ? "!border-[#C22B2B] focus:!border-[#C22B2B] focus:ring-[rgba(194,43,43,0.20)] dark:!border-[#F87171]"
+                          : ""
                       }`}
                     />
-                    <span className={`truncate text-sm ${isDarkPreview ? "text-[#e7e2da]" : "text-[#57534e]"}`}>
-                      © {previewNombre}
-                    </span>
-                    <p
-                      className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${
-                        isDarkPreview ? "text-[#fb923c]" : "text-[#9a3412]"
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[rgba(23,35,91,0.06)] px-2.5 text-[12px] font-medium text-[#52525B] dark:bg-white/[0.06] dark:text-[#B7C1D1]">
+                        Iniciales
+                        <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">{previewIniciales}</span>
+                      </span>
+                      <span className="inline-flex h-7 items-center rounded-full bg-[rgba(23,35,91,0.06)] px-2.5 text-[12px] font-medium text-[#52525B] dark:bg-white/[0.06] dark:text-[#B7C1D1]">
+                        {nombreDraft.length}/{NOMBRE_MAX}
+                      </span>
+                    </div>
+
+                    <p id={logoHintId} className="mt-3 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                      El logo acepta PNG, JPG o WebP de hasta 4&nbsp;MB. También puedes arrastrarlo sobre el
+                      recuadro. Sin logo se usan las iniciales.
+                    </p>
+                    <p id={nombreHintId} className="sr-only">
+                      Nombre de la empresa, hasta {NOMBRE_MAX} caracteres.
+                    </p>
+                    {nombreError ? (
+                      <p
+                        id={nombreErrorId}
+                        className="mt-2 text-[13px] font-medium text-[#C22B2B] dark:text-[#F87171]"
+                        role="alert"
+                      >
+                        {nombreError}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </fieldset>
+
+              {/* Dónde aparece: las tres superficies reales, visibles a la vez. */}
+              <section className={sunkenCardClass} aria-labelledby={`${titleId}-previews`}>
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:text-[#E6A23C]">
+                    <PanelLeft className="size-4" strokeWidth={1.6} aria-hidden />
+                  </span>
+                  <h2 id={`${titleId}-previews`} className={sectionLabelClass}>
+                    Dónde aparece tu marca
+                  </h2>
+                </div>
+                <p className="mt-3 text-[15px] leading-[22px] tracking-[-0.1px] text-[#52525B] dark:text-[#B7C1D1]">
+                  Cada cambio de nombre o logo se refleja de inmediato en estos tres lugares.
+                </p>
+
+                <div className="mt-5 grid gap-5 sm:grid-cols-3">
+                  {/* Menú lateral */}
+                  <div className={previewColumnClass} aria-label="Vista previa del menú">
+                    <p className={previewCaptionClass}>
+                      <PanelLeft className="size-3.5 text-[#1B5CFF] dark:text-[#4B7CFF]" strokeWidth={1.75} />
+                      Menú lateral
+                    </p>
+                    <p className="sr-only">
+                      En el menú se verá {previewNombre}
+                      {logoUrl ? " con el logo que subiste" : ` con las iniciales ${previewIniciales}`}.
+                    </p>
+                    <div
+                      aria-hidden
+                      className="mt-3 flex-1 overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-white p-4 dark:border-[#273244] dark:bg-[#111827]"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        {logoUrl ? (
+                          <img
+                            src={logoUrl}
+                            alt=""
+                            className="size-8 rounded-md object-contain ring-1 ring-black/5 dark:ring-white/10"
+                          />
+                        ) : (
+                          <span className="inline-flex size-8 items-center justify-center rounded-md bg-[#17235B] text-[10px] font-semibold tracking-[0.12em] text-white dark:bg-[#4B7CFF]">
+                            {previewIniciales}
+                          </span>
+                        )}
+                        <span className="min-w-0 truncate text-[14px] font-semibold tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]">
+                          {previewNombre}
+                        </span>
+                      </div>
+                      <div className="mt-4 h-px bg-[#E7E7EA] dark:bg-[#273244]" />
+                      <ul className="mt-3 space-y-1 text-[12px] text-[#52525B] dark:text-[#8EA0B8]">
+                        <li className="relative flex items-center gap-2 rounded-md py-1.5 pl-3 font-medium text-[#09090B] dark:text-[#F8FAFC]">
+                          <span className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-[#1B5CFF] dark:bg-[#4B7CFF]" />
+                          <ReceiptText className="size-3.5 text-[#1B5CFF] dark:text-[#4B7CFF]" strokeWidth={1.75} />
+                          Cotizaciones
+                        </li>
+                        <li className="flex items-center gap-2 py-1.5 pl-3">
+                          <SquareCheckBig className="size-3.5 text-[#A1A1AA] dark:text-[#8EA0B8]" strokeWidth={1.75} />
+                          Órdenes
+                        </li>
+                        <li className="flex items-center gap-2 py-1.5 pl-3">
+                          <Users className="size-3.5 text-[#A1A1AA] dark:text-[#8EA0B8]" strokeWidth={1.75} />
+                          Clientes
+                        </li>
+                      </ul>
+                    </div>
+                    <p className={previewFootnoteClass}>Lo ve cualquier persona que entre al sistema.</p>
+                  </div>
+
+                  {/* Pantalla de acceso */}
+                  <div className={previewColumnClass} aria-label="Vista previa de la pantalla para entrar">
+                    <p className={previewCaptionClass}>
+                      <LogIn className="size-3.5 text-[#1B5CFF] dark:text-[#4B7CFF]" strokeWidth={1.75} />
+                      Pantalla de acceso
+                    </p>
+                    <p className="sr-only">
+                      Tema actual: {isDarkPreview ? "oscuro" : "claro"}. En la pantalla para entrar se muestra{" "}
+                      {logoUrl ? "el logo que subiste" : "el logo de Intrax"} y el nombre {previewNombre}.
+                    </p>
+                    <div
+                      aria-hidden
+                      className={`relative mt-3 flex-1 overflow-hidden rounded-[14px] border p-5 ${
+                        isDarkPreview ? "border-[#273244] bg-[#0F172A]" : "border-[#E7E7EA] bg-white"
                       }`}
                     >
-                      {isDarkPreview ? "Tu tema: oscuro" : "Tu tema: claro"}
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-2.5 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
-                  Lo primero que ve alguien antes de entrar.
-                </p>
-              </section>
-
-              {/* Documentos PDF */}
-              <section className="p-5 sm:p-6" aria-label="Vista previa de los PDFs">
-                <p className={previewCaptionClass}>
-                  <FileText className="size-3.5 text-[#ff801f]" strokeWidth={1.75} />
-                  Documentos PDF
-                </p>
-                <p className="sr-only">
-                  En el encabezado de cotizaciones, órdenes y facturas en PDF se imprime{" "}
-                  {logoUrl ? "el logo que subiste" : "el logo de Intrax"} junto con el nombre {previewNombre}.
-                </p>
-                <div aria-hidden className="mt-3 overflow-hidden rounded-xl border border-[#e4dcd0] bg-white p-4">
-                  <div className="flex items-center gap-2.5 border-b border-[#efe9de] pb-3">
-                    {logoUrl ? (
-                      <img src={logoUrl} alt="" className="h-7 w-7 shrink-0 rounded object-contain" />
-                    ) : (
-                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded bg-[#1c1917] text-[9px] font-semibold tracking-[0.1em] text-white">
-                        {previewIniciales}
-                      </span>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-[#1c1917]">{previewNombre}</p>
-                      <p className="text-[9px] text-[#a8a29e]">RFC · Dirección fiscal</p>
+                      <div
+                        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#17235B]/10 via-transparent to-transparent"
+                        aria-hidden
+                      />
+                      <div className="relative flex flex-col items-center gap-3 py-2 text-center">
+                        <img
+                          src={logoUrl || MARCA_FALLBACK_LOGO}
+                          alt=""
+                          className={`h-9 w-auto max-w-[9rem] object-contain ${
+                            !logoUrl && isDarkPreview ? "brightness-0 invert" : ""
+                          }`}
+                        />
+                        <span
+                          className={`truncate text-[14px] ${isDarkPreview ? "text-[#B7C1D1]" : "text-[#52525B]"}`}
+                        >
+                          © {previewNombre}
+                        </span>
+                        <span
+                          className={`inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-semibold ${
+                            isDarkPreview
+                              ? "bg-[rgba(230,162,60,0.16)] text-[#E6A23C]"
+                              : "bg-[rgba(23,35,91,0.08)] text-[#17235B]"
+                          }`}
+                        >
+                          Tu tema: {isDarkPreview ? "oscuro" : "claro"}
+                        </span>
+                      </div>
                     </div>
-                    <span className="shrink-0 rounded-sm bg-[#f3eee6] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-[#78716c]">
-                      Folio 0001
-                    </span>
+                    <p className={previewFootnoteClass}>Lo primero que ve alguien antes de entrar.</p>
                   </div>
-                  <div className="mt-3 space-y-1.5">
-                    <div className="h-1 w-full rounded-full bg-[#efe9de]" />
-                    <div className="h-1 w-4/5 rounded-full bg-[#efe9de]" />
-                    <div className="h-1 w-3/5 rounded-full bg-[#efe9de]" />
+
+                  {/* Documentos PDF */}
+                  <div className={previewColumnClass} aria-label="Vista previa de los PDFs">
+                    <p className={previewCaptionClass}>
+                      <FileText className="size-3.5 text-[#1B5CFF] dark:text-[#4B7CFF]" strokeWidth={1.75} />
+                      Documentos PDF
+                    </p>
+                    <p className="sr-only">
+                      En el encabezado de cotizaciones, órdenes y facturas en PDF se imprime{" "}
+                      {logoUrl ? "el logo que subiste" : "el logo de Intrax"} junto con el nombre {previewNombre}.
+                    </p>
+                    {/* El PDF es papel: siempre blanco, también en modo oscuro. */}
+                    <div
+                      aria-hidden
+                      className="mt-3 flex-1 overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-white p-4 dark:border-[#3A4661]"
+                    >
+                      <div className="flex items-center gap-2.5 border-b border-[#E7E7EA] pb-3">
+                        {logoUrl ? (
+                          <img src={logoUrl} alt="" className="size-7 shrink-0 rounded object-contain" />
+                        ) : (
+                          <span className="inline-flex size-7 shrink-0 items-center justify-center rounded bg-[#17235B] text-[9px] font-semibold tracking-[0.1em] text-white">
+                            {previewIniciales}
+                          </span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[12px] font-semibold text-[#09090B]">{previewNombre}</p>
+                          <p className="text-[9px] text-[#A1A1AA]">RFC · Dirección fiscal</p>
+                        </div>
+                        <span className="shrink-0 rounded-sm bg-[#FAFAFA] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#6E6E77]">
+                          Folio 0001
+                        </span>
+                      </div>
+                      <div className="mt-3 space-y-1.5">
+                        <div className="h-1 w-full rounded-full bg-[#E7E7EA]" />
+                        <div className="h-1 w-4/5 rounded-full bg-[#E7E7EA]" />
+                        <div className="h-1 w-3/5 rounded-full bg-[#E7E7EA]" />
+                      </div>
+                    </div>
+                    <p className={previewFootnoteClass}>Cotizaciones, órdenes y facturas CFDI.</p>
                   </div>
                 </div>
-                <p className="mt-2.5 text-xs leading-relaxed text-[#78716c] dark:text-[#8ea0b8]">
-                  Cotizaciones, órdenes y facturas CFDI.
-                </p>
               </section>
             </div>
-          </div>
+
+            {/* Pie de acciones dentro del panel. */}
+            <div className="flex flex-col gap-3 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+              <p className="text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                {dirty
+                  ? "El nombre cambia para todos los usuarios al guardar."
+                  : "El logo se publica en cuanto lo subes; el nombre, al guardar."}
+              </p>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNombreDraft(nombre);
+                    setNombreError("");
+                  }}
+                  disabled={busy || !dirty}
+                  className={secondaryBtnClass}
+                >
+                  <RotateCcw className="size-[18px]" strokeWidth={1.6} aria-hidden />
+                  Descartar
+                </button>
+                <button
+                  type="submit"
+                  className={primaryBtnClass}
+                  disabled={busy || !dirty}
+                  aria-busy={saving || undefined}
+                >
+                  {saving ? (
+                    <LoaderCircle className="size-[18px] animate-spin motion-reduce:animate-none" strokeWidth={1.6} aria-hidden />
+                  ) : (
+                    <Check className="size-[18px]" strokeWidth={1.6} aria-hidden />
+                  )}
+                  {saving ? "Guardando…" : "Guardar"}
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
     </>

@@ -3,12 +3,10 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import PageMeta from "@/components/common/PageMeta";
 import { Link } from "react-router-dom";
-import ComponentCard from "@/components/common/ComponentCard";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
-import Alert from "@/components/ui/alert/Alert";
 import { fetchApi } from "@/config/api";
-import { PencilIcon, TrashBinIcon } from "@/icons";
+import { TrashBinIcon } from "@/icons";
 import { onlyDigits10 } from "./clientesCatalogos";
 import { ClienteSimplifiedFormFields } from "@/components/clientes/ClienteSimplifiedFormFields";
 import { ClienteMapPickerModal } from "@/components/clientes/ClienteMapPickerModal";
@@ -24,27 +22,172 @@ import {
   upsertClienteContactoFromForm,
 } from "@/components/clientes/clienteFormShared";
 
-const cardShellClass =
-  "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
+/* --------------------------------------------------------------------------
+   Mismo sistema que `Perfil/ProfilePage`, `Configuracion/*` y `MiEscritorio/
+   Tareas`: marino + dorado sobre lienzo blanco, azul eléctrico como único
+   acento de acción, líneas de 1 px. En oscuro, la familia slate del
+   contenedor de la app (lienzo #0f172a → panel #111827 → tarjeta hundida
+   #1B2539).
+   -------------------------------------------------------------------------- */
 
-const searchInputClass =
-  "min-h-[44px] w-full rounded-2xl border border-[#e2d9ca] bg-[#fffdf8] py-2 pl-10 pr-10 text-sm text-[#1c1917] outline-none transition-all placeholder:text-[#7c7a74] focus:border-[#ff801f]/60 focus:ring-4 focus:ring-[#ff801f]/12 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c]/70 dark:focus:ring-[#fb923c]/20 sm:min-h-[46px] sm:pl-11";
-
-const claudeHeroHeadingClass =
-  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.85rem,2.8vw,2.6rem)] font-medium leading-[1.2] tracking-[-0.01em] text-[#1c1917] dark:text-[#f8fafc]";
-
-const claudeSectionHeadingClass =
-  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.4rem,2vw,2rem)] font-medium leading-[1.2] text-gray-900 dark:text-white";
-
-const claudeBodyClass =
-  "text-base font-normal leading-[1.6] text-[#57534e] dark:text-[#b7c1d1]";
-
-const claudeCaptionClass = "text-sm font-normal leading-relaxed text-[#57534e] dark:text-[#8ea0b8]";
+const sheetFontStyle = { fontFamily: "Geist, Outfit, system-ui, sans-serif" } as const;
 
 const sectionLabelClass =
-  "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
+  "text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]";
 
-const claudeSansStyle = { fontFamily: "Outfit, sans-serif" } as const;
+const panelClass =
+  "overflow-hidden rounded-[24px] border border-[#E7E7EA] bg-white shadow-[0_6px_20px_-10px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_10px_28px_-12px_rgba(0,0,0,0.6)]";
+
+const sunkenCardClass =
+  "rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]";
+
+const searchInputClass =
+  "h-12 w-full rounded-[10px] border border-[#E7E7EA] bg-white pl-10 pr-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] sm:h-11";
+
+const primaryBtnClass =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#1B5CFF] bg-[#1B5CFF] px-6 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,border-color,transform] duration-150 hover:border-[#1244D1] hover:bg-[#1244D1] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:border-[#3B6AF0] dark:hover:bg-[#3B6AF0] dark:disabled:border-[#1A2748] dark:disabled:bg-[#1A2748] dark:disabled:text-[#9BB0F0] max-sm:w-full sm:h-11";
+
+const secondaryBtnClass =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-5 text-[15px] font-medium tracking-[-0.1px] text-[#09090B] transition-[background-color,border-color,transform] duration-150 hover:border-[#D3D3D8] hover:bg-[#FAFAFA] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048] max-sm:w-full sm:h-11";
+
+const dangerBtnClass =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#C22B2B] bg-[#C22B2B] px-5 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,transform] duration-150 hover:bg-[#A82424] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(194,43,43,0.22)] disabled:cursor-not-allowed disabled:opacity-60 max-sm:w-full sm:h-11";
+
+const actionBtnClass =
+  "inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#1B5CFF]/50 hover:text-[#1B5CFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:border-[#4B7CFF]/50 dark:hover:text-[#4B7CFF]";
+
+const actionDangerBtnClass =
+  "inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#C22B2B]/50 hover:text-[#C22B2B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C22B2B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:border-[#F87171]/50 dark:hover:text-[#F87171]";
+
+const pagerBtnClass =
+  "inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#09090B] transition-colors hover:bg-[#FAFAFA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] disabled:cursor-not-allowed disabled:opacity-45 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:bg-[#243048]";
+
+/* --- Sistema de modales — cascarón blanco, cabecera marina, cuerpo en
+   lienzo y pie hundido con las acciones ancladas. --- */
+const modalShellClass =
+  "flex max-h-[min(92vh,860px)] w-full max-w-5xl flex-col overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827]";
+
+const modalSmallShellClass =
+  "w-full max-w-md overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827]";
+
+const modalHeaderClass = "relative shrink-0 bg-[#17235B] px-6 py-5 pr-16 dark:bg-[#1B2A63]";
+const modalHeaderIconClass =
+  "inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]";
+const modalEyebrowClass = "text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55";
+const modalTitleClass = "text-[20px] font-semibold leading-[1.25] tracking-[-0.5px] text-white";
+const modalSubtitleClass = "mt-1 text-[14px] leading-[20px] text-white/70";
+const modalFooterClass =
+  "shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:px-6";
+
+type AlertVariant = "success" | "error" | "warning" | "info";
+
+const alertTone: Record<AlertVariant, { border: string; bg: string; dot: string; title: string; msg: string }> = {
+  success: {
+    border: "border-[#BFE6D4] dark:border-[#1E5A42]",
+    bg: "bg-[#E9F8F0] dark:bg-[#0F2A1C]",
+    dot: "bg-[#04724D] dark:bg-[#4ADE80]",
+    title: "text-[#04724D] dark:text-[#4ADE80]",
+    msg: "text-[#04724D]/85 dark:text-[#4ADE80]/80",
+  },
+  error: {
+    border: "border-[#F6CFCF] dark:border-[#7F1D1D]",
+    bg: "bg-[#FEF2F2] dark:bg-[#3F1518]",
+    dot: "bg-[#C22B2B] dark:bg-[#F87171]",
+    title: "text-[#C22B2B] dark:text-[#F87171]",
+    msg: "text-[#C22B2B]/85 dark:text-[#F87171]/80",
+  },
+  warning: {
+    border: "border-[rgba(230,162,60,0.4)] dark:border-[rgba(230,162,60,0.3)]",
+    bg: "bg-[rgba(230,162,60,0.10)] dark:bg-[rgba(230,162,60,0.10)]",
+    dot: "bg-[#9A6B15] dark:bg-[#E6A23C]",
+    title: "text-[#9A6B15] dark:text-[#E6A23C]",
+    msg: "text-[#9A6B15]/85 dark:text-[#E6A23C]/85",
+  },
+  info: {
+    border: "border-[rgba(27,92,255,0.28)] dark:border-[rgba(75,124,255,0.3)]",
+    bg: "bg-[rgba(27,92,255,0.06)] dark:bg-[rgba(75,124,255,0.10)]",
+    dot: "bg-[#1B5CFF] dark:bg-[#4B7CFF]",
+    title: "text-[#1B5CFF] dark:text-[#4B7CFF]",
+    msg: "text-[#1B5CFF]/85 dark:text-[#4B7CFF]/85",
+  },
+};
+
+function InlineAlert({ variant, title, message }: { variant: AlertVariant; title: string; message: string }) {
+  const tone = alertTone[variant];
+  const assertive = variant === "error" || variant === "warning";
+  return (
+    <div
+      role={assertive ? "alert" : "status"}
+      aria-live={assertive ? "assertive" : "polite"}
+      className={`flex items-start gap-3 rounded-[14px] border px-4 py-3 ${tone.border} ${tone.bg}`}
+    >
+      <span className={`mt-1.5 size-[7px] shrink-0 rounded-full ${tone.dot}`} aria-hidden />
+      <div className="min-w-0">
+        <p className={`text-[15px] font-medium ${tone.title}`}>{title}</p>
+        <p className={`mt-0.5 text-[13px] ${tone.msg}`}>{message}</p>
+      </div>
+    </div>
+  );
+}
+
+function RowActions({
+  name,
+  canEdit,
+  canDelete,
+  onEdit,
+  onDelete,
+}: {
+  name: string;
+  canEdit: boolean;
+  canDelete: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  if (!canEdit && !canDelete) return null;
+  return (
+    <div className="inline-flex items-center gap-1 rounded-[8px] bg-[#FAFAFA] px-1.5 py-1 dark:bg-white/[0.06]">
+      {canEdit ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          className={actionBtnClass}
+          title="Editar"
+          aria-label={`Editar ${name}`}
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+          </svg>
+        </button>
+      ) : null}
+      {canDelete ? (
+        <button
+          type="button"
+          onClick={onDelete}
+          className={actionDangerBtnClass}
+          title="Eliminar"
+          aria-label={`Eliminar ${name}`}
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M3 6h18" />
+            <path d="M8 6V4h8v2" />
+            <path d="m6 6 1 14h10l1-14" />
+          </svg>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+const iconSvgProps = {
+  viewBox: "0 0 24 24",
+  fill: "none" as const,
+  stroke: "currentColor" as const,
+  strokeWidth: 1.6,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
 
 interface Cliente {
   id: number;
@@ -192,7 +335,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   // Alert state
   const [alert, setAlert] = useState<{
     show: boolean;
-    variant: "success" | "error" | "warning" | "info";
+    variant: AlertVariant;
     title: string;
     message: string;
   }>({ show: false, variant: "success", title: "", message: "" });
@@ -407,8 +550,6 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   const endIndex = startIndex + itemsPerPage;
   const currentClientes = clientes;
 
-
-
   const handleConfirmMap = () => {
     if (!selectedLocation) {
       setShowMapModal(false);
@@ -420,205 +561,210 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   };
 
   return (
-    <div className="min-h-[calc(100dvh-5rem)] overflow-x-hidden">
-      <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-5 text-sm sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-6 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]" style={claudeSansStyle}>
+    <div className="w-full min-w-0 overflow-x-hidden">
+      <div className="mx-auto w-full max-w-[1400px]" style={sheetFontStyle}>
         <PageMeta
           title={`${viewPlural} | Sistema Grupo Intrax GPS`}
           description={`Gestión de ${viewPlural.toLowerCase()} para el sistema de administración Grupo Intrax GPS`}
         />
 
         {alert.show && (
-          <Alert
-            variant={alert.variant}
-            title={alert.title}
-            message={alert.message}
-            showLink={false}
-          />
+          <div className="mb-4">
+            <InlineAlert variant={alert.variant} title={alert.title} message={alert.message} />
+          </div>
         )}
 
         {!canClientesView ? (
-          <div className="rounded-3xl border border-[#e7ded0] bg-[#fffdfa] px-4 py-10 text-center text-sm text-[#57534e] shadow-[0_20px_50px_-36px_rgba(28,25,23,0.2)] dark:border-[#273244] dark:bg-[#111827]/80 dark:text-[#b7c1d1] sm:px-6">
+          <div className={`${sunkenCardClass} px-4 py-10 text-center text-[15px] text-[#52525B] dark:text-[#B7C1D1] sm:px-6`}>
             No tienes permiso para ver {viewPlural}.
           </div>
         ) : (
           <>
-            <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]" aria-label="Migas de pan">
-              <Link to="/" className="rounded-md px-1.5 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white">
+            <nav
+              className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]"
+              aria-label="Migas de pan"
+            >
+              <Link
+                to="/"
+                className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+              >
                 Inicio
               </Link>
-              <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+              <span aria-hidden className="text-[#D3D3D8] dark:text-[#3A4661]">
                 /
               </span>
-              <span className="text-[#44403c] dark:text-[#cbd5e1]">{viewPlural}</span>
+              <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">{viewPlural}</span>
             </nav>
 
-            <header className={`relative flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
-              <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
-              <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
-                  <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" aria-hidden>
-                    <path fillRule="evenodd" clipRule="evenodd" d="M6.75 6.5C6.75 3.6005 9.1005 1.25 12 1.25C14.8995 1.25 17.25 3.6005 17.25 6.5C17.25 9.3995 14.8995 11.75 12 11.75C9.1005 11.75 6.75 9.3995 6.75 6.5Z" fill="currentColor" />
-                    <path fillRule="evenodd" clipRule="evenodd" d="M4.25 18.5714C4.25 15.6325 6.63249 13.25 9.57143 13.25H14.4286C17.3675 13.25 19.75 15.6325 19.75 18.5714C19.75 20.8792 17.8792 22.75 15.5714 22.75H8.42857C6.12081 22.75 4.25 20.8792 4.25 18.5714Z" fill="currentColor" />
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]">
-                    Contactos de negocio
-                  </p>
-                  <h1 className={`mt-0.5 ${claudeHeroHeadingClass}`}>{viewPlural}</h1>
-                  <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
-                    Consulta, crea y edita registros con{" "}
-                    <span className="font-medium text-[#ea580c] dark:text-[#fb923c]">contactos</span>, dirección y datos fiscales.
-                  </p>
-                  <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
-                </div>
-              </div>
-            </header>
+            <div className="space-y-5">
+              {/* Banda marina de cabecera con el conteo total. */}
+              <header className="relative overflow-hidden rounded-[24px] bg-[#17235B] px-5 py-6 dark:bg-[#1B2A63] sm:px-8 sm:py-8">
+                <div
+                  className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-[#E6A23C]/15 blur-3xl"
+                  aria-hidden
+                />
+                <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+                  <div className="flex min-w-0 items-start gap-4">
+                    <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]">
+                      <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden>
+                        <path fillRule="evenodd" clipRule="evenodd" d="M6.75 6.5C6.75 3.6005 9.1005 1.25 12 1.25C14.8995 1.25 17.25 3.6005 17.25 6.5C17.25 9.3995 14.8995 11.75 12 11.75C9.1005 11.75 6.75 9.3995 6.75 6.5Z" fill="currentColor" />
+                        <path fillRule="evenodd" clipRule="evenodd" d="M4.25 18.5714C4.25 15.6325 6.63249 13.25 9.57143 13.25H14.4286C17.3675 13.25 19.75 15.6325 19.75 18.5714C19.75 20.8792 17.8792 22.75 15.5714 22.75H8.42857C6.12081 22.75 4.25 20.8792 4.25 18.5714Z" fill="currentColor" />
+                      </svg>
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">Contactos de negocio</p>
+                      <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]">
+                        {viewPlural}
+                      </h1>
+                      <p className="mt-1.5 max-w-[58ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70">
+                        Consulta, crea y edita registros con contactos, dirección y datos fiscales.
+                      </p>
+                    </div>
+                  </div>
 
-            <div className="grid w-full grid-cols-1 gap-2 sm:gap-3 lg:max-w-md">
-              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#fb923c] sm:h-10 sm:w-10">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
-                      <path d="M20 22a8 8 0 1 0-16 0" />
-                    </svg>
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">
-                      Total {viewPlural}
-                    </p>
-                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">{totalCount}</p>
+                  <div className="inline-flex h-[3.25rem] shrink-0 items-center gap-3 self-start rounded-[16px] bg-white/10 px-4 lg:self-center">
+                    <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-white/10 text-[#E6A23C]">
+                      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+                        <path d="M20 22a8 8 0 1 0-16 0" />
+                      </svg>
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/55">Total {viewPlural}</p>
+                      <p className="text-[18px] font-semibold tabular-nums leading-none text-white">{totalCount}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </header>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
-              <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
-                <svg
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b] sm:left-3.5"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path
-                    d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative min-w-0 flex-1">
+                  <svg {...iconSvgProps} className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#A1A1AA]">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder={`Buscar ${viewPlural.toLowerCase()}…`}
+                    className={searchInputClass}
                   />
-                </svg>
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={`Buscar ${viewPlural.toLowerCase()}...`}
-                  className={searchInputClass}
-                />
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchTerm("")}
-                    aria-label="Limpiar búsqueda"
-                    className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
-                  >
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                      <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                    </svg>
-                  </button>
-                )}
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm("")}
+                      aria-label="Limpiar búsqueda"
+                      className="absolute inset-y-0 right-0 my-1.5 mr-1.5 inline-flex h-8 min-w-[32px] items-center justify-center rounded-[8px] text-[#A1A1AA] transition-colors hover:bg-[#FAFAFA] hover:text-[#52525B] dark:hover:bg-white/[0.06] dark:hover:text-[#F8FAFC]"
+                    >
+                      <svg viewBox="0 0 24 24" className="size-3.5" fill="currentColor">
+                        <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canClientesCreate) {
+                      setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para crear clientes." });
+                      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
+                      return;
+                    }
+                    openCreate();
+                  }}
+                  className={primaryBtnClass}
+                >
+                  <svg {...iconSvgProps} className="size-[18px]" strokeWidth={2}>
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Nuevo {viewSingular}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!canClientesCreate) {
-                    setAlert({ show: true, variant: "warning", title: "Sin permiso", message: "No tienes permiso para crear clientes." });
-                    setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
-                    return;
-                  }
-                  openCreate();
-                }}
-                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-sm font-semibold text-black shadow-none transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:brightness-95 sm:w-auto sm:min-h-0 lg:shrink-0"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                </svg>
-                Nuevo {viewSingular}
-              </button>
-            </div>
 
-            <div className="mt-1">
-              <ComponentCard
-                compact
-                title={`Listado de ${viewPlural.toLowerCase()}`}
-                desc="En pantallas pequeñas desplázate horizontalmente para ver todas las columnas."
-                className="overflow-hidden border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)]"
-              >
-                <p className="mb-2 flex items-center gap-1.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8] sm:hidden">
-                  <span className="inline-block h-px w-4 bg-[#ea580c]/70 dark:bg-[#fb923c]/70" aria-hidden />
-                  Desliza horizontalmente para ver el listado completo
-                </p>
-                <div className="-mx-1 overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fcfaf6]/90 dark:border-[#273244] dark:bg-[#0f172a]/50 sm:mx-0 sm:bg-transparent sm:dark:bg-transparent">
-                  <div className="touch-pan-x overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] px-1 pb-1 sm:px-0 sm:pb-0">
-                    <Table className="w-full min-w-[920px] table-fixed sm:min-w-0 xl:min-w-full">
-                      <TableHeader className="sticky top-0 z-10 border-b border-[#e7ded0] bg-[#fcfaf6]/95 text-[11px] font-semibold text-[#1c1917] dark:border-[#334155] dark:bg-[#111a2b]/95 dark:text-[#f8fafc]">
+              <section className={panelClass} aria-labelledby="clientes-list-heading">
+                <div className="border-b border-[#E7E7EA] px-5 py-4 dark:border-[#273244] sm:px-6">
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                      <svg {...iconSvgProps} className="size-4">
+                        <rect x="3" y="4" width="18" height="17" rx="2.2" />
+                        <path d="M3 9.5h18" />
+                      </svg>
+                    </span>
+                    <h2 id="clientes-list-heading" className={sectionLabelClass}>
+                      Listado de {viewPlural.toLowerCase()}
+                    </h2>
+                  </div>
+                  <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
+                    En pantallas pequeñas desplázate horizontalmente para ver todas las columnas.
+                  </p>
+                </div>
+
+                <div className="p-2 sm:p-3">
+                  <div className="overflow-x-auto rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]">
+                    <Table className="w-full min-w-[820px] sm:min-w-0 xl:min-w-full">
+                      <TableHeader className="sticky top-0 z-10 border-b border-[#E7E7EA] bg-white text-[11px] font-semibold text-[#09090B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC]">
                         <TableRow>
-                          <TableCell isHeader className="px-1.5 py-1 text-left w-[64px] text-gray-700 dark:text-gray-300">ID</TableCell>
+                          <TableCell isHeader className="px-3 py-2 text-left w-[64px] text-[#52525B] dark:text-[#B7C1D1]">ID</TableCell>
                           {!fixedTipo && (
-                            <TableCell isHeader className="px-1.5 py-1 text-left w-[110px] text-gray-700 dark:text-gray-300">Tipo</TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-left w-[110px] text-[#52525B] dark:text-[#B7C1D1]">Tipo</TableCell>
                           )}
-                          <TableCell isHeader className="px-1.5 py-1 text-left w-[170px] text-gray-700 dark:text-gray-300">{nombreColHeader}</TableCell>
-                          <TableCell isHeader className="px-1.5 py-1 text-left w-[120px] text-gray-700 dark:text-gray-300">Ciudad</TableCell>
-                          <TableCell isHeader className="px-1.5 py-1 text-left w-[120px] text-gray-700 dark:text-gray-300">Teléfono</TableCell>
-                          <TableCell isHeader className="px-1.5 py-1 text-left w-[160px] text-gray-700 dark:text-gray-300">Contacto</TableCell>
-                          <TableCell isHeader className="px-1.5 py-1 text-left w-[210px] text-gray-700 dark:text-gray-300">Dirección</TableCell>
-                          <TableCell isHeader className="px-1.5 py-1 text-center w-[96px] text-gray-700 dark:text-gray-300">Acciones</TableCell>
+                          <TableCell isHeader className="px-3 py-2 text-left min-w-[180px] max-w-[280px] text-[#52525B] dark:text-[#B7C1D1]">{nombreColHeader}</TableCell>
+                          <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-[#52525B] dark:text-[#B7C1D1]">Ciudad</TableCell>
+                          <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-[#52525B] dark:text-[#B7C1D1]">Teléfono</TableCell>
+                          <TableCell isHeader className="px-3 py-2 text-left min-w-[160px] max-w-[220px] text-[#52525B] dark:text-[#B7C1D1]">Contacto</TableCell>
+                          <TableCell isHeader className="px-3 py-2 text-left min-w-[180px] max-w-[280px] text-[#52525B] dark:text-[#B7C1D1]">Dirección</TableCell>
+                          <TableCell isHeader className="px-3 py-2 text-center w-[100px] text-[#52525B] dark:text-[#B7C1D1]">Acción</TableCell>
                         </TableRow>
                       </TableHeader>
-                      <TableBody className="divide-y divide-[#f5f0e8] text-[12px] text-[#44403c] dark:divide-[#334155]/80 dark:text-[#e5e7eb]">
+                      <TableBody className="divide-y divide-[#EDEDED] text-[12px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb]">
                         {loading ? (
                           <TableRow>
-                            <TableCell className="px-1.5 py-3" colSpan={fixedTipo ? 7 : 8}>Cargando...</TableCell>
+                            <TableCell colSpan={fixedTipo ? 7 : 8} className="px-3 py-8 text-center text-[#6E6E77] dark:text-[#8EA0B8]">
+                              <div className="inline-flex items-center gap-2 text-[15px]">
+                                <svg {...iconSvgProps} className="h-4.5 w-4.5 animate-spin" strokeWidth={2}>
+                                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                                </svg>
+                                Cargando…
+                              </div>
+                            </TableCell>
                           </TableRow>
                         ) : currentClientes.length === 0 ? (
                           <TableRow>
-                            <TableCell className="px-1.5 py-2" colSpan={fixedTipo ? 7 : 8}>
-                              <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No hay {viewPlural.toLowerCase()}.</div>
+                            <TableCell colSpan={fixedTipo ? 7 : 8} className="px-3 py-10 text-center text-[15px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                              No hay {viewPlural.toLowerCase()}.
                             </TableCell>
                           </TableRow>
                         ) : (
                           currentClientes.map((cliente) => (
-                            <TableRow key={cliente.id} className="transition-colors hover:bg-[#fffdf8] dark:hover:bg-[#1e293b]/50">
-                              <TableCell className="px-1.5 py-1 whitespace-nowrap tabular-nums font-semibold text-gray-900 dark:text-white">{cliente.idx}</TableCell>
+                            <TableRow key={cliente.id} className="hover:bg-[#FAFAFA] dark:hover:bg-white/[0.04]">
+                              <TableCell className="px-3 py-2 w-[64px] whitespace-nowrap font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">{cliente.idx}</TableCell>
                               {!fixedTipo && (
-                                <TableCell className="px-1.5 py-1 whitespace-nowrap text-[11px] text-[#57534e] dark:text-[#cbd5e1]">
+                                <TableCell className="px-3 py-2 w-[110px] whitespace-nowrap">
                                   {getTipoLabel(cliente.tipo)}
                                 </TableCell>
                               )}
-                              <TableCell className="px-1.5 py-1 text-gray-900 dark:text-white truncate">
-                                <span className="block truncate" title={cliente.nombre}>{cliente.nombre}</span>
+                              <TableCell className="max-w-[280px] min-w-[180px] overflow-hidden px-3 py-2">
+                                <span className="block truncate font-medium text-[#09090B] dark:text-[#F8FAFC]" title={cliente.nombre}>{cliente.nombre}</span>
                               </TableCell>
-                              <TableCell className="px-1.5 py-1 whitespace-nowrap">
+                              <TableCell className="px-3 py-2 w-[120px]">
                                 {(() => {
                                   const ciudad = cliente.ciudad || '';
                                   const estado = cliente.estado || '';
-                                  if (!ciudad && !estado) return <span className="text-gray-500">-</span>;
+                                  if (!ciudad && !estado) return <span className="text-[#A1A1AA]">—</span>;
                                   return (
                                     <div className="leading-tight">
-                                      <div className="text-gray-900 dark:text-white truncate" title={ciudad || ''}>{ciudad || '-'}</div>
-                                      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={estado || ''}>{estado || '-'}</div>
+                                      <div className="truncate text-[#09090B] dark:text-[#F8FAFC]" title={ciudad || undefined}>{ciudad || "—"}</div>
+                                      <div className="truncate text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]" title={estado || undefined}>{estado || "—"}</div>
                                     </div>
                                   );
                                 })()}
                               </TableCell>
-                              <TableCell className="px-1.5 py-1 whitespace-nowrap">
-                                <a href={`tel:${cliente.telefono}`} className="text-[#ff801f] hover:text-[#ff6a00] dark:text-[#ffa057] dark:hover:text-[#ffb174] hover:underline">
+                              <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap">
+                                <a href={`tel:${cliente.telefono}`} className="font-medium text-[#1B5CFF] hover:underline dark:text-[#4B7CFF]">
                                   {cliente.telefono}
                                 </a>
                               </TableCell>
-                              <TableCell className="px-1.5 py-1">
+                              <TableCell className="max-w-[220px] min-w-[160px] overflow-hidden px-3 py-2">
                                 {(() => {
                                   const principal = (cliente.contactos || []).find((c) => c.is_principal) || (cliente.contactos || [])[0];
                                   const nombre =
@@ -627,58 +773,47 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                                   const correo =
                                     String(cliente.correo || "").trim() ||
                                     String(principal?.correo || "").trim();
-                                  if (!nombre && !correo) return <span className="text-gray-500">-</span>;
+                                  if (!nombre && !correo) return <span className="text-[#A1A1AA]">—</span>;
                                   return (
                                     <div className="leading-tight">
-                                      <div className="text-gray-900 dark:text-white truncate" title={nombre || ''}>{nombre || '-'}</div>
+                                      <div className="truncate text-[#09090B] dark:text-[#F8FAFC]" title={nombre || undefined}>{nombre || "—"}</div>
                                       {correo ? (
-                                        <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={correo}>{correo}</div>
+                                        <div className="truncate text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]" title={correo}>{correo}</div>
                                       ) : (
-                                        <div className="text-[11px] text-gray-500 dark:text-gray-400">-</div>
+                                        <div className="text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">—</div>
                                       )}
                                     </div>
                                   );
                                 })()}
                               </TableCell>
-                              <TableCell className="px-1.5 py-1">
+                              <TableCell className="max-w-[280px] min-w-[180px] overflow-hidden px-3 py-2">
                                 {isGoogleMapsLink(cliente.direccion) ? (
                                   <a
                                     href={cliente.direccion}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-[#ff801f] dark:text-[#ffa057] hover:underline"
+                                    className="inline-flex items-center gap-1.5 font-semibold text-[#1B5CFF] hover:underline dark:text-[#4B7CFF]"
                                   >
-                                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                       <circle cx="12" cy="10" r="3" />
                                     </svg>
                                     Ver ubicación
                                   </a>
                                 ) : (
-                                  <span className="block truncate" title={cliente.direccion}>{cliente.direccion}</span>
+                                  <span className="block truncate" title={cliente.direccion || undefined}>
+                                    {cliente.direccion || <span className="text-[#A1A1AA]">—</span>}
+                                  </span>
                                 )}
                               </TableCell>
-                              <TableCell className="px-1.5 py-1 text-center">
-                                <div className="inline-flex items-center gap-1 rounded-lg border border-[#e7ded0]/80 bg-[#fcfaf6] px-1.5 py-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
-                                  {canClientesEdit && (
-                                    <button
-                                      onClick={() => handleEdit(cliente)}
-                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-[#ff801f]/50 hover:text-[#ff801f] active:scale-[0.97] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#ff801f]/50 sm:h-7 sm:w-7 sm:rounded"
-                                      title="Editar"
-                                    >
-                                      <PencilIcon className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                  {canClientesDelete && (
-                                    <button
-                                      onClick={() => handleDeleteClick(cliente)}
-                                      className="group inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:border-error-400 hover:text-error-600 active:scale-[0.97] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-error-500 sm:h-7 sm:w-7 sm:rounded"
-                                      title="Eliminar"
-                                    >
-                                      <TrashBinIcon className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </div>
+                              <TableCell className="px-3 py-2 text-center w-[100px]">
+                                <RowActions
+                                  name={cliente.nombre}
+                                  canEdit={canClientesEdit}
+                                  canDelete={canClientesDelete}
+                                  onEdit={() => handleEdit(cliente)}
+                                  onDelete={() => handleDeleteClick(cliente)}
+                                />
                               </TableCell>
                             </TableRow>
                           ))
@@ -688,42 +823,43 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                   </div>
                 </div>
 
-                {/* Paginación */}
                 {!loading && totalCount > 0 && currentClientes.length > 0 && (
-                  <div className="border-t border-[#e7ded0] px-4 py-3 dark:border-[#334155]/80 sm:px-5 sm:py-4">
+                  <div className="border-t border-[#E7E7EA] px-4 py-3 dark:border-[#273244] sm:px-5 sm:py-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Mostrando <span className="font-medium text-gray-900 dark:text-white">{startIndex + 1}</span> a{" "}
-                        <span className="font-medium text-gray-900 dark:text-white">{Math.min(endIndex, totalCount)}</span> de{" "}
-                        <span className="font-medium text-gray-900 dark:text-white">{totalCount}</span> clientes
+                      <p className="text-[14px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                        Mostrando <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">{startIndex + 1}</span> a{" "}
+                        <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">{Math.min(endIndex, totalCount)}</span> de{" "}
+                        <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">{totalCount}</span> {viewPlural.toLowerCase()}
                       </p>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-2 overflow-x-auto" role="navigation" aria-label={`Paginación de ${viewPlural.toLowerCase()}`}>
                         <button
+                          type="button"
                           onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+                          className={pagerBtnClass}
+                          aria-label="Página anterior"
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                             <path d="M15 18l-6-6 6-6" />
                           </svg>
                         </button>
 
                         <div className="flex items-center gap-1">
-                          {/* First Page */}
                           {currentPage > 3 && (
                             <>
                               <button
+                                type="button"
                                 onClick={() => setCurrentPage(1)}
-                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white dark:border-[#334155] dark:bg-[#111a2b] text-sm font-medium text-gray-700 dark:text-[#f0f0f0] hover:bg-gray-50 dark:hover:bg-white/[0.06]"
+                                className={pagerBtnClass}
+                                aria-label="Ir a la página 1"
                               >
                                 1
                               </button>
-                              {currentPage > 4 && <span className="px-1 text-gray-400">...</span>}
+                              {currentPage > 4 && <span className="px-1 text-[#A1A1AA]" aria-hidden>…</span>}
                             </>
                           )}
 
-                          {/* Page Numbers */}
                           {Array.from({ length: totalPages }, (_, i) => i + 1)
                             .filter(page => {
                               if (totalPages <= 5) return true;
@@ -732,23 +868,27 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                             .map(page => (
                               <button
                                 key={page}
+                                type="button"
                                 onClick={() => setCurrentPage(page)}
-                                className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border text-sm font-medium transition-colors ${currentPage === page
-                                  ? 'border-[#ff801f]/30 bg-[#ff801f] text-black'
-                                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]'
+                                aria-label={`Ir a la página ${page}`}
+                                aria-current={currentPage === page ? "page" : undefined}
+                                className={`inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] border text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] ${currentPage === page
+                                  ? 'border-[#1B5CFF] bg-[#1B5CFF] text-white dark:border-[#4B7CFF] dark:bg-[#4B7CFF]'
+                                  : 'border-[#E7E7EA] bg-white text-[#09090B] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:bg-white/[0.06]'
                                   }`}
                               >
                                 {page}
                               </button>
                             ))}
 
-                          {/* Last Page */}
                           {currentPage < totalPages - 2 && (
                             <>
-                              {currentPage < totalPages - 3 && <span className="px-1 text-gray-400">...</span>}
+                              {currentPage < totalPages - 3 && <span className="px-1 text-[#A1A1AA]" aria-hidden>…</span>}
                               <button
+                                type="button"
                                 onClick={() => setCurrentPage(totalPages)}
-                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+                                className={pagerBtnClass}
+                                aria-label={`Ir a la página ${totalPages}`}
                               >
                                 {totalPages}
                               </button>
@@ -757,11 +897,13 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                         </div>
 
                         <button
+                          type="button"
                           onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                           disabled={currentPage === totalPages}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+                          className={pagerBtnClass}
+                          aria-label="Página siguiente"
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                             <path d="M9 18l6-6-6-6" />
                           </svg>
                         </button>
@@ -769,9 +911,8 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                     </div>
                   </div>
                 )}
-              </ComponentCard>
+              </section>
             </div>
-
           </>
         )}
 
@@ -782,70 +923,56 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
           onClose={handleCloseModal}
           closeOnBackdropClick={false}
           ariaLabel="Formulario de cliente"
-          className="w-full max-w-5xl overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_30px_90px_-45px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111a2b]"
+          className={modalShellClass}
         >
-          <div className="bg-[#fffdfa] dark:bg-[#111a2b]">
-            <header className="relative shrink-0 border-b border-[#e7ded0] bg-gradient-to-r from-[#fcfaf6] via-[#fffaf3] to-[#fffdfa] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-none dark:from-[#111827] dark:via-[#111827] dark:to-[#111827] sm:pr-16">
-              <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+            <header className={modalHeaderClass}>
+              <div className="flex min-w-0 items-start gap-3.5">
+                <span className={modalHeaderIconClass}>
+                  <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden>
                     <path fillRule="evenodd" clipRule="evenodd" d="M6.75 6.5C6.75 3.6005 9.1005 1.25 12 1.25C14.8995 1.25 17.25 3.6005 17.25 6.5C17.25 9.3995 14.8995 11.75 12 11.75C9.1005 11.75 6.75 9.3995 6.75 6.5Z" fill="currentColor" />
                     <path fillRule="evenodd" clipRule="evenodd" d="M4.25 18.5714C4.25 15.6325 6.63249 13.25 9.57143 13.25H14.4286C17.3675 13.25 19.75 15.6325 19.75 18.5714C19.75 20.8792 17.8792 22.75 15.5714 22.75H8.42857C6.12081 22.75 4.25 20.8792 4.25 18.5714Z" fill="currentColor" />
                   </svg>
                 </span>
                 <div className="min-w-0">
-                  <p className={sectionLabelClass}>Contactos · {viewPlural}</p>
-                  <h3 className={`mt-1 ${claudeSectionHeadingClass}`}>
+                  <p className={modalEyebrowClass}>Contactos · {viewPlural}</p>
+                  <h3 className={`mt-1 ${modalTitleClass}`}>
                     {editingCliente ? `Editar ${viewSingular}` : `Nuevo ${viewSingular}`}
                   </h3>
-                  <p className={claudeCaptionClass}>
-                    Captura y revisa los datos antes de guardar
-                  </p>
+                  <p className={modalSubtitleClass}>Captura y revisa los datos antes de guardar.</p>
                 </div>
               </div>
             </header>
 
-            {/* Body */}
-            <form onSubmit={handleSubmit} className="custom-scrollbar max-h-[78vh] space-y-4 overflow-y-auto p-4 sm:p-5">
-              {modalError && (
-                <Alert
-                  variant={String(modalError).startsWith('Campos requeridos faltantes:') ? 'warning' : 'error'}
-                  title={String(modalError).startsWith('Campos requeridos faltantes:') ? 'Faltan campos' : 'Error'}
-                  message={modalError}
-                  showLink={false}
+            <form onSubmit={handleSubmit} className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+              <div className="custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-white p-4 dark:bg-[#111827] sm:p-6">
+                {modalError && (
+                  <InlineAlert
+                    variant={String(modalError).startsWith('Campos requeridos faltantes:') ? 'warning' : 'error'}
+                    title={String(modalError).startsWith('Campos requeridos faltantes:') ? 'Faltan campos' : 'Error'}
+                    message={modalError}
+                  />
+                )}
+
+                <ClienteSimplifiedFormFields
+                  formData={formData}
+                  setFormData={setFormData}
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  fixedTipo={fixedTipo}
+                  editingCliente={editingCliente}
+                  onOpenMap={() => setShowMapModal(true)}
                 />
-              )}
+              </div>
 
-              <ClienteSimplifiedFormFields
-                formData={formData}
-                setFormData={setFormData}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                fixedTipo={fixedTipo}
-                editingCliente={editingCliente}
-                onOpenMap={() => setShowMapModal(true)}
-              />
-
-              {/* Footer Buttons */}
-              <div className="sticky bottom-[-1rem] z-20 -mx-4 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 shadow-[0_-10px_24px_-20px_rgba(28,25,23,0.55)] before:absolute before:-bottom-3 before:left-0 before:h-3 before:w-full before:bg-[#fcfaf6] before:content-[''] dark:border-[#334155] dark:bg-[#0f172a] dark:before:bg-[#0f172a] sm:-mx-5 sm:bottom-[-1.25rem] sm:px-5">
-                <div className="flex flex-col sm:flex-row justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[12px] border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-gray-300/40 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
-                    </svg>
+              <div className={modalFooterClass}>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                  <button type="button" onClick={handleCloseModal} className={secondaryBtnClass}>
                     Cancelar
                   </button>
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-[12px] bg-[#ff801f] text-black hover:bg-[#ff6a00] focus:ring-2 focus:ring-[#ff801f]/30"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M5 12l4 4L19 6" strokeLinecap="round" />
+                  <button type="submit" className={primaryBtnClass}>
+                    <svg {...iconSvgProps} className="size-[18px]" strokeWidth={2}>
+                      <path d="m5 12.5 4.5 4.5L19 7.5" />
                     </svg>
                     {editingCliente ? "Actualizar" : "Guardar"}
                   </button>
@@ -869,72 +996,55 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
           }}
         />
 
-        {/* Modal de Confirmación de Eliminación */}
-        {
-          clienteToDelete && (
-            <Modal
-              mobileBottomSheet
-              isOpen={showDeleteModal}
-              onClose={handleCancelDelete}
-              ariaLabel="Confirmar eliminación de cliente"
-              className="w-[94vw] max-w-md overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"
-            >
-              <div>
-                {/* Header */}
-                <div className="px-6 pt-6 pb-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/10">
-                      <svg className="w-6 h-6 text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Eliminar {viewSingular}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Esta acción no se puede deshacer
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Body */}
-                <div className="px-6 py-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    ¿Estás seguro de que deseas eliminar al cliente{" "}
-                    <span className="font-semibold text-gray-900 dark:text-white">
-                      {clienteToDelete.nombre}
-                    </span>
-                    ?
-                  </p>
-                  <div className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-500/5 border border-red-100 dark:border-red-500/20">
-                    <p className="text-xs text-red-800 dark:text-red-300">
-                      <strong>Advertencia:</strong> Todos los datos asociados a este cliente serán eliminados permanentemente.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-end gap-3 border-t border-[#e7ded0] bg-[#fcfaf6] px-6 py-4 dark:border-[#273244] dark:bg-[#0f172a]/70">
-                  <button
-                    onClick={handleCancelDelete}
-                    className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:border-[#334155] dark:hover:bg-white/[0.06] transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleConfirmDelete}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors"
-                  >
-                    <TrashBinIcon className="w-4 h-4" />
-                    Eliminar
-                  </button>
+        {/* Modal de confirmación de eliminación */}
+        {clienteToDelete && (
+          <Modal
+            mobileBottomSheet
+            isOpen={showDeleteModal}
+            onClose={handleCancelDelete}
+            ariaLabel="Confirmar eliminación de cliente"
+            className={modalSmallShellClass}
+          >
+            <div className="bg-white p-6 dark:bg-[#111827]">
+              <div className="mb-5 flex items-start gap-3.5">
+                <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]">
+                  <svg {...iconSvgProps} className="size-5">
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M6 6l1 16h10l1-16" />
+                    <path d="M10 11v6M14 11v6" />
+                  </svg>
+                </span>
+                <div>
+                  <h3 className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
+                    Eliminar {viewSingular}
+                  </h3>
+                  <p className="mt-1 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">Esta acción no se puede deshacer.</p>
                 </div>
               </div>
-            </Modal>
-          )
-        }
+
+              <p className="text-[15px] leading-[22px] text-[#52525B] dark:text-[#B7C1D1]">
+                ¿Estás seguro de que deseas eliminar al {viewSingular.toLowerCase()}{" "}
+                <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">{clienteToDelete.nombre}</span>?
+              </p>
+              <div className="mt-3 rounded-[12px] border border-[#F6CFCF] bg-[#FEF2F2] p-3 dark:border-[#7F1D1D] dark:bg-[#3F1518]">
+                <p className="text-[13px] text-[#C22B2B] dark:text-[#F87171]">
+                  <strong>Advertencia:</strong> todos los datos asociados a este registro se eliminarán permanentemente.
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button onClick={handleCancelDelete} className={secondaryBtnClass}>
+                  Cancelar
+                </button>
+                <button onClick={handleConfirmDelete} className={dangerBtnClass}>
+                  <TrashBinIcon className="size-4" />
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </Modal>
+        )}
       </div>
     </div>
   );

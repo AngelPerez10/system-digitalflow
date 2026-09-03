@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useDropzone } from "react-dropzone";
 
@@ -36,39 +36,141 @@ import { Modal } from "@/components/ui/modal";
 import { fetchApi, resolveMediaUrl } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 
-/* ── Claude-style design tokens ── */
+/* --------------------------------------------------------------------------
+   Mismo sistema que Perfil/ProfilePage, Configuracion/GestionUsuario y
+   MiEscritorio/Tareas: marino + dorado sobre lienzo blanco, azul eléctrico
+   como único acento de acción, líneas de 1 px. En oscuro, la familia slate
+   del contenedor de la app (lienzo #0f172a → panel #111827 → tarjeta #1B2539).
+   -------------------------------------------------------------------------- */
+const sheetFontStyle = { fontFamily: "Geist, Outfit, system-ui, sans-serif" } as const;
+
 const claudeCardShell =
-  "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
+  "overflow-hidden rounded-[24px] border border-[#E7E7EA] bg-white shadow-[0_6px_20px_-10px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_10px_28px_-12px_rgba(0,0,0,0.6)]";
 
 const claudeSearchInput =
-  "h-10 w-full rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 pl-10 pr-10 text-sm text-[#1c1917] outline-none transition-all placeholder:text-[#78716c] focus:border-[#ff801f]/60 focus:ring-2 focus:ring-[#ff801f]/15 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c]/70 dark:focus:ring-[#fb923c]/20";
+  "h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white pl-10 pr-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
 
 const claudeHeroHeading =
-  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.85rem,2.8vw,2.6rem)] font-medium leading-[1.2] tracking-[-0.01em] text-[#1c1917] dark:text-[#f8fafc]";
+  "text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]";
 
-const claudeSubheading =
-  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.1rem,1.3vw,1.25rem)] font-medium leading-[1.2] text-gray-900 dark:text-white";
-
-
-const claudeBody = "text-base font-normal leading-[1.6] text-[#57534e] dark:text-[#b7c1d1]";
-
-const claudeLabel =
-  "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
+const claudeBody = "text-[15px] leading-[22px] tracking-[-0.1px] text-white/70";
 
 const claudeFieldLabel =
-  "mb-1.5 block text-xs font-medium leading-[1.6] tracking-[0.12px] text-[#57534e] dark:text-[#cbd5e1] sm:text-sm";
+  "mb-2 block text-[13px] font-medium tracking-[-0.05px] text-[#52525B] dark:text-[#B7C1D1]";
+
+const requiredMark = "ml-0.5 text-[#C22B2B] dark:text-[#F87171]";
 
 const claudeInput =
-  "h-10 w-full rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 text-sm text-[#1c1917] outline-none transition-colors placeholder:text-[#78716c] focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20";
+  "h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
+
+const claudeTextarea =
+  "min-h-[110px] w-full resize-none rounded-[10px] border border-[#E7E7EA] bg-white px-3 py-2.5 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
 
 const claudeSelect =
-  "w-full h-10 rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 text-sm text-[#1c1917] outline-none transition-colors focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20";
+  "h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
 
 const claudePrimaryBtn =
-  "inline-flex items-center gap-2 rounded-xl bg-[#ff801f] px-4 py-2.5 text-sm font-semibold text-black shadow-none transition-colors hover:bg-[#ff6a00] active:brightness-95";
+  "inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#1B5CFF] bg-[#1B5CFF] px-6 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,border-color,transform] duration-150 hover:border-[#1244D1] hover:bg-[#1244D1] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:border-[#3B6AF0] dark:hover:bg-[#3B6AF0] dark:disabled:border-[#1A2748] dark:disabled:bg-[#1A2748] dark:disabled:text-[#9BB0F0] max-sm:h-12 max-sm:w-full";
 
 const claudeSecondaryBtn =
-  "inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white px-3 py-2.5 text-xs font-semibold text-[#44403c] transition-all hover:border-[#d6d3d1] hover:bg-[#fafaf9] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-white/[0.05]";
+  "inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-5 text-[14px] font-medium tracking-[-0.1px] text-[#09090B] transition-[background-color,border-color,transform] duration-150 hover:border-[#D3D3D8] hover:bg-[#FAFAFA] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048] max-sm:h-12 max-sm:w-full";
+
+const claudeDangerBtn =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#C22B2B] bg-[#C22B2B] px-5 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,transform] duration-150 hover:bg-[#A82424] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(194,43,43,0.22)] disabled:cursor-not-allowed disabled:opacity-60 max-sm:h-12 max-sm:w-full";
+
+/* --- Sistema de modales — cascarón blanco, cabecera marina, cuerpo en
+   lienzo y pie hundido con las acciones ancladas. Un solo lenguaje para
+   los tres diálogos. --- */
+const modalShellClass =
+  "flex max-h-[min(92vh,820px)] w-[min(94vw,44rem)] flex-col overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827] sm:max-w-2xl";
+const modalSmallShellClass =
+  "w-full max-w-md overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827]";
+const modalHeaderClass = "relative shrink-0 bg-[#17235B] px-6 py-5 pr-16 dark:bg-[#1B2A63]";
+const modalHeaderIconClass =
+  "inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]";
+const modalEyebrowClass = "text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55";
+const modalTitleClass = "text-[20px] font-semibold leading-[1.25] tracking-[-0.5px] text-white";
+const modalSubtitleClass = "mt-1 text-[14px] leading-[20px] text-white/70";
+const modalBodyClass =
+  "custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-white px-5 py-5 dark:bg-[#111827] sm:px-6";
+const modalFooterClass =
+  "shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:px-6";
+const modalSectionClass =
+  "rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#1B2539] sm:p-5";
+
+/* --- Alertas — mismo tono y estructura que InlineAlert de Tareas. --- */
+type AlertVariant = "success" | "error" | "warning" | "info";
+
+const alertTone: Record<AlertVariant, { border: string; bg: string; dot: string; title: string; msg: string }> = {
+  success: {
+    border: "border-[#BFE6D4] dark:border-[#1E5A42]",
+    bg: "bg-[#E9F8F0] dark:bg-[#0F2A1C]",
+    dot: "bg-[#04724D] dark:bg-[#4ADE80]",
+    title: "text-[#04724D] dark:text-[#4ADE80]",
+    msg: "text-[#04724D]/85 dark:text-[#4ADE80]/80",
+  },
+  error: {
+    border: "border-[#F6CFCF] dark:border-[#7F1D1D]",
+    bg: "bg-[#FEF2F2] dark:bg-[#3F1518]",
+    dot: "bg-[#C22B2B] dark:bg-[#F87171]",
+    title: "text-[#C22B2B] dark:text-[#F87171]",
+    msg: "text-[#C22B2B]/85 dark:text-[#F87171]/80",
+  },
+  warning: {
+    border: "border-[rgba(230,162,60,0.4)] dark:border-[rgba(230,162,60,0.3)]",
+    bg: "bg-[rgba(230,162,60,0.10)] dark:bg-[rgba(230,162,60,0.10)]",
+    dot: "bg-[#9A6B15] dark:bg-[#E6A23C]",
+    title: "text-[#9A6B15] dark:text-[#E6A23C]",
+    msg: "text-[#9A6B15]/85 dark:text-[#E6A23C]/85",
+  },
+  info: {
+    border: "border-[rgba(27,92,255,0.28)] dark:border-[rgba(75,124,255,0.3)]",
+    bg: "bg-[rgba(27,92,255,0.06)] dark:bg-[rgba(75,124,255,0.10)]",
+    dot: "bg-[#1B5CFF] dark:bg-[#4B7CFF]",
+    title: "text-[#1B5CFF] dark:text-[#4B7CFF]",
+    msg: "text-[#1B5CFF]/85 dark:text-[#4B7CFF]/85",
+  },
+};
+
+function InlineAlert({
+  variant,
+  title,
+  message,
+  onDismiss,
+}: {
+  variant: AlertVariant;
+  title: string;
+  message?: string;
+  onDismiss?: () => void;
+}) {
+  const tone = alertTone[variant];
+  const assertive = variant === "error" || variant === "warning";
+  return (
+    <div
+      role={assertive ? "alert" : "status"}
+      aria-live={assertive ? "assertive" : "polite"}
+      className={`flex items-start gap-3 rounded-[14px] border px-4 py-3 ${tone.border} ${tone.bg}`}
+    >
+      <span className={`mt-1.5 size-[7px] shrink-0 rounded-full ${tone.dot}`} aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className={`text-[15px] font-medium ${tone.title}`}>{title}</p>
+        {message ? <p className={`mt-0.5 text-[13px] leading-[18px] ${tone.msg}`}>{message}</p> : null}
+      </div>
+      {onDismiss ? (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Descartar aviso"
+          className={`-mr-1 -mt-1 inline-flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.06] ${tone.title}`}
+        >
+          <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden>
+            <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+          </svg>
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 const ORDEN_OPTIONS: { value: NonNullable<SyscomSearchParams["orden"]>; label: string }[] = [
   { value: "relevancia", label: "Relevancia" },
@@ -343,6 +445,19 @@ export default function ProductosPage() {
   const [manualDeleteId, setManualDeleteId] = useState<string | null>(null);
   const [manualFormError, setManualFormError] = useState("");
   const [manualImageUploading, setManualImageUploading] = useState(false);
+  const [savingManual, setSavingManual] = useState(false);
+  const [deletingManual, setDeletingManual] = useState(false);
+  const [toast, setToast] = useState<{ variant: AlertVariant; title: string; message?: string } | null>(null);
+
+  const detailModalTitleId = useId();
+  const manualModalTitleId = useId();
+  const deleteModalTitleId = useId();
+
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 4500);
+    return () => window.clearTimeout(id);
+  }, [toast]);
   const [manualForm, setManualForm] = useState({
     imagen_url: "",
     producto: "",
@@ -888,6 +1003,7 @@ export default function ProductosPage() {
       stock: Math.round(stock),
       activo: true,
     };
+    setSavingManual(true);
     try {
       const endpoint = isEdit ? `/api/productos-manuales/${editingManualId}/` : "/api/productos-manuales/";
       const res = await fetchApi(endpoint, { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -903,20 +1019,42 @@ export default function ProductosPage() {
         setManualFormError(typeof detail === "string" && detail.trim() ? detail : "No se pudo guardar el producto.");
         return;
       }
-      await fetchManualProducts(); setManualModalOpen(false);
-    } catch { setManualFormError("Error de conexión al guardar producto manual."); }
+      await fetchManualProducts();
+      setManualModalOpen(false);
+      setToast({
+        variant: "success",
+        title: isEdit ? "Producto actualizado" : "Producto agregado",
+        message: `«${producto}» se guardó en el catálogo manual.`,
+      });
+    } catch {
+      setManualFormError("Error de conexión al guardar producto manual.");
+    } finally {
+      setSavingManual(false);
+    }
   };
 
   const confirmDeleteManual = async () => {
     if (!manualDeleteId || !catalogReady || !canProductosDelete) return;
+    const nombre = manualProducts.find((x) => x.id === manualDeleteId)?.producto;
+    setDeletingManual(true);
     try {
       const res = await fetchApi(`/api/productos-manuales/${manualDeleteId}/`, { method: "DELETE" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setToast({ variant: "error", title: "No se pudo eliminar", message: "Intenta de nuevo en unos segundos." });
+        return;
+      }
       await fetchManualProducts();
       setManualProducts((prev) => prev.filter((x) => x.id !== manualDeleteId));
       setManualDeleteId(null);
+      setToast({
+        variant: "success",
+        title: "Producto eliminado",
+        message: nombre ? `«${nombre}» se quitó del catálogo manual.` : undefined,
+      });
     } catch {
-      setManualFormError("Error de conexión al eliminar producto manual.");
+      setToast({ variant: "error", title: "Error de conexión", message: "No se pudo eliminar el producto manual." });
+    } finally {
+      setDeletingManual(false);
     }
   };
 
@@ -924,32 +1062,49 @@ export default function ProductosPage() {
     <>
       <PageMeta title="Productos | Catálogo" description="Catálogo de productos" />
       <div className="min-h-[calc(100dvh-5rem)] overflow-x-hidden">
-        <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-6 px-3 pb-10 pt-6 text-sm sm:space-y-7 sm:px-5 sm:pb-12 sm:pt-7 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]">
-          <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]" aria-label="Migas de pan">
-            <Link to="/" className="rounded-md px-1.5 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white">Inicio</Link>
-            <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>/</span>
-            <span className="text-[#44403c] dark:text-[#cbd5e1]">Productos</span>
+        <div
+          className="mx-auto w-full max-w-[min(100%,1920px)] space-y-6 px-3 pb-10 pt-6 text-sm sm:space-y-7 sm:px-5 sm:pb-12 sm:pt-7 sm:text-base md:px-6 lg:px-8 xl:px-10 2xl:max-w-[min(100%,2200px)]"
+          style={sheetFontStyle}
+        >
+          <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]" aria-label="Migas de pan">
+            <Link to="/" className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]">Inicio</Link>
+            <span className="text-[#D3D3D8] dark:text-[#3D3D4A]" aria-hidden>/</span>
+            <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">Productos</span>
           </nav>
 
           {!canProductosView ? (
-            <div className={`${claudeCardShell} px-4 py-10 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]`}>
+            <div className={`${claudeCardShell} px-4 py-10 text-center text-[15px] text-[#6E6E77] dark:text-[#8EA0B8]`}>
               No tienes permiso para ver Productos.
             </div>
           ) : (
           <div className="flex flex-col gap-4">
-            <header className={`relative flex w-full flex-col gap-4 ${claudeCardShell} p-4 sm:p-6`}>
-              <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
-              <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
-                  <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                    <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+            <header className="relative overflow-hidden rounded-[24px] bg-[#17235B] px-5 py-6 dark:bg-[#1B2A63] sm:px-8 sm:py-8">
+              <div className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-[#E6A23C]/15 blur-3xl" aria-hidden />
+              <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+                <div className="flex min-w-0 items-start gap-4">
+                  <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]">
+                    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">Productos y servicios</p>
+                    <h1 className={`mt-1 ${claudeHeroHeading}`}>Productos</h1>
+                    <p className={`mt-1.5 max-w-[60ch] ${claudeBody}`}>Consulta precios con IVA, existencias y fichas técnicas. Filtra por fuente, categoría o marca cuando necesites resultados más precisos.</p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]">Productos y servicios</p>
-                  <h1 className={`mt-0.5 ${claudeHeroHeading}`}>Productos</h1>
-                  <p className={`mt-1 max-w-2xl ${claudeBody}`}>Consulta precios con IVA, existencias y fichas técnicas. Filtra por fuente, categoría o marca cuando necesites resultados más precisos.</p>
-                  <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {tipoCambio ? (
+                    <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white/10 px-3.5 text-[13px] font-medium text-white/85">
+                      <span className="size-1.5 rounded-full bg-[#4ADE80]" aria-hidden />
+                      Tipo de cambio ${tipoCambio.toFixed(2)}
+                    </span>
+                  ) : null}
+                  {manualProducts.length > 0 ? (
+                    <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[rgba(230,162,60,0.16)] px-3.5 text-[13px] font-semibold text-[#E6A23C]">
+                      {manualProducts.length} manual{manualProducts.length === 1 ? "" : "es"}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </header>
@@ -957,8 +1112,18 @@ export default function ProductosPage() {
             <form onSubmit={handleSearch}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]">
                 <div className="relative">
-                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b] sm:left-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-                  <input id="search-input" type="text" value={busquedaInput} onChange={(e) => handleSearchInputChange(e.target.value)} placeholder="Buscar por producto, marca o modelo..." className={`${claudeSearchInput} pr-11`} />
+                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E6E77] dark:text-[#64748b] sm:left-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                  <input id="search-input" type="text" value={busquedaInput} onChange={(e) => handleSearchInputChange(e.target.value)} placeholder="Buscar por producto, marca o modelo…" className={claudeSearchInput} />
+                  {busquedaInput && (
+                    <button
+                      type="button"
+                      onClick={() => handleSearchInputChange("")}
+                      aria-label="Limpiar búsqueda"
+                      className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 w-10 items-center justify-center rounded-lg text-[#6E6E77] transition-colors hover:bg-[#E7E7EA]/60 hover:text-[#52525B] dark:text-[#8EA0B8] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" /></svg>
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-end gap-2 md:self-end">
                   {canProductosCreate ? (
@@ -971,70 +1136,81 @@ export default function ProductosPage() {
               </div>
             </form>
 
+            {toast && (
+              <InlineAlert
+                variant={toast.variant}
+                title={toast.title}
+                message={toast.message}
+                onDismiss={() => setToast(null)}
+              />
+            )}
+
             {error && (
-              <div className={`rounded-2xl px-4 py-3 ${productos.length > 0 ? "border border-amber-200/80 bg-amber-50/90 dark:border-amber-900/40 dark:bg-amber-950/30" : "border border-red-200/80 bg-red-50/90 dark:border-red-900/40 dark:bg-red-950/30"}`}>
-                <p className={`text-sm font-medium ${productos.length > 0 ? "text-amber-900 dark:text-amber-200" : "text-red-800 dark:text-red-300"}`}>{error}</p>
-                {productos.length === 0 && (
-                  <p className="mt-1 text-xs text-red-700/90 dark:text-red-300/80">
-                    No pudimos conectar con el catálogo de productos. Usa el filtro «Manual» si ya cargaste productos propios, o contacta a soporte.
-                  </p>
-                )}
-              </div>
+              <InlineAlert
+                variant={productos.length > 0 ? "warning" : "error"}
+                title={productos.length > 0 ? "Catálogo con incidencias" : "No se pudo cargar el catálogo"}
+                message={
+                  productos.length > 0
+                    ? error
+                    : `${error} Usa el filtro «Manual» si ya cargaste productos propios, o contacta a soporte.`
+                }
+              />
             )}
 
             <div className="pt-1">
-              <ComponentCard compact title="Resultados" desc={(hasFiltro || autoCatalog) && total > 0 ? `${total.toLocaleString("es-MX")} artículo${total === 1 ? "" : "s"} encontrados${paginas > 1 ? ` · página ${pagina} de ${paginas}` : ""}.` : "Los resultados aparecen aquí según tu búsqueda y filtros."} className="!overflow-visible border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)]"
+              <ComponentCard compact title="Resultados" desc={(hasFiltro || autoCatalog) && total > 0 ? `${total.toLocaleString("es-MX")} artículo${total === 1 ? "" : "s"} encontrados${paginas > 1 ? ` · página ${pagina} de ${paginas}` : ""}.` : "Los resultados aparecen aquí según tu búsqueda y filtros."} className="!overflow-visible rounded-[24px] border-[#E7E7EA] bg-white shadow-[0_6px_20px_-10px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:!bg-[#111827] dark:shadow-[0_10px_28px_-12px_rgba(0,0,0,0.6)]"
                 actions={
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-0.5 rounded-xl border border-[#e7ded0] bg-[#fcfaf6] p-0.5 dark:border-[#334155] dark:bg-[#0f172a]/80">
-                      <button type="button" onClick={() => setViewMode("table")} title="Vista tabla" disabled={loading} className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition ${viewMode === "table" ? "bg-white text-[#ea580c] shadow-sm dark:bg-[#111a2b] dark:text-[#fb923c]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+                    <div className="flex items-center gap-0.5 rounded-[10px] border border-[#E7E7EA] bg-[#FAFAFA] p-0.5 dark:border-[#273244] dark:bg-[#1B2539]">
+                      <button type="button" onClick={() => setViewMode("table")} title="Vista tabla" aria-pressed={viewMode === "table"} disabled={loading} className={`inline-flex h-8 w-8 items-center justify-center rounded-[8px] transition ${viewMode === "table" ? "bg-white text-[#1B5CFF] shadow-[0_1px_3px_rgba(9,9,11,0.08)] dark:bg-[#111827] dark:text-[#4B7CFF]" : "text-[#6E6E77] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:text-[#F8FAFC]"}`}>
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></svg>
                       </button>
-                      <button type="button" onClick={() => setViewMode("cards")} title="Vista tarjetas" disabled={loading} className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition ${viewMode === "cards" ? "bg-white text-[#ea580c] shadow-sm dark:bg-[#111a2b] dark:text-[#fb923c]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+                      <button type="button" onClick={() => setViewMode("cards")} title="Vista tarjetas" aria-pressed={viewMode === "cards"} disabled={loading} className={`inline-flex h-8 w-8 items-center justify-center rounded-[8px] transition ${viewMode === "cards" ? "bg-white text-[#1B5CFF] shadow-[0_1px_3px_rgba(9,9,11,0.08)] dark:bg-[#111827] dark:text-[#4B7CFF]" : "text-[#6E6E77] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:text-[#F8FAFC]"}`}>
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
                       </button>
                     </div>
                     <div className="relative" ref={filterRef}>
-                      <button type="button" onClick={() => setFilterOpen((v) => !v)} className={`${claudeSecondaryBtn} h-9`}>
+                      <button type="button" onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen} className={`${claudeSecondaryBtn} h-10 px-4`}>
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7h13" /><path d="M3 12h10" /><path d="M3 17h7" /><path d="M18 7v10" /><path d="M21 10l-3-3-3 3" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         Filtrado
+                        {hasFiltro ? <span className="ml-0.5 inline-flex size-1.5 rounded-full bg-[#1B5CFF] dark:bg-[#4B7CFF]" aria-hidden /> : null}
                       </button>
                       {filterOpen && (
-                        <div className="absolute right-0 z-[120] mt-2 w-80 max-h-[min(80vh,24rem)] overflow-auto rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-xl ring-1 ring-black/5 dark:border-[#334155] dark:bg-[#111a2b] dark:ring-white/10">
+                        <div className="absolute right-0 z-[120] mt-2 max-h-[min(80vh,26rem)] w-80 overflow-auto rounded-[16px] border border-[#E7E7EA] bg-white p-4 shadow-[0_12px_32px_-12px_rgba(9,9,11,0.25)] dark:border-[#273244] dark:bg-[#151E32]">
                           <div className="mb-4">
-                            <label htmlFor="orden-select" className="mb-2 block text-xs font-medium text-[#57534e] dark:text-[#cbd5e1]">Ordenar por</label>
-                            <select id="orden-select" value={orden} onChange={(e) => { setOrden(e.target.value as NonNullable<SyscomSearchParams["orden"]>); setAutoCatalog(false); resetPage(); }} className={`${claudeSelect} h-10`}>
+                            <label htmlFor="orden-select" className="mb-2 block text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">Ordenar por</label>
+                            <select id="orden-select" value={orden} onChange={(e) => { setOrden(e.target.value as NonNullable<SyscomSearchParams["orden"]>); setAutoCatalog(false); resetPage(); }} className={claudeSelect}>
                               {ORDEN_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
                             </select>
                           </div>
                           <div className="mb-4">
-                            <label className="mb-2 block text-xs font-medium text-[#57534e] dark:text-[#cbd5e1]">Fuente de datos</label>
-                            <div className="inline-flex w-full rounded-lg border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
+                            <label className="mb-2 block text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">Fuente de datos</label>
+                            <div className="inline-flex w-full rounded-[10px] border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#273244] dark:bg-[#1B2539]">
                               {[{ value: "", label: "Todas" }, { value: "syscom", label: "Syscom" }, { value: "tvc", label: "TVC" }, { value: "manual", label: "Manual" }].map((option) => {
                                 const active = fuente === option.value;
-                                return (<button key={option.label} type="button" onClick={() => { setFuente(option.value as CatalogFuente); setAutoCatalog(false); resetPage(); }} className={`flex-1 rounded-md px-2 py-2 text-xs font-semibold transition-all ${active ? "bg-white text-[#ea580c] shadow-sm dark:bg-[#111a2b] dark:text-[#fb923c]" : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"}`}>{option.label}</button>);
+                                return (<button key={option.label} type="button" onClick={() => { setFuente(option.value as CatalogFuente); setAutoCatalog(false); resetPage(); }} className={`h-9 flex-1 rounded-[8px] px-2 text-[13px] font-semibold transition-colors ${active ? "bg-white text-[#1B5CFF] shadow-[0_1px_3px_rgba(9,9,11,0.08)] dark:bg-[#111827] dark:text-[#4B7CFF]" : "text-[#6E6E77] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:text-[#F8FAFC]"}`}>{option.label}</button>);
                               })}
                             </div>
                           </div>
                           <div className="mb-4">
-                            <label htmlFor="categoria-select" className="mb-2 block text-xs font-medium text-[#57534e] dark:text-[#cbd5e1]">Categoría</label>
-                            <select id="categoria-select" value={categoriaId} onChange={(e) => { setCategoriaId(e.target.value); setAutoCatalog(false); resetPage(); }} className={`${claudeSelect} h-10`}>
+                            <label htmlFor="categoria-select" className="mb-2 block text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">Categoría</label>
+                            <select id="categoria-select" value={categoriaId} onChange={(e) => { setCategoriaId(e.target.value); setAutoCatalog(false); resetPage(); }} className={claudeSelect}>
                               <option value="">Todas las categorías</option>
                               {categorias.map((c) => (<option key={c.id} value={c.id}>{c.nombre}</option>))}
-                              {loadingCatalogos && !categorias.length && <option disabled>Cargando categorías...</option>}
+                              {loadingCatalogos && !categorias.length && <option disabled>Cargando categorías…</option>}
                             </select>
                           </div>
                           <div className="mb-4">
-                            <label htmlFor="marca-select" className="mb-2 block text-xs font-medium text-[#57534e] dark:text-[#cbd5e1]">Marca</label>
-                            <select id="marca-select" value={marcaId} onChange={(e) => { setMarcaId(e.target.value); setAutoCatalog(false); resetPage(); }} className={`${claudeSelect} h-10`}>
+                            <label htmlFor="marca-select" className="mb-2 block text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">Marca</label>
+                            <select id="marca-select" value={marcaId} onChange={(e) => { setMarcaId(e.target.value); setAutoCatalog(false); resetPage(); }} className={claudeSelect}>
                               <option value="">Todas las marcas</option>
                               {marcas.slice(0, MARCAS_SELECT_LIMIT).map((m) => (<option key={m.id} value={m.id}>{m.nombre}</option>))}
-                              {loadingCatalogos && !marcas.length && <option disabled>Cargando marcas...</option>}
+                              {loadingCatalogos && !marcas.length && <option disabled>Cargando marcas…</option>}
                             </select>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button type="button" onClick={() => { clearFiltros(); setFilterOpen(false); }} className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white px-3 text-xs font-semibold text-[#44403c] transition-colors hover:bg-[#fafaf9] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-white/[0.05]">Limpiar filtros</button>
-                            <button type="button" onClick={() => setFilterOpen(false)} className="inline-flex h-10 flex-1 items-center justify-center rounded-lg bg-[#ff801f] px-3 text-xs font-semibold text-black transition-colors hover:bg-[#ff6a00]">Aplicar</button>
+                            <button type="button" onClick={() => { clearFiltros(); setFilterOpen(false); }} className={`${claudeSecondaryBtn} h-10 flex-1 px-3 text-[13px]`}>Limpiar filtros</button>
+                            <button type="button" onClick={() => setFilterOpen(false)} className={`${claudePrimaryBtn} h-10 flex-1 px-3 text-[13px]`}>Aplicar</button>
                           </div>
                         </div>
                       )}
@@ -1046,87 +1222,87 @@ export default function ProductosPage() {
                   {viewMode === "cards" && !loading && productos.length > 0 ? (
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {productos.map((p) => (
-                        <div key={p.producto_id} role="button" tabIndex={0} onClick={() => openDetailModal(p.producto_id)} onKeyDown={(e) => e.key === "Enter" && openDetailModal(p.producto_id)} className="flex cursor-pointer gap-3 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-3 transition hover:border-[#d6d3d1] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#475569]/80">
-                          <div className="w-16 h-16 shrink-0 rounded-lg bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center overflow-hidden">
-                            {getCatalogProductoImageUrl(p) ? (<img src={getCatalogProductoImageUrl(p)!} alt={p.titulo} className="w-full h-full object-contain" loading="lazy" />) : (<span className="text-[10px] text-gray-400">—</span>)}
+                        <div key={p.producto_id} role="button" tabIndex={0} onClick={() => openDetailModal(p.producto_id)} onKeyDown={(e) => e.key === "Enter" && openDetailModal(p.producto_id)} className="flex cursor-pointer gap-3 rounded-[16px] border border-[#E7E7EA] bg-white p-3 transition-colors hover:border-[#D3D3D8] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#1B2539] dark:hover:border-[#3A4661]">
+                          <div className="w-16 h-16 shrink-0 rounded-[12px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] flex items-center justify-center overflow-hidden">
+                            {getCatalogProductoImageUrl(p) ? (<img src={getCatalogProductoImageUrl(p)!} alt={p.titulo} className="w-full h-full object-contain" loading="lazy" />) : (<span className="text-[10px] text-[#A1A1AA]">—</span>)}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">{p.titulo}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{p.marca} · {p.modelo}{p.fuente ? ` · ${p.fuente}` : ""}</p>
+                            <p className="text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC] line-clamp-2">{p.titulo}</p>
+                            <p className="text-[12px] text-[#6E6E77] dark:text-[#8EA0B8] mt-0.5">{p.marca} · {p.modelo}{p.fuente ? ` · ${p.fuente}` : ""}</p>
                             {p.sat_key ? (
-                              <p className="mt-0.5 font-mono text-[11px] text-gray-500 dark:text-gray-400" title={p.sat_description || undefined}>
+                              <p className="mt-0.5 font-mono text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]" title={p.sat_description || undefined}>
                                 Clave SAT {p.sat_key}
                               </p>
                             ) : null}
-                            <p className="mt-1 text-sm font-semibold text-[#ff801f] dark:text-[#ffa057] tabular-nums">{formatPrecioPublicoMxnConIva(p, tipoCambio)}</p>
-                            {p.total_existencia != null && <p className="text-[11px] text-gray-500 dark:text-gray-400">Stock {p.total_existencia}</p>}
-                            <a href={getProductoLink(p)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-[11px] font-medium text-[#ff801f] dark:text-[#ffa057] mt-1 inline-block hover:underline">Ver más →</a>
+                            <p className="mt-1 text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC] tabular-nums">{formatPrecioPublicoMxnConIva(p, tipoCambio)}</p>
+                            {p.total_existencia != null && <p className="text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">Stock {p.total_existencia}</p>}
+                            <a href={getProductoLink(p)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-[11px] font-semibold text-[#1B5CFF] dark:text-[#4B7CFF] mt-1 inline-block hover:underline">Ver más →</a>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : viewMode === "cards" ? (
-                    <div className="rounded-xl border border-[#e7ded0] bg-[#fffdfa]/90 py-14 text-center dark:border-[#334155] dark:bg-[#111a2b]/80">
-                      {loading && <div className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400"><svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>Cargando productos...</div>}
+                    <div className="rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] py-14 text-center dark:border-[#273244] dark:bg-[#1B2539]">
+                      {loading && <div className="inline-flex items-center gap-2 text-[15px] text-[#6E6E77] dark:text-[#8EA0B8]"><svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>Cargando productos…</div>}
                       {!loading && productos.length === 0 && !error && (
                         <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
-                          <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#ff801f]/12 text-[#ea580c] dark:bg-[#fb923c]/12 dark:text-[#fb923c]"><svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
-                          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{autoCatalog ? "No hay productos para mostrar." : "No encontramos coincidencias."}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{autoCatalog ? "Ajusta filtros o intenta otra búsqueda." : "Prueba con otra palabra clave o limpia filtros."}</p>
+                          <span className="inline-flex h-12 w-12 items-center justify-center rounded-[14px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]"><svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+                          <p className="text-[15px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{autoCatalog ? "No hay productos para mostrar." : "No encontramos coincidencias."}</p>
+                          <p className="text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">{autoCatalog ? "Ajusta filtros o intenta otra búsqueda." : "Prueba con otra palabra clave o limpia filtros."}</p>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-xl border border-[#e7ded0]/90 bg-[#fcfaf6]/60 dark:border-[#273244] dark:bg-[#0f172a]/35">
+                    <div className="overflow-x-auto rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]">
                       <Table className="w-full min-w-[820px] sm:min-w-0 xl:min-w-full">
-                        <TableHeader className="sticky top-0 z-10 border-b border-[#e7ded0] bg-[#fffdfa]/95 text-[11px] font-semibold text-[#1c1917] dark:border-[#334155] dark:bg-[#111827]/95 dark:text-[#f8fafc]">
+                        <TableHeader className="sticky top-0 z-10 border-b border-[#E7E7EA] bg-white text-[11px] font-semibold text-[#09090B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC]">
                           <TableRow>
-                            <TableCell isHeader className="px-3 py-2 text-left w-[64px] text-gray-700 dark:text-gray-300">Imagen</TableCell>
-                            <TableCell isHeader className="px-3 py-2 text-left min-w-[200px] text-gray-700 dark:text-gray-300">Producto</TableCell>
-                            <TableCell isHeader className="px-3 py-2 text-left w-[100px] text-gray-700 dark:text-gray-300">Marca</TableCell>
-                            <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-gray-700 dark:text-gray-300">Modelo</TableCell>
-                            <TableCell isHeader className="px-3 py-2 text-left w-[110px] text-gray-700 dark:text-gray-300">Clave SAT</TableCell>
-                            <TableCell isHeader className="px-3 py-2 text-left w-[90px] text-gray-700 dark:text-gray-300">Fuente</TableCell>
-                            <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-gray-700 dark:text-gray-300">Precio</TableCell>
-                            <TableCell isHeader className="px-3 py-2 text-left w-[80px] text-gray-700 dark:text-gray-300">Stock</TableCell>
-                            <TableCell isHeader className="px-3 py-2 text-center w-[100px] text-gray-700 dark:text-gray-300">Acción</TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-left w-[64px] text-[#52525B] dark:text-[#B7C1D1]">Imagen</TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-left min-w-[200px] text-[#52525B] dark:text-[#B7C1D1]">Producto</TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-left w-[100px] text-[#52525B] dark:text-[#B7C1D1]">Marca</TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-[#52525B] dark:text-[#B7C1D1]">Modelo</TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-left w-[110px] text-[#52525B] dark:text-[#B7C1D1]">Clave SAT</TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-left w-[90px] text-[#52525B] dark:text-[#B7C1D1]">Fuente</TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-[#52525B] dark:text-[#B7C1D1]">Precio</TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-left w-[80px] text-[#52525B] dark:text-[#B7C1D1]">Stock</TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-center w-[100px] text-[#52525B] dark:text-[#B7C1D1]">Acción</TableCell>
                           </TableRow>
                         </TableHeader>
-                        <TableBody className="divide-y divide-[#f5f5f4] text-[12px] text-[#44403c] dark:divide-[#334155]/80 dark:text-[#e5e7eb]">
-                          {loading && (<TableRow><TableCell colSpan={9} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400"><div className="inline-flex items-center gap-2 text-sm"><svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>Cargando productos...</div></TableCell></TableRow>)}
-                          {!loading && productos.length === 0 && !error && (<TableRow><TableCell colSpan={9} className="px-3 py-10 text-center text-sm text-gray-500 dark:text-gray-400">{autoCatalog ? "No hay productos para mostrar." : "No encontramos resultados con los filtros actuales."}</TableCell></TableRow>)}
+                        <TableBody className="divide-y divide-[#EDEDED] text-[12px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb]">
+                          {loading && (<TableRow><TableCell colSpan={9} className="px-3 py-8 text-center text-[#6E6E77] dark:text-[#8EA0B8]"><div className="inline-flex items-center gap-2 text-[15px]"><svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>Cargando productos…</div></TableCell></TableRow>)}
+                          {!loading && productos.length === 0 && !error && (<TableRow><TableCell colSpan={9} className="px-3 py-10 text-center text-[15px] text-[#6E6E77] dark:text-[#8EA0B8]">{autoCatalog ? "No hay productos para mostrar." : "No encontramos resultados con los filtros actuales."}</TableCell></TableRow>)}
                           {!loading && productos.length > 0 && productos.map((p) => {
                             const imgUrl = getCatalogProductoImageUrl(p); const link = getProductoLink(p);
                             return (
-                              <TableRow key={p.producto_id} className="hover:bg-[#fff7ed]/80 dark:hover:bg-[#1e293b]/50">
-                                <TableCell className="px-3 py-2 w-[64px] align-middle"><div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center overflow-hidden shrink-0">{imgUrl ? (<img src={imgUrl} alt={p.titulo} className="w-full h-full object-contain" loading="lazy" />) : (<span className="text-[10px] text-gray-400">—</span>)}</div></TableCell>
-                                <TableCell className="px-3 py-2 min-w-[200px] max-w-[280px]"><button type="button" onClick={() => openDetailModal(p.producto_id)} className="block w-full text-left truncate text-gray-900 dark:text-white hover:text-[#ff801f] dark:hover:text-[#ffa057] hover:underline font-medium" title={p.titulo}>{p.titulo}</button></TableCell>
+                              <TableRow key={p.producto_id} className="hover:bg-[#FAFAFA] dark:hover:bg-white/[0.04]">
+                                <TableCell className="px-3 py-2 w-[64px] align-middle"><div className="w-10 h-10 rounded-[10px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] flex items-center justify-center overflow-hidden shrink-0">{imgUrl ? (<img src={imgUrl} alt={p.titulo} className="w-full h-full object-contain" loading="lazy" />) : (<span className="text-[10px] text-[#A1A1AA]">—</span>)}</div></TableCell>
+                                <TableCell className="px-3 py-2 min-w-[200px] max-w-[280px]"><button type="button" onClick={() => openDetailModal(p.producto_id)} className="block w-full truncate text-left font-medium text-[#09090B] hover:text-[#1B5CFF] hover:underline dark:text-[#F8FAFC] dark:hover:text-[#4B7CFF]" title={p.titulo}>{p.titulo}</button></TableCell>
                                 <TableCell className="px-3 py-2 w-[100px] whitespace-nowrap">{p.marca}</TableCell>
                                 <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap">{p.modelo}</TableCell>
                                 <TableCell className="px-3 py-2 w-[110px] whitespace-nowrap font-mono text-[11px]">
                                   {p.sat_key?.trim() ? (
                                     <span title={p.sat_description || undefined}>{p.sat_key}</span>
                                   ) : (
-                                    <span className="font-sans text-gray-400">—</span>
+                                    <span className="font-sans text-[#A1A1AA]">—</span>
                                   )}
                                 </TableCell>
                                 <TableCell className="px-3 py-2 w-[90px] whitespace-nowrap capitalize">{p.fuente || "—"}</TableCell>
-                                <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap font-medium text-[#ff801f] dark:text-[#ffa057] tabular-nums">{formatPrecioPublicoMxnConIva(p, tipoCambio)}</TableCell>
+                                <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap font-semibold text-[#09090B] dark:text-[#F8FAFC] tabular-nums">{formatPrecioPublicoMxnConIva(p, tipoCambio)}</TableCell>
                                 <TableCell className="px-3 py-2 w-[80px] whitespace-nowrap">{p.total_existencia ?? "—"}</TableCell>
                                 <TableCell className="px-3 py-2 text-center w-[100px]">
                                   {p.fuente === "manual" ? (
-                                    <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 dark:bg-white/10 px-1.5 py-1">
+                                    <div className="inline-flex items-center gap-1 rounded-[8px] bg-[#FAFAFA] px-1.5 py-1 dark:bg-white/[0.06]">
                                       {canProductosEdit ? (
-                                        <button type="button" onClick={() => openEditManual(p.producto_id)} className="group inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white transition hover:border-[#ff801f]/50 hover:text-[#ff801f] dark:border-white/10 dark:bg-[#111a2b] dark:hover:border-[#ff801f]/50 dark:hover:text-[#ffa057]" title="Editar" aria-label={`Editar ${p.titulo}`}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg></button>
+                                        <button type="button" onClick={() => openEditManual(p.producto_id)} className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#1B5CFF]/50 hover:text-[#1B5CFF] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:border-[#4B7CFF]/50 dark:hover:text-[#4B7CFF]" title="Editar" aria-label={`Editar ${p.titulo}`}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg></button>
                                       ) : null}
                                       {canProductosDelete ? (
-                                        <button type="button" onClick={() => setManualDeleteId(p.producto_id)} className="group inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white transition hover:border-red-400 hover:text-red-600 dark:border-white/10 dark:bg-gray-800 dark:hover:border-red-500" title="Eliminar" aria-label={`Eliminar ${p.titulo}`}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="m6 6 1 14h10l1-14" /></svg></button>
+                                        <button type="button" onClick={() => setManualDeleteId(p.producto_id)} className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#C22B2B]/50 hover:text-[#C22B2B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:border-[#F87171]/50 dark:hover:text-[#F87171]" title="Eliminar" aria-label={`Eliminar ${p.titulo}`}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="m6 6 1 14h10l1-14" /></svg></button>
                                       ) : null}
                                       {!canProductosEdit && !canProductosDelete ? (
-                                        <span className="px-1 text-[10px] text-gray-500 dark:text-gray-400">Manual</span>
+                                        <span className="px-1 text-[10px] text-[#6E6E77] dark:text-[#8EA0B8]">Manual</span>
                                       ) : null}
                                     </div>
-                                  ) : (<a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-[#ff801f] dark:text-[#ffa057] hover:underline">Ver más</a>)}
+                                  ) : (<a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#1B5CFF] dark:text-[#4B7CFF] hover:underline">Ver más</a>)}
                                 </TableCell>
                               </TableRow>
                             );
@@ -1137,13 +1313,13 @@ export default function ProductosPage() {
                   )}
 
                   {!loading && total > 0 && productos.length > 0 && (
-                    <div className="border-t border-gray-100 px-4 py-3 dark:border-white/[0.06] sm:px-5 sm:py-4">
+                    <div className="border-t border-[#E7E7EA] px-4 py-3 dark:border-[#273244] sm:px-5 sm:py-4">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{total} resultado(s){paginas > 1 && (<> · Página <span className="font-medium text-gray-900 dark:text-white">{pagina}</span> de <span className="font-medium text-gray-900 dark:text-white">{paginas}</span></>)}</p>
+                        <p className="text-[14px] text-[#6E6E77] dark:text-[#8EA0B8]">{total} resultado(s){paginas > 1 && (<> · Página <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">{pagina}</span> de <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">{paginas}</span></>)}</p>
                         {paginas > 1 && (
                           <div className="flex items-center gap-2">
-                            <button type="button" onClick={() => setPagina((prev) => Math.max(1, prev - 1))} disabled={pagina <= 1} className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg></button>
-                            <button type="button" onClick={() => setPagina((prev) => Math.min(paginas, prev + 1))} disabled={pagina >= paginas} className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg></button>
+                            <button type="button" aria-label="Página anterior" onClick={() => setPagina((prev) => Math.max(1, prev - 1))} disabled={pagina <= 1} className="inline-flex size-10 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#09090B] transition-colors hover:bg-[#FAFAFA] disabled:cursor-not-allowed disabled:opacity-45 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:bg-[#243048]"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg></button>
+                            <button type="button" aria-label="Página siguiente" onClick={() => setPagina((prev) => Math.min(paginas, prev + 1))} disabled={pagina >= paginas} className="inline-flex size-10 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#09090B] transition-colors hover:bg-[#FAFAFA] disabled:cursor-not-allowed disabled:opacity-45 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:bg-[#243048]"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg></button>
                           </div>
                         )}
                       </div>
@@ -1157,224 +1333,291 @@ export default function ProductosPage() {
         </div>
       </div>
 
-      <Modal isOpen={detailModalOpen} onClose={closeDetailModal} ariaLabel="Detalle de producto" className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:rounded-2xl">
-        <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 pr-14 dark:border-[#334155] dark:bg-[#111827]">
-          <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f] text-black"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
-            <div className="min-w-0"><p className={claudeLabel}>Catálogo · Productos</p><h3 className={`mt-1 ${claudeSubheading}`}>Detalle de producto</h3></div>
-          </div>
-        </header>
-        {loadingDetail && (<div className="px-6 py-16 text-center"><div className="inline-flex h-12 w-12 animate-spin rounded-full border-2 border-gray-200 dark:border-gray-700 border-t-[#ff801f] dark:border-t-[#ffa057]" aria-hidden /><p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Cargando detalle...</p></div>)}
-        {!loadingDetail && !detailProduct && (
-          <div className="px-6 py-12 text-center" role="status">
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-              No se pudo cargar el detalle de este producto.
-            </p>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Puede que ya no esté disponible en el catálogo del proveedor.
-            </p>
-          </div>
-        )}
-        {!loadingDetail && detailProduct && (() => {
-          const imageUrls = getProductoImagenesUrls(detailProduct); const mainImage = imageUrls[selectedImageIndex] ?? imageUrls[0];
-          const precioDisplay = formatPrecioPublicoMxnConIva(detailProduct, tipoCambio);
-          return (
-            <div className="p-6 space-y-6">
-              {imageUrls.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"><svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>Galería</div>
-                  <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 overflow-hidden"><div className="aspect-square max-h-80 w-full flex items-center justify-center p-4"><img src={mainImage} alt={detailProduct.titulo} className="max-h-full w-full object-contain" /></div>
-                    {imageUrls.length > 1 && (<div className="flex gap-2 p-3 border-t border-gray-100 dark:border-gray-700 overflow-x-auto">{imageUrls.map((url, i) => (<button key={i} type="button" onClick={() => setSelectedImageIndex(i)} className={`shrink-0 w-14 h-14 rounded-lg border-2 overflow-hidden flex items-center justify-center transition ${i === selectedImageIndex ? "border-[#ff801f] dark:border-[#ffa057] ring-2 ring-[#ff801f]/25 dark:ring-[#ff801f]/25" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}><img src={url} alt={`${detailProduct.titulo} — imagen ${i + 1}`} className="w-full h-full object-contain" /></button>))}</div>)}
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-4">
-                {imageUrls.length === 0 && (<div className="w-20 h-20 shrink-0 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/50 flex items-center justify-center"><svg className="w-10 h-10 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>)}
-                <div className="min-w-0 flex-1"><h3 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white leading-snug">{detailProduct.titulo}</h3>
-                  <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className="inline-flex items-center gap-1.5 text-lg font-semibold tabular-nums text-[#ff801f] dark:text-[#ffa057]"><svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>{precioDisplay}</span></div>
-                  <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                    <div><span className="text-xs text-gray-500 dark:text-gray-400">Marca</span><p className="mt-0.5 font-medium text-gray-900 dark:text-white">{detailProduct.marca || "—"}</p></div>
-                    <div><span className="text-xs text-gray-500 dark:text-gray-400">Modelo / SKU</span><p className="mt-0.5 font-mono font-medium text-gray-900 dark:text-white">{detailProduct.modelo || detailProduct.sku || "—"}</p></div>
-                    <div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Clave SAT</span>
-                      <p
-                        className="mt-0.5 font-mono font-medium text-gray-900 dark:text-white"
-                        title={detailProduct.sat_description || undefined}
-                      >
-                        {detailProduct.sat_key?.trim() || "—"}
-                      </p>
-                      {detailProduct.sat_description?.trim() ? (
-                        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-gray-500 dark:text-gray-400">
-                          {detailProduct.sat_description}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div><span className="text-xs text-gray-500 dark:text-gray-400">Stock</span><p className="mt-0.5 font-medium text-gray-900 dark:text-white">{detailProduct.total_existencia !== null && detailProduct.total_existencia !== undefined ? detailProduct.total_existencia : "—"}</p></div>
-                    <div><span className="text-xs text-gray-500 dark:text-gray-400">Fuente</span><p className="mt-0.5 font-medium text-gray-900 dark:text-white capitalize">{detailProduct.fuente || "syscom"}</p></div>
-                  </div>
-                </div>
-              </div>
-              {detailProduct.caracteristicas && detailProduct.caracteristicas.length > 0 && (
-                <div className="space-y-2"><h4 className="text-sm font-semibold text-gray-900 dark:text-white">Características</h4><ul className="list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300">{detailProduct.caracteristicas.map((c, i) => (<li key={i}>{c}</li>))}</ul></div>
-              )}
-            </div>
-          );
-        })()}
-      </Modal>
-
-      <Modal isOpen={manualModalOpen} onClose={() => setManualModalOpen(false)} closeOnBackdropClick={false} ariaLabel="Formulario de producto manual" className="flex max-h-[min(92vh,760px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] dark:border-[#273244] dark:bg-[#111a2b] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] sm:w-[min(96vw,42rem)] sm:rounded-2xl">
-        <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-[#111827] sm:pr-16">
-          <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm">
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" strokeLinejoin="round" />
-                <path d="M12 10v6M9 13h6" strokeLinecap="round" />
-              </svg>
-            </div>
-            <div className="min-w-0">
-              <p className={claudeLabel}>Catálogo · Productos</p>
-              <h3 className="mt-1 [font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.4rem,2vw,2rem)] font-medium leading-[1.2] text-gray-900 dark:text-white">{editingManualId ? "Editar producto manual" : "Nuevo producto manual"}</h3>
+      <Modal isOpen={detailModalOpen} onClose={closeDetailModal} ariaLabelledBy={detailModalTitleId} className={`${modalShellClass} sm:max-w-3xl`}>
+        <header className={modalHeaderClass}>
+          <div className="flex items-start gap-3.5">
+            <span className={modalHeaderIconClass}>
+              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className={modalEyebrowClass}>Catálogo · Productos</p>
+              <h3 id={detailModalTitleId} className={`mt-1 ${modalTitleClass}`}>Detalle de producto</h3>
+              <p className={modalSubtitleClass}>Precio público con IVA, existencias y ficha técnica.</p>
             </div>
           </div>
         </header>
-
-        <div className="custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-[#fffdfa] px-5 py-5 pb-6 dark:bg-[#111a2b] sm:px-6">
-          {manualFormError && (
-            <div
-              id="manual-form-error"
-              role="alert"
-              aria-live="assertive"
-              className="rounded-xl border border-amber-300/90 bg-amber-50/95 px-3.5 py-2.5 text-sm text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-200"
-            >
-              {manualFormError}
+        <div className={modalBodyClass}>
+          {loadingDetail && (
+            <div className="py-16 text-center" role="status">
+              <div className="inline-flex size-12 animate-spin rounded-full border-2 border-[#E7E7EA] border-t-[#1B5CFF] dark:border-[#273244] dark:border-t-[#4B7CFF]" aria-hidden />
+              <p className="mt-4 text-[14px] text-[#6E6E77] dark:text-[#8EA0B8]">Cargando detalle…</p>
             </div>
           )}
-
-          <section className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#334155] dark:bg-[#0f172a]/90 sm:p-5">
-            <div className="mb-3 border-b border-[#e7ded0]/80 pb-3 dark:border-white/[0.06]">
-              <h4 className="text-sm font-semibold text-[#1c1917] dark:text-[#f1f5f9]">Datos del producto</h4>
+          {!loadingDetail && !detailProduct && (
+            <div className={`${modalSectionClass} text-center`} role="status">
+              <p className="text-[15px] font-medium text-[#09090B] dark:text-[#F8FAFC]">No se pudo cargar el detalle de este producto.</p>
+              <p className="mt-1 text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">Puede que ya no esté disponible en el catálogo del proveedor.</p>
             </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className={claudeFieldLabel} htmlFor="manual-producto">Producto *</label>
-                <input id="manual-producto" value={manualForm.producto} onChange={(e) => setManualForm((p) => ({ ...p, producto: e.target.value }))} placeholder="Nombre del producto" className={claudeInput} />
-              </div>
-              <div>
-                <label className={claudeFieldLabel} htmlFor="manual-caracteristicas">Características</label>
-                <textarea id="manual-caracteristicas" value={manualForm.caracteristicas} onChange={(e) => setManualForm((p) => ({ ...p, caracteristicas: e.target.value }))} placeholder="Escribe una característica por línea" rows={4} className="min-h-[110px] w-full rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 py-2 text-sm text-[#1c1917] outline-none transition-colors placeholder:text-[#78716c] focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20" />
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className={claudeFieldLabel} htmlFor="manual-marca">Marca *</label>
-                  <input id="manual-marca" value={manualForm.marca} onChange={(e) => setManualForm((p) => ({ ...p, marca: e.target.value }))} placeholder="Marca" className={claudeInput} />
+          )}
+          {!loadingDetail && detailProduct && (() => {
+            const imageUrls = getProductoImagenesUrls(detailProduct); const mainImage = imageUrls[selectedImageIndex] ?? imageUrls[0];
+            const precioDisplay = formatPrecioPublicoMxnConIva(detailProduct, tipoCambio);
+            return (
+              <div className="space-y-4">
+                {imageUrls.length > 0 && (
+                  <div className={modalSectionClass}>
+                    <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                      <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      Galería
+                    </div>
+                    <div className="overflow-hidden rounded-[12px] border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#111827]">
+                      <div className="flex aspect-square max-h-80 w-full items-center justify-center p-4"><img src={mainImage} alt={detailProduct.titulo} className="max-h-full w-full object-contain" /></div>
+                      {imageUrls.length > 1 && (
+                        <div className="flex gap-2 overflow-x-auto border-t border-[#E7E7EA] p-3 dark:border-[#273244]">
+                          {imageUrls.map((url, i) => (
+                            <button key={i} type="button" onClick={() => setSelectedImageIndex(i)} aria-label={`Imagen ${i + 1}`} className={`flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border-2 transition ${i === selectedImageIndex ? "border-[#1B5CFF] ring-2 ring-[rgba(27,92,255,0.25)] dark:border-[#4B7CFF]" : "border-[#E7E7EA] hover:border-[#D3D3D8] dark:border-[#273244] dark:hover:border-[#3A4661]"}`}>
+                              <img src={url} alt={`${detailProduct.titulo} — imagen ${i + 1}`} className="h-full w-full object-contain" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className={modalSectionClass}>
+                  <div className="flex gap-4">
+                    {imageUrls.length === 0 && (
+                      <div className="flex size-20 shrink-0 items-center justify-center rounded-[12px] border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#111827]">
+                        <svg className="size-10 text-[#D3D3D8] dark:text-[#3A4661]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-[18px] font-semibold leading-snug tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">{detailProduct.titulo}</h4>
+                      <p className="mt-2 text-[20px] font-bold tabular-nums tracking-[-0.4px] text-[#9A6B15] dark:text-[#E6A23C]">{precioDisplay}</p>
+                      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3.5">
+                        <div>
+                          <dt className="text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">Marca</dt>
+                          <dd className="mt-0.5 text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{detailProduct.marca || "—"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">Modelo / SKU</dt>
+                          <dd className="mt-0.5 font-mono text-[13px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{detailProduct.modelo || detailProduct.sku || "—"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">Clave SAT</dt>
+                          <dd className="mt-0.5 font-mono text-[13px] font-medium text-[#09090B] dark:text-[#F8FAFC]" title={detailProduct.sat_description || undefined}>{detailProduct.sat_key?.trim() || "—"}</dd>
+                          {detailProduct.sat_description?.trim() ? (
+                            <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-[#6E6E77] dark:text-[#8EA0B8]">{detailProduct.sat_description}</p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <dt className="text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">Stock</dt>
+                          <dd className="mt-0.5 text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{detailProduct.total_existencia !== null && detailProduct.total_existencia !== undefined ? detailProduct.total_existencia : "—"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">Fuente</dt>
+                          <dd className="mt-0.5 text-[14px] font-medium capitalize text-[#09090B] dark:text-[#F8FAFC]">{detailProduct.fuente || "syscom"}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className={claudeFieldLabel} htmlFor="manual-modelo">Modelo *</label>
-                  <input
-                    id="manual-modelo"
-                    value={manualForm.modelo}
-                    onChange={(e) => {
-                      setManualFormError("");
-                      setManualForm((p) => ({ ...p, modelo: e.target.value }));
-                    }}
-                    placeholder="Modelo"
-                    className={claudeInput}
-                    aria-invalid={Boolean(manualFormError && /modelo/i.test(manualFormError))}
-                    aria-describedby={manualFormError ? "manual-form-error" : undefined}
-                  />
-                </div>
+                {detailProduct.caracteristicas && detailProduct.caracteristicas.length > 0 && (
+                  <div className={modalSectionClass}>
+                    <h4 className="mb-2 text-[13px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">Características</h4>
+                    <ul className="list-inside list-disc space-y-1 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">{detailProduct.caracteristicas.map((c, i) => (<li key={i}>{c}</li>))}</ul>
+                  </div>
+                )}
               </div>
-
-              <div>
-                <label className={claudeFieldLabel} htmlFor="manual-sat-key">Clave SAT</label>
-                <input
-                  id="manual-sat-key"
-                  value={manualForm.sat_key}
-                  onChange={(e) => setManualForm((p) => ({ ...p, sat_key: e.target.value }))}
-                  placeholder="Ej. 43201500"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  className={`${claudeInput} font-mono tracking-wide`}
-                  aria-describedby="manual-sat-key-hint"
-                />
-                <p id="manual-sat-key-hint" className="mt-1 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
-                  Clave del producto/servicio del SAT para CFDI. Opcional.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className={claudeFieldLabel}>Precio *</label>
-                  <input type="number" min="0" step="0.01" value={manualForm.precio} onChange={(e) => setManualForm((p) => ({ ...p, precio: e.target.value }))} placeholder="0.00" className={claudeInput} />
-                </div>
-                <div>
-                  <label className={claudeFieldLabel}>Stock *</label>
-                  <input type="number" min="0" step="1" value={manualForm.stock} onChange={(e) => setManualForm((p) => ({ ...p, stock: e.target.value }))} placeholder="0" className={claudeInput} />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#334155] dark:bg-[#0f172a]/90 sm:p-5">
-            <div className="mb-3 border-b border-[#e7ded0]/80 pb-3 dark:border-white/[0.06]">
-              <h4 className="text-sm font-semibold text-[#1c1917] dark:text-[#f1f5f9]">Imagen</h4>
-            </div>
-            {manualForm.imagen_url ? (
-              <div className="space-y-2">
-                <div className="relative w-full max-w-[280px] overflow-hidden rounded-lg border border-gray-200/80 bg-gray-50 dark:border-white/[0.08] dark:bg-gray-800/40">
-                  <img src={resolveMediaUrl(manualForm.imagen_url)} alt="Producto" className="h-40 w-full object-contain p-2" />
-                </div>
-                <button type="button" onClick={() => setManualForm((prev) => ({ ...prev, imagen_url: "" }))} className="inline-flex h-9 items-center rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-white/[0.08] dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-white/[0.05]">Quitar imagen</button>
-              </div>
-            ) : (
-              <div {...getManualImageRootProps()} className={`dropzone cursor-pointer rounded-lg border border-dashed p-4 sm:p-5 transition-all ${isManualImageDragActive ? "border-[#ff801f] bg-gray-100 dark:bg-[#111a2b]" : "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-[#111a2b]"}`}>
-                <input {...getManualImageInputProps()} />
-                <div className="text-center">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{isManualImageDragActive ? "Suelta aquí para subir" : "Haz clic o arrastra imagen (máx. 1)"}</p>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Formatos: PNG, JPG, WebP o SVG</p>
-                </div>
-              </div>
-            )}
-            {manualImageUploading && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>
-                Subiendo...
-              </div>
-            )}
-          </section>
+            );
+          })()}
         </div>
-
-        <div className="shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 dark:border-[#334155] dark:bg-[#0f172a]/80 sm:px-6">
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setManualModalOpen(false)} className="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:bg-[#111a2b] dark:text-gray-300 dark:hover:bg-white/[0.05]">Cancelar</button>
-            <button type="button" onClick={saveManualProduct} className="inline-flex h-10 items-center rounded-lg bg-[#ff801f] px-4 text-sm font-semibold text-black transition-colors hover:bg-[#ff6a00]">{editingManualId ? "Guardar" : "Agregar"}</button>
+        <div className={modalFooterClass}>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <button type="button" onClick={closeDetailModal} className={claudeSecondaryBtn}>Cerrar</button>
+            {detailProduct && getProductoLink(detailProduct) ? (
+              <a href={getProductoLink(detailProduct)} target="_blank" rel="noopener noreferrer" className={claudePrimaryBtn}>
+                Ver en proveedor
+                <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 17 17 7M8 7h9v9" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </a>
+            ) : null}
           </div>
         </div>
       </Modal>
 
-      <Modal isOpen={!!manualDeleteId} onClose={() => setManualDeleteId(null)} closeOnBackdropClick={false} ariaLabel="Confirmar eliminación de producto manual" className="w-full max-w-sm overflow-hidden rounded-t-3xl border border-[#e7ded0] bg-[#fffdfa] dark:border-[#273244] dark:bg-[#111a2b] sm:rounded-xl">
-        <div className="p-5">
-          <div className="mb-4 flex items-start gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ff801f] dark:text-[#ffa057]">
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                <path d="M3 6h18" strokeLinecap="round" />
-                <path d="M8 6V4h8v2" strokeLinecap="round" />
-                <path d="M6 6l1 16h10l1-16" strokeLinejoin="round" />
-                <path d="M10 11v6M14 11v6" strokeLinecap="round" />
+      <Modal isOpen={manualModalOpen} onClose={() => setManualModalOpen(false)} closeOnBackdropClick={false} ariaLabelledBy={manualModalTitleId} className={modalShellClass}>
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+          <header className={modalHeaderClass}>
+            <div className="flex items-start gap-3.5">
+              <span className={modalHeaderIconClass}>
+                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M4 7a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
+                  <path d="M12 10v6M9 13h6" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={modalEyebrowClass}>Catálogo · Productos</p>
+                  {editingManualId ? (
+                    <span className="inline-flex h-5 items-center rounded-full bg-[rgba(230,162,60,0.22)] px-2 text-[10px] font-semibold uppercase tracking-wide text-[#E6A23C]">Edición</span>
+                  ) : (
+                    <span className="inline-flex h-5 items-center rounded-full bg-white/10 px-2 text-[10px] font-semibold uppercase tracking-wide text-white/70">Nuevo</span>
+                  )}
+                </div>
+                <h3 id={manualModalTitleId} className={`mt-1 ${modalTitleClass}`}>{editingManualId ? "Editar producto manual" : "Nuevo producto manual"}</h3>
+                <p className={modalSubtitleClass}>Se muestra junto a los catálogos de proveedores y aparece primero en la búsqueda.</p>
+              </div>
+            </div>
+          </header>
+
+          <div className={modalBodyClass}>
+            {manualFormError && (
+              <div id="manual-form-error">
+                <InlineAlert variant="error" title="Revisa el formulario" message={manualFormError} />
+              </div>
+            )}
+
+            <section className={modalSectionClass}>
+              <div className="mb-4 border-b border-[#E7E7EA] pb-3 dark:border-[#273244]">
+                <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">Datos del producto</h4>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className={claudeFieldLabel} htmlFor="manual-producto">Producto<span className={requiredMark}>*</span></label>
+                  <input id="manual-producto" value={manualForm.producto} onChange={(e) => setManualForm((p) => ({ ...p, producto: e.target.value }))} placeholder="Nombre del producto" className={claudeInput} />
+                </div>
+                <div>
+                  <label className={claudeFieldLabel} htmlFor="manual-caracteristicas">Características</label>
+                  <textarea id="manual-caracteristicas" value={manualForm.caracteristicas} onChange={(e) => setManualForm((p) => ({ ...p, caracteristicas: e.target.value }))} placeholder="Escribe una característica por línea" rows={4} className={claudeTextarea} />
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className={claudeFieldLabel} htmlFor="manual-marca">Marca<span className={requiredMark}>*</span></label>
+                    <input id="manual-marca" value={manualForm.marca} onChange={(e) => setManualForm((p) => ({ ...p, marca: e.target.value }))} placeholder="Marca" className={claudeInput} />
+                  </div>
+                  <div>
+                    <label className={claudeFieldLabel} htmlFor="manual-modelo">Modelo<span className={requiredMark}>*</span></label>
+                    <input
+                      id="manual-modelo"
+                      value={manualForm.modelo}
+                      onChange={(e) => {
+                        setManualFormError("");
+                        setManualForm((p) => ({ ...p, modelo: e.target.value }));
+                      }}
+                      placeholder="Modelo"
+                      className={claudeInput}
+                      aria-invalid={Boolean(manualFormError && /modelo/i.test(manualFormError))}
+                      aria-describedby={manualFormError ? "manual-form-error" : undefined}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={claudeFieldLabel} htmlFor="manual-sat-key">Clave SAT</label>
+                  <input
+                    id="manual-sat-key"
+                    value={manualForm.sat_key}
+                    onChange={(e) => setManualForm((p) => ({ ...p, sat_key: e.target.value }))}
+                    placeholder="Ej. 43201500"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    className={`${claudeInput} font-mono tracking-wide`}
+                    aria-describedby="manual-sat-key-hint"
+                  />
+                  <p id="manual-sat-key-hint" className="mt-1.5 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                    Clave del producto/servicio del SAT para CFDI. Opcional.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className={claudeFieldLabel} htmlFor="manual-precio">Precio<span className={requiredMark}>*</span></label>
+                    <input id="manual-precio" type="number" min="0" step="0.01" value={manualForm.precio} onChange={(e) => setManualForm((p) => ({ ...p, precio: e.target.value }))} placeholder="0.00" className={claudeInput} />
+                  </div>
+                  <div>
+                    <label className={claudeFieldLabel} htmlFor="manual-stock">Stock<span className={requiredMark}>*</span></label>
+                    <input id="manual-stock" type="number" min="0" step="1" value={manualForm.stock} onChange={(e) => setManualForm((p) => ({ ...p, stock: e.target.value }))} placeholder="0" className={claudeInput} />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className={modalSectionClass}>
+              <div className="mb-4 border-b border-[#E7E7EA] pb-3 dark:border-[#273244]">
+                <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">Imagen</h4>
+              </div>
+              {manualForm.imagen_url ? (
+                <div className="space-y-3">
+                  <div className="w-full max-w-[280px] overflow-hidden rounded-[12px] border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#111827]">
+                    <img src={resolveMediaUrl(manualForm.imagen_url)} alt="Producto" className="h-40 w-full object-contain p-2" />
+                  </div>
+                  <button type="button" onClick={() => setManualForm((prev) => ({ ...prev, imagen_url: "" }))} className={`${claudeSecondaryBtn} h-9 px-3 text-[13px]`}>
+                    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" /></svg>
+                    Quitar imagen
+                  </button>
+                </div>
+              ) : (
+                <div {...getManualImageRootProps()} className={`flex cursor-pointer flex-col items-center gap-1 rounded-[12px] border border-dashed px-4 py-6 text-center transition-colors ${isManualImageDragActive ? "border-[#1B5CFF] bg-[rgba(27,92,255,0.06)] ring-4 ring-[rgba(27,92,255,0.14)] dark:border-[#4B7CFF] dark:bg-[rgba(75,124,255,0.10)]" : "border-[#D3D3D8] bg-white hover:border-[#1B5CFF]/50 dark:border-[#3A4661] dark:bg-[#111827] dark:hover:border-[#4B7CFF]/50"}`}>
+                  <input {...getManualImageInputProps()} />
+                  <p className="text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{isManualImageDragActive ? "Suelta aquí para subir" : "Haz clic o arrastra una imagen (máx. 1)"}</p>
+                  <p className="text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">Formatos: PNG, JPG, WebP o SVG</p>
+                </div>
+              )}
+              {manualImageUploading && (
+                <div className="mt-2 flex items-center gap-2 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>
+                  Subiendo…
+                </div>
+              )}
+            </section>
+          </div>
+
+          <div className={modalFooterClass}>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <button type="button" onClick={() => setManualModalOpen(false)} disabled={savingManual} className={claudeSecondaryBtn}>Cancelar</button>
+              <button type="button" onClick={saveManualProduct} disabled={savingManual || manualImageUploading} aria-busy={savingManual} className={claudePrimaryBtn}>
+                {savingManual ? (
+                  <>
+                    <span className="inline-block size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden />
+                    Guardando…
+                  </>
+                ) : editingManualId ? "Guardar cambios" : "Agregar producto"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={!!manualDeleteId} onClose={() => setManualDeleteId(null)} closeOnBackdropClick={false} ariaLabelledBy={deleteModalTitleId} className={modalSmallShellClass}>
+        <div className="bg-white p-6 dark:bg-[#111827]">
+          <div className="mb-5 flex items-start gap-3.5">
+            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]">
+              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M6 6l1 16h10l1-16" />
+                <path d="M10 11v6M14 11v6" />
               </svg>
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className={claudeSubheading}>Eliminar producto manual</h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Esta acción no se puede deshacer.</p>
+              <h3 id={deleteModalTitleId} className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">Eliminar producto manual</h3>
+              <p className="mt-1 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">Esta acción no se puede deshacer.</p>
             </div>
           </div>
-          <div className="flex gap-2 justify-end">
-            <button type="button" onClick={() => setManualDeleteId(null)} className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]">Cancelar</button>
-            <button type="button" onClick={confirmDeleteManual} className="inline-flex h-9 items-center justify-center rounded-lg bg-[#ff801f] px-4 text-sm font-medium text-black transition-colors hover:bg-[#ff6a00] active:brightness-95">Eliminar</button>
+          <p className="mb-6 text-[15px] leading-[22px] text-[#52525B] dark:text-[#B7C1D1]">
+            ¿Seguro que deseas quitar{" "}
+            <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+              «{manualProducts.find((x) => x.id === manualDeleteId)?.producto || "este producto"}»
+            </span>{" "}
+            del catálogo manual?
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={() => setManualDeleteId(null)} disabled={deletingManual} className={claudeSecondaryBtn}>Cancelar</button>
+            <button type="button" onClick={confirmDeleteManual} disabled={deletingManual} aria-busy={deletingManual} className={claudeDangerBtn}>
+              {deletingManual ? "Eliminando…" : "Eliminar"}
+            </button>
           </div>
         </div>
       </Modal>

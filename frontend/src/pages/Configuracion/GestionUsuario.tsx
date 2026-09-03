@@ -7,7 +7,7 @@ import Input from '@/components/form/input/InputField';
 import Alert from '@/components/ui/alert/Alert';
 import { Modal } from '@/components/ui/modal';
 import SignaturePad from '@/components/ui/signature/SignaturePad';
-import { fetchApi } from '@/config/api';
+import { fetchApi, resolveMediaUrl } from '@/config/api';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { EyeCloseIcon, EyeIcon, MoreDotIcon } from '@/icons';
@@ -55,6 +55,7 @@ type UserAccount = {
   role?: Role;
   smtp_email?: string;
   smtp_configured?: boolean;
+  avatar_url?: string;
 };
 
 type NewUserForm = {
@@ -101,53 +102,76 @@ const emptyEditForm: EditUserForm = {
   smtp_password: '',
 };
 
-const cardShellClass =
-  "overflow-hidden rounded-3xl border border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.28)] backdrop-blur-sm dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.55)]";
-
+/* Mismo sistema que Perfil/ProfilePage: marino + dorado sobre lienzo blanco,
+   azul eléctrico como único acento de acción, líneas de 1 px. */
 const searchInputClass =
-  "h-10 w-full rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 pl-10 pr-10 text-sm text-[#1c1917] outline-none transition-all placeholder:text-[#78716c] focus:border-[#ff801f]/60 focus:ring-2 focus:ring-[#ff801f]/15 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:placeholder:text-[#8ea0b8] dark:focus:border-[#fb923c]/70 dark:focus:ring-[#fb923c]/20";
-
-const claudeHeroHeadingClass =
-  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.85rem,2.8vw,2.6rem)] font-medium leading-[1.2] tracking-[-0.01em] text-[#1c1917] dark:text-[#f8fafc]";
-
-const claudeSectionHeadingClass =
-  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.25rem,1.8vw,1.75rem)] font-medium leading-[1.2] text-[#1c1917] dark:text-[#f8fafc]";
+  "h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white pl-10 pr-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
 
 const claudeSubheadingClass =
-  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.1rem,1.3vw,1.25rem)] font-medium leading-[1.2] text-[#1c1917] dark:text-[#f8fafc]";
-
-const claudeBodyClass = "text-base font-normal leading-[1.6] text-[#57534e] dark:text-[#b7c1d1]";
+  "text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]";
 
 const sectionLabelClass =
-  "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
+  "text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]";
 
-const bodyMutedClass = "text-sm text-[#57534e] dark:text-[#cbd5e1]";
-
-const permsModalHeaderClass =
-  "px-5 py-4 border-b border-[#e7ded0] bg-[#fffdfa]/70 backdrop-blur dark:border-[#334155] dark:bg-[#111827]/80";
+const bodyMutedClass = "text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]";
 
 const permsAccordionClass =
-  "rounded-2xl border border-[#e7ded0] bg-[#fffdfa] shadow-theme-xs overflow-hidden dark:border-[#273244] dark:bg-[#111827]/80";
+  "rounded-2xl border border-[#E7E7EA] bg-white shadow-theme-xs overflow-hidden dark:border-[#273244] dark:bg-[#151E32]/80";
 
 const permsAccordionBtnClass =
-  "w-full px-4 py-3 flex items-center justify-between gap-3 bg-[#fffdfa]/70 backdrop-blur dark:bg-[#111827]/70";
+  "w-full px-4 py-3 flex items-center justify-between gap-3 bg-white/70 backdrop-blur dark:bg-[#151E32]/70";
 
 const permsModuleRowClass =
-  "rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/60 px-3 py-3 dark:border-[#334155] dark:bg-[#0f172a]/50";
+  "rounded-xl border border-[#E7E7EA] bg-[#FAFAFA]/60 px-3 py-3 dark:border-[#273244] dark:bg-[#111827]/50";
 
-const claudeSansStyle = { fontFamily: "Outfit, sans-serif" } as const;
+const claudeSansStyle = { fontFamily: "Geist, Outfit, system-ui, sans-serif" } as const;
 
 const filterBtnClass =
-  "inline-flex items-center justify-center rounded-lg border border-[#e2d9ca] bg-white px-3 py-2.5 text-xs font-semibold text-[#44403c] transition-all hover:border-[#d6d3d1] hover:bg-[#fafaf9] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-white/[0.05]";
+  "inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-4 text-[14px] font-medium text-[#09090B] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048]";
 
 const primaryOrangeBtnClass =
-  "inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#ff801f] px-5 py-2.5 text-sm font-semibold text-black shadow-none transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:brightness-95 sm:w-auto sm:min-h-0";
+  "inline-flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-[10px] border border-[#1B5CFF] bg-[#1B5CFF] px-6 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,border-color,transform] duration-150 hover:border-[#1244D1] hover:bg-[#1244D1] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:border-[#3B6AF0] dark:hover:bg-[#3B6AF0] sm:h-11 sm:w-auto";
 
 const secondaryOutlineBtnClass =
-  "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-[#e7ded0] bg-white px-4 py-2.5 text-sm font-medium text-[#57534e] shadow-none transition-colors hover:bg-[#fffdf8] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80 sm:w-auto sm:min-h-0";
+  "inline-flex h-12 w-full items-center justify-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-5 text-[15px] font-medium tracking-[-0.1px] text-[#09090B] transition-[background-color,border-color,transform] duration-150 hover:border-[#D3D3D8] hover:bg-[#FAFAFA] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048] sm:h-11 sm:w-auto";
+
+/* --- Sistema de modales -------------------------------------------------
+   Cascaron blanco, cabecera marina (la misma banda de la pagina), cuerpo en
+   lienzo y pie hundido con las acciones ancladas. Un solo lenguaje para los
+   seis dialogos. */
+const modalShellClass =
+  "flex max-h-[min(92vh,840px)] w-[min(94vw,44rem)] flex-col overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827] sm:max-w-2xl";
+
+const modalSmallShellClass =
+  "w-full max-w-md overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827]";
+
+const modalHeaderClass =
+  "relative shrink-0 bg-[#17235B] px-6 py-5 pr-16 dark:bg-[#1B2A63]";
+
+const modalHeaderIconClass =
+  "inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]";
+
+const modalEyebrowClass = "text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55";
+
+const modalTitleClass =
+  "text-[20px] font-semibold leading-[1.25] tracking-[-0.5px] text-white";
+
+const modalSubtitleClass = "mt-1 text-[14px] leading-[20px] text-white/70";
+
+const modalBodyClass =
+  "custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-white px-5 py-5 dark:bg-[#111827] sm:px-6";
+
+const modalFooterClass =
+  "shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:px-6";
+
+const modalSectionClass =
+  "rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#1B2539] sm:p-5";
+
+const dangerBtnClass =
+  "inline-flex h-12 w-full items-center justify-center gap-2 rounded-[10px] border border-[#C22B2B] bg-[#C22B2B] px-5 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,transform] duration-150 hover:bg-[#A82424] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(194,43,43,0.22)] disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:w-auto";
 
 const selectFieldClass =
-  "h-11 w-full rounded-xl border border-[#e2d9ca] bg-[#fffdfa] px-3 text-sm text-[#1c1917] shadow-none outline-none transition-colors focus:border-[#ff801f] focus:ring-2 focus:ring-[#ff801f]/20 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:focus:border-[#fb923c] dark:focus:ring-[#fb923c]/20";
+  "h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
 
 /** Usuarios que pueden asignar permisos (ver/crear/editar/eliminar) a otros, incluidos administradores. */
 const PERMISSION_DELEGATION_USERNAMES = new Set(['angelperez10', 'ivancruz01']);
@@ -770,8 +794,8 @@ export default function UserProfiles() {
   const roleBadge = (u: UserAccount) => {
     const isAdmin = isAdminUser(u);
     return isAdmin
-      ? 'border border-[#ff801f]/35 bg-[#ff801f]/10 text-[#ff801f] dark:border-[#ffa057]/40 dark:bg-[#ff801f]/12 dark:text-[#ffa057]'
-      : 'border border-[#ff801f]/22 bg-[#ff801f]/[0.07] text-[#b45309] dark:border-[#ffa057]/28 dark:bg-[#ff801f]/10 dark:text-[#ffb174]';
+      ? 'bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:text-[#E6A23C]'
+      : 'bg-[rgba(23,35,91,0.08)] text-[#17235B] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]';
   };
 
   return (
@@ -783,51 +807,33 @@ export default function UserProfiles() {
           style={claudeSansStyle}
         >
           <nav
-            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#78716c] dark:text-[#8ea0b8] sm:text-[13px]"
+            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]"
             aria-label="Migas de pan"
           >
             <Link
               to="/"
-              className="rounded-md px-1.5 py-0.5 text-[#57534e] transition-colors hover:bg-black/[0.03] hover:text-[#1c1917] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+              className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
             >
               Inicio
             </Link>
-            <span className="text-[#d6d3d1] dark:text-[#334155]" aria-hidden>
+            <span className="text-[#D3D3D8] dark:text-[#3D3D4A]" aria-hidden>
               /
             </span>
-            <span className="text-[#44403c] dark:text-[#cbd5e1]">Usuarios</span>
+            <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">Usuarios</span>
           </nav>
 
           <div className="flex flex-col gap-4">
-            <header className={`relative flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
-              <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#ff801f]/10 blur-2xl sm:right-6 sm:top-6" />
-              <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff801f] text-black sm:h-11 sm:w-11">
-                  <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ea580c] dark:text-[#fb923c] sm:text-[11px]">
-                    Configuración
-                  </p>
-                  <h1 className={`mt-0.5 ${claudeHeroHeadingClass}`}>Gestión de usuarios</h1>
-                  <p className={`mt-1 max-w-2xl ${claudeBodyClass}`}>
-                    Crea cuentas, asigna roles, ajusta permisos por módulo y administra la firma digital del equipo.
-                  </p>
-                  <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#ff801f]/35 via-[#ffbf8d]/30 to-transparent dark:from-[#ff9a52]/35 dark:via-[#64748b]/25 dark:to-transparent" />
-                </div>
-              </div>
-            </header>
-
-            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#fb923c] sm:h-10 sm:w-10">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+            {/* Banda marina de cabecera: identidad a la izquierda, conteos a la
+                derecha. Mismo corte que la cabecera de "Mi perfil". */}
+            <header className="relative overflow-hidden rounded-[24px] bg-[#17235B] px-5 py-6 dark:bg-[#1B2A63] sm:px-8 sm:py-8">
+              <div
+                className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-[#E6A23C]/15 blur-3xl"
+                aria-hidden
+              />
+              <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+                <div className="flex min-w-0 items-start gap-4">
+                  <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]">
+                    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                       <circle cx="9" cy="7" r="4" />
                       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
@@ -835,52 +841,56 @@ export default function UserProfiles() {
                     </svg>
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">
-                      Total usuarios
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">
+                      Configuración
                     </p>
-                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">{stats.total}</p>
+                    <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]">
+                      Gestión de usuarios
+                    </h1>
+                    <p className="mt-1.5 max-w-[58ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70">
+                      Crea cuentas, asigna roles, ajusta permisos por módulo y administra la firma digital del equipo.
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#ea580c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#fb923c] sm:h-10 sm:w-10">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor">
-                      <path d="M12 3l2.5 6L21 10l-5 4 1.5 7L12 18l-5.5 3 1.5-7-5-4 6.5-1L12 3z" />
-                    </svg>
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">
-                      Admins
-                    </p>
-                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">{stats.admins}</p>
-                  </div>
+                {/* Los conteos son el filtro: en vez de tres cajas decorativas,
+                    cada cifra selecciona su grupo. */}
+                <div
+                  className="flex shrink-0 flex-wrap items-center gap-2"
+                  role="group"
+                  aria-label="Filtrar por rol"
+                >
+                  {([
+                    { value: 'all' as const, label: 'Todos', count: stats.total },
+                    { value: 'admin' as const, label: 'Admins', count: stats.admins },
+                    { value: 'tecnico' as const, label: 'Técnicos', count: stats.tecnicos },
+                  ]).map((chip) => {
+                    const activo = roleFilter === chip.value;
+                    return (
+                      <button
+                        key={chip.value}
+                        type="button"
+                        onClick={() => setRoleFilter(chip.value)}
+                        aria-pressed={activo}
+                        className={`inline-flex h-10 items-center gap-2 rounded-full px-4 text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
+                          activo
+                            ? 'bg-[#E6A23C] text-[#17235B]'
+                            : 'bg-white/10 text-white/80 hover:bg-white/[0.16] hover:text-white'
+                        }`}
+                      >
+                        <span className="text-[15px] font-semibold tabular-nums">{chip.count}</span>
+                        {chip.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-
-              <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-3 dark:border-[#273244] dark:bg-[#111a2b]/90 sm:p-4">
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-white/90 text-[#44403c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1] sm:h-10 sm:w-10">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                      <circle cx="12" cy="7" r="4" />
-                    </svg>
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#78716c] dark:text-[#8ea0b8] sm:text-[11px]">
-                      Técnicos
-                    </p>
-                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-[#1c1917] dark:text-[#f8fafc] sm:text-xl">{stats.tecnicos}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            </header>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]">
               <div className="relative">
                 <svg
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#78716c] dark:text-[#64748b] sm:left-3.5"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E6E77] dark:text-[#64748b] sm:left-3.5"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -900,7 +910,7 @@ export default function UserProfiles() {
                     type="button"
                     onClick={() => setQuery('')}
                     aria-label="Limpiar búsqueda"
-                    className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-[#7c7a74] hover:bg-[#e7ded0]/60 hover:text-[#57534e] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+                    className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-[#7c7a74] hover:bg-[#e7ded0]/60 hover:text-[#52525B] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
                   >
                     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
                       <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -920,13 +930,13 @@ export default function UserProfiles() {
             </div>
 
             {error && (
-              <div className="rounded-2xl border border-red-200/80 bg-red-50/90 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30">
-                <p className="text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
+              <div className="rounded-[14px] border border-[#F6CFCF] bg-[#FEF2F2] px-4 py-3 dark:border-[#7F1D1D] dark:bg-[#3F1518]">
+                <p className="text-[15px] font-medium text-[#C22B2B] dark:text-[#F87171]">{error}</p>
               </div>
             )}
             {success && (
-              <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
-                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">{success}</p>
+              <div className="rounded-[14px] border border-[#BFE6D4] bg-[#E9F8F0] px-4 py-3 dark:border-[#1E5A42] dark:bg-[#0F2A1C]">
+                <p className="text-[15px] font-medium text-[#04724D] dark:text-[#4ADE80]">{success}</p>
               </div>
             )}
 
@@ -935,13 +945,13 @@ export default function UserProfiles() {
         compact
         title="Resultados"
         desc={filtered.length > 0 ? `${filtered.length} usuario${filtered.length === 1 ? '' : 's'} encontrado${filtered.length === 1 ? '' : 's'}.` : 'Los usuarios aparecen aquí según tu búsqueda y filtros.'}
-        className="!overflow-visible border-[#e7ded0] bg-[#fffdfa]/95 shadow-[0_30px_80px_-40px_rgba(28,25,23,0.22)] dark:border-[#273244] dark:bg-[#111827]/80 dark:shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)]"
+        className="!overflow-visible rounded-[24px] border-[#E7E7EA] bg-white shadow-[0_6px_20px_-10px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:!bg-[#111827] dark:shadow-[0_10px_28px_-12px_rgba(0,0,0,0.6)]"
         actions={(
           <div className="relative w-full sm:w-auto" ref={filterRef}>
             <button
               type="button"
               onClick={() => setFilterOpen(v => !v)}
-              className={`${filterBtnClass} h-9 w-full sm:w-auto`}
+              className={`${filterBtnClass} h-11 w-full sm:w-auto`}
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 7h13" />
@@ -953,10 +963,10 @@ export default function UserProfiles() {
               Filtrado
             </button>
             {filterOpen && (
-              <div className="absolute right-0 z-[120] mt-2 w-64 rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 shadow-xl ring-1 ring-black/5 dark:border-[#334155] dark:bg-[#111a2b] dark:ring-white/10">
+              <div className="absolute right-0 z-[120] mt-2 w-64 rounded-[16px] border border-[#E7E7EA] bg-white p-4 shadow-[0_12px_32px_-12px_rgba(9,9,11,0.25)] dark:border-[#273244] dark:bg-[#151E32]">
                 <div className="mb-2">
-                  <label className="mb-2 block text-xs font-medium text-[#57534e] dark:text-[#cbd5e1]">Rol</label>
-                  <div className="inline-flex w-full rounded-lg border border-[#e7ded0] bg-[#fcfaf6] p-1 dark:border-[#334155] dark:bg-[#0f172a]/80">
+                  <label className="mb-2 block text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">Rol</label>
+                  <div className="inline-flex w-full rounded-[10px] border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#273244] dark:bg-[#1B2539]">
                     {[
                       { value: 'all', label: 'Todos' },
                       { value: 'admin', label: 'Admins' },
@@ -969,10 +979,10 @@ export default function UserProfiles() {
                           setRoleFilter(opt.value as 'all' | Role);
                           setFilterOpen(false);
                         }}
-                        className={`h-8 flex-1 rounded-md px-3 py-2 text-xs font-semibold transition-all ${
+                        className={`h-9 flex-1 rounded-[8px] px-3 text-[13px] font-semibold transition-colors ${
                           roleFilter === opt.value
-                            ? 'bg-white text-[#ea580c] shadow-sm dark:bg-[#111a2b] dark:text-[#fb923c]'
-                            : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                            ? 'bg-white text-[#1B5CFF] shadow-[0_1px_3px_rgba(9,9,11,0.08)] dark:bg-[#111827] dark:text-[#4B7CFF]'
+                            : 'text-[#6E6E77] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:text-[#F8FAFC]'
                         }`}
                       >
                         {opt.label}
@@ -988,8 +998,8 @@ export default function UserProfiles() {
 
         <div className="p-2 pt-0">
         {loading ? (
-          <div className="rounded-xl border border-[#e7ded0] bg-[#fffdfa]/90 py-14 text-center dark:border-[#334155] dark:bg-[#111a2b]/80">
-            <div className="inline-flex items-center gap-2 text-sm text-[#78716c] dark:text-[#8ea0b8]">
+          <div className="rounded-[20px] border border-[#E7E7EA] bg-[#FAFAFA] py-14 text-center dark:border-[#273244] dark:bg-[#1B2539]">
+            <div className="inline-flex items-center gap-2 text-[15px] text-[#6E6E77] dark:text-[#8EA0B8]">
               <svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
               </svg>
@@ -1010,25 +1020,49 @@ export default function UserProfiles() {
                 .join('');
               const switchDisabled =
                 togglingActiveId === u.id || (isProtectedPrincipalUsername(u.username) && isActive);
+              const avatarSrc = (u.avatar_url || '').trim() ? resolveMediaUrl(u.avatar_url as string) : '';
 
               return (
                 <div
                   key={u.id}
-                  className="group relative overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-4 transition hover:border-[#d6d3d1] dark:border-[#334155] dark:bg-[#111a2b] dark:hover:border-[#475569]/80"
+                  className="group relative rounded-[20px] border border-[#E7E7EA] bg-[#FAFAFA] p-5 transition-colors hover:border-[#D3D3D8] dark:border-[#273244] dark:bg-[#1B2539] dark:hover:border-[#3A4661]"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#e7ded0] bg-[#fcfaf6]/90 text-sm font-semibold text-[#44403c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
-                        {initials || 'U'}
+                    <div className="flex min-w-0 items-center gap-3.5">
+                      <div className="relative size-12 shrink-0 overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#111827]">
+                        {avatarSrc ? (
+                          <img
+                            src={avatarSrc}
+                            alt=""
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center bg-[linear-gradient(140deg,rgba(230,162,60,0.22),rgba(23,35,91,0.06))] text-[15px] font-semibold text-[#9A6B15] dark:text-[#E6A23C]">
+                            {initials || 'U'}
+                          </span>
+                        )}
+                        {!isActive && (
+                          <span
+                            className="absolute inset-0 bg-white/60 dark:bg-black/55"
+                            aria-hidden
+                            title="Cuenta deshabilitada"
+                          />
+                        )}
                       </div>
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
-                          <h4 className="truncate font-semibold text-[#1c1917] dark:text-[#f8fafc]">{u.username}</h4>
-                          <span className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${roleBadge(u)}`}>
+                          <h4 className="truncate text-[15px] font-semibold tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]">
+                            {fullName || u.username}
+                          </h4>
+                          <span className={`inline-flex h-6 shrink-0 items-center rounded-full px-2.5 text-[12px] font-semibold ${roleBadge(u)}`}>
                             {isAdmin ? 'Admin' : 'Técnico'}
                           </span>
                         </div>
-                        <p className="text-sm text-[#78716c] dark:text-[#8ea0b8] truncate">{fullName || '—'}</p>
+                        <p className="truncate font-mono text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">@{u.username}</p>
                       </div>
                     </div>
 
@@ -1036,22 +1070,23 @@ export default function UserProfiles() {
                       <button
                         type="button"
                         onClick={() => setOpenMenuId((prev) => (prev === u.id ? null : u.id))}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-[#fcfaf6]/90 text-[#78716c] hover:border-[#e2d9ca] hover:bg-[#fffdfa] hover:text-[#44403c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#8ea0b8] dark:hover:bg-[#1e293b] dark:hover:text-[#f8fafc]"
+                        aria-label={`Acciones para ${u.username}`}
+                        className="inline-flex size-9 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#D3D3D8] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:hover:text-[#F8FAFC]"
                       >
                         <MoreDotIcon className="h-5 w-5 fill-current" />
                       </button>
 
                       {openMenuId === u.id && (
-                        <div className="absolute right-0 top-full z-[200] mt-1.5 w-44 overflow-hidden rounded-xl border border-[#e2d9ca] bg-[#fffdfa] py-1 shadow-lg ring-1 ring-black/5 dark:border-[#334155] dark:bg-[#111827] dark:ring-white/10">
+                        <div className="absolute right-0 top-full z-[200] mt-1.5 w-48 overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-white py-1 shadow-[0_12px_32px_-12px_rgba(9,9,11,0.28)] dark:border-[#273244] dark:bg-[#151E32]">
                           <button
                             type="button"
                             onClick={() => {
                               setOpenMenuId(null);
                               openEdit(u);
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-[#44403c] transition-colors hover:bg-[#fcfaf6] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80"
+                            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[14px] font-medium text-[#09090B] transition-colors hover:bg-[#FAFAFA] dark:text-[#F8FAFC] dark:hover:bg-[#243048]"
                           >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f0e8] text-[#57534e] dark:bg-[#1e293b] dark:text-[#cbd5e1]">
+                            <span className="flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
                               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -1064,9 +1099,9 @@ export default function UserProfiles() {
                             onClick={() => {
                               openPerms(u);
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-[#44403c] transition-colors hover:bg-[#fcfaf6] dark:text-[#e5e7eb] dark:hover:bg-[#1e293b]/80"
+                            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[14px] font-medium text-[#09090B] transition-colors hover:bg-[#FAFAFA] dark:text-[#F8FAFC] dark:hover:bg-[#243048]"
                           >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f0e8] text-[#57534e] dark:bg-[#1e293b] dark:text-[#cbd5e1]">
+                            <span className="flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
                               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                               </svg>
@@ -1080,9 +1115,9 @@ export default function UserProfiles() {
                                 setOpenMenuId(null);
                                 setConfirmDeleteId(u.id);
                               }}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[14px] font-medium text-[#C22B2B] transition-colors hover:bg-[#FEF2F2] dark:text-[#F87171] dark:hover:bg-[#3F1518]"
                             >
-                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400">
+                              <span className="flex size-7 items-center justify-center rounded-[9px] bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]">
                                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                                 </svg>
@@ -1095,33 +1130,44 @@ export default function UserProfiles() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-2">
-                    <div className={cn("truncate", bodyMutedClass)}>
-                      <span className="text-[#78716c] dark:text-[#8ea0b8]">Correo:</span>{' '}
-                      {u.email || '—'}
+                  <div className="mt-4 grid grid-cols-1 gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <svg className="mt-0.5 size-4 shrink-0 text-[#6E6E77] dark:text-[#8EA0B8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <rect x="3" y="5.5" width="18" height="13" rx="2.4" />
+                        <path d="m3.6 7 8.4 6 8.4-6" />
+                      </svg>
+                      <span className={cn("min-w-0 truncate", bodyMutedClass)} title={u.email || ''}>
+                        {u.email || '—'}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
                       {u.smtp_configured ? (
-                        <span className="ml-2 inline-flex items-center rounded-full border border-emerald-200/90 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                        <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-[rgba(4,114,77,0.10)] px-2.5 text-[12px] font-semibold text-[#04724D] dark:bg-[rgba(74,222,128,0.14)] dark:text-[#4ADE80]">
+                          <span className="size-[6px] rounded-full bg-current" aria-hidden />
                           SMTP listo
                         </span>
                       ) : (
-                        <span className="ml-2 inline-flex items-center rounded-full border border-amber-200/90 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                        <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-[rgba(230,162,60,0.16)] px-2.5 text-[12px] font-semibold text-[#9A6B15] dark:text-[#E6A23C]">
+                          <span className="size-[6px] rounded-full bg-current" aria-hidden />
                           Sin SMTP
                         </span>
                       )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center rounded-md border border-[#e7ded0] bg-[#fcfaf6]/90 px-2 py-0.5 text-[11px] font-semibold text-[#44403c] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1]">
-                        <svg className="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-[rgba(23,35,91,0.06)] px-2.5 text-[12px] font-medium text-[#52525B] dark:bg-white/[0.06] dark:text-[#B7C1D1]">
+                        <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                           <path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2Z" />
                           <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                         </svg>
-                        Acceso con contraseña
+                        Contraseña
                       </span>
                     </div>
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#e2d9ca] bg-[#fcfaf6]/90 px-3 py-2.5 dark:border-[#334155] dark:bg-[#0f172a]/80">
+
+                    <div className="flex items-center justify-between gap-4 rounded-[14px] border border-[#E7E7EA] bg-white px-3.5 py-3 dark:border-[#273244] dark:bg-[#111827]">
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-[#78716c] dark:text-[#8ea0b8]">Acceso al sistema</p>
-                        <p className="mt-0.5 text-sm text-[#1c1917] dark:text-[#f8fafc]">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                          Acceso al sistema
+                        </p>
+                        <p className={`mt-1 text-[14px] font-medium ${isActive ? 'text-[#04724D] dark:text-[#4ADE80]' : 'text-[#6E6E77] dark:text-[#8EA0B8]'}`}>
                           {isActive ? 'Cuenta habilitada' : 'Cuenta deshabilitada'}
                         </p>
                       </div>
@@ -1132,12 +1178,14 @@ export default function UserProfiles() {
                         aria-label={isActive ? 'Desactivar cuenta' : 'Activar cuenta'}
                         disabled={switchDisabled}
                         onClick={() => void toggleUserActive(u)}
-                        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fcfaf6] dark:focus-visible:ring-offset-[#111827] ${
+                        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] ${
                           switchDisabled
-                            ? 'cursor-not-allowed border border-[#e7ded0] bg-[#e7ded0]/90 opacity-60 dark:border-[#334155] dark:bg-[#334155]/90'
+                            ? isActive
+                              ? 'cursor-not-allowed bg-[#04724D]/45 dark:bg-[#4ADE80]/40'
+                              : 'cursor-not-allowed bg-[#E7E7EA] opacity-60 dark:bg-[#273244]'
                             : isActive
-                              ? 'bg-[#5db872]'
-                              : 'bg-[#e7ded0] dark:bg-[#334155]'
+                              ? 'bg-[#04724D] dark:bg-[#4ADE80]'
+                              : 'bg-[#D3D3D8] dark:bg-[#3A4661]'
                         }`}
                       >
                         <span
@@ -1153,9 +1201,9 @@ export default function UserProfiles() {
             })}
 
             {!filtered.length && (
-              <div className="col-span-full rounded-xl border border-[#e7ded0] bg-[#fffdfa]/90 py-14 text-center dark:border-[#334155] dark:bg-[#111a2b]/80">
+              <div className="col-span-full rounded-[20px] border border-[#E7E7EA] bg-[#FAFAFA] py-14 text-center dark:border-[#273244] dark:bg-[#1B2539]">
                 <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
-                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#ff801f]/12 text-[#ea580c] dark:bg-[#fb923c]/12 dark:text-[#fb923c]">
+                  <span className="inline-flex size-12 items-center justify-center rounded-[14px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
                     <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                       <circle cx="9" cy="7" r="4" />
@@ -1163,8 +1211,8 @@ export default function UserProfiles() {
                       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                     </svg>
                   </span>
-                  <p className="text-sm font-semibold text-[#44403c] dark:text-[#e5e7eb]">No hay usuarios para mostrar.</p>
-                  <p className="text-xs text-[#78716c] dark:text-[#8ea0b8]">Prueba con otra búsqueda o limpia los filtros.</p>
+                  <p className="text-[15px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">No hay usuarios para mostrar.</p>
+                  <p className="text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">Prueba con otra búsqueda o limpia los filtros.</p>
                 </div>
               </div>
             )}
@@ -1177,38 +1225,41 @@ export default function UserProfiles() {
         </div>
       </div>
 
-      <Modal mobileBottomSheet isOpen={isCreateOpen} onClose={closeCreate} closeOnBackdropClick={false} className="flex max-h-[min(92vh,780px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl" ariaLabelledBy={createModalTitleId}>
+      <Modal mobileBottomSheet isOpen={isCreateOpen} onClose={closeCreate} closeOnBackdropClick={false} className={modalShellClass} ariaLabelledBy={createModalTitleId}>
         <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-          <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-[#111827] sm:pr-16">
-            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <header className={modalHeaderClass}>
+            <div className="flex items-start gap-3.5">
+              <span className={modalHeaderIconClass}>
+                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                   <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  <path d="M19 8v6M22 11h-6" />
                 </svg>
-              </div>
+              </span>
               <div className="min-w-0">
-                <p className={sectionLabelClass}>Contactos · Usuarios</p>
-                <h2 id={createModalTitleId} className={`mt-1 ${claudeSectionHeadingClass}`}>Nuevo usuario</h2>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                <p className={modalEyebrowClass}>Usuarios</p>
+                <h2 id={createModalTitleId} className={`mt-1 ${modalTitleClass}`}>Nuevo usuario</h2>
+                <p className={modalSubtitleClass}>
                   Crea cuentas Admin o Técnico con contraseña segura.
                 </p>
               </div>
             </div>
           </header>
 
-          <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-[#fffdfa] px-4 py-4 pb-5 dark:bg-[#111a2b] sm:px-5">
+          <div className={modalBodyClass}>
             {formError && (
               <Alert variant="error" title="Revisa" message={formError} showLink={false} />
             )}
 
-            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
-              <div className="mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80">
+            <div className={modalSectionClass}>
+              <div className="mb-4 flex items-center gap-2.5 border-b border-[#E7E7EA] pb-3 dark:border-[#273244]">
+                <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                  <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M20 21v-1.6a4.4 4.4 0 0 0-4.4-4.4H8.4A4.4 4.4 0 0 0 4 19.4V21" />
+                    <circle cx="12" cy="7.5" r="3.8" />
+                  </svg>
+                </span>
                 <p className={sectionLabelClass}>Identidad</p>
-                <p className={`mt-0.5 ${claudeSubheadingClass}`}>Acceso al sistema</p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                 <div className="sm:col-span-1">
@@ -1219,7 +1270,7 @@ export default function UserProfiles() {
                     value={form.username}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, username: e.target.value }))}
                   />
-                  <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Máx. 150 caracteres. Letras, dígitos y @/./+/-/_</p>
+                  <p className="mt-1 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">Máx. 150 caracteres. Letras, dígitos y @/./+/-/_</p>
                 </div>
                 <div>
                   <Label>
@@ -1258,11 +1309,20 @@ export default function UserProfiles() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
-              <div className="mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80">
-                <p className={sectionLabelClass}>Seguridad</p>
-                <p className={`mt-0.5 ${claudeSubheadingClass}`}>Contraseña</p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">8+ caracteres, no solo números, distinta al usuario.</p>
+            <div className={modalSectionClass}>
+              <div className="mb-4 border-b border-[#E7E7EA] pb-3 dark:border-[#273244]">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:text-[#E6A23C]">
+                    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2Z" />
+                      <path d="M7.5 11V7.5a4.5 4.5 0 0 1 9 0V11" />
+                    </svg>
+                  </span>
+                  <p className={sectionLabelClass}>Contraseña</p>
+                </div>
+                <p className="mt-2 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  8+ caracteres, no solo números, distinta al usuario.
+                </p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                 <div>
@@ -1322,7 +1382,7 @@ export default function UserProfiles() {
                       const pw = generatePassword(form.username, form.first_name, form.last_name);
                       setForm((p) => ({ ...p, password: pw, password2: pw }));
                     }}
-                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 shadow-theme-xs transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]"
+                    className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-4 text-[14px] font-medium text-[#1B5CFF] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#4B7CFF] dark:hover:bg-[#243048]"
                   >
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                       <path d="M12 3v2" />
@@ -1341,18 +1401,20 @@ export default function UserProfiles() {
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 dark:border-[#273244] dark:bg-[#0f172a]/70 sm:px-5">
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2">
+          <div className={modalFooterClass}>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
               <button type="button" onClick={closeCreate} className={secondaryOutlineBtnClass} disabled={creating}>
                 Cancelar
               </button>
-              <button
-                type="button"
-                onClick={doCreate}
-                className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-[#ff801f] px-4 text-sm font-medium text-black transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:brightness-95 disabled:opacity-60 sm:w-auto"
-                disabled={creating}
-              >
-                {creating ? 'Creando…' : 'Crear usuario'}
+              <button type="button" onClick={doCreate} className={primaryOrangeBtnClass} disabled={creating} aria-busy={creating}>
+                {creating ? (
+                  <>
+                    <span className="inline-block size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden />
+                    Creando…
+                  </>
+                ) : (
+                  'Crear usuario'
+                )}
               </button>
             </div>
           </div>
@@ -1360,28 +1422,29 @@ export default function UserProfiles() {
 
       </Modal>
 
-      <Modal mobileBottomSheet isOpen={isPermsOpen} onClose={closePerms} closeOnBackdropClick={false} className="flex max-h-[min(92vh,880px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl" ariaLabelledBy={permsModalTitleId}>
-        <div className="overflow-hidden rounded-2xl">
-          <div className={permsModalHeaderClass}>
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#9a3412]/40 dark:bg-[#7c2d12]/20 dark:text-[#fdba74]">
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <Modal mobileBottomSheet isOpen={isPermsOpen} onClose={closePerms} closeOnBackdropClick={false} className={modalShellClass} ariaLabelledBy={permsModalTitleId}>
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+          <header className={modalHeaderClass}>
+            <div className="flex items-start gap-3.5">
+              <span className={modalHeaderIconClass}>
+                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M12 3l7 4v6c0 5-3 8-7 8s-7-3-7-8V7l7-4Z" />
                   <path d="M9 12l2 2 4-4" />
                 </svg>
               </span>
               <div className="min-w-0">
-                <h3 id={permsModalTitleId} className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc] truncate [font-family:Georgia,'Times_New_Roman',serif]">
-                  Permisos{permsUser ? `: ${permsUser.username}` : ''}
+                <p className={modalEyebrowClass}>Permisos</p>
+                <h3 id={permsModalTitleId} className={`mt-1 truncate ${modalTitleClass}`}>
+                  {permsUser ? permsUser.username : 'Usuario'}
                 </h3>
-                <p className="mt-0.5 text-[11px] text-[#78716c] dark:text-[#8ea0b8]">
-                  Define qué vistas puede ver y qué acciones puede realizar este usuario.
+                <p className={modalSubtitleClass}>
+                  Define qué vistas puede ver y qué acciones puede realizar.
                 </p>
               </div>
             </div>
-          </div>
+          </header>
 
-          <div className="p-5 max-h-[76vh] overflow-y-auto custom-scrollbar">
+          <div className={modalBodyClass}>
             {!canDelegatePerms && !permsLoading && (
               <div className="mb-4">
                 <Alert
@@ -1399,7 +1462,7 @@ export default function UserProfiles() {
             )}
 
             {permsLoading ? (
-              <div className="py-10 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]">Cargando permisos...</div>
+              <div className="py-10 text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8]">Cargando permisos...</div>
             ) : (
               <div className="space-y-4">
                 {(() => {
@@ -1578,19 +1641,19 @@ export default function UserProfiles() {
                               aria-expanded={isOpen}
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#f5f0e8] text-[#57534e] dark:bg-[#1e293b] dark:text-[#cbd5e1]">
+                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
                                   <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                                     <path d="M4 6h16M4 12h16M4 18h16" />
                                   </svg>
                                 </span>
                                 <div className="min-w-0 text-left">
-                                  <div className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc] truncate">{sec.label}</div>
-                                  <div className="text-[11px] text-[#78716c] dark:text-[#8ea0b8] truncate">
+                                  <div className="text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC] truncate">{sec.label}</div>
+                                  <div className="text-[11px] text-[#6E6E77] dark:text-[#8EA0B8] truncate">
                                     {sec.modules.length > 0 ? `${sec.modules.length} módulo(s)` : 'Sin módulos configurados'}
                                   </div>
                                 </div>
                               </div>
-                              <svg className={`w-4 h-4 text-[#78716c] dark:text-[#8ea0b8] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="none">
+                              <svg className={`w-4 h-4 text-[#6E6E77] dark:text-[#8EA0B8] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="none">
                                 <path d="M5.25 7.5 10 12.25 14.75 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
                             </button>
@@ -1599,8 +1662,8 @@ export default function UserProfiles() {
                               className={`grid transition-all duration-300 ease-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
                             >
                               <div className="overflow-hidden">
-                                <div className="p-4 border-t border-[#e7ded0] dark:border-[#334155]">
-                                  <div className="hidden sm:grid grid-cols-12 gap-3 pb-2 text-[11px] font-semibold text-[#78716c] dark:text-[#8ea0b8]">
+                                <div className="p-4 border-t border-[#E7E7EA] dark:border-[#273244]">
+                                  <div className="hidden sm:grid grid-cols-12 gap-3 pb-2 text-[11px] font-semibold text-[#6E6E77] dark:text-[#8EA0B8]">
                                     <div className="col-span-5">Módulo</div>
                                     <div className="col-span-7 grid grid-cols-4 gap-3 text-center">
                                       {actionLabels.map(a => (
@@ -1657,7 +1720,7 @@ export default function UserProfiles() {
                                               if (!canDelegatePerms) return;
                                               onToggle();
                                             }}
-                                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-[#ff801f]/40 active:scale-[0.98] ${checked ? 'bg-[#ff801f]' : 'bg-[#e7ded0] dark:bg-[#334155]'} ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
+                                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-[rgba(27,92,255,0.30)] active:scale-[0.98] ${checked ? 'bg-[#1B5CFF] dark:bg-[#4B7CFF]' : 'bg-[#D3D3D8] dark:bg-[#3A4661]'} ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
                                           >
                                             <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${checked ? 'translate-x-4' : 'translate-x-1'}`} />
                                           </button>
@@ -1676,11 +1739,11 @@ export default function UserProfiles() {
                                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:items-center">
                                               <div className="sm:col-span-5">
                                                 <div className="flex items-center gap-2.5">
-                                                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#fffdfa] text-[#57534e] shadow-sm dark:bg-[#111a2b] dark:text-[#cbd5e1]">
+                                                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#52525B] shadow-sm dark:bg-[#151E32] dark:text-[#B7C1D1]">
                                                     {getIcon(m.key)}
                                                   </span>
                                                   <div className="min-w-0 flex-1">
-                                                    <div className="text-sm font-medium text-[#1c1917] dark:text-[#f8fafc] truncate">{m.label}</div>
+                                                    <div className="text-sm font-medium text-[#09090B] dark:text-[#F8FAFC] truncate">{m.label}</div>
                                                     {supportsOwnScope && (
                                                       <div className="mt-1.5 flex items-center gap-2">
                                                         <PermSwitch
@@ -1688,7 +1751,7 @@ export default function UserProfiles() {
                                                           onToggle={() => setPerm(m.key, 'own_only', !cur.own_only)}
                                                           ariaLabel={ownScopeAria}
                                                         />
-                                                        <span className="text-[11px] leading-tight text-[#78716c] dark:text-[#8ea0b8] truncate">
+                                                        <span className="text-[11px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8] truncate">
                                                           {ownScopeText}
                                                         </span>
                                                       </div>
@@ -1708,7 +1771,7 @@ export default function UserProfiles() {
                                       })}
                                     </div>
                                   ) : (
-                                    <div className="rounded-xl border border-dashed border-[#e7ded0] dark:border-[#334155] p-4 text-center text-sm text-[#78716c] dark:text-[#8ea0b8]">
+                                    <div className="rounded-xl border border-dashed border-[#E7E7EA] dark:border-[#273244] p-4 text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
                                       Esta sección todavía no tiene módulos conectados a permisos.
                                     </div>
                                   )}
@@ -1722,23 +1785,24 @@ export default function UserProfiles() {
                   );
                 })()}
 
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={closePerms}
-                    className={secondaryOutlineBtnClass}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={permsSaving || permsLoading || !permsUser || !canDelegatePerms}
-                    title={!canDelegatePerms ? 'Solo Angel Pérez e Ivan Cruz pueden guardar cambios' : undefined}
-                    onClick={savePerms}
-                    className="inline-flex items-center justify-center rounded-xl bg-[#ff801f] px-4 py-2.5 text-xs font-medium text-black shadow-theme-xs hover:bg-[#ff6a00] disabled:opacity-60"
-                  >
-                    {permsSaving ? 'Guardando...' : 'Guardar permisos'}
-                  </button>
+                <div className="sticky -bottom-5 z-10 -mx-5 -mb-5 mt-1 sm:-mx-6">
+                  <div className={modalFooterClass}>
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                      <button type="button" onClick={closePerms} className={secondaryOutlineBtnClass}>
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={permsSaving || permsLoading || !permsUser || !canDelegatePerms}
+                        title={!canDelegatePerms ? 'Solo Angel Pérez e Ivan Cruz pueden guardar cambios' : undefined}
+                        onClick={savePerms}
+                        className={primaryOrangeBtnClass}
+                        aria-busy={permsSaving}
+                      >
+                        {permsSaving ? 'Guardando…' : 'Guardar permisos'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -1746,35 +1810,41 @@ export default function UserProfiles() {
         </div>
       </Modal>
 
-      <Modal mobileBottomSheet isOpen={isEditOpen} onClose={closeEdit} closeOnBackdropClick={false} className="flex max-h-[min(92vh,860px)] w-[min(94vw,42rem)] flex-col overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-xl dark:border-[#273244] dark:bg-[#111a2b] sm:max-w-2xl" ariaLabelledBy={editModalTitleId}>
+      <Modal mobileBottomSheet isOpen={isEditOpen} onClose={closeEdit} closeOnBackdropClick={false} className={modalShellClass} ariaLabelledBy={editModalTitleId}>
         <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-          <header className="relative shrink-0 border-b border-[#e7ded0] bg-[#fcfaf6] px-5 py-4 pr-14 dark:border-[#273244] dark:bg-[#0f172a]/70 sm:pr-16">
-            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
+          <header className={modalHeaderClass}>
             <div className="flex items-start gap-3.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f] text-black">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+              <span className={modalHeaderIconClass}>
+                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                 </svg>
-              </div>
-              <div className="min-w-0 flex-1 pt-0.5">
-                <p className={sectionLabelClass}>Contactos · Usuarios</p>
-                <h2 id={editModalTitleId} className={`mt-1 ${claudeSectionHeadingClass}`}>Editar usuario</h2>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className={modalEyebrowClass}>Editar usuario</p>
+                <h2 id={editModalTitleId} className={`mt-1 truncate ${modalTitleClass}`}>
+                  {editUser ? editUser.username : 'Usuario'}
+                </h2>
+                <p className={modalSubtitleClass}>
                   Actualiza datos y, si aplica, la contraseña o la firma digital.
                 </p>
               </div>
             </div>
           </header>
 
-          <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-[#fffdfa] px-4 py-4 pb-5 dark:bg-[#111a2b] sm:px-5">
+          <div className={modalBodyClass}>
             {editError && <Alert variant="error" title="Revisa" message={editError} showLink={false} />}
             {signatureError && <Alert variant="error" title="Firma" message={signatureError} showLink={false} />}
 
-            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
-              <div className="mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80">
-                <p className={sectionLabelClass}>Identidad</p>
-                <p className={`mt-0.5 ${claudeSubheadingClass}`}>Datos de la cuenta</p>
+            <div className={modalSectionClass}>
+              <div className="mb-4 flex items-center gap-2.5 border-b border-[#E7E7EA] pb-3 dark:border-[#273244]">
+                <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                  <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M20 21v-1.6a4.4 4.4 0 0 0-4.4-4.4H8.4A4.4 4.4 0 0 0 4 19.4V21" />
+                    <circle cx="12" cy="7.5" r="3.8" />
+                  </svg>
+                </span>
+                <p className={sectionLabelClass}>Datos de la cuenta</p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                 <div>
@@ -1823,11 +1893,18 @@ export default function UserProfiles() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
-              <div className="mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80">
-                <p className={sectionLabelClass}>Seguridad</p>
-                <p className={`mt-0.5 ${claudeSubheadingClass}`}>Cambiar contraseña</p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Opcional · deja vacío para mantener la actual.</p>
+            <div className={modalSectionClass}>
+              <div className="mb-4 border-b border-[#E7E7EA] pb-3 dark:border-[#273244]">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:text-[#E6A23C]">
+                    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2Z" />
+                      <path d="M7.5 11V7.5a4.5 4.5 0 0 1 9 0V11" />
+                    </svg>
+                  </span>
+                  <p className={sectionLabelClass}>Cambiar contraseña</p>
+                </div>
+                <p className="mt-1 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">Opcional · deja vacío para mantener la actual.</p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                 <div>
@@ -1879,13 +1956,13 @@ export default function UserProfiles() {
               </div>
             </div>
 
-            <div className="relative rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
+            <div className="relative rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#151E32] sm:p-5">
               {editUser?.smtp_configured ? (
                 <button
                   type="button"
                   onClick={() => setConfirmDeleteSmtp(true)}
                   disabled={editing || clearingSmtp}
-                  className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e2d9ca] bg-white text-[#57534e] shadow-sm transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 disabled:opacity-60 dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#cbd5e1] dark:hover:border-rose-500/50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 sm:right-4 sm:top-4"
+                  className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white text-[#52525B] shadow-sm transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 disabled:opacity-60 dark:border-[#273244] dark:bg-[#111827] dark:text-[#B7C1D1] dark:hover:border-rose-500/50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 sm:right-4 sm:top-4"
                   aria-label="Quitar credenciales SMTP"
                   title="Quitar credenciales SMTP"
                 >
@@ -1898,23 +1975,28 @@ export default function UserProfiles() {
                   </svg>
                 </button>
               ) : null}
-              <div className={`mb-4 border-b border-[#e7ded0]/90 pb-3 dark:border-[#334155]/80 ${editUser?.smtp_configured ? 'pr-11' : ''}`}>
+              <div className={`mb-4 border-b border-[#E7E7EA]/90 pb-3 dark:border-[#273244]/80 ${editUser?.smtp_configured ? 'pr-11' : ''}`}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="min-w-0">
-                    <p className={sectionLabelClass}>Correo de envío</p>
-                    <p className={`mt-0.5 ${claudeSubheadingClass}`}>SMTP / Webmail</p>
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                      <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <rect x="3" y="5.5" width="18" height="13" rx="2.4" />
+                        <path d="m3.6 7 8.4 6 8.4-6" />
+                      </svg>
+                    </span>
+                    <p className={sectionLabelClass}>SMTP / Webmail</p>
                   </div>
                   <span
                     className={
                       editUser?.smtp_configured
-                        ? 'inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200'
-                        : 'inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200'
+                        ? 'inline-flex h-6 items-center rounded-full bg-[rgba(4,114,77,0.10)] px-2.5 text-[12px] font-semibold text-[#04724D] dark:bg-[rgba(74,222,128,0.14)] dark:text-[#4ADE80]'
+                        : 'inline-flex h-6 items-center rounded-full bg-[rgba(230,162,60,0.16)] px-2.5 text-[12px] font-semibold text-[#9A6B15] dark:text-[#E6A23C]'
                     }
                   >
                     {editUser?.smtp_configured ? 'Correo listo' : 'Sin configurar'}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                <p className="mt-1 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
                   Buzón Intrax con el que este usuario enviará PDF de órdenes y cotizaciones. La contraseña de webmail no se vuelve a mostrar.
                 </p>
               </div>
@@ -1960,12 +2042,18 @@ export default function UserProfiles() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[#e7ded0] bg-[#fcfaf6] p-4 dark:border-[#273244] dark:bg-[#111a2b] sm:p-5">
-              <div className="mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-gray-100/90 pb-3 dark:border-white/[0.06]">
-                <div>
-                  <p className={sectionLabelClass}>Documento</p>
-                  <p className={`mt-0.5 ${claudeSubheadingClass}`}>Firma digital</p>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <div className={modalSectionClass}>
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-[#E7E7EA] pb-3 dark:border-[#273244]">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(23,35,91,0.10)] text-[#17235B] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                      <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M3 19c3.5 0 3-13 6.5-13S12 17 15 17s2.5-4 6-4" />
+                      </svg>
+                    </span>
+                    <p className={sectionLabelClass}>Firma digital</p>
+                  </div>
+                  <p className="mt-2 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
                     Se usa como &quot;Firma del Encargado&quot; en órdenes de servicio.
                   </p>
                 </div>
@@ -1977,7 +2065,7 @@ export default function UserProfiles() {
                       setConfirmDeleteSignature(true);
                     }}
                     disabled={signatureSaving || signatureLoading || !editUser}
-                    className="inline-flex shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white p-2 text-gray-700 shadow-theme-xs transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/5"
+                    className="inline-flex shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white p-2 text-gray-700 shadow-theme-xs transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:bg-white/5"
                     aria-label="Eliminar firma"
                     title="Eliminar firma"
                   >
@@ -1994,7 +2082,7 @@ export default function UserProfiles() {
 
               <div className="mt-1">
                 {signatureLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-8 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center justify-center gap-2 py-8 text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
                     <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
                     </svg>
@@ -2005,7 +2093,7 @@ export default function UserProfiles() {
                     <img
                       src={signatureValue}
                       alt="Firma del usuario"
-                      className="max-h-[180px] w-full max-w-[420px] rounded-xl border border-gray-200/80 bg-white object-contain dark:border-[#334155]"
+                      className="max-h-[180px] w-full max-w-[420px] rounded-xl border border-gray-200/80 bg-white object-contain dark:border-[#273244]"
                     />
                   </div>
                 ) : (
@@ -2015,18 +2103,26 @@ export default function UserProfiles() {
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 dark:border-[#273244] dark:bg-[#0f172a]/70 sm:px-5">
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2">
+          <div className={modalFooterClass}>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
               <button type="button" onClick={closeEdit} className={secondaryOutlineBtnClass} disabled={editing}>
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={doUpdate}
-                className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-[#ff801f] px-4 text-sm font-medium text-black transition-colors hover:bg-[#ff6a00] focus:outline-none focus:ring-2 focus:ring-[#ff801f]/35 active:brightness-95 disabled:opacity-60 sm:w-auto"
+                className={primaryOrangeBtnClass}
                 disabled={editing || signatureSaving || signatureLoading}
+                aria-busy={editing}
               >
-                {editing ? 'Guardando…' : 'Guardar cambios'}
+                {editing ? (
+                  <>
+                    <span className="inline-block size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden />
+                    Guardando…
+                  </>
+                ) : (
+                  'Guardar cambios'
+                )}
               </button>
             </div>
           </div>
@@ -2034,10 +2130,10 @@ export default function UserProfiles() {
 
       </Modal>
 
-      <Modal mobileBottomSheet isOpen={confirmDeleteSignature} onClose={() => setConfirmDeleteSignature(false)} closeOnBackdropClick={false} className="w-full max-w-sm overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b]" ariaLabelledBy={deleteSignatureModalTitleId}>
-        <div className="bg-[#fffdfa] p-5 dark:bg-[#111a2b]">
-          <div className="mb-4 flex items-start gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ff801f] dark:text-[#ffa057]">
+      <Modal mobileBottomSheet isOpen={confirmDeleteSignature} onClose={() => setConfirmDeleteSignature(false)} closeOnBackdropClick={false} className={modalSmallShellClass} ariaLabelledBy={deleteSignatureModalTitleId}>
+        <div className="bg-white p-6 dark:bg-[#111827]">
+          <div className="mb-5 flex items-start gap-3.5">
+            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]">
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
                 <path d="M3 6h18" strokeLinecap="round" />
                 <path d="M8 6V4h8v2" strokeLinecap="round" />
@@ -2047,14 +2143,14 @@ export default function UserProfiles() {
             </span>
             <div className="min-w-0 flex-1">
               <h3 id={deleteSignatureModalTitleId} className={claudeSubheadingClass}>Eliminar firma</h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Esta acción no se puede deshacer.</p>
+              <p className="mt-1 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">Esta acción no se puede deshacer.</p>
             </div>
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2">
             <button
               type="button"
               onClick={() => setConfirmDeleteSignature(false)}
-              className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06] sm:w-auto"
+              className={secondaryOutlineBtnClass}
               disabled={signatureSaving}
             >
               Cancelar
@@ -2080,7 +2176,7 @@ export default function UserProfiles() {
                   setSignatureSaving(false);
                 }
               }}
-              className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60 sm:w-auto"
+              className={dangerBtnClass}
               disabled={signatureSaving}
             >
               {signatureSaving ? 'Eliminando…' : 'Eliminar'}
@@ -2098,12 +2194,12 @@ export default function UserProfiles() {
           setConfirmDeleteSmtp(false);
         }}
         closeOnBackdropClick={!clearingSmtp}
-        className="w-full max-w-sm overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b]"
+        className={modalSmallShellClass}
         ariaLabelledBy={deleteSmtpModalTitleId}
       >
-        <div className="bg-[#fffdfa] p-5 dark:bg-[#111a2b]">
-          <div className="mb-4 flex items-start gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ff801f] dark:text-[#ffa057]">
+        <div className="bg-white p-6 dark:bg-[#111827]">
+          <div className="mb-5 flex items-start gap-3.5">
+            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]">
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                 <path d="M3 6h18" strokeLinecap="round" />
                 <path d="M8 6V4h8v2" strokeLinecap="round" />
@@ -2122,7 +2218,7 @@ export default function UserProfiles() {
             <button
               type="button"
               onClick={() => setConfirmDeleteSmtp(false)}
-              className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06] sm:w-auto"
+              className={secondaryOutlineBtnClass}
               disabled={clearingSmtp}
             >
               Cancelar
@@ -2154,7 +2250,7 @@ export default function UserProfiles() {
                   setClearingSmtp(false);
                 }
               }}
-              className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60 sm:w-auto"
+              className={dangerBtnClass}
               disabled={clearingSmtp}
             >
               {clearingSmtp ? 'Eliminando…' : 'Quitar credenciales'}
@@ -2163,10 +2259,10 @@ export default function UserProfiles() {
         </div>
       </Modal>
 
-      <Modal mobileBottomSheet isOpen={confirmDeleteId != null} onClose={() => setConfirmDeleteId(null)} closeOnBackdropClick={false} className="w-full max-w-sm overflow-hidden rounded-xl border border-[#e7ded0] bg-[#fffdfa] shadow-xl dark:border-[#273244] dark:bg-[#111a2b]" ariaLabelledBy={deleteUserModalTitleId}>
-        <div className="bg-[#fffdfa] p-5 dark:bg-[#111a2b]">
-          <div className="mb-4 flex items-start gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#ff801f]/10 text-[#ff801f] dark:text-[#ffa057]">
+      <Modal mobileBottomSheet isOpen={confirmDeleteId != null} onClose={() => setConfirmDeleteId(null)} closeOnBackdropClick={false} className={modalSmallShellClass} ariaLabelledBy={deleteUserModalTitleId}>
+        <div className="bg-white p-6 dark:bg-[#111827]">
+          <div className="mb-5 flex items-start gap-3.5">
+            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]">
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
                 <path d="M3 6h18" strokeLinecap="round" />
                 <path d="M8 6V4h8v2" strokeLinecap="round" />
@@ -2176,14 +2272,14 @@ export default function UserProfiles() {
             </span>
             <div className="min-w-0 flex-1">
               <h3 id={deleteUserModalTitleId} className={claudeSubheadingClass}>Eliminar usuario</h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Esta acción no se puede deshacer.</p>
+              <p className="mt-1 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">Esta acción no se puede deshacer.</p>
             </div>
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2">
             <button
               type="button"
               onClick={() => setConfirmDeleteId(null)}
-              className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06] sm:w-auto"
+              className={secondaryOutlineBtnClass}
               disabled={deleting}
             >
               Cancelar
@@ -2191,7 +2287,7 @@ export default function UserProfiles() {
             <button
               type="button"
               onClick={doDelete}
-              className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60 sm:w-auto"
+              className={dangerBtnClass}
               disabled={deleting}
             >
               {deleting ? 'Eliminando…' : 'Eliminar'}
