@@ -169,6 +169,8 @@ export function useProyectoFormState({
     initialDraft.requierePresupuestoAdicional
   );
   const [cotizacionAdicional, setCotizacionAdicional] = useState(initialDraft.cotizacionAdicional);
+  const [statusAdministrativo, setStatusAdministrativo] = useState(initialDraft.statusAdministrativo);
+  const [fechaEnvioAdmin, setFechaEnvioAdmin] = useState(initialDraft.fechaEnvioAdmin);
   const [evidenciasUrls, setEvidenciasUrls] = useState(initialDraft.evidenciasUrls);
   const [firmaClienteUrl, setFirmaClienteUrl] = useState(initialDraft.firmaClienteUrl);
   const [firmaTecnicoUrl, setFirmaTecnicoUrl] = useState(initialDraft.firmaTecnicoUrl);
@@ -300,6 +302,8 @@ export function useProyectoFormState({
     setRequerimientosAdicionales(initialDraft.requerimientosAdicionales);
     setRequierePresupuestoAdicional(initialDraft.requierePresupuestoAdicional);
     setCotizacionAdicional(initialDraft.cotizacionAdicional);
+    setStatusAdministrativo(initialDraft.statusAdministrativo);
+    setFechaEnvioAdmin(initialDraft.fechaEnvioAdmin);
     setEvidenciasUrls(initialDraft.evidenciasUrls ?? []);
     setFirmaClienteUrl(initialDraft.firmaClienteUrl);
     setFirmaTecnicoUrl(initialDraft.firmaTecnicoUrl);
@@ -495,6 +499,8 @@ export function useProyectoFormState({
       requerimientosAdicionales: requerimientosAdicionales.trim(),
       requierePresupuestoAdicional,
       cotizacionAdicional,
+      statusAdministrativo,
+      fechaEnvioAdmin,
       evidenciasUrls,
       firmaClienteUrl,
       firmaTecnicoUrl,
@@ -508,6 +514,7 @@ export function useProyectoFormState({
     equipos,
     evidenciasUrls,
     fechaAutorizacion,
+    fechaEnvioAdmin,
     fechasInicio,
     firmaClienteUrl,
     firmaTecnicoUrl,
@@ -522,6 +529,7 @@ export function useProyectoFormState({
     requerimientosAdicionales,
     requierePresupuestoAdicional,
     status,
+    statusAdministrativo,
     tecnicosAsignados,
     tiposTrabajo,
     vehiculoAsignado,
@@ -956,6 +964,11 @@ export function useProyectoFormState({
     setRequierePresupuestoAdicional,
     cotizacionAdicional,
     setCotizacionAdicional,
+    statusAdministrativo,
+    setStatusAdministrativo,
+    fechaEnvioAdmin,
+    setFechaEnvioAdmin,
+    isAdmin,
     evidenciasUrls,
     setEvidenciasUrls,
     firmaClienteUrl,

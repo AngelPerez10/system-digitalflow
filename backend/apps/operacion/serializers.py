@@ -136,6 +136,8 @@ class ProyectoSerializer(serializers.ModelSerializer):
             "incidencias",
             "requerimientos_adicionales",
             "requiere_presupuesto_adicional",
+            "status_administrativo",
+            "fecha_envio_admin",
             "evidencias_urls",
             "firma_cliente_url",
             "firma_tecnico_url",
@@ -209,6 +211,13 @@ class ProyectoSerializer(serializers.ModelSerializer):
         if isinstance(value, str) and value.strip() == "":
             return None
         return value
+
+    def validate_status_administrativo(self, value):
+        allowed = {"pendiente", "en_revision", "enviado", "cerrado"}
+        raw = str(value or "").strip().lower()
+        if raw not in allowed:
+            raise serializers.ValidationError("Status administrativo inválido.")
+        return raw
 
     def validate_notas_por_dia(self, value):
         """Normaliza lista de bitácora; el mínimo de 150 solo aplica al cerrar."""

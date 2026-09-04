@@ -11,6 +11,7 @@ import type {
   ProyectoPersonaAsignada,
   ProyectoRow,
   ProyectoStats,
+  ProyectoStatusAdministrativo,
   ProyectoTecnicoAsignado,
   ProyectoTipoTrabajo,
 } from "./proyectoTypes";
@@ -261,11 +262,21 @@ export function createEmptyProyectoDraft(): ProyectoDraft {
     requerimientosAdicionales: "",
     requierePresupuestoAdicional: false,
     cotizacionAdicional: null,
+    statusAdministrativo: "pendiente",
+    fechaEnvioAdmin: "",
     evidenciasUrls: [],
     firmaClienteUrl: "",
     firmaTecnicoUrl: "",
   };
 }
+
+/** Normaliza el status del seguimiento administrativo (oficina). */
+export function normalizeStatusAdministrativo(raw: unknown): ProyectoStatusAdministrativo {
+  const v = String(raw || "").trim().toLowerCase();
+  if (v === "en_revision" || v === "enviado" || v === "cerrado") return v;
+  return "pendiente";
+}
+
 
 /** Fechas ISO `YYYY-MM-DD` no vacías, ordenadas. */
 export function filledFechasInicio(fechas: string[]): string[] {

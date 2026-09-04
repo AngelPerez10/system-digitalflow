@@ -19,6 +19,13 @@ PROYECTO_STATUS_CHOICES = [
     ("cerrado", "Cerrado"),
 ]
 
+PROYECTO_STATUS_ADMINISTRATIVO_CHOICES = [
+    ("pendiente", "Pendiente"),
+    ("en_revision", "En revisión"),
+    ("enviado", "Enviado"),
+    ("cerrado", "Cerrado"),
+]
+
 
 class Proyecto(models.Model):
     idx = models.IntegerField(unique=True, db_index=True, null=True, blank=True)
@@ -78,6 +85,14 @@ class Proyecto(models.Model):
     cotizacion_adicional = models.JSONField(null=True, blank=True)
     equipos = models.JSONField(default=list, blank=True)
     notas_por_dia = models.JSONField(default=list, blank=True)
+
+    # Seguimiento administrativo de oficina (independiente del status operativo).
+    status_administrativo = models.CharField(
+        max_length=20,
+        choices=PROYECTO_STATUS_ADMINISTRATIVO_CHOICES,
+        default="pendiente",
+    )
+    fecha_envio_admin = models.DateField(null=True, blank=True)
 
     porcentaje_avance = models.PositiveSmallIntegerField(default=0)
     incidencias = models.TextField(blank=True, default="")

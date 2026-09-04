@@ -9,6 +9,7 @@ import {
   normalizeAuxiliaresAsignados,
   normalizeDraftCotizaciones,
   normalizeNotasPorDia,
+  normalizeStatusAdministrativo,
   normalizeTecnicosAsignados,
   normalizeTiposTrabajo,
   primerAuxiliar,
@@ -26,6 +27,7 @@ import type {
   ProyectoNotaDia,
   ProyectoPersonaAsignada,
   ProyectoRow,
+  ProyectoStatusAdministrativo,
   ProyectoTecnicoAsignado,
   ProyectoTipoTrabajo,
 } from "./proyectoTypes";
@@ -62,6 +64,8 @@ export type ApiProyecto = {
   incidencias: string;
   requerimientos_adicionales: string;
   requiere_presupuesto_adicional: boolean;
+  status_administrativo?: ProyectoStatusAdministrativo | string | null;
+  fecha_envio_admin?: string | null;
   evidencias_urls: string[];
   firma_cliente_url: string;
   firma_tecnico_url: string;
@@ -166,6 +170,8 @@ function draftFromApi(api: ApiProyecto): ProyectoDraft {
     requerimientosAdicionales: String(api.requerimientos_adicionales || ""),
     requierePresupuestoAdicional: Boolean(api.requiere_presupuesto_adicional),
     cotizacionAdicional: api.cotizacion_adicional ?? null,
+    statusAdministrativo: normalizeStatusAdministrativo(api.status_administrativo),
+    fechaEnvioAdmin: api.fecha_envio_admin ? String(api.fecha_envio_admin).slice(0, 10) : "",
     evidenciasUrls: Array.isArray(api.evidencias_urls) ? api.evidencias_urls : [],
     firmaClienteUrl: String(api.firma_cliente_url || ""),
     firmaTecnicoUrl: String(api.firma_tecnico_url || ""),
@@ -215,7 +221,7 @@ export function proyectoRowFromApi(api: ApiProyecto): ProyectoRow {
 
 export function draftToApiPayload(
   draft: ProyectoDraft,
-  options?: { omitTechnicianLockedFields?: boolean }
+  options?: { omitTechnicianLockedFields?: boolean; includeAdminFields?: boolean }
 ): Record<string, unknown> {
   const cotizaciones = normalizeDraftCotizaciones(draft);
   const tiposTrabajo = normalizeTiposTrabajo(
@@ -298,6 +304,11 @@ export function draftToApiPayload(
     firma_tecnico_url: draft.firmaTecnicoUrl || "",
   };
 
+  if (options?.includeAdminFields) {
+    payload.status_administrativo = draft.statusAdministrativo;
+    payload.fecha_envio_admin = draft.fechaEnvioAdmin.trim() ? draft.fechaEnvioAdmin.trim().slice(0, 10) : null;
+  }
+
   // El técnico asignado no puede tocar estos campos; omitirlos evita 400 por ruido
   // de serialización al guardar entrega/instalación/evidencias.
   if (!options?.omitTechnicianLockedFields) {
@@ -354,11 +365,14 @@ export async function listProyectos(): Promise<ProyectoRow[]> {
     .map(proyectoRowFromApi);
 }
 
-export async function createProyecto(draft: ProyectoDraft): Promise<ProyectoRow> {
+export async function createProyecto(
+  draft: ProyectoDraft,
+  options?: { includeAdminFields?: boolean }
+): Promise<ProyectoRow> {
   const res = await fetchApi("/api/proyectos/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(draftToApiPayload(draft)),
+    body: JSON.stringify(draftToApiPayload(draft, options)),
   });
   const api = await parseApiProyecto(res);
   return proyectoRowFromApi(api);
@@ -367,7 +381,7 @@ export async function createProyecto(draft: ProyectoDraft): Promise<ProyectoRow>
 export async function updateProyecto(
   id: string | number,
   draft: ProyectoDraft,
-  options?: { omitTechnicianLockedFields?: boolean }
+  options?: { omitTechnicianLockedFields?: boolean; includeAdminFields?: boolean }
 ): Promise<ProyectoRow> {
   const res = await fetchApi(`/api/proyectos/${id}/`, {
     method: "PATCH",

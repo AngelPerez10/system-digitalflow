@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { Modal } from "@/components/ui/modal";
+import Alert from "@/components/ui/alert/Alert";
 import { useAuth } from "@/context/AuthContext";
 import {
   erpDangerBtnClass,
@@ -31,6 +32,13 @@ import { useProyectoFormState, type ProyectoFormTab } from "./useProyectoFormSta
 import { ProyectoSyscomModeloPicker } from "./fields/ProyectoSyscomModeloPicker";
 import type { ProyectoDraft } from "../shared/proyectoTypes";
 
+export type ProyectoFormModalAlert = {
+  show: boolean;
+  variant: "success" | "warning" | "error" | "info";
+  title: string;
+  message: string;
+};
+
 type ProyectoFormModalProps = {
   open: boolean;
   editing: boolean;
@@ -46,6 +54,10 @@ type ProyectoFormModalProps = {
       omitTechnicianLockedFields?: boolean;
     }
   ) => void | Promise<void>;
+  /** Alerta visible dentro del modal (errores de guardado); evita quedar oculta detrás del overlay. */
+  modalAlert?: ProyectoFormModalAlert;
+  /** true mientras se hace el POST/PATCH a la API; deshabilita navegación y muestra spinner en Guardar. */
+  isSaving?: boolean;
 };
 
 const FORM_TABS: { id: ProyectoFormTab; label: string; step: string }[] = [
@@ -62,6 +74,8 @@ export default function ProyectoFormModal({
   initialDraft,
   onClose,
   onSave,
+  modalAlert,
+  isSaving = false,
 }: ProyectoFormModalProps) {
   const { isAdmin } = useAuth();
   const clearCotizacionesTitleId = useId();
@@ -121,6 +135,10 @@ export default function ProyectoFormModal({
     setRequierePresupuestoAdicional,
     cotizacionAdicional,
     setCotizacionAdicional,
+    statusAdministrativo,
+    setStatusAdministrativo,
+    fechaEnvioAdmin,
+    setFechaEnvioAdmin,
     evidenciasUrls,
     setEvidenciasUrls,
     firmaClienteUrl,
@@ -193,7 +211,7 @@ export default function ProyectoFormModal({
         isOpen={open}
         onClose={onClose}
         closeOnBackdropClick={false}
-        closeOnEscape={!pickerOpen && !modeloPickerLineaId && !confirmClearCotizaciones}
+        closeOnEscape={!pickerOpen && !modeloPickerLineaId && !confirmClearCotizaciones && !isSaving}
         ariaLabel={`${editing ? "Editar" : "Nuevo"} proyecto`}
         className={erpModalShellClass}
       >
@@ -212,6 +230,17 @@ export default function ProyectoFormModal({
               data-proyecto-form-scroll
               data-signature-scroll-lock
             >
+              {modalAlert?.show ? (
+                <div className="mb-4" role="alert">
+                  <Alert
+                    variant={modalAlert.variant}
+                    title={modalAlert.title}
+                    message={modalAlert.message}
+                    showLink={false}
+                  />
+                </div>
+              ) : null}
+
               <div
                 className={erpModalTabListClass}
                 role="tablist"
@@ -226,6 +255,7 @@ export default function ProyectoFormModal({
                     tabIndex={activeTab === tab.id ? 0 : -1}
                     aria-selected={activeTab === tab.id}
                     aria-controls={panelIds[tab.id]}
+                    disabled={isSaving}
                     onClick={() => {
                       setActiveTab(tab.id);
                       setClienteStepError("");
@@ -260,6 +290,11 @@ export default function ProyectoFormModal({
                   openCotizacionPicker={openCotizacionPicker}
                   handleQuitarCotizacion={handleQuitarCotizacion}
                   assignedTechnicianLocked={assignedTechnicianLocked}
+                  isAdmin={isAdmin}
+                  statusAdministrativo={statusAdministrativo}
+                  setStatusAdministrativo={setStatusAdministrativo}
+                  fechaEnvioAdmin={fechaEnvioAdmin}
+                  setFechaEnvioAdmin={setFechaEnvioAdmin}
                 />
               )}
 
@@ -373,6 +408,7 @@ export default function ProyectoFormModal({
             <div className="grid grid-cols-2 gap-2.5 sm:flex sm:justify-end sm:gap-3">
               <button
                 type="button"
+                disabled={isSaving}
                 onClick={activeTab === "cliente" ? onClose : goToPrevTab}
                 className={erpModalSecondaryBtnClass}
               >
@@ -388,6 +424,7 @@ export default function ProyectoFormModal({
               {activeTab !== "presupuesto" ? (
                 <OrdenModalPrimaryButton
                   type="button"
+                  disabled={isSaving}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -409,25 +446,36 @@ export default function ProyectoFormModal({
               ) : (
                 <OrdenModalPrimaryButton
                   type="button"
-                  disabled={!cliente.trim()}
+                  disabled={!cliente.trim() || isSaving}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     formRef.current?.requestSubmit();
                   }}
                 >
-                  <svg
-                    className="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    aria-hidden
-                  >
-                    <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <span className="truncate sm:hidden">{editing ? "Guardar" : "Crear"}</span>
-                  <span className="hidden truncate sm:inline">{editing ? "Guardar cambios" : "Crear proyecto"}</span>
+                  {isSaving ? (
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                      <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      aria-hidden
+                    >
+                      <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                  <span className="truncate sm:hidden">
+                    {isSaving ? "Guardando…" : editing ? "Guardar" : "Crear"}
+                  </span>
+                  <span className="hidden truncate sm:inline">
+                    {isSaving ? "Guardando…" : editing ? "Guardar cambios" : "Crear proyecto"}
+                  </span>
                 </OrdenModalPrimaryButton>
               )}
             </div>

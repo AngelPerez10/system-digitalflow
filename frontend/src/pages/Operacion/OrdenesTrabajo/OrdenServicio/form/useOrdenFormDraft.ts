@@ -36,7 +36,7 @@ import {
   ordenImageRejectMessage,
   uploadOrdenImageBatch,
 } from "../shared/ordenImageUpload";
-import { round2 } from "../shared/ordenesPageUtils";
+import { formatOrdenErrorMessage, round2 } from "../shared/ordenesPageUtils";
 import type { InventarioItem } from "@/pages/Inventario/shared/inventarioTypes";
 import {
   addEquipoFromItem as addEquipoFromItemPure,
@@ -716,13 +716,13 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       const current = fotosUrlsRef.current;
       const remainingSlots = maxPhotosAllowed - current.length;
       if (remainingSlots <= 0) {
-        setAlert({
+        setModalAlert({
           show: true,
           variant: "warning",
           title: "Límite de fotos",
           message: `Ya alcanzaste el máximo de ${maxPhotosAllowed} fotos.`,
         });
-        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
+        setTimeout(() => setModalAlert((prev) => ({ ...prev, show: false })), 4000);
         return;
       }
 
@@ -745,13 +745,13 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
 
       if (!files.length) {
         if (failures.length) {
-          setAlert({
+          setModalAlert({
             show: true,
             variant: "warning",
             title: "Fotos no válidas",
             message: failures[0],
           });
-          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 6000);
+          setTimeout(() => setModalAlert((prev) => ({ ...prev, show: false })), 6000);
         }
         return;
       }
@@ -775,13 +775,13 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         });
         failures.push(...result.failures);
         if (failures.length) {
-          setAlert({
+          setModalAlert({
             show: true,
             variant: result.uploadedUrls.length ? "warning" : "error",
             title: result.uploadedUrls.length ? "Algunas fotos no se subieron" : "No se subieron las fotos",
             message: failures.slice(0, 3).join(" "),
           });
-          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 7000);
+          setTimeout(() => setModalAlert((prev) => ({ ...prev, show: false })), 7000);
         }
       } finally {
         if (formNonceRef.current === nonce) {
@@ -790,7 +790,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         }
       }
     },
-    [maxPhotosAllowed, setAlert],
+    [maxPhotosAllowed, setModalAlert],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -1079,32 +1079,34 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
             openEnviarPdfModal(savedOrden);
           }
         } else {
-          let errorMsg = "Error al guardar la orden";
           const raw = await response.text().catch(() => "");
+          let errorMsg = "Error al guardar la orden";
           try {
             const errorData = raw ? JSON.parse(raw) : null;
             console.error("Error del servidor:", errorData);
-            errorMsg = (errorData?.detail || JSON.stringify(errorData)) || errorMsg;
+            errorMsg = formatOrdenErrorMessage(errorData, errorMsg);
           } catch {
             errorMsg = raw || errorMsg;
           }
-          setAlert({
+          // Alerta dentro del modal: la orden de página (`alert`) queda oculta
+          // detrás del overlay mientras el modal sigue abierto.
+          setModalAlert({
             show: true,
             variant: "error",
-            title: "Error al guardar",
+            title: "No se pudo guardar",
             message: errorMsg,
           });
-          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 5000);
+          setTimeout(() => setModalAlert((prev) => ({ ...prev, show: false })), 6000);
         }
       } catch (error) {
         console.error("Error al guardar orden:", error);
-        setAlert({
+        setModalAlert({
           show: true,
           variant: "error",
-          title: "Error",
-          message: String(error),
+          title: "No se pudo guardar",
+          message: "Revisa tu conexión e intenta de nuevo.",
         });
-        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
+        setTimeout(() => setModalAlert((prev) => ({ ...prev, show: false })), 6000);
       } finally {
         setIsSaving(false);
       }

@@ -188,6 +188,14 @@ export default function ProyectosPage() {
     title: string;
     message: string;
   }>({ show: false, variant: "warning", title: "", message: "" });
+  /** Alerta dentro del modal: la de página (`alert`) queda oculta detrás del overlay mientras el modal está abierto. */
+  const [modalAlert, setModalAlert] = useState<{
+    show: boolean;
+    variant: "success" | "warning" | "error" | "info";
+    title: string;
+    message: string;
+  }>({ show: false, variant: "error", title: "", message: "" });
+  const [isSavingProyecto, setIsSavingProyecto] = useState(false);
 
   /** Catálogo de Servicios + tipos ya usados en proyectos (p. ej. legacy). */
   const tiposTrabajoDisponibles = useMemo(() => {
@@ -281,6 +289,16 @@ export default function ProyectosPage() {
 
   const showPermissionWarning = (message: string) => {
     showAlert("warning", "Sin permiso", message, 2500);
+  };
+
+  const showModalAlert = (
+    variant: "success" | "warning" | "error" | "info",
+    title: string,
+    message: string,
+    ms = 6000
+  ) => {
+    setModalAlert({ show: true, variant, title, message });
+    setTimeout(() => setModalAlert((prev) => ({ ...prev, show: false })), ms);
   };
 
   useEffect(() => {
@@ -404,6 +422,7 @@ export default function ProyectosPage() {
   const closeModal = () => {
     setShowModal(false);
     setEditingRow(null);
+    setModalAlert((prev) => (prev.show ? { ...prev, show: false } : prev));
   };
 
   const confirmDelete = async () => {
@@ -439,12 +458,14 @@ export default function ProyectosPage() {
     }
   ) => {
     const wasEditing = Boolean(editingRow);
+    setIsSavingProyecto(true);
     try {
       const saved = wasEditing && editingRow
         ? await updateProyecto(editingRow.id, draft, {
             omitTechnicianLockedFields: Boolean(extras?.omitTechnicianLockedFields),
+            includeAdminFields: isAdmin,
           })
-        : await createProyecto(draft);
+        : await createProyecto(draft, { includeAdminFields: isAdmin });
       setRows((prev) => {
         if (wasEditing) {
           return prev.map((r) => (r.id === saved.id ? saved : r));
@@ -493,13 +514,15 @@ export default function ProyectosPage() {
       );
     } catch (err) {
       console.error("Error al guardar proyecto:", err);
-      showAlert(
+      // Alerta dentro del modal: sigue abierto y `alert` (de página) quedaría oculto detrás del overlay.
+      showModalAlert(
         "error",
         "No se pudo guardar",
-        isProyectoApiError(err) ? err.message : "Ocurrió un error al guardar el proyecto.",
-        4500
+        isProyectoApiError(err) ? err.message : "Ocurrió un error al guardar el proyecto."
       );
       throw err;
+    } finally {
+      setIsSavingProyecto(false);
     }
   };
 
@@ -861,6 +884,8 @@ export default function ProyectosPage() {
           initialDraft={modalDraft}
           onClose={closeModal}
           onSave={handleSave}
+          modalAlert={modalAlert}
+          isSaving={isSavingProyecto}
         />
 
         <Modal

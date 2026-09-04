@@ -1,5 +1,8 @@
 export type CotizacionOrigen = "digitalflow" | "sicar";
 
+/** Status del seguimiento administrativo de oficina (independiente del status operativo). */
+export type ProyectoStatusAdministrativo = "pendiente" | "en_revision" | "enviado" | "cerrado";
+
 export type CotizacionResumen = {
   id: string;
   origen: CotizacionOrigen;
@@ -129,6 +132,9 @@ export type ProyectoDraft = {
   requierePresupuestoAdicional: boolean;
   /** Cotización vinculada cuando hay requerimientos / presupuesto adicional. */
   cotizacionAdicional: CotizacionResumen | null;
+  /** Seguimiento administrativo de oficina; solo visible/editable para admins. */
+  statusAdministrativo: ProyectoStatusAdministrativo;
+  fechaEnvioAdmin: string;
   evidenciasUrls: string[];
   firmaClienteUrl: string;
   firmaTecnicoUrl: string;

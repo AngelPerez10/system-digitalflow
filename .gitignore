@@ -107,3 +107,5 @@ mobile/.env
 mobile/expo-env.d.ts
 testsprite_tests/tmp/
 testsprite_tests/tmp/config.json
+
+testsprite_tests/

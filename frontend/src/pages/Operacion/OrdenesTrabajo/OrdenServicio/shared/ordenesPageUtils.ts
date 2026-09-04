@@ -14,6 +14,23 @@ export function normalizeStatus(value: unknown) {
   return String(value || "").trim().toLowerCase();
 }
 
+/** Aplana un error de validación DRF (`{campo: ["msg"]}` o `{detail: "msg"}`) a texto legible. */
+export function formatOrdenErrorMessage(raw: unknown, fallback: string): string {
+  if (!raw || typeof raw !== "object") {
+    return typeof raw === "string" && raw.trim() ? raw : fallback;
+  }
+  const rec = raw as Record<string, unknown>;
+  if (typeof rec.detail === "string" && rec.detail.trim()) return rec.detail;
+
+  const parts: string[] = [];
+  for (const [field, value] of Object.entries(rec)) {
+    const text = Array.isArray(value) ? value.filter(Boolean).join(" ") : String(value ?? "");
+    if (!text.trim()) continue;
+    parts.push(field === "non_field_errors" ? text : `${field}: ${text}`);
+  }
+  return parts.length ? parts.join(" · ") : fallback;
+}
+
 export function parseYearMonth(value: string) {
   const m = /^(\d{4})-(\d{2})$/.exec((value || "").trim());
   if (!m) return null;
