@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { deleteSecureValue, readSecureValue } from './secureStore';
 
 /** Portal elegido antes del login — define a dónde entra tras restaurar sesión. */
 export type PortalAcceso = 'tecnico' | 'cliente';
@@ -8,13 +9,8 @@ const KEY = 'digitalflow.portal';
 let enMemoria: PortalAcceso | null = null;
 
 async function read(): Promise<PortalAcceso | null> {
-  try {
-    const raw = await SecureStore.getItemAsync(KEY);
-    if (raw === 'tecnico' || raw === 'cliente') return raw;
-    return null;
-  } catch {
-    return null;
-  }
+  const raw = await readSecureValue(KEY);
+  return raw === 'tecnico' || raw === 'cliente' ? raw : null;
 }
 
 export const portalAcceso = {
@@ -40,10 +36,6 @@ export const portalAcceso = {
   /** Olvida la elección: la bienvenida vuelve a salir en el próximo arranque. */
   async clear(): Promise<void> {
     enMemoria = null;
-    try {
-      await SecureStore.deleteItemAsync(KEY);
-    } catch {
-      // Un almacén que no borra no debe tumbar el cambio de perfil.
-    }
+    await deleteSecureValue(KEY);
   },
 };

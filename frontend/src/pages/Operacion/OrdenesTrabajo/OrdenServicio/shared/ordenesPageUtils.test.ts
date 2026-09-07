@@ -1,8 +1,49 @@
 import { describe, expect, it } from "vitest";
 import {
   ORDEN_STATUS_CHANGE_RECENT_MS,
+  displayOrdenUserName,
+  formatIsoDateTime,
   isOrdenStatusChangeRecent,
 } from "./ordenesPageUtils";
+
+describe("displayOrdenUserName", () => {
+  it("prefers full name over username for creador", () => {
+    expect(
+      displayOrdenUserName(
+        { creado_por_full_name: "Ana López", creado_por_username: "ana" },
+        "creado"
+      )
+    ).toBe("Ana López");
+  });
+
+  it("falls back to username and then em dash", () => {
+    expect(displayOrdenUserName({ creado_por_username: "ana" }, "creado")).toBe("ana");
+    expect(displayOrdenUserName({}, "actualizado")).toBe("—");
+  });
+
+  it("reads actualizado fields for editor role", () => {
+    expect(
+      displayOrdenUserName(
+        { actualizado_por_full_name: "Juan Pérez", actualizado_por_username: "juan" },
+        "actualizado"
+      )
+    ).toBe("Juan Pérez");
+  });
+});
+
+describe("formatIsoDateTime", () => {
+  it("returns em dash for empty or invalid values", () => {
+    expect(formatIsoDateTime("")).toBe("—");
+    expect(formatIsoDateTime(null)).toBe("—");
+    expect(formatIsoDateTime("not-a-date")).toBe("—");
+  });
+
+  it("formats a valid ISO timestamp in es-MX", () => {
+    const out = formatIsoDateTime("2026-09-07T16:30:00.000Z");
+    expect(out).not.toBe("—");
+    expect(out.length).toBeGreaterThan(5);
+  });
+});
 
 describe("isOrdenStatusChangeRecent", () => {
   const now = new Date("2026-08-07T12:00:00.000Z").getTime();

@@ -1,14 +1,11 @@
 import type { ReactNode } from "react";
 import { erpSecondaryBtnClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { ProyectoFormSection } from "../ProyectoFormSection";
-import { displayCotizacionFolio, estadoBadgeClass, estadoInstalacionLabel } from "../../shared/proyectoFormUtils";
+import { displayCotizacionFolio, estadoInstalacionLabel } from "../../shared/proyectoFormUtils";
 import {
   proyectoEmptyPanelClass,
   proyectoEquipoAccentClass,
-  proyectoEquipoCardClass,
-  proyectoEquipoDeliveredClass,
   proyectoEquipoGroupClass,
-  proyectoEquipoInstallBtnClass,
   proyectoEquipoMetaClass,
   proyectoEquipoProgressBarClass,
   proyectoEquipoSummaryChipClass,
@@ -19,6 +16,41 @@ import type {
   ProyectoCotizacionBloque,
   ProyectoEquipoLinea,
 } from "../../shared/proyectoTypes";
+
+/** Misma pista visual que OrdenEquiposSection (entrega + instalación). */
+const deliveredClass = (delivered: boolean) =>
+  [
+    "flex h-[3.25rem] w-full min-w-[10.5rem] max-w-[12rem] cursor-pointer items-center gap-2.5 rounded-xl border px-3 transition",
+    "has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50",
+    "focus-within:outline-none focus-within:ring-2 focus-within:ring-[#1B5CFF]/30",
+    delivered
+      ? "border-emerald-300/80 bg-emerald-50 dark:border-emerald-600/50 dark:bg-emerald-950/35"
+      : "border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827]",
+  ].join(" ");
+
+const installBtnClass = (active: boolean, value: "instalado" | "no_instalado") => {
+  const base =
+    "min-h-9 min-w-[5.75rem] flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 disabled:opacity-50 sm:flex-none";
+  if (!active) {
+    return `${base} text-[#52525B] hover:bg-white dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]/60`;
+  }
+  return value === "instalado"
+    ? `${base} bg-sky-100 text-sky-900 shadow-sm dark:bg-sky-950/55 dark:text-sky-200`
+    : `${base} bg-rose-100 text-rose-900 shadow-sm dark:bg-rose-950/45 dark:text-rose-200`;
+};
+
+const estadoBadgeClass = (estado: EquipoEstadoInstalacion) => {
+  if (estado === "instalado") {
+    return "inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-800 dark:border-sky-700/50 dark:bg-sky-950/40 dark:text-sky-300";
+  }
+  if (estado === "no_instalado") {
+    return "inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-800 dark:border-rose-700/50 dark:bg-rose-950/40 dark:text-rose-300";
+  }
+  if (estado === "entregado") {
+    return "inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:border-emerald-700/50 dark:bg-emerald-950/40 dark:text-emerald-300";
+  }
+  return "inline-flex items-center rounded-full border border-[#E7E7EA] bg-[#FAFAFA] px-2 py-0.5 text-[10px] font-semibold text-[#52525B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#cbd5e1]";
+};
 
 type Props = {
   icon: ReactNode;
@@ -46,8 +78,8 @@ function groupProgress(eqs: ProyectoEquipoLinea[]) {
 }
 
 /**
- * Seguimiento visual de entrega/instalación por cotización (presupuesto).
- * Radiogroup de instalación + toggle de entrega; jerarquía de campo Intrax.
+ * Seguimiento de entrega/instalación por cotización.
+ * Layout de fila alineado a OrdenEquiposSection (thumb · datos · entrega / instalación · acciones).
  */
 export function ProyectoEquiposSection({
   icon,
@@ -71,6 +103,7 @@ export function ProyectoEquiposSection({
       title="Equipos del proyecto"
       hint="Seguimiento de entrega e instalación, agrupado por cotización."
       icon={icon}
+      card={false}
       actions={
         !presupuestoCargado ? (
           <span className="text-xs text-gray-500 dark:text-gray-400" role="status">
@@ -121,7 +154,7 @@ export function ProyectoEquiposSection({
               className={proyectoEquipoGroupClass}
               aria-labelledby={headingId}
             >
-              <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[#E7E7EA]/80 px-3.5 py-3 dark:border-[#334155]/80 sm:px-4">
+              <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[#E7E7EA]/80 px-3.5 py-3 dark:border-[#273244]/80 sm:px-4">
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1B5CFF] dark:text-[#4B7CFF]">
                     Estación de equipo
@@ -137,7 +170,8 @@ export function ProyectoEquiposSection({
                       id={headingId}
                       className="text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]"
                     >
-                      Cotización {bloque.orden} · {displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}
+                      Cotización {bloque.orden} ·{" "}
+                      {displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}
                     </h5>
                   </div>
                 </div>
@@ -187,16 +221,17 @@ export function ProyectoEquiposSection({
                 </div>
               </header>
 
-              <ul className="divide-y divide-[#efe9de] dark:divide-[#1e293b]">
+              <ul className="divide-y divide-[#E4E4E7] dark:divide-[#1e293b]">
                 {eqs.map((eq) => {
                   const modificado = eq.modelo !== eq.modeloOriginal;
                   const titleId = `proyecto-eq-title-${eq.lineaId}`;
                   const installGroupId = `proyecto-eq-install-${eq.lineaId}`;
+                  const title = eq.modelo || eq.modeloOriginal || "Equipo";
 
                   return (
                     <li key={eq.lineaId}>
                       <article
-                        className={proyectoEquipoCardClass}
+                        className="relative flex bg-[#FFFFFF] dark:bg-transparent"
                         aria-labelledby={titleId}
                       >
                         <div
@@ -204,73 +239,95 @@ export function ProyectoEquiposSection({
                           aria-hidden
                         />
 
-                        <div className="min-w-0 flex-1 space-y-3 p-3.5 sm:p-4">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="flex min-w-0 items-start gap-3">
-                              <ProyectoProductoThumb
-                                src={eq.imagenUrl}
-                                alt={eq.modelo}
-                                size="lg"
-                                className="border-[#E7E7EA] bg-[#FAFAFA] shadow-sm dark:border-[#334155] dark:bg-[#0f172a]"
-                              />
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className={estadoBadgeClass(eq.estadoInstalacion)}>
-                                    {estadoInstalacionLabel(eq.estadoInstalacion)}
+                        <div className="min-w-0 flex-1 space-y-4 p-4">
+                          {/* Producto + Entrega: mismas columnas fijas que Órdenes */}
+                          <div className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-start gap-x-3 gap-y-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_11rem]">
+                            <ProyectoProductoThumb
+                              src={eq.imagenUrl}
+                              alt={title}
+                              size="lg"
+                              className="border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]"
+                            />
+
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className={estadoBadgeClass(eq.estadoInstalacion)}>
+                                  {estadoInstalacionLabel(eq.estadoInstalacion)}
+                                </span>
+                                {modificado ? (
+                                  <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-300">
+                                    Modelo ajustado
                                   </span>
-                                  {modificado ? (
-                                    <span className="inline-flex items-center rounded-full border border-amber-300/70 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200">
-                                      Modelo ajustado
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <h6
-                                  id={titleId}
-                                  className="mt-1.5 text-sm font-semibold leading-snug text-[#09090B] dark:text-[#f8fafc]"
-                                >
-                                  {eq.modelo}
-                                </h6>
-                                <p className={proyectoEquipoMetaClass}>
-                                  {modificado ? (
-                                    <>
-                                      Original: <span className="font-medium">{eq.modeloOriginal}</span>
-                                    </>
-                                  ) : (
-                                    "Del presupuesto"
-                                  )}
-                                  {eq.productoId ? (
-                                    <>
-                                      {" · "}
-                                      {fuenteLabel(eq.fuenteProducto)} ID {eq.productoId}
-                                    </>
-                                  ) : null}
-                                </p>
+                                ) : null}
                               </div>
+                              <h6
+                                id={titleId}
+                                className="mt-1.5 line-clamp-2 text-sm font-semibold leading-snug text-[#09090B] dark:text-[#f8fafc]"
+                              >
+                                {title}
+                              </h6>
+                              <p className={`${proyectoEquipoMetaClass} truncate`}>
+                                {modificado ? (
+                                  <>
+                                    Original: <span className="font-medium">{eq.modeloOriginal}</span>
+                                  </>
+                                ) : (
+                                  "Del presupuesto"
+                                )}
+                                {eq.marca ? ` · ${eq.marca}` : null}
+                                {eq.productoId ? (
+                                  <>
+                                    {" · "}
+                                    {fuenteLabel(eq.fuenteProducto)} ID {eq.productoId}
+                                  </>
+                                ) : null}
+                              </p>
                             </div>
 
-                            <label className={proyectoEquipoDeliveredClass(eq.equipoEntregado)}>
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border-[#D3D3D8] text-[#1B5CFF] focus:ring-[#1B5CFF]/30"
-                                checked={eq.equipoEntregado}
-                                disabled={!presupuestoCargado}
-                                onChange={(e) =>
-                                  onUpdateEquipo(eq.lineaId, { equipoEntregado: e.target.checked })
+                            <div className="col-span-2 flex justify-start sm:col-span-1 sm:justify-end">
+                              <label
+                                className={deliveredClass(eq.equipoEntregado)}
+                                title={
+                                  !presupuestoCargado
+                                    ? "Disponible al cargar presupuesto"
+                                    : undefined
                                 }
-                                aria-label={`Equipo entregado: ${eq.modelo}`}
-                              />
-                              <span className="leading-tight">
-                                <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">
-                                  Entrega
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 shrink-0 rounded border-[#D3D3D8] text-[#1B5CFF] focus:ring-[#1B5CFF]/30"
+                                  checked={eq.equipoEntregado}
+                                  disabled={!presupuestoCargado}
+                                  onChange={(e) =>
+                                    onUpdateEquipo(eq.lineaId, {
+                                      equipoEntregado: e.target.checked,
+                                    })
+                                  }
+                                  aria-label={`Entrega de ${title}`}
+                                />
+                                <span className="min-w-0 leading-tight">
+                                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">
+                                    Entrega
+                                  </span>
+                                  <span className="text-xs font-semibold text-[#09090B] dark:text-[#f8fafc]">
+                                    {eq.equipoEntregado ? "Entregado" : "Pendiente"}
+                                  </span>
                                 </span>
-                                <span className="text-xs font-semibold text-[#09090B] dark:text-[#f8fafc]">
-                                  {eq.equipoEntregado ? "Entregado" : "Pendiente"}
-                                </span>
-                              </span>
-                            </label>
+                              </label>
+                            </div>
                           </div>
 
-                          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                          {/* Cantidad (presupuesto) + Instalación + acciones admin */}
+                          <div className="grid gap-3 border-t border-[#E4E4E7]/90 pt-3 dark:border-[#1e293b]/90 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:items-start">
+                            <div>
+                              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6E6E77] dark:text-[#8ea0b8]">
+                                Cantidad
+                              </p>
+                              <p className="text-sm font-semibold tabular-nums text-[#09090B] dark:text-[#f8fafc]">
+                                {Math.max(1, Math.floor(Number(eq.cantidad) || 1))}
+                              </p>
+                            </div>
+
                             <div>
                               <p
                                 id={installGroupId}
@@ -281,13 +338,16 @@ export function ProyectoEquiposSection({
                               <div
                                 role="radiogroup"
                                 aria-labelledby={installGroupId}
-                                className="inline-flex max-w-full flex-wrap rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#334155] dark:bg-[#0b1220]"
+                                className="inline-flex max-w-full flex-wrap rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#273244] dark:bg-[#0b1220]"
                               >
                                 {(
                                   [
                                     { value: "instalado" as const, label: "Instalado" },
                                     { value: "no_instalado" as const, label: "No instalado" },
-                                  ] satisfies { value: EquipoEstadoInstalacion; label: string }[]
+                                  ] satisfies {
+                                    value: "instalado" | "no_instalado";
+                                    label: string;
+                                  }[]
                                 ).map((opt) => {
                                   const pressed = eq.estadoInstalacion === opt.value;
                                   return (
@@ -302,7 +362,7 @@ export function ProyectoEquiposSection({
                                           estadoInstalacion: opt.value,
                                         })
                                       }
-                                      className={proyectoEquipoInstallBtnClass(pressed, opt.value)}
+                                      className={installBtnClass(pressed, opt.value)}
                                     >
                                       {opt.label}
                                     </button>
@@ -311,7 +371,7 @@ export function ProyectoEquiposSection({
                               </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                            <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:pt-6">
                               {isAdmin ? (
                                 <>
                                   <button
@@ -319,7 +379,7 @@ export function ProyectoEquiposSection({
                                     disabled={!presupuestoCargado}
                                     className={`${erpSecondaryBtnClass} !px-3 !py-1.5 !text-xs`}
                                     onClick={() => onCambiarModelo(eq.lineaId)}
-                                    aria-label={`Cambiar modelo de catálogo de ${eq.modelo}`}
+                                    aria-label={`Cambiar modelo de catálogo de ${title}`}
                                   >
                                     Cambiar modelo
                                   </button>
@@ -327,7 +387,7 @@ export function ProyectoEquiposSection({
                                     <button
                                       type="button"
                                       disabled={!presupuestoCargado}
-                                      className="rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#52525B] transition hover:border-[#1B5CFF]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/25 disabled:opacity-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
+                                      className="rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#52525B] transition hover:border-[#1B5CFF]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/25 disabled:opacity-50 dark:border-[#273244] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
                                       onClick={() => onRestaurarModelo(eq)}
                                       aria-label={`Restaurar modelo original de ${eq.modeloOriginal}`}
                                     >

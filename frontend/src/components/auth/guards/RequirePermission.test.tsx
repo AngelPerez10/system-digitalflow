@@ -1,11 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import RequireClientePermission from "./RequireClientePermission";
-import RequireCotizacionPermission from "./RequireCotizacionPermission";
+import RequirePermission from "./RequirePermission";
 import RequireCuentasAntarixPermission from "./RequireCuentasAntarixPermission";
-import RequireOrdenesPermission from "./RequireOrdenesPermission";
-import RequireTareasPermission from "./RequireTareasPermission";
 import * as authContext from "@/context/AuthContext";
 
 vi.mock("@/context/AuthContext", () => ({
@@ -28,14 +25,14 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("RequireOrdenesPermission", () => {
+describe("RequirePermission (módulo ordenes)", () => {
   it("shows loading spinner while permissions load", () => {
     mockUseAuth.mockReturnValue({ ...baseAuth, permissions: {}, loading: true });
 
     render(
-      <RequireOrdenesPermission required="view">
+      <RequirePermission module="ordenes" required="view">
         <div>Órdenes</div>
-      </RequireOrdenesPermission>
+      </RequirePermission>
     );
 
     expect(screen.getByLabelText("Verificando permisos...")).toBeInTheDocument();
@@ -49,9 +46,9 @@ describe("RequireOrdenesPermission", () => {
     });
 
     render(
-      <RequireOrdenesPermission required="view">
+      <RequirePermission module="ordenes" required="view">
         <div>Órdenes</div>
-      </RequireOrdenesPermission>
+      </RequirePermission>
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent("Acceso denegado");
@@ -65,9 +62,9 @@ describe("RequireOrdenesPermission", () => {
     });
 
     render(
-      <RequireOrdenesPermission required="view">
+      <RequirePermission module="ordenes" required="view">
         <div>Órdenes</div>
-      </RequireOrdenesPermission>
+      </RequirePermission>
     );
 
     expect(screen.getByText("Órdenes")).toBeInTheDocument();
@@ -81,16 +78,16 @@ describe("RequireOrdenesPermission", () => {
     });
 
     render(
-      <RequireOrdenesPermission required="create">
+      <RequirePermission module="ordenes" required="create">
         <div>Crear orden</div>
-      </RequireOrdenesPermission>
+      </RequirePermission>
     );
 
     expect(screen.getByText("Crear orden")).toBeInTheDocument();
   });
 });
 
-describe("RequireTareasPermission", () => {
+describe("RequirePermission (módulo tareas)", () => {
   it("denies create when create is not explicitly true", () => {
     mockUseAuth.mockReturnValue({
       ...baseAuth,
@@ -98,9 +95,9 @@ describe("RequireTareasPermission", () => {
     });
 
     render(
-      <RequireTareasPermission required="create">
+      <RequirePermission module="tareas" required="create">
         <div>Nueva tarea</div>
-      </RequireTareasPermission>
+      </RequirePermission>
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent("Acceso denegado");
@@ -113,16 +110,16 @@ describe("RequireTareasPermission", () => {
     });
 
     render(
-      <RequireTareasPermission required="create">
+      <RequirePermission module="tareas" required="create">
         <div>Nueva tarea</div>
-      </RequireTareasPermission>
+      </RequirePermission>
     );
 
     expect(screen.getByText("Nueva tarea")).toBeInTheDocument();
   });
 });
 
-describe("RequireCotizacionPermission", () => {
+describe("RequirePermission (módulo cotizaciones)", () => {
   it("denies view when not explicitly true", () => {
     mockUseAuth.mockReturnValue({
       ...baseAuth,
@@ -130,9 +127,9 @@ describe("RequireCotizacionPermission", () => {
     });
 
     render(
-      <RequireCotizacionPermission required="view">
+      <RequirePermission module="cotizaciones" required="view">
         <div>Cotizaciones</div>
-      </RequireCotizacionPermission>
+      </RequirePermission>
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent("Acceso denegado");
@@ -145,16 +142,16 @@ describe("RequireCotizacionPermission", () => {
     });
 
     render(
-      <RequireCotizacionPermission required="view">
+      <RequirePermission module="cotizaciones" required="view">
         <div>Cotizaciones</div>
-      </RequireCotizacionPermission>
+      </RequirePermission>
     );
 
     expect(screen.getByText("Cotizaciones")).toBeInTheDocument();
   });
 });
 
-describe("RequireClientePermission", () => {
+describe("RequirePermission (módulo clientes)", () => {
   it("denies view when not explicitly true", () => {
     mockUseAuth.mockReturnValue({
       ...baseAuth,
@@ -162,9 +159,9 @@ describe("RequireClientePermission", () => {
     });
 
     render(
-      <RequireClientePermission required="view">
+      <RequirePermission module="clientes" required="view">
         <div>Clientes</div>
-      </RequireClientePermission>
+      </RequirePermission>
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent("Acceso denegado");
@@ -177,9 +174,9 @@ describe("RequireClientePermission", () => {
     });
 
     render(
-      <RequireClientePermission required="view">
+      <RequirePermission module="clientes" required="view">
         <div>Clientes</div>
-      </RequireClientePermission>
+      </RequirePermission>
     );
 
     expect(screen.getByText("Clientes")).toBeInTheDocument();

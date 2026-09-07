@@ -6,19 +6,10 @@ import AppLayout from "@/layout/AppLayout";
 import { ScrollToTop } from "@/components/common/ScrollToTop";
 import RouteLoadingFallback from "@/components/common/RouteLoadingFallback";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
-import RequireAuth from "@/components/auth/RequireAuth";
-import RequireAdmin from "@/components/auth/RequireAdmin";
-import RequireCuentasAntarixPermission from "@/components/auth/RequireCuentasAntarixPermission";
-import RequireUsuariosView from "@/components/auth/RequireUsuariosView";
-import RequireCotizacionPermission from "@/components/auth/RequireCotizacionPermission";
-import RequireClientePermission from "@/components/auth/RequireClientePermission";
-import RequireOrdenesPermission from "@/components/auth/RequireOrdenesPermission";
-import RequireProyectosPermission from "@/components/auth/RequireProyectosPermission";
-import RequireInventarioPermission from "@/components/auth/RequireInventarioPermission";
-import RequireProductosPermission from "@/components/auth/RequireProductosPermission";
-import RequireServiciosPermission from "@/components/auth/RequireServiciosPermission";
-import RequireReportesPermission from "@/components/auth/RequireReportesPermission";
-import RequireTareasPermission from "@/components/auth/RequireTareasPermission";
+import RequireAuth from "@/components/auth/guards/RequireAuth";
+import RequireAdmin from "@/components/auth/guards/RequireAdmin";
+import RequireCuentasAntarixPermission from "@/components/auth/guards/RequireCuentasAntarixPermission";
+import RequirePermission from "@/components/auth/guards/RequirePermission";
 
 // Lazy: cada página se descarga solo cuando se navega a su ruta (code splitting).
 const NotFound = lazy(() => import("@/pages/OtherPage/NotFound"));
@@ -81,7 +72,7 @@ export default function App() {
             <Route path="/operador/dashboard" element={<Home />} />
 
             {/* Dashboard Pages */}
-            <Route path="/ordenes" element={<RequireOrdenesPermission required="view"><Ordenes /></RequireOrdenesPermission>} />
+            <Route path="/ordenes" element={<RequirePermission module="ordenes" required="view"><Ordenes /></RequirePermission>} />
             <Route
               path="/cuentas"
               element={
@@ -93,95 +84,95 @@ export default function App() {
             <Route
               path="/ordenes/:id/pdf"
               element={
-                <RequireOrdenesPermission required="view">
+                <RequirePermission module="ordenes" required="view">
                   <OrdenPdfPage />
-                </RequireOrdenesPermission>
+                </RequirePermission>
               }
             />
-            <Route path="/ordenes-tecnico" element={<RequireOrdenesPermission required="view"><OrdenesTecnico /></RequireOrdenesPermission>} />
+            <Route path="/ordenes-tecnico" element={<RequirePermission module="ordenes" required="view"><OrdenesTecnico /></RequirePermission>} />
             <Route
               path="/reportes"
               element={
-                <RequireReportesPermission required="view">
+                <RequirePermission module="reportes" required="view">
                   <ReportesPage />
-                </RequireReportesPermission>
+                </RequirePermission>
               }
             />
-            <Route path="/levantamiento" element={<RequireOrdenesPermission required="view"><LevantamientoPage /></RequireOrdenesPermission>} />
-            <Route path="/proyectos" element={<RequireProyectosPermission required="view"><ProyectosPage /></RequireProyectosPermission>} />
+            <Route path="/levantamiento" element={<RequirePermission module="ordenes" required="view"><LevantamientoPage /></RequirePermission>} />
+            <Route path="/proyectos" element={<RequirePermission module="proyectos" required="view"><ProyectosPage /></RequirePermission>} />
             <Route
               path="/proyectos/:id/pdf"
               element={
-                <RequireProyectosPermission required="view">
+                <RequirePermission module="proyectos" required="view">
                   <ProyectoPdfPage />
-                </RequireProyectosPermission>
+                </RequirePermission>
               }
             />
             <Route
               path="/polizas-mantenimiento"
               element={
-                <RequireAdmin>
+                <RequirePermission module="polizas" required="view">
                   <PolizasMantenimientoPage />
-                </RequireAdmin>
+                </RequirePermission>
               }
             />
             <Route
               path="/polizas-mantenimiento/pdf"
               element={
-                <RequireAdmin>
+                <RequirePermission module="polizas" required="view">
                   <PolizaPdfPage />
-                </RequireAdmin>
+                </RequirePermission>
               }
             />
             <Route
               path="/reportes-mantenimiento"
               element={
-                <RequireAdmin>
+                <RequirePermission module="reportes_mantenimiento" required="view">
                   <ReportesMantenimientoPage />
-                </RequireAdmin>
+                </RequirePermission>
               }
             />
             <Route
               path="/reportes-mantenimiento/nuevo"
               element={
-                <RequireAdmin>
+                <RequirePermission module="reportes_mantenimiento" required="create">
                   <ReporteMantenimientoEditorPage />
-                </RequireAdmin>
+                </RequirePermission>
               }
             />
             <Route
               path="/reportes-mantenimiento/:id/pdf"
               element={
-                <RequireAdmin>
+                <RequirePermission module="reportes_mantenimiento" required="view">
                   <ReportePdfPage />
-                </RequireAdmin>
+                </RequirePermission>
               }
             />
             <Route
               path="/reportes-mantenimiento/:id"
               element={
-                <RequireAdmin>
+                <RequirePermission module="reportes_mantenimiento" required="edit">
                   <ReporteMantenimientoEditorPage />
-                </RequireAdmin>
+                </RequirePermission>
               }
             />
-            <Route path="/inventario" element={<RequireInventarioPermission required="view"><InventarioPage /></RequireInventarioPermission>} />
-            <Route path="/clientes" element={<RequireClientePermission required="view"><Clientes /></RequireClientePermission>} />
-            <Route path="/empresas" element={<RequireClientePermission required="view"><EmpresaPage /></RequireClientePermission>} />
-            <Route path="/personas" element={<RequireClientePermission required="view"><PersonasPage /></RequireClientePermission>} />
-            <Route path="/proveedores" element={<RequireClientePermission required="view"><ProveedoresPage /></RequireClientePermission>} />
-            <Route path="/productos" element={<RequireProductosPermission required="view"><Productos /></RequireProductosPermission>} />
-            <Route path="/servicios" element={<RequireServiciosPermission required="view"><Servicios /></RequireServiciosPermission>} />
-            <Route path="/cotizacion" element={<RequireCotizacionPermission required="view"><CotizacionesPage /></RequireCotizacionPermission>} />
-            <Route path="/facturas" element={<RequireCotizacionPermission required="view"><FacturasCfdiPage /></RequireCotizacionPermission>}/>
-            <Route path="/cotizacion/nueva" element={<RequireCotizacionPermission required="create"><NuevaCotizacionPage /></RequireCotizacionPermission>} />
-            <Route path="/cotizacion/:id/editar" element={<RequireCotizacionPermission required="edit"><NuevaCotizacionPage /></RequireCotizacionPermission>} />
+            <Route path="/inventario" element={<RequirePermission module="inventario" required="view"><InventarioPage /></RequirePermission>} />
+            <Route path="/clientes" element={<RequirePermission module="clientes" required="view"><Clientes /></RequirePermission>} />
+            <Route path="/empresas" element={<RequirePermission module="clientes" required="view"><EmpresaPage /></RequirePermission>} />
+            <Route path="/personas" element={<RequirePermission module="clientes" required="view"><PersonasPage /></RequirePermission>} />
+            <Route path="/proveedores" element={<RequirePermission module="clientes" required="view"><ProveedoresPage /></RequirePermission>} />
+            <Route path="/productos" element={<RequirePermission module="productos" required="view"><Productos /></RequirePermission>} />
+            <Route path="/servicios" element={<RequirePermission module="servicios" required="view"><Servicios /></RequirePermission>} />
+            <Route path="/cotizacion" element={<RequirePermission module="cotizaciones" required="view"><CotizacionesPage /></RequirePermission>} />
+            <Route path="/facturas" element={<RequirePermission module="cotizaciones" required="view"><FacturasCfdiPage /></RequirePermission>}/>
+            <Route path="/cotizacion/nueva" element={<RequirePermission module="cotizaciones" required="create"><NuevaCotizacionPage /></RequirePermission>} />
+            <Route path="/cotizacion/:id/editar" element={<RequirePermission module="cotizaciones" required="edit"><NuevaCotizacionPage /></RequirePermission>} />
             <Route
               path="/cotizacion/:id/pdf"
               element={
-                <RequireCotizacionPermission required="view">
+                <RequirePermission module="cotizaciones" required="view">
                   <CotizacionPdfPage />
-                </RequireCotizacionPermission>
+                </RequirePermission>
               }
             />
 
@@ -192,11 +183,11 @@ export default function App() {
             <Route path="/correo" element={<RequireAdmin><CorreoPage /></RequireAdmin>} />
 
             {/* Agenda (órdenes en calendario) — mismo permiso con el que la gatea el sidebar */}
-            <Route path="/calendar" element={<RequireOrdenesPermission required="view"><Calendar /></RequireOrdenesPermission>} />
+            <Route path="/calendar" element={<RequirePermission module="ordenes" required="view"><Calendar /></RequirePermission>} />
 
             {/* Tareas */}
-            <Route path="/tareas" element={<RequireTareasPermission required="view"><TareasPage /></RequireTareasPermission>} />
-            <Route path="/tareas-tecnico" element={<RequireTareasPermission required="view"><TareasTecnicoPage /></RequireTareasPermission>} />
+            <Route path="/tareas" element={<RequirePermission module="tareas" required="view"><TareasPage /></RequirePermission>} />
+            <Route path="/tareas-tecnico" element={<RequirePermission module="tareas" required="view"><TareasTecnicoPage /></RequirePermission>} />
 
             {/* Others Page */}
             <Route path="/profile" element={<ProfilePage />} />
@@ -213,9 +204,9 @@ export default function App() {
               path="/usuarios"
               element={
                 <RequireAdmin>
-                  <RequireUsuariosView>
+                  <RequirePermission module="usuarios" required="view">
                     <GestionUsuario />
-                  </RequireUsuariosView>
+                  </RequirePermission>
                 </RequireAdmin>
               }
             />

@@ -9,7 +9,7 @@ import {
   type ProyectoOperacionRequiredErrors,
 } from "../shared/proyectoOperacionValidation";
 import {
-  buildEquiposFromCotizaciones,
+  coalesceProyectoEquipos,
   clampPorcentajeAvance,
   createEmptyNotaDia,
   dateRangeFromFechasInicio,
@@ -247,11 +247,7 @@ export function useProyectoFormState({
     setClienteId(initialDraft.clienteId);
     const bloques = normalizeDraftCotizaciones(initialDraft);
     setCotizaciones(bloques);
-    setEquipos(
-      initialDraft.equipos?.length
-        ? initialDraft.equipos
-        : buildEquiposFromCotizaciones(bloques)
-    );
+    setEquipos(coalesceProyectoEquipos(bloques, initialDraft.equipos));
     setTiposTrabajo(
       normalizeTiposTrabajo(
         initialDraft.tiposTrabajo?.length

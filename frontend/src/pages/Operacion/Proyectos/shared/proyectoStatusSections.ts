@@ -73,7 +73,7 @@ export function groupProyectosByStatus(rows: ProyectoRow[]): ProyectoStatusSecti
 
 /**
  * Tokens de sección con contraste AA en claro/oscuro (mismo espíritu que órdenes y cotizaciones).
- * En proceso → cielo; Pausados → índigo; Cerrados → esmeralda.
+ * En proceso → cielo; Pausados → ámbar (mismo tono que el badge de estado); Cerrados → esmeralda.
  */
 export function getProyectoStatusSectionStyles(key: ProyectoStatusSectionKey): ProyectoStatusSectionStyles {
   if (key === "CERRADO") {
@@ -90,12 +90,12 @@ export function getProyectoStatusSectionStyles(key: ProyectoStatusSectionKey): P
   if (key === "PAUSADO") {
     return {
       shell:
-        "border-[#d4d8f0] bg-[#f4f5fb] dark:border-indigo-500/30 dark:bg-[#14182a]",
-      accent: "bg-indigo-600 dark:bg-indigo-400",
-      icon: "text-indigo-800 dark:text-indigo-300",
+        "border-amber-200/90 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-950/30",
+      accent: "bg-amber-600 dark:bg-amber-400",
+      icon: "text-amber-800 dark:text-amber-300",
       badge:
-        "border-indigo-300/90 bg-indigo-100 text-indigo-950 dark:border-indigo-400/35 dark:bg-indigo-500/20 dark:text-indigo-100",
-      label: "text-[#312e81] dark:text-indigo-100",
+        "border-amber-300/90 bg-amber-100 text-amber-900 dark:border-amber-400/35 dark:bg-amber-500/20 dark:text-amber-100",
+      label: "text-amber-950 dark:text-amber-100",
     };
   }
   if (key === "EN_PROCESO") {

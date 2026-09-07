@@ -541,6 +541,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     'cliente_id',
                     'tecnico_asignado',
                     'creado_por',
+                    'actualizado_por',
                     'levantamiento',
                     'instalacion',
                 )
@@ -562,6 +563,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 'cliente_id',
                 'tecnico_asignado',
                 'creado_por',
+                'actualizado_por',
                 'quien_instalo',
                 'quien_entrego',
                 'levantamiento',
@@ -1590,7 +1592,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
         data = _stamp_status_changed_at(data)
         incoming_equipos = data.get('equipos_inventario', [])
         with transaction.atomic():
-            instance = serializer.save(creado_por=self.request.user, **data)
+            instance = serializer.save(
+                creado_por=self.request.user,
+                actualizado_por=self.request.user,
+                **data,
+            )
             final = sync_orden_equipos_inventario(
                 orden=instance,
                 incoming=incoming_equipos,
@@ -1687,6 +1693,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
             incoming_equipos = previous_equipos
         else:
             incoming_equipos = data.get('equipos_inventario', previous_equipos)
+
+        if user and getattr(user, 'is_authenticated', False):
+            data['actualizado_por'] = user
 
         with transaction.atomic():
             instance = serializer.save(**data)

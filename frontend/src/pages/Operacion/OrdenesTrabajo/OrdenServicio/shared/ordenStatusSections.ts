@@ -71,7 +71,7 @@ export function groupOrdenesByStatus<T extends { status?: string | null }>(
 
 /**
  * Tokens de sección con contraste AA en claro/oscuro (mismo espíritu que cotizaciones).
- * Pendientes → ámbar; Pausados → índigo; Resueltas → esmeralda.
+ * Pendientes → amarillo (mismo tono que el badge); Pausados → índigo; Resueltas → esmeralda.
  */
 export function getOrdenStatusSectionStyles(key: OrdenStatusSectionKey): OrdenStatusSectionStyles {
   if (key === "RESUELTA") {
@@ -99,12 +99,12 @@ export function getOrdenStatusSectionStyles(key: OrdenStatusSectionKey): OrdenSt
   if (key === "PENDIENTE") {
     return {
       shell:
-        "border-[#BBD0FF] bg-[#F1F5FF] dark:border-amber-500/30 dark:bg-[#17235B]",
-      accent: "bg-amber-600 dark:bg-amber-400",
-      icon: "text-amber-800 dark:text-amber-300",
+        "border-yellow-200/90 bg-yellow-50 dark:border-yellow-500/30 dark:bg-yellow-950/30",
+      accent: "bg-yellow-600 dark:bg-yellow-400",
+      icon: "text-yellow-800 dark:text-yellow-300",
       badge:
-        "border-amber-300/90 bg-amber-100 text-amber-950 dark:border-amber-400/35 dark:bg-amber-500/20 dark:text-amber-100",
-      label: "text-[#1244D1] dark:text-amber-100",
+        "border-yellow-300/90 bg-yellow-100 text-yellow-800 dark:border-yellow-400/35 dark:bg-yellow-500/20 dark:text-yellow-100",
+      label: "text-yellow-900 dark:text-yellow-100",
     };
   }
   return {

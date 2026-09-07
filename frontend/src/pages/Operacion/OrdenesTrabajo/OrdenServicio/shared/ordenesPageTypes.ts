@@ -71,6 +71,11 @@ export interface Orden {
   tecnico_asignado_full_name?: string;
   creado_por?: number | null;
   creado_por_id?: number;
+  creado_por_username?: string | null;
+  creado_por_full_name?: string | null;
+  actualizado_por?: number | null;
+  actualizado_por_username?: string | null;
+  actualizado_por_full_name?: string | null;
   quien_instalo?: number | null;
   quien_instalo_username?: string;
   quien_instalo_full_name?: string;
@@ -83,6 +88,7 @@ export interface Orden {
   fotos_extra_max?: number;
   pdf_url?: string;
   fecha_creacion: string;
+  fecha_actualizacion?: string | null;
   tipo_orden?: "servicio_tecnico" | "levantamiento" | string;
   equipos_inventario?: OrdenEquipoInventarioLinea[];
 }

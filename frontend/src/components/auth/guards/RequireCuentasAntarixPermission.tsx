@@ -1,8 +1,14 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { ModuleAccessLoading } from "./AuthGateStates";
 
 type CuentasAntarixPerm = "view" | "create" | "edit";
 
+/**
+ * Distinto de `RequirePermission`: redirige en vez de mostrar "Acceso
+ * denegado" (a /signin sin sesión, a /ordenes-tecnico sin el permiso), por
+ * eso se queda como guard propio en vez de sumarse a la versión genérica.
+ */
 export default function RequireCuentasAntarixPermission({
   children,
   required,
@@ -13,11 +19,7 @@ export default function RequireCuentasAntarixPermission({
   const { permissions, isAdmin, isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center" role="status" aria-live="polite" aria-busy="true">
-        <span className="text-sm text-[#78716c] dark:text-[#8ea0b8]">Verificando acceso…</span>
-      </div>
-    );
+    return <ModuleAccessLoading label="Verificando acceso..." />;
   }
 
   if (!isAuthenticated) {

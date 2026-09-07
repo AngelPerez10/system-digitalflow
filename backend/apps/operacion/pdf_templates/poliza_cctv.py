@@ -14,13 +14,16 @@ from apps.common.pdf_html import (
     load_public_image_data_uri,
     subtotal_iva_display_split,
 )
-from apps.common.pdf_images import safe_pdf_thumbnail_src
+from apps.common.pdf_images import img_url_to_data_uri, safe_pdf_thumbnail_src
 from apps.cotizaciones.categorias_productos import (
     categorias_nombres_por_id,
     normalize_categorias_productos,
 )
 
 POLIZA_CCTV_TIPO = "cctv"
+
+# Usuario cuya firma/foto se embute en el bloque de aceptación (Gerente General).
+FIRMANTE_EMPRESA_USERNAME = "IvanCruz01"
 
 # Datos de demostración tomados del PDF de referencia (MCT Logistic).
 # Se sustituirán por el modelo de póliza cuando exista el CRUD.
@@ -257,6 +260,65 @@ def _payload(data: dict[str, Any] | None) -> dict[str, Any]:
             servicio.update(data["servicio"])
             merged["servicio"] = servicio
     return merged
+
+
+def _embed_image_src(url: str) -> str:
+    """Embebe una URL remota (o data URI / public/) como src listo para el PDF."""
+    u = str(url or "").strip()
+    if not u:
+        return ""
+    if u.startswith("data:"):
+        return u
+    return img_url_to_data_uri(u) or load_public_image_data_uri(u) or ""
+
+
+def _user_media_url(username: str) -> str:
+    """Firma del usuario; si no hay, foto de perfil. Vacío si no existe o falla la BD."""
+    try:
+        from django.contrib.auth import get_user_model
+
+        user = (
+            get_user_model()
+            .objects.filter(username__iexact=str(username or "").strip())
+            .first()
+        )
+    except Exception:
+        return ""
+    if user is None:
+        return ""
+
+    try:
+        firma = (user.signature_profile.url or "").strip()
+        if firma:
+            return firma
+    except Exception:
+        pass
+
+    try:
+        avatar = (user.permissions_profile.avatar_url or "").strip()
+        if avatar:
+            return avatar
+    except Exception:
+        pass
+
+    return ""
+
+
+def _resolve_firmante_imagen_src(payload: dict[str, Any]) -> str:
+    """
+    Imagen del firmante de la empresa en el bloque de firmas.
+
+    Orden: override en payload (`firmante_imagen_url` / `firmante_firma_url`) →
+    firma de ``FIRMANTE_EMPRESA_USERNAME`` → avatar del mismo usuario.
+    """
+    override = str(
+        payload.get("firmante_imagen_url") or payload.get("firmante_firma_url") or ""
+    ).strip()
+    if override:
+        return _embed_image_src(override)
+
+    username = str(payload.get("firmante_username") or FIRMANTE_EMPRESA_USERNAME).strip()
+    return _embed_image_src(_user_media_url(username))
 
 
 def _join_es(parts: list[str]) -> str:
@@ -581,6 +643,8 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
     p = _payload(data)
     logo_src = logo_data_uri_for_pdf()
     marca = get_marca_nombre()
+    firmante_img_src = _resolve_firmante_imagen_src(p)
+    firmante_nombre = str(p.get("firmante_empresa") or "").strip()
     servicio = p.get("servicio") if isinstance(p.get("servicio"), dict) else {}
     conceptos = p.get("conceptos") if isinstance(p.get("conceptos"), list) else []
     garantias = p.get("garantias") if isinstance(p.get("garantias"), list) else []
@@ -789,7 +853,23 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
       gap: 40px;
       margin-top: 36px;
     }}
-    .sign {{ text-align: center; padding-top: 48px; }}
+    .sign {{ text-align: center; padding-top: 12px; }}
+    .sign .sigimg {{
+      height: 72px;
+      max-width: 240px;
+      margin: 0 auto 4px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }}
+    .sign .sigimg img {{
+      max-height: 72px;
+      max-width: 240px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }}
+    .sign .sigspacer {{ height: 48px; }}
     .sign .line {{ border-top: 1px solid #1a1a1a; margin: 0 12px 8px; }}
     .sign .name {{ font-weight: 700; text-transform: uppercase; font-size: 11px; }}
     .sign .muted {{ color: #444; font-size: 10px; }}
@@ -938,12 +1018,14 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
   <h2>Aceptación y firmas de conformidad</h2>
   <div class="signs">
     <div class="sign">
+      {f'<div class="sigimg"><img src="{esc(firmante_img_src)}" alt="Firma de {esc(firmante_nombre) or "firmante"}" /></div>' if firmante_img_src else '<div class="sigspacer" aria-hidden="true"></div>'}
       <div class="line"></div>
-      <div class="name">{esc(p.get("firmante_empresa"))}</div>
+      <div class="name">{esc(firmante_nombre)}</div>
       <div class="muted">{esc(p.get("firmante_cargo"))}</div>
       <div class="muted">{esc(p.get("razon_social_emisor"))}</div>
     </div>
     <div class="sign">
+      <div class="sigspacer" aria-hidden="true"></div>
       <div class="line"></div>
       <div class="name">Representante autorizado</div>
       <div class="muted">Cargo: ______________________________</div>

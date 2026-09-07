@@ -40,6 +40,8 @@ type PermissionsPayload = {
   usuarios?: Partial<CrudPerms>;
   reportes?: Partial<CrudPerms>;
   cuentas_antarix?: Partial<CrudPerms>;
+  polizas?: Partial<CrudPerms>;
+  reportes_mantenimiento?: Partial<CrudPerms>;
 };
 
 type UserAccount = {
@@ -115,15 +117,6 @@ const sectionLabelClass =
 
 const bodyMutedClass = "text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]";
 
-const permsAccordionClass =
-  "rounded-2xl border border-[#E7E7EA] bg-white shadow-theme-xs overflow-hidden dark:border-[#273244] dark:bg-[#151E32]/80";
-
-const permsAccordionBtnClass =
-  "w-full px-4 py-3 flex items-center justify-between gap-3 bg-white/70 backdrop-blur dark:bg-[#151E32]/70";
-
-const permsModuleRowClass =
-  "rounded-xl border border-[#E7E7EA] bg-[#FAFAFA]/60 px-3 py-3 dark:border-[#273244] dark:bg-[#111827]/50";
-
 const claudeSansStyle = { fontFamily: "Geist, Outfit, system-ui, sans-serif" } as const;
 
 const filterBtnClass =
@@ -192,6 +185,8 @@ const seedAdminPerms = async (userId: number) => {
     usuarios: { view: true, create: true, edit: true, delete: true },
     reportes: { view: true, create: true, edit: true, delete: true },
     cuentas_antarix: { view: true, create: true, edit: true, delete: true },
+    polizas: { view: true, create: true, edit: true, delete: true },
+    reportes_mantenimiento: { view: true, create: true, edit: true, delete: true },
   };
   const res = await fetchApi(`/api/users/accounts/${userId}/permissions/`, {
     method: 'PUT',
@@ -305,7 +300,6 @@ export default function UserProfiles() {
   const [permsError, setPermsError] = useState<string | null>(null);
   const [permsSaving, setPermsSaving] = useState(false);
   const [permsForm, setPermsForm] = useState<PermissionsPayload>({});
-  const [permsOpenSections, setPermsOpenSections] = useState<Record<string, boolean>>({});
 
   const didInitRef = useRef(false);
   const canDelegatePerms = useMemo(
@@ -327,6 +321,8 @@ export default function UserProfiles() {
       usuarios: { view: true, create: false, edit: false, delete: false },
       reportes: { view: true, create: true, edit: false, delete: false },
       cuentas_antarix: { view: false, create: false, edit: false, delete: false },
+      polizas: { view: false, create: false, edit: false, delete: false },
+      reportes_mantenimiento: { view: false, create: false, edit: false, delete: false },
     };
     const safe = (v: any) => (typeof v === 'boolean' ? v : undefined);
     const mergeCrud = (dst: any, src: any) => {
@@ -351,6 +347,8 @@ export default function UserProfiles() {
       usuarios: mergeCrud(base.usuarios, p?.usuarios),
       reportes: mergeCrud(base.reportes, p?.reportes),
       cuentas_antarix: mergeCrud(base.cuentas_antarix, p?.cuentas_antarix),
+      polizas: mergeCrud(base.polizas, p?.polizas),
+      reportes_mantenimiento: mergeCrud(base.reportes_mantenimiento, p?.reportes_mantenimiento),
     };
   };
 
@@ -361,7 +359,6 @@ export default function UserProfiles() {
     setSuccess(null);
     setIsPermsOpen(true);
     setPermsLoading(true);
-    setPermsOpenSections({});
     try {
       const res = await fetchApi(`/api/users/accounts/${u.id}/permissions/`, {
         method: 'GET',
@@ -1573,6 +1570,14 @@ export default function UserProfiles() {
                         </svg>
                       );
                     }
+                    if (key === 'polizas' || key === 'reportes_mantenimiento') {
+                      return (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M12 3l7 4v6c0 5-3 8-7 8s-7-3-7-8V7l7-4Z" />
+                          <path d="M9 12l2 2 4-4" />
+                        </svg>
+                      );
+                    }
                     return (
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                         <path d="M4 19V5" />
@@ -1598,6 +1603,8 @@ export default function UserProfiles() {
                             { key: 'inventario' as const, label: 'Inventario' },
                             { key: 'reportes' as const, label: 'Reportes semanales' },
                             { key: 'cuentas_antarix' as const, label: 'Cuentas Antarix GPS' },
+                            { key: 'polizas' as const, label: 'Póliza de mantenimiento' },
+                            { key: 'reportes_mantenimiento' as const, label: 'Reporte de mantenimiento' },
                           ],
                         },
                         { key: 'configuracion' as const, label: 'Configuración', modules: [{ key: 'usuarios' as const, label: 'Usuarios' }] },
@@ -1617,168 +1624,300 @@ export default function UserProfiles() {
                             { key: 'inventario' as const, label: 'Inventario' },
                             { key: 'reportes' as const, label: 'Reportes semanales' },
                             { key: 'cuentas_antarix' as const, label: 'Cuentas Antarix GPS' },
+                            { key: 'polizas' as const, label: 'Póliza de mantenimiento' },
+                            { key: 'reportes_mantenimiento' as const, label: 'Reporte de mantenimiento' },
                           ],
                         },
                       ] as const);
 
-                  const actionLabels: { key: keyof CrudPerms; label: string }[] = [
-                    { key: 'view', label: 'Ver' },
-                    { key: 'create', label: 'Crear' },
-                    { key: 'edit', label: 'Editar' },
-                    { key: 'delete', label: 'Eliminar' },
-                  ];
+                  const ACTION_LABEL = { create: 'Crear', edit: 'Editar', delete: 'Eliminar' } as const;
+
+                  const normalizedAll = normalizePerms(permsForm, {
+                    isAdmin: !!(permsUser?.is_superuser || permsUser?.is_staff),
+                  });
+
+                  const allModuleKeys = sections.flatMap((s) => s.modules.map((mm) => mm.key));
+                  const bulkSet = (
+                    actions: readonly (keyof CrudPerms)[],
+                    modules: readonly (keyof Required<PermissionsPayload>)[],
+                    value: boolean
+                  ) => {
+                    modules.forEach((mk) => actions.forEach((ak) => setPerm(mk, ak, value)));
+                  };
+                  const applyPreset = (preset: 'full' | 'read' | 'none') => {
+                    allModuleKeys.forEach((mk) => {
+                      setPerm(mk, 'view', preset !== 'none');
+                      setPerm(mk, 'create', preset === 'full');
+                      setPerm(mk, 'edit', preset === 'full');
+                      setPerm(mk, 'delete', preset === 'full');
+                    });
+                  };
+
+                  // Nombre e icono del menú del panel al que pertenece cada grupo de vistas.
+                  const GROUP_META: Record<string, { menu: string; icon: import('react').ReactNode }> = {
+                    escritorio: {
+                      menu: 'Mi escritorio',
+                      icon: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5" />,
+                    },
+                    contactos: {
+                      menu: 'Contactos de Negocio',
+                      icon: <><circle cx="12" cy="8" r="4" /><path d="M4 20c1.6-4 4.7-6 8-6s6.4 2 8 6" /></>,
+                    },
+                    productos_servicios: {
+                      menu: 'Productos y Servicios',
+                      icon: <><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="M3.3 7 12 12l8.7-5M12 22V12" /></>,
+                    },
+                    compras_gastos: {
+                      menu: 'Compras y Gastos',
+                      icon: <><path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v3" /><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" /><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z" /></>,
+                    },
+                    ventas: {
+                      menu: 'Ventas',
+                      icon: <><path d="M21.2 15.9A10 10 0 1 1 8 2.8" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></>,
+                    },
+                    operaciones: {
+                      menu: 'Operación',
+                      icon: <><path d="M12 22v-5M9 8V2M15 8V2" /><path d="M5 8h14v3a7 7 0 0 1-14 0V8Z" /></>,
+                    },
+                    configuracion: {
+                      menu: 'Configuración',
+                      icon: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15H4a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1A2 2 0 1 1 7.9 5.3l.1.1A1.6 1.6 0 0 0 11 4.6V4a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.6 1.6 0 0 0 19.4 11H21a2 2 0 0 1 0 4h-.1Z" /></>,
+                    },
+                  };
+
+                  const Toggle = ({
+                    checked,
+                    onToggle,
+                    ariaLabel,
+                  }: {
+                    checked: boolean;
+                    onToggle: () => void;
+                    ariaLabel?: string;
+                  }) => (
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={checked}
+                      aria-label={ariaLabel}
+                      disabled={!canDelegatePerms}
+                      onClick={() => {
+                        if (canDelegatePerms) onToggle();
+                      }}
+                      className={cn(
+                        'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(27,92,255,0.30)]',
+                        checked ? 'bg-[#1B5CFF] dark:bg-[#4B7CFF]' : 'bg-[#D3D3D8] dark:bg-[#3A4661]',
+                        !canDelegatePerms && 'cursor-not-allowed opacity-55'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform',
+                          checked ? 'translate-x-[22px]' : 'translate-x-0.5'
+                        )}
+                      />
+                    </button>
+                  );
+
+                  const ActionWord = ({
+                    label,
+                    active,
+                    onClick,
+                  }: {
+                    label: string;
+                    active: boolean;
+                    onClick: () => void;
+                  }) => (
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={active}
+                      aria-label={label}
+                      disabled={!canDelegatePerms}
+                      onClick={() => {
+                        if (canDelegatePerms) onClick();
+                      }}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.30)]',
+                        active
+                          ? 'border-[#1B5CFF] bg-[#1B5CFF] text-white dark:border-[#4B7CFF] dark:bg-[#4B7CFF]'
+                          : 'border-[#E7E7EA] bg-white text-[#52525B] hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#B7C1D1]',
+                        !canDelegatePerms && 'cursor-not-allowed opacity-55'
+                      )}
+                    >
+                      <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden>
+                        <path d={active ? 'M20 6 9 17l-5-5' : 'M12 5v14M5 12h14'} strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      {label}
+                    </button>
+                  );
+
+                  const PresetBtn = ({
+                    onClick,
+                    children,
+                  }: {
+                    onClick: () => void;
+                    children: import('react').ReactNode;
+                  }) => (
+                    <button
+                      type="button"
+                      onClick={onClick}
+                      className="inline-flex items-center rounded-full border border-[#E7E7EA] bg-white px-3 py-1 text-[12px] font-medium text-[#52525B] transition-colors hover:border-[#1B5CFF]/50 hover:text-[#1B5CFF] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#B7C1D1] dark:hover:border-[#4B7CFF]/50 dark:hover:text-[#4B7CFF]"
+                    >
+                      {children}
+                    </button>
+                  );
+
+                  const scopeIndent = 'pl-[3.375rem] sm:pl-[3.625rem]';
 
                   return (
                     <div className="space-y-3">
+                      {canDelegatePerms ? (
+                        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-2.5 dark:border-[#273244] dark:bg-[#111827]/50">
+                          <span className="pl-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                            Rápido
+                          </span>
+                          <PresetBtn onClick={() => applyPreset('full')}>Dar acceso a todo</PresetBtn>
+                          <PresetBtn onClick={() => applyPreset('read')}>Solo ver todo</PresetBtn>
+                          <PresetBtn onClick={() => applyPreset('none')}>Quitar todo</PresetBtn>
+                        </div>
+                      ) : null}
+
+                      <p className="px-0.5 text-[12px] leading-snug text-[#52525B] dark:text-[#B7C1D1]">
+                        Cada vista vive dentro de un menú del panel. Enciende{' '}
+                        <b className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">Acceso</b> para que el usuario
+                        pueda abrirla; añade <b className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">Crear</b>,{' '}
+                        <b className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">Editar</b> o{' '}
+                        <b className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">Eliminar</b> si además debe poder
+                        cambiar la información.
+                      </p>
+
                       {sections.map((sec) => {
-                        const isOpen = !!permsOpenSections[sec.key];
+                        if (sec.modules.length === 0) return null;
+                        const meta = GROUP_META[sec.key];
+                        const menuName = meta?.menu ?? sec.label;
+                        const secKeys = sec.modules.map((mm) => mm.key);
+                        const secOn = secKeys.filter(
+                          (k) => !!(normalizedAll[k] as CrudPerms)?.view
+                        ).length;
+                        const allViewOn = secOn === secKeys.length;
                         return (
-                          <div key={sec.key} className={permsAccordionClass}>
-                            <button
-                              type="button"
-                              onClick={() => setPermsOpenSections(prev => ({ ...prev, [sec.key]: !prev[sec.key] }))}
-                              className={permsAccordionBtnClass}
-                              aria-expanded={isOpen}
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
-                                  <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <path d="M4 6h16M4 12h16M4 18h16" />
-                                  </svg>
-                                </span>
-                                <div className="min-w-0 text-left">
-                                  <div className="text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC] truncate">{sec.label}</div>
-                                  <div className="text-[11px] text-[#6E6E77] dark:text-[#8EA0B8] truncate">
-                                    {sec.modules.length > 0 ? `${sec.modules.length} módulo(s)` : 'Sin módulos configurados'}
-                                  </div>
+                          <section
+                            key={sec.key}
+                            className="overflow-hidden rounded-2xl border border-[#E7E7EA] dark:border-[#273244]"
+                          >
+                            <div className="flex items-center gap-2.5 border-b border-[#E7E7EA] bg-[#F4F7FC] px-3 py-2.5 dark:border-[#273244] dark:bg-[#111827]/60 sm:px-4">
+                              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-white text-[#1B5CFF] shadow-sm dark:bg-[#151E32] dark:text-[#4B7CFF]">
+                                <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                  {meta?.icon}
+                                </svg>
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-[13px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                                  Menú «{menuName}»
+                                </div>
+                                <div className="truncate text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                                  {secOn} de {secKeys.length} {secKeys.length === 1 ? 'vista visible' : 'vistas visibles'}
                                 </div>
                               </div>
-                              <svg className={`w-4 h-4 text-[#6E6E77] dark:text-[#8EA0B8] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="none">
-                                <path d="M5.25 7.5 10 12.25 14.75 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </button>
-
-                            <div
-                              className={`grid transition-all duration-300 ease-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
-                            >
-                              <div className="overflow-hidden">
-                                <div className="p-4 border-t border-[#E7E7EA] dark:border-[#273244]">
-                                  <div className="hidden sm:grid grid-cols-12 gap-3 pb-2 text-[11px] font-semibold text-[#6E6E77] dark:text-[#8EA0B8]">
-                                    <div className="col-span-5">Módulo</div>
-                                    <div className="col-span-7 grid grid-cols-4 gap-3 text-center">
-                                      {actionLabels.map(a => (
-                                        <div key={a.key}>{a.label}</div>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  {sec.modules.length > 0 ? (
-                                    <div className="space-y-2">
-                                      {sec.modules.map((m) => {
-                                        const cur = normalizePerms(permsForm, { isAdmin: !!(permsUser?.is_superuser || permsUser?.is_staff) })[m.key] as CrudPerms;
-                                        const supportsOwnScope =
-                                          m.key === 'cotizaciones' || m.key === 'ordenes' || m.key === 'proyectos';
-                                        const isOrdenes = m.key === 'ordenes';
-                                        const isProyectos = m.key === 'proyectos';
-                                        const ownScopeActive = supportsOwnScope
-                                          ? isOrdenes || isProyectos
-                                            ? !cur.own_only
-                                            : !!cur.own_only
-                                          : false;
-                                        const ownScopeText =
-                                          isOrdenes
-                                            ? 'Ver todas las órdenes'
-                                            : isProyectos
-                                              ? 'Ver todos los proyectos'
-                                              : 'Solo propios';
-                                        const ownScopeAria =
-                                          isOrdenes || isProyectos
-                                            ? ownScopeActive
-                                              ? `${ownScopeText}: activo`
-                                              : `${ownScopeText}: inactivo`
-                                            : ownScopeActive
-                                              ? 'Solo propios: activo'
-                                              : 'Solo propios: inactivo';
-
-                                        const PermSwitch = ({
-                                          checked,
-                                          onToggle,
-                                          ariaLabel,
-                                        }: {
-                                          checked: boolean;
-                                          onToggle: () => void;
-                                          ariaLabel?: string;
-                                        }) => (
-                                          <button
-                                            type="button"
-                                            role="switch"
-                                            aria-checked={checked}
-                                            aria-label={ariaLabel}
-                                            disabled={!canDelegatePerms}
-                                            title={!canDelegatePerms ? 'Sin permiso para cambiar' : undefined}
-                                            onClick={() => {
-                                              if (!canDelegatePerms) return;
-                                              onToggle();
-                                            }}
-                                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-[rgba(27,92,255,0.30)] active:scale-[0.98] ${checked ? 'bg-[#1B5CFF] dark:bg-[#4B7CFF]' : 'bg-[#D3D3D8] dark:bg-[#3A4661]'} ${!canDelegatePerms ? 'cursor-not-allowed opacity-55' : ''}`}
-                                          >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${checked ? 'translate-x-4' : 'translate-x-1'}`} />
-                                          </button>
-                                        );
-
-                                        const Switch = ({ k }: { k: keyof CrudPerms }) => (
-                                          <PermSwitch
-                                            checked={!!cur[k]}
-                                            onToggle={() => setPerm(m.key, k, !cur[k])}
-                                            ariaLabel={actionLabels.find((a) => a.key === k)?.label}
-                                          />
-                                        );
-
-                                        return (
-                                          <div key={m.key} className={permsModuleRowClass}>
-                                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:items-center">
-                                              <div className="sm:col-span-5">
-                                                <div className="flex items-center gap-2.5">
-                                                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#52525B] shadow-sm dark:bg-[#151E32] dark:text-[#B7C1D1]">
-                                                    {getIcon(m.key)}
-                                                  </span>
-                                                  <div className="min-w-0 flex-1">
-                                                    <div className="text-sm font-medium text-[#09090B] dark:text-[#F8FAFC] truncate">{m.label}</div>
-                                                    {supportsOwnScope && (
-                                                      <div className="mt-1.5 flex items-center gap-2">
-                                                        <PermSwitch
-                                                          checked={ownScopeActive}
-                                                          onToggle={() => setPerm(m.key, 'own_only', !cur.own_only)}
-                                                          ariaLabel={ownScopeAria}
-                                                        />
-                                                        <span className="text-[11px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8] truncate">
-                                                          {ownScopeText}
-                                                        </span>
-                                                      </div>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                              </div>
-                                              <div className="sm:col-span-7 grid grid-cols-4 gap-3 items-center justify-items-center sm:min-h-[2.5rem]">
-                                                <Switch k="view" />
-                                                <Switch k="create" />
-                                                <Switch k="edit" />
-                                                <Switch k="delete" />
-                                              </div>
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  ) : (
-                                    <div className="rounded-xl border border-dashed border-[#E7E7EA] dark:border-[#273244] p-4 text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
-                                      Esta sección todavía no tiene módulos conectados a permisos.
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
+                              {canDelegatePerms ? (
+                                <button
+                                  type="button"
+                                  onClick={() => bulkSet(['view'], secKeys, !allViewOn)}
+                                  className="shrink-0 rounded-full border border-[#E7E7EA] bg-white px-2.5 py-1 text-[11px] font-medium text-[#52525B] transition-colors hover:border-[#1B5CFF]/50 hover:text-[#1B5CFF] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#B7C1D1]"
+                                >
+                                  {allViewOn ? 'Ocultar todo' : 'Mostrar todo'}
+                                </button>
+                              ) : null}
                             </div>
-                          </div>
+
+                            <div className="divide-y divide-[#EEF0F3] dark:divide-[#273244]">
+                              {sec.modules.map((m) => {
+                                const cur = normalizedAll[m.key] as CrudPerms;
+                                const supportsOwnScope =
+                                  m.key === 'cotizaciones' || m.key === 'ordenes' || m.key === 'proyectos';
+                                const isOrdenes = m.key === 'ordenes';
+                                const isProyectos = m.key === 'proyectos';
+                                const ownScopeActive = supportsOwnScope
+                                  ? isOrdenes || isProyectos
+                                    ? !cur.own_only
+                                    : !!cur.own_only
+                                  : false;
+                                const ownScopeText = isOrdenes
+                                  ? 'Ver también las órdenes de otros técnicos'
+                                  : isProyectos
+                                    ? 'Ver también los proyectos de otros técnicos'
+                                    : 'Ver solo lo que este usuario creó';
+                                const extras = (['create', 'edit', 'delete'] as const)
+                                  .filter((k) => cur[k])
+                                  .map((k) => ACTION_LABEL[k]);
+                                return (
+                                  <div
+                                    key={m.key}
+                                    className={cn(!cur.view && 'bg-[#FBFCFE] dark:bg-transparent')}
+                                  >
+                                    <div className="flex items-center justify-between gap-3 px-3 py-3 sm:px-4">
+                                      <div className="flex min-w-0 items-center gap-2.5">
+                                        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#52525B] shadow-sm dark:bg-[#151E32] dark:text-[#B7C1D1]">
+                                          {getIcon(m.key)}
+                                        </span>
+                                        <div className="min-w-0">
+                                          <div className="truncate text-[13px] font-medium text-[#09090B] dark:text-[#F8FAFC]">
+                                            {m.label}
+                                          </div>
+                                          <div
+                                            className={cn(
+                                              'truncate text-[11px]',
+                                              cur.view
+                                                ? 'text-[#1B5CFF] dark:text-[#4B7CFF]'
+                                                : 'text-[#8EA0B8]'
+                                            )}
+                                          >
+                                            {!cur.view
+                                              ? 'No aparece para este usuario'
+                                              : extras.length
+                                                ? `Puede: ${extras.join(', ')}`
+                                                : 'Solo puede ver'}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <label className="flex shrink-0 cursor-pointer items-center gap-2">
+                                        <span className="text-[12px] font-medium text-[#52525B] dark:text-[#B7C1D1]">
+                                          Acceso
+                                        </span>
+                                        <Toggle
+                                          checked={cur.view}
+                                          onToggle={() => setPerm(m.key, 'view', !cur.view)}
+                                          ariaLabel={`Acceso a ${m.label}`}
+                                        />
+                                      </label>
+                                    </div>
+
+                                    {cur.view ? (
+                                      <div className={cn('flex flex-wrap items-center gap-1.5 px-3 pb-3 sm:px-4', scopeIndent)}>
+                                        <span className="text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">Además puede:</span>
+                                        <ActionWord label="Crear" active={!!cur.create} onClick={() => setPerm(m.key, 'create', !cur.create)} />
+                                        <ActionWord label="Editar" active={!!cur.edit} onClick={() => setPerm(m.key, 'edit', !cur.edit)} />
+                                        <ActionWord label="Eliminar" active={!!cur.delete} onClick={() => setPerm(m.key, 'delete', !cur.delete)} />
+                                      </div>
+                                    ) : null}
+
+                                    {cur.view && supportsOwnScope ? (
+                                      <div className={cn('flex items-center gap-2.5 px-3 pb-3 sm:px-4', scopeIndent)}>
+                                        <Toggle
+                                          checked={ownScopeActive}
+                                          onToggle={() => setPerm(m.key, 'own_only', !cur.own_only)}
+                                          ariaLabel={`${ownScopeText}: ${ownScopeActive ? 'sí' : 'no'}`}
+                                        />
+                                        <span className="text-[11px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">
+                                          {ownScopeText}
+                                        </span>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </section>
                         );
                       })}
                     </div>

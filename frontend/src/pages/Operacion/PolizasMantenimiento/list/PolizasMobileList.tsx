@@ -1,4 +1,4 @@
-import { PencilIcon } from "@/icons";
+import { PencilIcon, TrashBinIcon } from "@/icons";
 import { formatPolizaFecha, nextVisitIso } from "./polizaDemoData";
 import { EstadoPolizaBadge } from "./EstadoPolizaBadge";
 import { PolizaPdfGlyph } from "./PolizaPdfGlyph";
@@ -15,16 +15,19 @@ type Props = {
   loading?: boolean;
   onEdit: (row: PolizaRow) => void;
   onPdf: (row: PolizaRow) => void;
+  onDelete?: (row: PolizaRow) => void;
 };
 
 function PolizaCard({
   row,
   onEdit,
   onPdf,
+  onDelete,
 }: {
   row: PolizaRow;
   onEdit: (row: PolizaRow) => void;
   onPdf: (row: PolizaRow) => void;
+  onDelete?: (row: PolizaRow) => void;
 }) {
   const proxima = nextVisitIso(row);
   return (
@@ -61,6 +64,17 @@ function PolizaCard({
           >
             <PencilIcon className="h-4 w-4" />
           </button>
+          {onDelete ? (
+            <button
+              type="button"
+              className={`${actionBtnClass} hover:border-rose-400 hover:text-rose-600 dark:hover:border-rose-500/60 dark:hover:text-rose-400`}
+              onClick={() => onDelete(row)}
+              aria-label={`Eliminar póliza ${row.folio}`}
+              title="Eliminar"
+            >
+              <TrashBinIcon className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -80,7 +94,14 @@ function PolizaCard({
   );
 }
 
-export function PolizasMobileList({ sections, hasSearch, loading = false, onEdit, onPdf }: Props) {
+export function PolizasMobileList({
+  sections,
+  hasSearch,
+  loading = false,
+  onEdit,
+  onPdf,
+  onDelete,
+}: Props) {
   if (sections.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8] md:hidden" role="status">
@@ -108,7 +129,7 @@ export function PolizasMobileList({ sections, hasSearch, loading = false, onEdit
             />
             <ul className="mt-2.5 space-y-2.5">
               {section.rows.map((row) => (
-                <PolizaCard key={row.id} row={row} onEdit={onEdit} onPdf={onPdf} />
+                <PolizaCard key={row.id} row={row} onEdit={onEdit} onPdf={onPdf} onDelete={onDelete} />
               ))}
             </ul>
           </section>

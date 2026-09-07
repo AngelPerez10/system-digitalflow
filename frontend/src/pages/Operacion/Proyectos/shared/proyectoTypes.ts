@@ -46,6 +46,8 @@ export type ProyectoEquipoLinea = {
   lineaId: string;
   modelo: string;
   modeloOriginal: string;
+  /** Unidades de la partida (misma cantidad que el presupuesto). */
+  cantidad: number;
   /** ID Syscom/TVC/manual cuando el modelo se eligió del catálogo. */
   productoId?: string;
   marca?: string;

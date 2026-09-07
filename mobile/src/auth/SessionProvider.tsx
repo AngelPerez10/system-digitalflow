@@ -1,9 +1,10 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
 import * as authApi from '@/api/authApi';
 import { setSessionExpiredHandler } from '@/api/client';
 import { IS_DEV } from '@/config/env';
 import { bootstrapSession } from './bootstrapSession';
 import { portalAcceso } from './portalAcceso';
+import { initialSessionState, sessionReducer } from './sessionReducer';
 import type { ModulePermissions, SessionUser } from '@/types/api';
 import { tokenStore } from './tokenStore';
 
@@ -29,20 +30,14 @@ interface SessionValue {
 const SessionContext = createContext<SessionValue | null>(null);
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const [status, setStatus] = useState<SessionStatus>('loading');
-  const [user, setUser] = useState<SessionUser | null>(null);
-  const [permissions, setPermissions] = useState<ModulePermissions>({});
-  const [notice, setNotice] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(sessionReducer, initialSessionState);
 
   const cerrarSesionLocal = useCallback(
     async (message: string | null, { borrarTokens = true }: { borrarTokens?: boolean } = {}) => {
       // Un fallo de red no debe costarle la sesión al técnico: los tokens solo
       // se borran cuando el servidor los rechazó de verdad.
       if (borrarTokens) await tokenStore.clear();
-      setUser(null);
-      setPermissions({});
-      setNotice(message);
-      setStatus('signedOut');
+      dispatch({ type: 'signedOut', notice: message });
     },
     [],
   );
@@ -68,9 +63,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
 
       if (resultado.status === 'signedIn') {
-        setUser(resultado.user);
-        setPermissions(resultado.permissions);
-        setStatus('signedIn');
+        dispatch({ type: 'signedIn', user: resultado.user, permissions: resultado.permissions });
         return;
       }
 
@@ -85,31 +78,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(async (username: string, password: string) => {
     const data = await authApi.login(username, password);
     await tokenStore.save({ access: data.access, refresh: data.refresh });
-    setUser({
-      id: data.id,
-      username: data.username,
-      email: data.email,
-      first_name: data.first_name,
-      last_name: data.last_name,
-      is_staff: data.is_staff,
-      is_superuser: data.is_superuser,
-      // El login no trae `avatar_url`; se completa en el primer `/me/`
-      // (arranque en frío o `recargarSesion` tras cambiar la contraseña).
-      avatar_url: null,
-      account_type: data.account_type,
-      must_change_password: data.must_change_password,
-      cliente_id: data.cliente_id,
-      portal_status: data.portal_status,
-    });
-    setPermissions(data.permissions);
-    setNotice(null);
-    setStatus('signedIn');
+    // `LoginResponse extends SessionUser` (types/api.ts): descartando solo
+    // `permissions` (access/refresh ya se guardaron arriba), `user` conserva
+    // todos los campos de SessionUser sin listarlos a mano ni perder ninguno
+    // que el backend agregue a futuro.
+    const { permissions, ...user } = data;
+    dispatch({ type: 'signedIn', user, permissions });
   }, []);
 
   const recargarSesion = useCallback(async () => {
-    const [me, perms] = await Promise.all([authApi.fetchMe(), authApi.fetchMyPermissions()]);
-    setUser(me);
-    setPermissions(perms);
+    const [user, permissions] = await Promise.all([authApi.fetchMe(), authApi.fetchMyPermissions()]);
+    dispatch({ type: 'sessionReloaded', user, permissions });
   }, []);
 
   const signOut = useCallback(async () => {
@@ -124,16 +103,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<SessionValue>(
     () => ({
-      status,
-      user,
-      permissions,
-      notice,
+      status: state.status,
+      user: state.user,
+      permissions: state.permissions,
+      notice: state.notice,
       signIn,
       signOut,
       recargarSesion,
-      clearNotice: () => setNotice(null),
+      clearNotice: () => dispatch({ type: 'noticeCleared' }),
     }),
-    [status, user, permissions, notice, signIn, signOut, recargarSesion],
+    [state, signIn, signOut, recargarSesion],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

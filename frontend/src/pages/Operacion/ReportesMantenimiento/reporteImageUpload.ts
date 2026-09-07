@@ -1,7 +1,9 @@
 import { uploadReporteImage } from "./reporteApi";
 
-const MAX_EDGE = 1600;
-const MAX_KB = 180;
+// Mismos parámetros que Órdenes (ordenImageUpload.ts): optimiza para ahorrar
+// espacio en Cloudinary sin pixelar (el PDF ya embebe a resolución nativa).
+const MAX_EDGE = 1280;
+const MAX_KB = 80;
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -13,16 +15,16 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 async function encodeCanvas(canvas: HTMLCanvasElement, maxKb: number): Promise<string> {
-  let quality = 0.88;
-  for (let i = 0; i < 8; i++) {
+  let quality = 0.72;
+  for (let i = 0; i < 5; i++) {
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob((b) => resolve(b), "image/jpeg", quality)
     );
     if (!blob) throw new Error("No se pudo comprimir la imagen");
-    if (blob.size / 1024 <= maxKb || quality <= 0.35) {
+    if (blob.size / 1024 <= maxKb || quality <= 0.28) {
       return blobToDataUrl(blob);
     }
-    quality -= 0.1;
+    quality = Math.max(0.28, quality - 0.12);
   }
   throw new Error("No se pudo comprimir la imagen");
 }

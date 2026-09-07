@@ -71,6 +71,23 @@ class PolizaCctvPlantillaTests(SimpleTestCase):
         self.assertIn("MCT LOGISTIC", xml)
         self.assertNotIn("<script", xml.lower())
 
+    def test_firmante_muestra_imagen_cuando_hay_url(self):
+        # 1×1 PNG transparente
+        data_uri = (
+            "data:image/png;base64,"
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
+        html = generate_poliza_cctv_pdf_html({"firmante_imagen_url": data_uri})
+        self.assertIn('class="sigimg"', html)
+        self.assertIn(data_uri[:40], html)
+        self.assertIn("Ing. Edgar Iván Cruz Sandoval", html)
+        self.assertIn('alt="Firma de Ing. Edgar Iván Cruz Sandoval"', html)
+
+    def test_firmante_sin_imagen_deja_espacio_para_firma(self):
+        html = generate_poliza_cctv_pdf_html({"firmante_imagen_url": ""})
+        self.assertIn('class="sigspacer"', html)
+        self.assertNotIn('class="sigimg"', html)
+
 
 User = get_user_model()
 

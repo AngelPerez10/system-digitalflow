@@ -42,8 +42,8 @@ const SIDEBAR_FUTURE = {
   operacionExtended: false,
   /** Submenú Operación: ítem "Levantamiento" (/levantamiento) — vista oculta, sin borrar */
   operacionLevantamiento: false,
-  /** Submenú Operación: ítem "Reporte de mantenimiento" (/reportes-mantenimiento) — vista oculta, sin borrar */
-  mantenimientoReporte: false,
+  /** Submenú Operación: ítem "Reporte de mantenimiento" (/reportes-mantenimiento) */
+  mantenimientoReporte: true,
 } as const;
 
 type NavItem = {
@@ -206,10 +206,11 @@ export default function AppSidebar() {
           ...(permissions?.proyectos?.view === true || isAdmin
             ? [{ name: "Proyectos", path: "/proyectos", pro: false } as const]
             : []),
-          ...(isAdmin
+          ...(permissions?.polizas?.view === true || isAdmin
             ? [{ name: "Póliza de mantenimiento", path: "/polizas-mantenimiento", pro: false } as const]
             : []),
-          ...(SIDEBAR_FUTURE.mantenimientoReporte && isAdmin
+          ...(SIDEBAR_FUTURE.mantenimientoReporte &&
+          (permissions?.reportes_mantenimiento?.view === true || isAdmin)
             ? [{ name: "Reporte de mantenimiento", path: "/reportes-mantenimiento", pro: false } as const]
             : []),
           ...(SIDEBAR_FUTURE.operacionExtended && permissions?.ordenes?.view === true
@@ -243,6 +244,17 @@ export default function AppSidebar() {
 
       if (permissions?.proyectos?.view === true) {
         subItems.push({ name: "Proyectos", path: "/proyectos", pro: false });
+      }
+
+      if (permissions?.polizas?.view === true) {
+        subItems.push({ name: "Póliza de mantenimiento", path: "/polizas-mantenimiento", pro: false });
+      }
+
+      if (
+        SIDEBAR_FUTURE.mantenimientoReporte &&
+        permissions?.reportes_mantenimiento?.view === true
+      ) {
+        subItems.push({ name: "Reporte de mantenimiento", path: "/reportes-mantenimiento", pro: false });
       }
 
       if (

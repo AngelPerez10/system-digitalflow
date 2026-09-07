@@ -38,6 +38,8 @@ import {
 } from "./shared/useOrdenesShared";
 import {
   formatYmdToDMY,
+  formatIsoDateTime,
+  displayOrdenUserName,
   getNowHHMM,
   isGoogleMapsUrl,
   isOrdenStatusChangeRecent,
@@ -802,7 +804,7 @@ export default function Ordenes() {
             groupByStatus
           />
           <div className={"hidden md:block " + erpTableWrapClass}>
-            <Table className="w-full min-w-[900px] table-fixed sm:min-w-0 xl:min-w-full">
+            <Table className="w-full min-w-[1040px] table-fixed sm:min-w-0 xl:min-w-full">
               <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                 <TableRow>
                   <TableCell isHeader className="px-3 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Folio</TableCell>
@@ -811,6 +813,7 @@ export default function Ordenes() {
                   <TableCell isHeader className="px-3 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Fechas</TableCell>
 
                   <TableCell isHeader className="px-3 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Técnico</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-[180px] min-w-[180px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Registro</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Estado</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Acciones</TableCell>
                 </TableRow>
@@ -826,7 +829,7 @@ export default function Ordenes() {
                       <TableCell
                         isHeader
                         scope="colgroup"
-                        colSpan={7}
+                        colSpan={8}
                         className="border-y-0 bg-transparent p-0 text-left"
                       >
                         <div className="px-3 py-2">
@@ -851,6 +854,10 @@ export default function Ordenes() {
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
                   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
                   const recentResolved = isAdmin && isOrdenStatusChangeRecent(orden);
+                  const creadaPor = displayOrdenUserName(orden, "creado");
+                  const editadaPor = displayOrdenUserName(orden, "actualizado");
+                  const creadaEn = formatIsoDateTime(orden.fecha_creacion);
+                  const editadaEn = formatIsoDateTime(orden.fecha_actualizacion);
 
                   const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
                   const tecnicoNombre = tecnico
@@ -884,7 +891,7 @@ export default function Ordenes() {
                             className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
                             title="Ver problemática"
                           >
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             Problemática
                           </button>
                           <button
@@ -893,7 +900,7 @@ export default function Ordenes() {
                             className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
                             title="Ver servicios realizados"
                           >
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
                             Servicios
                           </button>
                         </div>
@@ -913,9 +920,43 @@ export default function Ordenes() {
                             className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:underline dark:text-blue-400"
                             title="Ver comentario del técnico"
                           >
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /></svg>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /></svg>
                             Comentarios
                           </button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-3 py-2 w-[180px] min-w-[180px] align-top">
+                        <div className="flex min-w-0 flex-col gap-1.5 text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
+                          <div className="min-w-0">
+                            <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">Creada por</div>
+                            <div className="truncate font-medium text-[#09090B] dark:text-white" title={creadaPor}>
+                              {creadaPor}
+                            </div>
+                            {orden.fecha_creacion ? (
+                              <time
+                                className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]"
+                                dateTime={orden.fecha_creacion}
+                              >
+                                {creadaEn}
+                              </time>
+                            ) : (
+                              <span className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">—</span>
+                            )}
+                          </div>
+                          <div className="min-w-0 border-t border-[#EDEDED] pt-1.5 dark:border-[#273244]">
+                            <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">Editada por</div>
+                            <div className="truncate font-medium text-[#09090B] dark:text-white" title={editadaPor}>
+                              {editadaPor}
+                            </div>
+                            {orden.fecha_actualizacion ? (
+                              <time
+                                className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]"
+                                dateTime={orden.fecha_actualizacion}
+                              >
+                                {editadaEn}
+                              </time>
+                            ) : null}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="px-3 py-2 text-center w-[110px] min-w-[110px]">
@@ -1002,7 +1043,7 @@ export default function Ordenes() {
                 {monthLoading && shownList.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="px-2 py-8 text-center text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]"
                     >
                       <span role="status" aria-live="polite">
@@ -1016,6 +1057,7 @@ export default function Ordenes() {
                     <TableCell className="px-3 py-2">&nbsp;</TableCell>
                     <TableCell className="px-3 py-2">&nbsp;</TableCell>
                     <TableCell className="px-3 py-2 text-center text-[12px] text-[#6E6E77]">Sin órdenes</TableCell>
+                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
                     <TableCell className="px-3 py-2">&nbsp;</TableCell>
                     <TableCell className="px-3 py-2">&nbsp;</TableCell>
                     <TableCell className="px-3 py-2">&nbsp;</TableCell>

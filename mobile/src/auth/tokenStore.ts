@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { deleteSecureValue, readSecureValue } from './secureStore';
 
 /**
  * Access en memoria + SecureStore; refresh **solo** en SecureStore
@@ -13,17 +14,6 @@ export interface TokenPair {
 }
 
 let accessInMemory: string | null = null;
-
-async function readKey(key: string): Promise<string | null> {
-  try {
-    const value = await SecureStore.getItemAsync(key);
-    return value && value.length > 0 ? value : null;
-  } catch (error) {
-    // Almacén corrupto o no disponible: tratar como sesión ausente, no reventar.
-    console.warn('[auth] No se pudo leer el almacén seguro', (error as Error)?.name);
-    return null;
-  }
-}
 
 export const tokenStore = {
   getAccess(): string | null {
@@ -44,12 +34,12 @@ export const tokenStore = {
   },
 
   async getRefresh(): Promise<string | null> {
-    return readKey(REFRESH_KEY);
+    return readSecureValue(REFRESH_KEY);
   },
 
   /** Rehidrata el access en memoria al arrancar la app. */
   async restore(): Promise<TokenPair | null> {
-    const [access, refresh] = await Promise.all([readKey(ACCESS_KEY), readKey(REFRESH_KEY)]);
+    const [access, refresh] = await Promise.all([readSecureValue(ACCESS_KEY), readSecureValue(REFRESH_KEY)]);
     if (!refresh) {
       accessInMemory = null;
       return null;
@@ -60,9 +50,6 @@ export const tokenStore = {
 
   async clear(): Promise<void> {
     accessInMemory = null;
-    await Promise.all([
-      SecureStore.deleteItemAsync(ACCESS_KEY).catch(() => undefined),
-      SecureStore.deleteItemAsync(REFRESH_KEY).catch(() => undefined),
-    ]);
+    await Promise.all([deleteSecureValue(ACCESS_KEY), deleteSecureValue(REFRESH_KEY)]);
   },
 };

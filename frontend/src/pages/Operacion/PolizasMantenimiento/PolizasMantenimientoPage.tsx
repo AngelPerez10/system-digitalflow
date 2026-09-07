@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
-import { PencilIcon } from "@/icons";
+import { Modal } from "@/components/ui/modal";
+import { PencilIcon, TrashBinIcon } from "@/icons";
+import { useAuth } from "@/context/AuthContext";
+import { cn } from "@/lib/utils";
+import {
+  erpDangerBtnClass,
+  erpDeleteModalClass,
+  erpDeleteModalPanelClass,
+  erpSecondaryBtnClass,
+} from "../OrdenesTrabajo/ordenTrabajoStyles";
 import { FOLIO_SERIE, formatDocumentFolio, matchesDocumentFolio } from "@/utils/documentFolio";
 import {
   erpBreadcrumbLinkClass,
@@ -24,6 +33,8 @@ import {
   osHeroBodyClass,
   osHeroEyebrowClass,
   osTableBodyClass,
+  osTdCellClass,
+  osThCellClass,
   pageCardShellClass,
   pageSearchInputClass,
 } from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
@@ -44,7 +55,7 @@ import {
   nextVisitIso,
   valuesFromRow,
 } from "./list/polizaDemoData";
-import { createPoliza, isPolizaApiError, listPolizas, updatePoliza } from "./list/polizaApi";
+import { createPoliza, deletePoliza, isPolizaApiError, listPolizas, updatePoliza } from "./list/polizaApi";
 import type { PolizaAltaValues, PolizaRow } from "./list/polizaListTypes";
 
 function polizaMatchesSearch(row: PolizaRow, q: string): boolean {
@@ -61,12 +72,16 @@ function polizaMatchesSearch(row: PolizaRow, q: string): boolean {
 
 export default function PolizasMantenimientoPage() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+  const deleteTitleId = useId();
   const [rows, setRows] = useState<PolizaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingRow, setEditingRow] = useState<PolizaRow | null>(null);
+  const [deletingRow, setDeletingRow] = useState<PolizaRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [alert, setAlert] = useState<{
     show: boolean;
     variant: "success" | "warning" | "error";
@@ -136,6 +151,25 @@ export default function PolizasMantenimientoPage() {
     if (saving) return;
     setShowModal(false);
     setEditingRow(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingRow) return;
+    setDeleting(true);
+    try {
+      await deletePoliza(deletingRow.id);
+      setRows((prev) => prev.filter((r) => r.id !== deletingRow.id));
+      showAlert("success", "Póliza eliminada", `${deletingRow.folio} se eliminó correctamente.`);
+      setDeletingRow(null);
+    } catch (err) {
+      showAlert(
+        "error",
+        "No se pudo eliminar",
+        isPolizaApiError(err) ? err.message : "Inténtalo de nuevo."
+      );
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleSave = async (values: PolizaAltaValues) => {
@@ -286,31 +320,60 @@ export default function PolizasMantenimientoPage() {
               loading={loading}
               onEdit={openEdit}
               onPdf={openPdf}
+              onDelete={isAdmin ? setDeletingRow : undefined}
             />
 
-            <div className={"hidden md:block " + erpTableWrapClass}>
-              <Table className="w-full min-w-[920px] table-fixed border-collapse sm:min-w-0 xl:min-w-full">
-                <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
+            <div className={cn("hidden md:block", erpTableWrapClass)}>
+              <Table className="w-full min-w-[1020px] table-fixed border-collapse">
+                <TableHeader className={`${erpTableHeaderClass} sticky top-0 z-10`}>
                   <TableRow>
-                    <TableCell isHeader scope="col" className="w-[110px] min-w-[96px] whitespace-nowrap px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                    <TableCell
+                      isHeader
+                      scope="col"
+                      className={cn(osThCellClass, "w-[100px] min-w-[96px] whitespace-nowrap")}
+                    >
                       Folio
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[28%] min-w-[180px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                    <TableCell
+                      isHeader
+                      scope="col"
+                      className={cn(osThCellClass, "w-[22%] min-w-[160px]")}
+                    >
                       Cliente
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[160px] min-w-[140px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                    <TableCell
+                      isHeader
+                      scope="col"
+                      className={cn(osThCellClass, "w-[16%] min-w-[140px]")}
+                    >
                       Tipo
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[120px] min-w-[110px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                    <TableCell
+                      isHeader
+                      scope="col"
+                      className={cn(osThCellClass, "w-[110px] min-w-[100px] whitespace-nowrap")}
+                    >
                       Cotización
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[130px] min-w-[120px] whitespace-nowrap px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                    <TableCell
+                      isHeader
+                      scope="col"
+                      className={cn(osThCellClass, "w-[120px] min-w-[110px] whitespace-nowrap")}
+                    >
                       Próxima visita
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[130px] min-w-[120px] whitespace-nowrap px-3 py-2 text-center text-[#52525B] dark:text-[#B7C1D1]">
+                    <TableCell
+                      isHeader
+                      scope="col"
+                      className={cn(osThCellClass, "w-[148px] min-w-[140px] whitespace-nowrap text-center")}
+                    >
                       Estado
                     </TableCell>
-                    <TableCell isHeader scope="col" className="w-[120px] min-w-[108px] whitespace-nowrap px-3 py-2 text-center text-[#52525B] dark:text-[#B7C1D1]">
+                    <TableCell
+                      isHeader
+                      scope="col"
+                      className={cn(osThCellClass, "w-[148px] min-w-[140px] whitespace-nowrap text-center")}
+                    >
                       Acciones
                     </TableCell>
                   </TableRow>
@@ -318,7 +381,7 @@ export default function PolizasMantenimientoPage() {
                 <TableBody className={osTableBodyClass}>
                   {filteredRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="px-3 py-10">
+                      <TableCell colSpan={7} className={cn(osTdCellClass, "py-10")}>
                         <div
                           className="text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8]"
                           role="status"
@@ -352,30 +415,44 @@ export default function PolizasMantenimientoPage() {
 
                       const dataRows = section.rows.map((row) => (
                         <TableRow key={row.id} className={erpTableRowHoverClass} aria-labelledby={headingId}>
-                          <TableCell className="whitespace-nowrap px-3 py-2 align-middle">
+                          <TableCell className={cn(osTdCellClass, "w-[100px] min-w-[96px] whitespace-nowrap")}>
                             <span className="inline-flex items-center justify-center rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] sm:text-[11px]">
                               {row.folio}
                             </span>
                           </TableCell>
-                          <TableCell className="px-3 py-2 align-top">
-                            <span className="block truncate font-medium text-[#09090B] dark:text-white sm:text-[12px]" title={row.cliente}>
+                          <TableCell className={cn(osTdCellClass, "w-[22%] min-w-[160px]")}>
+                            <span className="block truncate font-medium text-[#09090B] dark:text-white" title={row.cliente}>
                               {row.cliente}
                             </span>
                           </TableCell>
-                          <TableCell className="px-3 py-2 align-top">
-                            <span className="block truncate text-[#52525B] dark:text-[#B7C1D1]">{row.tipoLabel}</span>
+                          <TableCell className={cn(osTdCellClass, "w-[16%] min-w-[140px]")}>
+                            <span className="block truncate text-[#52525B] dark:text-[#B7C1D1]" title={row.tipoLabel}>
+                              {row.tipoLabel}
+                            </span>
                           </TableCell>
-                          <TableCell className="whitespace-nowrap px-3 py-2 align-middle tabular-nums text-[#52525B] dark:text-[#B7C1D1]">
+                          <TableCell
+                            className={cn(
+                              osTdCellClass,
+                              "w-[110px] min-w-[100px] whitespace-nowrap tabular-nums text-[#52525B] dark:text-[#B7C1D1]"
+                            )}
+                          >
                             {row.cotizacionFolio}
                           </TableCell>
-                          <TableCell className="whitespace-nowrap px-3 py-2 align-middle tabular-nums text-[#52525B] dark:text-[#B7C1D1]">
+                          <TableCell
+                            className={cn(
+                              osTdCellClass,
+                              "w-[120px] min-w-[110px] whitespace-nowrap tabular-nums text-[#52525B] dark:text-[#B7C1D1]"
+                            )}
+                          >
                             {formatPolizaFecha(nextVisitIso(row))}
                           </TableCell>
-                          <TableCell className="px-3 py-2 text-center align-middle">
-                            <EstadoPolizaBadge estado={row.estado} />
+                          <TableCell className={cn(osTdCellClass, "w-[148px] min-w-[140px] text-center")}>
+                            <div className="flex justify-center">
+                              <EstadoPolizaBadge estado={row.estado} />
+                            </div>
                           </TableCell>
-                          <TableCell className="px-3 py-2 text-center align-middle">
-                            <div className={`${erpRowActionBarClass} justify-center`}>
+                          <TableCell className={cn(osTdCellClass, "w-[148px] min-w-[140px] text-center")}>
+                            <div className={cn(erpRowActionBarClass, "mx-auto")}>
                               <button
                                 type="button"
                                 className={erpRowActionBtnClass}
@@ -394,6 +471,20 @@ export default function PolizasMantenimientoPage() {
                               >
                                 <PolizaPdfGlyph className="h-3.5 w-3.5" />
                               </button>
+                              {isAdmin ? (
+                                <button
+                                  type="button"
+                                  className={cn(
+                                    erpRowActionBtnClass,
+                                    "hover:border-rose-400 hover:text-rose-600 dark:hover:border-rose-500/60 dark:hover:text-rose-400"
+                                  )}
+                                  onClick={() => setDeletingRow(row)}
+                                  aria-label={`Eliminar póliza ${row.folio}`}
+                                  title="Eliminar"
+                                >
+                                  <TrashBinIcon className="h-3.5 w-3.5" />
+                                </button>
+                              ) : null}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -446,6 +537,72 @@ export default function PolizasMantenimientoPage() {
         onClose={closeModal}
         onSave={handleSave}
       />
+
+      <Modal
+        isOpen={Boolean(deletingRow)}
+        onClose={() => {
+          if (!deleting) setDeletingRow(null);
+        }}
+        closeOnBackdropClick={!deleting}
+        closeOnEscape={!deleting}
+        showCloseButton={!deleting}
+        ariaLabelledBy={deleteTitleId}
+        className={`${erpDeleteModalClass} z-[100000]`}
+      >
+        <div className={erpDeleteModalPanelClass}>
+          <div className="mb-5 flex flex-col items-center text-center">
+            <span
+              className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 ring-1 ring-rose-100 dark:bg-rose-500/15 dark:text-rose-400 dark:ring-rose-500/20"
+              aria-hidden
+            >
+              {deleting ? (
+                <span
+                  className="h-6 w-6 animate-spin rounded-full border-2 border-rose-200 border-t-rose-600 dark:border-rose-900 dark:border-t-rose-400"
+                  aria-hidden
+                />
+              ) : (
+                <TrashBinIcon className="h-6 w-6" />
+              )}
+            </span>
+            <h3 id={deleteTitleId} className="text-base font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+              Eliminar póliza
+            </h3>
+            <p className="mt-2 max-w-[22rem] text-sm leading-relaxed text-[#52525B] dark:text-[#94a3b8]">
+              {deleting ? (
+                "Por favor espera; esto puede tardar unos segundos."
+              ) : (
+                <>
+                  ¿Eliminar{" "}
+                  <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                    {deletingRow?.folio || "esta póliza"}
+                  </span>
+                  {deletingRow?.cliente ? <> de «{deletingRow.cliente}»?</> : "?"} Esta acción no se puede
+                  deshacer.
+                </>
+              )}
+            </p>
+          </div>
+          <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-center sm:gap-3">
+            <button
+              type="button"
+              className={`${erpSecondaryBtnClass} sm:min-w-[8rem]`}
+              disabled={deleting}
+              onClick={() => setDeletingRow(null)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className={`${erpDangerBtnClass} sm:min-w-[8rem]`}
+              disabled={deleting}
+              aria-busy={deleting || undefined}
+              onClick={() => void confirmDelete()}
+            >
+              {deleting ? "Eliminando…" : "Eliminar"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

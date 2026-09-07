@@ -149,6 +149,14 @@ export async function updatePoliza(id: number, values: PolizaAltaValues): Promis
   return mapApiPoliza(data as ApiPoliza);
 }
 
+export async function deletePoliza(id: number): Promise<void> {
+  const res = await fetchApi(`/api/polizas-mantenimiento/${id}/`, { method: "DELETE" });
+  if (!res.ok && res.status !== 204) {
+    const data = await res.json().catch(() => null);
+    throw { status: res.status, message: messageFromDrf(data, "No se pudo eliminar la póliza.") };
+  }
+}
+
 export type CotizacionOption = { value: string; label: string };
 
 function formatCotizacionFecha(iso: string): string {

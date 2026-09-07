@@ -380,3 +380,39 @@ class CuentasAntarixPermission(ModulePermission):
     """Permisos JSON para la vista Wialon / Cuentas Antarix GPS."""
 
     module_key = 'cuentas_antarix'
+
+
+class PolizasPermission(ModulePermission):
+    """Permisos JSON para Póliza de mantenimiento (Operación)."""
+
+    module_key = 'polizas'
+
+
+class ReportesMantenimientoPermission(ModulePermission):
+    """Permisos JSON para Reporte de mantenimiento (Operación)."""
+
+    module_key = 'reportes_mantenimiento'
+
+
+class ReportesMantenimientoAttachmentPermission(BasePermission):
+    """Subida/borrado de fotos del reporte (upload-image, delete-image).
+
+    POST permitido con permiso ``create`` o ``edit`` en el módulo — al editar un
+    reporte existente el usuario solo tiene ``edit``.
+    """
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, 'reportes_mantenimiento')
+        if (request.method or '').upper() == 'POST':
+            return (
+                _as_bool_value(module_perms.get('create'), False)
+                or _as_bool_value(module_perms.get('edit'), False)
+            )
+        return False

@@ -8,6 +8,8 @@ from django.http import HttpResponse
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
+
+from apps.users.permissions import PolizasPermission
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -253,9 +255,9 @@ class PolizaMantenimientoXmlView(APIView):
 
 
 class PolizaMantenimientoViewSet(viewsets.ModelViewSet):
-    """CRUD de pólizas de mantenimiento. Solo admin."""
+    """CRUD de pólizas de mantenimiento. Permisos del módulo `polizas`."""
 
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated, PolizasPermission]
     pagination_class = None
     serializer_class = PolizaMantenimientoSerializer
     queryset = PolizaMantenimiento.objects.select_related(

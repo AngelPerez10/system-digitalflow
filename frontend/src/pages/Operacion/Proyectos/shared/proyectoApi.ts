@@ -1,6 +1,7 @@
 import { fetchApi } from "@/config/api";
 import {
   createEmptyProyectoDraft,
+  coalesceProyectoEquipos,
   displayCotizacionFolio,
   displayProyectoFolio,
   flattenPresupuesto,
@@ -129,7 +130,10 @@ function draftFromApi(api: ApiProyecto): ProyectoDraft {
     cotizaciones,
     cotizacion: primary,
     presupuesto: flattenPresupuesto(cotizaciones),
-    equipos: Array.isArray(api.equipos) ? api.equipos : [],
+    equipos: coalesceProyectoEquipos(
+      cotizaciones,
+      Array.isArray(api.equipos) ? (api.equipos as ProyectoEquipoLinea[]) : []
+    ),
     tiposTrabajo,
     tipoTrabajoId: tiposTrabajo[0]?.id ?? null,
     tipoTrabajoNombre: tiposTrabajo[0]?.nombre ?? "",

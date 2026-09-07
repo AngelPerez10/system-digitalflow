@@ -340,32 +340,70 @@ export function buildEquiposFromPresupuesto(
   const equipos: ProyectoEquipoLinea[] = [];
   for (const linea of lineas) {
     if (!linea.esEquipo) continue;
-    const qty = Math.max(1, Math.floor(linea.cantidad));
-    for (let i = 0; i < qty; i++) {
-      const baseId = qty > 1 ? `${linea.id}-${i + 1}` : linea.id;
-      equipos.push({
-        lineaId: meta ? `${meta.cotizacionVinculoId}:${baseId}` : baseId,
-        modelo: linea.descripcion,
-        modeloOriginal: linea.descripcion,
-        productoId: linea.productoId,
-        imagenUrl: linea.imagenUrl,
-        fuenteProducto: linea.fuenteProducto,
-        estadoInstalacion: "pendiente",
-        equipoEntregado: false,
-        cotizacionVinculoId: meta?.cotizacionVinculoId,
-        cotizacionOrden: meta?.cotizacionOrden,
-        cotizacionFolio: meta?.cotizacionFolio,
-      });
-    }
+    const cantidad = Math.max(1, Math.floor(Number(linea.cantidad) || 1));
+    const lineaId = meta ? `${meta.cotizacionVinculoId}:${linea.id}` : linea.id;
+    equipos.push({
+      lineaId,
+      modelo: linea.descripcion,
+      modeloOriginal: linea.descripcion,
+      cantidad,
+      productoId: linea.productoId,
+      imagenUrl: linea.imagenUrl,
+      fuenteProducto: linea.fuenteProducto,
+      estadoInstalacion: "pendiente",
+      equipoEntregado: false,
+      cotizacionVinculoId: meta?.cotizacionVinculoId,
+      cotizacionOrden: meta?.cotizacionOrden,
+      cotizacionFolio: meta?.cotizacionFolio,
+    });
   }
   return equipos;
+}
+
+/** Filas legacy `…:lineaId-1`…`…:lineaId-N` (1 fila por unidad) → una fila con cantidad. */
+function previousEquiposForLinea(
+  previous: ProyectoEquipoLinea[] | undefined,
+  lineaId: string
+): ProyectoEquipoLinea[] {
+  if (!previous?.length) return [];
+  const prefix = `${lineaId}-`;
+  return previous.filter((e) => e.lineaId === lineaId || e.lineaId.startsWith(prefix));
+}
+
+function mergePreviousEquipoState(
+  base: ProyectoEquipoLinea,
+  prevRows: ProyectoEquipoLinea[]
+): ProyectoEquipoLinea {
+  if (!prevRows.length) return base;
+  const exact = prevRows.find((e) => e.lineaId === base.lineaId);
+  const source = exact ?? prevRows[0];
+  const allEntregados = prevRows.every((e) => e.equipoEntregado);
+  const allInstalados = prevRows.every((e) => e.estadoInstalacion === "instalado");
+  const allNoInstalados = prevRows.every((e) => e.estadoInstalacion === "no_instalado");
+  let estadoInstalacion: ProyectoEquipoLinea["estadoInstalacion"] = source.estadoInstalacion;
+  if (allInstalados) estadoInstalacion = "instalado";
+  else if (allNoInstalados) estadoInstalacion = "no_instalado";
+  else if (prevRows.length > 1) {
+    // Mezcla de unidades legacy: no forzar instalado parcial.
+    estadoInstalacion =
+      source.estadoInstalacion === "instalado" ? "entregado" : source.estadoInstalacion;
+  }
+  return {
+    ...base,
+    modelo: source.modelo || base.modelo,
+    productoId: source.productoId ?? base.productoId,
+    marca: source.marca,
+    imagenUrl: source.imagenUrl ?? base.imagenUrl,
+    fuenteProducto: source.fuenteProducto ?? base.fuenteProducto,
+    estadoInstalacion,
+    equipoEntregado: exact ? Boolean(exact.equipoEntregado) : allEntregados,
+  };
 }
 
 export function buildEquiposFromCotizaciones(
   bloques: ProyectoCotizacionBloque[],
   previous?: ProyectoEquipoLinea[]
 ): ProyectoEquipoLinea[] {
-  const prevById = new Map((previous ?? []).map((e) => [e.lineaId, e]));
   const next: ProyectoEquipoLinea[] = [];
   for (const bloque of bloques) {
     const built = buildEquiposFromPresupuesto(bloque.lineas, {
@@ -374,24 +412,25 @@ export function buildEquiposFromCotizaciones(
       cotizacionFolio: bloque.cotizacion.folio,
     });
     for (const eq of built) {
-      const prev = prevById.get(eq.lineaId);
-      next.push(
-        prev
-          ? {
-              ...eq,
-              modelo: prev.modelo,
-              productoId: prev.productoId,
-              marca: prev.marca,
-              imagenUrl: prev.imagenUrl ?? eq.imagenUrl,
-              fuenteProducto: prev.fuenteProducto ?? eq.fuenteProducto,
-              estadoInstalacion: prev.estadoInstalacion,
-              equipoEntregado: prev.equipoEntregado,
-            }
-          : eq
-      );
+      const prevRows = previousEquiposForLinea(previous, eq.lineaId);
+      next.push(mergePreviousEquipoState(eq, prevRows));
     }
   }
   return next;
+}
+
+/** Asegura `cantidad` y colapsa filas por unidad si hay presupuesto. */
+export function coalesceProyectoEquipos(
+  bloques: ProyectoCotizacionBloque[],
+  equipos: ProyectoEquipoLinea[] | undefined
+): ProyectoEquipoLinea[] {
+  if (bloques.length > 0) {
+    return buildEquiposFromCotizaciones(bloques, equipos);
+  }
+  return (equipos ?? []).map((eq) => ({
+    ...eq,
+    cantidad: Math.max(1, Math.floor(Number(eq.cantidad) || 1)),
+  }));
 }
 
 export function estadoInstalacionLabel(estado: EquipoEstadoInstalacion): string {

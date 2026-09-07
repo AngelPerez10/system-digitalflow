@@ -32,6 +32,9 @@ class OrdenSerializer(serializers.ModelSerializer):
     quien_entrego_username = serializers.CharField(source='quien_entrego.username', read_only=True)
     quien_entrego_full_name = serializers.SerializerMethodField()
     creado_por_username = serializers.CharField(source='creado_por.username', read_only=True)
+    creado_por_full_name = serializers.SerializerMethodField()
+    actualizado_por_username = serializers.CharField(source='actualizado_por.username', read_only=True)
+    actualizado_por_full_name = serializers.SerializerMethodField()
     tipo_orden = serializers.SerializerMethodField()
     levantamiento_tipo = serializers.SerializerMethodField()
     equipos_inventario_total = serializers.SerializerMethodField()
@@ -115,6 +118,22 @@ class OrdenSerializer(serializers.ModelSerializer):
                 return f"{first} {last}".strip()
             return obj.tecnico_asignado.username or obj.tecnico_asignado.email
         return None
+
+    @staticmethod
+    def _user_display_name(user):
+        if not user:
+            return None
+        first = user.first_name
+        last = user.last_name
+        if first or last:
+            return f"{first} {last}".strip()
+        return user.username or user.email
+
+    def get_creado_por_full_name(self, obj):
+        return self._user_display_name(obj.creado_por)
+
+    def get_actualizado_por_full_name(self, obj):
+        return self._user_display_name(obj.actualizado_por)
 
     def get_tipo_orden(self, obj):
         if getattr(obj, 'tiene_instalacion', False):
@@ -230,6 +249,10 @@ class OrdenSerializer(serializers.ModelSerializer):
             'equipos_inventario_instalados',
             'creado_por',
             'creado_por_username',
+            'creado_por_full_name',
+            'actualizado_por',
+            'actualizado_por_username',
+            'actualizado_por_full_name',
             'fecha_creacion',
             'fecha_actualizacion',
         ]
@@ -250,6 +273,10 @@ class OrdenSerializer(serializers.ModelSerializer):
             'equipos_inventario_instalados',
             'creado_por',
             'creado_por_username',
+            'creado_por_full_name',
+            'actualizado_por',
+            'actualizado_por_username',
+            'actualizado_por_full_name',
             'pdf_url',
             'status_changed_at',
             'fecha_creacion',
@@ -306,6 +333,10 @@ class OrdenListSerializer(OrdenSerializer):
             'equipos_inventario_instalados',
             'creado_por',
             'creado_por_username',
+            'creado_por_full_name',
+            'actualizado_por',
+            'actualizado_por_username',
+            'actualizado_por_full_name',
             'fecha_creacion',
             'fecha_actualizacion',
         ]
@@ -322,6 +353,10 @@ class OrdenListSerializer(OrdenSerializer):
             'equipos_inventario_instalados',
             'creado_por',
             'creado_por_username',
+            'creado_por_full_name',
+            'actualizado_por',
+            'actualizado_por_username',
+            'actualizado_por_full_name',
             'status_changed_at',
             'fecha_creacion',
             'fecha_actualizacion',

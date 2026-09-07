@@ -10,6 +10,35 @@ export function formatYmdToDMY(ymd: string | null | undefined) {
   return `${dd}/${mm}/${yy}`;
 }
 
+/** Fecha y hora locales (es-MX) desde ISO; para metadatos de auditoría en listados. */
+export function formatIsoDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" });
+}
+
+/** Nombre legible de usuario a partir de campos de la API de órdenes. */
+export function displayOrdenUserName(orden: {
+  creado_por_full_name?: string | null;
+  creado_por_username?: string | null;
+  actualizado_por_full_name?: string | null;
+  actualizado_por_username?: string | null;
+}, role: "creado" | "actualizado"): string {
+  if (role === "creado") {
+    return (
+      String(orden.creado_por_full_name || "").trim() ||
+      String(orden.creado_por_username || "").trim() ||
+      "—"
+    );
+  }
+  return (
+    String(orden.actualizado_por_full_name || "").trim() ||
+    String(orden.actualizado_por_username || "").trim() ||
+    "—"
+  );
+}
+
 export function normalizeStatus(value: unknown) {
   return String(value || "").trim().toLowerCase();
 }

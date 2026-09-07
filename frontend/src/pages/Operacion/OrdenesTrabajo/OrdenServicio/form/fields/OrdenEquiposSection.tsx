@@ -12,7 +12,7 @@ const listShellClass =
 const accentClass = (estado: OrdenEquipoEstadoInstalacion) =>
   estado === "instalado"
     ? "w-1 shrink-0 self-stretch bg-sky-500"
-    : "w-1 shrink-0 self-stretch bg-[#1B5CFF]/80";
+    : "w-1 shrink-0 self-stretch bg-rose-500";
 
 const summaryChipClass = (tone: "neutral" | "entrega" | "instalacion") => {
   const base =
@@ -45,7 +45,7 @@ const installBtnClass = (active: boolean, value: OrdenEquipoEstadoInstalacion) =
   }
   return value === "instalado"
     ? `${base} bg-sky-100 text-sky-900 shadow-sm dark:bg-sky-950/55 dark:text-sky-200`
-    : `${base} bg-[#F1F5FF] text-[#1244D1] shadow-sm dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]`;
+    : `${base} bg-rose-100 text-rose-900 shadow-sm dark:bg-rose-950/45 dark:text-rose-200`;
 };
 
 const estadoLabel = (estado: OrdenEquipoEstadoInstalacion) =>
@@ -54,7 +54,7 @@ const estadoLabel = (estado: OrdenEquipoEstadoInstalacion) =>
 const estadoBadgeClass = (estado: OrdenEquipoEstadoInstalacion) =>
   estado === "instalado"
     ? "inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-800 dark:border-sky-700/50 dark:bg-sky-950/40 dark:text-sky-300"
-    : "inline-flex items-center rounded-full border border-[#1B5CFF]/25 bg-[#F1F5FF] px-2 py-0.5 text-[10px] font-semibold text-[#1244D1] dark:border-[#1B5CFF]/35 dark:bg-[#1B5CFF]/15 dark:text-[#4B7CFF]";
+    : "inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-800 dark:border-rose-700/50 dark:bg-rose-950/40 dark:text-rose-300";
 
 type Props = {
   equipos: OrdenEquipoInventarioLinea[];
