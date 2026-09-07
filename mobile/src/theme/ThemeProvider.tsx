@@ -36,7 +36,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function resolveScheme(
   preference: ThemePreference,
-  system: 'light' | 'dark' | null | undefined,
+  system: 'light' | 'dark' | 'unspecified' | null | undefined,
 ): ResolvedScheme {
   if (preference === 'light' || preference === 'dark') return preference;
   return system === 'dark' ? 'dark' : 'light';
@@ -65,7 +65,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hidratado) return;
-    Appearance.setColorScheme(preference === 'system' ? undefined : preference);
+    // RN 0.86: setColorScheme ya no acepta undefined; 'unspecified' = seguir al sistema.
+    Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference);
   }, [preference, hidratado]);
 
   const setPreference = useCallback((next: ThemePreference) => {

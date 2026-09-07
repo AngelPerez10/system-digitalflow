@@ -302,6 +302,27 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     <div class='row anticipo'><span>Saldo al finalizar ({100 - ANTICIPO_PCT}%)</span><strong>$ {saldo_monto:,.2f}</strong></div>
   </div>"""
 
+    qr_items = []
+    if tienda_qr_data_uri:
+        qr_items.append(
+            "<div class='qr-item'>"
+            f"<img src='{tienda_qr_data_uri}' alt='Código QR: Tienda en línea' width='64' height='64' />"
+            "<div class='qr-title'>Tienda en línea</div>"
+            "</div>"
+        )
+    if sertel_qr_data_uri:
+        qr_items.append(
+            "<div class='qr-item'>"
+            f"<img src='{sertel_qr_data_uri}' alt='Código QR: Sitio web Sertel' width='64' height='64' />"
+            "<div class='qr-title'>Sitio web Sertel</div>"
+            "</div>"
+        )
+    qr_footer_html = (
+        f"<footer class='pdf-qr-footer' aria-label='Códigos QR'>{''.join(qr_items)}</footer>"
+        if qr_items
+        else ""
+    )
+
     html = f"""<!doctype html>
 <html lang='es'>
 <head>
@@ -353,11 +374,37 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     .totals .row.anticipo strong {{ color: #111827; }}
     .servicios-banner {{ margin-top: 14px; text-align: center; }}
     .servicios-banner img {{ display: block; width: 100%; height: auto; }}
-    .qr-row {{ margin-top: 64px; display: flex; justify-content: center; gap: 90px; }}
-    .qr-item {{ text-align: center; width: 150px; }}
-    .qr-item img {{ display: block; width: 120px; height: 120px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px; }}
-    .qr-item .qr-title {{ margin-top: 8px; font-size: 11px; font-weight: 600; color: #111827; }}
-    .qr-item .qr-desc {{ margin-top: 2px; font-size: 9px; line-height: 1.3; color: #6b7280; }}
+    /* QR solo debajo de totales, esquina inferior derecha de esa sección */
+    .pdf-qr-footer {{
+      margin-top: 20px;
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-end;
+      align-items: flex-end;
+      gap: 14px;
+    }}
+    .pdf-qr-footer .qr-item {{
+      text-align: center;
+      width: 78px;
+    }}
+    .pdf-qr-footer .qr-item img {{
+      display: block;
+      width: 64px;
+      height: 64px;
+      margin: 0 auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 3px;
+      background: #fff;
+    }}
+    .pdf-qr-footer .qr-title {{
+      margin-top: 3px;
+      font-size: 7.5px;
+      font-weight: 600;
+      line-height: 1.15;
+      color: #111827;
+    }}
+    .pdf-qr-footer .qr-desc {{ display: none; }}
     .terms {{ margin-top: 14px; border-top: 1px solid #e5e7eb; padding-top: 10px; font-size: 9px; line-height: 1.35; color: #374151; }}
     .terms .terms-title {{ font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #111827; margin-bottom: 6px; }}
     .terms ul {{ margin: 0; padding-left: 16px; }}
@@ -478,18 +525,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
 
     {totals_block}
 
-  <div class='qr-row'>
-    {f'''<div class='qr-item'>
-      <img src='{tienda_qr_data_uri}' alt='QR Tienda en línea' />
-      <div class='qr-title'>Tienda en línea</div>
-      <div class='qr-desc'>Escanea para ver más productos y comprar en línea.</div>
-    </div>''' if tienda_qr_data_uri else ''}
-    {f'''<div class='qr-item'>
-      <img src='{sertel_qr_data_uri}' alt='QR Sitio web Sertel' />
-      <div class='qr-title'>Sitio web Sertel</div>
-      <div class='qr-desc'>Escanea para conocer más sobre Sertel.</div>
-    </div>''' if sertel_qr_data_uri else ''}
-  </div>
+  {qr_footer_html}
 
   <div class='pagebreak'></div>
 
