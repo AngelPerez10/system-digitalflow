@@ -186,7 +186,7 @@ const seedAdminPerms = async (userId: number) => {
     reportes: { view: true, create: true, edit: true, delete: true },
     cuentas_antarix: { view: true, create: true, edit: true, delete: true },
     polizas: { view: true, create: true, edit: true, delete: true },
-    reportes_mantenimiento: { view: true, create: true, edit: true, delete: true },
+    reportes_mantenimiento: { view: true, create: true, edit: true, delete: true, own_only: false },
   };
   const res = await fetchApi(`/api/users/accounts/${userId}/permissions/`, {
     method: 'PUT',
@@ -322,7 +322,13 @@ export default function UserProfiles() {
       reportes: { view: true, create: true, edit: false, delete: false },
       cuentas_antarix: { view: false, create: false, edit: false, delete: false },
       polizas: { view: false, create: false, edit: false, delete: false },
-      reportes_mantenimiento: { view: false, create: false, edit: false, delete: false },
+      reportes_mantenimiento: {
+        view: false,
+        create: false,
+        edit: false,
+        delete: false,
+        own_only: isAdmin ? false : true,
+      },
     };
     const safe = (v: any) => (typeof v === 'boolean' ? v : undefined);
     const mergeCrud = (dst: any, src: any) => {
@@ -1834,11 +1840,15 @@ export default function UserProfiles() {
                               {sec.modules.map((m) => {
                                 const cur = normalizedAll[m.key] as CrudPerms;
                                 const supportsOwnScope =
-                                  m.key === 'cotizaciones' || m.key === 'ordenes' || m.key === 'proyectos';
+                                  m.key === 'cotizaciones' ||
+                                  m.key === 'ordenes' ||
+                                  m.key === 'proyectos' ||
+                                  m.key === 'reportes_mantenimiento';
                                 const isOrdenes = m.key === 'ordenes';
                                 const isProyectos = m.key === 'proyectos';
+                                const isReportesMantenimiento = m.key === 'reportes_mantenimiento';
                                 const ownScopeActive = supportsOwnScope
-                                  ? isOrdenes || isProyectos
+                                  ? isOrdenes || isProyectos || isReportesMantenimiento
                                     ? !cur.own_only
                                     : !!cur.own_only
                                   : false;
@@ -1846,7 +1856,9 @@ export default function UserProfiles() {
                                   ? 'Ver también las órdenes de otros técnicos'
                                   : isProyectos
                                     ? 'Ver también los proyectos de otros técnicos'
-                                    : 'Ver solo lo que este usuario creó';
+                                    : isReportesMantenimiento
+                                      ? 'Ver también los reportes de otros técnicos'
+                                      : 'Ver solo lo que este usuario creó';
                                 const extras = (['create', 'edit', 'delete'] as const)
                                   .filter((k) => cur[k])
                                   .map((k) => ACTION_LABEL[k]);

@@ -1,4 +1,9 @@
-"""CRUD de reportes de mantenimiento (solo admin) + PDF del servidor."""
+"""CRUD de reportes de mantenimiento + PDF del servidor.
+
+Alcance: con ``reportes_mantenimiento.own_only`` (default para no-staff) el
+técnico solo lista/abre reportes de órdenes donde es ``tecnico_asignado`` o que
+él creó. Admin / own_only=false ve todos.
+"""
 from __future__ import annotations
 
 import json
@@ -6,13 +11,9 @@ import logging
 
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
-from apps.users.permissions import (
-    ReportesMantenimientoAttachmentPermission,
-    ReportesMantenimientoPermission,
-)
 
 from apps.ordenes.image_services import (
     cloudinary,
@@ -20,11 +21,21 @@ from apps.ordenes.image_services import (
     extract_public_id_from_url,
     upload_data_url,
 )
+from apps.users.permissions import (
+    ReportesMantenimientoAttachmentPermission,
+    ReportesMantenimientoPermission,
+    user_module_own_only,
+)
 
 from .models import ReporteMantenimiento
 from .pdf_templates.reporte_mantenimiento import (
     generate_reporte_mantenimiento_pdf_html,
     overlay_from_reporte,
+)
+from .reporte_scope import (
+    filter_reportes_visible_to_user,
+    user_can_access_reporte,
+    user_can_use_orden_for_reporte,
 )
 from .serializers import ReporteMantenimientoSerializer
 from .views import _pdf_response_from_html
@@ -40,7 +51,9 @@ class ReporteMantenimientoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, ReportesMantenimientoPermission]
     pagination_class = None
     serializer_class = ReporteMantenimientoSerializer
-    queryset = ReporteMantenimiento.objects.select_related("creado_por", "orden").all()
+    queryset = ReporteMantenimiento.objects.select_related(
+        "creado_por", "orden", "orden__tecnico_asignado"
+    ).all()
     filter_backends = [filters.SearchFilter]
     search_fields = ["folio", "tecnico_nombre", "orden_folio", "orden_cliente"]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
@@ -51,9 +64,57 @@ class ReporteMantenimientoViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), ReportesMantenimientoAttachmentPermission()]
         return super().get_permissions()
 
+    def get_queryset(self):
+        qs = self.queryset.all().order_by("-idx", "-id")
+        user = getattr(self.request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return qs.none()
+        if user_module_own_only(user, "reportes_mantenimiento"):
+            return filter_reportes_visible_to_user(qs, user)
+        return qs
+
+    def get_object(self):
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        lookup_value = self.kwargs.get(lookup_url_kwarg)
+        if lookup_value is None:
+            raise NotFound()
+
+        obj = (
+            ReporteMantenimiento.objects.select_related("creado_por", "orden", "orden__tecnico_asignado")
+            .filter(**{self.lookup_field: lookup_value})
+            .first()
+        )
+        if not obj:
+            raise NotFound()
+
+        user = getattr(self.request, "user", None)
+        if user_module_own_only(user, "reportes_mantenimiento") and not user_can_access_reporte(user, obj):
+            raise PermissionDenied("No tienes acceso a este reporte de mantenimiento.")
+        return obj
+
+    def _assert_orden_in_scope(self, orden) -> None:
+        user = getattr(self.request, "user", None)
+        if not user_module_own_only(user, "reportes_mantenimiento"):
+            return
+        if not user_can_use_orden_for_reporte(user, orden):
+            raise ValidationError(
+                {
+                    "orden_id": [
+                        "Solo puedes usar órdenes de trabajo asignadas a ti."
+                    ]
+                }
+            )
+
     def perform_create(self, serializer):
         user = self.request.user if getattr(self.request.user, "is_authenticated", False) else None
+        orden = serializer.validated_data.get("orden")
+        self._assert_orden_in_scope(orden)
         serializer.save(creado_por=user)
+
+    def perform_update(self, serializer):
+        orden = serializer.validated_data.get("orden", getattr(serializer.instance, "orden", None))
+        self._assert_orden_in_scope(orden)
+        serializer.save()
 
     @action(detail=True, methods=["get"], url_path="pdf")
     def pdf(self, request, pk=None):

@@ -45,7 +45,8 @@ def user_module_own_only(user, module_key: str) -> bool:
     module_perms = _module_perms_for_key(permissions, module_key)
     if 'own_only' in module_perms:
         return _as_bool_value(module_perms.get('own_only'), False)
-    if module_key == 'ordenes':
+    # Órdenes y reportes de mantenimiento: técnico no-staff ve solo lo suyo por defecto.
+    if module_key in ('ordenes', 'reportes_mantenimiento'):
         return not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False))
     return False
 

@@ -318,6 +318,14 @@ class OwnOnlyTests(TestCase):
         user = self._usuario("proy_user", {"proyectos": {"view": True}})
         self.assertFalse(user_module_own_only(user, "proyectos"))
 
+    def test_reportes_mantenimiento_default_tecnico_es_own_only(self):
+        user = self._usuario("rm_tech_default", {"reportes_mantenimiento": {"view": True}})
+        self.assertTrue(user_module_own_only(user, "reportes_mantenimiento"))
+
+    def test_reportes_mantenimiento_default_staff_no_es_own_only(self):
+        staff = User.objects.create_user(username="rm_staff_own", password="x", is_staff=True)
+        self.assertFalse(user_module_own_only(staff, "reportes_mantenimiento"))
+
     def test_ordenes_sin_perfil_de_permisos_es_own_only(self):
         user = self._usuario("sin_perfil_own")
         self.assertTrue(user_module_own_only(user, "ordenes"))

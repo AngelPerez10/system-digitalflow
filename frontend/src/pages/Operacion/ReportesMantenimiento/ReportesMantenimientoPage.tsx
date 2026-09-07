@@ -4,6 +4,7 @@ import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { useAuth } from "@/context/AuthContext";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { cn } from "@/lib/utils";
 import { FOLIO_SERIE, formatDocumentFolio, matchesDocumentFolio } from "@/utils/documentFolio";
@@ -85,7 +86,7 @@ function PdfGlyph({ className }: { className?: string }) {
   );
 }
 
-function EmptyState({ hasSearch }: { hasSearch: boolean }) {
+function EmptyState({ hasSearch, canCreate }: { hasSearch: boolean; canCreate: boolean }) {
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
       <span
@@ -97,7 +98,9 @@ function EmptyState({ hasSearch }: { hasSearch: boolean }) {
       <p className="text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
         {hasSearch
           ? "Sin coincidencias. Prueba otro folio, cliente o técnico."
-          : "Aún no hay reportes. Crea el primero con «Nuevo reporte»."}
+          : canCreate
+            ? "Aún no hay reportes. Crea el primero con «Nuevo reporte»."
+            : "Aún no hay reportes asignados a ti."}
       </p>
     </div>
   );
@@ -106,6 +109,7 @@ function EmptyState({ hasSearch }: { hasSearch: boolean }) {
 export default function ReportesMantenimientoPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAdmin, permissions } = useAuth();
   const deleteTitleId = useId();
   const [rows, setRows] = useState<ReporteMantenimiento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,6 +122,10 @@ export default function ReportesMantenimientoPage() {
     title: string;
     message: string;
   }>({ show: false, variant: "warning", title: "", message: "" });
+
+  const canCreate = isAdmin || permissions?.reportes_mantenimiento?.create === true;
+  const canEdit = isAdmin || permissions?.reportes_mantenimiento?.edit === true;
+  const canDelete = isAdmin || permissions?.reportes_mantenimiento?.delete === true;
 
   const showAlert = useCallback(
     (variant: "success" | "warning" | "error", title: string, message: string, ms = 3500) => {
@@ -283,16 +291,18 @@ export default function ReportesMantenimientoPage() {
             ) : null}
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate("/reportes-mantenimiento/nuevo")}
-            className={`${erpPrimaryBtnClass} lg:shrink-0`}
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-            </svg>
-            Nuevo reporte
-          </button>
+          {canCreate ? (
+            <button
+              type="button"
+              onClick={() => navigate("/reportes-mantenimiento/nuevo")}
+              className={`${erpPrimaryBtnClass} w-full sm:w-auto lg:shrink-0`}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+              Nuevo reporte
+            </button>
+          ) : null}
         </div>
 
         <section
@@ -328,7 +338,7 @@ export default function ReportesMantenimientoPage() {
                   Cargando…
                 </p>
               ) : filtered.length === 0 ? (
-                <EmptyState hasSearch={hasSearch} />
+                <EmptyState hasSearch={hasSearch} canCreate={canCreate} />
               ) : (
                 <ul className="space-y-3">
                   {filtered.map((row) => {
@@ -348,14 +358,16 @@ export default function ReportesMantenimientoPage() {
                             </p>
                           </div>
                           <div className={erpRowActionBarClass}>
-                            <button
-                              type="button"
-                              className={erpRowActionBtnClass}
-                              aria-label={`Editar ${folio}`}
-                              onClick={() => navigate(`/reportes-mantenimiento/${row.id}`)}
-                            >
-                              <PencilIcon className="h-4 w-4" />
-                            </button>
+                            {canEdit ? (
+                              <button
+                                type="button"
+                                className={erpRowActionBtnClass}
+                                aria-label={`Editar ${folio}`}
+                                onClick={() => navigate(`/reportes-mantenimiento/${row.id}`)}
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               className={erpRowActionBtnClass}
@@ -364,15 +376,17 @@ export default function ReportesMantenimientoPage() {
                             >
                               <PdfGlyph className="h-4 w-4" />
                             </button>
-                            <button
-                              type="button"
-                              className={cn(erpRowActionBtnClass, "hover:border-rose-400 hover:text-rose-600")}
-                              aria-label={`Eliminar ${folio}`}
-                              disabled={isDeleting}
-                              onClick={() => setDeletingRow(row)}
-                            >
-                              <TrashBinIcon className="h-4 w-4" />
-                            </button>
+                            {canDelete ? (
+                              <button
+                                type="button"
+                                className={cn(erpRowActionBtnClass, "hover:border-rose-400 hover:text-rose-600")}
+                                aria-label={`Eliminar ${folio}`}
+                                disabled={isDeleting}
+                                onClick={() => setDeletingRow(row)}
+                              >
+                                <TrashBinIcon className="h-4 w-4" />
+                              </button>
+                            ) : null}
                           </div>
                         </div>
                         <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-[#EDEDED] pt-3 text-xs dark:border-[#273244]">
@@ -437,7 +451,7 @@ export default function ReportesMantenimientoPage() {
                     {filtered.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="px-3 py-4">
-                          <EmptyState hasSearch={hasSearch} />
+                          <EmptyState hasSearch={hasSearch} canCreate={canCreate} />
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -471,15 +485,17 @@ export default function ReportesMantenimientoPage() {
                             </TableCell>
                             <TableCell className="px-3 py-2">
                               <div className={cn(erpRowActionBarClass, "mx-auto")}>
-                                <button
-                                  type="button"
-                                  className={erpRowActionBtnClass}
-                                  aria-label={`Editar ${folio}`}
-                                  title="Editar"
-                                  onClick={() => navigate(`/reportes-mantenimiento/${row.id}`)}
-                                >
-                                  <PencilIcon className="h-4 w-4" />
-                                </button>
+                                {canEdit ? (
+                                  <button
+                                    type="button"
+                                    className={erpRowActionBtnClass}
+                                    aria-label={`Editar ${folio}`}
+                                    title="Editar"
+                                    onClick={() => navigate(`/reportes-mantenimiento/${row.id}`)}
+                                  >
+                                    <PencilIcon className="h-4 w-4" />
+                                  </button>
+                                ) : null}
                                 <button
                                   type="button"
                                   className={erpRowActionBtnClass}
@@ -489,16 +505,18 @@ export default function ReportesMantenimientoPage() {
                                 >
                                   <PdfGlyph className="h-4 w-4" />
                                 </button>
-                                <button
-                                  type="button"
-                                  className={cn(erpRowActionBtnClass, "hover:border-rose-400 hover:text-rose-600")}
-                                  aria-label={`Eliminar ${folio}`}
-                                  title="Eliminar"
-                                  disabled={isDeleting}
-                                  onClick={() => setDeletingRow(row)}
-                                >
-                                  <TrashBinIcon className="h-4 w-4" />
-                                </button>
+                                {canDelete ? (
+                                  <button
+                                    type="button"
+                                    className={cn(erpRowActionBtnClass, "hover:border-rose-400 hover:text-rose-600")}
+                                    aria-label={`Eliminar ${folio}`}
+                                    title="Eliminar"
+                                    disabled={isDeleting}
+                                    onClick={() => setDeletingRow(row)}
+                                  >
+                                    <TrashBinIcon className="h-4 w-4" />
+                                  </button>
+                                ) : null}
                               </div>
                             </TableCell>
                           </TableRow>

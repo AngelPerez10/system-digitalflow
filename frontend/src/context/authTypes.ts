@@ -16,7 +16,7 @@ export type ModuleCrudPermissions = {
   create?: boolean;
   edit?: boolean;
   delete?: boolean;
-  /** Órdenes/proyectos: true = solo propios; false = ver todos. */
+  /** Órdenes/proyectos/reportes_mantenimiento: true = solo propios; false = ver todos. */
   own_only?: boolean;
 };
 

@@ -211,3 +211,121 @@ class ReporteMantenimientoCrudTests(APITestCase):
         self.assertIn("Cámara entrada", body)
         self.assertIn("Antes", body)
         self.assertIn("Después", body)
+
+
+class ReporteMantenimientoOwnOnlyTests(APITestCase):
+    """Técnico con permiso del módulo solo ve reportes de sus órdenes (o creados por él)."""
+
+    def setUp(self):
+        from apps.users.models import UserPermissions
+
+        self.tecnico = User.objects.create_user(username="rm_tech", password="test-pass-123")
+        self.otro = User.objects.create_user(username="rm_otro", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=self.tecnico,
+            permissions={
+                "reportes_mantenimiento": {
+                    "view": True,
+                    "create": True,
+                    "edit": True,
+                    "delete": False,
+                    "own_only": True,
+                }
+            },
+        )
+        self.orden_propia = Orden.objects.create(
+            cliente="Cliente Propio",
+            fecha_inicio="2026-08-20",
+            status="resuelto",
+            tecnico_asignado=self.tecnico,
+            servicios_realizados=["Mantenimiento"],
+        )
+        self.orden_ajena = Orden.objects.create(
+            cliente="Cliente Ajeno",
+            fecha_inicio="2026-08-21",
+            status="resuelto",
+            tecnico_asignado=self.otro,
+            servicios_realizados=["Mantenimiento"],
+        )
+        self.reporte_propio = ReporteMantenimiento.objects.create(
+            orden=self.orden_propia,
+            orden_folio="ODT-1",
+            orden_cliente="Cliente Propio",
+            fecha_servicio="2026-08-20",
+            tecnico_nombre="Técnico Propio",
+            secciones=[],
+            creado_por=self.tecnico,
+        )
+        self.reporte_ajeno = ReporteMantenimiento.objects.create(
+            orden=self.orden_ajena,
+            orden_folio="ODT-2",
+            orden_cliente="Cliente Ajeno",
+            fecha_servicio="2026-08-21",
+            tecnico_nombre="Otro",
+            secciones=[],
+            creado_por=self.otro,
+        )
+
+    def test_list_solo_reportes_de_ordenes_asignadas(self):
+        self.client.force_authenticate(user=self.tecnico)
+        res = self.client.get(LIST_URL)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        ids = {row["id"] for row in res.data}
+        self.assertIn(self.reporte_propio.id, ids)
+        self.assertNotIn(self.reporte_ajeno.id, ids)
+
+    def test_detail_ajeno_403(self):
+        self.client.force_authenticate(user=self.tecnico)
+        res = self.client.get(f"{LIST_URL}{self.reporte_ajeno.id}/")
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_create_con_orden_ajena_400(self):
+        self.client.force_authenticate(user=self.tecnico)
+        res = self.client.post(
+            LIST_URL,
+            {
+                "orden_id": self.orden_ajena.id,
+                "fecha_servicio": "2026-08-22",
+                "tecnico_nombre": "Hack",
+                "secciones": [],
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_con_orden_propia_201(self):
+        self.client.force_authenticate(user=self.tecnico)
+        res = self.client.post(
+            LIST_URL,
+            {
+                "orden_id": self.orden_propia.id,
+                "fecha_servicio": "2026-08-22",
+                "tecnico_nombre": "Técnico Propio",
+                "secciones": [],
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+
+    def test_own_only_false_ve_todos(self):
+        from apps.users.models import UserPermissions
+
+        perfil = UserPermissions.objects.get(user=self.tecnico)
+        perfil.permissions = {
+            "reportes_mantenimiento": {
+                "view": True,
+                "create": True,
+                "edit": True,
+                "delete": False,
+                "own_only": False,
+            }
+        }
+        perfil.save(update_fields=["permissions"])
+        # Evitar caché del related permissions_profile en la instancia del setUp.
+        tecnico = User.objects.select_related("permissions_profile").get(pk=self.tecnico.pk)
+        self.client.force_authenticate(user=tecnico)
+        res = self.client.get(LIST_URL)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        ids = {row["id"] for row in res.data}
+        self.assertIn(self.reporte_propio.id, ids)
+        self.assertIn(self.reporte_ajeno.id, ids)
