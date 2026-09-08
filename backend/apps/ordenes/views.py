@@ -57,6 +57,7 @@ from apps.ordenes.image_services import (
 from apps.ordenes.image_services import (
     is_data_url as _is_data_url,
 )
+from apps.ordenes.pagination import OrdenOptInPagination
 from apps.ordenes.pdf_limits import normalize_fotos_extra_max as _normalize_fotos_extra_max
 from apps.ordenes.pdf_limits import orden_max_fotos as _orden_max_fotos
 from apps.users.models import UserPermissions, UserSignature
@@ -552,9 +553,11 @@ def _resolve_fotos_extra_max(data: dict, instance=None) -> int:
 
 class OrdenViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, OrdenesPermission]
-    # Evitar paginación por defecto para que el frontend reciba todas las órdenes
-    # y no “se corten” (p.ej. mostrar solo hasta idx=10).
-    pagination_class = None
+    # Paginación opt-in: sin `?page`/`?page_size` el listado sigue devolviendo el
+    # array plano completo (compat con el frontend y la app Expo actuales). Con
+    # esos parámetros responde el sobre `{count, next, previous, results}`.
+    # Ver apps/ordenes/pagination.py.
+    pagination_class = OrdenOptInPagination
     queryset = Orden.objects.all()
     serializer_class = OrdenSerializer
 
@@ -584,11 +587,24 @@ class OrdenViewSet(viewsets.ModelViewSet):
         return OrdenSerializer
 
     def list(self, request, *args, **kwargs):
-        """Listado; `limit` opcional (1–200) para feeds livianos (p. ej. panel)."""
+        """Listado de órdenes.
+
+        - Sin parámetros: array plano con todo el resultado del filtro (compat).
+        - `limit` (1–200): recorta el array plano para feeds livianos (panel).
+        - `page` / `page_size`: sobre paginado `{count, next, previous, results}`
+          (opt-in, ver `OrdenOptInPagination`). `limit` se ignora en este modo
+          porque no se puede paginar un queryset ya rebanado.
+        """
         queryset = self.filter_queryset(self.get_queryset())
-        limit_raw = (request.query_params.get('limit') or '').strip()
-        if limit_raw.isdigit():
-            queryset = queryset[: min(max(int(limit_raw), 1), 200)]
+
+        params = request.query_params
+        paginando = 'page' in params or 'page_size' in params
+
+        if not paginando:
+            limit_raw = (params.get('limit') or '').strip()
+            if limit_raw.isdigit():
+                queryset = queryset[: min(max(int(limit_raw), 1), 200)]
+
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
