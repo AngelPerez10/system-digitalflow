@@ -40,6 +40,40 @@ const TIPO_LABEL: Record<TipoOrden, string> = {
   instalaciones: 'Instalación',
 };
 
+export type Prioridad = 'alta' | 'media' | 'baja';
+
+const PRIORIDAD_LABEL: Record<Prioridad, string> = {
+  alta: 'Alta',
+  media: 'Media',
+  baja: 'Baja',
+};
+
+/** Normaliza el string crudo del backend a un nivel conocido (fallback 'media'). */
+export function normalizarPrioridad(valor: string | null | undefined): Prioridad {
+  const v = (valor ?? '').trim().toLowerCase();
+  return v === 'alta' || v === 'baja' ? v : 'media';
+}
+
+export function prioridadLabel(valor: string | null | undefined): string {
+  return PRIORIDAD_LABEL[normalizarPrioridad(valor)];
+}
+
+/** Tono por nivel de prioridad. Misma familia visual que `statusTone`. */
+export function prioridadTone(
+  valor: string | null | undefined,
+  palette: ThemeColors = lightColors,
+): { bg: string; text: string } {
+  switch (normalizarPrioridad(valor)) {
+    case 'alta':
+      return { bg: palette.dangerBg, text: palette.danger };
+    case 'baja':
+      return { bg: palette.surfaceSunken, text: palette.inkSubtle };
+    case 'media':
+    default:
+      return { bg: palette.goldSoftBg, text: palette.goldSoftText };
+  }
+}
+
 export function statusLabel(status: OrdenStatus): string {
   return STATUS_LABEL[status];
 }

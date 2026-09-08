@@ -23,7 +23,6 @@ import { ErrorState, InlineError } from '@/components/StateViews';
 import { SubmitButton, type SubmitPhase } from '@/components/SubmitButton';
 import { TextField } from '@/components/TextField';
 import { FechaHoraBloque } from '@/features/orders/components/DateTimeField';
-import { DockBar } from '@/features/orders/components/DockBar';
 import { EditarOrdenHero } from '@/features/orders/components/EditarOrdenHero';
 import { EquiposOrdenEditor } from '@/features/orders/components/EquiposOrdenEditor';
 import { FotosEditor } from '@/features/orders/components/FotosEditor';
@@ -34,6 +33,7 @@ import { StatusSegment } from '@/features/orders/components/StatusSegment';
 import { folioDisplay, statusSolid } from '@/features/orders/ordenFormat';
 import {
   COMENTARIO_TECNICO_MAX,
+  COMENTARIO_TECNICO_MIN,
   construirPatch,
   formStateFromOrden,
   hayErrores,
@@ -243,11 +243,16 @@ export default function EditarOrdenScreen() {
                   label="Comentario técnico"
                   value={form.comentario_tecnico}
                   onChangeText={(valor) => actualizar('comentario_tecnico', valor)}
-                  placeholder="Qué se hizo en sitio, hallazgos y recomendaciones"
+                  placeholder={`Qué se hizo en sitio (mínimo ${COMENTARIO_TECNICO_MIN} caracteres)`}
                   multiline
                   maxLength={COMENTARIO_TECNICO_MAX}
                   error={errores.comentario_tecnico}
-                  helper={`${form.comentario_tecnico.length}/${COMENTARIO_TECNICO_MAX}`}
+                  helper={
+                    form.comentario_tecnico.trim().length < COMENTARIO_TECNICO_MIN
+                      ? `Obligatorio · ${form.comentario_tecnico.trim().length} / ${COMENTARIO_TECNICO_MIN} mínimo`
+                      : `Obligatorio · ${form.comentario_tecnico.trim().length} caracteres`
+                  }
+                  accessibilityHint={`Obligatorio. Mínimo ${COMENTARIO_TECNICO_MIN} caracteres.`}
                 />
               </SeccionCard>
             </Animated.View>
@@ -310,34 +315,34 @@ export default function EditarOrdenScreen() {
                 />
               </SeccionCard>
             </Animated.View>
+
+            <Animated.View style={[entrance(7), styles.acciones]}>
+              <SubmitButton
+                label="Guardar cambios"
+                phase={fase}
+                disabled={!dirty}
+                onPress={() => void guardar()}
+                accessibilityHint={dirty ? 'Guarda los cambios en la orden' : 'No hay cambios por guardar'}
+                tint={colors.navy}
+                tintPressed={colors.navyDeep}
+                tintDisabled={colors.navyDisabled}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar y volver al detalle"
+                disabled={guardando}
+                onPress={() => router.back()}
+                style={({ pressed }) => [
+                  styles.cancelar,
+                  pressed ? styles.cancelarPressed : null,
+                  guardando ? styles.cancelarInactivo : null,
+                ]}
+              >
+                <Text style={[styles.cancelarTexto, { color: colors.inkMuted }]}>Cancelar</Text>
+              </Pressable>
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
-
-        <DockBar>
-          <SubmitButton
-            label="Guardar cambios"
-            phase={fase}
-            disabled={!dirty}
-            onPress={() => void guardar()}
-            accessibilityHint={dirty ? 'Guarda los cambios en la orden' : 'No hay cambios por guardar'}
-            tint={colors.navy}
-            tintPressed={colors.navyDeep}
-            tintDisabled={colors.navyDisabled}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Cancelar y volver al detalle"
-            disabled={guardando}
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.cancelar,
-              pressed ? styles.cancelarPressed : null,
-              guardando ? styles.cancelarInactivo : null,
-            ]}
-          >
-            <Text style={[styles.cancelarTexto, { color: colors.inkMuted }]}>Cancelar</Text>
-          </Pressable>
-        </DockBar>
       </View>
     </SafeAreaView>
   );
@@ -356,7 +361,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.xxxl * 2.4,
+    paddingBottom: spacing.xxxl,
     gap: spacing.md,
   },
   subtitulo: { ...type.caption, fontSize: 12, marginTop: -spacing.xs },
@@ -365,6 +370,7 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     marginVertical: spacing.xs,
   },
+  acciones: { marginTop: spacing.sm, gap: spacing.sm },
   cancelar: {
     minHeight: TOUCH_TARGET,
     alignItems: 'center',

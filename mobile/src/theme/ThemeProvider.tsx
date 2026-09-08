@@ -27,6 +27,13 @@ interface ThemeContextValue {
   /** Esquema resuelto que pinta la UI ahora. */
   scheme: ResolvedScheme;
   colors: ThemeColors;
+  /**
+   * `false` mientras se lee la preferencia guardada de `SecureStore`. Durante
+   * ese instante `scheme` cae en el valor del sistema; si el usuario había
+   * forzado un tema distinto al del SO, la UI parpadea al hidratar. El layout
+   * raíz mantiene el splash hasta que esto es `true` para que no se vea.
+   */
+  hydrated: boolean;
   setPreference: (next: ThemePreference) => void;
   /** Alterna solo entre claro y oscuro (la navbar usa esto). */
   toggleLightDark: () => void;
@@ -84,8 +91,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<ThemeContextValue>(
-    () => ({ preference, scheme, colors, setPreference, toggleLightDark }),
-    [preference, scheme, colors, setPreference, toggleLightDark],
+    () => ({ preference, scheme, colors, hydrated: hidratado, setPreference, toggleLightDark }),
+    [preference, scheme, colors, hidratado, setPreference, toggleLightDark],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

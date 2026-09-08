@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Exists, F, OuterRef, Q, Subquery
+from django.db.models import Case, Exists, F, IntegerField, OuterRef, Q, Subquery, When
 from django.db.models.fields.json import KeyTextTransform
 from django.http import HttpResponse
 from django.utils import timezone
@@ -126,6 +126,74 @@ def _stamp_status_changed_at(data: dict, instance=None) -> dict:
     old_norm = str(getattr(instance, "status", "") or "").strip().lower()
     if new_norm != old_norm:
         data["status_changed_at"] = timezone.now()
+    return data
+
+
+def _notify_orden_liberada(orden) -> None:
+    """Costura para la Fase 2 (push): avisar a los técnicos que se liberó una
+    orden a la bolsa. Hoy es no-op — no hay infraestructura de notificaciones.
+    """
+    return None
+
+
+def _portal_contacto_para_cliente(cliente_pk):
+    """(nombre, telefono) del contacto del portal de ese cliente, o (None, None).
+
+    El nombre sale del `User` de la cuenta de portal (lo que capturó al
+    registrarse); el teléfono, del registro `Cliente` (celular o teléfono).
+    """
+    if not cliente_pk:
+        return None, None
+    try:
+        from apps.clientes.portal_models import ClientePortalAccount
+    except Exception:
+        return None, None
+    account = (
+        ClientePortalAccount.objects
+        .filter(cliente_id=cliente_pk)
+        .select_related('user', 'cliente')
+        .order_by('id')
+        .first()
+    )
+    if account is None:
+        return None, None
+    user = account.user
+    nombre = f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip()
+    cliente = account.cliente
+    telefono = (getattr(cliente, 'celular', '') or '').strip() or (
+        getattr(cliente, 'telefono', '') or ''
+    ).strip()
+    return (nombre or None), (telefono[:15] or None)
+
+
+def _fill_contacto_desde_portal(data: dict, instance=None) -> dict:
+    """Autollena `nombre_cliente` / `telefono_cliente` con los datos que el
+    cliente dio al registrarse en el portal, cuando quedarían vacíos.
+    """
+    def _efectivo(key):
+        if key in data:
+            return str(data.get(key) or '').strip()
+        if instance is not None:
+            return str(getattr(instance, key, '') or '').strip()
+        return ''
+
+    falta_nombre = not _efectivo('nombre_cliente')
+    falta_tel = not _efectivo('telefono_cliente')
+    if not (falta_nombre or falta_tel):
+        return data
+
+    cliente_obj = data.get('cliente_id')
+    cliente_pk = getattr(cliente_obj, 'pk', cliente_obj)
+    if cliente_pk is None and instance is not None and 'cliente_id' not in data:
+        cliente_pk = getattr(instance, 'cliente_id_id', None)
+    if not cliente_pk:
+        return data
+
+    nombre, telefono = _portal_contacto_para_cliente(cliente_pk)
+    if falta_nombre and nombre:
+        data['nombre_cliente'] = nombre
+    if falta_tel and telefono:
+        data['telefono_cliente'] = telefono
     return data
 
 
@@ -504,6 +572,10 @@ class OrdenViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), OrdenesAttachmentPermission()]
         if self.action in ('enviar_pdf', 'correo_sugerido'):
             return [IsAuthenticated(), OrdenesSendPdfPermission()]
+        if self.action in ('liberar', 'tomar', 'pool'):
+            # Cualquier técnico con acceso al módulo puede soltar/tomar de la
+            # bolsa; usar OrdenesAnyAccessPermission evita el mapeo POST→create.
+            return [IsAuthenticated(), OrdenesAnyAccessPermission()]
         return super().get_permissions()
 
     def get_serializer_class(self):
@@ -540,6 +612,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 .select_related(
                     'cliente_id',
                     'tecnico_asignado',
+                    'tecnico_asignado__permissions_profile',
                     'creado_por',
                     'actualizado_por',
                     'levantamiento',
@@ -562,12 +635,14 @@ class OrdenViewSet(viewsets.ModelViewSet):
             related = [
                 'cliente_id',
                 'tecnico_asignado',
+                'tecnico_asignado__permissions_profile',
                 'creado_por',
                 'actualizado_por',
                 'quien_instalo',
                 'quien_entrego',
                 'levantamiento',
                 'instalacion',
+                'calificacion',
             ]
             qs = (
                 self.queryset.all()
@@ -1590,6 +1665,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
             data['fotos_urls'] = new_fotos
         data = _apply_resuelto_cierre_fechas(dict(data))
         data = _stamp_status_changed_at(data)
+        data = _fill_contacto_desde_portal(data)
         incoming_equipos = data.get('equipos_inventario', [])
         with transaction.atomic():
             instance = serializer.save(
@@ -1687,6 +1763,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
         data = _apply_resuelto_cierre_fechas(data, instance=instance)
         data = _stamp_status_changed_at(data, instance=instance)
+        data = _fill_contacto_desde_portal(data, instance=instance)
 
         # Limited editors never mutate equipos; ignore any payload value.
         if not full_edit:
@@ -1821,6 +1898,109 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(orden)
         return Response(serializer.data, status=200)
+
+    # ------------------------------------------------------------------
+    # Bolsa de órdenes ("liberar / tomar", estilo Uber)
+    # ------------------------------------------------------------------
+    @action(detail=True, methods=['post'], url_path='liberar')
+    def liberar(self, request, pk=None):
+        """El técnico asignado o un admin suelta la orden a la bolsa.
+
+        No se puede liberar una orden `resuelto`. Al liberar, la orden queda
+        sin `tecnico_asignado` y con `en_pool=True`; el `status` no se toca.
+        Se fetcha directo (no `get_object`) para no chocar con el scope
+        own_only y para poder devolver los checks explícitos.
+        """
+        orden = Orden.objects.filter(pk=pk).first()
+        if orden is None:
+            raise NotFound()
+
+        user = request.user
+        uid = getattr(user, 'id', None)
+        is_admin = bool(getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False))
+        is_owner = orden.tecnico_asignado_id == uid
+        # Tras liberar, el ex-asignado ya no es `tecnico_asignado`; se le sigue
+        # permitiendo re-llamar (idempotente) mientras la orden siga en la bolsa.
+        is_liberador = orden.en_pool and orden.liberada_por_id == uid
+        if not (is_admin or is_owner or is_liberador):
+            raise PermissionDenied(
+                'Solo el técnico asignado o un administrador puede liberar la orden.'
+            )
+
+        if orden.status == 'resuelto':
+            return Response(
+                {'detail': 'No se puede liberar una orden resuelta.'}, status=409
+            )
+
+        if orden.en_pool:
+            return Response(self.get_serializer(orden).data)
+
+        orden.en_pool = True
+        orden.liberada_por = user
+        orden.liberada_at = timezone.now()
+        orden.tomada_por = None
+        orden.tomada_at = None
+        orden.tecnico_asignado = None
+        orden.actualizado_por = user
+        orden.save(update_fields=[
+            'en_pool', 'liberada_por', 'liberada_at', 'tomada_por', 'tomada_at',
+            'tecnico_asignado', 'actualizado_por', 'fecha_actualizacion',
+        ])
+
+        _notify_orden_liberada(orden)
+        return Response(self.get_serializer(orden).data)
+
+    @action(detail=True, methods=['post'], url_path='tomar')
+    def tomar(self, request, pk=None):
+        """Toma una orden de la bolsa: el primero gana (row lock).
+
+        Segundo intento (o si ya no está en la bolsa) → 409. El `status` no se
+        toca: la orden se retoma exactamente donde estaba.
+        """
+        user = request.user
+        with transaction.atomic():
+            orden = Orden.objects.select_for_update().filter(pk=pk).first()
+            if orden is None:
+                raise NotFound()
+            if not orden.en_pool:
+                return Response(
+                    {'detail': 'Otro técnico ya tomó esta orden.'}, status=409
+                )
+            orden.en_pool = False
+            orden.tecnico_asignado = user
+            orden.tomada_por = user
+            orden.tomada_at = timezone.now()
+            orden.actualizado_por = user
+            orden.save(update_fields=[
+                'en_pool', 'tecnico_asignado', 'tomada_por', 'tomada_at',
+                'actualizado_por', 'fecha_actualizacion',
+            ])
+        return Response(self.get_serializer(orden).data)
+
+    @action(detail=False, methods=['get'], url_path='pool')
+    def pool(self, request):
+        """Órdenes disponibles en la bolsa, ordenadas por prioridad.
+
+        NO usa `get_queryset()` a propósito: así el filtro own_only no aplica y
+        todo técnico con permiso de ver órdenes ve la bolsa completa.
+        """
+        qs = (
+            Orden.objects.filter(en_pool=True)
+            .select_related('cliente_id', 'liberada_por', 'creado_por', 'tecnico_asignado')
+            .order_by(
+                Case(
+                    When(prioridad_pool='alta', then=0),
+                    When(prioridad_pool='media', then=1),
+                    When(prioridad_pool='baja', then=2),
+                    default=1,
+                    output_field=IntegerField(),
+                ),
+                'liberada_at',
+            )
+        )
+        return Response(
+            OrdenListSerializer(qs, many=True, context=self.get_serializer_context()).data
+        )
 
     @action(
         detail=True,

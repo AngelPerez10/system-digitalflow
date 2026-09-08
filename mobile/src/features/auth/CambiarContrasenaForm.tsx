@@ -23,8 +23,8 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, font, MOTION, spacing, type } from '@/theme/tokens';
 import { useReducedMotion } from '@/utils/useReducedMotion';
-
-const MIN_LARGO = 8;
+import { FuerzaContrasena } from './FuerzaContrasena';
+import { evaluarContrasena, MIN_LARGO } from './passwordPolicy';
 
 function mensajeDeCambio(error: unknown): string {
   const original = toUserMessage(error);
@@ -56,8 +56,8 @@ export function CambiarContrasenaForm() {
   const confirmarRef = useRef<TextInput>(null);
 
   const enviando = fase !== 'idle';
-  const puedeEnviar =
-    actual.length > 0 && nueva.length >= MIN_LARGO && confirmar.length >= MIN_LARGO && !enviando;
+  const politica = evaluarContrasena(nueva, { confirmar, tempPassword: actual });
+  const puedeEnviar = actual.length > 0 && politica.listoParaEnviar && !enviando;
 
   const onSubmit = async () => {
     if (!puedeEnviar) return;
@@ -123,7 +123,7 @@ export function CambiarContrasenaForm() {
               </Text>
               <Text style={[styles.sheetAyuda, { color: colors.inkSubtle }]}>
                 La que te llegó por correo es temporal. Elige una nueva de al menos {MIN_LARGO}{' '}
-                caracteres para entrar a tu portal.
+                caracteres, con letras y números. Entre más larga, más segura.
               </Text>
             </View>
 
@@ -167,6 +167,9 @@ export function CambiarContrasenaForm() {
                 onSubmitEditing={() => confirmarRef.current?.focus()}
                 editable={!enviando}
               />
+              {nueva.length > 0 ? (
+                <FuerzaContrasena valor={nueva} confirmar={confirmar} tempPassword={actual} />
+              ) : null}
               <TextField
                 variant="underline"
                 ref={confirmarRef}

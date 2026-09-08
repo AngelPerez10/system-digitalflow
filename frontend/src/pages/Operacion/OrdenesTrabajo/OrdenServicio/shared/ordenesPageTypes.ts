@@ -56,6 +56,14 @@ export interface Orden {
   /** Último cambio de status del técnico (ISO); null = sin resalte. */
   status_changed_at?: string | null;
   comentario_tecnico: string;
+  /** Prioridad de la bolsa de órdenes ("liberar / tomar"). La fija el admin. */
+  prioridad_pool?: "alta" | "media" | "baja" | string | null;
+  /** `true` mientras la orden está liberada en la bolsa (read-only). */
+  en_pool?: boolean;
+  liberada_por?: number | null;
+  liberada_at?: string | null;
+  tomada_por?: number | null;
+  tomada_at?: string | null;
   /** Seguimiento de oficina (solo admins en UI). */
   status_administrativo?: "pendiente" | "en_revision" | "enviado" | "cerrado" | string | null;
   fecha_envio?: string | null;
@@ -69,6 +77,8 @@ export interface Orden {
   tecnico_asignado?: number | null;
   tecnico_asignado_username?: string;
   tecnico_asignado_full_name?: string;
+  /** Foto de perfil del técnico (`permissions_profile.avatar_url`). */
+  tecnico_asignado_avatar_url?: string | null;
   creado_por?: number | null;
   creado_por_id?: number;
   creado_por_username?: string | null;
@@ -91,7 +101,18 @@ export interface Orden {
   fecha_actualizacion?: string | null;
   tipo_orden?: "servicio_tecnico" | "levantamiento" | string;
   equipos_inventario?: OrdenEquipoInventarioLinea[];
+  /**
+   * Calificación que el cliente dejó en el portal. El backend solo la envía a
+   * personal interno (staff); el técnico nunca la recibe.
+   */
+  calificacion_cliente?: OrdenCalificacionCliente | null;
 }
+
+export type OrdenCalificacionCliente = {
+  estrellas: number;
+  comentario: string;
+  fecha_creacion: string;
+};
 
 export interface Usuario {
   id: number;

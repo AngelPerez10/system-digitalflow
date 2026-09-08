@@ -561,50 +561,6 @@ export default function OrdenesTecnico() {
   const quienInstaloActions = useMemo(() => buildTecnicoActions(quienInstaloSearch), [usuarios, quienInstaloSearch]);
   const quienEntregoActions = useMemo(() => buildTecnicoActions(quienEntregoSearch), [usuarios, quienEntregoSearch]);
 
-  const servicioActions = useMemo(() => {
-    const q = servicioSearch.trim().toLowerCase();
-    const base = serviciosDisponibles
-      .filter((s) => {
-        const matches = !q || s.toLowerCase().includes(q);
-        const notSelected = !formData.servicios_realizados.includes(s);
-        return matches && notSelected;
-      })
-      .map((s) => ({
-        id: s,
-        label: s,
-        icon: (
-          <svg className='w-4 h-4 text-[#1B5CFF]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-            <path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' />
-          </svg>
-        ),
-        description: "Servicio disponible",
-        short: '',
-        end: '',
-      }));
-
-    if (q !== "" && !serviciosDisponibles.some(s => s.toLowerCase() === q)) {
-      return [
-        {
-          id: "__new__",
-          label: `Crear "${servicioSearch.trim()}"`,
-          icon: (
-            <svg className='w-4 h-4 text-[#1B5CFF]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-              <path d='M12 5v14M5 12h14' />
-            </svg>
-          ),
-          description: "Nuevo servicio",
-          short: '',
-          end: '',
-        },
-        ...base
-      ];
-    }
-
-    return base;
-  }, [serviciosDisponibles, servicioSearch, formData.servicios_realizados]);
-
-
-
   return (
     <div className={erpPageCanvasClass} style={erpSansStyle}>
     <div className={erpPageInnerClass}>
@@ -1187,6 +1143,9 @@ export default function OrdenesTecnico() {
             deletingPhoto={deletingPhoto}
             uploadingPhotos={uploadingPhotos}
             photoUploadProgress={photoUploadProgress}
+            isReadOnly={isReadOnly}
+            isLimitedEdit={isLimitedEdit}
+            isAdmin={isAdmin}
           />
         )}
         {(activeTab === "orden" || tipoOrden === "levantamiento") && (
@@ -1206,7 +1165,6 @@ export default function OrdenesTecnico() {
             setFormData={setFormData}
             ro={ro}
             inputLockedClass={inputLockedClass}
-            servicioActions={servicioActions}
             servicioSearch={servicioSearch}
             setServicioSearch={setServicioSearch}
             serviciosDisponibles={serviciosDisponibles}

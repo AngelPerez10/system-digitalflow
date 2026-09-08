@@ -22,14 +22,17 @@ export const ORDEN_FORM_TAB_IDS = {
   cliente: "orden-form-tab-cliente",
   orden: "orden-form-tab-orden",
   equipos: "orden-form-tab-equipos",
+  calificacion: "orden-form-tab-calificacion",
 } as const;
 
 export const ORDEN_FORM_PANEL_IDS = {
   cliente: "orden-form-panel-cliente",
   orden: "orden-form-panel-orden",
   equipos: "orden-form-panel-equipos",
+  calificacion: "orden-form-panel-calificacion",
 } as const;
 
+/** Pestañas del asistente paso a paso (progreso "Paso X de N", botón Siguiente). */
 const TAB_ORDER: OrdenFormTab[] = ["cliente", "orden", "equipos"];
 
 export type OrdenFormModalAlert = {
@@ -61,6 +64,8 @@ export type OrdenFormModalProps = {
   triggerSaveFromFooter: () => void;
   canOrdenesEdit?: boolean;
   canOrdenesCreate?: boolean;
+  /** Pestaña extra (solo admin) con la calificación y comentario del cliente. */
+  showCalificacionTab?: boolean;
   children: ReactNode;
 };
 
@@ -85,10 +90,16 @@ export default function OrdenFormModal({
   triggerSaveFromFooter,
   canOrdenesEdit = true,
   canOrdenesCreate = true,
+  showCalificacionTab = false,
   children,
 }: OrdenFormModalProps) {
   const saveBusy = isSaving || uploadingPhotos;
+  const isStepperTab = TAB_ORDER.includes(activeTab);
   const stepIndex = Math.max(0, TAB_ORDER.indexOf(activeTab));
+  // Orden de foco por teclado: incluye la pestaña de calificación cuando aplica.
+  const navTabs: OrdenFormTab[] = showCalificacionTab
+    ? [...TAB_ORDER, "calificacion"]
+    : TAB_ORDER;
 
   /** Cambia de pestaña y devuelve el foco al panel para que lectores de pantalla y teclado sigan el flujo. */
   const switchTab = (next: OrdenFormTab, fromFooter?: boolean) => {
@@ -111,27 +122,27 @@ export default function OrdenFormModal({
   };
 
   const handleTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, current: OrdenFormTab) => {
-    const idx = TAB_ORDER.indexOf(current);
+    const idx = navTabs.indexOf(current);
     if (idx < 0) return;
 
     let nextIdx = idx;
     if (e.key === "ArrowRight" || e.key === "ArrowDown") {
       e.preventDefault();
-      nextIdx = (idx + 1) % TAB_ORDER.length;
+      nextIdx = (idx + 1) % navTabs.length;
     } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
       e.preventDefault();
-      nextIdx = (idx - 1 + TAB_ORDER.length) % TAB_ORDER.length;
+      nextIdx = (idx - 1 + navTabs.length) % navTabs.length;
     } else if (e.key === "Home") {
       e.preventDefault();
       nextIdx = 0;
     } else if (e.key === "End") {
       e.preventDefault();
-      nextIdx = TAB_ORDER.length - 1;
+      nextIdx = navTabs.length - 1;
     } else {
       return;
     }
 
-    const next = TAB_ORDER[nextIdx];
+    const next = navTabs[nextIdx];
     setActiveTab(next);
     requestAnimationFrame(() => {
       document.getElementById(ORDEN_FORM_TAB_IDS[next])?.focus();
@@ -154,7 +165,7 @@ export default function OrdenFormModal({
     ) : null;
 
   const nextOrSave =
-    activeTab === "cliente" ? (
+    activeTab === "calificacion" ? null : activeTab === "cliente" ? (
       <OrdenModalPrimaryButton
         type="button"
         disabled={isSaving}
@@ -268,20 +279,22 @@ export default function OrdenFormModal({
               </div>
             )}
 
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
-                Paso {stepIndex + 1} de {TAB_ORDER.length}
-              </p>
-              <span
-                className="h-1 w-24 overflow-hidden rounded-full bg-[#E7E7EA] dark:bg-[#273244]"
-                aria-hidden
-              >
+            {isStepperTab && (
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  Paso {stepIndex + 1} de {TAB_ORDER.length}
+                </p>
                 <span
-                  className="block h-full rounded-full bg-[#1B5CFF] transition-[width] duration-300 dark:bg-[#4B7CFF]"
-                  style={{ width: `${((stepIndex + 1) / TAB_ORDER.length) * 100}%` }}
-                />
-              </span>
-            </div>
+                  className="h-1 w-24 overflow-hidden rounded-full bg-[#E7E7EA] dark:bg-[#273244]"
+                  aria-hidden
+                >
+                  <span
+                    className="block h-full rounded-full bg-[#1B5CFF] transition-[width] duration-300 dark:bg-[#4B7CFF]"
+                    style={{ width: `${((stepIndex + 1) / TAB_ORDER.length) * 100}%` }}
+                  />
+                </span>
+              </div>
+            )}
 
             <div
               className="flex items-center gap-2 overflow-x-auto"
@@ -328,6 +341,32 @@ export default function OrdenFormModal({
               >
                 Equipos
               </button>
+              {showCalificacionTab && (
+                <>
+                  <span
+                    className="mx-1 h-5 w-px shrink-0 self-center bg-[#E7E7EA] dark:bg-[#273244]"
+                    aria-hidden
+                  />
+                  <button
+                    type="button"
+                    id={ORDEN_FORM_TAB_IDS.calificacion}
+                    role="tab"
+                    tabIndex={activeTab === "calificacion" ? 0 : -1}
+                    aria-selected={activeTab === "calificacion"}
+                    aria-controls={ORDEN_FORM_PANEL_IDS.calificacion}
+                    onClick={() => switchTab("calificacion")}
+                    onKeyDown={(e) => handleTabKeyDown(e, "calificacion")}
+                    className={erpModalTabClass(activeTab === "calificacion")}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                        <path d="M12 2.5l2.72 5.51 6.08.88-4.4 4.29 1.04 6.06L12 16.98l-5.44 2.86 1.04-6.06-4.4-4.29 6.08-.88L12 2.5z" />
+                      </svg>
+                      Calificación del cliente
+                    </span>
+                  </button>
+                </>
+              )}
             </div>
 
             {children}

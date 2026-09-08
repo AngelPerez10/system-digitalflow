@@ -31,6 +31,7 @@ const STATUS_FALLBACK: Record<number, string> = {
   401: 'Credenciales inválidas.',
   403: 'No tiene permiso para realizar esta acción.',
   404: 'No se encontró el recurso solicitado.',
+  409: 'Otro técnico ya tomó esta orden.',
   429: 'Demasiados intentos. Espere un minuto e intente de nuevo.',
   500: 'Error del servidor. Intente más tarde.',
   502: 'El servidor no está disponible. Intente más tarde.',

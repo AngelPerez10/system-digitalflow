@@ -53,6 +53,32 @@ class Orden(models.Model):
     prioridad = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='media')
     comentario_tecnico = models.TextField(blank=True, null=True)
 
+    # --- Bolsa de órdenes ("liberar / tomar", estilo Uber) ---
+    # Prioridad que el admin asigna a la orden para la bolsa. Se muestra y ordena
+    # la lista de órdenes disponibles. Independiente de `prioridad` (uso interno).
+    prioridad_pool = models.CharField(
+        max_length=10, choices=PRIORIDAD_CHOICES, default='media'
+    )
+    # Verdad única de "reclamable ahora". Al liberar se pone True y se limpia
+    # `tecnico_asignado`; al tomar (primero gana) vuelve a False.
+    en_pool = models.BooleanField(default=False, db_index=True)
+    liberada_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ordenes_liberadas',
+    )
+    liberada_at = models.DateTimeField(null=True, blank=True)
+    tomada_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ordenes_tomadas',
+    )
+    tomada_at = models.DateTimeField(null=True, blank=True)
+
     # Seguimiento de oficina (independiente del status del técnico)
     status_administrativo = models.CharField(
         max_length=20,
@@ -165,6 +191,7 @@ class Orden(models.Model):
             models.Index(fields=['fecha_inicio']),
             models.Index(fields=['fecha_creacion']),
             models.Index(fields=['-fecha_inicio', '-fecha_creacion', '-id']),
+            models.Index(fields=['en_pool', 'prioridad_pool']),
         ]
 
 

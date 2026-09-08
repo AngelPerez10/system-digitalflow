@@ -1,6 +1,41 @@
+import type { ReactNode } from "react";
 import type { OrdenEditableField } from "../../shared/ordenEditScope";
 
 export type OrdenFieldKey = OrdenEditableField;
+
+/** Encabezado de bloque dentro de las pestañas del modal de orden. */
+export function OrdenFormSection({
+  title,
+  description,
+  children,
+  icon,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  icon?: ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <header className="flex items-start gap-2.5 border-b border-[#E7E7EA] pb-2 dark:border-[#273244]">
+        {icon ? (
+          <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 text-[#1B5CFF] dark:text-[#4B7CFF]" aria-hidden>
+            {icon}
+          </span>
+        ) : null}
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC]">{title}</h3>
+          {description ? (
+            <p className="mt-0.5 text-[11px] leading-snug text-[#6E6E77] dark:text-[#8EA0B8]">{description}</p>
+          ) : null}
+        </div>
+      </header>
+      <div className="space-y-4 rounded-xl border border-[#E7E7EA] bg-white p-4 shadow-sm dark:border-[#273244] dark:bg-[#111827]">
+        {children}
+      </div>
+    </section>
+  );
+}
 
 export function ClearSelectionButton({ onClick }: { onClick: () => void }) {
   return (

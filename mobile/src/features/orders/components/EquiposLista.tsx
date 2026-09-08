@@ -1,13 +1,25 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, type } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeProvider';
+import { radius, spacing, type } from '@/theme/tokens';
 import type { EquipoInventarioItem } from '@/types/orden';
 import { IconBox } from './icons';
 
 function Estado({ activo, texto }: { activo: boolean; texto: string }) {
+  const { colors } = useTheme();
   return (
-    <View style={[styles.estado, activo ? styles.estadoActivo : styles.estadoInactivo]}>
-      <Text style={[styles.estadoTexto, activo ? styles.estadoTextoActivo : styles.estadoTextoInactivo]}>
+    <View
+      style={[
+        styles.estado,
+        { backgroundColor: activo ? colors.statusResueltoBg : colors.surfaceSunken },
+      ]}
+    >
+      <Text
+        style={[
+          styles.estadoTexto,
+          { color: activo ? colors.statusResueltoText : colors.inkSubtle },
+        ]}
+      >
         {texto}
       </Text>
     </View>
@@ -19,23 +31,34 @@ function Estado({ activo, texto }: { activo: boolean; texto: string }) {
  * inventario (de SYSCOM, de TVC, o subida a mano al darlo de alta), copiada
  * a la línea de la orden al agregar el equipo. Sin imagen (ítems viejos o
  * dados de alta sin foto), un cuadro con el ícono de caja hace de relleno.
+ *
+ * El recuadro con imagen se queda en blanco fijo: las fotos de catálogo
+ * (SYSCOM/TVC) vienen recortadas sobre blanco y sobre un fondo oscuro se
+ * verían con un halo.
  */
 function Miniatura({ url }: { url: string }) {
+  const { colors } = useTheme();
   if (!url) {
     return (
-      <View style={styles.miniaturaVacia}>
+      <View
+        style={[
+          styles.miniaturaVacia,
+          { borderColor: colors.line, backgroundColor: colors.surfaceSunken },
+        ]}
+      >
         <IconBox color={colors.inkSubtle} size={18} />
       </View>
     );
   }
   return (
-    <View style={styles.miniaturaWrap}>
+    <View style={[styles.miniaturaWrap, { borderColor: colors.line }]}>
       <Image source={{ uri: url }} style={styles.miniatura} resizeMode="contain" />
     </View>
   );
 }
 
 function EquipoFila({ equipo }: { equipo: EquipoInventarioItem }) {
+  const { colors } = useTheme();
   const detalle = [equipo.marca, equipo.modelo].filter(Boolean).join(' · ');
   return (
     <View style={styles.fila}>
@@ -44,16 +67,16 @@ function EquipoFila({ equipo }: { equipo: EquipoInventarioItem }) {
       <View style={styles.contenido}>
         <View style={styles.filaSuperior}>
           <View style={styles.textos}>
-            <Text style={styles.nombre} numberOfLines={2}>
+            <Text style={[styles.nombre, { color: colors.ink }]} numberOfLines={2}>
               {equipo.nombre || 'Equipo sin nombre'}
             </Text>
             {detalle ? (
-              <Text style={styles.detalle} numberOfLines={1}>
+              <Text style={[styles.detalle, { color: colors.inkSubtle }]} numberOfLines={1}>
                 {detalle}
               </Text>
             ) : null}
           </View>
-          <Text style={styles.cantidad}>×{equipo.cantidad}</Text>
+          <Text style={[styles.cantidad, { color: colors.inkSubtle }]}>×{equipo.cantidad}</Text>
         </View>
 
         <View style={styles.estados}>
@@ -72,14 +95,21 @@ function EquipoFila({ equipo }: { equipo: EquipoInventarioItem }) {
  * La tarjeta se muestra siempre, con aviso cuando la lista viene vacía.
  */
 export function EquiposLista({ equipos }: { equipos: EquipoInventarioItem[] }) {
+  const { colors } = useTheme();
   if (equipos.length === 0) {
-    return <Text style={styles.vacio}>Aún no se han asignado equipos a esta orden.</Text>;
+    return (
+      <Text style={[styles.vacio, { color: colors.inkSubtle }]}>
+        Aún no se han asignado equipos a esta orden.
+      </Text>
+    );
   }
   return (
     <View style={styles.lista}>
       {equipos.map((equipo, index) => (
         <React.Fragment key={equipo.lineaId}>
-          {index > 0 ? <View style={styles.separador} /> : null}
+          {index > 0 ? (
+            <View style={[styles.separador, { backgroundColor: colors.line }]} />
+          ) : null}
           <EquipoFila equipo={equipo} />
         </React.Fragment>
       ))}
@@ -91,14 +121,13 @@ const MINIATURA = 48;
 
 const styles = StyleSheet.create({
   lista: { gap: spacing.md },
-  separador: { height: 1, backgroundColor: colors.line },
+  separador: { height: 1 },
   fila: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   miniaturaWrap: {
     width: MINIATURA,
     height: MINIATURA,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.line,
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
   },
@@ -108,8 +137,6 @@ const styles = StyleSheet.create({
     height: MINIATURA,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surfaceSunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -125,15 +152,11 @@ const styles = StyleSheet.create({
   // `flexShrink: 1` — sin esto, un nombre de producto largo (común en catálogos SYSCOM/TVC)
   // se salía de la tarjeta y de la pantalla en vez de truncarse con «…».
   textos: { flex: 1, flexShrink: 1, gap: 1 },
-  nombre: { ...type.bodyMedium, color: colors.ink, flexShrink: 1 },
-  detalle: { ...type.caption, color: colors.inkSubtle, flexShrink: 1 },
-  cantidad: { ...type.mono, color: colors.inkSubtle, flexShrink: 0 },
+  nombre: { ...type.bodyMedium, flexShrink: 1 },
+  detalle: { ...type.caption, flexShrink: 1 },
+  cantidad: { ...type.mono, flexShrink: 0 },
   estados: { flexDirection: 'row', gap: spacing.xs },
   estado: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.pill },
-  estadoActivo: { backgroundColor: colors.statusResueltoBg },
-  estadoInactivo: { backgroundColor: colors.surfaceSunken },
   estadoTexto: { ...type.caption, fontSize: 11, lineHeight: 14 },
-  estadoTextoActivo: { color: colors.statusResueltoText },
-  estadoTextoInactivo: { color: colors.inkSubtle },
-  vacio: { ...type.body, color: colors.inkSubtle },
+  vacio: { ...type.body },
 });

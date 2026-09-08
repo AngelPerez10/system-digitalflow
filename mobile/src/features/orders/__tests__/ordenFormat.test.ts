@@ -1,4 +1,4 @@
-import { esEnlaceUbicacion } from '../ordenFormat';
+import { esEnlaceUbicacion, normalizarPrioridad, prioridadLabel } from '../ordenFormat';
 
 /**
  * Algunas órdenes traen en `direccion` un enlace de Google Maps en vez de una
@@ -24,5 +24,28 @@ describe('esEnlaceUbicacion', () => {
 
   it('un texto vacío no es un enlace', () => {
     expect(esEnlaceUbicacion('')).toBe(false);
+  });
+});
+
+describe('normalizarPrioridad / prioridadLabel', () => {
+  it('reconoce los tres niveles', () => {
+    expect(normalizarPrioridad('alta')).toBe('alta');
+    expect(normalizarPrioridad('media')).toBe('media');
+    expect(normalizarPrioridad('baja')).toBe('baja');
+  });
+
+  it('tolera mayúsculas y espacios', () => {
+    expect(normalizarPrioridad('  ALTA ')).toBe('alta');
+  });
+
+  it('cae en media ante valor desconocido o nulo', () => {
+    expect(normalizarPrioridad(null)).toBe('media');
+    expect(normalizarPrioridad('urgentísima')).toBe('media');
+    expect(normalizarPrioridad(undefined)).toBe('media');
+  });
+
+  it('etiqueta legible', () => {
+    expect(prioridadLabel('alta')).toBe('Alta');
+    expect(prioridadLabel(null)).toBe('Media');
   });
 });

@@ -12,6 +12,7 @@ import OrdenFormModal, { ORDEN_FORM_PANEL_IDS, ORDEN_FORM_TAB_IDS } from "./form
 import { OrdenClienteTab } from "./form/tabs/OrdenClienteTab";
 import { OrdenDetalleTab } from "./form/tabs/OrdenDetalleTab";
 import { OrdenEquiposTab } from "./form/tabs/OrdenEquiposTab";
+import { OrdenCalificacionTab } from "./form/tabs/OrdenCalificacionTab";
 import {
   type Orden,
   type Usuario,
@@ -563,48 +564,6 @@ export default function Ordenes() {
   const tecnicoActions = useMemo(() => buildTecnicoActions(tecnicoSearch), [usuarios, tecnicoSearch]);
   const quienInstaloActions = useMemo(() => buildTecnicoActions(quienInstaloSearch), [usuarios, quienInstaloSearch]);
   const quienEntregoActions = useMemo(() => buildTecnicoActions(quienEntregoSearch), [usuarios, quienEntregoSearch]);
-
-  const servicioActions = useMemo(() => {
-    const q = servicioSearch.trim().toLowerCase();
-    const base = serviciosDisponibles
-      .filter((s) => {
-        const matches = !q || s.toLowerCase().includes(q);
-        const notSelected = !formData.servicios_realizados.includes(s);
-        return matches && notSelected;
-      })
-      .map((s) => ({
-        id: s,
-        label: s,
-        icon: (
-          <svg className='w-4 h-4 text-[#1B5CFF]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-            <path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' />
-          </svg>
-        ),
-        description: "Servicio disponible",
-        short: '',
-        end: '',
-      }));
-
-    if (q !== "" && !serviciosDisponibles.some(s => s.toLowerCase() === q)) {
-      return [
-        {
-          id: "__new__",
-          label: `Crear "${servicioSearch.trim()}"`,
-          icon: (
-            <svg className='w-4 h-4 text-[#1B5CFF]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-              <path d='M12 5v14M5 12h14M4 12h16' />
-            </svg>
-          ),
-          description: "Nuevo servicio",
-          short: '',
-          end: '',
-        },
-        ...base
-      ];
-    }
-
-    return base;
-  }, [serviciosDisponibles, servicioSearch, formData.servicios_realizados]);
 
   return (
     <div className={erpPageCanvasClass} style={erpSansStyle}>
@@ -1213,6 +1172,7 @@ export default function Ordenes() {
         uploadingPhotos={uploadingPhotos}
         bodyLoading={detailLoading}
         triggerSaveFromFooter={triggerSaveFromFooter}
+        showCalificacionTab={isAdmin && !!editingOrden}
       >
         {activeTab === "cliente" && (
           <OrdenClienteTab
@@ -1258,6 +1218,10 @@ export default function Ordenes() {
             deletingPhoto={deletingPhoto}
             uploadingPhotos={uploadingPhotos}
             photoUploadProgress={photoUploadProgress}
+            statusTecnicoId={statusTecnicoId}
+            isReadOnly={isReadOnly}
+            isLimitedEdit={isLimitedEdit}
+            isAdmin={isAdmin}
           />
         )}
         {(activeTab === "orden" || tipoOrden === "levantamiento") && (
@@ -1277,14 +1241,12 @@ export default function Ordenes() {
             setFormData={setFormData}
             ro={ro}
             inputLockedClass={inputLockedClass}
-            servicioActions={servicioActions}
             servicioSearch={servicioSearch}
             setServicioSearch={setServicioSearch}
             serviciosDisponibles={serviciosDisponibles}
             setServiciosDisponibles={setServiciosDisponibles}
             addServicio={addServicio}
             isAdmin={isAdmin}
-            statusTecnicoId={statusTecnicoId}
             statusAdminId={statusAdminId}
             fechaEnvioAdminId={fechaEnvioAdminId}
             statusAdministrativo={statusAdministrativo}
@@ -1308,6 +1270,15 @@ export default function Ordenes() {
             onAddFromItem={addEquipoFromItem}
             onUpdateEquipo={updateEquipo}
             onRemoveEquipo={removeEquipo}
+          />
+        )}
+        {activeTab === "calificacion" && isAdmin && (
+          <OrdenCalificacionTab
+            panelId={ORDEN_FORM_PANEL_IDS.calificacion}
+            labelledBy={ORDEN_FORM_TAB_IDS.calificacion}
+            calificacion={editingOrden?.calificacion_cliente ?? null}
+            tecnicoNombre={editingOrden?.tecnico_asignado_full_name ?? null}
+            tecnicoAvatarUrl={editingOrden?.tecnico_asignado_avatar_url ?? null}
           />
         )}
       </OrdenFormModal>

@@ -15,7 +15,7 @@ interface Props {
 
 /** Fila de dato con ícono en placa cuadrada y etiqueta — la vista de detalle,
  *  a diferencia de la tarjeta de la lista, sí necesita el nombre del campo:
- *  «Técnico asignado» o «Contacto en sitio» no se explican solos con un
+ *  «Técnico asignado» o «» no se explican solos con un
  *  ícono. Misma placa (22×22, `surface`) que las filas de dirección y teléfono
  *  de `OrdenCard` — un solo lenguaje de ícono-en-caja, no dos. */
 export function CampoDato({ icon, label, value, tono }: Props) {

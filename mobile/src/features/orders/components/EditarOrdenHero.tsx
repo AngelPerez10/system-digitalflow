@@ -55,34 +55,42 @@ export function EditarOrdenHero({ orden, dirty, onVolver }: Props) {
       </Pressable>
 
       <View style={styles.cuerpo}>
-        <Text style={[styles.folio, { color: colors.onNavy }]} accessibilityRole="header">
-          Editar {folioDisplay(orden)}
-        </Text>
+        <View style={styles.tituloFila}>
+          <Text
+            style={[styles.folio, { color: colors.onNavy }]}
+            numberOfLines={1}
+            accessibilityRole="header"
+          >
+            Editar {folioDisplay(orden)}
+          </Text>
+
+          <Animated.View
+            style={[
+              styles.dirtyPill,
+              {
+                backgroundColor: colors.goldSoftBg,
+                opacity: chip,
+                transform: [{ scale: chip.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }],
+              },
+            ]}
+            pointerEvents="none"
+            accessibilityElementsHidden={!dirty}
+            importantForAccessibility={dirty ? 'auto' : 'no-hide-descendants'}
+          >
+            <View style={[styles.dirtyDot, { backgroundColor: colors.gold }]} />
+            <Text
+              style={[styles.dirtyTexto, { color: colors.goldSoftText }]}
+              numberOfLines={1}
+              accessibilityLabel={dirty ? 'Hay cambios sin guardar' : ''}
+            >
+              Sin guardar
+            </Text>
+          </Animated.View>
+        </View>
+
         <Text style={[styles.meta, { color: colors.onNavyMuted }]} numberOfLines={2}>
           {clienteDisplay(orden)}
         </Text>
-
-        <Animated.View
-          style={[
-            styles.dirtyPill,
-            {
-              backgroundColor: colors.goldSoftBg,
-              opacity: chip,
-              transform: [{ scale: chip.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }],
-            },
-          ]}
-          pointerEvents="none"
-          accessibilityElementsHidden={!dirty}
-          importantForAccessibility={dirty ? 'auto' : 'no-hide-descendants'}
-        >
-          <View style={[styles.dirtyDot, { backgroundColor: colors.gold }]} />
-          <Text
-            style={[styles.dirtyTexto, { color: colors.goldSoftText }]}
-            accessibilityLabel={dirty ? 'Hay cambios sin guardar' : ''}
-          >
-            Sin guardar
-          </Text>
-        </Animated.View>
       </View>
     </View>
   );
@@ -96,18 +104,30 @@ const styles = StyleSheet.create({
   volver: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.sm },
   volverTexto: { ...type.label },
   cuerpo: { marginTop: spacing.sm, gap: spacing.xs },
-  folio: { fontFamily: font.bold, fontSize: 26, lineHeight: 30, letterSpacing: -0.9 },
+  tituloFila: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  folio: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: font.bold,
+    fontSize: 26,
+    lineHeight: 30,
+    letterSpacing: -0.9,
+  },
   meta: { ...type.caption, fontSize: 13 },
   dirtyPill: {
-    alignSelf: 'flex-start',
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: radius.pill,
-    minHeight: 28,
-    marginTop: spacing.sm,
+    minHeight: 26,
+    marginTop: 3,
   },
   dirtyDot: { width: 6, height: 6, borderRadius: 3 },
   dirtyTexto: { ...type.label, fontSize: 12 },

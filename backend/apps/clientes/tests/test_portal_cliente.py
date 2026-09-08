@@ -108,6 +108,42 @@ class PortalClienteRegistroTests(APITestCase):
         solicitud = ClienteRegistroSolicitud.objects.get(email='ambiguo@test.com')
         self.assertEqual(solicitud.status, ClienteRegistroSolicitud.STATUS_PENDING)
 
+    def test_reenvio_con_solicitud_pendiente_no_duplica(self):
+        """Anti-spam: un correo con solicitud en revisión no crea otra ni un user.
+
+        Se llama al servicio directamente para no consumir el throttle del
+        endpoint (y no contaminar `PortalClienteThrottleTests`).
+        """
+        from apps.clientes.portal_services import RegistroPayload, register_portal_cliente
+
+        Cliente.objects.create(nombre='A', correo='otravez@test.com')
+        Cliente.objects.create(nombre='B', correo='otravez@test.com')
+
+        def _hacer_registro():
+            return register_portal_cliente(
+                RegistroPayload(
+                    first_name='Ana',
+                    last_name='López',
+                    email='otravez@test.com',
+                    telefono='5512345678',
+                    razon_social='',
+                    rfc='',
+                    codigo_postal='',
+                    acepto_privacidad=True,
+                )
+            )
+
+        primera = _hacer_registro()
+        self.assertEqual(primera.outcome, 'pending_review')
+
+        segunda = _hacer_registro()
+        self.assertEqual(segunda.outcome, 'pending_review')
+        self.assertEqual(segunda.solicitud_id, primera.solicitud_id)
+        self.assertEqual(
+            ClienteRegistroSolicitud.objects.filter(email='otravez@test.com').count(), 1
+        )
+        self.assertFalse(User.objects.filter(email='otravez@test.com').exists())
+
 
 @override_settings(PORTAL_CLIENT_USERNAME_START=105040)
 class PortalClienteCambioContrasenaTests(APITestCase):

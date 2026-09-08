@@ -2,7 +2,8 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SkeletonBar, SkeletonPanel, SkeletonRegion } from '@/components/Skeleton';
-import { colors, elevation, radius, spacing, TOUCH_TARGET } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeProvider';
+import { elevationFor, radius, spacing, TOUCH_TARGET, type ThemeColors } from '@/theme/tokens';
 
 function Seccion({ ancho }: { ancho: `${number}%` }) {
   return (
@@ -11,6 +12,11 @@ function Seccion({ ancho }: { ancho: `${number}%` }) {
       <SkeletonBar width={ancho} height={11} />
     </View>
   );
+}
+
+/** Chrome de tarjeta (fondo + borde + elevación) teñido por el tema. */
+function tarjetaTheme(colors: ThemeColors) {
+  return [{ backgroundColor: colors.surface, borderColor: colors.line }, elevationFor(colors, 'card')];
 }
 
 /**
@@ -23,12 +29,13 @@ function Seccion({ ancho }: { ancho: `${number}%` }) {
  * sea un relleno y no un cambio de composición.
  */
 export function DetalleOrdenSkeleton() {
+  const { colors } = useTheme();
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]} edges={['top', 'bottom']}>
       <SkeletonRegion label="Cargando la orden" style={styles.flex}>
         <View style={styles.content}>
-          <View style={styles.hero}>
-            <View style={styles.heroAcento} />
+          <View style={[styles.hero, ...tarjetaTheme(colors)]}>
+            <View style={[styles.heroAcento, { backgroundColor: colors.line }]} />
             <View style={styles.heroCuerpo}>
               <View style={styles.heroFila}>
                 <SkeletonBar width={TOUCH_TARGET - 8} height={TOUCH_TARGET - 8} radiusOverride={radius.md} />
@@ -46,21 +53,21 @@ export function DetalleOrdenSkeleton() {
           </View>
 
           <Seccion ancho="24%" />
-          <View style={styles.tarjeta}>
+          <View style={[styles.tarjeta, ...tarjetaTheme(colors)]}>
             <SkeletonBar width="88%" height={14} />
             <SkeletonBar width="64%" height={14} />
             <SkeletonBar width="76%" height={14} />
           </View>
 
           <Seccion ancho="20%" />
-          <View style={styles.tarjeta}>
+          <View style={[styles.tarjeta, ...tarjetaTheme(colors)]}>
             <SkeletonPanel height={56} />
             <SkeletonBar width="70%" height={14} />
           </View>
         </View>
       </SkeletonRegion>
 
-      <View style={styles.barra}>
+      <View style={[styles.barra, { borderTopColor: colors.line }]}>
         <SkeletonBar width="100%" height={TOUCH_TARGET} radiusOverride={radius.md} />
       </View>
     </SafeAreaView>
@@ -72,12 +79,13 @@ export function DetalleOrdenSkeleton() {
  * (hero con acento, sección + tarjeta), para que el relevo no cambie de lenguaje.
  */
 export function EditarOrdenSkeleton() {
+  const { colors } = useTheme();
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]} edges={['top', 'bottom']}>
       <SkeletonRegion label="Cargando el formulario" style={styles.flex}>
         <View style={styles.formPad}>
-          <View style={styles.hero}>
-            <View style={styles.heroAcento} />
+          <View style={[styles.hero, ...tarjetaTheme(colors)]}>
+            <View style={[styles.heroAcento, { backgroundColor: colors.line }]} />
             <View style={styles.heroCuerpo}>
               <View style={styles.heroFila}>
                 <SkeletonBar width={TOUCH_TARGET - 8} height={TOUCH_TARGET - 8} radiusOverride={radius.md} />
@@ -89,7 +97,7 @@ export function EditarOrdenSkeleton() {
           </View>
 
           <Seccion ancho="22%" />
-          <View style={styles.tarjeta}>
+          <View style={[styles.tarjeta, ...tarjetaTheme(colors)]}>
             <View style={styles.estatusFila}>
               <SkeletonBar width="30%" height={TOUCH_TARGET} radiusOverride={radius.md} />
               <SkeletonBar width="30%" height={TOUCH_TARGET} radiusOverride={radius.md} />
@@ -98,18 +106,18 @@ export function EditarOrdenSkeleton() {
           </View>
 
           <Seccion ancho="28%" />
-          <View style={styles.tarjeta}>
+          <View style={[styles.tarjeta, ...tarjetaTheme(colors)]}>
             <SkeletonPanel height={96} />
           </View>
 
           <Seccion ancho="20%" />
-          <View style={styles.tarjeta}>
+          <View style={[styles.tarjeta, ...tarjetaTheme(colors)]}>
             <SkeletonPanel height={120} />
           </View>
         </View>
       </SkeletonRegion>
 
-      <View style={styles.barra}>
+      <View style={[styles.barra, { borderTopColor: colors.line }]}>
         <SkeletonBar width="100%" height={TOUCH_TARGET} radiusOverride={radius.md} />
         <SkeletonBar width={96} height={14} style={styles.cancelarFantasma} />
       </View>
@@ -118,19 +126,16 @@ export function EditarOrdenSkeleton() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.canvas },
+  safe: { flex: 1 },
   flex: { flex: 1 },
   content: { padding: spacing.lg, gap: spacing.md },
   hero: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
     borderWidth: 1,
     borderRadius: radius.xl,
     overflow: 'hidden',
-    ...elevation.card,
   },
-  heroAcento: { width: 4, backgroundColor: colors.line },
+  heroAcento: { width: 4 },
   heroCuerpo: { flex: 1, padding: spacing.lg, gap: spacing.md },
   heroFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   accionesFila: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xs },
@@ -142,13 +147,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   tarjeta: {
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
     borderWidth: 1,
     borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.md,
-    ...elevation.card,
   },
   formPad: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm, gap: spacing.sm },
   estatusFila: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
@@ -156,7 +158,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
     gap: spacing.md,
   },
   cancelarFantasma: { alignSelf: 'center' },

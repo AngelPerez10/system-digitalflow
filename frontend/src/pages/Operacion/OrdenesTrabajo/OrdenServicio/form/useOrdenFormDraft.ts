@@ -59,6 +59,8 @@ export type OrdenFormData = {
   servicios_realizados: string[];
   status: "pendiente" | "pausado" | "resuelto";
   motivo_pausa: string;
+  /** Prioridad de la bolsa de órdenes (solo la edita el admin). */
+  prioridad_pool: "alta" | "media" | "baja";
   comentario_tecnico: string;
   fecha_inicio: string;
   hora_inicio: string;
@@ -88,6 +90,7 @@ export function createEmptyOrdenFormData(): OrdenFormData {
     servicios_realizados: [],
     status: "pendiente",
     motivo_pausa: "",
+    prioridad_pool: "media",
     comentario_tecnico: "",
     fecha_inicio: new Date().toISOString().split("T")[0],
     hora_inicio: "",
@@ -189,6 +192,7 @@ export function buildOrdenWritePayload(opts: {
   if (variant === "admin" && isAdmin) {
     payload.status_administrativo = statusAdministrativo;
     payload.fecha_envio = fechaEnvioAdmin.trim() ? fechaEnvioAdmin.trim().slice(0, 10) : null;
+    // `prioridad_pool` (prioridad de la bolsa) solo la fija el admin.
     payload.cotizaciones_adjuntas = cotizacionesAdmin.map((c) => {
       const row: OrdenCotizacionAdjunta = {
         id: c.id,
@@ -204,6 +208,7 @@ export function buildOrdenWritePayload(opts: {
     delete payload.status_administrativo;
     delete payload.fecha_envio;
     delete payload.cotizaciones_adjuntas;
+    delete payload.prioridad_pool;
   }
 
   // Echo server movimientoSalidaId; never invent ids client-side.
@@ -497,6 +502,8 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         comentario_tecnico: orden.comentario_tecnico || "",
         status: (orden.status as OrdenFormData["status"]) || "pendiente",
         motivo_pausa: orden.motivo_pausa || "",
+        prioridad_pool:
+          (orden.prioridad_pool as OrdenFormData["prioridad_pool"]) || "media",
         fecha_inicio: orden.fecha_inicio || "",
         hora_inicio: orden.hora_inicio || "",
         fecha_finalizacion: orden.fecha_finalizacion || "",

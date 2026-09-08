@@ -18,6 +18,14 @@ export interface OrdenListItem {
   status: OrdenStatus;
   motivo_pausa: string | null;
   prioridad: string | null;
+  /** Prioridad de la bolsa (la fija el admin): 'alta' | 'media' | 'baja'. */
+  prioridad_pool: string | null;
+  /** `true` mientras la orden está liberada y disponible para tomar. */
+  en_pool: boolean;
+  liberada_por: number | null;
+  liberada_at: string | null;
+  tomada_por: number | null;
+  tomada_at: string | null;
   fecha_inicio: string | null;
   hora_inicio: string | null;
   fecha_finalizacion: string | null;

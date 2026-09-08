@@ -1,15 +1,13 @@
 import React, { useCallback } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { nombreUsuarioDisplay } from '@/auth/nombreUsuario';
-import { portalAcceso } from '@/auth/portalAcceso';
 import { useSession } from '@/auth/SessionProvider';
 import { AppButton } from '@/components/AppButton';
 import { SkeletonPanel, SkeletonRegion } from '@/components/Skeleton';
 import { EmptyState, InlineError } from '@/components/StateViews';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { IconClipboard } from '@/features/orders/components/icons';
 import { OrdenClienteCard } from '@/features/orders/components/OrdenClienteCard';
 import { useOrdenesCliente } from '@/features/orders/useOrdenesCliente';
@@ -23,12 +21,11 @@ import type { OrdenListItem } from '@/types/orden';
  */
 export default function ClienteHomeScreen() {
   const router = useRouter();
-  const { user, signOut } = useSession();
+  const { user } = useSession();
   const { colors, scheme } = useTheme();
-  const insets = useSafeAreaInsets();
   const { ordenes, cargando, refrescando, error, recargar } = useOrdenesCliente();
 
-  const nombre = user ? nombreUsuarioDisplay(user) : 'Cliente';
+  const nombre = user ? nombreUsuarioDisplay(user, 'Cliente') : 'Cliente';
 
   const abrir = useCallback(
     (orden: OrdenListItem) =>
@@ -36,38 +33,19 @@ export default function ClienteHomeScreen() {
     [router],
   );
 
-  const salir = useCallback(async () => {
-    await signOut();
-    await portalAcceso.clear();
-  }, [signOut]);
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]} edges={['bottom']}>
       <StatusBar style="light" />
 
-      <View style={[styles.hero, { backgroundColor: colors.navy, paddingTop: insets.top + spacing.sm }]}>
-        <View style={styles.heroFila}>
-          <View style={styles.heroTextos}>
-            <Text style={[styles.saludo, { color: colors.onNavy }]} accessibilityRole="header">
-              Hola, {nombre}
-            </Text>
-            <Text style={[styles.lema, { color: colors.onNavyMuted }]}>
-              El avance de tus servicios
-            </Text>
-          </View>
-          <View style={styles.heroAcciones}>
-            <ThemeToggle onDark />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Cerrar sesión"
-              onPress={() => void salir()}
-              hitSlop={10}
-              style={({ pressed }) => [styles.salir, pressed ? { opacity: 0.55 } : null]}
-            >
-              <Text style={[styles.salirTexto, { color: colors.onNavyMuted }]}>Salir</Text>
-            </Pressable>
-          </View>
-        </View>
+      {/* El cambio de tema y cerrar sesión viven en el menú de la barra (drawer),
+          igual que en las vistas del técnico. Aquí solo el saludo. */}
+      <View style={[styles.hero, { backgroundColor: colors.navy }]}>
+        <Text style={[styles.saludo, { color: colors.onNavy }]} numberOfLines={1} accessibilityRole="header">
+          Hola, {nombre}
+        </Text>
+        <Text style={[styles.lema, { color: colors.onNavyMuted }]} numberOfLines={1}>
+          El avance de tus servicios
+        </Text>
       </View>
 
       <View
@@ -125,14 +103,14 @@ export default function ClienteHomeScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  hero: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
-  heroFila: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  heroTextos: { flex: 1, paddingTop: spacing.xs },
-  heroAcciones: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  saludo: { fontFamily: font.bold, fontSize: 26, lineHeight: 31, letterSpacing: -0.9 },
-  lema: { ...type.body, marginTop: 2 },
-  salir: { paddingVertical: spacing.sm, paddingHorizontal: spacing.xs },
-  salirTexto: { ...type.label },
+  hero: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl,
+    gap: 2,
+  },
+  saludo: { fontFamily: font.bold, fontSize: 22, lineHeight: 26, letterSpacing: -0.6 },
+  lema: { ...type.caption, fontSize: 12, marginTop: 2 },
   panel: {
     flex: 1,
     marginTop: -20,

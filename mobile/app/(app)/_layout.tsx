@@ -58,7 +58,7 @@ export default function AppLayout() {
       {mostrarNavbar ? (
         <AppNavbar
           nombreUsuario={nombre}
-          onIrOrdenes={() => router.replace('/ordenes')}
+          onIrInicio={() => router.replace('/ordenes')}
           onCerrarSesion={() => void signOut()}
         />
       ) : null}
@@ -77,6 +77,14 @@ export default function AppLayout() {
         }}
       >
         <Stack.Screen name="ordenes/index" options={{ headerShown: false, animation: 'none' }} />
+        <Stack.Screen
+          name="ordenes/pool"
+          options={{
+            headerShown: false,
+            animation: push,
+            animationDuration: animationDurationMs('push', reduced),
+          }}
+        />
         <Stack.Screen
           name="ordenes/[id]/index"
           options={{

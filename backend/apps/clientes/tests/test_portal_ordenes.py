@@ -108,6 +108,8 @@ class PortalOrdenesTests(APITestCase):
         self.assertEqual(resp.data['comentario_tecnico'], 'Se reemplazó el disco')
         self.assertIn('fotos_urls', resp.data)
         self.assertIn('firma_cliente_url', resp.data)
+        self.assertIn('firma_encargado_url', resp.data)
+        self.assertIn('equipos_inventario', resp.data)
         self.assertNotIn('status_administrativo', resp.data)
 
     def test_orden_de_otro_cliente_es_404_no_403(self):

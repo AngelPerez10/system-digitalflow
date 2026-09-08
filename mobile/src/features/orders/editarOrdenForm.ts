@@ -20,6 +20,8 @@ export type EditarOrdenErrors = Partial<Record<keyof EditarOrdenFormState, strin
 
 export const MOTIVO_PAUSA_MAX = 500;
 export const COMENTARIO_TECNICO_MAX = 4000;
+/** Mínimo obligatorio en edición de campo (mismo umbral que el ERP web). */
+export const COMENTARIO_TECNICO_MIN = 150;
 
 export function formStateFromOrden(orden: Orden): EditarOrdenFormState {
   return {
@@ -52,7 +54,13 @@ export function validarForm(state: EditarOrdenFormState): EditarOrdenErrors {
   if (state.motivo_pausa.length > MOTIVO_PAUSA_MAX) {
     errors.motivo_pausa = `Máximo ${MOTIVO_PAUSA_MAX} caracteres.`;
   }
-  if (state.comentario_tecnico.length > COMENTARIO_TECNICO_MAX) {
+
+  const comentarioLen = state.comentario_tecnico.trim().length;
+  if (comentarioLen === 0) {
+    errors.comentario_tecnico = `El comentario técnico es obligatorio (mínimo ${COMENTARIO_TECNICO_MIN} caracteres).`;
+  } else if (comentarioLen < COMENTARIO_TECNICO_MIN) {
+    errors.comentario_tecnico = `Mínimo ${COMENTARIO_TECNICO_MIN} caracteres (lleva ${comentarioLen}).`;
+  } else if (state.comentario_tecnico.length > COMENTARIO_TECNICO_MAX) {
     errors.comentario_tecnico = `Máximo ${COMENTARIO_TECNICO_MAX} caracteres.`;
   }
   for (const campo of ['fecha_inicio', 'fecha_finalizacion'] as const) {

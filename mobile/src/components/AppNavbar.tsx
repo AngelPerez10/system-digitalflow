@@ -27,9 +27,18 @@ const MS_CLOSE = 200;
 
 interface Props {
   titulo?: string;
-  /** Nombre del técnico (saludo en el panel). */
+  /** Nombre de la persona (saludo en el panel). */
   nombreUsuario?: string;
-  onIrOrdenes?: () => void;
+  /** Rol bajo el nombre en el panel. Técnico por defecto; el portal pasa «Cliente». */
+  rolLabel?: string;
+  /** Número de usuario (login del portal cliente). Se muestra bajo el rol si llega. */
+  numeroUsuario?: string;
+  /** Texto del acceso directo principal del menú (a la pantalla de inicio de la sección). */
+  itemLabel?: string;
+  /** Pista accesible para ese acceso directo. */
+  itemHint?: string;
+  /** Vuelve a la pantalla de inicio de la sección (listado). */
+  onIrInicio?: () => void;
   onCerrarSesion?: () => void;
 }
 
@@ -79,12 +88,18 @@ function IconSalir({ color, size = 20 }: { color: string; size?: number }) {
 
 /**
  * Chrome de la app autenticada: barra superior fina con hamburguesa + drawer
- * lateral izquierdo (marca, órdenes, tema, cerrar sesión).
+ * lateral izquierdo (marca, acceso al listado, tema, cerrar sesión). Lo comparten
+ * las vistas del técnico y el portal del cliente — el rol y el texto del acceso
+ * directo llegan por props.
  */
 export function AppNavbar({
   titulo = 'SertelPro',
   nombreUsuario,
-  onIrOrdenes,
+  rolLabel = 'Técnico de campo',
+  numeroUsuario,
+  itemLabel = 'Mis órdenes',
+  itemHint = 'Abre el listado del mes',
+  onIrInicio,
   onCerrarSesion,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -95,7 +110,7 @@ export function AppNavbar({
   const progreso = useRef(new Animated.Value(0)).current;
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  const nombreVisible = nombreUsuario?.trim() || 'Técnico de campo';
+  const nombreVisible = nombreUsuario?.trim() || rolLabel;
   const iniciales = inicialesUsuarioDisplay(nombreVisible);
 
   const abrir = useCallback(() => {
@@ -157,9 +172,9 @@ export function AppNavbar({
     outputRange: [-8, 0],
   });
 
-  const irOrdenes = () => {
+  const irInicio = () => {
     cerrar();
-    onIrOrdenes?.();
+    onIrInicio?.();
   };
 
   const salir = () => {
@@ -200,8 +215,8 @@ export function AppNavbar({
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Ir a mis órdenes"
-            onPress={onIrOrdenes}
+            accessibilityLabel="Ir al inicio"
+            onPress={onIrInicio}
             style={styles.marca}
           >
             <BrandMark size={22} background={colors.gold} foreground={colors.onGold} />
@@ -268,7 +283,15 @@ export function AppNavbar({
                   >
                     {nombreVisible}
                   </Text>
-                  <Text style={[styles.perfilRol, { color: colors.inkMuted }]}>Técnico de campo</Text>
+                  <Text style={[styles.perfilRol, { color: colors.inkMuted }]}>{rolLabel}</Text>
+                  {numeroUsuario ? (
+                    <Text
+                      style={[styles.perfilId, { color: colors.inkSubtle }]}
+                      accessibilityLabel={`Número de usuario ${numeroUsuario}`}
+                    >
+                      Usuario {numeroUsuario}
+                    </Text>
+                  ) : null}
                 </View>
                 <Pressable
                   accessibilityRole="button"
@@ -288,9 +311,9 @@ export function AppNavbar({
 
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Mis órdenes"
-                accessibilityHint="Abre el listado de órdenes del mes"
-                onPress={irOrdenes}
+                accessibilityLabel={itemLabel}
+                accessibilityHint={itemHint}
+                onPress={irInicio}
                 style={({ pressed }) => [
                   styles.filaMenu,
                   styles.filaActiva,
@@ -299,7 +322,7 @@ export function AppNavbar({
               >
                 <View style={[styles.marcadorActivo, { backgroundColor: colors.gold }]} />
                 <IconOrdenes color={colors.navy} />
-                <Text style={[styles.filaTexto, { color: colors.ink }]}>Mis órdenes</Text>
+                <Text style={[styles.filaTexto, { color: colors.ink }]}>{itemLabel}</Text>
                 <IconChevron direction="right" color={colors.inkSubtle} size={16} />
               </Pressable>
 
@@ -431,6 +454,11 @@ const styles = StyleSheet.create({
   perfilRol: {
     ...type.caption,
     fontSize: 12,
+  },
+  perfilId: {
+    ...type.mono,
+    fontSize: 12,
+    marginTop: 1,
   },
   divisor: {
     height: StyleSheet.hairlineWidth,

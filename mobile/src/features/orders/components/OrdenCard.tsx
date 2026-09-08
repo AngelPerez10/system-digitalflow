@@ -11,6 +11,8 @@ import {
   clienteDisplay,
   esEnlaceUbicacion,
   folioDisplay,
+  prioridadLabel,
+  prioridadTone,
   statusLabel,
   statusSolid,
   statusTone,
@@ -168,6 +170,16 @@ export function OrdenCard({ orden, onPress }: Props) {
                 <TipoOrdenIcon tipo={orden.tipo_orden} color={colors.inkSubtle} size={11} />
                 <Text style={[styles.tipoTexto, { color: colors.inkMuted }]} numberOfLines={1}>
                   {tipoOrdenLabel(orden.tipo_orden)}
+                </Text>
+              </View>
+              <View
+                style={[styles.tipoChip, { backgroundColor: prioridadTone(orden.prioridad_pool, colors).bg }]}
+              >
+                <Text
+                  style={[styles.tipoTexto, { color: prioridadTone(orden.prioridad_pool, colors).text }]}
+                  numberOfLines={1}
+                >
+                  {prioridadLabel(orden.prioridad_pool)}
                 </Text>
               </View>
             </View>

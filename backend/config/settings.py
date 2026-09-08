@@ -422,7 +422,7 @@ DEFAULT_FROM_EMAIL = os.environ.get(
 SMTP_CREDENTIALS_KEY = os.environ.get('SMTP_CREDENTIALS_KEY', '').strip()
 
 # --- Portal cliente (registro self-service móvil) ---
-PORTAL_CLIENT_USERNAME_START = int(os.environ.get('PORTAL_CLIENT_USERNAME_START', '105040') or '105040')
+PORTAL_CLIENT_USERNAME_START = int(os.environ.get('PORTAL_CLIENT_USERNAME_START', '10454000') or '10454000')
 PORTAL_CLIENT_TEMP_PASSWORD_HOURS = int(
     os.environ.get('PORTAL_CLIENT_TEMP_PASSWORD_HOURS', '72') or '72'
 )

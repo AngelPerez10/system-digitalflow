@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { nombreUsuarioDisplay } from '@/auth/nombreUsuario';
 import { useSession } from '@/auth/SessionProvider';
+import { AppButton } from '@/components/AppButton';
 import { BarraCarga } from '@/components/BarraCarga';
 import { EmptyState, InlineError } from '@/components/StateViews';
 import { TextField } from '@/components/TextField';
@@ -56,6 +57,12 @@ export default function OrdenesScreen() {
 
   const buscador = (
     <View style={styles.controles}>
+      <AppButton
+        label="Órdenes disponibles"
+        variant="secondary"
+        onPress={() => router.push('/ordenes/pool')}
+        accessibilityHint="Ver la bolsa de órdenes que otros técnicos liberaron"
+      />
       <TextField
         label="Buscar"
         value={busqueda}

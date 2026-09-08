@@ -3,12 +3,19 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-nativ
 import { inicialesUsuarioDisplay } from '@/auth/nombreUsuario';
 import { Avatar } from '@/components/Avatar';
 import { useTheme } from '@/theme/ThemeProvider';
-import { elevationFor, font, radius, spacing, type } from '@/theme/tokens';
+import { elevationFor, radius, spacing, type } from '@/theme/tokens';
 import type { OrdenListItem } from '@/types/orden';
 import { formatFecha } from '@/utils/fecha';
 import { useReducedMotion } from '@/utils/useReducedMotion';
-import { folioDisplay, statusLabel, statusTone, tipoOrdenLabel } from '../ordenFormat';
-import { IconCalendar, IconFlecha, IconPin } from './icons';
+import {
+  folioDisplay,
+  statusLabel,
+  statusSolid,
+  statusTone,
+  tipoOrdenLabel,
+} from '../ordenFormat';
+import { FallaBox } from './FallaBox';
+import { IconCalendar, IconFlecha, IconPin, TipoOrdenIcon } from './icons';
 
 interface Props {
   orden: OrdenListItem;
@@ -16,14 +23,17 @@ interface Props {
 }
 
 /**
- * Tarjeta de orden del **portal cliente**: solo lectura. No lleva el botón de
- * acción de `OrdenCard` («Atender orden») porque el cliente no ejecuta nada;
- * abre el resumen y ya. Familia marino + dorado, como el resto del portal.
+ * Tarjeta de orden del **portal cliente**. Misma anatomía que `OrdenCard` del
+ * técnico —barra de acento por estatus, folio en placa, chip de tipo, falla en
+ * `FallaBox` y pie con separador— para que las dos superficies se lean igual.
+ * Solo cambia el pie: el cliente no ejecuta nada, así que en vez de «Atender
+ * orden» lleva un «Ver detalle» que abre el resumen en lectura.
  */
 export function OrdenClienteCard({ orden, onPress }: Props) {
   const { colors } = useTheme();
   const reduced = useReducedMotion();
   const escala = useRef(new Animated.Value(1)).current;
+  const acento = statusSolid(orden.status, colors);
   const tono = statusTone(orden.status, colors);
 
   const animar = (activar: boolean) => {
@@ -50,56 +60,83 @@ export function OrdenClienteCard({ orden, onPress }: Props) {
         style={({ pressed }) => [
           styles.tarjeta,
           {
-            backgroundColor: colors.surface,
+            backgroundColor: pressed ? colors.surfaceSunken : colors.surface,
             borderColor: pressed ? colors.gold : colors.line,
             ...elevationFor(colors, 'card'),
           },
         ]}
       >
-        <View style={styles.cabecera}>
-          <Text style={[styles.folio, { color: colors.ink }]}>{folioDisplay(orden)}</Text>
-          <View style={[styles.chip, { backgroundColor: tono.bg }]}>
-            <Text style={[styles.chipTexto, { color: tono.text }]}>{statusLabel(orden.status)}</Text>
-          </View>
-        </View>
+        <View style={[styles.acento, { backgroundColor: acento.bg }]} />
 
-        <Text style={[styles.tipo, { color: colors.inkSubtle }]}>
-          {tipoOrdenLabel(orden.tipo_orden)}
-        </Text>
-
-        {orden.problematica ? (
-          <Text style={[styles.problematica, { color: colors.inkMuted }]} numberOfLines={2}>
-            {orden.problematica}
-          </Text>
-        ) : null}
-
-        <View style={styles.datos}>
-          {orden.direccion ? (
-            <Fila icon={<IconPin color={colors.inkSubtle} size={14} />} texto={orden.direccion} />
-          ) : null}
-          {fecha ? (
-            <Fila icon={<IconCalendar color={colors.inkSubtle} size={13} />} texto={fecha} />
-          ) : null}
-          {orden.tecnico_asignado_full_name ? (
-            <View style={styles.fila}>
-              <Avatar
-                uri={orden.tecnico_asignado_avatar_url}
-                iniciales={inicialesUsuarioDisplay(orden.tecnico_asignado_full_name, 'T')}
-                size={26}
-                fondo={colors.navy}
-                color={colors.onNavy}
-              />
-              <Text style={[styles.filaTexto, { color: colors.inkMuted }]} numberOfLines={1}>
-                {orden.tecnico_asignado_full_name}
+        <View style={styles.contenido}>
+          <View style={styles.filaSuperior}>
+            <View style={styles.insignias}>
+              <Text style={[styles.folio, { color: colors.inkMuted, borderColor: colors.lineStrong }]}>
+                {folioDisplay(orden)}
+              </Text>
+              <View style={[styles.tipoChip, { backgroundColor: colors.surfaceSunken }]}>
+                <TipoOrdenIcon tipo={orden.tipo_orden} color={colors.inkSubtle} size={11} />
+                <Text style={[styles.tipoTexto, { color: colors.inkMuted }]} numberOfLines={1}>
+                  {tipoOrdenLabel(orden.tipo_orden)}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.statusPill, { backgroundColor: tono.bg }]}>
+              <Text style={[styles.statusTexto, { color: tono.text }]}>
+                {statusLabel(orden.status)}
               </Text>
             </View>
-          ) : null}
-        </View>
+          </View>
 
-        <View style={styles.pie}>
-          <Text style={[styles.verMas, { color: colors.navy }]}>Ver detalle</Text>
-          <View style={[styles.flecha, { backgroundColor: colors.gold }]}>
-            <IconFlecha color={colors.onGold} size={13} />
+          {orden.problematica ? (
+            <FallaBox
+              titulo={orden.status === 'pausado' ? 'Motivo de la pausa' : 'Falla reportada'}
+              texto={
+                orden.status === 'pausado' && orden.motivo_pausa
+                  ? orden.motivo_pausa
+                  : orden.problematica
+              }
+              numberOfLines={3}
+            />
+          ) : null}
+
+          <View style={styles.filasInfo}>
+            {orden.direccion ? (
+              <Fila
+                icon={<IconPin color={colors.navy} size={12} />}
+                texto={orden.direccion}
+                colors={colors}
+              />
+            ) : null}
+            {orden.tecnico_asignado_full_name ? (
+              <View style={styles.filaDato}>
+                <Avatar
+                  uri={orden.tecnico_asignado_avatar_url}
+                  iniciales={inicialesUsuarioDisplay(orden.tecnico_asignado_full_name, 'T')}
+                  size={22}
+                  fondo={colors.navy}
+                  color={colors.onNavy}
+                />
+                <Text style={[styles.filaTexto, { color: colors.inkMuted }]} numberOfLines={1}>
+                  {orden.tecnico_asignado_full_name}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={[styles.footer, { borderTopColor: colors.line }]}>
+            {fecha ? (
+              <View style={styles.fechaFila}>
+                <IconCalendar color={colors.inkSubtle} size={13} />
+                <Text style={[styles.fechaTexto, { color: colors.inkSubtle }]}>{fecha}</Text>
+              </View>
+            ) : (
+              <View />
+            )}
+            <View style={[styles.accionBoton, { backgroundColor: colors.navy }]}>
+              <Text style={[styles.accionTexto, { color: colors.onNavy }]}>Ver detalle</Text>
+              <IconFlecha color={colors.onNavy} size={12} />
+            </View>
           </View>
         </View>
       </Pressable>
@@ -107,11 +144,18 @@ export function OrdenClienteCard({ orden, onPress }: Props) {
   );
 }
 
-function Fila({ icon, texto }: { icon: React.ReactNode; texto: string }) {
-  const { colors } = useTheme();
+function Fila({
+  icon,
+  texto,
+  colors,
+}: {
+  icon: React.ReactNode;
+  texto: string;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
   return (
-    <View style={styles.fila}>
-      <View style={[styles.filaIcono, { backgroundColor: colors.surfaceSunken }]}>{icon}</View>
+    <View style={styles.filaDato}>
+      <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>{icon}</View>
       <Text style={[styles.filaTexto, { color: colors.inkMuted }]} numberOfLines={2}>
         {texto}
       </Text>
@@ -121,39 +165,72 @@ function Fila({ icon, texto }: { icon: React.ReactNode; texto: string }) {
 
 const styles = StyleSheet.create({
   tarjeta: {
+    flexDirection: 'row',
     borderWidth: 1,
     borderRadius: radius.card,
-    padding: spacing.lg,
+    overflow: 'hidden',
+  },
+  acento: { width: 3 },
+  contenido: { flex: 1, padding: spacing.lg, gap: spacing.md },
+  filaSuperior: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  cabecera: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  folio: { fontFamily: font.semibold, fontSize: 17, letterSpacing: -0.3 },
-  chip: { borderRadius: radius.pill, paddingVertical: 4, paddingHorizontal: 10 },
-  chipTexto: { ...type.caption, fontSize: 11, fontFamily: font.semibold },
-  tipo: { ...type.caption, fontSize: 12, marginTop: -4 },
-  problematica: { ...type.body, fontSize: 14, lineHeight: 19 },
-  datos: { gap: spacing.xs, marginTop: spacing.xs },
-  fila: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  filaIcono: {
-    width: 26,
-    height: 26,
+  insignias: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  folio: {
+    ...type.mono,
+    fontSize: 12,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  tipoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  tipoTexto: { ...type.caption, fontSize: 11 },
+  statusPill: { borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
+  statusTexto: { ...type.caption, fontSize: 11, fontFamily: type.label.fontFamily },
+  filasInfo: { gap: spacing.sm },
+  filaDato: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  iconoPlaca: {
+    width: 22,
+    height: 22,
     borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   filaTexto: { ...type.caption, flex: 1, flexShrink: 1 },
-  pie: {
+  footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.xs,
+    borderTopWidth: 1,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
   },
-  verMas: { ...type.label, fontFamily: font.semibold },
-  flecha: {
-    width: 30,
-    height: 30,
-    borderRadius: radius.pill,
+  fechaFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexShrink: 1 },
+  fechaTexto: { ...type.mono, fontSize: 12 },
+  accionBoton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.xs,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
+  accionTexto: { ...type.label, fontSize: 12 },
 });

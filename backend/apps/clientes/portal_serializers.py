@@ -165,7 +165,13 @@ class PortalCalificarSerializer(serializers.Serializer):
 
 
 class PortalOrdenDetalleSerializer(PortalOrdenListSerializer):
-    """Detalle «resumen para cliente»: lo de la lista + evidencia del servicio."""
+    """Detalle «resumen para cliente»: lo de la lista + evidencia del servicio.
+
+    Incluye la evidencia de cierre que el cliente puede ver de su **propia**
+    orden: equipos asignados, fotos y ambas firmas (cliente y encargado). Sigue
+    siendo una lista blanca — `equipos_inventario` y `firma_encargado_url` entran
+    aquí a propósito, no por herencia del contrato del ERP.
+    """
 
     calificacion = serializers.SerializerMethodField()
     puede_calificar = serializers.SerializerMethodField()
@@ -175,8 +181,10 @@ class PortalOrdenDetalleSerializer(PortalOrdenListSerializer):
             'nombre_encargado',
             'comentario_tecnico',
             'servicios_realizados',
+            'equipos_inventario',
             'fotos_urls',
             'firma_cliente_url',
+            'firma_encargado_url',
             'calificacion',
             'puede_calificar',
         ]

@@ -3,7 +3,8 @@ import { Animated, Image, Modal, PanResponder, Pressable, StyleSheet, Text, View
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconButton } from '@/components/IconButton';
 import { IconChevron, IconClose } from '@/components/icons';
-import { colors, elevation, radius, spacing, type } from '@/theme/tokens';
+import { useTheme } from '@/theme/ThemeProvider';
+import { elevationFor, radius, spacing, type } from '@/theme/tokens';
 
 interface Props {
   urls: string[];
@@ -24,6 +25,7 @@ const UMBRAL_DESLIZE = 60;
  * densidad.
  */
 export function FotosGaleria({ urls }: Props) {
+  const { colors } = useTheme();
   const [abierta, setAbierta] = useState<number | null>(null);
   const insets = useSafeAreaInsets();
   const deslizeX = useRef(new Animated.Value(0)).current;
@@ -62,7 +64,15 @@ export function FotosGaleria({ urls }: Props) {
             onPress={() => setAbierta(index)}
             style={styles.miniaturaTouch}
           >
-            <Image source={{ uri: url }} style={styles.miniatura} resizeMode="cover" />
+            <Image
+              source={{ uri: url }}
+              style={[
+                styles.miniatura,
+                { backgroundColor: colors.surfaceSunken },
+                elevationFor(colors, 'panel'),
+              ]}
+              resizeMode="cover"
+            />
           </Pressable>
         ))}
       </View>
@@ -132,8 +142,6 @@ const styles = StyleSheet.create({
   miniatura: {
     flex: 1,
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceSunken,
-    ...elevation.panel,
   },
   visorFondo: { flex: 1, backgroundColor: 'rgba(9,9,11,0.96)', justifyContent: 'center' },
   visorHeader: {

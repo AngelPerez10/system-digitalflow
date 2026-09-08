@@ -1,9 +1,21 @@
-import React, { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
-import { colors, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '@/theme/ThemeProvider';
+import { radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
+import { useReducedMotion } from '@/utils/useReducedMotion';
 import {
   dateToFechaISO,
   dateToHoraISO,
@@ -14,6 +26,11 @@ import {
   parseFechaToDate,
   parseHoraToDate,
 } from '@/utils/fecha';
+
+/** Misma curva que el menú lateral: entrada suave, salida un poco más rápida. */
+const MS_OPEN = 280;
+const MS_CLOSE = 200;
+const HOJA_SLIDE_Y = 28;
 
 type Modo = 'date' | 'time';
 
@@ -26,9 +43,18 @@ interface Props {
   accessibilityLabel?: string;
 }
 
+function valorComoDate(mode: Modo, value: string): Date {
+  return mode === 'date'
+    ? (parseFechaToDate(value) ?? new Date())
+    : (parseHoraToDate(value) ?? new Date());
+}
+
 /**
  * Celda de fecha/hora — valor grande tocable (instrumento), no fila de ajustes.
- * Abre el selector nativo al tocar.
+ *
+ * Android: diálogo nativo (Aceptar / Cancelar del sistema).
+ * iOS: hoja modal con rueda + Cancelar / Listo — el spinner inline no se puede
+ * cerrar solo y quedaba atrapado sobre el formulario.
  */
 export function DateTimeField({
   label,
@@ -38,12 +64,10 @@ export function DateTimeField({
   error,
   accessibilityLabel,
 }: Props) {
+  const { colors } = useTheme();
   const [abierto, setAbierto] = useState(false);
-
-  const valorDate =
-    mode === 'date'
-      ? (parseFechaToDate(value) ?? new Date())
-      : (parseHoraToDate(value) ?? new Date());
+  /** Borrador solo en iOS: la rueda dispara onChange en cada giro. */
+  const [borrador, setBorrador] = useState(() => valorComoDate(mode, value));
 
   const vacio = !value.trim();
   const mostrar =
@@ -57,12 +81,28 @@ export function DateTimeField({
 
   const nombre = accessibilityLabel ?? label;
 
-  const alCambiar = (event: DateTimePickerEvent, selected?: Date) => {
-    if (Platform.OS === 'android') setAbierto(false);
+  const abrir = () => {
+    setBorrador(valorComoDate(mode, value));
+    setAbierto(true);
+  };
+
+  const cerrar = () => setAbierto(false);
+
+  const confirmarIos = () => {
+    onChange(mode === 'date' ? dateToFechaISO(borrador) : dateToHoraISO(borrador));
+    setAbierto(false);
+  };
+
+  const alCambiarAndroid = (event: DateTimePickerEvent, selected?: Date) => {
+    // En Android el diálogo se cierra solo; hay que bajar el flag antes de leer.
+    setAbierto(false);
     if (event.type === 'dismissed') return;
     if (!selected) return;
     onChange(mode === 'date' ? dateToFechaISO(selected) : dateToHoraISO(selected));
-    if (Platform.OS === 'ios') setAbierto(false);
+  };
+
+  const alCambiarIos = (_event: DateTimePickerEvent, selected?: Date) => {
+    if (selected) setBorrador(selected);
   };
 
   return (
@@ -74,20 +114,24 @@ export function DateTimeField({
         accessibilityHint={
           mode === 'date' ? 'Abre el calendario del sistema' : 'Abre el reloj del sistema'
         }
-        accessibilityState={{ selected: !vacio }}
-        onPress={() => setAbierto(true)}
+        accessibilityState={{ selected: !vacio, expanded: abierto }}
+        onPress={abrir}
         style={({ pressed }) => [
           styles.celdaHit,
-          pressed ? styles.celdaPressed : null,
-          error ? styles.celdaError : null,
+          {
+            backgroundColor: colors.surface,
+            borderColor: error ? colors.danger : colors.line,
+          },
+          error ? { backgroundColor: colors.dangerBg } : null,
+          pressed ? { backgroundColor: colors.surfaceSunken, borderColor: colors.lineStrong } : null,
         ]}
       >
-        <Text style={styles.celdaLabel}>{label}</Text>
+        <Text style={[styles.celdaLabel, { color: colors.inkMuted }]}>{label}</Text>
         <Text
           style={[
             styles.celdaValor,
+            { color: vacio ? colors.inkSubtle : error ? colors.danger : colors.ink },
             vacio ? styles.celdaValorVacio : null,
-            error ? styles.celdaValorError : null,
           ]}
           numberOfLines={1}
         >
@@ -95,23 +139,211 @@ export function DateTimeField({
         </Text>
       </Pressable>
       {error ? (
-        <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
+        <Text
+          style={[styles.error, { color: colors.danger }]}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+        >
           {error}
         </Text>
       ) : null}
 
-      {abierto ? (
+      {abierto && Platform.OS === 'android' ? (
         <DateTimePicker
-          value={valorDate}
+          value={valorComoDate(mode, value)}
           mode={mode}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          display="default"
           is24Hour
-          onChange={alCambiar}
+          onChange={alCambiarAndroid}
           positiveButton={{ label: 'Aceptar' }}
           negativeButton={{ label: 'Cancelar' }}
         />
       ) : null}
+
+      {Platform.OS === 'ios' ? (
+        <IosPickerSheet
+          visible={abierto}
+          titulo={`Elegir ${nombre}`}
+          mode={mode}
+          borrador={borrador}
+          onCambiar={alCambiarIos}
+          onCancelar={cerrar}
+          onListo={confirmarIos}
+        />
+      ) : null}
     </View>
+  );
+}
+
+/**
+ * Hoja iOS: el scrim hace fade en su sitio (no viaja con la hoja) y la tarjeta
+ * sube con un desplazamiento corto. Misma curva de movimiento que el menú.
+ */
+function IosPickerSheet({
+  visible,
+  titulo,
+  mode,
+  borrador,
+  onCambiar,
+  onCancelar,
+  onListo,
+}: {
+  visible: boolean;
+  titulo: string;
+  mode: Modo;
+  borrador: Date;
+  onCambiar: (event: DateTimePickerEvent, selected?: Date) => void;
+  onCancelar: () => void;
+  onListo: () => void;
+}) {
+  const { colors, scheme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const reduced = useReducedMotion();
+  const [montado, setMontado] = useState(false);
+  const progreso = useRef(new Animated.Value(0)).current;
+  const animRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    if (visible) setMontado(true);
+  }, [visible]);
+
+  useEffect(() => {
+    if (!montado) return;
+
+    animRef.current?.stop();
+
+    if (reduced) {
+      progreso.setValue(visible ? 1 : 0);
+      if (!visible) setMontado(false);
+      return;
+    }
+
+    if (visible) {
+      progreso.setValue(0);
+    }
+
+    const anim = Animated.timing(progreso, {
+      toValue: visible ? 1 : 0,
+      duration: visible ? MS_OPEN : MS_CLOSE,
+      easing: visible
+        ? Easing.bezier(0.16, 1, 0.3, 1)
+        : Easing.bezier(0.4, 0, 1, 1),
+      useNativeDriver: true,
+    });
+    animRef.current = anim;
+    anim.start(({ finished }) => {
+      if (finished && !visible) setMontado(false);
+    });
+
+    return () => {
+      anim.stop();
+    };
+  }, [visible, montado, progreso, reduced]);
+
+  const backdropOpacity = progreso.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const hojaTranslateY = progreso.interpolate({
+    inputRange: [0, 1],
+    outputRange: [HOJA_SLIDE_Y, 0],
+  });
+  const hojaOpacity = progreso.interpolate({
+    inputRange: [0, 0.35, 1],
+    outputRange: [0, 0.95, 1],
+  });
+
+  // Scrim navy suave (marca), no negro plano: se lee como velo, no como pantalla apagada.
+  const backdropColor =
+    scheme === 'dark' ? 'rgba(8, 12, 28, 0.55)' : 'rgba(23, 35, 91, 0.28)';
+
+  const pedirCierre = useCallback(() => {
+    onCancelar();
+  }, [onCancelar]);
+
+  if (!montado) return null;
+
+  return (
+    <Modal
+      visible={montado}
+      transparent
+      animationType="none"
+      onRequestClose={pedirCierre}
+      statusBarTranslucent
+      accessibilityViewIsModal
+    >
+      <View style={styles.modalRoot}>
+        <Animated.View
+          style={[styles.modalBackdrop, { backgroundColor: backdropColor, opacity: backdropOpacity }]}
+          pointerEvents={visible ? 'auto' : 'none'}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar selector"
+            onPress={pedirCierre}
+          />
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.modalHoja,
+            {
+              backgroundColor: colors.surface,
+              paddingBottom: Math.max(insets.bottom, spacing.md),
+              borderColor: colors.line,
+              opacity: hojaOpacity,
+              transform: [{ translateY: hojaTranslateY }],
+            },
+          ]}
+        >
+          <View
+            style={styles.modalAsa}
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+          >
+            <View style={[styles.modalAsaBarra, { backgroundColor: colors.lineStrong }]} />
+          </View>
+
+          <View style={[styles.modalChrome, { borderBottomColor: colors.line }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancelar"
+              onPress={pedirCierre}
+              style={({ pressed }) => [styles.modalBoton, pressed ? { opacity: 0.6 } : null]}
+            >
+              <Text style={[styles.modalBotonTexto, { color: colors.inkMuted }]}>Cancelar</Text>
+            </Pressable>
+            <Text
+              accessibilityRole="header"
+              style={[styles.modalTitulo, { color: colors.ink }]}
+              numberOfLines={1}
+            >
+              {titulo}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Listo"
+              onPress={onListo}
+              style={({ pressed }) => [styles.modalBoton, pressed ? { opacity: 0.6 } : null]}
+            >
+              <Text style={[styles.modalBotonTexto, { color: colors.primary }]}>Listo</Text>
+            </Pressable>
+          </View>
+
+          <DateTimePicker
+            value={borrador}
+            mode={mode}
+            display="spinner"
+            is24Hour
+            onChange={onCambiar}
+            themeVariant={scheme}
+            textColor={colors.ink}
+            style={styles.iosPicker}
+          />
+        </Animated.View>
+      </View>
+    </Modal>
   );
 }
 
@@ -137,11 +369,12 @@ export function FechaHoraBloque({
   onFecha,
   onHora,
 }: FechaHoraBloqueProps) {
+  const { colors } = useTheme();
   const hayValor = Boolean(fecha.trim() || hora.trim());
 
   return (
     <View style={styles.bloque} accessibilityRole="summary">
-      <Text accessibilityRole="header" style={styles.bloqueTitulo}>
+      <Text accessibilityRole="header" style={[styles.bloqueTitulo, { color: colors.ink }]}>
         {titulo}
       </Text>
       <View style={styles.filaCeldas}>
@@ -200,14 +433,28 @@ function AtajoChip({
   onPress: () => void;
   tono?: 'primary' | 'muted';
 }) {
+  const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      style={({ pressed }) => [styles.chip, pressed ? styles.chipPressed : null]}
+      style={({ pressed }) => [
+        styles.chip,
+        {
+          borderColor: colors.line,
+          backgroundColor: pressed ? colors.line : colors.surfaceSunken,
+        },
+      ]}
     >
-      <Text style={[styles.chipTexto, tono === 'muted' ? styles.chipMuted : null]}>{label}</Text>
+      <Text
+        style={[
+          styles.chipTexto,
+          { color: tono === 'muted' ? colors.inkMuted : colors.primary },
+        ]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -216,8 +463,6 @@ const styles = StyleSheet.create({
   celda: { flex: 1, minWidth: 0 },
   celdaHit: {
     minHeight: TOUCH_TARGET + 12,
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
@@ -225,12 +470,9 @@ const styles = StyleSheet.create({
     gap: 2,
     justifyContent: 'center',
   },
-  celdaPressed: { backgroundColor: colors.surfaceSunken, borderColor: colors.lineStrong },
-  celdaError: { borderColor: colors.danger, backgroundColor: colors.dangerBg },
   celdaLabel: {
     ...type.caption,
     fontSize: 10,
-    color: colors.inkMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
@@ -239,27 +481,63 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     letterSpacing: -0.3,
-    color: colors.ink,
     fontVariant: ['tabular-nums'],
   },
-  celdaValorVacio: { ...type.body, color: colors.inkSubtle, fontFamily: type.body.fontFamily },
-  celdaValorError: { color: colors.danger },
-  error: { ...type.caption, color: colors.danger, marginTop: spacing.xs },
+  celdaValorVacio: { ...type.body, fontFamily: type.body.fontFamily },
+  error: { ...type.caption, marginTop: spacing.xs },
   bloque: { gap: spacing.sm },
-  bloqueTitulo: { ...type.bodyMedium, color: colors.ink },
+  bloqueTitulo: { ...type.bodyMedium },
   filaCeldas: { flexDirection: 'row', gap: spacing.sm },
   atajos: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
-    minHeight: 36,
+    minHeight: TOUCH_TARGET,
+    minWidth: TOUCH_TARGET,
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surfaceSunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipPressed: { backgroundColor: colors.line },
-  chipTexto: { ...type.label, fontSize: 12, color: colors.primary },
-  chipMuted: { color: colors.inkMuted },
+  chipTexto: { ...type.label, fontSize: 13 },
+  modalRoot: { flex: 1, justifyContent: 'flex-end' },
+  modalBackdrop: { ...StyleSheet.absoluteFill },
+  modalHoja: {
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  modalAsa: {
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  modalAsaBarra: {
+    width: 36,
+    height: 4,
+    borderRadius: radius.pill,
+  },
+  modalChrome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: TOUCH_TARGET + 8,
+    paddingHorizontal: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: spacing.xs,
+  },
+  modalTitulo: {
+    ...type.bodyMedium,
+    flex: 1,
+    textAlign: 'center',
+  },
+  modalBoton: {
+    minHeight: TOUCH_TARGET,
+    minWidth: TOUCH_TARGET,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBotonTexto: { ...type.label, fontSize: 16 },
+  iosPicker: { alignSelf: 'stretch', height: 216 },
 });

@@ -11,7 +11,9 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { toUserMessage } from '@/api/errors';
 import { uploadOrdenImage } from '@/api/ordenesApi';
-import { colors, elevation, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
+import { comprimirFotoParaSubida } from '@/features/orders/comprimirFoto';
+import { useTheme } from '@/theme/ThemeProvider';
+import { elevationFor, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
 import { IconCamera } from './icons';
 
 interface Props {
@@ -26,41 +28,43 @@ const COLUMNAS = 2;
 
 /**
  * Galería editable: miniaturas existentes + botones para cámara / galería.
- * Sube de inmediato a Cloudinary (`POST /ordenes/upload-image/`) y solo guarda
- * la URL https en el formulario — el PATCH de la orden manda la lista completa.
- *
- * Calidad 0.55 en el picker: el backend recorta a ~80 KB; no hace falta
- * `expo-image-manipulator` para la v1.
+ * Cada foto se redimensiona a ≤1280 px y se comprime en el dispositivo
+ * (`comprimirFotoParaSubida`), se sube a Cloudinary vía
+ * `POST /ordenes/upload-image/` (el backend la re-optimiza a ~80 KB) y solo se
+ * guarda la URL https en el formulario — el PATCH de la orden manda la lista
+ * completa. HEIC de iPhone entra y sale como JPEG.
  */
 export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Props) {
+  const { colors } = useTheme();
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cupo = Math.max(0, maxFotos - urls.length);
   const lleno = cupo <= 0;
 
   const subirAssets = async (assets: ImagePicker.ImagePickerAsset[]) => {
-    if (assets.length === 0) return;
+    const seleccion = assets.filter((a) => a.uri).slice(0, cupo);
+    if (seleccion.length === 0) return;
     setSubiendo(true);
     setError(null);
     const nuevas: string[] = [];
+    const fallos: string[] = [];
     try {
-      for (const asset of assets.slice(0, cupo)) {
-        const mime = asset.mimeType?.startsWith('image/') ? asset.mimeType : 'image/jpeg';
-        if (!asset.base64) {
-          setError('No se pudo leer la foto. Inténtalo de nuevo.');
-          continue;
+      for (const asset of seleccion) {
+        try {
+          const dataUrl = await comprimirFotoParaSubida(asset.uri);
+          const url = await uploadOrdenImage(dataUrl, 'ordenes/fotos');
+          nuevas.push(url);
+        } catch (err) {
+          fallos.push(toUserMessage(err));
         }
-        if (mime.includes('heic') || mime.includes('heif')) {
-          setError('Las fotos HEIC no se pueden subir. Usa JPG en la cámara.');
-          continue;
-        }
-        const dataUrl = `data:${mime};base64,${asset.base64}`;
-        const url = await uploadOrdenImage(dataUrl, 'ordenes/fotos');
-        nuevas.push(url);
       }
       if (nuevas.length > 0) onChange([...urls, ...nuevas]);
-    } catch (err) {
-      setError(toUserMessage(err));
+      const primerFallo = fallos[0];
+      if (primerFallo) {
+        setError(
+          nuevas.length > 0 ? `Se subieron ${nuevas.length}. ${primerFallo}` : primerFallo,
+        );
+      }
     } finally {
       setSubiendo(false);
     }
@@ -89,8 +93,7 @@ export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Prop
     if (!(await pedirPermisoCamara())) return;
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
-      quality: 0.55,
-      base64: true,
+      quality: 0.85,
       exif: false,
     });
     if (result.canceled) return;
@@ -102,8 +105,7 @@ export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Prop
     if (!(await pedirPermisoGaleria())) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.55,
-      base64: true,
+      quality: 0.85,
       allowsMultipleSelection: true,
       selectionLimit: cupo,
       exif: false,
@@ -118,14 +120,22 @@ export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Prop
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.cupo}>
+      <Text style={[styles.cupo, { color: colors.inkMuted }]}>
         {urls.length} de {maxFotos} fotos
       </Text>
 
       <View style={styles.grid}>
         {urls.map((url, index) => (
           <View key={`${url}-${index}`} style={styles.celda}>
-            <Image source={{ uri: url }} style={styles.miniatura} resizeMode="cover" />
+            <Image
+              source={{ uri: url }}
+              style={[
+                styles.miniatura,
+                { backgroundColor: colors.surfaceSunken },
+                elevationFor(colors, 'panel'),
+              ]}
+              resizeMode="cover"
+            />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Quitar foto ${index + 1}`}
@@ -149,12 +159,13 @@ export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Prop
           onPress={() => void tomarFoto()}
           style={({ pressed }) => [
             styles.boton,
-            pressed ? styles.botonPressed : null,
+            { borderColor: colors.line, backgroundColor: colors.surface },
+            pressed ? { backgroundColor: colors.surfaceSunken, borderColor: colors.lineStrong } : null,
             lleno || subiendo ? styles.botonInactivo : null,
           ]}
         >
           <IconCamera color={colors.primary} size={16} />
-          <Text style={styles.botonTexto}>Cámara</Text>
+          <Text style={[styles.botonTexto, { color: colors.ink }]}>Cámara</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -164,29 +175,36 @@ export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Prop
           onPress={() => void elegirGaleria()}
           style={({ pressed }) => [
             styles.boton,
-            pressed ? styles.botonPressed : null,
+            { borderColor: colors.line, backgroundColor: colors.surface },
+            pressed ? { backgroundColor: colors.surfaceSunken, borderColor: colors.lineStrong } : null,
             lleno || subiendo ? styles.botonInactivo : null,
           ]}
         >
-          <Text style={styles.botonTexto}>Galería</Text>
+          <Text style={[styles.botonTexto, { color: colors.ink }]}>Galería</Text>
         </Pressable>
       </View>
 
       {subiendo ? (
         <View style={styles.cargando} accessibilityRole="progressbar" accessibilityLabel="Subiendo fotos">
           <ActivityIndicator color={colors.primary} />
-          <Text style={styles.cargandoTexto}>Subiendo…</Text>
+          <Text style={[styles.cargandoTexto, { color: colors.inkMuted }]}>Subiendo…</Text>
         </View>
       ) : null}
 
       {error ? (
-        <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
+        <Text
+          style={[styles.error, { color: colors.danger }]}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+        >
           {error}
         </Text>
       ) : null}
 
       {lleno ? (
-        <Text style={styles.lleno}>Límite de fotos alcanzado para esta orden.</Text>
+        <Text style={[styles.lleno, { color: colors.inkSubtle }]}>
+          Límite de fotos alcanzado para esta orden.
+        </Text>
       ) : null}
     </View>
   );
@@ -194,7 +212,7 @@ export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Prop
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.md },
-  cupo: { ...type.caption, color: colors.inkMuted },
+  cupo: { ...type.caption },
   grid: { flexDirection: 'row', flexWrap: 'wrap', margin: -HUECO / 2 },
   celda: {
     width: `${100 / COLUMNAS}%`,
@@ -204,8 +222,6 @@ const styles = StyleSheet.create({
   miniatura: {
     flex: 1,
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceSunken,
-    ...elevation.panel,
   },
   quitar: {
     position: 'absolute',
@@ -230,14 +246,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
   },
-  botonPressed: { backgroundColor: colors.surfaceSunken, borderColor: colors.lineStrong },
   botonInactivo: { opacity: 0.45 },
-  botonTexto: { ...type.label, color: colors.ink },
+  botonTexto: { ...type.label },
   cargando: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  cargandoTexto: { ...type.caption, color: colors.inkMuted },
-  error: { ...type.caption, color: colors.danger },
-  lleno: { ...type.caption, color: colors.inkSubtle },
+  cargandoTexto: { ...type.caption },
+  error: { ...type.caption },
+  lleno: { ...type.caption },
 });

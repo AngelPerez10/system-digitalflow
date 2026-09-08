@@ -1,15 +1,16 @@
-import React from 'react';
-import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { liberarOrden } from '@/api/ordenesApi';
+import { toUserMessage } from '@/api/errors';
 import { useSession } from '@/auth/SessionProvider';
-import { canEditModule } from '@/auth/permissions';
+import { canEditModule, isAdmin, ownsOrden } from '@/auth/permissions';
 import { AppButton } from '@/components/AppButton';
 import { ErrorState } from '@/components/StateViews';
 import { AccionesRapidas } from '@/features/orders/components/AccionesRapidas';
 import { CampoDato, CampoTelefono, CampoUbicacion } from '@/features/orders/components/CampoDato';
-import { DockBar } from '@/features/orders/components/DockBar';
 import { EquiposLista } from '@/features/orders/components/EquiposLista';
 import { FallaBox } from '@/features/orders/components/FallaBox';
 import { FirmasTarjeta } from '@/features/orders/components/FirmasTarjeta';
@@ -46,15 +47,47 @@ export default function DetalleOrdenScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const ordenId = Number(id);
-  const { orden, cargando, error, recargar } = useOrden(Number.isFinite(ordenId) ? ordenId : null);
+  const { orden, cargando, error, recargar, aplicarOrden } = useOrden(
+    Number.isFinite(ordenId) ? ordenId : null,
+  );
   const { user, permissions } = useSession();
   const entrance = useEntrance(9);
   const { colors, scheme } = useTheme();
+  const [liberando, setLiberando] = useState(false);
 
   if (cargando) return <DetalleOrdenSkeleton />;
   if (error || !orden) return <ErrorState message={error ?? 'Orden no encontrada.'} onRetry={recargar} />;
 
   const puedeEditar = canEditModule(permissions, user, 'ordenes');
+  const puedeLiberar =
+    !orden.en_pool &&
+    orden.status !== 'resuelto' &&
+    (ownsOrden(user, orden) || isAdmin(user));
+
+  const confirmarLiberar = () => {
+    Alert.alert(
+      'Liberar orden',
+      '¿Enviar esta orden a la bolsa para que otro técnico la tome? Dejará de estar asignada a ti.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Liberar',
+          style: 'destructive',
+          onPress: async () => {
+            setLiberando(true);
+            try {
+              aplicarOrden(await liberarOrden(orden.id));
+              router.back();
+            } catch (e) {
+              Alert.alert('No se pudo liberar', toUserMessage(e));
+            } finally {
+              setLiberando(false);
+            }
+          },
+        },
+      ],
+    );
+  };
   const tono = statusSolid(orden.status, colors).bg;
   const folio = folioDisplay(orden);
   const pausada = orden.status === 'pausado';
@@ -81,7 +114,7 @@ export default function DetalleOrdenScreen() {
 
       <View style={[styles.hoja, hoja]}>
         <ScrollView
-          contentContainerStyle={[styles.content, puedeEditar ? styles.contentDock : null]}
+          contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           accessibilityLabel={`Detalle de la orden ${folio}`}
         >
@@ -175,24 +208,42 @@ export default function DetalleOrdenScreen() {
             </SeccionCard>
           </Animated.View>
 
-          {!puedeEditar ? (
-            <Animated.View style={entrance(8)}>
+          <Animated.View style={[entrance(8), styles.accionesBloque]}>
+            {puedeEditar ? (
+              <AppButton
+                label="Editar orden"
+                onPress={() => router.push(`/ordenes/${orden.id}/editar`)}
+                accessibilityHint="Abre el formulario de campo"
+              />
+            ) : (
               <Text style={[styles.aviso, { color: colors.inkSubtle }]}>
                 Tu cuenta no tiene permiso para editar órdenes.
               </Text>
-            </Animated.View>
-          ) : null}
-        </ScrollView>
+            )}
 
-        {puedeEditar ? (
-          <DockBar>
-            <AppButton
-              label="Editar orden"
-              onPress={() => router.push(`/ordenes/${orden.id}/editar`)}
-              accessibilityHint="Abre el formulario de campo"
-            />
-          </DockBar>
-        ) : null}
+            {orden.en_pool ? (
+              <View
+                style={[
+                  styles.poolPill,
+                  { backgroundColor: colors.goldSoftBg, borderColor: colors.goldSoftText },
+                ]}
+                accessibilityRole="text"
+              >
+                <Text style={[styles.poolPillTexto, { color: colors.goldSoftText }]}>
+                  En bolsa de órdenes disponibles
+                </Text>
+              </View>
+            ) : puedeLiberar ? (
+              <AppButton
+                label="Liberar orden"
+                variant="secondary"
+                loading={liberando}
+                onPress={confirmarLiberar}
+                accessibilityHint="Envía la orden a la bolsa para que otro técnico la tome"
+              />
+            ) : null}
+          </Animated.View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -208,7 +259,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   content: { padding: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.xxxl, gap: spacing.md },
-  contentDock: { paddingBottom: spacing.xxxl * 2.2 },
+  accionesBloque: { marginTop: spacing.xs, gap: spacing.sm },
+  poolPill: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+  },
+  poolPillTexto: { ...type.label, fontFamily: type.label.fontFamily },
   vacio: { ...type.body },
   servicios: { gap: spacing.sm },
   vinieta: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },

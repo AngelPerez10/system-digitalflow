@@ -1,11 +1,14 @@
 import type { Orden } from '@/types/orden';
 import {
+  COMENTARIO_TECNICO_MIN,
   construirPatch,
   formStateFromOrden,
   hayErrores,
   tieneCambios,
   validarForm,
 } from '../editarOrdenForm';
+
+const comentarioValido = 'x'.repeat(COMENTARIO_TECNICO_MIN);
 
 const ordenBase: Orden = {
   id: 1,
@@ -20,6 +23,12 @@ const ordenBase: Orden = {
   status: 'pendiente',
   motivo_pausa: null,
   prioridad: 'media',
+  prioridad_pool: 'media',
+  en_pool: false,
+  liberada_por: null,
+  liberada_at: null,
+  tomada_por: null,
+  tomada_at: null,
   fecha_inicio: '2026-08-20',
   hora_inicio: '09:00:00',
   fecha_finalizacion: null,
@@ -77,19 +86,50 @@ describe('formStateFromOrden', () => {
 
 describe('validarForm', () => {
   it('exige motivo al pausar (misma regla que el serializer)', () => {
-    const errores = validarForm({ ...formStateFromOrden(ordenBase), status: 'pausado', motivo_pausa: '  ' });
+    const errores = validarForm({
+      ...formStateFromOrden(ordenBase),
+      status: 'pausado',
+      motivo_pausa: '  ',
+      comentario_tecnico: comentarioValido,
+    });
     expect(errores.motivo_pausa).toMatch(/pausó/);
     expect(hayErrores(errores)).toBe(true);
   });
 
-  it('acepta el pausado con motivo', () => {
-    const errores = validarForm({ ...formStateFromOrden(ordenBase), status: 'pausado', motivo_pausa: 'Falta material' });
+  it('acepta el pausado con motivo y comentario válido', () => {
+    const errores = validarForm({
+      ...formStateFromOrden(ordenBase),
+      status: 'pausado',
+      motivo_pausa: 'Falta material',
+      comentario_tecnico: comentarioValido,
+    });
     expect(hayErrores(errores)).toBe(false);
+  });
+
+  it('exige comentario técnico de al menos 150 caracteres', () => {
+    const corto = validarForm({
+      ...formStateFromOrden(ordenBase),
+      comentario_tecnico: 'corto',
+    });
+    expect(corto.comentario_tecnico).toMatch(/150/);
+
+    const vacio = validarForm({
+      ...formStateFromOrden(ordenBase),
+      comentario_tecnico: '',
+    });
+    expect(vacio.comentario_tecnico).toMatch(/obligatorio/i);
+
+    const ok = validarForm({
+      ...formStateFromOrden(ordenBase),
+      comentario_tecnico: comentarioValido,
+    });
+    expect(ok.comentario_tecnico).toBeUndefined();
   });
 
   it('rechaza fechas y horas mal formadas antes de llamar al API', () => {
     const errores = validarForm({
       ...formStateFromOrden(ordenBase),
+      comentario_tecnico: comentarioValido,
       fecha_inicio: '20/08/2026',
       hora_termino: '25:00',
     });
@@ -98,7 +138,11 @@ describe('validarForm', () => {
   });
 
   it('rechaza un día inexistente', () => {
-    const errores = validarForm({ ...formStateFromOrden(ordenBase), fecha_inicio: '2026-02-31' });
+    const errores = validarForm({
+      ...formStateFromOrden(ordenBase),
+      comentario_tecnico: comentarioValido,
+      fecha_inicio: '2026-02-31',
+    });
     expect(errores.fecha_inicio).toBeDefined();
   });
 });

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, radius } from '@/theme/tokens';
+import { Animated, Easing, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useTheme } from '@/theme/ThemeProvider';
+import { radius } from '@/theme/tokens';
 import { useReducedMotion } from '@/utils/useReducedMotion';
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
  * es prácticamente invisible.
  */
 export function SkeletonBar({ width, height = 12, radiusOverride, style }: Props) {
+  const { colors } = useTheme();
   const reduced = useReducedMotion();
   const pulso = useRef(new Animated.Value(0)).current;
 
@@ -39,8 +41,7 @@ export function SkeletonBar({ width, height = 12, radiusOverride, style }: Props
   return (
     <Animated.View
       style={[
-        styles.barra,
-        { width, height, borderRadius: radiusOverride ?? height / 2 },
+        { backgroundColor: colors.line, width, height, borderRadius: radiusOverride ?? height / 2 },
         reduced
           ? { opacity: 0.7 }
           : { opacity: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }) },
@@ -78,7 +79,3 @@ export function SkeletonRegion({
 export function SkeletonPanel({ height, style }: { height: number; style?: StyleProp<ViewStyle> }) {
   return <SkeletonBar width="100%" height={height} radiusOverride={radius.lg} style={style} />;
 }
-
-const styles = StyleSheet.create({
-  barra: { backgroundColor: colors.line },
-});

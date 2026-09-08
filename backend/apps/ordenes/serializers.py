@@ -27,6 +27,7 @@ class OrdenSerializer(serializers.ModelSerializer):
     cliente_nombre = serializers.CharField(source='cliente_id.nombre', read_only=True)
     tecnico_asignado_username = serializers.CharField(source='tecnico_asignado.username', read_only=True)
     tecnico_asignado_full_name = serializers.SerializerMethodField()
+    tecnico_asignado_avatar_url = serializers.SerializerMethodField()
     quien_instalo_username = serializers.CharField(source='quien_instalo.username', read_only=True)
     quien_instalo_full_name = serializers.SerializerMethodField()
     quien_entrego_username = serializers.CharField(source='quien_entrego.username', read_only=True)
@@ -40,6 +41,10 @@ class OrdenSerializer(serializers.ModelSerializer):
     equipos_inventario_total = serializers.SerializerMethodField()
     equipos_inventario_entregados = serializers.SerializerMethodField()
     equipos_inventario_instalados = serializers.SerializerMethodField()
+    # Calificación que el cliente dejó en el portal. Solo se expone a personal
+    # interno (staff/superuser): el técnico no debe ver ni la nota ni el
+    # comentario del cliente sobre su propio trabajo.
+    calificacion_cliente = serializers.SerializerMethodField()
 
     def validate_folio(self, value):
         if isinstance(value, str) and value.strip() == '':
@@ -118,6 +123,13 @@ class OrdenSerializer(serializers.ModelSerializer):
                 return f"{first} {last}".strip()
             return obj.tecnico_asignado.username or obj.tecnico_asignado.email
         return None
+
+    def get_tecnico_asignado_avatar_url(self, obj):
+        user = getattr(obj, 'tecnico_asignado', None)
+        if not user:
+            return ''
+        perfil = getattr(user, 'permissions_profile', None)
+        return (getattr(perfil, 'avatar_url', '') or '').strip()
 
     @staticmethod
     def _user_display_name(user):
@@ -199,6 +211,20 @@ class OrdenSerializer(serializers.ModelSerializer):
     def get_equipos_inventario_instalados(self, obj):
         return _equipos_inventario_counts(obj.equipos_inventario)[2]
 
+    def get_calificacion_cliente(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not (user and (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False))):
+            return None
+        cal = getattr(obj, 'calificacion', None)
+        if cal is None:
+            return None
+        return {
+            'estrellas': cal.estrellas,
+            'comentario': cal.comentario or '',
+            'fecha_creacion': cal.fecha_creacion,
+        }
+
     class Meta:
         model = Orden
         fields = [
@@ -218,6 +244,12 @@ class OrdenSerializer(serializers.ModelSerializer):
             'motivo_pausa',
             'status_changed_at',
             'prioridad',
+            'prioridad_pool',
+            'en_pool',
+            'liberada_por',
+            'liberada_at',
+            'tomada_por',
+            'tomada_at',
             'comentario_tecnico',
             'status_administrativo',
             'fecha_envio',
@@ -230,6 +262,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'tecnico_asignado',
             'tecnico_asignado_username',
             'tecnico_asignado_full_name',
+            'tecnico_asignado_avatar_url',
             'quien_instalo',
             'quien_instalo_username',
             'quien_instalo_full_name',
@@ -253,6 +286,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'actualizado_por',
             'actualizado_por_username',
             'actualizado_por_full_name',
+            'calificacion_cliente',
             'fecha_creacion',
             'fecha_actualizacion',
         ]
@@ -264,6 +298,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'cliente_nombre',
             'tecnico_asignado_username',
             'tecnico_asignado_full_name',
+            'tecnico_asignado_avatar_url',
             'quien_instalo_username',
             'quien_instalo_full_name',
             'quien_entrego_username',
@@ -271,6 +306,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'equipos_inventario_total',
             'equipos_inventario_entregados',
             'equipos_inventario_instalados',
+            'calificacion_cliente',
             'creado_por',
             'creado_por_username',
             'creado_por_full_name',
@@ -279,6 +315,11 @@ class OrdenSerializer(serializers.ModelSerializer):
             'actualizado_por_full_name',
             'pdf_url',
             'status_changed_at',
+            'en_pool',
+            'liberada_por',
+            'liberada_at',
+            'tomada_por',
+            'tomada_at',
             'fecha_creacion',
             'fecha_actualizacion',
         ]
@@ -296,6 +337,10 @@ class OrdenListSerializer(OrdenSerializer):
 
     def get_equipos_inventario_instalados(self, obj):
         return 0
+
+    def get_calificacion_cliente(self, obj):
+        # El listado no trae la calificación (evita N+1); se ve en el detalle.
+        return None
 
     class Meta(OrdenSerializer.Meta):
         fields = [
@@ -315,6 +360,12 @@ class OrdenListSerializer(OrdenSerializer):
             'motivo_pausa',
             'status_changed_at',
             'prioridad',
+            'prioridad_pool',
+            'en_pool',
+            'liberada_por',
+            'liberada_at',
+            'tomada_por',
+            'tomada_at',
             'comentario_tecnico',
             'status_administrativo',
             'fecha_envio',
@@ -326,6 +377,7 @@ class OrdenListSerializer(OrdenSerializer):
             'tecnico_asignado',
             'tecnico_asignado_username',
             'tecnico_asignado_full_name',
+            'tecnico_asignado_avatar_url',
             'nombre_cliente',
             'fotos_extra_max',
             'equipos_inventario_total',
@@ -337,6 +389,7 @@ class OrdenListSerializer(OrdenSerializer):
             'actualizado_por',
             'actualizado_por_username',
             'actualizado_por_full_name',
+            'calificacion_cliente',
             'fecha_creacion',
             'fecha_actualizacion',
         ]
@@ -346,8 +399,10 @@ class OrdenListSerializer(OrdenSerializer):
             'tipo_orden',
             'levantamiento_tipo',
             'cliente_nombre',
+            'calificacion_cliente',
             'tecnico_asignado_username',
             'tecnico_asignado_full_name',
+            'tecnico_asignado_avatar_url',
             'equipos_inventario_total',
             'equipos_inventario_entregados',
             'equipos_inventario_instalados',
@@ -358,6 +413,11 @@ class OrdenListSerializer(OrdenSerializer):
             'actualizado_por_username',
             'actualizado_por_full_name',
             'status_changed_at',
+            'en_pool',
+            'liberada_por',
+            'liberada_at',
+            'tomada_por',
+            'tomada_at',
             'fecha_creacion',
             'fecha_actualizacion',
         ]

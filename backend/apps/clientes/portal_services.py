@@ -63,7 +63,7 @@ def normalize_phone(value: str) -> str:
 
 
 def _portal_username_start() -> int:
-    return int(getattr(settings, 'PORTAL_CLIENT_USERNAME_START', 105040))
+    return int(getattr(settings, 'PORTAL_CLIENT_USERNAME_START', 10454000))
 
 
 def allocate_portal_username() -> str:
@@ -238,6 +238,24 @@ def register_portal_cliente(payload: RegistroPayload) -> RegistroResult:
 
     if _is_staff_email(email):
         return RegistroResult('rejected', 'Este correo es de personal interno.')
+
+    # Anti-spam: si ese correo ya dejó una solicitud sin resolver, no se crea otra
+    # (ni cuenta, ni fila nueva en la cola de revisión). Se responde con la misma
+    # solicitud para que el cliente vea "en revisión" en vez de reenviar.
+    pending = (
+        ClienteRegistroSolicitud.objects.filter(
+            email__iexact=email,
+            status=ClienteRegistroSolicitud.STATUS_PENDING,
+        )
+        .order_by('-created_at')
+        .first()
+    )
+    if pending is not None:
+        return RegistroResult(
+            'pending_review',
+            'Ya tenemos una solicitud tuya en revisión. Te contactaremos por correo.',
+            solicitud_id=pending.id,
+        )
 
     dedup: dict[str, Any] = {}
     cliente_id, ambiguous = _resolve_cliente(payload, dedup)
