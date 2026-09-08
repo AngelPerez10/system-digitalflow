@@ -46,6 +46,7 @@ import {
   updateEquipoLinea,
   type OrdenEquipoLineaPatch,
 } from "./ordenEquiposDraft";
+import type { OrdenFormTab } from "./useOrdenFormModalState";
 
 export type OrdenFormData = {
   folio: string;
@@ -373,7 +374,7 @@ export type UseOrdenFormDraftOpts = {
   setOrdenes: React.Dispatch<React.SetStateAction<Orden[]>>;
   fetchOrdenes: () => Promise<void>;
   levantamientoSnapshotRef: RefObject<LevantamientoSnap | null>;
-  activeTabRef: RefObject<"cliente" | "orden" | "equipos">;
+  activeTabRef: RefObject<OrdenFormTab>;
   goToOrdenTab: (fromPointer?: boolean) => void;
   setAlert: React.Dispatch<React.SetStateAction<{
     show: boolean;
