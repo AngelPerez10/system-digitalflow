@@ -10,11 +10,16 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import logging
 import os
 from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
+
+# Avisos de arranque (antes de que LOGGING esté configurado): el handler
+# `lastResort` de Python los manda a stderr, que en Render va al log del servicio.
+_bootstrap_log = logging.getLogger('config.settings')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,8 +45,8 @@ def _load_dotenv_file() -> None:
             v = v.strip().strip('"').strip("'")
             if k and (k not in os.environ or not str(os.environ.get(k, "")).strip()):
                 os.environ[k] = v
-    except Exception:
-        pass
+    except OSError as exc:
+        _bootstrap_log.warning('No se pudo leer backend/.env: %s', exc)
 
 
 _load_dotenv_file()
@@ -185,8 +190,9 @@ if DEBUG:
     ]
     CSRF_TRUSTED_ORIGINS = list(CORS_ALLOWED_ORIGINS)
 else:
+    # Orígenes de producción conocidos. Cualquier dominio nuevo (o el custom
+    # domain final) se añade por env `CORS_ALLOWED_ORIGINS` sin tocar código.
     _PROD_CORS_DEFAULTS = (
-        'https://sistema-grupo-atr.onrender.com',
         'https://system-digitalflow.onrender.com',
         'https://system-digitalflow-frontend.onrender.com',
     )
@@ -250,7 +256,18 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 _db_url = os.environ.get("DATABASE_URL", "")
 if _db_url:
-    DATABASES = {"default": dj_database_url.parse(_db_url)}
+    # `conn_max_age`: reutiliza la conexión de Postgres entre requests (default de
+    # dj-database-url es 0 = una conexión nueva por request). En Render el límite
+    # de conexiones es bajo y el handshake TLS añade latencia medible; 600 s las
+    # mantiene vivas sin acaparar el pool. `conn_health_checks` evita servir una
+    # conexión muerta tras un reinicio del Postgres administrado.
+    DATABASES = {
+        "default": dj_database_url.parse(
+            _db_url,
+            conn_max_age=int(os.environ.get("DB_CONN_MAX_AGE", "600") or "600"),
+            conn_health_checks=True,
+        )
+    }
 else:
     DATABASES = {
         "default": {
@@ -345,6 +362,17 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    # El explorador HTML de DRF (`BrowsableAPIRenderer`) solo se sirve en DEBUG:
+    # en producción los clientes son el SPA y la app Expo (JSON puro), y dejarlo
+    # activo es superficie de ataque e info-disclosure sin ninguna ganancia.
+    'DEFAULT_RENDERER_CLASSES': (
+        [
+            'rest_framework.renderers.JSONRenderer',
+            'rest_framework.renderers.BrowsableAPIRenderer',
+        ]
+        if DEBUG
+        else ['rest_framework.renderers.JSONRenderer']
+    ),
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'apps.users.authentication.CookieJWTAuthentication',
         'apps.users.authentication.BearerJWTAuthentication',
@@ -363,6 +391,8 @@ REST_FRAMEWORK = {
         'login_account': os.environ.get('THROTTLE_LOGIN_ACCOUNT_RATE', '10/minute'),
         'portal_registro': '10/minute',
         'portal_registro_email': '5/hour',
+        # Proxy a servicio de IA de pago: mucho más estricto que el `user` global.
+        'ai_chat': os.environ.get('THROTTLE_AI_CHAT_RATE', '30/hour'),
     },
 }
 
@@ -418,11 +448,83 @@ DEFAULT_FROM_EMAIL = os.environ.get(
     'DEFAULT_FROM_EMAIL',
     EMAIL_HOST_USER or 'webmaster@localhost',
 ).strip()
-# Clave Fernet para cifrar contraseñas SMTP por usuario (o se deriva de SECRET_KEY).
+# Clave Fernet para cifrar contraseñas SMTP por usuario. Si falta, `smtp_crypto`
+# la deriva de SECRET_KEY — cómodo en dev, pero acopla el cifrado a SECRET_KEY:
+# rotar SECRET_KEY (obligatorio si se filtra) dejaría ilegibles las contraseñas
+# SMTP ya guardadas. En producción debe venir de env, explícita e independiente.
 SMTP_CREDENTIALS_KEY = os.environ.get('SMTP_CREDENTIALS_KEY', '').strip()
+if not DEBUG and not SMTP_CREDENTIALS_KEY:
+    _bootstrap_log.warning(
+        'SMTP_CREDENTIALS_KEY no está definida en producción: las credenciales '
+        'SMTP se cifran con una clave derivada de SECRET_KEY y una rotación de '
+        'SECRET_KEY las volvería indescifrables. Defínela en el entorno de Render.'
+    )
 
 # --- Portal cliente (registro self-service móvil) ---
 PORTAL_CLIENT_USERNAME_START = int(os.environ.get('PORTAL_CLIENT_USERNAME_START', '10454000') or '10454000')
 PORTAL_CLIENT_TEMP_PASSWORD_HOURS = int(
     os.environ.get('PORTAL_CLIENT_TEMP_PASSWORD_HOURS', '72') or '72'
 )
+
+
+# =====================
+# Cache
+# =====================
+# LocMemCache por proceso es el default. Con varios workers de gunicorn cada uno
+# tiene su propia caché: el throttling de DRF (que se apoya en la caché) cuenta
+# por worker, no global. Definir `REDIS_URL` en el entorno cambia a una caché
+# compartida y hace que los límites de rate sean exactos entre workers e
+# instancias. `RedisCache` es nativo de Django 4.0+, pero necesita el paquete
+# `redis` en requirements.txt para activarse.
+_redis_url = os.environ.get('REDIS_URL', '').strip()
+if _redis_url:
+    try:
+        import redis  # noqa: F401
+
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+                'LOCATION': _redis_url,
+            }
+        }
+    except ImportError:
+        _bootstrap_log.warning(
+            'REDIS_URL definido pero el paquete `redis` no está instalado; '
+            'se usa LocMemCache. Añade `redis>=5` a requirements.txt.'
+        )
+        CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
+else:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
+
+
+# =====================
+# Logging
+# =====================
+# Config explícita: sin esto Django solo emite a stderr en DEBUG y silencia
+# casi todo en producción. `django.request` a ERROR captura los 500; los loggers
+# de `apps` a INFO dejan ver el flujo de negocio en el log de Render.
+_LOG_LEVEL = os.environ.get('DJANGO_LOG_LEVEL', 'INFO').upper()
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {'handlers': ['console'], 'level': 'WARNING'},
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
+        'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+        'django.security': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
+        'apps': {'handlers': ['console'], 'level': _LOG_LEVEL, 'propagate': False},
+        'config': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+    },
+}

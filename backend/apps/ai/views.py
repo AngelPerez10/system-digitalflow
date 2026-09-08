@@ -7,9 +7,11 @@ from urllib.parse import urlparse
 
 from django.http import StreamingHttpResponse
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from .throttling import AiChatRateThrottle
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,7 @@ def _get_ai_config():
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@throttle_classes([AiChatRateThrottle])
 def chat(request):
     base_url, api_key = _get_ai_config()
     if not api_key:
