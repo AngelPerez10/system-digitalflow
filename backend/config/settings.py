@@ -45,8 +45,10 @@ def _load_dotenv_file() -> None:
             v = v.strip().strip('"').strip("'")
             if k and (k not in os.environ or not str(os.environ.get(k, "")).strip()):
                 os.environ[k] = v
-    except OSError as exc:
-        _bootstrap_log.warning('No se pudo leer backend/.env: %s', exc)
+    except Exception as exc:
+        # Bootstrap: pase lo que pase, no tumbar el arranque por el `.env` — pero
+        # dejar rastro (antes se tragaba el error en silencio con `pass`).
+        _bootstrap_log.warning('No se pudo cargar backend/.env: %s', exc)
 
 
 _load_dotenv_file()
