@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { fetchApi } from "@/config/api";
+import { fetchOrdenesMes, OrdenesFetchError } from "./ordenesFetch";
 import {
   computeOrdenStats,
   getCurrentYearMonth,
@@ -140,86 +140,48 @@ export function useOrdenesList(opts: {
         setLoading(true);
       }
 
-      const params = new URLSearchParams({
-        mes,
-        _ts: String(Date.now()),
-      });
-      const response = await fetchApi(`/api/ordenes/?${params.toString()}`, {
-        cache: "no-store" as RequestCache,
-      });
+      // Trae el mes completo; con el backend paginado son páginas de 200 que
+      // `fetchOrdenesMes` va concatenando (una sola petición en un mes normal).
+      const rows = await fetchOrdenesMes(mes);
 
       if (generation !== fetchGenerationRef.current) return;
 
-      if (response.ok) {
-        const data = await response.json();
-        if (generation !== fetchGenerationRef.current) return;
+      const logLabel = variant === "admin" ? "OrdenesPage" : "OrdenesTecnicoPage";
+      console.debug(`[${logLabel}] fetchOrdenes mes=${mes} count=${rows.length}`);
+      monthCacheRef.current.set(mes, rows);
+      setOrdenes(rows);
+      setLoadedMonth(mes);
 
-        const rows = Array.isArray(data)
-          ? data
-          : Array.isArray((data as { results?: unknown })?.results)
-            ? (data as { results: Orden[] }).results
-            : [];
-
-        const logLabel = variant === "admin" ? "OrdenesPage" : "OrdenesTecnicoPage";
-        console.debug(
-          `[${logLabel}] fetchOrdenes mes=${mes} count=${rows.length}`,
-        );
-        monthCacheRef.current.set(mes, rows);
-        setOrdenes(rows);
-        setLoadedMonth(mes);
-
-        // Prefetch del mes anterior para que “atrás” sea instantáneo.
-        const [yStr, mStr] = mes.split("-");
-        const y = Number(yStr);
-        const m = Number(mStr);
-        if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
-          const prev = new Date(y, m - 2, 1);
-          const prevKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
-          if (!monthCacheRef.current.has(prevKey)) {
-            void (async () => {
-              try {
-                const pref = new URLSearchParams({ mes: prevKey, _ts: String(Date.now()) });
-                const prefRes = await fetchApi(`/api/ordenes/?${pref.toString()}`, {
-                  cache: "no-store" as RequestCache,
-                });
-                if (!prefRes.ok) return;
-                const prefData = await prefRes.json();
-                const prefRows = Array.isArray(prefData)
-                  ? prefData
-                  : Array.isArray((prefData as { results?: unknown })?.results)
-                    ? (prefData as { results: Orden[] }).results
-                    : [];
-                if (!monthCacheRef.current.has(prevKey)) {
-                  monthCacheRef.current.set(prevKey, prefRows);
-                }
-              } catch {
-                /* prefetch best-effort */
+      // Prefetch del mes anterior para que “atrás” sea instantáneo.
+      const [yStr, mStr] = mes.split("-");
+      const y = Number(yStr);
+      const m = Number(mStr);
+      if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
+        const prev = new Date(y, m - 2, 1);
+        const prevKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+        if (!monthCacheRef.current.has(prevKey)) {
+          void (async () => {
+            try {
+              const prefRows = await fetchOrdenesMes(prevKey);
+              if (!monthCacheRef.current.has(prevKey)) {
+                monthCacheRef.current.set(prevKey, prefRows);
               }
-            })();
-          }
-        }
-      } else if (response.status === 401) {
-        console.error("Token inválido o expirado");
-        if (!hadCache) {
-          setOrdenes([]);
-          setLoadedMonth(null);
-        }
-      } else if (response.status === 403) {
-        console.error("Acceso prohibido");
-        if (!hadCache) {
-          setOrdenes([]);
-          setLoadedMonth(null);
-        }
-      } else {
-        console.error("Error al cargar órdenes:", response.status);
-        if (!hadCache) {
-          setOrdenes([]);
-          setLoadedMonth(null);
+            } catch {
+              /* prefetch best-effort */
+            }
+          })();
         }
       }
     } catch (error) {
       if (generation !== fetchGenerationRef.current) return;
-      console.error("Error al cargar órdenes:", error);
+      const httpStatus = error instanceof OrdenesFetchError ? error.status : 0;
+      if (httpStatus === 401) {
+        console.error("Token inválido o expirado");
+      } else if (httpStatus === 403) {
+        console.error("Acceso prohibido");
+      } else {
+        console.error("Error al cargar órdenes:", httpStatus || error);
+      }
       if (!monthCacheRef.current.has(mes)) {
         setOrdenes([]);
         setLoadedMonth(null);
