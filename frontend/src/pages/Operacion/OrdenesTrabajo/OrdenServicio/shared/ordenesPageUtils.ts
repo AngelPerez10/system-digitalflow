@@ -113,6 +113,31 @@ export function labelMesOrden(orden: {
   return `${MES_NOMBRE_ES[parsed.month - 1]} ${parsed.year}`;
 }
 
+const MES_ABREV_ES = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+] as const;
+
+/** Mes abreviado para chips angostos (p. ej. «ago 2026»). */
+export function labelMesOrdenCorto(orden: {
+  fecha_inicio?: string | null;
+  fecha_creacion?: string | null;
+}): string {
+  const parsed = parseYearMonth(ordenMesKey(orden));
+  if (!parsed) return "ant.";
+  return `${MES_ABREV_ES[parsed.month - 1]} ${parsed.year}`;
+}
+
 export function isGoogleMapsUrl(value: string | null | undefined) {
   if (!value) return false;
   const s = String(value).trim();

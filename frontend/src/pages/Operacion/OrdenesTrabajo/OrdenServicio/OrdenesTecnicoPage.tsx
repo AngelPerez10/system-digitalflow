@@ -749,7 +749,7 @@ export default function OrdenesTecnico() {
             <Table className="w-full min-w-[900px] sm:table-fixed sm:min-w-0 xl:min-w-full">
               <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                 <TableRow>
-                  <TableCell isHeader className="px-3 py-2 text-left w-[70px] min-w-[60px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">ID</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-[100px] min-w-[96px] max-w-[110px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">ID</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Cliente</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-left w-1/5 min-w-[220px] text-[#52525B] dark:text-[#B7C1D1]">Detalles</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Fechas</TableCell>
@@ -806,9 +806,9 @@ export default function OrdenesTecnico() {
                   }
                   return (
                     <TableRow key={orden.id ?? `${section.key}-${sectionIdx}`} className={erpTableRowHoverClass}>
-                      <TableCell className="px-3 py-2 whitespace-nowrap w-[90px] min-w-[80px]">
-                        <div className="flex flex-col items-start gap-1">
-                          <span>{folioDisplay}</span>
+                      <TableCell className="px-3 py-2 w-[100px] min-w-[96px] max-w-[110px] overflow-hidden">
+                        <div className="flex min-w-0 flex-col items-stretch gap-1">
+                          <span className="whitespace-nowrap">{folioDisplay}</span>
                           <OrdenArrastreBadge orden={orden} selectedMonth={selectedMonth} />
                         </div>
                       </TableCell>

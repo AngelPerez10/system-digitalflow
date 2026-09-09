@@ -6,6 +6,7 @@ import {
   isOrdenArrastre,
   isOrdenStatusChangeRecent,
   labelMesOrden,
+  labelMesOrdenCorto,
 } from "./ordenesPageUtils";
 
 describe("displayOrdenUserName", () => {
@@ -81,5 +82,9 @@ describe("isOrdenArrastre / labelMesOrden", () => {
     expect(isOrdenArrastre({ fecha_inicio: "2026-07-10" }, "2026-09")).toBe(true);
     expect(isOrdenArrastre({ fecha_inicio: "2026-09-02" }, "2026-09")).toBe(false);
     expect(labelMesOrden({ fecha_inicio: "2026-07-10" })).toBe("julio 2026");
+  });
+
+  it("abrevia el mes para chips angostos", () => {
+    expect(labelMesOrdenCorto({ fecha_inicio: "2026-08-05" })).toBe("ago 2026");
   });
 });

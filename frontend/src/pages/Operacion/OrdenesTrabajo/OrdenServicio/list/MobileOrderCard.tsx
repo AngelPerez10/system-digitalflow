@@ -3,7 +3,11 @@ import { useMemo, useState } from "react";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { erpMobileCardClass } from "../ordenServicioStyles";
 import { displayOrdenFolio, isOrdenResuelta, isOrdenServicioTecnico } from "../shared/useOrdenesShared";
-import { isOrdenStatusChangeRecent, ORDEN_RECIEN_RESUELTA_BADGE_CLASS, ORDEN_RECIEN_RESUELTA_ROW_CLASS } from "../shared/ordenesPageUtils";
+import {
+  isOrdenStatusChangeRecent,
+  ORDEN_RECIEN_RESUELTA_BADGE_CLASS,
+  ORDEN_RECIEN_RESUELTA_ROW_CLASS,
+} from "../shared/ordenesPageUtils";
 import { groupOrdenesByStatus } from "../shared/ordenStatusSections";
 import {
   getOrdenPrioridadSectionStyles,
@@ -18,30 +22,37 @@ const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;
   const s = String(value).trim();
   if (!s) return false;
-  if (!(s.startsWith('http://') || s.startsWith('https://'))) return false;
+  if (!(s.startsWith("http://") || s.startsWith("https://"))) return false;
   try {
     const u = new URL(s);
-    const host = (u.hostname || '').toLowerCase();
+    const host = (u.hostname || "").toLowerCase();
     const href = u.href.toLowerCase();
-    if (host === 'maps.app.goo.gl') return true;
-    if (host.endsWith('google.com') && href.includes('/maps')) return true;
+    if (host === "maps.app.goo.gl") return true;
+    if (host.endsWith("google.com") && href.includes("/maps")) return true;
     return false;
   } catch {
     return false;
   }
 };
 
+/** 44×44 mínimo + gap ≥8px entre acciones (a11y táctil). */
 const mobileActionBtnClass =
-  "inline-flex size-11 shrink-0 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:border-[#1B5CFF]";
+  "inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-[#E7E7EA] bg-white text-[#52525B] transition-colors active:bg-[#F4F4F5] hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:border-[#1B5CFF] dark:active:bg-[#1a2336]";
 
 interface MobileOrderCardProps {
+  // Listados livianos / otras pantallas no siempre traen el shape completo de Orden.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   orden: any;
   idx: number;
   startIndex: number;
   formatDate: (date: string) => string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onPdf: (orden: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onEnviarPdf?: (orden: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onEdit?: (orden: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onDelete?: (orden: any) => void;
   canEdit?: boolean;
   canDelete?: boolean;
@@ -72,13 +83,11 @@ export function MobileOrderCard({
   selectedMonth = "",
 }: MobileOrderCardProps) {
   const [showProblematicaModal, setShowProblematicaModal] = useState(false);
-  const fechaInicio = orden.fecha_inicio || orden.fecha_creacion || '';
-  const fechaInicioFmt = fechaInicio ? formatDate(fechaInicio) : '-';
-  const fechaFinFmt = orden.fecha_finalizacion ? formatDate(orden.fecha_finalizacion) : '-';
+  const fechaInicio = orden.fecha_inicio || orden.fecha_creacion || "";
+  const fechaInicioFmt = fechaInicio ? formatDate(fechaInicio) : "—";
+  const fechaFinFmt = orden.fecha_finalizacion ? formatDate(orden.fecha_finalizacion) : "—";
   const showRecentResolved = highlightRecentStatus && isOrdenStatusChangeRecent(orden);
-  // En órdenes resueltas la prioridad de bolsa deja de mostrarse.
   const isResuelta = isOrdenResuelta(orden.status);
-  // Prioridad efectiva: base + escalado automático por antigüedad (+72 h / +96 h sin resolver).
   const prioKey = ordenPrioridadKey(
     isResuelta ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
   );
@@ -86,25 +95,35 @@ export function MobileOrderCard({
   const prioTone = getOrdenPrioridadSectionStyles(prioKey);
   const prioLabel =
     prioKey === "ALTA" ? "Alta" : prioKey === "MEDIA" ? "Media" : prioKey === "BAJA" ? "Baja" : "Sin prioridad";
-
+  const statusLabel =
+    orden.status === "resuelto" ? "Resuelto" : orden.status === "pausado" ? "Pausado" : "Pendiente";
   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
+  const mapsUrl = isGoogleMapsUrl(orden.direccion) ? String(orden.direccion).trim() : null;
+  const direccionTexto = !mapsUrl && orden.direccion ? String(orden.direccion).trim() : "";
 
   return (
-    <div
-      className={`${erpMobileCardClass} ${showRecentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isResuelta ? "" : prioTone.rowAccent}`}
-      aria-label={`Orden ${folioDisplay}${isResuelta ? "" : `, prioridad ${prioLabel.toLowerCase()}`}${showRecentResolved ? ", resuelta recientemente" : ""}`}
+    <article
+      className={`${erpMobileCardClass} !p-3.5 ${showRecentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isResuelta ? "" : prioTone.rowAccent}`}
+      aria-label={`Orden ${folioDisplay}, ${statusLabel}${isResuelta ? "" : `, prioridad ${prioLabel.toLowerCase()}`}${showRecentResolved ? ", resuelta recientemente" : ""}`}
     >
-      <div className="flex flex-col gap-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[13px] font-bold text-[#1B5CFF] dark:text-[#4B7CFF]">
+      {/* Cabecera: folio + chips (sin acciones; jerarquía contenido primero) */}
+      <header className="flex min-w-0 flex-col gap-2">
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <p className="min-w-0 text-[15px] font-bold leading-tight tracking-tight text-[#1B5CFF] dark:text-[#4B7CFF]">
             {folioDisplay}
-          </span>
+          </p>
           {selectedMonth ? (
-            <OrdenArrastreBadge orden={orden} selectedMonth={selectedMonth} />
+            <OrdenArrastreBadge
+              orden={orden}
+              selectedMonth={selectedMonth}
+              layout="inline"
+              className="shrink-0"
+            />
           ) : null}
-          <span className="text-[#D3D3D8] dark:text-[#273244]">-</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
           <span
-            className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${
+            className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
               orden.status === "resuelto"
                 ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300"
                 : orden.status === "pausado"
@@ -113,11 +132,11 @@ export function MobileOrderCard({
             }`}
             title={orden.status === "pausado" && orden.motivo_pausa ? String(orden.motivo_pausa) : undefined}
           >
-            {orden.status === "resuelto" ? "Resuelto" : orden.status === "pausado" ? "Pausado" : "Pendiente"}
+            {statusLabel}
           </span>
           {!isResuelta && (
             <span
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${prioTone.badge}`}
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${prioTone.badge}`}
               title={
                 prioEscalada
                   ? `Prioridad ${prioLabel} — escalada automáticamente por antigüedad (+72 h sin resolver)`
@@ -126,84 +145,112 @@ export function MobileOrderCard({
             >
               <span className={`inline-block h-1.5 w-1.5 rounded-full ${prioTone.dot}`} aria-hidden />
               {prioLabel}
-              {prioEscalada && <span className="font-bold leading-none" aria-hidden>↑</span>}
+              {prioEscalada && (
+                <span className="font-bold leading-none" aria-hidden>
+                  ↑
+                </span>
+              )}
             </span>
           )}
           {showRecentResolved && (
             <span className={ORDEN_RECIEN_RESUELTA_BADGE_CLASS}>
               <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M3.5 8.5 6.5 11.5 12.5 4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
               Resuelto recién
             </span>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button type="button" onClick={() => onPdf(orden)} className={mobileActionBtnClass} title="PDF" aria-label="Descargar PDF">
-            <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
-          </button>
-          {isOrdenResuelta(orden.status) && isOrdenServicioTecnico(orden.tipo_orden) && onEnviarPdf && (
-            <button
-              type="button"
-              onClick={() => onEnviarPdf(orden)}
-              className={mobileActionBtnClass}
-              title="Enviar PDF por correo"
-              aria-label="Enviar PDF por correo"
+      </header>
+
+      {/* Cuerpo: cliente y contacto */}
+      <div className="mt-3 min-w-0 space-y-2">
+        <h3 className="truncate text-[15px] font-semibold leading-snug text-[#09090B] dark:text-white">
+          {orden.cliente || "Sin cliente"}
+        </h3>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {orden.telefono_cliente ? (
+            <a
+              href={`tel:${orden.telefono_cliente}`}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[#F4F6FF] px-2.5 py-1.5 text-[13px] font-medium text-[#1B5CFF] dark:bg-[#1B5CFF]/15 dark:text-[#93B0FF]"
             >
-              <MailIcon className="h-[18px] w-[18px]" />
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowProblematicaModal(true)}
-            className={mobileActionBtnClass}
-            title="Ver problemática"
-            aria-label="Ver problemática"
-          >
-            <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
-          {canEdit && onEdit && (
-            <button type="button" onClick={() => onEdit(orden)} className={mobileActionBtnClass} title="Editar" aria-label="Editar orden">
-              <PencilIcon className="h-[18px] w-[18px]" />
-            </button>
-          )}
-          {canDelete && onDelete && (
-            <button type="button" onClick={() => onDelete(orden)} className={`${mobileActionBtnClass} hover:border-rose-400 hover:text-rose-600`} title="Eliminar" aria-label="Eliminar orden">
-              <TrashBinIcon className="h-[18px] w-[18px]" />
-            </button>
-          )}
+              <svg
+                className="h-3.5 w-3.5 shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+              </svg>
+              {orden.telefono_cliente}
+            </a>
+          ) : null}
+          {mapsUrl ? (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-[13px] font-medium text-[#09090B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]"
+            >
+              <svg
+                className="h-3.5 w-3.5 shrink-0 text-[#1B5CFF]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              Abrir mapa
+            </a>
+          ) : null}
         </div>
+
+        {direccionTexto ? (
+          <p className="line-clamp-2 text-[12px] leading-snug text-[#52525B] dark:text-[#B7C1D1]">
+            {direccionTexto}
+          </p>
+        ) : null}
       </div>
 
-      <div className="flex items-center gap-2 text-sm mt-2">
-        <svg className="w-4 h-4 text-[#6E6E77] shrink-0 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-        <span className="font-medium text-[#09090B] dark:text-white truncate">{orden.cliente || 'Sin cliente'}</span>
-      </div>
-
-      {orden.direccion && (
-        <div className="flex items-start gap-2 text-[11px] text-[#52525B] dark:text-[#b7c1d1] mt-1">
-          <svg className="w-3.5 h-3.5 text-[#6E6E77] shrink-0 mt-0.5 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-          {isGoogleMapsUrl(orden.direccion) ? (
-            <a href={orden.direccion} target="_blank" rel="noreferrer" className="text-[#1B5CFF] dark:text-[#4B7CFF] hover:underline truncate">{orden.direccion}</a>
-          ) : (
-            <span className="truncate">{orden.direccion}</span>
-          )}
+      {/* Meta: rejilla legible */}
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 rounded-xl bg-[#FAFAFA] px-3 py-2.5 text-[12px] dark:bg-[#0f172a]/70">
+        <div className="min-w-0">
+          <dt className="text-[10px] font-medium uppercase tracking-wide text-[#8E8B82] dark:text-[#8ea0b8]">
+            Inicio
+          </dt>
+          <dd className="mt-0.5 font-medium tabular-nums text-[#09090B] dark:text-[#e5e7eb]">{fechaInicioFmt}</dd>
         </div>
-      )}
-
-      {orden.telefono_cliente && (
-        <div className="flex items-center gap-2 text-[11px] mt-1">
-          <svg className="w-3.5 h-3.5 text-[#6E6E77] shrink-0 dark:text-[#8ea0b8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
-          <a href={`tel:${orden.telefono_cliente}`} className="text-[#1B5CFF] dark:text-[#4B7CFF]">{orden.telefono_cliente}</a>
+        <div className="min-w-0">
+          <dt className="text-[10px] font-medium uppercase tracking-wide text-[#8E8B82] dark:text-[#8ea0b8]">
+            Fin
+          </dt>
+          <dd className="mt-0.5 font-medium tabular-nums text-[#09090B] dark:text-[#e5e7eb]">{fechaFinFmt}</dd>
         </div>
-      )}
+        {tecnicoNombre ? (
+          <div className="col-span-2 min-w-0 border-t border-[#E7E7EA] pt-2 dark:border-[#273244]">
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-[#8E8B82] dark:text-[#8ea0b8]">
+              Técnico
+            </dt>
+            <dd className="mt-0.5 truncate font-medium text-[#09090B] dark:text-[#e5e7eb]">{tecnicoNombre}</dd>
+          </div>
+        ) : null}
+      </dl>
 
       {onNotaChange && (
-        <div className="mt-2 pt-2 border-t border-[#E7E7EA] dark:border-[#273244]">
-          <label className="block text-[10px] font-medium uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8] mb-1">
+        <div className="mt-3">
+          <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">
             Comentarios
           </label>
           <textarea
@@ -211,27 +258,56 @@ export function MobileOrderCard({
             onChange={(e) => onNotaChange(orden.id, e.target.value)}
             rows={2}
             placeholder="Escriba sus notas…"
-            className="w-full min-h-[40px] resize-y rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] px-2 py-1.5 text-[11px] text-[#09090B] outline-none placeholder:text-[#A1A1AA] focus:border-[#9ca3af] focus:ring-1 focus:ring-[#d1d5db] dark:border-[#273244] dark:bg-[#0f172a]/60 dark:text-[#e5e7eb]"
+            className="w-full min-h-[40px] resize-y rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-2 text-[13px] text-[#09090B] outline-none placeholder:text-[#A1A1AA] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[rgba(27,92,255,0.2)] dark:border-[#273244] dark:bg-[#0f172a]/60 dark:text-[#e5e7eb]"
           />
         </div>
       )}
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] pt-2 mt-2 border-t border-[#E7E7EA] dark:border-[#273244]">
-        <div className="flex items-center gap-1">
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-          <span>Inicio: {fechaInicioFmt}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-          <span>Fin: {fechaFinFmt}</span>
-        </div>
-        {tecnicoNombre && (
-          <div className="flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>
-            <span className="truncate">{tecnicoNombre}</span>
-          </div>
+      {/* Acciones al pie: no compiten con el contenido */}
+      <footer className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#E7E7EA] pt-3 dark:border-[#273244]">
+        <button type="button" onClick={() => onPdf(orden)} className={mobileActionBtnClass} aria-label="Descargar PDF">
+          <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <path d="M14 2v6h6" />
+          </svg>
+        </button>
+        {isOrdenResuelta(orden.status) && isOrdenServicioTecnico(orden.tipo_orden) && onEnviarPdf && (
+          <button
+            type="button"
+            onClick={() => onEnviarPdf(orden)}
+            className={mobileActionBtnClass}
+            aria-label="Enviar PDF por correo"
+          >
+            <MailIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+          </button>
         )}
-      </div>
+        <button
+          type="button"
+          onClick={() => setShowProblematicaModal(true)}
+          className={mobileActionBtnClass}
+          aria-label="Ver problemática"
+        >
+          <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+        {canEdit && onEdit && (
+          <button type="button" onClick={() => onEdit(orden)} className={mobileActionBtnClass} aria-label="Editar orden">
+            <PencilIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+          </button>
+        )}
+        {canDelete && onDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete(orden)}
+            className={`${mobileActionBtnClass} hover:border-rose-400 hover:text-rose-600`}
+            aria-label="Eliminar orden"
+          >
+            <TrashBinIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+          </button>
+        )}
+      </footer>
 
       <OrdenViewModal
         open={showProblematicaModal}
@@ -243,21 +319,27 @@ export function MobileOrderCard({
           {orden.problematica || "—"}
         </pre>
       </OrdenViewModal>
-    </div>
+    </article>
   );
 }
 
 interface MobileOrderListProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ordenes: any[];
   startIndex: number;
   loading: boolean;
   formatDate: (date: string) => string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onPdf: (orden: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onEnviarPdf?: (orden: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onEdit?: (orden: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onDelete?: (orden: any) => void;
   canEdit?: boolean;
   canDelete?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   usuarios?: any[];
   notasMesPdf?: Record<number, string>;
   onNotaChange?: (ordenId: number, value: string) => void;
@@ -287,17 +369,19 @@ export function MobileOrderList({
   groupByStatus = false,
   selectedMonth = "",
 }: MobileOrderListProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getTecnicoNombre = (orden: any): string => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tecnico = usuarios.find((u: any) => u.id === orden.tecnico_asignado);
     if (tecnico) {
-      return tecnico.first_name && tecnico.last_name 
-        ? `${tecnico.first_name} ${tecnico.last_name}` 
-        : (tecnico.username || tecnico.email);
+      return tecnico.first_name && tecnico.last_name
+        ? `${tecnico.first_name} ${tecnico.last_name}`
+        : tecnico.username || tecnico.email;
     }
     if (orden.tecnico_asignado_full_name) return orden.tecnico_asignado_full_name;
     if (orden.tecnico_asignado_username) return orden.tecnico_asignado_username;
     if (orden.nombre_encargado) return orden.nombre_encargado;
-    return '';
+    return "";
   };
 
   const sections = useMemo(
@@ -313,6 +397,7 @@ export function MobileOrderList({
     return map;
   }, [ordenes]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderCard = (orden: any, idx: number) => (
     <MobileOrderCard
       key={orden.id ?? idx}
@@ -335,12 +420,12 @@ export function MobileOrderList({
   );
 
   return (
-    <div className="md:hidden space-y-3">
+    <div className="space-y-2.5 md:hidden">
       {sections
         ? sections.map((section) => {
             const headingId = `ordenes-mobile-${section.key.toLowerCase()}`;
             return (
-              <section key={section.key} aria-labelledby={headingId} className="space-y-3">
+              <section key={section.key} aria-labelledby={headingId} className="space-y-2.5">
                 <OrdenStatusSectionHeader
                   statusKey={section.key}
                   label={section.label}
@@ -365,7 +450,7 @@ export function MobileOrderList({
         </div>
       )}
       {loading && ordenes.length === 0 && (
-        <div className="text-center py-8 text-sm text-[#6E6E77] dark:text-[#8ea0b8]" role="status" aria-live="polite">
+        <div className="py-8 text-center text-sm text-[#6E6E77] dark:text-[#8ea0b8]" role="status" aria-live="polite">
           Cargando órdenes…
         </div>
       )}

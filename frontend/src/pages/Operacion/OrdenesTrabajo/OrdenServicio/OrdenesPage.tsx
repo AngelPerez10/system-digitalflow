@@ -784,7 +784,7 @@ export default function Ordenes() {
             <Table className="w-full min-w-[1090px] table-fixed sm:min-w-0 xl:min-w-full">
               <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                 <TableRow>
-                  <TableCell isHeader className="px-3 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Folio</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-[100px] min-w-[96px] max-w-[110px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Folio</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Cliente</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-left w-1/5 min-w-[220px] text-[#52525B] dark:text-[#B7C1D1]">Detalles</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Fechas</TableCell>
@@ -862,9 +862,9 @@ export default function Ordenes() {
                       className={`${erpTableRowHoverClass} ${recentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isResuelta ? "" : prioTone.rowAccent}`}
                       aria-label={`Orden ${folioDisplay}${isResuelta ? "" : `, ${prioAria}`}${recentResolved ? ", resuelta recientemente" : ""}`}
                     >
-                      <TableCell className="px-3 py-2 whitespace-nowrap w-[90px] min-w-[80px] font-medium tabular-nums">
-                        <div className="flex flex-col items-start gap-1">
-                          <span>{folioDisplay}</span>
+                      <TableCell className="px-3 py-2 w-[100px] min-w-[96px] max-w-[110px] overflow-hidden font-medium tabular-nums">
+                        <div className="flex min-w-0 flex-col items-stretch gap-1">
+                          <span className="whitespace-nowrap">{folioDisplay}</span>
                           <OrdenArrastreBadge orden={orden} selectedMonth={selectedMonth} />
                         </div>
                       </TableCell>
