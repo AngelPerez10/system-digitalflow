@@ -1,5 +1,5 @@
 import PageMeta from "@/components/common/PageMeta";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type SyntheticEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
@@ -105,11 +105,47 @@ const STATUS_SEGMENTS: {
   },
 ];
 
-const chipSelectClass =
-  "h-9 max-w-[13rem] rounded-[9px] border border-[#E7E7EA] bg-white pl-2.5 pr-8 text-[12px] font-medium text-[#09090B] outline-none transition-colors hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[rgba(27,92,255,0.22)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF]";
+const filterGroupLabelClass =
+  "mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:text-[#8EA0B8]";
 
-const chipDateClass =
-  "h-8 rounded-[7px] border border-[#E7E7EA] bg-white px-2 text-[12px] font-medium tabular-nums text-[#09090B] outline-none transition-colors hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[rgba(27,92,255,0.22)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF]";
+const filterControlClass =
+  "h-10 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 text-[13px] font-medium text-[#09090B] outline-none transition-colors hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.15)] disabled:cursor-not-allowed disabled:bg-[#F5F5F4] disabled:text-[#A1A1AA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.25)] dark:disabled:bg-[#0f172a]";
+
+const filterControlActiveClass = "!border-[#1B5CFF] bg-[rgba(27,92,255,0.05)] dark:!border-[#4B7CFF]";
+
+/** Campo de fecha: indicador de calendario siempre visible y clic-para-abrir. */
+const filterDateClass = `${filterControlClass} tabular-nums cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 dark:[&::-webkit-calendar-picker-indicator]:invert`;
+
+const filterMenuBtnClass =
+  "inline-flex h-10 items-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-3.5 text-[13px] font-semibold text-[#09090B] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.15)] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048]";
+
+/** Abre el calendario nativo al hacer clic/enfocar (Chrome no lo abre solo al pulsar el campo). */
+const openDatePicker = (e: SyntheticEvent<HTMLInputElement>) => {
+  const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
+  try {
+    el.showPicker?.();
+  } catch {
+    /* showPicker no disponible o sin gesto de usuario */
+  }
+};
+
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(27,92,255,0.28)] bg-[rgba(27,92,255,0.07)] py-1 pl-2.5 pr-1 text-[12px] font-medium text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF]">
+      <span className="max-w-[16rem] truncate">{label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Quitar filtro: ${label}`}
+        className="inline-flex size-4 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[#1B5CFF]/20 dark:hover:bg-[#4B7CFF]/25"
+      >
+        <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden>
+          <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+        </svg>
+      </button>
+    </span>
+  );
+}
 
 const normalizeStatus = (raw: string) => String(raw || "").trim().toUpperCase();
 const rowStatusKey = (raw: string): StatusCountKey => {
@@ -171,6 +207,26 @@ export default function CotizacionesPage() {
   const [filterUsuario, setFilterUsuario] = useState("");
   const [filterDesde, setFilterDesde] = useState("");
   const [filterHasta, setFilterHasta] = useState("");
+  const [filtersMenuOpen, setFiltersMenuOpen] = useState(false);
+  const filtersMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!filtersMenuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (filtersMenuRef.current && !filtersMenuRef.current.contains(e.target as Node)) {
+        setFiltersMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFiltersMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [filtersMenuOpen]);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [cotizacionToDelete, setCotizacionToDelete] = useState<CotizacionRow | null>(null);
@@ -491,13 +547,11 @@ export default function CotizacionesPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b, "es"));
   }, [rows]);
 
-  const activeFilterCount =
-    (filterStatus ? 1 : 0) +
-    (filterTipoTrabajo ? 1 : 0) +
-    (filterUsuario ? 1 : 0) +
-    (filterDesde ? 1 : 0) +
-    (filterHasta ? 1 : 0);
+  const secondaryFilterCount =
+    (filterTipoTrabajo ? 1 : 0) + (filterUsuario ? 1 : 0) + (filterDesde || filterHasta ? 1 : 0);
+  const activeFilterCount = (filterStatus ? 1 : 0) + secondaryFilterCount;
   const hasActiveFilters = activeFilterCount > 0;
+  const hasSecondaryFilters = secondaryFilterCount > 0;
 
   /** Filas tras aplicar todos los filtros MENOS el de estado (base para contar cada estado). */
   const rowsBeforeStatus = useMemo(() => {
@@ -527,8 +581,7 @@ export default function CotizacionesPage() {
     return rowsBeforeStatus.filter((r) => rowStatusKey(r.status) === filterStatus);
   }, [rowsBeforeStatus, filterStatus]);
 
-  const resetFilters = () => {
-    setFilterStatus("");
+  const resetSecondaryFilters = () => {
     setFilterTipoTrabajo("");
     setFilterUsuario("");
     setFilterDesde("");
@@ -710,146 +763,291 @@ export default function CotizacionesPage() {
             </button>
           </div>
 
-          {showFilters && (
-            <div
-              id="cotizaciones-filtros"
-              className="rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#1B2539] sm:p-5"
-            >
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
-                  Filtrar cotizaciones
-                </h3>
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  disabled={!hasActiveFilters}
-                  className="text-[12px] font-semibold text-[#1B5CFF] transition-colors hover:text-[#1244D1] disabled:cursor-not-allowed disabled:text-[#A1A1AA] dark:text-[#4B7CFF] dark:hover:text-[#6E9BFF] dark:disabled:text-[#4B5563]"
-                >
-                  Limpiar filtros
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                <div>
-                  <label htmlFor="filtro-status" className={filterLabelClass}>
-                    Status
-                  </label>
-                  <select
-                    id="filtro-status"
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-                    className={filterFieldClass}
-                  >
-                    {STATUS_FILTER_OPTIONS.map((o) => (
-                      <option key={o.value || "all"} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="filtro-tipo" className={filterLabelClass}>
-                    Tipo de trabajo
-                  </label>
-                  <select
-                    id="filtro-tipo"
-                    value={filterTipoTrabajo}
-                    onChange={(e) => setFilterTipoTrabajo(e.target.value)}
-                    className={filterFieldClass}
-                  >
-                    <option value="">Todos los tipos</option>
-                    {tipoTrabajoOptions.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="filtro-usuario" className={filterLabelClass}>
-                    Usuario (creada por)
-                  </label>
-                  <select
-                    id="filtro-usuario"
-                    value={filterUsuario}
-                    onChange={(e) => setFilterUsuario(e.target.value)}
-                    className={filterFieldClass}
-                  >
-                    <option value="">Todos los usuarios</option>
-                    {usuarioOptions.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="filtro-desde" className={filterLabelClass}>
-                    Fecha desde
-                  </label>
-                  <input
-                    id="filtro-desde"
-                    type="date"
-                    value={filterDesde}
-                    max={filterHasta || undefined}
-                    onChange={(e) => setFilterDesde(e.target.value)}
-                    className={filterFieldClass}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="filtro-hasta" className={filterLabelClass}>
-                    Fecha hasta
-                  </label>
-                  <input
-                    id="filtro-hasta"
-                    type="date"
-                    value={filterHasta}
-                    min={filterDesde || undefined}
-                    onChange={(e) => setFilterHasta(e.target.value)}
-                    className={filterFieldClass}
-                  />
-                </div>
-              </div>
-
-              {hasActiveFilters && (
-                <p className="mt-3 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">
-                  Mostrando{" "}
-                  <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">{filteredRows.length}</span>{" "}
-                  de {rows.length} cotizaciones {isSearching ? "encontradas" : "del mes"}.
-                </p>
-              )}
-            </div>
-          )}
-
           <section className={`${cardShellClass} !overflow-visible`} aria-labelledby="cotizaciones-listado-heading">
-            <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
-                    <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+            <div className="border-b border-[#E7E7EA] dark:border-[#273244]">
+              {/* Fila 1 — cabecera del listado */}
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 pt-5 sm:px-6">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                    <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
                       <rect x="3" y="4" width="18" height="17" rx="2.2" />
                       <path d="M3 9.5h18" />
                     </svg>
                   </span>
-                  <h2 id="cotizaciones-listado-heading" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
-                    Listado de cotizaciones
-                  </h2>
+                  <div className="min-w-0">
+                    <h2
+                      id="cotizaciones-listado-heading"
+                      className="text-[15px] font-semibold tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]"
+                    >
+                      Listado de cotizaciones
+                    </h2>
+                    <p className="mt-0.5 truncate text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                      {isSearching
+                        ? `Resultados para «${searchDebounced}»`
+                        : "Agrupadas por estado: pendientes, autorizadas y canceladas"}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-[12px] font-medium tabular-nums text-[#6E6E77] dark:text-[#8EA0B8]">
-                  {hasActiveFilters
-                    ? `${filteredRows.length.toLocaleString("es-MX")} de ${totalCount.toLocaleString("es-MX")}`
-                    : isSearching
-                      ? `${totalCount.toLocaleString("es-MX")} resultado${totalCount === 1 ? "" : "s"}`
-                      : `${totalCount.toLocaleString("es-MX")} en el mes`}
-                </p>
+                <div className="flex shrink-0 items-center gap-2.5">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-[24px] font-semibold leading-none tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
+                      {filteredRows.length.toLocaleString("es-MX")}
+                    </span>
+                    <span className="text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                      {filteredRows.length !== totalCount
+                        ? `de ${totalCount.toLocaleString("es-MX")}`
+                        : filteredRows.length === 1
+                          ? "cotización"
+                          : "cotizaciones"}
+                    </span>
+                  </div>
+
+                  <div className="relative" ref={filtersMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setFiltersMenuOpen((o) => !o)}
+                      aria-haspopup="dialog"
+                      aria-expanded={filtersMenuOpen}
+                      className={`${filterMenuBtnClass} ${
+                        filtersMenuOpen || hasSecondaryFilters
+                          ? "!border-[#1B5CFF] text-[#1B5CFF] dark:!border-[#4B7CFF] dark:text-[#4B7CFF]"
+                          : ""
+                      }`}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                        <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
+                      </svg>
+                      <span className="hidden sm:inline">Filtros</span>
+                      {hasSecondaryFilters && (
+                        <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#1B5CFF] px-1 text-[11px] font-bold tabular-nums text-white dark:bg-[#4B7CFF]">
+                          {secondaryFilterCount}
+                        </span>
+                      )}
+                      <svg
+                        viewBox="0 0 24 24"
+                        className={`h-3.5 w-3.5 transition-transform ${filtersMenuOpen ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        aria-hidden
+                      >
+                        <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+
+                    <div
+                      role="dialog"
+                      aria-label="Filtros de cotizaciones"
+                      aria-hidden={!filtersMenuOpen}
+                      className={`absolute right-0 z-30 mt-2 w-[min(92vw,20rem)] origin-top-right rounded-[14px] border border-[#E7E7EA] bg-white p-4 shadow-[0_18px_44px_-12px_rgba(9,9,11,0.28)] transition-[opacity,transform,visibility] duration-200 ease-out will-change-transform motion-reduce:transition-none dark:border-[#273244] dark:bg-[#111827] ${
+                        filtersMenuOpen
+                          ? "translate-y-0 scale-100 opacity-100"
+                          : "pointer-events-none invisible -translate-y-1.5 scale-95 opacity-0 duration-150 ease-in"
+                      }`}
+                    >
+                        <div className="mb-3 flex items-center justify-between">
+                          <p className="text-[13px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">Filtrar por</p>
+                          <button
+                            type="button"
+                            onClick={() => setFiltersMenuOpen(false)}
+                            aria-label="Cerrar filtros"
+                            className="inline-flex size-7 items-center justify-center rounded-lg text-[#6E6E77] transition-colors hover:bg-black/[0.04] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/[0.06] dark:hover:text-white"
+                          >
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                              <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                            </svg>
+                          </button>
+                        </div>
+
+                        <div className="space-y-3.5">
+                          <div>
+                            <label htmlFor="filtro-tipo" className={filterGroupLabelClass}>
+                              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                                <path d="M4 7h16M7 12h10M10 17h4" strokeLinecap="round" />
+                              </svg>
+                              Tipo de trabajo
+                            </label>
+                            <select
+                              id="filtro-tipo"
+                              value={filterTipoTrabajo}
+                              onChange={(e) => setFilterTipoTrabajo(e.target.value)}
+                              className={`${filterControlClass} ${filterTipoTrabajo ? filterControlActiveClass : ""}`}
+                            >
+                              <option value="">Todos los tipos</option>
+                              {tipoTrabajoOptions.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label htmlFor="filtro-usuario" className={filterGroupLabelClass}>
+                              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                                <path
+                                  d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM5 20c0-3.3 3.1-6 7-6s7 2.7 7 6"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                              Usuario
+                            </label>
+                            <select
+                              id="filtro-usuario"
+                              value={filterUsuario}
+                              onChange={(e) => setFilterUsuario(e.target.value)}
+                              className={`${filterControlClass} ${filterUsuario ? filterControlActiveClass : ""}`}
+                            >
+                              <option value="">Todos los usuarios</option>
+                              {usuarioOptions.map((u) => (
+                                <option key={u} value={u}>
+                                  {u}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <span className={filterGroupLabelClass}>
+                              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                                <rect x="3" y="4.5" width="18" height="16" rx="2" />
+                                <path d="M3 9h18M8 3v3M16 3v3" strokeLinecap="round" />
+                              </svg>
+                              Rango de fechas
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <label className="sr-only" htmlFor="filtro-desde">
+                                Fecha desde
+                              </label>
+                              <input
+                                id="filtro-desde"
+                                type="date"
+                                value={filterDesde}
+                                max={filterHasta || undefined}
+                                onChange={(e) => setFilterDesde(e.target.value)}
+                                onClick={openDatePicker}
+                                className={`${filterDateClass} min-w-0 flex-1 ${filterDesde ? filterControlActiveClass : ""}`}
+                              />
+                              <span className="shrink-0 text-[13px] text-[#A1A1AA]" aria-hidden>
+                                –
+                              </span>
+                              <label className="sr-only" htmlFor="filtro-hasta">
+                                Fecha hasta
+                              </label>
+                              <input
+                                id="filtro-hasta"
+                                type="date"
+                                value={filterHasta}
+                                min={filterDesde || undefined}
+                                onChange={(e) => setFilterHasta(e.target.value)}
+                                onClick={openDatePicker}
+                                className={`${filterDateClass} min-w-0 flex-1 ${filterHasta ? filterControlActiveClass : ""}`}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#E7E7EA] pt-3 dark:border-[#273244]">
+                          <button
+                            type="button"
+                            onClick={resetSecondaryFilters}
+                            disabled={!hasSecondaryFilters}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-[9px] border border-[#E7E7EA] bg-white px-3 text-[12px] font-semibold text-[#C22B2B] transition-colors hover:border-[#F0C4C4] hover:bg-[#FEF2F2] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(194,43,43,0.18)] disabled:cursor-not-allowed disabled:border-[#EDEDED] disabled:bg-transparent disabled:text-[#C4C4C8] dark:border-[#3A2A2A] dark:bg-transparent dark:text-[#F87171] dark:hover:bg-[#3F1518] dark:disabled:border-[#273244] dark:disabled:text-[#4B5563]"
+                          >
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                              <path d="M3 8a9 9 0 1 1 2 6.4" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M3 3v5h5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            Limpiar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFiltersMenuOpen(false)}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-[9px] bg-[#1B5CFF] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#1244D1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.25)] active:scale-[0.98] dark:bg-[#4B7CFF] dark:hover:bg-[#3B6AF0]"
+                          >
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                              <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            Listo
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              {/* Fila 2 — estado como control segmentado con conteos */}
+              <div className="px-4 pb-4 pt-3 sm:px-6">
+                <div
+                  role="group"
+                  aria-label="Filtrar por estado"
+                  className="flex w-full flex-wrap gap-1 rounded-[12px] border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#273244] dark:bg-[#0f172a]"
+                >
+                  {STATUS_SEGMENTS.map((seg) => {
+                    const active = filterStatus === seg.value;
+                    const count = seg.countKey ? statusCounts[seg.countKey] : rowsBeforeStatus.length;
+                    return (
+                      <button
+                        key={seg.value || "all"}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setFilterStatus(seg.value)}
+                        className={`inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-2.5 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.4)] sm:flex-none ${
+                          active
+                            ? seg.activeClass
+                            : "text-[#52525B] hover:bg-white hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
+                        }`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${seg.dotClass}`} aria-hidden />
+                        {seg.label}
+                        <span
+                          className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] tabular-nums ${
+                            active
+                              ? "bg-black/10 dark:bg-white/15"
+                              : "bg-black/[0.05] text-[#6E6E77] dark:bg-white/10 dark:text-[#8EA0B8]"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {hasSecondaryFilters && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {filterTipoTrabajo && (
+                      <FilterChip label={`Tipo: ${filterTipoTrabajo}`} onRemove={() => setFilterTipoTrabajo("")} />
+                    )}
+                    {filterUsuario && (
+                      <FilterChip label={`Usuario: ${filterUsuario}`} onRemove={() => setFilterUsuario("")} />
+                    )}
+                    {(filterDesde || filterHasta) && (
+                      <FilterChip
+                        label={
+                          filterDesde && filterHasta
+                            ? `${formatDMY(filterDesde)} – ${formatDMY(filterHasta)}`
+                            : filterDesde
+                              ? `Desde ${formatDMY(filterDesde)}`
+                              : `Hasta ${formatDMY(filterHasta)}`
+                        }
+                        onRemove={() => {
+                          setFilterDesde("");
+                          setFilterHasta("");
+                        }}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={resetSecondaryFilters}
+                      className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#C22B2B] transition-colors hover:text-[#9B1C1C] dark:text-[#F87171] dark:hover:text-[#FCA5A5]"
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                )}
               </div>
-              <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
-                Agrupadas por estado: pendientes, autorizadas y canceladas. Filtra por mes abajo.
-              </p>
             </div>
             <div className="p-2 sm:p-3">
               <CotizacionesMobileList
