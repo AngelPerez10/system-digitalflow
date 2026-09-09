@@ -7,9 +7,12 @@ import { isOrdenStatusChangeRecent, ORDEN_RECIEN_RESUELTA_BADGE_CLASS, ORDEN_REC
 import { groupOrdenesByStatus } from "../shared/ordenStatusSections";
 import {
   getOrdenPrioridadSectionStyles,
+  ordenPrioridadEfectiva,
+  ordenPrioridadEscalada,
   ordenPrioridadKey,
 } from "../shared/ordenPrioridadSections";
 import { OrdenStatusSectionHeader } from "./OrdenStatusSectionHeader";
+import { OrdenArrastreBadge } from "./OrdenArrastreBadge";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;
@@ -47,6 +50,8 @@ interface MobileOrderCardProps {
   onNotaChange?: (ordenId: number, value: string) => void;
   /** Solo admin: resalte visual si el status cambió en las últimas 48h. */
   highlightRecentStatus?: boolean;
+  /** Mes del listado (YYYY-MM) para marcar órdenes arrastradas. */
+  selectedMonth?: string;
 }
 
 export function MobileOrderCard({
@@ -64,6 +69,7 @@ export function MobileOrderCard({
   notaPdf = "",
   onNotaChange,
   highlightRecentStatus = false,
+  selectedMonth = "",
 }: MobileOrderCardProps) {
   const [showProblematicaModal, setShowProblematicaModal] = useState(false);
   const fechaInicio = orden.fecha_inicio || orden.fecha_creacion || '';
@@ -72,7 +78,11 @@ export function MobileOrderCard({
   const showRecentResolved = highlightRecentStatus && isOrdenStatusChangeRecent(orden);
   // En órdenes resueltas la prioridad de bolsa deja de mostrarse.
   const isResuelta = isOrdenResuelta(orden.status);
-  const prioKey = ordenPrioridadKey(orden.prioridad_pool);
+  // Prioridad efectiva: base + escalado automático por antigüedad (+72 h / +96 h sin resolver).
+  const prioKey = ordenPrioridadKey(
+    isResuelta ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
+  );
+  const prioEscalada = !isResuelta && ordenPrioridadEscalada(orden);
   const prioTone = getOrdenPrioridadSectionStyles(prioKey);
   const prioLabel =
     prioKey === "ALTA" ? "Alta" : prioKey === "MEDIA" ? "Media" : prioKey === "BAJA" ? "Baja" : "Sin prioridad";
@@ -89,6 +99,9 @@ export function MobileOrderCard({
           <span className="text-[13px] font-bold text-[#1B5CFF] dark:text-[#4B7CFF]">
             {folioDisplay}
           </span>
+          {selectedMonth ? (
+            <OrdenArrastreBadge orden={orden} selectedMonth={selectedMonth} />
+          ) : null}
           <span className="text-[#D3D3D8] dark:text-[#273244]">-</span>
           <span
             className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${
@@ -105,10 +118,15 @@ export function MobileOrderCard({
           {!isResuelta && (
             <span
               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${prioTone.badge}`}
-              title={`Prioridad: ${prioLabel}`}
+              title={
+                prioEscalada
+                  ? `Prioridad ${prioLabel} — escalada automáticamente por antigüedad (+72 h sin resolver)`
+                  : `Prioridad: ${prioLabel}`
+              }
             >
               <span className={`inline-block h-1.5 w-1.5 rounded-full ${prioTone.dot}`} aria-hidden />
               {prioLabel}
+              {prioEscalada && <span className="font-bold leading-none" aria-hidden>↑</span>}
             </span>
           )}
           {showRecentResolved && (
@@ -247,6 +265,8 @@ interface MobileOrderListProps {
   highlightRecentStatus?: boolean;
   /** Agrupa cards por status técnico (Pendientes → Pausados → Resueltas). */
   groupByStatus?: boolean;
+  /** Mes del listado (YYYY-MM) para badge de arrastre. */
+  selectedMonth?: string;
 }
 
 export function MobileOrderList({
@@ -265,6 +285,7 @@ export function MobileOrderList({
   onNotaChange,
   highlightRecentStatus = false,
   groupByStatus = false,
+  selectedMonth = "",
 }: MobileOrderListProps) {
   const getTecnicoNombre = (orden: any): string => {
     const tecnico = usuarios.find((u: any) => u.id === orden.tecnico_asignado);
@@ -306,6 +327,7 @@ export function MobileOrderList({
       canEdit={canEdit}
       canDelete={canDelete}
       tecnicoNombre={getTecnicoNombre(orden)}
+      selectedMonth={selectedMonth}
       notaPdf={notasMesPdf[orden.id] ?? ""}
       onNotaChange={onNotaChange}
       highlightRecentStatus={highlightRecentStatus}

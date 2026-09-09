@@ -23,6 +23,7 @@ import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { MobileOrderList } from "./list/MobileOrderCard";
+import { OrdenArrastreBadge } from "./list/OrdenArrastreBadge";
 import { OrdenStatusSectionHeader } from "./list/OrdenStatusSectionHeader";
 import { OrdenesMonthLoadingBanner } from "./list/OrdenesMonthLoadingBanner";
 import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
@@ -742,6 +743,7 @@ export default function OrdenesTecnico() {
             canDelete={canOrdenesDelete}
             usuarios={usuarios}
             groupByStatus
+            selectedMonth={selectedMonth}
           />
           <div className={"hidden md:block " + erpTableWrapClass}>
             <Table className="w-full min-w-[900px] sm:table-fixed sm:min-w-0 xl:min-w-full">
@@ -804,7 +806,12 @@ export default function OrdenesTecnico() {
                   }
                   return (
                     <TableRow key={orden.id ?? `${section.key}-${sectionIdx}`} className={erpTableRowHoverClass}>
-                      <TableCell className="px-3 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
+                      <TableCell className="px-3 py-2 whitespace-nowrap w-[90px] min-w-[80px]">
+                        <div className="flex flex-col items-start gap-1">
+                          <span>{folioDisplay}</span>
+                          <OrdenArrastreBadge orden={orden} selectedMonth={selectedMonth} />
+                        </div>
+                      </TableCell>
                       <TableCell className="px-3 py-2 text-[#09090B] dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
                         {orden.direccion && (

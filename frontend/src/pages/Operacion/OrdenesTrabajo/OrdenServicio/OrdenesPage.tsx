@@ -48,9 +48,12 @@ import {
   ORDEN_RECIEN_RESUELTA_ROW_CLASS,
   parseYearMonth,
 } from "./shared/ordenesPageUtils";
+import { OrdenArrastreBadge } from "./list/OrdenArrastreBadge";
 import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
 import {
   getOrdenPrioridadSectionStyles,
+  ordenPrioridadEfectiva,
+  ordenPrioridadEscalada,
   ordenPrioridadKey,
   sortOrdenesByPrioridad,
 } from "./shared/ordenPrioridadSections";
@@ -775,6 +778,7 @@ export default function Ordenes() {
             usuarios={usuarios}
             highlightRecentStatus={isAdmin}
             groupByStatus
+            selectedMonth={selectedMonth}
           />
           <div className={"hidden md:block " + erpTableWrapClass}>
             <Table className="w-full min-w-[1090px] table-fixed sm:min-w-0 xl:min-w-full">
@@ -828,7 +832,12 @@ export default function Ordenes() {
                   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
                   // En órdenes resueltas la prioridad de bolsa deja de ser relevante: no se muestra.
                   const isResuelta = isOrdenResuelta(orden.status);
-                  const prioKey = ordenPrioridadKey(orden.prioridad_pool);
+                  // Prioridad efectiva = base fijada por el admin, escalada por antigüedad
+                  // (+1 nivel a las 72 h sin resolver, +2 a las 96 h).
+                  const prioKey = ordenPrioridadKey(
+                    isResuelta ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
+                  );
+                  const prioEscalada = !isResuelta && ordenPrioridadEscalada(orden);
                   const prioTone = getOrdenPrioridadSectionStyles(prioKey);
                   const prioShort =
                     prioKey === "ALTA" ? "Alta"
@@ -853,7 +862,12 @@ export default function Ordenes() {
                       className={`${erpTableRowHoverClass} ${recentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isResuelta ? "" : prioTone.rowAccent}`}
                       aria-label={`Orden ${folioDisplay}${isResuelta ? "" : `, ${prioAria}`}${recentResolved ? ", resuelta recientemente" : ""}`}
                     >
-                      <TableCell className="px-3 py-2 whitespace-nowrap w-[90px] min-w-[80px] font-medium tabular-nums">{folioDisplay}</TableCell>
+                      <TableCell className="px-3 py-2 whitespace-nowrap w-[90px] min-w-[80px] font-medium tabular-nums">
+                        <div className="flex flex-col items-start gap-1">
+                          <span>{folioDisplay}</span>
+                          <OrdenArrastreBadge orden={orden} selectedMonth={selectedMonth} />
+                        </div>
+                      </TableCell>
                       <TableCell className="px-3 py-2 text-[#09090B] dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
                         {orden.direccion && (
@@ -972,10 +986,17 @@ export default function Ordenes() {
                               <span className="inline-flex items-stretch overflow-hidden whitespace-nowrap rounded-full text-[10px] font-semibold leading-none ring-1 ring-inset ring-black/[0.06] dark:ring-white/10">
                                 <span
                                   className={`flex items-center gap-1 px-1.5 py-[3px] ${prioTone.cap}`}
-                                  title={`Prioridad ${prioShort}`}
+                                  title={
+                                    prioEscalada
+                                      ? `Prioridad ${prioShort} — escalada automáticamente por antigüedad (+72 h sin resolver)`
+                                      : `Prioridad ${prioShort}`
+                                  }
                                 >
                                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${prioTone.dot}`} aria-hidden />
                                   {prioShort}
+                                  {prioEscalada && (
+                                    <span className="font-bold leading-none" aria-hidden title="Escalada por antigüedad">↑</span>
+                                  )}
                                 </span>
                                 <span className={`px-2 py-[3px] ${statusPill}`} title={statusTitle}>
                                   {statusLabel}

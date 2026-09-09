@@ -47,7 +47,7 @@ export class OrdenesFetchError extends Error {
  */
 export async function fetchOrdenesMes(
   mes: string,
-  opts: { signal?: AbortSignal } = {},
+  opts: { signal?: AbortSignal; arrastreAbiertas?: boolean } = {},
 ): Promise<Orden[]> {
   const acc: Orden[] = [];
 
@@ -58,6 +58,9 @@ export async function fetchOrdenesMes(
       page_size: String(ORDENES_PAGE_SIZE),
       _ts: String(Date.now()),
     });
+    if (opts.arrastreAbiertas) {
+      params.set("arrastre_abiertas", "1");
+    }
 
     const res = await fetchApi(`/api/ordenes/?${params.toString()}`, {
       cache: "no-store" as RequestCache,

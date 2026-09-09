@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from .equipos_inventario import normalize_equipos_payload
 from .models import Orden, OrdenInstalacion, OrdenLevantamiento, ReporteSemanal
+from .prioridad import prioridad_pool_efectiva
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,13 @@ class OrdenSerializer(serializers.ModelSerializer):
     # interno (staff/superuser): el técnico no debe ver ni la nota ni el
     # comentario del cliente sobre su propio trabajo.
     calificacion_cliente = serializers.SerializerMethodField()
+    # Prioridad de bolsa escalada por antigüedad (derivada, no se persiste).
+    prioridad_pool_efectiva = serializers.SerializerMethodField()
+
+    def get_prioridad_pool_efectiva(self, obj):
+        return prioridad_pool_efectiva(
+            obj.prioridad_pool, obj.fecha_creacion, obj.status
+        )
 
     def validate_folio(self, value):
         if isinstance(value, str) and value.strip() == '':
@@ -245,6 +253,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'status_changed_at',
             'prioridad',
             'prioridad_pool',
+            'prioridad_pool_efectiva',
             'en_pool',
             'liberada_por',
             'liberada_at',
@@ -307,6 +316,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'equipos_inventario_entregados',
             'equipos_inventario_instalados',
             'calificacion_cliente',
+            'prioridad_pool_efectiva',
             'creado_por',
             'creado_por_username',
             'creado_por_full_name',
@@ -361,6 +371,7 @@ class OrdenListSerializer(OrdenSerializer):
             'status_changed_at',
             'prioridad',
             'prioridad_pool',
+            'prioridad_pool_efectiva',
             'en_pool',
             'liberada_por',
             'liberada_at',
@@ -400,6 +411,7 @@ class OrdenListSerializer(OrdenSerializer):
             'levantamiento_tipo',
             'cliente_nombre',
             'calificacion_cliente',
+            'prioridad_pool_efectiva',
             'tecnico_asignado_username',
             'tecnico_asignado_full_name',
             'tecnico_asignado_avatar_url',

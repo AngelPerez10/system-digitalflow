@@ -98,4 +98,23 @@ describe("fetchOrdenesMes", () => {
     expect(rows).toHaveLength(2);
     expect(mockFetchApi).toHaveBeenCalledTimes(2);
   });
+
+  it("con arrastreAbiertas añade arrastre_abiertas=1 a la query", async () => {
+    mockFetchApi.mockResolvedValueOnce(jsonResponse([row(1)]));
+
+    await fetchOrdenesMes("2026-09", { arrastreAbiertas: true });
+
+    const url = String(mockFetchApi.mock.calls[0]?.[0] ?? "");
+    expect(url).toContain("mes=2026-09");
+    expect(url).toContain("arrastre_abiertas=1");
+  });
+
+  it("sin arrastreAbiertas no manda el param", async () => {
+    mockFetchApi.mockResolvedValueOnce(jsonResponse([row(1)]));
+
+    await fetchOrdenesMes("2026-09");
+
+    const url = String(mockFetchApi.mock.calls[0]?.[0] ?? "");
+    expect(url).not.toContain("arrastre_abiertas");
+  });
 });

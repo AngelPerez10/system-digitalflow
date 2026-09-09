@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Case, Exists, F, IntegerField, OuterRef, Q, Subquery, When
+from django.db.models import Exists, F, OuterRef, Q, Subquery
 from django.db.models.fields.json import KeyTextTransform
 from django.http import HttpResponse
 from django.utils import timezone
@@ -72,6 +72,7 @@ from apps.users.permissions import (
 )
 
 from .models import Orden, OrdenInstalacion, OrdenLevantamiento, ReporteSemanal
+from .prioridad import PRIORIDAD_NIVEL, orden_prioridad_pool_efectiva
 from .serializers import (
     OrdenInstalacionSerializer,
     OrdenLevantamientoSerializer,
@@ -83,6 +84,9 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
+# Piso del arrastre de abiertas al mes actual: junio 2026 y antes no se listan.
+ARRASTRE_ABIERTAS_DESDE = date(2026, 7, 1)
 
 
 def _apply_resuelto_cierre_fechas(data: dict, instance=None) -> dict:
@@ -703,7 +707,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         return qs
 
     def _apply_list_filters(self, qs):
-        """Filtros opcionales de listado: mes=YYYY-MM, tipo_orden=..."""
+        """Filtros opcionales de listado: mes=YYYY-MM, tipo_orden=..., arrastre_abiertas=1."""
         request = getattr(self, 'request', None)
         if request is None:
             return qs
@@ -717,25 +721,40 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 start = date(year, month, 1)
                 end = date(year, month, monthrange(year, month)[1])
                 # Evitar fecha_creacion__date (no usa índice): rango DateTime half-open.
-                start_naive = datetime.combine(start, time.min)
-                end_exclusive_naive = datetime.combine(end + timedelta(days=1), time.min)
-                if timezone.get_default_timezone_name() and timezone.is_aware(
-                    timezone.now()
-                ):
-                    tz = timezone.get_current_timezone()
-                    start_dt = timezone.make_aware(start_naive, tz)
-                    end_exclusive = timezone.make_aware(end_exclusive_naive, tz)
-                else:
-                    start_dt = start_naive
-                    end_exclusive = end_exclusive_naive
-                qs = qs.filter(
-                    Q(fecha_inicio__gte=start, fecha_inicio__lte=end)
-                    | Q(
-                        fecha_inicio__isnull=True,
-                        fecha_creacion__gte=start_dt,
-                        fecha_creacion__lt=end_exclusive,
-                    )
+
+                def _aware_midnight(d: date):
+                    naive = datetime.combine(d, time.min)
+                    if timezone.get_default_timezone_name() and timezone.is_aware(
+                        timezone.now()
+                    ):
+                        return timezone.make_aware(naive, timezone.get_current_timezone())
+                    return naive
+
+                start_dt = _aware_midnight(start)
+                end_exclusive = _aware_midnight(end + timedelta(days=1))
+                month_q = Q(fecha_inicio__gte=start, fecha_inicio__lte=end) | Q(
+                    fecha_inicio__isnull=True,
+                    fecha_creacion__gte=start_dt,
+                    fecha_creacion__lt=end_exclusive,
                 )
+
+                # Arrastre al mes actual: pendiente/pausado desde julio 2026
+                # (junio y antes quedan fuera). Solo listado; PDF no manda el param.
+                arrastre = (params.get('arrastre_abiertas') or '').strip()
+                if arrastre == '1' and start > ARRASTRE_ABIERTAS_DESDE:
+                    floor = ARRASTRE_ABIERTAS_DESDE
+                    floor_dt = _aware_midnight(floor)
+                    carry_q = Q(status__in=('pendiente', 'pausado')) & (
+                        Q(fecha_inicio__gte=floor, fecha_inicio__lt=start)
+                        | Q(
+                            fecha_inicio__isnull=True,
+                            fecha_creacion__gte=floor_dt,
+                            fecha_creacion__lt=start_dt,
+                        )
+                    )
+                    qs = qs.filter(month_q | carry_q)
+                else:
+                    qs = qs.filter(month_q)
 
         tipo = (params.get('tipo_orden') or '').strip().lower()
         if tipo == 'levantamiento':
@@ -2009,22 +2028,21 @@ class OrdenViewSet(viewsets.ModelViewSet):
         NO usa `get_queryset()` a propósito: así el filtro own_only no aplica y
         todo técnico con permiso de ver órdenes ve la bolsa completa.
         """
-        qs = (
+        ahora = timezone.now()
+        ordenes = list(
             Orden.objects.filter(en_pool=True)
             .select_related('cliente_id', 'liberada_por', 'creado_por', 'tecnico_asignado')
-            .order_by(
-                Case(
-                    When(prioridad_pool='alta', then=0),
-                    When(prioridad_pool='media', then=1),
-                    When(prioridad_pool='baja', then=2),
-                    default=1,
-                    output_field=IntegerField(),
-                ),
-                'liberada_at',
+        )
+        # Ordena por prioridad EFECTIVA (base + escalado por antigüedad): primero
+        # alta, luego media, luego baja; a igualdad, la liberada hace más tiempo.
+        ordenes.sort(
+            key=lambda o: (
+                2 - PRIORIDAD_NIVEL.get(orden_prioridad_pool_efectiva(o, ahora), 1),
+                o.liberada_at or ahora,
             )
         )
         return Response(
-            OrdenListSerializer(qs, many=True, context=self.get_serializer_context()).data
+            OrdenListSerializer(ordenes, many=True, context=self.get_serializer_context()).data
         )
 
     @action(

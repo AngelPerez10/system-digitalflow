@@ -69,6 +69,50 @@ export function parseYearMonth(value: string) {
   return { year, month };
 }
 
+const MES_NOMBRE_ES = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+] as const;
+
+/** Prefijo YYYY-MM de la fecha de la orden (inicio o creación). */
+export function ordenMesKey(orden: {
+  fecha_inicio?: string | null;
+  fecha_creacion?: string | null;
+}): string {
+  const base = (orden.fecha_inicio || orden.fecha_creacion || "").toString();
+  return base.length >= 7 ? base.slice(0, 7) : "";
+}
+
+/** Orden arrastrada: pertenece a un mes distinto al listado seleccionado. */
+export function isOrdenArrastre(
+  orden: { fecha_inicio?: string | null; fecha_creacion?: string | null },
+  selectedMonth: string,
+): boolean {
+  const key = ordenMesKey(orden);
+  const mes = (selectedMonth || "").trim();
+  return Boolean(key && mes && key !== mes);
+}
+
+/** Etiqueta legible del mes original (p. ej. «julio 2026»). */
+export function labelMesOrden(orden: {
+  fecha_inicio?: string | null;
+  fecha_creacion?: string | null;
+}): string {
+  const parsed = parseYearMonth(ordenMesKey(orden));
+  if (!parsed) return "mes anterior";
+  return `${MES_NOMBRE_ES[parsed.month - 1]} ${parsed.year}`;
+}
+
 export function isGoogleMapsUrl(value: string | null | undefined) {
   if (!value) return false;
   const s = String(value).trim();

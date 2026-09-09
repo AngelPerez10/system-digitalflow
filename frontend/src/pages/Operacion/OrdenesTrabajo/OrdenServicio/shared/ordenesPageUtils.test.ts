@@ -3,7 +3,9 @@ import {
   ORDEN_STATUS_CHANGE_RECENT_MS,
   displayOrdenUserName,
   formatIsoDateTime,
+  isOrdenArrastre,
   isOrdenStatusChangeRecent,
+  labelMesOrden,
 } from "./ordenesPageUtils";
 
 describe("displayOrdenUserName", () => {
@@ -71,5 +73,13 @@ describe("isOrdenStatusChangeRecent", () => {
   it("returns false for future timestamps", () => {
     const future = new Date(now + 60_000).toISOString();
     expect(isOrdenStatusChangeRecent({ status: "resuelto", status_changed_at: future }, now)).toBe(false);
+  });
+});
+
+describe("isOrdenArrastre / labelMesOrden", () => {
+  it("detecta arrastre cuando el mes de la orden no coincide", () => {
+    expect(isOrdenArrastre({ fecha_inicio: "2026-07-10" }, "2026-09")).toBe(true);
+    expect(isOrdenArrastre({ fecha_inicio: "2026-09-02" }, "2026-09")).toBe(false);
+    expect(labelMesOrden({ fecha_inicio: "2026-07-10" })).toBe("julio 2026");
   });
 });

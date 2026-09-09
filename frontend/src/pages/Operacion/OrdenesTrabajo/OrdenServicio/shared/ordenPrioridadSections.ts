@@ -12,7 +12,59 @@ export type OrdenPrioridadSectionKey = "ALTA" | "MEDIA" | "BAJA" | "SIN";
 export type OrdenPrioridadRow = {
   status?: string | null;
   prioridad_pool?: string | null;
+  fecha_creacion?: string | null;
 };
+
+/* --------------------------------------------------------------------------
+   Escalado automático de prioridad por antigüedad
+   -------------------------------------------------------------------------- */
+
+/** Horas desde la creación para escalar +1 y +2 niveles la prioridad de bolsa. */
+export const PRIORIDAD_ESCALA_1_HORAS = 72;
+export const PRIORIDAD_ESCALA_2_HORAS = 96;
+
+const NIVEL_PRIORIDAD = ["baja", "media", "alta"] as const;
+type NivelPrioridad = (typeof NIVEL_PRIORIDAD)[number];
+
+/**
+ * Prioridad de bolsa **efectiva**: la que fijó el admin, escalada
+ * automáticamente si la orden lleva demasiado tiempo sin resolverse
+ * (contado desde `fecha_creacion`):
+ *  - < 72 h            → prioridad base
+ *  - 72 h – 96 h       → +1 nivel (baja→media, media→alta)
+ *  - ≥ 96 h            → +2 niveles (→ alta)
+ * No escala si la orden ya está resuelta, si no hay fecha válida, o si la base
+ * no es una de {baja, media, alta}.
+ */
+export function prioridadPoolEfectiva(
+  base: unknown,
+  fechaCreacion: string | null | undefined,
+  status: unknown,
+  now: number = Date.now(),
+): string {
+  const baseKey = normalizeStatus(base);
+  const nivel = NIVEL_PRIORIDAD.indexOf(baseKey as NivelPrioridad);
+  if (nivel < 0) return baseKey;
+  if (isOrdenResuelta(status)) return baseKey;
+  const creado = fechaCreacion ? Date.parse(String(fechaCreacion)) : NaN;
+  if (!Number.isFinite(creado)) return baseKey;
+  const horas = (now - creado) / 3_600_000;
+  const pasos = horas >= PRIORIDAD_ESCALA_2_HORAS ? 2 : horas >= PRIORIDAD_ESCALA_1_HORAS ? 1 : 0;
+  return NIVEL_PRIORIDAD[Math.min(2, nivel + pasos)];
+}
+
+/** Prioridad efectiva a partir de una fila del listado. */
+export function ordenPrioridadEfectiva(orden: OrdenPrioridadRow, now?: number): string {
+  return prioridadPoolEfectiva(orden.prioridad_pool, orden.fecha_creacion, orden.status, now);
+}
+
+/** true si la antigüedad ya subió la prioridad por encima de la base fijada. */
+export function ordenPrioridadEscalada(orden: OrdenPrioridadRow, now?: number): boolean {
+  return (
+    !isOrdenResuelta(orden.status) &&
+    ordenPrioridadKey(ordenPrioridadEfectiva(orden, now)) !== ordenPrioridadKey(orden.prioridad_pool)
+  );
+}
 
 export type OrdenPrioridadSection<T extends OrdenPrioridadRow = OrdenPrioridadRow> = {
   key: OrdenPrioridadSectionKey;
@@ -61,14 +113,18 @@ export function ordenEsVisibleEnListado(
 }
 
 /**
- * Ordena por prioridad (Alta → Baja → Sin) de forma estable: dentro de cada
- * nivel conserva el orden de entrada (que ya viene por fecha desc).
+ * Ordena por prioridad **efectiva** (Alta → Baja → Sin) de forma estable: dentro
+ * de cada nivel conserva el orden de entrada (que ya viene por fecha desc).
+ * Usa la prioridad escalada por antigüedad, no solo la base fijada por el admin.
  */
 export function sortOrdenesByPrioridad<T extends OrdenPrioridadRow>(list: T[]): T[] {
+  const now = Date.now();
   return list
     .map((orden, index) => ({ orden, index }))
     .sort((a, b) => {
-      const byRank = ordenPrioridadRank(a.orden.prioridad_pool) - ordenPrioridadRank(b.orden.prioridad_pool);
+      const byRank =
+        ordenPrioridadRank(ordenPrioridadEfectiva(a.orden, now)) -
+        ordenPrioridadRank(ordenPrioridadEfectiva(b.orden, now));
       return byRank !== 0 ? byRank : a.index - b.index;
     })
     .map((entry) => entry.orden);

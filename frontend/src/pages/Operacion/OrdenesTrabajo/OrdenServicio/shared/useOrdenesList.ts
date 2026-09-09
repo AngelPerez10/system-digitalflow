@@ -124,7 +124,9 @@ export function useOrdenesList(opts: {
   const fetchOrdenes = useCallback(async () => {
     const generation = ++fetchGenerationRef.current;
     const mes = selectedMonth || getCurrentYearMonth();
-    const hadCache = monthCacheRef.current.has(mes);
+    const withArrastre = mes === getCurrentYearMonth();
+    const cacheKey = withArrastre ? `${mes}:arrastre` : mes;
+    const hadCache = monthCacheRef.current.has(cacheKey);
     try {
       if (!canView) {
         if (generation === fetchGenerationRef.current) {
@@ -142,17 +144,20 @@ export function useOrdenesList(opts: {
 
       // Trae el mes completo; con el backend paginado son páginas de 200 que
       // `fetchOrdenesMes` va concatenando (una sola petición en un mes normal).
-      const rows = await fetchOrdenesMes(mes);
+      // Solo el mes calendario actual pide arrastre de pendiente/pausado.
+      const rows = await fetchOrdenesMes(mes, { arrastreAbiertas: withArrastre });
 
       if (generation !== fetchGenerationRef.current) return;
 
       const logLabel = variant === "admin" ? "OrdenesPage" : "OrdenesTecnicoPage";
-      console.debug(`[${logLabel}] fetchOrdenes mes=${mes} count=${rows.length}`);
-      monthCacheRef.current.set(mes, rows);
+      console.debug(
+        `[${logLabel}] fetchOrdenes mes=${mes} arrastre=${withArrastre} count=${rows.length}`,
+      );
+      monthCacheRef.current.set(cacheKey, rows);
       setOrdenes(rows);
       setLoadedMonth(mes);
 
-      // Prefetch del mes anterior para que “atrás” sea instantáneo.
+      // Prefetch del mes anterior para que “atrás” sea instantáneo (sin arrastre).
       const [yStr, mStr] = mes.split("-");
       const y = Number(yStr);
       const m = Number(mStr);
@@ -182,7 +187,7 @@ export function useOrdenesList(opts: {
       } else {
         console.error("Error al cargar órdenes:", httpStatus || error);
       }
-      if (!monthCacheRef.current.has(mes)) {
+      if (!monthCacheRef.current.has(cacheKey)) {
         setOrdenes([]);
         setLoadedMonth(null);
       }
@@ -197,7 +202,9 @@ export function useOrdenesList(opts: {
   const selectMonth = useCallback((mes: string) => {
     const next = (mes || "").trim() || getCurrentYearMonth();
     fetchGenerationRef.current += 1;
-    const cached = monthCacheRef.current.get(next);
+    const withArrastre = next === getCurrentYearMonth();
+    const cacheKey = withArrastre ? `${next}:arrastre` : next;
+    const cached = monthCacheRef.current.get(cacheKey);
     setSelectedMonth(next);
     if (cached) {
       setOrdenes(cached);
