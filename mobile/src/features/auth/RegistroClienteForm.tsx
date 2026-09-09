@@ -16,7 +16,6 @@ import { toUserMessage } from '@/api/errors';
 import { AppButton } from '@/components/AppButton';
 import { AuthHero } from '@/components/AuthHero';
 import { BrandMark } from '@/components/Brand';
-import { Colapsable } from '@/components/Colapsable';
 import { IconChevron } from '@/components/icons';
 import { InlineError } from '@/components/StateViews';
 import { SubmitButton } from '@/components/SubmitButton';
@@ -24,12 +23,8 @@ import { TextField } from '@/components/TextField';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getApiConfigError } from '@/config/env';
 import { useTheme } from '@/theme/ThemeProvider';
-import { elevationFor, font, radius, spacing, type } from '@/theme/tokens';
-import {
-  TERMINOS_SERVICIO_CIERRE,
-  TERMINOS_SERVICIO_PARRAFOS,
-  TERMINOS_SERVICIO_TITULO,
-} from './terminosServicio';
+import { elevationFor, font, spacing, type } from '@/theme/tokens';
+import { TerminosModal } from './TerminosModal';
 
 function Palomita({ color, size = 14 }: { color: string; size?: number }) {
   return (
@@ -38,21 +33,6 @@ function Palomita({ color, size = 14 }: { color: string; size?: number }) {
         d="M5 12.5 10 17l9-10"
         stroke={color}
         strokeWidth={2.6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-/** Cheurón hacia abajo del bloque de términos; gira 180° al abrirse. */
-function Caret({ color, size = 16 }: { color: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M6 9.5 12 15l6-5.5"
-        stroke={color}
-        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -76,7 +56,7 @@ export function RegistroClienteForm() {
   const [email, setEmail] = useState('');
   const [telefono, setTelefono] = useState('');
   const [acepto, setAcepto] = useState(false);
-  const [verTerminos, setVerTerminos] = useState(false);
+  const [modalTerminos, setModalTerminos] = useState(false);
 
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -246,51 +226,10 @@ export function RegistroClienteForm() {
                   />
                 </View>
 
-                <View
-                  style={[
-                    styles.terminos,
-                    { borderColor: colors.line, backgroundColor: colors.surfaceSunken },
-                  ]}
-                >
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: verTerminos }}
-                    accessibilityLabel={TERMINOS_SERVICIO_TITULO}
-                    accessibilityHint={
-                      verTerminos
-                        ? 'Oculta el texto completo de los términos'
-                        : 'Muestra el texto completo de los términos'
-                    }
-                    onPress={() => setVerTerminos((v) => !v)}
-                    hitSlop={6}
-                    style={({ pressed }) => [
-                      styles.terminosCabecera,
-                      pressed ? styles.terminosPressed : null,
-                    ]}
-                  >
-                    <Text style={[styles.terminosTitulo, { color: colors.ink }]}>
-                      {TERMINOS_SERVICIO_TITULO}
-                    </Text>
-                    <View style={{ transform: [{ rotate: verTerminos ? '180deg' : '0deg' }] }}>
-                      <Caret color={colors.inkSubtle} />
-                    </View>
-                  </Pressable>
-
-                  <Colapsable abierto={verTerminos}>
-                    <View style={[styles.terminosCuerpo, { borderTopColor: colors.line }]}>
-                      {TERMINOS_SERVICIO_PARRAFOS.map((parrafo, i) => (
-                        <Text key={i} style={[styles.terminosParrafo, { color: colors.inkMuted }]}>
-                          {parrafo}
-                        </Text>
-                      ))}
-                    </View>
-                  </Colapsable>
-                </View>
-
                 <Pressable
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: acepto }}
-                  accessibilityLabel="Acepto el aviso de privacidad y los términos de servicio en sitio"
+                  accessibilityLabel="He leído y acepto los términos del servicio en sitio y el aviso de privacidad"
                   onPress={() => setAcepto((v) => !v)}
                   hitSlop={6}
                   style={styles.check}
@@ -307,14 +246,28 @@ export function RegistroClienteForm() {
                     {acepto ? <Palomita color="#FFFFFF" size={13} /> : null}
                   </View>
                   <Text style={[styles.checkTexto, { color: colors.inkMuted }]}>
-                    Acepto el aviso de privacidad, el tratamiento de mis datos y los términos de
-                    servicio en sitio descritos arriba.
+                    He leído y acepto los{' '}
+                    <Text
+                      accessibilityRole="link"
+                      accessibilityHint="Abre los términos del servicio en sitio"
+                      onPress={() => setModalTerminos(true)}
+                      suppressHighlighting
+                      style={[styles.checkEnlace, { color: colors.primary }]}
+                    >
+                      términos del servicio en sitio
+                    </Text>{' '}
+                    y el{' '}
+                    <Text style={[styles.checkTextoFuerte, { color: colors.ink }]}>
+                      aviso de privacidad
+                    </Text>
+                    .
                   </Text>
                 </Pressable>
 
-                <Text style={[styles.terminosCierre, { color: colors.inkSubtle }]}>
-                  {TERMINOS_SERVICIO_CIERRE}
-                </Text>
+                <TerminosModal
+                  visible={modalTerminos}
+                  onClose={() => setModalTerminos(false)}
+                />
 
                 <View style={styles.botonBloque}>
                   <SubmitButton
@@ -369,32 +322,15 @@ const styles = StyleSheet.create({
   sheetAyuda: { ...type.caption, marginTop: 4, lineHeight: 18 },
   avisos: { gap: spacing.md, marginBottom: spacing.lg },
   campos: { gap: spacing.lg },
-  terminos: {
-    marginTop: spacing.xl,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-  },
-  terminosCabecera: {
+  check: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xl,
   },
-  terminosPressed: { opacity: 0.6 },
-  terminosTitulo: { ...type.label, flex: 1 },
-  terminosCuerpo: {
-    borderTopWidth: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
-    gap: spacing.md,
-  },
-  terminosParrafo: { ...type.caption, lineHeight: 19 },
-  terminosCierre: { ...type.caption, fontSize: 12, lineHeight: 17, marginTop: spacing.md },
-  check: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, marginTop: spacing.xl },
+  checkTextoFuerte: { fontFamily: font.medium },
+  // Enlace azul dentro de la casilla: abre el modal con el texto completo.
+  checkEnlace: { fontFamily: font.medium, textDecorationLine: 'underline' },
   checkCaja: {
     width: 22,
     height: 22,

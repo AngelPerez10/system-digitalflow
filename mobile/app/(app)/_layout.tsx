@@ -8,6 +8,7 @@ import { canViewModule } from '@/auth/permissions';
 import { AppButton } from '@/components/AppButton';
 import { AppNavbar } from '@/components/AppNavbar';
 import { LoadingState } from '@/components/StateViews';
+import { PushProvider } from '@/notifications/PushProvider';
 import {
   animationDurationMs,
   pushAnimation,
@@ -54,55 +55,57 @@ export default function AppLayout() {
   const sheet = sheetAnimation(reduced);
 
   return (
-    <View style={[styles.shell, { backgroundColor: colors.canvas }]}>
-      {mostrarNavbar ? (
-        <AppNavbar
-          nombreUsuario={nombre}
-          onIrInicio={() => router.replace('/ordenes')}
-          onCerrarSesion={() => void signOut()}
-        />
-      ) : null}
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: colors.canvas },
-          headerTintColor: colors.ink,
-          headerShadowVisible: false,
-          headerTitleStyle: type.bodyMedium,
-          contentStyle: { backgroundColor: colors.canvas },
-          headerBackTitle: 'Atrás',
-          gestureEnabled: true,
-          fullScreenGestureEnabled: true,
-          animation: push,
-          animationDuration: animationDurationMs('push', reduced),
-        }}
-      >
-        <Stack.Screen name="ordenes/index" options={{ headerShown: false, animation: 'none' }} />
-        <Stack.Screen
-          name="ordenes/pool"
-          options={{
-            headerShown: false,
+    <PushProvider>
+      <View style={[styles.shell, { backgroundColor: colors.canvas }]}>
+        {mostrarNavbar ? (
+          <AppNavbar
+            nombreUsuario={nombre}
+            onIrInicio={() => router.replace('/ordenes')}
+            onCerrarSesion={() => void signOut()}
+          />
+        ) : null}
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.canvas },
+            headerTintColor: colors.ink,
+            headerShadowVisible: false,
+            headerTitleStyle: type.bodyMedium,
+            contentStyle: { backgroundColor: colors.canvas },
+            headerBackTitle: 'Atrás',
+            gestureEnabled: true,
+            fullScreenGestureEnabled: true,
             animation: push,
             animationDuration: animationDurationMs('push', reduced),
           }}
-        />
-        <Stack.Screen
-          name="ordenes/[id]/index"
-          options={{
-            headerShown: false,
-            animation: push,
-            animationDuration: animationDurationMs('push', reduced),
-          }}
-        />
-        <Stack.Screen
-          name="ordenes/[id]/editar"
-          options={{
-            headerShown: false,
-            animation: sheet,
-            animationDuration: animationDurationMs('sheet', reduced),
-          }}
-        />
-      </Stack>
-    </View>
+        >
+          <Stack.Screen name="ordenes/index" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen
+            name="ordenes/pool"
+            options={{
+              headerShown: false,
+              animation: push,
+              animationDuration: animationDurationMs('push', reduced),
+            }}
+          />
+          <Stack.Screen
+            name="ordenes/[id]/index"
+            options={{
+              headerShown: false,
+              animation: push,
+              animationDuration: animationDurationMs('push', reduced),
+            }}
+          />
+          <Stack.Screen
+            name="ordenes/[id]/editar"
+            options={{
+              headerShown: false,
+              animation: sheet,
+              animationDuration: animationDurationMs('sheet', reduced),
+            }}
+          />
+        </Stack>
+      </View>
+    </PushProvider>
   );
 }
 

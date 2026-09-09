@@ -16,8 +16,9 @@ import { OrdenesSkeletonList } from '@/features/orders/components/OrdenCardSkele
 import { OrdenesHero } from '@/features/orders/components/OrdenesHero';
 import { useOrdenes } from '@/features/orders/useOrdenes';
 import { statusSolid } from '@/features/orders/ordenFormat';
+import { usePush } from '@/notifications/PushProvider';
 import { useTheme } from '@/theme/ThemeProvider';
-import { spacing, type } from '@/theme/tokens';
+import { font, radius, spacing, type } from '@/theme/tokens';
 import type { OrdenListItem } from '@/types/orden';
 
 function Lupa({ color }: { color: string }) {
@@ -43,6 +44,7 @@ export default function OrdenesScreen() {
   const router = useRouter();
   const { user } = useSession();
   const { colors, scheme } = useTheme();
+  const { disponiblesSinVer } = usePush();
   const {
     mes, setMes, busqueda, setBusqueda, secciones, total,
     cargando, refrescando, error, recargar,
@@ -55,14 +57,34 @@ export default function OrdenesScreen() {
 
   const cargaInicial = cargando && total === 0 && !error;
 
+  const hayAviso = disponiblesSinVer > 0;
   const buscador = (
     <View style={styles.controles}>
-      <AppButton
-        label="Órdenes disponibles"
-        variant="secondary"
-        onPress={() => router.push('/ordenes/pool')}
-        accessibilityHint="Ver la bolsa de órdenes que otros técnicos liberaron"
-      />
+      <View>
+        <AppButton
+          label="Órdenes disponibles"
+          variant="secondary"
+          onPress={() => router.push('/ordenes/pool')}
+          accessibilityHint={
+            hayAviso
+              ? `${disponiblesSinVer} orden${disponiblesSinVer === 1 ? '' : 'es'} nueva${
+                  disponiblesSinVer === 1 ? '' : 's'
+                } liberada${disponiblesSinVer === 1 ? '' : 's'} por otros técnicos`
+              : 'Ver las órdenes que otros técnicos liberaron'
+          }
+        />
+        {hayAviso ? (
+          <View
+            style={[styles.badge, { backgroundColor: colors.primary, borderColor: colors.surface }]}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <Text style={[styles.badgeTexto, { color: colors.onPrimary }]}>
+              {disponiblesSinVer > 9 ? '9+' : disponiblesSinVer}
+            </Text>
+          </View>
+        ) : null}
+      </View>
       <TextField
         label="Buscar"
         value={busqueda}
@@ -162,6 +184,19 @@ const styles = StyleSheet.create({
   },
   lista: { padding: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.xxl, flexGrow: 1 },
   controles: { gap: spacing.md, marginBottom: spacing.sm },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    borderRadius: radius.pill,
+    borderWidth: 2,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeTexto: { ...type.caption, fontSize: 11, fontFamily: font.semibold, lineHeight: 14 },
   pie: { marginTop: spacing.lg },
   seccionRow: {
     flexDirection: 'row',

@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError, toUserMessage } from '@/api/errors';
@@ -12,20 +12,32 @@ import { EmptyState, InlineError } from '@/components/StateViews';
 import { OrdenesSkeletonList } from '@/features/orders/components/OrdenCardSkeleton';
 import { PoolOrdenCard } from '@/features/orders/components/PoolOrdenCard';
 import { useOrdenesPool } from '@/features/orders/useOrdenesPool';
+import { usePush } from '@/notifications/PushProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 import { font, spacing, type } from '@/theme/tokens';
 import type { OrdenListItem } from '@/types/orden';
 
 /**
- * Bolsa de órdenes disponibles ("Uber"): órdenes que otro técnico —o un admin—
- * liberó. La ven todos los técnicos; el primero que toca "Tomar" se la queda.
+ * Órdenes disponibles ("Uber"): órdenes que otro técnico —o un admin— liberó.
+ * Las ven todos los técnicos; el primero que toca "Tomar" se la queda.
  */
 export default function PoolOrdenesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, scheme } = useTheme();
   const { ordenes, cargando, refrescando, error, recargar, quitar } = useOrdenesPool();
+  const { marcarDisponiblesVistas, setPantallaDisponiblesActiva } = usePush();
   const [tomandoId, setTomandoId] = useState<number | null>(null);
+
+  // Al abrir (o volver a) esta pantalla el badge se pone a cero, y mientras
+  // esté enfocada las notificaciones no vuelven a sumarle.
+  useFocusEffect(
+    useCallback(() => {
+      marcarDisponiblesVistas();
+      setPantallaDisponiblesActiva(true);
+      return () => setPantallaDisponiblesActiva(false);
+    }, [marcarDisponiblesVistas, setPantallaDisponiblesActiva]),
+  );
 
   const cargaInicial = cargando && ordenes.length === 0 && !error;
 
@@ -114,7 +126,7 @@ export default function PoolOrdenesScreen() {
                 </View>
               ) : (
                 <EmptyState
-                  title="No hay órdenes en la bolsa"
+                  title="No hay órdenes disponibles"
                   description="Cuando un técnico libere una orden, aparecerá aquí. Desliza para actualizar."
                 />
               )

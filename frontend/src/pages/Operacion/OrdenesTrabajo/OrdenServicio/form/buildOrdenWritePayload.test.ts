@@ -100,6 +100,37 @@ describe("buildOrdenWritePayload", () => {
     expect(payload.firma_encargado_url).toBeNull();
   });
 
+  it("sends null for tecnico_asignado so update can unassign", () => {
+    const payload = buildOrdenWritePayload({
+      formData: { ...baseForm, tecnico_asignado: null },
+      variant: "admin",
+      isAdmin: true,
+      isUpdate: true,
+    });
+    expect(payload).toHaveProperty("tecnico_asignado", null);
+  });
+
+  it("keeps numeric tecnico_asignado when assigned", () => {
+    const payload = buildOrdenWritePayload({
+      formData: { ...baseForm, tecnico_asignado: 42 },
+      variant: "admin",
+      isAdmin: true,
+      isUpdate: true,
+    });
+    expect(payload.tecnico_asignado).toBe(42);
+  });
+
+  it("sends null for quien_instalo and quien_entrego when cleared", () => {
+    const payload = buildOrdenWritePayload({
+      formData: { ...baseForm, quien_instalo: null, quien_entrego: null },
+      variant: "admin",
+      isAdmin: true,
+      isUpdate: true,
+    });
+    expect(payload).toHaveProperty("quien_instalo", null);
+    expect(payload).toHaveProperty("quien_entrego", null);
+  });
+
   it("includes equipos_inventario from formData", () => {
     const payload = buildOrdenWritePayload({
       formData: {

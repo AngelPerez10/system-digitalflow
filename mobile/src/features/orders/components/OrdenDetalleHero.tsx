@@ -81,10 +81,14 @@ export function OrdenDetalleHero({ orden, onVolver }: Props) {
           <View
             style={[styles.prioridadChip, { backgroundColor: prioTono.bg }]}
             accessibilityRole="text"
-            accessibilityLabel={`Prioridad: ${prioridadLabel(prioridadValor)}`}
+            accessibilityLabel={
+              orden.en_pool
+                ? `Disponible, prioridad ${prioridadLabel(prioridadValor)}`
+                : `Prioridad: ${prioridadLabel(prioridadValor)}`
+            }
           >
             <Text style={[styles.prioridadTexto, { color: prioTono.text }]}>
-              {orden.en_pool ? 'Bolsa · ' : 'Prioridad · '}
+              {orden.en_pool ? 'Disponible · ' : 'Prioridad · '}
               {prioridadLabel(prioridadValor)}
             </Text>
           </View>

@@ -14,6 +14,7 @@ api_urlpatterns = [
     path('', include('apps.escritorio.urls')),
     path('', include('apps.ai.urls')),
     path('', include('apps.inventario.urls')),
+    path('', include('apps.notificaciones.urls')),
 ]
 
 urlpatterns = [

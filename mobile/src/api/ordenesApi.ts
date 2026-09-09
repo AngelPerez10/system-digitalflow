@@ -27,7 +27,7 @@ export async function updateOrden(id: number, patch: OrdenFieldPatch): Promise<O
 }
 
 /**
- * Bolsa de órdenes ("liberar / tomar", estilo Uber).
+ * Órdenes disponibles ("liberar / tomar", estilo Uber).
  * `liberar` suelta la orden al pool; `tomar` la reclama (el primero gana, un
  * segundo intento recibe 409); `listOrdenesPool` trae las disponibles.
  */

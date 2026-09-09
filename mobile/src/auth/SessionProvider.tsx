@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import * as authApi from '@/api/authApi';
 import { setSessionExpiredHandler } from '@/api/client';
 import { IS_DEV } from '@/config/env';
+import { darDeBajaDispositivoPush } from '@/notifications/registrarPush';
 import { bootstrapSession } from './bootstrapSession';
 import { portalAcceso } from './portalAcceso';
 import { initialSessionState, sessionReducer } from './sessionReducer';
@@ -93,6 +94,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     const refresh = await tokenStore.getRefresh();
+    // Baja del dispositivo push antes de invalidar el token (necesita auth).
+    // Best-effort: el backend también limpia tokens muertos por su cuenta.
+    await darDeBajaDispositivoPush();
     try {
       await authApi.logout(refresh);
     } catch {

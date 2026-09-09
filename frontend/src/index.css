@@ -772,6 +772,21 @@ html.dark {
 .flatpickr-wrapper {
   @apply w-full;
 }
+/* Evita doble caja en móvil: flatpickr-mobile + input estilizado. */
+input.flatpickr-mobile {
+  display: none !important;
+}
+input.flatpickr-input[type="hidden"] {
+  display: none !important;
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
 .flatpickr-calendar {
   @apply !m-0 !bg-white !rounded-xl !px-3 !py-3 !border !border-gray-200 !text-gray-500 dark:!bg-[#000000] dark:!border-[#d6ebfd]/20 dark:!text-gray-300 dark:!shadow-theme-xl 2xsm:!w-auto;
 }

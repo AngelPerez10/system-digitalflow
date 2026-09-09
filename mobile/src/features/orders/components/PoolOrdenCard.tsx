@@ -22,7 +22,7 @@ interface Props {
 }
 
 /**
- * Tarjeta de la bolsa de órdenes disponibles. Sin píldora de estatus (todas
+ * Tarjeta de una orden disponible (liberada a la lista). Sin píldora de estatus (todas
  * están libres): lo que manda es el nivel de prioridad y el botón "Tomar".
  */
 export function PoolOrdenCard({ orden, tomando, onTomar }: Props) {
@@ -90,7 +90,7 @@ export function PoolOrdenCard({ orden, tomando, onTomar }: Props) {
             label="Tomar"
             loading={tomando}
             onPress={() => onTomar(orden)}
-            accessibilityHint="Asignarte esta orden de la bolsa"
+            accessibilityHint="Asignarte esta orden disponible"
           />
         </View>
       </View>

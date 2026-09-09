@@ -149,6 +149,7 @@ INSTALLED_APPS = [
     'apps.escritorio',
     'apps.ai',
     'apps.inventario',
+    'apps.notificaciones',
 ]
 
 # Evitar duplicados accidentales en INSTALLED_APPS (mantiene el primer orden)
@@ -395,6 +396,9 @@ REST_FRAMEWORK = {
         'portal_registro_email': '5/hour',
         # Proxy a servicio de IA de pago: mucho más estricto que el `user` global.
         'ai_chat': os.environ.get('THROTTLE_AI_CHAT_RATE', '30/hour'),
+        # Alta/baja de dispositivos push: la app registra al iniciar sesión y al
+        # rotar el token; más de unas pocas al día es un cliente en bucle.
+        'push_devices': os.environ.get('THROTTLE_PUSH_DEVICES_RATE', '30/hour'),
     },
 }
 
@@ -461,6 +465,15 @@ if not DEBUG and not SMTP_CREDENTIALS_KEY:
         'SMTP se cifran con una clave derivada de SECRET_KEY y una rotación de '
         'SECRET_KEY las volvería indescifrables. Defínela en el entorno de Render.'
     )
+
+# --- Notificaciones push (Expo Push Service) ---
+# `EXPO_ACCESS_TOKEN` (opcional, se lee en apps/notificaciones/expo_push.py)
+# activa la verificación de remitente en la cuenta Expo: sin él, cualquiera que
+# conozca un push token podría enviar avisos en nombre del proyecto.
+# `PUSH_EN_SEGUNDO_PLANO=False` hace el envío inline — solo para tests.
+PUSH_EN_SEGUNDO_PLANO = os.environ.get('PUSH_EN_SEGUNDO_PLANO', 'true').strip().lower() in (
+    '1', 'true', 'yes', 'on',
+)
 
 # --- Portal cliente (registro self-service móvil) ---
 PORTAL_CLIENT_USERNAME_START = int(os.environ.get('PORTAL_CLIENT_USERNAME_START', '10454000') or '10454000')

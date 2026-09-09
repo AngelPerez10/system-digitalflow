@@ -48,7 +48,75 @@ type MonthStats = {
   canceladas: number;
 };
 
+type PermissionScope = { view?: boolean; create?: boolean; edit?: boolean; delete?: boolean };
+type PermissionsMap = Record<string, PermissionScope>;
+
+/**
+ * Caché a nivel de módulo de los permisos ya resueltos. Evita que al re-montar
+ * la página (navegación de ida y vuelta) se muestre el aviso "No tienes permiso"
+ * mientras la petición vuelve a resolverse, y que el throttle deje el estado
+ * vacío de forma permanente.
+ */
+let cachedPermissions: PermissionsMap | null = null;
 let lastPermissionsFetchAt = 0;
+const PERMISSIONS_TTL_MS = 30_000;
+
+type FilterStatus = "" | "PENDIENTE" | "AUTORIZADA" | "CANCELADA";
+type StatusCountKey = "PENDIENTE" | "AUTORIZADA" | "CANCELADA";
+
+/** Segmentos del control de estado (barra tipo pestañas en la cabecera del listado). */
+const STATUS_SEGMENTS: {
+  value: FilterStatus;
+  label: string;
+  countKey: StatusCountKey | null;
+  activeClass: string;
+  dotClass: string;
+}[] = [
+  {
+    value: "",
+    label: "Todas",
+    countKey: null,
+    activeClass:
+      "bg-white text-[#09090B] shadow-[0_1px_2px_rgba(9,9,11,0.08)] dark:bg-[#243048] dark:text-white",
+    dotClass: "bg-[#A1A1AA] dark:bg-[#64748b]",
+  },
+  {
+    value: "PENDIENTE",
+    label: "Pendientes",
+    countKey: "PENDIENTE",
+    activeClass:
+      "bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:bg-[rgba(230,162,60,0.2)] dark:text-[#E6A23C]",
+    dotClass: "bg-amber-500 dark:bg-amber-400",
+  },
+  {
+    value: "AUTORIZADA",
+    label: "Autorizadas",
+    countKey: "AUTORIZADA",
+    activeClass:
+      "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-100",
+    dotClass: "bg-emerald-500 dark:bg-emerald-400",
+  },
+  {
+    value: "CANCELADA",
+    label: "Canceladas",
+    countKey: "CANCELADA",
+    activeClass: "bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-100",
+    dotClass: "bg-rose-500 dark:bg-rose-400",
+  },
+];
+
+const chipSelectClass =
+  "h-9 max-w-[13rem] rounded-[9px] border border-[#E7E7EA] bg-white pl-2.5 pr-8 text-[12px] font-medium text-[#09090B] outline-none transition-colors hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[rgba(27,92,255,0.22)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF]";
+
+const chipDateClass =
+  "h-8 rounded-[7px] border border-[#E7E7EA] bg-white px-2 text-[12px] font-medium tabular-nums text-[#09090B] outline-none transition-colors hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[rgba(27,92,255,0.22)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF]";
+
+const normalizeStatus = (raw: string) => String(raw || "").trim().toUpperCase();
+const rowStatusKey = (raw: string): StatusCountKey => {
+  const s = normalizeStatus(raw);
+  if (s === "AUTORIZADA" || s === "CANCELADA") return s;
+  return "PENDIENTE";
+};
 
 const getCurrentYearMonth = () => {
   const d = new Date();
@@ -69,9 +137,8 @@ export default function CotizacionesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const initialSearch = (searchParams.get(COTIZACION_LIST_SEARCH_PARAM) || readCotizacionListSearch()).trim();
-  const [permissions, setPermissions] = useState<
-    Record<string, { view?: boolean; create?: boolean; edit?: boolean; delete?: boolean }>
-  >({});
+  const [permissions, setPermissions] = useState<PermissionsMap>(() => cachedPermissions ?? {});
+  const [permissionsReady, setPermissionsReady] = useState<boolean>(() => cachedPermissions !== null);
 
   const canCotizacionesView = permissions?.cotizaciones?.view === true;
   const canCotizacionesCreate = permissions?.cotizaciones?.create === true;
@@ -98,6 +165,12 @@ export default function CotizacionesPage() {
 
   const [rows, setRows] = useState<CotizacionRow[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("");
+  const [filterTipoTrabajo, setFilterTipoTrabajo] = useState("");
+  const [filterUsuario, setFilterUsuario] = useState("");
+  const [filterDesde, setFilterDesde] = useState("");
+  const [filterHasta, setFilterHasta] = useState("");
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [cotizacionToDelete, setCotizacionToDelete] = useState<CotizacionRow | null>(null);
@@ -128,8 +201,16 @@ export default function CotizacionesPage() {
   };
 
   useEffect(() => {
+    let cancelled = false;
     const now = Date.now();
-    if (now - lastPermissionsFetchAt < 2000) return;
+
+    // Con caché fresca no volvemos a pedir: pintamos permisos al instante y
+    // nunca mostramos el aviso "No tienes permiso" en el re-montaje.
+    if (cachedPermissions !== null && now - lastPermissionsFetchAt < PERMISSIONS_TTL_MS) {
+      setPermissions(cachedPermissions);
+      setPermissionsReady(true);
+      return;
+    }
     lastPermissionsFetchAt = now;
 
     const load = async () => {
@@ -141,14 +222,20 @@ export default function CotizacionesPage() {
         }
         const data = await res.json().catch(() => null);
         if (!res.ok) return;
-        const p = data?.permissions || {};
-        setPermissions(p);
+        const p = (data?.permissions || {}) as PermissionsMap;
+        cachedPermissions = p;
+        if (!cancelled) setPermissions(p);
       } catch {
         // ignore
+      } finally {
+        if (!cancelled) setPermissionsReady(true);
       }
     };
 
-    load();
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const fetchCotizaciones = useCallback(async () => {
@@ -382,6 +469,72 @@ export default function CotizacionesPage() {
     };
   }, [monthStats]);
 
+  const tipoTrabajoOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const raw = String(r.tipoTrabajo || "").trim();
+      if (!raw || raw === "—") continue;
+      for (const part of raw.split(",")) {
+        const name = part.trim();
+        if (name) set.add(name);
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "es"));
+  }, [rows]);
+
+  const usuarioOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const name = String(r.creadaPor || "").trim();
+      if (name && name !== "—") set.add(name);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "es"));
+  }, [rows]);
+
+  const activeFilterCount =
+    (filterStatus ? 1 : 0) +
+    (filterTipoTrabajo ? 1 : 0) +
+    (filterUsuario ? 1 : 0) +
+    (filterDesde ? 1 : 0) +
+    (filterHasta ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0;
+
+  /** Filas tras aplicar todos los filtros MENOS el de estado (base para contar cada estado). */
+  const rowsBeforeStatus = useMemo(() => {
+    return rows.filter((r) => {
+      if (filterTipoTrabajo) {
+        const parts = String(r.tipoTrabajo || "")
+          .split(",")
+          .map((p) => p.trim());
+        if (!parts.includes(filterTipoTrabajo)) return false;
+      }
+      if (filterUsuario && String(r.creadaPor || "").trim() !== filterUsuario) return false;
+      const day = String(r.fecha || "").trim().slice(0, 10);
+      if (filterDesde && (!day || day < filterDesde)) return false;
+      if (filterHasta && (!day || day > filterHasta)) return false;
+      return true;
+    });
+  }, [rows, filterTipoTrabajo, filterUsuario, filterDesde, filterHasta]);
+
+  const statusCounts = useMemo(() => {
+    const c: Record<StatusCountKey, number> = { PENDIENTE: 0, AUTORIZADA: 0, CANCELADA: 0 };
+    for (const r of rowsBeforeStatus) c[rowStatusKey(r.status)] += 1;
+    return c;
+  }, [rowsBeforeStatus]);
+
+  const filteredRows = useMemo(() => {
+    if (!filterStatus) return rowsBeforeStatus;
+    return rowsBeforeStatus.filter((r) => rowStatusKey(r.status) === filterStatus);
+  }, [rowsBeforeStatus, filterStatus]);
+
+  const resetFilters = () => {
+    setFilterStatus("");
+    setFilterTipoTrabajo("");
+    setFilterUsuario("");
+    setFilterDesde("");
+    setFilterHasta("");
+  };
+
   const handleOpenPdf = (id: number) =>
     navigate(`/cotizacion/${id}/pdf`, { state: cotizacionListSearchState(searchDebounced || searchTerm) });
 
@@ -476,7 +629,19 @@ export default function CotizacionesPage() {
         </div>
       )}
 
-      {!canCotizacionesView ? (
+      {!permissionsReady ? (
+        <div
+          className="flex items-center justify-center gap-3 rounded-[24px] border border-[#E7E7EA] bg-white px-4 py-10 text-center text-sm text-[#6E6E77] shadow-[0_6px_20px_-10px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] sm:px-6"
+          role="status"
+          aria-live="polite"
+        >
+          <span
+            className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#E7E7EA] border-t-[#1B5CFF] dark:border-[#273244] dark:border-t-[#4B7CFF]"
+            aria-hidden
+          />
+          Cargando permisos…
+        </div>
+      ) : !canCotizacionesView ? (
         <div className="rounded-[24px] border border-[#E7E7EA] bg-white px-4 py-10 text-center text-sm text-[#52525B] shadow-[0_6px_20px_-10px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#B7C1D1] sm:px-6">
           No tienes permiso para ver Cotizaciones.
         </div>
@@ -545,6 +710,121 @@ export default function CotizacionesPage() {
             </button>
           </div>
 
+          {showFilters && (
+            <div
+              id="cotizaciones-filtros"
+              className="rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#1B2539] sm:p-5"
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  Filtrar cotizaciones
+                </h3>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  disabled={!hasActiveFilters}
+                  className="text-[12px] font-semibold text-[#1B5CFF] transition-colors hover:text-[#1244D1] disabled:cursor-not-allowed disabled:text-[#A1A1AA] dark:text-[#4B7CFF] dark:hover:text-[#6E9BFF] dark:disabled:text-[#4B5563]"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                <div>
+                  <label htmlFor="filtro-status" className={filterLabelClass}>
+                    Status
+                  </label>
+                  <select
+                    id="filtro-status"
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+                    className={filterFieldClass}
+                  >
+                    {STATUS_FILTER_OPTIONS.map((o) => (
+                      <option key={o.value || "all"} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="filtro-tipo" className={filterLabelClass}>
+                    Tipo de trabajo
+                  </label>
+                  <select
+                    id="filtro-tipo"
+                    value={filterTipoTrabajo}
+                    onChange={(e) => setFilterTipoTrabajo(e.target.value)}
+                    className={filterFieldClass}
+                  >
+                    <option value="">Todos los tipos</option>
+                    {tipoTrabajoOptions.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="filtro-usuario" className={filterLabelClass}>
+                    Usuario (creada por)
+                  </label>
+                  <select
+                    id="filtro-usuario"
+                    value={filterUsuario}
+                    onChange={(e) => setFilterUsuario(e.target.value)}
+                    className={filterFieldClass}
+                  >
+                    <option value="">Todos los usuarios</option>
+                    {usuarioOptions.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="filtro-desde" className={filterLabelClass}>
+                    Fecha desde
+                  </label>
+                  <input
+                    id="filtro-desde"
+                    type="date"
+                    value={filterDesde}
+                    max={filterHasta || undefined}
+                    onChange={(e) => setFilterDesde(e.target.value)}
+                    className={filterFieldClass}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="filtro-hasta" className={filterLabelClass}>
+                    Fecha hasta
+                  </label>
+                  <input
+                    id="filtro-hasta"
+                    type="date"
+                    value={filterHasta}
+                    min={filterDesde || undefined}
+                    onChange={(e) => setFilterHasta(e.target.value)}
+                    className={filterFieldClass}
+                  />
+                </div>
+              </div>
+
+              {hasActiveFilters && (
+                <p className="mt-3 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  Mostrando{" "}
+                  <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">{filteredRows.length}</span>{" "}
+                  de {rows.length} cotizaciones {isSearching ? "encontradas" : "del mes"}.
+                </p>
+              )}
+            </div>
+          )}
+
           <section className={`${cardShellClass} !overflow-visible`} aria-labelledby="cotizaciones-listado-heading">
             <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -560,9 +840,11 @@ export default function CotizacionesPage() {
                   </h2>
                 </div>
                 <p className="text-[12px] font-medium tabular-nums text-[#6E6E77] dark:text-[#8EA0B8]">
-                  {isSearching
-                    ? `${totalCount.toLocaleString("es-MX")} resultado${totalCount === 1 ? "" : "s"}`
-                    : `${totalCount.toLocaleString("es-MX")} en el mes`}
+                  {hasActiveFilters
+                    ? `${filteredRows.length.toLocaleString("es-MX")} de ${totalCount.toLocaleString("es-MX")}`
+                    : isSearching
+                      ? `${totalCount.toLocaleString("es-MX")} resultado${totalCount === 1 ? "" : "s"}`
+                      : `${totalCount.toLocaleString("es-MX")} en el mes`}
                 </p>
               </div>
               <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
@@ -571,7 +853,7 @@ export default function CotizacionesPage() {
             </div>
             <div className="p-2 sm:p-3">
               <CotizacionesMobileList
-                rows={rows}
+                rows={filteredRows}
                 loading={loading}
                 formatDMY={formatDMY}
                 normalizeMedioLabel={normalizeMedioLabel}
@@ -581,7 +863,7 @@ export default function CotizacionesPage() {
                 excelLoading={excelLoading}
               />
               <CotizacionesTable
-                rows={rows}
+                rows={filteredRows}
                 loading={loading}
                 formatDMY={formatDMY}
                 normalizeMedioLabel={normalizeMedioLabel}
@@ -595,7 +877,13 @@ export default function CotizacionesPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
-              {isSearching ? (
+              {hasActiveFilters ? (
+                <>
+                  Mostrando{" "}
+                  <span className="font-medium text-[#09090B] dark:text-[#f8fafc]">{filteredRows.length}</span> de{" "}
+                  {totalCount.toLocaleString("es-MX")} cotizaciones (filtros activos)
+                </>
+              ) : isSearching ? (
                 <>
                   {totalCount.toLocaleString("es-MX")} resultado{totalCount === 1 ? "" : "s"} para «{searchDebounced}»
                 </>

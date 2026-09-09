@@ -7,7 +7,13 @@
  * de un lector de Markdown en tiempo de ejecución.
  */
 
-export const TERMINOS_SERVICIO_TITULO = 'Aceptación de términos de servicio en sitio';
+/** Encabezado de la tarjeta desplegable en el registro. */
+export const TERMINOS_SERVICIO_TITULO = 'Términos del servicio en sitio';
+
+/** Una línea de contexto visible antes de desplegar el texto completo. */
+export const TERMINOS_SERVICIO_RESUMEN =
+  'Toda visita técnica en sitio tiene un cargo mínimo de $696.00 MXN. El costo final ' +
+  'depende del diagnóstico y de los trabajos adicionales que autorices.';
 
 export const TERMINOS_SERVICIO_PARRAFOS: readonly string[] = [
   'Al generar la presente solicitud de servicio u Orden de Trabajo mediante la aplicación, el cliente reconoce y acepta que la atención técnica que requiera una visita en sitio genera un cargo mínimo de $696.00 MXN.',
@@ -17,7 +23,3 @@ export const TERMINOS_SERVICIO_PARRAFOS: readonly string[] = [
   'Cuando el cliente indique que la falla pudiera corresponder a una garantía, el técnico realizará la revisión y diagnóstico correspondiente. Si después de la inspección se determina que la falla efectivamente procede como garantía, la atención no generará costo para el cliente, de acuerdo con las condiciones de garantía aplicables.',
   'Si la falla no corresponde a garantía, se aplicará el costo de servicio en sitio y, en su caso, los cargos adicionales previamente autorizados por el cliente.',
 ] as const;
-
-/** Frase de cierre que acompaña a la casilla de aceptación. */
-export const TERMINOS_SERVICIO_CIERRE =
-  'Al aceptar los términos y condiciones, el cliente confirma haber leído, comprendido y aceptado las condiciones anteriormente descritas.';

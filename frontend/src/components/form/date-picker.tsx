@@ -46,7 +46,13 @@ function ensureZIndexStyle() {
   if (document.getElementById(ZINDEX_STYLE_ID)) return;
   const style = document.createElement("style");
   style.id = ZINDEX_STYLE_ID;
-  style.textContent = `.flatpickr-calendar{z-index:2147483647 !important;margin:0 !important}`;
+  // disableMobile evita el type=date nativo; estas reglas son red de seguridad
+  // si queda un residual de flatpickr-mobile tras un remount de React.
+  style.textContent = `
+.flatpickr-calendar{z-index:2147483647 !important;margin:0 !important}
+input.flatpickr-mobile{display:none !important}
+input.flatpickr-input[type="hidden"]{display:none !important;position:absolute;width:0;height:0;opacity:0;pointer-events:none;border:0 !important;padding:0 !important;margin:0 !important}
+`;
   document.head.appendChild(style);
 }
 
@@ -141,7 +147,9 @@ export default function DatePicker({
       locale: Spanish,
       dateFormat: "Y-m-d",
       defaultDate,
-      disableMobile: false,
+      // En móvil flatpickr inyecta un <input type="date"> nativo además del input
+      // estilizado; con React ambos quedan visibles (doble caja). Usar siempre el UI de flatpickr.
+      disableMobile: true,
       // Reemplaza por completo positionCalendar de flatpickr (evita pageYOffset + portal fixed).
       position: (instance, positionElement) => {
         placeCalendarNearInput(instance, positionElement);
@@ -215,7 +223,7 @@ export default function DatePicker({
   const errorId = error ? `${id}-error` : undefined;
 
   return (
-    <div>
+    <div data-flatpickr-wrapper="">
       {label ? (
         <Label htmlFor={id}>
           {label}
@@ -231,12 +239,15 @@ export default function DatePicker({
       <div className="relative">
         <input
           id={id}
+          type="text"
+          inputMode="none"
           placeholder={placeholder}
           disabled={disabled}
           aria-required={required || undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={errorId}
-          className={`h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 transition-colors ${
+          autoComplete="off"
+          className={`h-11 w-full rounded-lg border appearance-none px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 transition-colors ${
             disabled
               ? "bg-gray-100 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 cursor-not-allowed"
               : error
@@ -245,7 +256,7 @@ export default function DatePicker({
           }`}
         />
 
-        <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" aria-hidden="true">
           <CalenderIcon className="size-6" />
         </span>
       </div>

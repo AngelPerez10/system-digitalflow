@@ -15,7 +15,7 @@ export interface UseOrdenesPoolResult {
 }
 
 /**
- * Bolsa de órdenes disponibles. El servidor ya las trae ordenadas por
+ * Órdenes disponibles (liberadas a la lista). El servidor ya las trae ordenadas por
  * prioridad e ignora el filtro `own_only`, así que aquí no se agrupa ni filtra.
  * Recarga al enfocar la pantalla y con "jalar para refrescar".
  */

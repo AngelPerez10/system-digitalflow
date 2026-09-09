@@ -2,7 +2,7 @@
   "name": "system-digitalflow-root",
   "private": true,
   "version": "1.0.0",
-  "packageManager": "pnpm@11.15.1",
+  "packageManager": "pnpm@12.3.4",
   "scripts": {
     "frontend:dev": "pnpm --dir frontend dev",
     "frontend:build": "pnpm --dir frontend build",

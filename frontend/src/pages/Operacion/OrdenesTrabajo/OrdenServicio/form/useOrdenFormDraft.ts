@@ -151,9 +151,20 @@ export function buildOrdenWritePayload(opts: {
   delete payload.firma_encargado_url;
   delete payload.contacto_id;
 
-  if (payload.tecnico_asignado == null) delete payload.tecnico_asignado;
-  if (payload.quien_instalo == null) delete payload.quien_instalo;
-  if (payload.quien_entrego == null) delete payload.quien_entrego;
+  // FK opcionales: mandar `null` para desasignar. Si se omite la clave, el PATCH
+  // deja el valor anterior y el técnico/instalador/entregador no se puede quitar.
+  payload.tecnico_asignado =
+    payload.tecnico_asignado == null || payload.tecnico_asignado === ""
+      ? null
+      : Number(payload.tecnico_asignado);
+  payload.quien_instalo =
+    payload.quien_instalo == null || payload.quien_instalo === ""
+      ? null
+      : Number(payload.quien_instalo);
+  payload.quien_entrego =
+    payload.quien_entrego == null || payload.quien_entrego === ""
+      ? null
+      : Number(payload.quien_entrego);
 
   payload.direccion = toNullIfEmpty(payload.direccion);
   payload.telefono_cliente = toNullIfEmpty(payload.telefono_cliente);

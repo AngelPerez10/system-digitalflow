@@ -131,10 +131,19 @@ def _stamp_status_changed_at(data: dict, instance=None) -> dict:
 
 
 def _notify_orden_liberada(orden) -> None:
-    """Costura para la Fase 2 (push): avisar a los técnicos que se liberó una
-    orden a la bolsa. Hoy es no-op — no hay infraestructura de notificaciones.
+    """Avisa por push a los técnicos que hay una orden nueva disponible.
+
+    El envío sale del ciclo de la petición (ver
+    `notificaciones.services.lanzar_notificacion_orden_liberada`): la respuesta
+    de `liberar` no debe esperar a un POST contra Expo, y un fallo de red del
+    aviso no puede tumbar la liberación, que ya está persistida.
     """
-    return None
+    try:
+        from apps.notificaciones.services import lanzar_notificacion_orden_liberada
+
+        lanzar_notificacion_orden_liberada(orden.pk)
+    except Exception:
+        logger.exception('No se pudo encolar el aviso de orden liberada (orden=%s)', orden.pk)
 
 
 def _portal_contacto_para_cliente(cliente_pk):

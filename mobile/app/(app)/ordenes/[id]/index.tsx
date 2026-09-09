@@ -67,7 +67,7 @@ export default function DetalleOrdenScreen() {
   const confirmarLiberar = () => {
     Alert.alert(
       'Liberar orden',
-      '¿Enviar esta orden a la bolsa para que otro técnico la tome? Dejará de estar asignada a ti.',
+      '¿Liberar esta orden para que otro técnico la tome? Dejará de estar asignada a ti.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -230,7 +230,7 @@ export default function DetalleOrdenScreen() {
                 accessibilityRole="text"
               >
                 <Text style={[styles.poolPillTexto, { color: colors.goldSoftText }]}>
-                  En bolsa de órdenes disponibles
+                  Disponible para cualquier técnico
                 </Text>
               </View>
             ) : puedeLiberar ? (
@@ -239,7 +239,7 @@ export default function DetalleOrdenScreen() {
                 variant="secondary"
                 loading={liberando}
                 onPress={confirmarLiberar}
-                accessibilityHint="Envía la orden a la bolsa para que otro técnico la tome"
+                accessibilityHint="Libera la orden para que otro técnico la tome"
               />
             ) : null}
           </Animated.View>
