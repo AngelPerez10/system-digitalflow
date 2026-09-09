@@ -830,6 +830,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             vencimiento=data.get('vencimiento'),
             subtotal=data.get('subtotal', 0),
             descuento_cliente_pct=data.get('descuento_cliente_pct', 0),
+            anticipo_pct=data.get('anticipo_pct', ANTICIPO_PCT),
             iva_pct=data.get('iva_pct', 0),
             iva=data.get('iva', 0),
             total=data.get('total', 0),

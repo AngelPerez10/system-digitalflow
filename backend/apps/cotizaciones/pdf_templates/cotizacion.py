@@ -17,8 +17,28 @@ from apps.cotizaciones.pdf_opciones import CotizacionPdfOpciones
 logger = logging.getLogger(__name__)
 
 IVA_MX_DISPLAY = 1.16
-ANTICIPO_PCT = 60
+ANTICIPO_PCT_DEFAULT = 60
+ANTICIPO_PCT_MIN = 40
 EXPORT_BRAND_COLOR = "#3160e3"
+
+
+def _resolve_anticipo_pct(cotizacion) -> float:
+    """Anticipo de la cotización, acotado a [40, 100]. Cae al 60 % si falta o es inválido."""
+    raw = getattr(cotizacion, "anticipo_pct", None)
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return float(ANTICIPO_PCT_DEFAULT)
+    if value < ANTICIPO_PCT_MIN:
+        return float(ANTICIPO_PCT_MIN)
+    if value > 100:
+        return 100.0
+    return value
+
+
+def _fmt_pct(value: float) -> str:
+    """60.0 -> '60', 62.5 -> '62.5' (sin ceros de relleno)."""
+    return f"{value:g}"
 
 
 def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones | None = None) -> str:
@@ -273,7 +293,9 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     <div class='row'><span>Descuento cliente ({descuento_cliente_pct:,.2f}%)</span><strong>-$ {descuento_base_visible:,.2f}</strong></div>
 """
 
-    anticipo_monto = round(total * (ANTICIPO_PCT / 100.0), 2)
+    anticipo_pct = _resolve_anticipo_pct(cotizacion)
+    saldo_pct = round(100.0 - anticipo_pct, 2)
+    anticipo_monto = round(total * (anticipo_pct / 100.0), 2)
     saldo_monto = round(max(0.0, total - anticipo_monto), 2)
 
     totals_block = ""
@@ -298,8 +320,8 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     if show_totales:
         anticipos_block = f"""
   <div class='totals anticipos-after-deposit'>
-    <div class='row anticipo'><span>Anticipo ({ANTICIPO_PCT}%)</span><strong>$ {anticipo_monto:,.2f}</strong></div>
-    <div class='row anticipo'><span>Saldo al finalizar ({100 - ANTICIPO_PCT}%)</span><strong>$ {saldo_monto:,.2f}</strong></div>
+    <div class='row anticipo'><span>Anticipo ({_fmt_pct(anticipo_pct)}%)</span><strong>$ {anticipo_monto:,.2f}</strong></div>
+    <div class='row anticipo'><span>Saldo al finalizar ({_fmt_pct(saldo_pct)}%)</span><strong>$ {saldo_monto:,.2f}</strong></div>
   </div>"""
 
     qr_items = []

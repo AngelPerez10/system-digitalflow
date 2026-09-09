@@ -138,6 +138,48 @@ export function isOrdenStatusChangeRecent(
   return nowMs - ts < ORDEN_STATUS_CHANGE_RECENT_MS && nowMs - ts >= 0;
 }
 
+/**
+ * Prioridad de la bolsa (`prioridad_pool`) resuelta a etiqueta + clases de pastilla.
+ * La asigna el admin y es obligatoria al crear/guardar. `""` / null = sin asignar
+ * (solo órdenes antiguas previas a la obligatoriedad).
+ */
+export type OrdenPrioridadPool = "alta" | "media" | "baja" | "" | (string & {}) | null | undefined;
+
+export function prioridadPoolBadge(value: OrdenPrioridadPool): {
+  key: "alta" | "media" | "baja" | "none";
+  label: string;
+  className: string;
+} {
+  const base =
+    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap";
+  switch (normalizeStatus(value)) {
+    case "alta":
+      return {
+        key: "alta",
+        label: "Alta",
+        className: `${base} border-rose-300/80 bg-rose-100 text-rose-800 dark:border-rose-400/35 dark:bg-rose-500/20 dark:text-rose-100`,
+      };
+    case "media":
+      return {
+        key: "media",
+        label: "Media",
+        className: `${base} border-amber-300/80 bg-amber-100 text-amber-900 dark:border-amber-400/35 dark:bg-amber-500/20 dark:text-amber-100`,
+      };
+    case "baja":
+      return {
+        key: "baja",
+        label: "Baja",
+        className: `${base} border-sky-300/80 bg-sky-100 text-sky-800 dark:border-sky-400/35 dark:bg-sky-500/20 dark:text-sky-100`,
+      };
+    default:
+      return {
+        key: "none",
+        label: "Sin prioridad",
+        className: `${base} border-dashed border-[#D3D3D8] bg-transparent text-[#6E6E77] dark:border-[#3A4661] dark:text-[#8EA0B8]`,
+      };
+  }
+}
+
 /** Clases de fila/card para resalte de resuelto reciente (admin). */
 export const ORDEN_RECIEN_RESUELTA_ROW_CLASS =
   "relative bg-emerald-50/80 shadow-[inset_3px_0_0_0_#10b981] dark:bg-emerald-500/10 dark:shadow-[inset_3px_0_0_0_#34d399]";

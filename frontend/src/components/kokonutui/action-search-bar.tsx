@@ -10,7 +10,7 @@
  * @github: https://github.com/kokonut-labs/kokonutui
  */
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -125,7 +125,7 @@ function ActionSearchBar({
 }: {
     actions?: Action[];
     defaultOpen?: boolean;
-    label?: string;
+    label?: ReactNode;
     placeholder?: string;
     value?: string;
     onQueryChange?: (query: string) => void;

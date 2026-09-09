@@ -11,7 +11,7 @@ export default function RouteLoadingFallback() {
       aria-busy="true"
     >
       <span
-        className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-[#ff801f] dark:border-gray-600 dark:border-t-[#ff801f]"
+        className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-[#1B5CFF] dark:border-gray-600 dark:border-t-[#4B7CFF]"
         aria-hidden="true"
       />
       <span className="text-sm text-gray-500 dark:text-gray-400">Cargando módulo…</span>

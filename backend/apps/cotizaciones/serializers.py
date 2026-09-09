@@ -11,6 +11,8 @@ from .models import Cotizacion, CotizacionItem
 from .pdf_opciones import parse_pdf_opciones, pdf_opciones_to_dict
 
 IVA_MX_DISPLAY = Decimal('1.16')
+ANTICIPO_PCT_MIN = Decimal('40')
+ANTICIPO_PCT_MAX = Decimal('100')
 
 
 def _ensure_cliente_contacto_from_cotizacion(cliente, nombre: str, telefono: str = '') -> None:
@@ -83,6 +85,24 @@ class CotizacionSerializer(serializers.ModelSerializer):
     items = CotizacionItemSerializer(many=True, required=False)
     tipo_trabajo = CotizacionTipoTrabajoField(many=True, required=False, allow_empty=True)
     tipo_trabajo_nombres = serializers.SerializerMethodField()
+
+    # Anticipo personalizable: por defecto 60 %, nunca por debajo del 40 %.
+    # Los límites se validan en `validate_anticipo_pct` para dar un mensaje claro
+    # en español (los validadores del modelo emiten texto genérico en inglés).
+    anticipo_pct = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+    )
+
+    def validate_anticipo_pct(self, value):
+        if value is None:
+            return value
+        if value < ANTICIPO_PCT_MIN:
+            raise serializers.ValidationError('El anticipo no puede ser menor al 40%.')
+        if value > ANTICIPO_PCT_MAX:
+            raise serializers.ValidationError('El anticipo no puede ser mayor al 100%.')
+        return value
 
     def get_tipo_trabajo_nombres(self, obj):
         try:
@@ -193,6 +213,7 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'vencimiento',
             'subtotal',
             'descuento_cliente_pct',
+            'anticipo_pct',
             'iva_pct',
             'iva',
             'total',

@@ -106,6 +106,7 @@ export type ApiCotizacion = {
   tipo_trabajo?: number[] | { id: number; nombre?: string }[];
   status?: string;
   descuento_cliente_pct?: number | string | null;
+  anticipo_pct?: number | string | null;
   fecha: string | null;
   subtotal: number;
   iva_pct: number;

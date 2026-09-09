@@ -64,6 +64,14 @@ class Cotizacion(models.Model):
 
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     descuento_cliente_pct = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Porcentaje de anticipo para iniciar trabajos. Personalizable por cotización;
+    # el mínimo operativo es 40 %. Se refleja en el bloque "Anticipo / Saldo" del PDF.
+    anticipo_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=60,
+        validators=[MinValueValidator(40), MaxValueValidator(100)],
+    )
     iva_pct = models.DecimalField(max_digits=5, decimal_places=2, default=16)
     iva = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0)

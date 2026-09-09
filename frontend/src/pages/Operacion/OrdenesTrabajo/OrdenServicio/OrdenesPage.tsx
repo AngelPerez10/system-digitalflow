@@ -49,6 +49,11 @@ import {
   parseYearMonth,
 } from "./shared/ordenesPageUtils";
 import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
+import {
+  getOrdenPrioridadSectionStyles,
+  ordenPrioridadKey,
+  sortOrdenesByPrioridad,
+} from "./shared/ordenPrioridadSections";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import {
@@ -519,17 +524,26 @@ export default function Ordenes() {
 
   const startIndex = 0;
   const currentOrdenes = shownList;
-  const statusSections = useMemo(
-    () => groupOrdenesByStatus(currentOrdenes),
+  /**
+   * Listado: se conservan las secciones por estado (Pendientes → Pausados →
+   * Resueltas) y dentro de cada sección las órdenes se ordenan por prioridad de
+   * bolsa: Alta arriba → Media → Baja → Sin prioridad al final.
+   */
+  const listadoOrdenes = useMemo(
+    () => sortOrdenesByPrioridad(currentOrdenes),
     [currentOrdenes],
+  );
+  const statusSections = useMemo(
+    () => groupOrdenesByStatus(listadoOrdenes),
+    [listadoOrdenes],
   );
   const ordenIndexById = useMemo(() => {
     const map = new Map<number, number>();
-    currentOrdenes.forEach((orden, idx) => {
+    listadoOrdenes.forEach((orden, idx) => {
       if (typeof orden.id === "number") map.set(orden.id, idx);
     });
     return map;
-  }, [currentOrdenes]);
+  }, [listadoOrdenes]);
 
   const clienteActions = useMemo(
     () => buildClienteSearchActions(clientes, clienteSearch),
@@ -748,7 +762,7 @@ export default function Ordenes() {
             <OrdenesMonthLoadingBanner selectedMonth={selectedMonth} className="mb-3" />
           ) : null}
           <MobileOrderList
-            ordenes={currentOrdenes}
+            ordenes={listadoOrdenes}
             startIndex={startIndex}
             loading={monthLoading}
             formatDate={formatYmdToDMY}
@@ -763,7 +777,7 @@ export default function Ordenes() {
             groupByStatus
           />
           <div className={"hidden md:block " + erpTableWrapClass}>
-            <Table className="w-full min-w-[1040px] table-fixed sm:min-w-0 xl:min-w-full">
+            <Table className="w-full min-w-[1090px] table-fixed sm:min-w-0 xl:min-w-full">
               <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                 <TableRow>
                   <TableCell isHeader className="px-3 py-2 text-left w-[90px] min-w-[80px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Folio</TableCell>
@@ -773,7 +787,7 @@ export default function Ordenes() {
 
                   <TableCell isHeader className="px-3 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Técnico</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-left w-[180px] min-w-[180px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Registro</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Estado</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Prioridad · Estado</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Acciones</TableCell>
                 </TableRow>
               </TableHeader>
@@ -812,6 +826,17 @@ export default function Ordenes() {
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
                   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
+                  // En órdenes resueltas la prioridad de bolsa deja de ser relevante: no se muestra.
+                  const isResuelta = isOrdenResuelta(orden.status);
+                  const prioKey = ordenPrioridadKey(orden.prioridad_pool);
+                  const prioTone = getOrdenPrioridadSectionStyles(prioKey);
+                  const prioShort =
+                    prioKey === "ALTA" ? "Alta"
+                      : prioKey === "MEDIA" ? "Media"
+                      : prioKey === "BAJA" ? "Baja"
+                      : "Sin prio.";
+                  const prioAria =
+                    prioKey === "SIN" ? "sin prioridad" : `prioridad ${prioShort.toLowerCase()}`;
                   const recentResolved = isAdmin && isOrdenStatusChangeRecent(orden);
                   const creadaPor = displayOrdenUserName(orden, "creado");
                   const editadaPor = displayOrdenUserName(orden, "actualizado");
@@ -825,10 +850,10 @@ export default function Ordenes() {
                   return (
                     <TableRow
                       key={orden.id ?? `${section.key}-${sectionIdx}`}
-                      className={`${erpTableRowHoverClass}${recentResolved ? ` ${ORDEN_RECIEN_RESUELTA_ROW_CLASS}` : ""}`}
-                      aria-label={recentResolved ? `Orden ${folioDisplay}, resuelta recientemente` : undefined}
+                      className={`${erpTableRowHoverClass} ${recentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isResuelta ? "" : prioTone.rowAccent}`}
+                      aria-label={`Orden ${folioDisplay}${isResuelta ? "" : `, ${prioAria}`}${recentResolved ? ", resuelta recientemente" : ""}`}
                     >
-                      <TableCell className="px-3 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>
+                      <TableCell className="px-3 py-2 whitespace-nowrap w-[90px] min-w-[80px] font-medium tabular-nums">{folioDisplay}</TableCell>
                       <TableCell className="px-3 py-2 text-[#09090B] dark:text-white w-1/5 min-w-[220px]">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
                         {orden.direccion && (
@@ -918,20 +943,46 @@ export default function Ordenes() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-center w-[110px] min-w-[110px]">
-                        <div className="inline-flex flex-col items-center gap-1">
-                          {orden.status === 'resuelto' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Resuelto</span>
-                          ) : orden.status === 'pausado' ? (
-                            <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
-                              title={orden.motivo_pausa ? String(orden.motivo_pausa) : undefined}
-                            >
-                              Pausado
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pendiente</span>
-                          )}
+                      <TableCell className="px-3 py-2 text-center w-[164px] min-w-[156px]">
+                        <div className="flex flex-col items-center gap-1">
+                          {(() => {
+                            const statusPill =
+                              orden.status === 'resuelto'
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                : orden.status === 'pausado'
+                                  ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'
+                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
+                            const statusLabel =
+                              orden.status === 'resuelto' ? 'Resuelto' : orden.status === 'pausado' ? 'Pausado' : 'Pendiente';
+                            const statusTitle =
+                              orden.status === 'pausado' && orden.motivo_pausa ? String(orden.motivo_pausa) : undefined;
+                            // Resuelta: solo estado (la prioridad ya no aplica).
+                            if (isResuelta) {
+                              return (
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2 py-[3px] text-[10px] font-semibold ${statusPill}`}
+                                  title={statusTitle}
+                                >
+                                  {statusLabel}
+                                </span>
+                              );
+                            }
+                            // Activa: pastilla combinada — segmento izq. = prioridad, der. = estado.
+                            return (
+                              <span className="inline-flex items-stretch overflow-hidden whitespace-nowrap rounded-full text-[10px] font-semibold leading-none ring-1 ring-inset ring-black/[0.06] dark:ring-white/10">
+                                <span
+                                  className={`flex items-center gap-1 px-1.5 py-[3px] ${prioTone.cap}`}
+                                  title={`Prioridad ${prioShort}`}
+                                >
+                                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${prioTone.dot}`} aria-hidden />
+                                  {prioShort}
+                                </span>
+                                <span className={`px-2 py-[3px] ${statusPill}`} title={statusTitle}>
+                                  {statusLabel}
+                                </span>
+                              </span>
+                            );
+                          })()}
                           {recentResolved && (
                             <span className={ORDEN_RECIEN_RESUELTA_BADGE_CLASS}>
                               <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -999,7 +1050,7 @@ export default function Ordenes() {
 
                   return [headerRow, ...dataRows];
                 })}
-                {monthLoading && shownList.length === 0 && (
+                {monthLoading && listadoOrdenes.length === 0 && (
                   <TableRow>
                     <TableCell
                       colSpan={8}
@@ -1011,16 +1062,14 @@ export default function Ordenes() {
                     </TableCell>
                   </TableRow>
                 )}
-                {(!monthLoading && shownList.length === 0) && (
+                {(!monthLoading && listadoOrdenes.length === 0) && (
                   <TableRow>
-                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-3 py-2 text-center text-[12px] text-[#6E6E77]">Sin órdenes</TableCell>
-                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
-                    <TableCell className="px-3 py-2">&nbsp;</TableCell>
+                    <TableCell colSpan={8} className="px-4 py-10 text-center">
+                      <p className="text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">Sin órdenes</p>
+                      <p className="mt-1 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                        Cambia de mes o ajusta los filtros para ver resultados.
+                      </p>
+                    </TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -1037,9 +1086,8 @@ export default function Ordenes() {
                     </span>
                   ) : (
                     <>
-                      Mostrando <span className="font-medium text-[#09090B] dark:text-white">{shownList.length > 0 ? 1 : 0}</span> a{" "}
-                      <span className="font-medium text-[#09090B] dark:text-white">{shownList.length > 0 ? shownList.length : 0}</span> de{" "}
-                      <span className="font-medium text-[#09090B] dark:text-white">{shownList.length}</span> órdenes
+                      <span className="font-medium text-[#09090B] dark:text-white">{listadoOrdenes.length}</span>{" "}
+                      {listadoOrdenes.length === 1 ? "orden" : "órdenes"} en el mes
                     </>
                   )}
                 </p>

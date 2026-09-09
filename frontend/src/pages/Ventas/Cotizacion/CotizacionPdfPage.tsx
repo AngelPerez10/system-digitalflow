@@ -192,6 +192,7 @@ export default function CotizacionPdfPage() {
   const isPreviewMode = String(cotizacionId || "").toUpperCase() === "PREVIEW" || searchParams.get("preview") === "1";
 
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
+  const [docIsPdf, setDocIsPdf] = useState(true);
   const [filename, setFilename] = useState<string>("cotizacion.pdf");
   const [loading, setLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(8);
@@ -348,8 +349,15 @@ export default function CotizacionPdfPage() {
         const baseName = isPreviewMode ? "Cotizacion_PREVIEW" : `Cotizacion_${cotizacionId}`;
         const nextFilename = m?.[1] ? String(m[1]) : isPdf ? `${baseName}.pdf` : `${baseName}.html`;
         setFilename(nextFilename);
+        setDocIsPdf(isPdf);
 
-        const blob = await resp.blob();
+        const rawBlob = await resp.blob();
+        // Algunos servidores/proxies devuelven el PDF sin `Content-Type`; sin el tipo
+        // correcto el visor embebido de Chrome lo pinta en negro. Reetiquetamos el blob.
+        const blob =
+          isPdf && rawBlob.type !== "application/pdf"
+            ? new Blob([rawBlob], { type: "application/pdf" })
+            : rawBlob;
         const url = URL.createObjectURL(blob);
         if (lastObjectUrlRef.current) URL.revokeObjectURL(lastObjectUrlRef.current);
         lastObjectUrlRef.current = url;
@@ -601,14 +609,30 @@ export default function CotizacionPdfPage() {
                     <p className="mt-4 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">Preparando vista previa…</p>
                   </div>
                 ) : pdfObjectUrl ? (
-                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]">
-                    <iframe
-                      title="Vista previa del PDF"
-                      aria-label={`Vista previa del PDF de la cotización${cotizacionFolio != null ? ` ${cotizacionFolio}` : ""}`}
-                      src={pdfObjectUrl}
-                      loading="lazy"
-                      className={viewerFrameClass}
-                    />
+                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#1f2937]">
+                    {docIsPdf ? (
+                      <object
+                        key={pdfObjectUrl}
+                        data={`${pdfObjectUrl}#toolbar=1&navpanes=0&view=FitH`}
+                        type="application/pdf"
+                        aria-label={`Vista previa del PDF de la cotización${cotizacionFolio != null ? ` ${cotizacionFolio}` : ""}`}
+                        className={`${viewerFrameClass} bg-white`}
+                      >
+                        <iframe
+                          title="Vista previa del PDF"
+                          src={pdfObjectUrl}
+                          className={`${viewerFrameClass} bg-white`}
+                        />
+                      </object>
+                    ) : (
+                      <iframe
+                        key={pdfObjectUrl}
+                        title="Vista previa del documento"
+                        aria-label={`Vista previa del documento de la cotización${cotizacionFolio != null ? ` ${cotizacionFolio}` : ""}`}
+                        src={pdfObjectUrl}
+                        className={`${viewerFrameClass} bg-white`}
+                      />
+                    )}
                   </div>
                 ) : (
                   <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 px-6 py-12 text-center dark:border-[#273244] dark:bg-[#0f172a]/40 lg:min-h-[calc(100vh-13.5rem)]">

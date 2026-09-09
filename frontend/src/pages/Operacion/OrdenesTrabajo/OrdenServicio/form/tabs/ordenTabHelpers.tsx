@@ -37,6 +37,16 @@ export function OrdenFormSection({
   );
 }
 
+/** Asterisco rojo para campos obligatorios (mismo estilo que NuevaCotizacionPage). */
+export function RequiredMark() {
+  return (
+    <span className="text-[#C22B2B] dark:text-[#F87171]" aria-hidden>
+      {" "}
+      *
+    </span>
+  );
+}
+
 export function ClearSelectionButton({ onClick }: { onClick: () => void }) {
   return (
     <button

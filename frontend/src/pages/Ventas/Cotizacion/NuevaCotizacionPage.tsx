@@ -110,6 +110,13 @@ import {
 /** Muestra "" cuando el número es 0 para no obligar al usuario a borrar el cero. */
 const numValue = (n: number) => (n ? String(n) : "");
 
+/** Anticipo por defecto y mínimo operativo (no se puede pedir menos del 40 %). */
+const ANTICIPO_PCT_DEFAULT = 60;
+const ANTICIPO_PCT_MIN = 40;
+const ANTICIPO_PCT_MAX = 100;
+const clampAnticipo = (n: number) =>
+  Math.min(ANTICIPO_PCT_MAX, Math.max(ANTICIPO_PCT_MIN, Number.isFinite(n) ? n : ANTICIPO_PCT_DEFAULT));
+
 export default function NuevaCotizacionPage() {
   const { permissions, isAdmin } = useAuth();
   const { nombre: marcaNombre } = useMarca();
@@ -230,6 +237,8 @@ export default function NuevaCotizacionPage() {
   const [syscomPopPos, setSyscomPopPos] = useState<SyscomPopPos | null>(null);
   const [descuentoClientePct, setDescuentoClientePct] = useState<number>(0);
   const [descuentoClienteTouched, setDescuentoClienteTouched] = useState<boolean>(false);
+  /** Porcentaje de anticipo personalizado (default 60 %, mínimo 40 %). */
+  const [anticipoPct, setAnticipoPct] = useState<number>(ANTICIPO_PCT_DEFAULT);
 
   const [editingConceptoId, setEditingConceptoId] = useState<string | null>(null);
 
@@ -566,6 +575,11 @@ export default function NuevaCotizacionPage() {
       setStatus(String(data.status || "PENDIENTE"));
       setDescuentoClientePct(clampPct(toNumber(data.descuento_cliente_pct, 0)));
       setDescuentoClienteTouched(true);
+      setAnticipoPct(
+        data.anticipo_pct == null
+          ? ANTICIPO_PCT_DEFAULT
+          : clampAnticipo(toNumber(data.anticipo_pct, ANTICIPO_PCT_DEFAULT)),
+      );
       setTextoArribaPrecios(String(data.texto_arriba_precios || ""));
       {
         const incoming = String(data.terminos || "").trim();
@@ -667,6 +681,7 @@ export default function NuevaCotizacionPage() {
           fecha: todayIso,
           subtotal: 0,
           descuento_cliente_pct: 0,
+          anticipo_pct: ANTICIPO_PCT_DEFAULT,
           iva_pct: 0,
           iva: 0,
           total: 0,
@@ -1199,6 +1214,7 @@ export default function NuevaCotizacionPage() {
       fecha: nowIso,
       subtotal,
       descuento_cliente_pct: descClientePct,
+      anticipo_pct: clampAnticipo(toNumber(anticipoPct, ANTICIPO_PCT_DEFAULT)),
       iva_pct: 0,
       iva: 0,
       total,
@@ -1234,6 +1250,7 @@ export default function NuevaCotizacionPage() {
     conceptos,
     categorias,
     effectiveDescuentoClientePct,
+    anticipoPct,
     textoArribaPrecios,
     terminos,
     pdfOpciones,
@@ -1487,6 +1504,7 @@ export default function NuevaCotizacionPage() {
     tipoTrabajoAutosaveKey,
     status,
     descuentoClientePct,
+    anticipoPct,
     conceptosAutosaveKey,
     pdfOpcionesAutosaveKey,
     pdfDescripcionCortaAutosaveKey,
@@ -2302,8 +2320,11 @@ export default function NuevaCotizacionPage() {
                   compact
                 >
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <div>
-                      <Label className={labelPageClass}>Cliente</Label>
+                    <div className="sm:col-span-2 xl:col-span-3">
+                      <Label className={labelPageClass}>
+                        Cliente
+                        <span className="text-[#C22B2B] dark:text-[#F87171]"> *</span>
+                      </Label>
                       <div className={`relative ${clienteOpen ? "z-[100]" : "z-0"}`}>
                         <div className="relative">
                           <svg className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A1A1AA]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'><circle cx='11' cy='11' r='7' /><path d='m20 20-2-2' /></svg>
@@ -2429,6 +2450,53 @@ export default function NuevaCotizacionPage() {
                           %
                         </span>
                       </div>
+                    </div>
+
+                    <div>
+                      <Label className={labelPageClass} htmlFor="anticipo-pct-input">
+                        ¿Cuánto de anticipación?
+                      </Label>
+                      <div className="relative">
+                        <input
+                          id="anticipo-pct-input"
+                          type="number"
+                          inputMode="decimal"
+                          className={`${numberInputClass} pr-8 text-right`}
+                          value={numValue(anticipoPct)}
+                          onChange={(e) =>
+                            setAnticipoPct(
+                              Math.min(
+                                ANTICIPO_PCT_MAX,
+                                Math.max(0, toNumber(e.target.value, ANTICIPO_PCT_DEFAULT)),
+                              ),
+                            )
+                          }
+                          onBlur={(e) => {
+                            const raw = toNumber(e.target.value, ANTICIPO_PCT_DEFAULT);
+                            setAnticipoPct(clampAnticipo(raw || ANTICIPO_PCT_DEFAULT));
+                          }}
+                          min={ANTICIPO_PCT_MIN}
+                          max={ANTICIPO_PCT_MAX}
+                          step="1"
+                          placeholder={String(ANTICIPO_PCT_DEFAULT)}
+                          aria-describedby="anticipo-pct-help"
+                        />
+                        <span
+                          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#A1A1AA] dark:text-[#64748b]"
+                          aria-hidden
+                        >
+                          %
+                        </span>
+                      </div>
+                      <p
+                        id="anticipo-pct-help"
+                        className="mt-1 text-[11px] leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]"
+                      >
+                        Por defecto {ANTICIPO_PCT_DEFAULT}% para iniciar trabajos; no puede ser menor a{" "}
+                        {ANTICIPO_PCT_MIN}%. El resto (
+                        {(100 - clampAnticipo(toNumber(anticipoPct, ANTICIPO_PCT_DEFAULT))).toFixed(0)}%) se
+                        liquida al finalizar.
+                      </p>
                     </div>
 
                     <div>
@@ -3077,41 +3145,73 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <div className={summaryHeroClass}>
-                      <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#1B5CFF]/10 blur-2xl" aria-hidden />
-                      <div className="relative flex items-end justify-between gap-3">
-                        <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#1B5CFF] dark:text-[#4B7CFF] sm:text-[11px]">Total estimado</div>
-                          <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-[#09090B] dark:text-[#f8fafc] sm:text-[1.75rem]">{formatMoney(computed.total)}</div>
+                      <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[#1B5CFF]/12 blur-2xl" aria-hidden />
+                      <div className="relative">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1B5CFF] dark:text-[#4B7CFF] sm:text-[11px]">
+                            Total estimado
+                          </span>
+                          <span className="rounded-md border border-[#1B5CFF]/20 bg-white/70 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#1B5CFF] dark:border-[#1B5CFF]/25 dark:bg-[#111827]/50 dark:text-[#4B7CFF] sm:text-[10px]">
+                            MXN
+                          </span>
                         </div>
-                        <div className="rounded-md border border-[#1B5CFF]/20 bg-white/60 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#1B5CFF] dark:border-[#1B5CFF]/25 dark:bg-[#111827]/50 dark:text-[#4B7CFF] sm:text-[10px]">MXN</div>
-                      </div>
+                        <div className="mt-1.5 text-[2rem] font-semibold leading-none tabular-nums tracking-tight text-[#09090B] dark:text-[#f8fafc] sm:text-[2.25rem]">
+                          {formatMoney(computed.total)}
+                        </div>
 
-                      <div className="relative mt-4 grid grid-cols-1 gap-2 border-t border-[#1B5CFF]/15 pt-4 dark:border-[#1B5CFF]/20">
-                        {!!toNumber(computed.descClientePct, 0) && (
-                          <>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Importe conceptos</span>
-                              <span className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.subtotalLineas)}</span>
+                        <dl className="mt-4 space-y-2 rounded-xl border border-[#1B5CFF]/12 bg-white/55 p-3 dark:border-[#1B5CFF]/20 dark:bg-[#0f172a]/40">
+                          {!!toNumber(computed.descClientePct, 0) && (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Importe conceptos</dt>
+                                <dd className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.subtotalLineas)}</dd>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Descuento cliente ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</dt>
+                                <dd className="text-xs font-medium tabular-nums text-[#C22B2B] dark:text-[#F87171] sm:text-sm">-{formatMoney(computed.descuentoCliente)}</dd>
+                              </div>
+                              <div className="my-1 h-px bg-[#1B5CFF]/10 dark:bg-[#1B5CFF]/20" aria-hidden />
+                            </>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Subtotal</dt>
+                            <dd className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.subtotalSinIva)}</dd>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">IVA (16%)</dt>
+                            <dd className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.ivaDesglose)}</dd>
+                          </div>
+                          <div className="flex items-center justify-between border-t border-[#1B5CFF]/15 pt-2 dark:border-[#1B5CFF]/20">
+                            <dt className="text-[11px] font-semibold text-[#52525B] dark:text-[#B7C1D1] sm:text-xs">Total con IVA</dt>
+                            <dd className="text-sm font-semibold tabular-nums text-[#09090B] dark:text-[#f8fafc]">{formatMoney(computed.totalConIva)}</dd>
+                          </div>
+                        </dl>
+
+                        {(() => {
+                          const pct = clampAnticipo(toNumber(anticipoPct, ANTICIPO_PCT_DEFAULT));
+                          const anticipoMonto = computed.totalConIva * (pct / 100);
+                          const saldoMonto = Math.max(0, computed.totalConIva - anticipoMonto);
+                          return (
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <div className="rounded-xl border border-[#1B5CFF]/25 bg-[#1B5CFF]/[0.07] p-2.5 dark:border-[#4B7CFF]/30 dark:bg-[#4B7CFF]/10">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#1B5CFF] dark:text-[#4B7CFF]">
+                                  Anticipo {pct.toFixed(0)}%
+                                </p>
+                                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[#09090B] dark:text-[#f8fafc]">
+                                  {formatMoney(anticipoMonto)}
+                                </p>
+                              </div>
+                              <div className="rounded-xl border border-[#E7E7EA] bg-white/70 p-2.5 dark:border-[#273244] dark:bg-[#0f172a]/55">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">
+                                  Saldo {(100 - pct).toFixed(0)}%
+                                </p>
+                                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[#09090B] dark:text-[#f8fafc]">
+                                  {formatMoney(saldoMonto)}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Descuento cliente ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</span>
-                              <span className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">-{formatMoney(computed.descuentoCliente)}</span>
-                            </div>
-                            <div className="border-t border-[#EDEDED] dark:border-[#273244] pt-2 dark:border-white/[0.06]" aria-hidden />
-                          </>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Subtotal</span>
-                          <span className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.subtotalSinIva)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">IVA (16%)</span>
-                          <span className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.ivaDesglose)}</span>
-                        </div>
-                        <div className="flex items-center justify-between border-t border-[#1B5CFF]/15 pt-2 dark:border-[#1B5CFF]/20">
-                          <span className="text-[11px] font-semibold text-[#52525B] dark:text-[#B7C1D1] sm:text-xs">Total con IVA</span>
-                          <span className="text-sm font-semibold tabular-nums text-[#09090B] dark:text-[#f8fafc]">{formatMoney(computed.totalConIva)}</span>
-                        </div>
+                          );
+                        })()}
                       </div>
                     </div>
 

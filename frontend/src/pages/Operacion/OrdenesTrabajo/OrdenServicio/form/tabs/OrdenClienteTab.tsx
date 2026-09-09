@@ -19,6 +19,7 @@ import {
   ClearSelectionButton,
   openDireccionInMaps,
   OrdenFormSection,
+  RequiredMark,
   type OrdenFieldKey,
 } from "./ordenTabHelpers";
 
@@ -247,7 +248,7 @@ export function OrdenClienteTab({
               actions={clienteActions as never}
               showAllActions={variant === "admin"}
               defaultOpen={false}
-              label="Cliente"
+              label={<>Cliente<RequiredMark /></>}
               placeholder="Buscar cliente por nombre o teléfono..."
               value={clienteSearch}
               onQueryChange={onClienteQueryChange}
@@ -278,7 +279,7 @@ export function OrdenClienteTab({
 
         <div>
           <label htmlFor={telefonoId} className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">
-            Teléfono
+            Teléfono<RequiredMark />
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -497,29 +498,43 @@ export function OrdenClienteTab({
                 htmlFor={prioridadPoolId}
                 className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]"
               >
-                Nivel de prioridad
+                Nivel de prioridad<RequiredMark />
               </label>
               <select
                 id={prioridadPoolId}
                 value={formData.prioridad_pool}
                 disabled={isReadOnly || isLimitedEdit || !isAdmin}
+                required
+                aria-required="true"
+                aria-invalid={!formData.prioridad_pool}
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
                     prioridad_pool: e.target.value as OrdenFormData["prioridad_pool"],
                   }))
                 }
-                className={`h-11 w-full rounded-[10px] border border-[#E7E7EA] px-3.5 text-sm outline-none transition-colors dark:border-[#273244] ${
+                className={`h-11 w-full rounded-[10px] border px-3.5 text-sm outline-none transition-colors ${
                   isReadOnly || isLimitedEdit || !isAdmin
-                    ? "cursor-not-allowed bg-[#F4F4F5] text-[#6E6E77] dark:bg-[#0f172a]/60 dark:text-[#8ea0b8]"
-                    : "bg-white text-[#09090B] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:bg-[#111827] dark:text-[#F8FAFC] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]"
+                    ? "cursor-not-allowed border-[#E7E7EA] bg-[#F4F4F5] text-[#6E6E77] dark:border-[#273244] dark:bg-[#0f172a]/60 dark:text-[#8ea0b8]"
+                    : formData.prioridad_pool
+                      ? "border-[#E7E7EA] bg-white text-[#09090B] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]"
+                      : "border-amber-400 bg-white text-[#6E6E77] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:bg-[#111827] dark:text-[#8ea0b8]"
                 }`}
                 aria-describedby={`${prioridadPoolId}-hint`}
               >
+                <option value="" disabled>
+                  Selecciona el nivel…
+                </option>
                 <option value="alta">Alta</option>
                 <option value="media">Media</option>
                 <option value="baja">Baja</option>
               </select>
+              <p
+                id={`${prioridadPoolId}-hint`}
+                className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]"
+              >
+                Obligatorio. Solo el administrador la asigna; ordena la bolsa de órdenes.
+              </p>
             </div>
           ) : null}
         </div>
@@ -530,7 +545,7 @@ export function OrdenClienteTab({
               htmlFor={motivoPausaId}
               className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]"
             >
-              ¿Por qué se pausó?
+              ¿Por qué se pausó?<RequiredMark />
             </label>
             <textarea
               id={motivoPausaId}

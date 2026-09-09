@@ -5,6 +5,10 @@ import { erpMobileCardClass } from "../ordenServicioStyles";
 import { displayOrdenFolio, isOrdenResuelta, isOrdenServicioTecnico } from "../shared/useOrdenesShared";
 import { isOrdenStatusChangeRecent, ORDEN_RECIEN_RESUELTA_BADGE_CLASS, ORDEN_RECIEN_RESUELTA_ROW_CLASS } from "../shared/ordenesPageUtils";
 import { groupOrdenesByStatus } from "../shared/ordenStatusSections";
+import {
+  getOrdenPrioridadSectionStyles,
+  ordenPrioridadKey,
+} from "../shared/ordenPrioridadSections";
 import { OrdenStatusSectionHeader } from "./OrdenStatusSectionHeader";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
@@ -66,13 +70,19 @@ export function MobileOrderCard({
   const fechaInicioFmt = fechaInicio ? formatDate(fechaInicio) : '-';
   const fechaFinFmt = orden.fecha_finalizacion ? formatDate(orden.fecha_finalizacion) : '-';
   const showRecentResolved = highlightRecentStatus && isOrdenStatusChangeRecent(orden);
+  // En órdenes resueltas la prioridad de bolsa deja de mostrarse.
+  const isResuelta = isOrdenResuelta(orden.status);
+  const prioKey = ordenPrioridadKey(orden.prioridad_pool);
+  const prioTone = getOrdenPrioridadSectionStyles(prioKey);
+  const prioLabel =
+    prioKey === "ALTA" ? "Alta" : prioKey === "MEDIA" ? "Media" : prioKey === "BAJA" ? "Baja" : "Sin prioridad";
 
   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
 
   return (
     <div
-      className={`${erpMobileCardClass}${showRecentResolved ? ` ${ORDEN_RECIEN_RESUELTA_ROW_CLASS}` : ""}`}
-      aria-label={showRecentResolved ? `Orden ${folioDisplay}, resuelta recientemente` : undefined}
+      className={`${erpMobileCardClass} ${showRecentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isResuelta ? "" : prioTone.rowAccent}`}
+      aria-label={`Orden ${folioDisplay}${isResuelta ? "" : `, prioridad ${prioLabel.toLowerCase()}`}${showRecentResolved ? ", resuelta recientemente" : ""}`}
     >
       <div className="flex flex-col gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
@@ -92,6 +102,15 @@ export function MobileOrderCard({
           >
             {orden.status === "resuelto" ? "Resuelto" : orden.status === "pausado" ? "Pausado" : "Pendiente"}
           </span>
+          {!isResuelta && (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${prioTone.badge}`}
+              title={`Prioridad: ${prioLabel}`}
+            >
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${prioTone.dot}`} aria-hidden />
+              {prioLabel}
+            </span>
+          )}
           {showRecentResolved && (
             <span className={ORDEN_RECIEN_RESUELTA_BADGE_CLASS}>
               <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -319,7 +338,7 @@ export function MobileOrderList({
           })
         : ordenes.map((orden, idx) => renderCard(orden, idx))}
       {!loading && ordenes.length === 0 && (
-        <div className="text-center py-8 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
+        <div className="rounded-2xl border border-dashed border-[#E7E7EA] px-4 py-8 text-center text-sm font-medium text-[#52525B] dark:border-[#273244] dark:text-[#B7C1D1]">
           Sin órdenes
         </div>
       )}

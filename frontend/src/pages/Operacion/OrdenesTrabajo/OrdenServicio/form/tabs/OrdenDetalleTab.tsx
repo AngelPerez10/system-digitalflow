@@ -7,7 +7,7 @@ import OrdenAdminCotizacionesField from "../fields/OrdenAdminCotizacionesField";
 import type { OrdenStatusAdministrativo } from "../../shared/ordenesPageTypes";
 import { COMENTARIO_TECNICO_MIN_LENGTH } from "../../shared/ordenesPageTypes";
 import type { OrdenFormData } from "../useOrdenFormDraft";
-import { OrdenFormSection, type OrdenFieldKey } from "./ordenTabHelpers";
+import { OrdenFormSection, RequiredMark, type OrdenFieldKey } from "./ordenTabHelpers";
 
 const SERVICIO_CREAR_PREFIX = "__crear__:";
 
@@ -78,6 +78,10 @@ export function OrdenDetalleTab({
   const comentarioId = "orden-comentario-tecnico";
   const serviciosLocked = ro("servicios_realizados");
   const selectedServicio = formData.servicios_realizados[0] || "";
+  /** El comentario del técnico es obligatorio al cerrar la orden (resuelto / administrativo cerrado). */
+  const comentarioTecnicoRequerido =
+    Boolean(editingOrden) &&
+    (formData.status === "resuelto" || statusAdministrativo === "cerrado");
 
   const servicioOptions = useMemo(() => {
     const opts = serviciosDisponibles.map((s) => ({ value: s, label: s }));
@@ -195,6 +199,7 @@ export function OrdenDetalleTab({
                 <SearchableSelect
                   id="orden-servicios-realizados"
                   label="Servicios realizados"
+                  required
                   value={selectedServicio}
                   onChange={handleServicioChange}
                   onSearchChange={setServicioSearch}
@@ -215,12 +220,11 @@ export function OrdenDetalleTab({
               <div>
                 <label htmlFor={comentarioId} className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">
                   Comentario del Técnico
+                  {comentarioTecnicoRequerido ? <RequiredMark /> : null}
                 </label>
                 {(() => {
                   const comentarioLen = (formData.comentario_tecnico || "").trim().length;
-                  const requiereMinimo =
-                    Boolean(editingOrden) &&
-                    (formData.status === "resuelto" || statusAdministrativo === "cerrado");
+                  const requiereMinimo = comentarioTecnicoRequerido;
                   const cumpleMinimo = comentarioLen >= COMENTARIO_TECNICO_MIN_LENGTH;
                   return (
                     <>

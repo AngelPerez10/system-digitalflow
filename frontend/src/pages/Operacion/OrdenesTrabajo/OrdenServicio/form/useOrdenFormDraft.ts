@@ -60,8 +60,11 @@ export type OrdenFormData = {
   servicios_realizados: string[];
   status: "pendiente" | "pausado" | "resuelto";
   motivo_pausa: string;
-  /** Prioridad de la bolsa de órdenes (solo la edita el admin). */
-  prioridad_pool: "alta" | "media" | "baja";
+  /**
+   * Prioridad de la bolsa de órdenes. Solo la asigna el admin y es obligatoria
+   * al crear/guardar. `""` = aún sin seleccionar (estado inicial de una orden nueva).
+   */
+  prioridad_pool: "alta" | "media" | "baja" | "";
   comentario_tecnico: string;
   fecha_inicio: string;
   hora_inicio: string;
@@ -91,7 +94,7 @@ export function createEmptyOrdenFormData(): OrdenFormData {
     servicios_realizados: [],
     status: "pendiente",
     motivo_pausa: "",
-    prioridad_pool: "media",
+    prioridad_pool: "",
     comentario_tecnico: "",
     fecha_inicio: new Date().toISOString().split("T")[0],
     hora_inicio: "",
@@ -204,7 +207,9 @@ export function buildOrdenWritePayload(opts: {
   if (variant === "admin" && isAdmin) {
     payload.status_administrativo = statusAdministrativo;
     payload.fecha_envio = fechaEnvioAdmin.trim() ? fechaEnvioAdmin.trim().slice(0, 10) : null;
-    // `prioridad_pool` (prioridad de la bolsa) solo la fija el admin.
+    // `prioridad_pool` (prioridad de la bolsa) solo la fija el admin y es obligatoria;
+    // nunca enviar "" (la validación del formulario bloquea el guardado antes).
+    if (!payload.prioridad_pool) delete payload.prioridad_pool;
     payload.cotizaciones_adjuntas = cotizacionesAdmin.map((c) => {
       const row: OrdenCotizacionAdjunta = {
         id: c.id,
@@ -515,7 +520,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         status: (orden.status as OrdenFormData["status"]) || "pendiente",
         motivo_pausa: orden.motivo_pausa || "",
         prioridad_pool:
-          (orden.prioridad_pool as OrdenFormData["prioridad_pool"]) || "media",
+          (orden.prioridad_pool as OrdenFormData["prioridad_pool"]) || "",
         fecha_inicio: orden.fecha_inicio || "",
         hora_inicio: orden.hora_inicio || "",
         fecha_finalizacion: orden.fecha_finalizacion || "",
@@ -869,6 +874,10 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     if (formData.status === "pausado" && !(formData.motivo_pausa || "").trim()) {
       missing.push("¿Por qué se pausó?");
     }
+    // El admin debe asignar el nivel de prioridad al crear o guardar.
+    if (variant === "admin" && isAdmin && !formData.prioridad_pool) {
+      missing.push("Nivel de prioridad");
+    }
     // Mínimo 150 solo al editar una orden ya existente en resuelto/cerrado (no en alta nueva).
     const requiereComentarioMinimo =
       Boolean(editingOrden) &&
@@ -883,7 +892,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       }
     }
     return { ok: missing.length === 0, missing };
-  }, [editingOrden, formData, isLimitedEdit, statusAdministrativo]);
+  }, [editingOrden, formData, isLimitedEdit, statusAdministrativo, variant, isAdmin]);
 
   const patchClienteFromOrden = useCallback(
     async (payload: Record<string, unknown>) => {
