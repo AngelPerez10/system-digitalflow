@@ -298,9 +298,19 @@ export function ProyectoOperacionTab({
 
         <div>
           <p id="proyecto-status-label" className={proyectoFieldLabelClass}>
-            Status
+            Status operativo
           </p>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="proyecto-status-label">
+          <p className="mb-2 text-[12px] leading-5 text-[#6E6E77] dark:text-[#8EA0B8]">
+            Opciones: En proceso, Pausado o Cerrado. No hay «Resuelto» (ese status es de órdenes de
+            servicio). Para cerrar hace falta bitácora completa
+            {bitacoraMinRequired ? ` (mín. ${NOTA_DIA_MIN_CHARS} caracteres por día)` : ""}.
+          </p>
+          <div
+            className="flex flex-wrap gap-2"
+            role="radiogroup"
+            aria-labelledby="proyecto-status-label"
+            aria-describedby={closeBlockedMessage ? "proyecto-close-blocked" : undefined}
+          >
             {STATUS_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
@@ -314,6 +324,17 @@ export function ProyectoOperacionTab({
               </button>
             ))}
           </div>
+          {closeBlockedMessage ? (
+            <div
+              id="proyecto-close-blocked"
+              tabIndex={-1}
+              role="alert"
+              className="mt-3 scroll-mt-24 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800 outline-none focus-visible:ring-4 focus-visible:ring-[rgba(194,43,43,0.22)] dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200"
+            >
+              <p className="font-semibold tracking-[-0.01em]">No se pudo cambiar a Cerrado</p>
+              <p className="mt-1 leading-5">{closeBlockedMessage}</p>
+            </div>
+          ) : null}
         </div>
 
         {status === "pausado" ? (
@@ -799,15 +820,6 @@ export function ProyectoOperacionTab({
         hint="Si hay requerimientos o presupuesto adicional, el proyecto no podrá cerrarse sin cotización vinculada."
         icon={iconAlert}
       >
-        {closeBlockedMessage ? (
-          <p
-            className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200"
-            role="alert"
-          >
-            {closeBlockedMessage}
-          </p>
-        ) : null}
-
         <div>
           <label htmlFor="proyecto-incidencias" className={proyectoFieldLabelClass}>
             Incidencias

@@ -330,8 +330,12 @@ function messageFromErrorBody(body: unknown, fallback: string): string {
   if (!body || typeof body !== "object") return fallback;
   const rec = body as Record<string, unknown>;
   if (typeof rec.detail === "string" && rec.detail.trim()) return rec.detail;
-  if (Array.isArray(rec.status) && rec.status[0]) return String(rec.status[0]);
-  if (typeof rec.status === "string" && rec.status.trim()) return rec.status;
+  // Preferir errores de cierre (status / bitácora) antes que un campo aleatorio.
+  for (const key of ["status", "notas_por_dia", "cotizacion_adicional"] as const) {
+    const value = rec[key];
+    if (typeof value === "string" && value.trim()) return value;
+    if (Array.isArray(value) && value[0]) return String(value[0]);
+  }
   for (const value of Object.values(rec)) {
     if (typeof value === "string" && value.trim()) return value;
     if (Array.isArray(value) && value[0]) return String(value[0]);

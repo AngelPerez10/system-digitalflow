@@ -654,7 +654,8 @@ export function useProyectoFormState({
     if (id && String(nota).trim().length >= NOTA_DIA_MIN_CHARS) {
       setNotaDiaErrors((errs) => {
         if (!(id in errs)) return errs;
-        const { [id]: _removed, ...rest } = errs;
+        const rest = { ...errs };
+        delete rest[id];
         return rest;
       });
     }
@@ -694,6 +695,14 @@ export function useProyectoFormState({
     setPorcentajeExacto(parsed > 100 ? String(next) : cleaned);
   };
 
+  const focusCloseBlockedAlert = () => {
+    window.setTimeout(() => {
+      const el = document.getElementById("proyecto-close-blocked");
+      el?.focus();
+      el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }, 0);
+  };
+
   const handleStatusChange = (next: ProyectoEstado) => {
     if (next === "cerrado") {
       const check = canCerrarProyecto({
@@ -702,8 +711,10 @@ export function useProyectoFormState({
         cotizacionAdicional,
       });
       if (!check.ok) {
+        // No mutar status: el chip se queda en el valor anterior a propósito.
         setCloseBlockedMessage(check.message);
         setActiveTab("operacion");
+        focusCloseBlockedAlert();
         return;
       }
       const notasCheck = validateNotasPorDiaMinLength(notasPorDia, { status: "cerrado" });
@@ -713,9 +724,14 @@ export function useProyectoFormState({
           `Completa la bitácora (mínimo ${NOTA_DIA_MIN_CHARS} caracteres por día) antes de cerrar.`
         );
         setActiveTab("operacion");
-        requestAnimationFrame(() => {
+        // Resumen junto al status + foco al primer día incompleto (WCAG error recovery).
+        window.setTimeout(() => {
+          document.getElementById("proyecto-close-blocked")?.scrollIntoView({
+            block: "nearest",
+            behavior: "smooth",
+          });
           document.getElementById(notasCheck.firstFieldId)?.focus();
-        });
+        }, 0);
         return;
       }
     }
@@ -871,6 +887,11 @@ export function useProyectoFormState({
       if (!check.ok) {
         setCloseBlockedMessage(check.message);
         setActiveTab("operacion");
+        window.setTimeout(() => {
+          const el = document.getElementById("proyecto-close-blocked");
+          el?.focus();
+          el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }, 0);
         return;
       }
     }
