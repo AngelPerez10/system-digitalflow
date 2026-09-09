@@ -393,7 +393,8 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
                     else ""
                 )
             producto_val = corta or nombre_base
-            detalle_val = descripcion_larga if show_detalle else ""
+            # Al simplificar no se imprime el detalle largo (modelo / specs del equipo).
+            detalle_val = ""
         else:
             producto_val = nombre_base
             detalle_val = descripcion_larga if show_detalle else ""
@@ -409,7 +410,7 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
             ws.cell(row=r, column=cidx).border = table_border
 
         thumb = str(getattr(it, "thumbnail_url", "") or "").strip()
-        if thumb:
+        if thumb and not pdf_opciones.simplificar_descripcion:
             raw = _safe_http_image_bytes(thumb)
             if raw:
                 try:
@@ -477,8 +478,11 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     ws.column_dimensions["C"].width = 12
     ws.column_dimensions["D"].width = 30
     ws.column_dimensions["E"].width = 34
-    if not show_detalle:
+    if not show_detalle or pdf_opciones.simplificar_descripcion:
         ws.column_dimensions["E"].hidden = True
+    if pdf_opciones.simplificar_descripcion:
+        # Al simplificar: solo descripción corta, sin miniatura ni detalle largo.
+        ws.column_dimensions["A"].hidden = True
     ws.column_dimensions["F"].width = 18
     ws.column_dimensions["G"].width = 14
     ws.column_dimensions["H"].width = 16

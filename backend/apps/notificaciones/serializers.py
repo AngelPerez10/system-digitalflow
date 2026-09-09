@@ -1,6 +1,18 @@
 from rest_framework import serializers
 
-from .models import EXPO_TOKEN_RE, PushDevice
+from .models import EXPO_TOKEN_RE, Notificacion, PushDevice
+
+
+class NotificacionSerializer(serializers.ModelSerializer):
+    leida = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = Notificacion
+        fields = [
+            'id', 'tipo', 'titulo', 'cuerpo', 'url',
+            'ref_tipo', 'ref_id', 'leida', 'leida_at', 'created_at',
+        ]
+        read_only_fields = fields
 
 
 class PushDeviceRegistroSerializer(serializers.Serializer):

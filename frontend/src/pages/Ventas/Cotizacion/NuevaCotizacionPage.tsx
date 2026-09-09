@@ -1799,6 +1799,14 @@ export default function NuevaCotizacionPage() {
       const puBase = linePrecioUnitarioSinIva(toNumber(l.precio_lista, 0), descuento, l.producto_externo_id);
       return acc + toNumber(l.cantidad, 0) * puBase;
     }, 0);
+    /** Monto total descontado por los descuentos aplicados por concepto (sin IVA). */
+    const descuentoLineasSinIva = lines.reduce((acc, l) => {
+      const descuento = clampPct(toNumber(l.descuento_pct, 0));
+      if (descuento <= 0) return acc;
+      const puLista = linePrecioUnitarioSinIva(toNumber(l.precio_lista, 0), 0, l.producto_externo_id);
+      const puDesc = linePrecioUnitarioSinIva(toNumber(l.precio_lista, 0), descuento, l.producto_externo_id);
+      return acc + toNumber(l.cantidad, 0) * Math.max(0, puLista - puDesc);
+    }, 0);
     /** Suma cobrada (con o sin IVA según bandera); el descuento cliente se aplica sobre este monto. */
     const subtotalLineasConIva = lines.reduce(
       (acc, l) => acc + (Number.isFinite(l.importeCobrado) ? l.importeCobrado : 0),
@@ -1818,6 +1826,7 @@ export default function NuevaCotizacionPage() {
     return {
       lines,
       subtotalLineas: subtotalLineasSinIva,
+      descuentoLineas: round2(descuentoLineasSinIva),
       descClientePct,
       descuentoCliente,
       subtotal,
@@ -3160,6 +3169,12 @@ export default function NuevaCotizacionPage() {
                         </div>
 
                         <dl className="mt-4 space-y-2 rounded-xl border border-[#1B5CFF]/12 bg-white/55 p-3 dark:border-[#1B5CFF]/20 dark:bg-[#0f172a]/40">
+                          {computed.descuentoLineas >= 0.01 && (
+                            <div className="flex items-center justify-between">
+                              <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Descuento conceptos</dt>
+                              <dd className="text-xs font-medium tabular-nums text-[#C22B2B] dark:text-[#F87171] sm:text-sm">-{formatMoney(computed.descuentoLineas)}</dd>
+                            </div>
+                          )}
                           {!!toNumber(computed.descClientePct, 0) && (
                             <>
                               <div className="flex items-center justify-between">
@@ -3170,8 +3185,10 @@ export default function NuevaCotizacionPage() {
                                 <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Descuento cliente ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</dt>
                                 <dd className="text-xs font-medium tabular-nums text-[#C22B2B] dark:text-[#F87171] sm:text-sm">-{formatMoney(computed.descuentoCliente)}</dd>
                               </div>
-                              <div className="my-1 h-px bg-[#1B5CFF]/10 dark:bg-[#1B5CFF]/20" aria-hidden />
                             </>
+                          )}
+                          {(computed.descuentoLineas >= 0.01 || !!toNumber(computed.descClientePct, 0)) && (
+                            <div className="my-1 h-px bg-[#1B5CFF]/10 dark:bg-[#1B5CFF]/20" aria-hidden />
                           )}
                           <div className="flex items-center justify-between">
                             <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Subtotal</dt>

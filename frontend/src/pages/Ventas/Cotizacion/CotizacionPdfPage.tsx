@@ -212,6 +212,19 @@ export default function CotizacionPdfPage() {
   /** Mantenemos el último objectURL para revocarlo cuando se reemplace. */
   const lastObjectUrlRef = useRef<string | null>(null);
 
+  const revokeLater = useCallback((url: string | null) => {
+    if (!url) return;
+    // Diferir: si se revoca mientras el iframe/object aún lo usa, Chrome loguea
+    // `invalid/:1 Failed to load resource: net::ERR_FAILED` (ruido / vista rota).
+    window.setTimeout(() => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        /* ignore */
+      }
+    }, 1_500);
+  }, []);
+
   useEffect(() => {
     if (isPreviewMode) {
       setCotizacionIdx("PREVIEW");
@@ -294,6 +307,10 @@ export default function CotizacionPdfPage() {
                 message: "No se encontró el contenido de la vista previa.",
               });
               setPdfObjectUrl(null);
+              if (lastObjectUrlRef.current) {
+                revokeLater(lastObjectUrlRef.current);
+                lastObjectUrlRef.current = null;
+              }
               setLoading(false);
             }
             return;
@@ -337,6 +354,10 @@ export default function CotizacionPdfPage() {
             message: friendly.message,
           });
           setPdfObjectUrl(null);
+          if (lastObjectUrlRef.current) {
+            revokeLater(lastObjectUrlRef.current);
+            lastObjectUrlRef.current = null;
+          }
           return;
         }
 
@@ -359,9 +380,10 @@ export default function CotizacionPdfPage() {
             ? new Blob([rawBlob], { type: "application/pdf" })
             : rawBlob;
         const url = URL.createObjectURL(blob);
-        if (lastObjectUrlRef.current) URL.revokeObjectURL(lastObjectUrlRef.current);
+        const prev = lastObjectUrlRef.current;
         lastObjectUrlRef.current = url;
         setPdfObjectUrl(url);
+        if (prev && prev !== url) revokeLater(prev);
       } catch {
         if (isMounted) {
           setHasError(true);
@@ -382,7 +404,7 @@ export default function CotizacionPdfPage() {
     return () => {
       isMounted = false;
     };
-  }, [cotizacionId, isPreviewMode, reloadKey]);
+  }, [cotizacionId, isPreviewMode, reloadKey, revokeLater]);
 
   useEffect(() => {
     if (!loading) {
@@ -404,10 +426,11 @@ export default function CotizacionPdfPage() {
 
   useEffect(() => {
     return () => {
-      if (lastObjectUrlRef.current) URL.revokeObjectURL(lastObjectUrlRef.current);
+      const url = lastObjectUrlRef.current;
       lastObjectUrlRef.current = null;
+      revokeLater(url);
     };
-  }, []);
+  }, [revokeLater]);
 
   const handleRetry = useCallback(() => {
     setReloadKey((k) => k + 1);
@@ -610,29 +633,18 @@ export default function CotizacionPdfPage() {
                   </div>
                 ) : pdfObjectUrl ? (
                   <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#1f2937]">
-                    {docIsPdf ? (
-                      <object
-                        key={pdfObjectUrl}
-                        data={`${pdfObjectUrl}#toolbar=1&navpanes=0&view=FitH`}
-                        type="application/pdf"
-                        aria-label={`Vista previa del PDF de la cotización${cotizacionFolio != null ? ` ${cotizacionFolio}` : ""}`}
-                        className={`${viewerFrameClass} bg-white`}
-                      >
-                        <iframe
-                          title="Vista previa del PDF"
-                          src={pdfObjectUrl}
-                          className={`${viewerFrameClass} bg-white`}
-                        />
-                      </object>
-                    ) : (
-                      <iframe
-                        key={pdfObjectUrl}
-                        title="Vista previa del documento"
-                        aria-label={`Vista previa del documento de la cotización${cotizacionFolio != null ? ` ${cotizacionFolio}` : ""}`}
-                        src={pdfObjectUrl}
-                        className={`${viewerFrameClass} bg-white`}
-                      />
-                    )}
+                    {/*
+                      Solo iframe (como Órdenes/Proyectos). El <object data="blob…#toolbar=…">
+                      hace que Chrome pida recursos internos `invalid/` y llene la consola
+                      con net::ERR_FAILED aunque el PDF se vea.
+                    */}
+                    <iframe
+                      key={pdfObjectUrl}
+                      title={docIsPdf ? "Vista previa del PDF" : "Vista previa del documento"}
+                      aria-label={`Vista previa del documento de la cotización${cotizacionFolio != null ? ` ${cotizacionFolio}` : ""}`}
+                      src={pdfObjectUrl}
+                      className={`${viewerFrameClass} bg-white`}
+                    />
                   </div>
                 ) : (
                   <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 px-6 py-12 text-center dark:border-[#273244] dark:bg-[#0f172a]/40 lg:min-h-[calc(100vh-13.5rem)]">

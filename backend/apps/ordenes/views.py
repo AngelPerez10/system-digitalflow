@@ -149,6 +149,31 @@ def _notify_orden_liberada(orden) -> None:
     except Exception:
         logger.exception('No se pudo encolar el aviso de orden liberada (orden=%s)', orden.pk)
 
+    try:
+        from apps.notificaciones.eventos import notificar_orden_liberada
+
+        notificar_orden_liberada(orden)
+    except Exception:
+        logger.exception('No se pudo crear la notificación in-app de orden liberada (orden=%s)', orden.pk)
+
+
+def _notify_orden_tomada(orden, tomador) -> None:
+    try:
+        from apps.notificaciones.eventos import notificar_orden_tomada
+
+        notificar_orden_tomada(orden, tomador=tomador)
+    except Exception:
+        logger.exception('No se pudo crear la notificación in-app de orden tomada (orden=%s)', orden.pk)
+
+
+def _notify_orden_asignada(orden, tecnico_id, actor_id) -> None:
+    try:
+        from apps.notificaciones.eventos import notificar_orden_asignada
+
+        notificar_orden_asignada(orden, tecnico_id=tecnico_id, actor_id=actor_id)
+    except Exception:
+        logger.exception('No se pudo crear la notificación in-app de orden asignada (orden=%s)', orden.pk)
+
 
 def _portal_contacto_para_cliente(cliente_pk):
     """(nombre, telefono) del contacto del portal de ese cliente, o (None, None).
@@ -1727,9 +1752,14 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 instance.equipos_inventario = final
                 instance.save(update_fields=['equipos_inventario'])
 
+        _notify_orden_asignada(
+            instance, instance.tecnico_asignado_id, getattr(self.request.user, 'id', None)
+        )
+
     def perform_update(self, serializer):
         instance = serializer.instance
         user = getattr(self.request, 'user', None)
+        old_tecnico_id = instance.tecnico_asignado_id
         full_edit = user_has_full_orden_edit(user, instance)
         old_firma_cliente = instance.firma_cliente_url
         old_fotos = list(instance.fotos_urls) if instance.fotos_urls else []
@@ -1829,6 +1859,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
             if final != (instance.equipos_inventario or []):
                 instance.equipos_inventario = final
                 instance.save(update_fields=['equipos_inventario'])
+
+        if instance.tecnico_asignado_id and instance.tecnico_asignado_id != old_tecnico_id:
+            _notify_orden_asignada(
+                instance, instance.tecnico_asignado_id, getattr(user, 'id', None)
+            )
 
         return instance
 
@@ -2019,6 +2054,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 'en_pool', 'tecnico_asignado', 'tomada_por', 'tomada_at',
                 'actualizado_por', 'fecha_actualizacion',
             ])
+        _notify_orden_tomada(orden, user)
         return Response(self.get_serializer(orden).data)
 
     @action(detail=False, methods=['get'], url_path='pool')

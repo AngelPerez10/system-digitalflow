@@ -1,11 +1,19 @@
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from .models import PushDevice
-from .serializers import PushDeviceBajaSerializer, PushDeviceRegistroSerializer
+from .models import Notificacion, PushDevice
+from .serializers import (
+    NotificacionSerializer,
+    PushDeviceBajaSerializer,
+    PushDeviceRegistroSerializer,
+)
+
+# Tope de filas devueltas por el listado del header (la campanita no pagina).
+NOTIFICACIONES_LIMITE = 50
 
 
 class PushDeviceRegistroView(APIView):
@@ -60,3 +68,67 @@ class PushDeviceBajaView(APIView):
             user=request.user,
         ).delete()
         return Response({'borrados': borrados}, status=status.HTTP_200_OK)
+
+
+class NotificacionesListView(APIView):
+    """`GET /api/notificaciones/` — últimas notificaciones del usuario.
+
+    Query params: `?no_leidas=1` filtra a solo las pendientes. Devuelve como
+    mucho `NOTIFICACIONES_LIMITE` (la campanita del header no pagina) más un
+    contador `no_leidas` para el badge.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = Notificacion.objects.filter(destinatario=request.user)
+        if request.query_params.get('no_leidas') in ('1', 'true', 'True'):
+            qs = qs.filter(leida_at__isnull=True)
+        filas = list(qs[:NOTIFICACIONES_LIMITE])
+        no_leidas = Notificacion.objects.filter(
+            destinatario=request.user, leida_at__isnull=True
+        ).count()
+        return Response({
+            'results': NotificacionSerializer(filas, many=True).data,
+            'no_leidas': no_leidas,
+        })
+
+
+class NotificacionesResumenView(APIView):
+    """`GET /api/notificaciones/resumen/` — solo contadores, para el polling."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        base = Notificacion.objects.filter(destinatario=request.user)
+        return Response({
+            'total': base.count(),
+            'no_leidas': base.filter(leida_at__isnull=True).count(),
+        })
+
+
+class NotificacionLeerView(APIView):
+    """`POST /api/notificaciones/<pk>/leer/` — marca una como leída (idempotente)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        actualizadas = Notificacion.objects.filter(
+            pk=pk, destinatario=request.user, leida_at__isnull=True
+        ).update(leida_at=timezone.now())
+        no_leidas = Notificacion.objects.filter(
+            destinatario=request.user, leida_at__isnull=True
+        ).count()
+        return Response({'actualizadas': actualizadas, 'no_leidas': no_leidas})
+
+
+class NotificacionesMarcarTodasView(APIView):
+    """`POST /api/notificaciones/marcar-todas/` — marca todas como leídas."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        actualizadas = Notificacion.objects.filter(
+            destinatario=request.user, leida_at__isnull=True
+        ).update(leida_at=timezone.now())
+        return Response({'actualizadas': actualizadas, 'no_leidas': 0})

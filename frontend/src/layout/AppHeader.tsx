@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useSidebar } from "../context/SidebarContext";
 import { useMarca } from "../context/MarcaContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
+import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 
 const SEARCH_ROUTES = [
@@ -337,10 +338,9 @@ export default function AppHeader() {
           } w-full items-center justify-between gap-4 bg-[#f9f7f3] px-5 py-4 dark:bg-[#0f172a] lg:flex lg:justify-end lg:bg-transparent lg:px-0 lg:py-0`}
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
-            {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
-            {/* <!-- Dark Mode Toggler --> */}
-            {/* <!-- Notification Menu Area --> */}
+            {/* Notificaciones (campanita + badge de no leídas) */}
+            <NotificationDropdown />
           </div>
           {/* <!-- User Area --> */}
           <UserDropdown />

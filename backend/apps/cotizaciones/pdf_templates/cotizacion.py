@@ -48,6 +48,9 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     show_importe = not opts.ocultar_importes_linea
     show_totales = not opts.ocultar_totales
     show_detalle = not opts.ocultar_detalle
+    # «Simplificar descripción» deja en el PDF solo la descripción corta: además
+    # oculta la miniatura y el detalle largo (modelo / especificaciones del equipo).
+    hide_images = opts.simplificar_descripcion
 
     def iter_items(obj):
         items = getattr(obj, 'items', None)
@@ -95,7 +98,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     fecha = cotizacion.fecha.strftime('%d/%m/%Y') if cotizacion.fecha else '-'
     moneda = 'MXN'
 
-    col_count = 4 + (2 if show_pu else 0) + (1 if show_importe else 0)
+    col_count = (3 if hide_images else 4) + (2 if show_pu else 0) + (1 if show_importe else 0)
     cat_names = categorias_nombres_por_id(
         normalize_categorias_productos(getattr(cotizacion, 'categorias_productos', None))
     )
@@ -198,11 +201,8 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
                     else ''
                 )
             nombre = corta or nombre_base
-            desc_html = (
-                f"<div class='desc'>{esc(descripcion_larga)}</div>"
-                if show_detalle and descripcion_larga
-                else ""
-            )
+            # Al simplificar no se imprime el detalle largo (modelo / specs del equipo).
+            desc_html = ""
         elif show_detalle:
             nombre = nombre_base
             desc_html = f"<div class='desc'>{esc(descripcion_larga)}</div>" if descripcion_larga else ""
@@ -216,12 +216,19 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
         if show_importe:
             price_cells += f"<td class='right'>$ {importe:,.2f}</td>"
 
+        img_cell = "" if hide_images else (
+            "<td class='imgcell'>"
+            + (
+                f"<img class='img' src='{esc(thumb_src)}' alt='' />"
+                if thumb_src
+                else "<div class='img ph'></div>"
+            )
+            + "</td>"
+        )
         rows.append(
             f"""
             <tr>
-              <td class='imgcell'>
-                {f"<img class='img' src='{esc(thumb_src)}' alt='' />" if thumb_src else "<div class='img ph'></div>"}
-              </td>
+              {img_cell}
               <td class='center'>{esc(cantidad_str)}</td>
               <td>{esc(getattr(it, 'unidad', '') or '-')}</td>
               <td>
@@ -237,6 +244,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
         f"<tr><td colspan='{col_count}' class='muted center' style='padding: 14px;'>Sin conceptos</td></tr>"
     )
 
+    img_th = "" if hide_images else "<th style='width:104px; text-align:left;'>IMG</th>"
     thead_price_cols = ""
     if show_pu:
         thead_price_cols += "<th style='width:90px; text-align:right;'>P. UNIT.</th><th style='width:90px; text-align:right;'>DESC</th>"
@@ -396,14 +404,23 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     .totals .row.anticipo strong {{ color: #111827; }}
     .servicios-banner {{ margin-top: 14px; text-align: center; }}
     .servicios-banner img {{ display: block; width: 100%; height: auto; }}
-    /* QR solo debajo de totales, esquina inferior derecha de esa sección */
+    /* Página 1: empuja los QR al borde inferior de la hoja (A4 − márgenes @page). */
+    .pdf-page-quote {{
+      min-height: calc(297mm - 24mm);
+      display: flex;
+      flex-direction: column;
+    }}
     .pdf-qr-footer {{
-      margin-top: 20px;
+      margin-top: auto;
+      padding-top: 12px;
       display: flex;
       flex-direction: row;
       justify-content: flex-end;
       align-items: flex-end;
+      align-self: flex-end;
       gap: 14px;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }}
     .pdf-qr-footer .qr-item {{
       text-align: center;
@@ -472,6 +489,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
   </style>
 </head>
 <body>
+  <div class='pdf-page-quote'>
   <div class='top'>
     <div class='brand'>
       <div class='logo'>{f"<img src='{logo_data_uri}' />" if logo_data_uri else ''}</div>
@@ -532,7 +550,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     <table>
       <thead>
     <tr>
-      <th style='width:104px; text-align:left;'>IMG</th>
+      {img_th}
       <th style='width:56px; text-align:center;'>CANT</th>
       <th style='width:70px; text-align:left;'>UNIDAD</th>
       <th style='text-align:left;'>DESCRIPCIÓN</th>
@@ -548,6 +566,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     {totals_block}
 
   {qr_footer_html}
+  </div>
 
   <div class='pagebreak'></div>
 

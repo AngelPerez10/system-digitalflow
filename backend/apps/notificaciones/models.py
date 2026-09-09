@@ -52,3 +52,61 @@ class PushDevice(models.Model):
     @property
     def activo(self) -> bool:
         return self.disabled_at is None
+
+
+class Notificacion(models.Model):
+    """Aviso in-app para un usuario; se consulta desde la campanita del header.
+
+    `clave_dedupe` evita repetir el mismo aviso: los escaneos periódicos
+    (`escanear_notificaciones`) corren cada hora y harían `get_or_create` sobre
+    la misma clave en lugar de crear filas nuevas. Cuando el aviso *debe* poder
+    repetirse (una orden se libera dos veces) la clave incluye un discriminante
+    (p. ej. `liberada_at`).
+    """
+
+    class Tipo(models.TextChoices):
+        ORDEN_PRIORIDAD_ESCALADA = 'orden_prioridad_escalada', 'Prioridad de orden escalada'
+        ORDEN_LIBERADA = 'orden_liberada', 'Orden liberada a la bolsa'
+        ORDEN_ASIGNADA = 'orden_asignada', 'Orden asignada'
+        ORDEN_TOMADA = 'orden_tomada', 'Orden tomada de la bolsa'
+        ORDEN_PENDIENTE = 'orden_pendiente', 'Orden pendiente / vencida'
+        POLIZA_MANTENIMIENTO_PROXIMO = 'poliza_mantenimiento_proximo', 'Mantenimiento de póliza próximo'
+
+    destinatario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notificaciones',
+    )
+    tipo = models.CharField(max_length=40, choices=Tipo.choices)
+    titulo = models.CharField(max_length=160)
+    cuerpo = models.CharField(max_length=400, blank=True, default='')
+    # Ruta del frontend a la que lleva el aviso (p. ej. `/ordenes?abrir=123`).
+    url = models.CharField(max_length=300, blank=True, default='')
+    ref_tipo = models.CharField(max_length=20, blank=True, default='')  # 'orden' | 'poliza'
+    ref_id = models.PositiveIntegerField(null=True, blank=True)
+    clave_dedupe = models.CharField(max_length=160, blank=True, default='')
+    leida_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        verbose_name = 'Notificación'
+        verbose_name_plural = 'Notificaciones'
+        indexes = [
+            models.Index(fields=['destinatario', 'leida_at', '-created_at']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['destinatario', 'clave_dedupe'],
+                condition=models.Q(clave_dedupe__gt=''),
+                name='notif_dedupe_por_usuario',
+            ),
+        ]
+
+    def __str__(self) -> str:
+        estado = 'leída' if self.leida_at else 'nueva'
+        return f'{self.destinatario_id} · {self.tipo} · {estado}'
+
+    @property
+    def leida(self) -> bool:
+        return self.leida_at is not None
