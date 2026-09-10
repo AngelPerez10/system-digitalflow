@@ -30,6 +30,13 @@ import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
 import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./list/OrdenEnviarPdfModal";
 import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
 import {
+  getOrdenPrioridadSectionStyles,
+  ordenPrioridadEfectiva,
+  ordenPrioridadEscalada,
+  ordenPrioridadKey,
+  sortOrdenesByPrioridad,
+} from "./shared/ordenPrioridadSections";
+import {
   handleOrdenPdfClick,
   isOrdenResuelta,
   isOrdenServicioTecnico,
@@ -123,6 +130,9 @@ export default function OrdenesTecnico() {
   } = useOrdenesList({ variant: "tecnico", canView: canOrdenesView, usuarios });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ordenToDelete, setOrdenToDelete] = useState<Orden | null>(null);
+  /** Modal se abre al instante; el cuerpo muestra esqueleto mientras llega firma/fotos/equipos. */
+  const [detailLoading, setDetailLoading] = useState(false);
+  const editDetailSeqRef = useRef(0);
 
   const {
     showModal,
@@ -473,27 +483,43 @@ export default function OrdenesTecnico() {
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
       return false;
     }
-    const detail = await fetchOrdenDetail(orden.id);
-    if (!detail) {
-      setAlert({
-        show: true,
-        variant: "error",
-        title: "No se pudo abrir",
-        message: "No se pudo cargar el detalle de la orden (firma, fotos). Intenta de nuevo.",
-      });
-      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
-      return false;
-    }
-    setEditingOrden(detail);
+
+    // Abrir de inmediato con la fila del listado; el detalle completo llega en segundo plano
+    // (misma estrategia que la vista admin — evita esperar al GET antes de mostrar el modal).
+    const seq = ++editDetailSeqRef.current;
+    setEditingOrden(orden);
     setActiveTab("cliente");
-    const orderType = String(detail.tipo_orden || '').toLowerCase();
-    setTipoOrden(orderType === 'levantamiento' ? 'levantamiento' : 'servicio_tecnico');
-    loadFromOrden(detail);
+    const seedType = String(orden.tipo_orden || "").toLowerCase();
+    setTipoOrden(seedType === "levantamiento" ? "levantamiento" : "servicio_tecnico");
+    loadFromOrden(orden);
+    setDetailLoading(true);
     setShowModal(true);
+
+    const detail = await fetchOrdenDetail(orden.id);
+    if (seq !== editDetailSeqRef.current) return true;
+
+    if (!detail) {
+      setDetailLoading(false);
+      setModalAlert({
+        show: true,
+        variant: "warning",
+        title: "Detalle incompleto",
+        message: "No se pudieron cargar firma y fotos. Revisa tu conexión antes de guardar.",
+      });
+      return true;
+    }
+
+    setEditingOrden(detail);
+    const orderType = String(detail.tipo_orden || "").toLowerCase();
+    setTipoOrden(orderType === "levantamiento" ? "levantamiento" : "servicio_tecnico");
+    loadFromOrden(detail);
+    setDetailLoading(false);
     return true;
   };
 
   const handleCloseModal = () => {
+    editDetailSeqRef.current++;
+    setDetailLoading(false);
     bumpFormNonce();
     resetOrdenModalShell();
     resetForm();
@@ -516,17 +542,25 @@ export default function OrdenesTecnico() {
   // Paginación por mes (mostrar todas las órdenes del mes seleccionado)
   const startIndex = 0;
   const currentOrdenes = shownList;
-  const statusSections = useMemo(
-    () => groupOrdenesByStatus(currentOrdenes),
+  /**
+   * Mismo criterio que la vista admin: secciones por estado y, dentro de cada
+   * una, orden por prioridad efectiva (Alta → Media → Baja → Sin).
+   */
+  const listadoOrdenes = useMemo(
+    () => sortOrdenesByPrioridad(currentOrdenes),
     [currentOrdenes],
+  );
+  const statusSections = useMemo(
+    () => groupOrdenesByStatus(listadoOrdenes),
+    [listadoOrdenes],
   );
   const ordenIndexById = useMemo(() => {
     const map = new Map<number, number>();
-    currentOrdenes.forEach((orden, idx) => {
+    listadoOrdenes.forEach((orden, idx) => {
       if (typeof orden.id === "number") map.set(orden.id, idx);
     });
     return map;
-  }, [currentOrdenes]);
+  }, [listadoOrdenes]);
 
   const clienteActions = useMemo(
     () => buildClienteSearchActions(clientes, clienteSearch),
@@ -731,7 +765,7 @@ export default function OrdenesTecnico() {
             <OrdenesMonthLoadingBanner selectedMonth={selectedMonth} className="mb-3" />
           ) : null}
           <MobileOrderList
-            ordenes={currentOrdenes}
+            ordenes={listadoOrdenes}
             startIndex={startIndex}
             loading={monthLoading}
             formatDate={formatYmdToDMY}
@@ -746,7 +780,7 @@ export default function OrdenesTecnico() {
             selectedMonth={selectedMonth}
           />
           <div className={"hidden md:block " + erpTableWrapClass}>
-            <Table className="w-full min-w-[900px] sm:table-fixed sm:min-w-0 xl:min-w-full">
+            <Table className="w-full min-w-[940px] sm:table-fixed sm:min-w-0 xl:min-w-full">
               <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                 <TableRow>
                   <TableCell isHeader className="px-3 py-2 text-left w-[100px] min-w-[96px] max-w-[110px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">ID</TableCell>
@@ -754,7 +788,7 @@ export default function OrdenesTecnico() {
                   <TableCell isHeader className="px-3 py-2 text-left w-1/5 min-w-[220px] text-[#52525B] dark:text-[#B7C1D1]">Detalles</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Fechas</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Técnico</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-center w-[110px] min-w-[110px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Estado</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Prioridad · Estado</TableCell>
                   <TableCell isHeader className="px-3 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Acciones</TableCell>
                 </TableRow>
               </TableHeader>
@@ -793,6 +827,19 @@ export default function OrdenesTecnico() {
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
                   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
+                  const isResuelta = isOrdenResuelta(orden.status);
+                  const prioKey = ordenPrioridadKey(
+                    isResuelta ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
+                  );
+                  const prioEscalada = !isResuelta && ordenPrioridadEscalada(orden);
+                  const prioTone = getOrdenPrioridadSectionStyles(prioKey);
+                  const prioShort =
+                    prioKey === "ALTA" ? "Alta"
+                      : prioKey === "MEDIA" ? "Media"
+                      : prioKey === "BAJA" ? "Baja"
+                      : "Sin prio.";
+                  const prioAria =
+                    prioKey === "SIN" ? "sin prioridad" : `prioridad ${prioShort.toLowerCase()}`;
                   const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
                   let tecnicoNombre = '-';
                   if (tecnico) {
@@ -805,7 +852,11 @@ export default function OrdenesTecnico() {
                     tecnicoNombre = `ID: ${(orden as any).tecnico_asignado}`;
                   }
                   return (
-                    <TableRow key={orden.id ?? `${section.key}-${sectionIdx}`} className={erpTableRowHoverClass}>
+                    <TableRow
+                      key={orden.id ?? `${section.key}-${sectionIdx}`}
+                      className={`${erpTableRowHoverClass} ${isResuelta ? "" : prioTone.rowAccent}`}
+                      aria-label={`Orden ${folioDisplay}${isResuelta ? "" : `, ${prioAria}`}`}
+                    >
                       <TableCell className="px-3 py-2 w-[100px] min-w-[96px] max-w-[110px] overflow-hidden">
                         <div className="flex min-w-0 flex-col items-stretch gap-1">
                           <span className="whitespace-nowrap">{folioDisplay}</span>
@@ -863,19 +914,58 @@ export default function OrdenesTecnico() {
                           </button>
                         </div>
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-center w-[110px] min-w-[110px]">
-                        {orden.status === 'resuelto' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Resuelto</span>
-                        ) : orden.status === 'pausado' ? (
-                          <span
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
-                            title={orden.motivo_pausa ? String(orden.motivo_pausa) : undefined}
-                          >
-                            Pausado
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pendiente</span>
-                        )}
+                      <TableCell className="px-3 py-2 text-center w-[164px] min-w-[156px]">
+                        <div className="flex flex-col items-center gap-1">
+                          {(() => {
+                            const statusPill =
+                              orden.status === "resuelto"
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                                : orden.status === "pausado"
+                                  ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300"
+                                  : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300";
+                            const statusLabel =
+                              orden.status === "resuelto"
+                                ? "Resuelto"
+                                : orden.status === "pausado"
+                                  ? "Pausado"
+                                  : "Pendiente";
+                            const statusTitle =
+                              orden.status === "pausado" && orden.motivo_pausa
+                                ? String(orden.motivo_pausa)
+                                : undefined;
+                            if (isResuelta) {
+                              return (
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2 py-[3px] text-[10px] font-semibold ${statusPill}`}
+                                  title={statusTitle}
+                                >
+                                  {statusLabel}
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="inline-flex items-stretch overflow-hidden whitespace-nowrap rounded-full text-[10px] font-semibold leading-none ring-1 ring-inset ring-black/[0.06] dark:ring-white/10">
+                                <span
+                                  className={`flex items-center gap-1 px-1.5 py-[3px] ${prioTone.cap}`}
+                                  title={
+                                    prioEscalada
+                                      ? `Prioridad ${prioShort} — escalada automáticamente por antigüedad (+72 h sin resolver)`
+                                      : `Prioridad ${prioShort}`
+                                  }
+                                >
+                                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${prioTone.dot}`} aria-hidden />
+                                  {prioShort}
+                                  {prioEscalada && (
+                                    <span className="font-bold leading-none" aria-hidden title="Escalada por antigüedad">↑</span>
+                                  )}
+                                </span>
+                                <span className={`px-2 py-[3px] ${statusPill}`} title={statusTitle}>
+                                  {statusLabel}
+                                </span>
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </TableCell>
                       <TableCell className="px-3 py-2 text-center w-[150px] min-w-[150px]">
                         <div className={erpRowActionBarClass}>
@@ -908,18 +998,22 @@ export default function OrdenesTecnico() {
                           )}
                           {canOrdenesEdit && (
                             <button
-                              onClick={() => handleEdit(orden)}
+                              type="button"
+                              onClick={() => void handleEdit(orden)}
                               className={erpRowActionBtnClass}
                               title="Editar"
+                              aria-label="Editar orden"
                             >
                               <PencilIcon className="w-4 h-4" />
                             </button>
                           )}
                           {canOrdenesDelete && (
                             <button
+                              type="button"
                               onClick={() => handleDeleteClick(orden)}
                               className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-[#111827] border border-[#E7E7EA] dark:border-white/10 hover:border-error-400 hover:text-error-600 dark:hover:border-error-500 transition"
                               title="Eliminar"
+                              aria-label="Eliminar orden"
                             >
                               <TrashBinIcon className="w-4 h-4" />
                             </button>
@@ -1101,6 +1195,7 @@ export default function OrdenesTecnico() {
         modalAlert={modalAlert}
         isSaving={isSaving}
         uploadingPhotos={uploadingPhotos}
+        bodyLoading={detailLoading}
         triggerSaveFromFooter={triggerSaveFromFooter}
         canOrdenesEdit={canOrdenesEdit}
         canOrdenesCreate={canOrdenesCreate}
