@@ -470,7 +470,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
     <>
       {alert.show && (
         <div className="mb-3">
-          <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
+          <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} placement="inline" />
         </div>
       )}
 

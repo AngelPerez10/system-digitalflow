@@ -1040,7 +1040,7 @@ export default function OrdenServicioModal({
         <div className={erpModalFormScrollClass}>
           {modalAlert.show && (
             <div className="mb-4">
-              <Alert variant={modalAlert.variant} title={modalAlert.title} message={modalAlert.message} showLink={false} />
+              <Alert variant={modalAlert.variant} title={modalAlert.title} message={modalAlert.message} showLink={false} placement="inline" />
             </div>
           )}
 

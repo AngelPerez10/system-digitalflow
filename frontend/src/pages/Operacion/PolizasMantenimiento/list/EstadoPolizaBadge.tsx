@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { memo, type ReactElement } from "react";
 import type { PolizaEstado } from "./polizaListTypes";
 import { estadoPolizaLabel } from "./polizaDemoData";
 
@@ -42,7 +42,7 @@ const CONFIG: Record<
   },
 };
 
-export function EstadoPolizaBadge({ estado }: { estado: PolizaEstado }) {
+export const EstadoPolizaBadge = memo(function EstadoPolizaBadge({ estado }: { estado: PolizaEstado }) {
   const { badge, icon } = CONFIG[estado];
   return (
     <span
@@ -52,4 +52,4 @@ export function EstadoPolizaBadge({ estado }: { estado: PolizaEstado }) {
       {estadoPolizaLabel(estado)}
     </span>
   );
-}
+});

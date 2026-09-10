@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { formatPolizaFecha, nextVisitIso } from "./polizaDemoData";
 import { EstadoPolizaBadge } from "./EstadoPolizaBadge";
@@ -18,7 +19,7 @@ type Props = {
   onDelete?: (row: PolizaRow) => void;
 };
 
-function PolizaCard({
+const PolizaCard = memo(function PolizaCard({
   row,
   onEdit,
   onPdf,
@@ -92,9 +93,9 @@ function PolizaCard({
       </dl>
     </li>
   );
-}
+});
 
-export function PolizasMobileList({
+export const PolizasMobileList = memo(function PolizasMobileList({
   sections,
   hasSearch,
   loading = false,
@@ -104,7 +105,7 @@ export function PolizasMobileList({
 }: Props) {
   if (sections.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8] md:hidden" role="status">
+      <p className="py-8 text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8]" role="status">
         {hasSearch
           ? "No hay pólizas que coincidan con la búsqueda."
           : loading
@@ -115,7 +116,7 @@ export function PolizasMobileList({
   }
 
   return (
-    <div className="space-y-5 md:hidden" aria-label="Listado de pólizas">
+    <div className="space-y-5" aria-label="Listado de pólizas">
       {sections.map((section) => {
         const headingId = `polizas-mobile-${section.key}`;
         return (
@@ -137,4 +138,4 @@ export function PolizasMobileList({
       })}
     </div>
   );
-}
+});

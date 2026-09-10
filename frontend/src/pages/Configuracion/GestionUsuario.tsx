@@ -1251,7 +1251,7 @@ export default function UserProfiles() {
 
           <div className={modalBodyClass}>
             {formError && (
-              <Alert variant="error" title="Revisa" message={formError} showLink={false} />
+              <Alert variant="error" title="Revisa" message={formError} showLink={false} placement="inline" />
             )}
 
             <div className={modalSectionClass}>
@@ -1455,12 +1455,13 @@ export default function UserProfiles() {
                   title="Solo lectura"
                   message="Solo los usuarios Angel Pérez e Ivan Cruz pueden activar o quitar permisos (ver, crear, editar, eliminar) de otros usuarios, incluidos administradores."
                   showLink={false}
+                  placement="inline"
                 />
               </div>
             )}
             {permsError && (
               <div className="mb-4">
-                <Alert variant="error" title="Error" message={permsError} />
+                <Alert variant="error" title="Error" message={permsError} placement="inline" />
               </div>
             )}
 
@@ -1984,8 +1985,8 @@ export default function UserProfiles() {
           </header>
 
           <div className={modalBodyClass}>
-            {editError && <Alert variant="error" title="Revisa" message={editError} showLink={false} />}
-            {signatureError && <Alert variant="error" title="Firma" message={signatureError} showLink={false} />}
+            {editError && <Alert variant="error" title="Revisa" message={editError} showLink={false} placement="inline" />}
+            {signatureError && <Alert variant="error" title="Firma" message={signatureError} showLink={false} placement="inline" />}
 
             <div className={modalSectionClass}>
               <div className="mb-4 flex items-center gap-2.5 border-b border-[#E7E7EA] pb-3 dark:border-[#273244]">

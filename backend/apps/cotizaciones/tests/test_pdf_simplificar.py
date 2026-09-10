@@ -52,5 +52,6 @@ class PdfSimplificarDescripcionTests(TestCase):
         html = generate_cotizacion_pdf_html(
             vacia, CotizacionPdfOpciones(simplificar_descripcion=True)
         )
-        # 3 base (CANT, UNIDAD, DESCRIPCIÓN) + 2 (P.UNIT/DESC) + 1 (IMPORTE) = 6
-        self.assertIn("colspan='6'", html)
+        # Sin descuentos: 3 base (CANT, UNIDAD, DESCRIPCIÓN) + P.UNIT + IMPORTE = 5
+        self.assertIn("colspan='5'", html)
+        self.assertNotIn(">DESC</th>", html)

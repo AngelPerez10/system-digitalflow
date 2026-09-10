@@ -22,7 +22,7 @@ type OpcionKey = keyof CotizacionPdfOpciones;
 
 const OCULTAR_PRECIOS_LINEA = {
   label: "Ocultar precios por línea",
-  hint: "No muestra P. UNIT., DESC ni IMPORTE por producto en el PDF.",
+  hint: "No muestra P. UNIT., DESC (si aplica) ni IMPORTE por producto en el PDF.",
 } as const;
 
 const OPCIONES: { key: OpcionKey; label: string; hint: string }[] = [

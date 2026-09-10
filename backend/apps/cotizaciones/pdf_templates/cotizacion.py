@@ -98,13 +98,27 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     fecha = cotizacion.fecha.strftime('%d/%m/%Y') if cotizacion.fecha else '-'
     moneda = 'MXN'
 
-    col_count = (3 if hide_images else 4) + (2 if show_pu else 0) + (1 if show_importe else 0)
+    item_list = iter_items(cotizacion)
+
+    def _item_tiene_descuento(it) -> bool:
+        try:
+            return float(getattr(it, "descuento_pct", 0) or 0) >= 0.01
+        except (TypeError, ValueError):
+            return False
+
+    # No ocupar espacio con DESC si ninguna línea trae descuento real.
+    show_descuento_col = show_pu and any(_item_tiene_descuento(it) for it in item_list)
+    col_count = (
+        (3 if hide_images else 4)
+        + (1 if show_pu else 0)
+        + (1 if show_descuento_col else 0)
+        + (1 if show_importe else 0)
+    )
     cat_names = categorias_nombres_por_id(
         normalize_categorias_productos(getattr(cotizacion, 'categorias_productos', None))
     )
     last_cat_id = None
 
-    item_list = iter_items(cotizacion)
     from apps.productos.manual_producto import manual_producto_descripcion_map, resolve_item_descripcion
 
     manual_desc_map = manual_producto_descripcion_map(
@@ -212,7 +226,9 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
 
         price_cells = ""
         if show_pu:
-            price_cells += f"<td class='right'>$ {pu_base:,.2f}</td><td class='right'>{descuento:,.2f}%</td>"
+            price_cells += f"<td class='right'>$ {pu_base:,.2f}</td>"
+            if show_descuento_col:
+                price_cells += f"<td class='right'>{descuento:,.2f}%</td>"
         if show_importe:
             price_cells += f"<td class='right'>$ {importe:,.2f}</td>"
 
@@ -247,7 +263,9 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     img_th = "" if hide_images else "<th style='width:104px; text-align:left;'>IMG</th>"
     thead_price_cols = ""
     if show_pu:
-        thead_price_cols += "<th style='width:90px; text-align:right;'>P. UNIT.</th><th style='width:90px; text-align:right;'>DESC</th>"
+        thead_price_cols += "<th style='width:90px; text-align:right;'>P. UNIT.</th>"
+        if show_descuento_col:
+            thead_price_cols += "<th style='width:90px; text-align:right;'>DESC</th>"
     if show_importe:
         thead_price_cols += "<th style='width:100px; text-align:right;'>IMPORTE</th>"
 

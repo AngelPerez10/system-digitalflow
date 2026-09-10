@@ -237,6 +237,7 @@ export default function ProyectoFormModal({
                     title={modalAlert.title}
                     message={modalAlert.message}
                     showLink={false}
+                    placement="inline"
                   />
                 </div>
               ) : null}

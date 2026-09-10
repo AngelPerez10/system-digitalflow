@@ -5,10 +5,178 @@ layer(base);
 layer(base);
 
 @import "tailwindcss";
+@import "@heroui/styles";
 
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* HeroUI tokens the ERP does not define. Unlayered so they win over
+   @layer base from @heroui/styles without replacing --background / --accent. */
+:root,
+.light {
+  --overlay: #ffffff;
+  --overlay-foreground: #09090b;
+  --overlay-shadow:
+    0 2px 8px 0 rgba(24, 24, 27, 0.06),
+    0 8px 24px 0 rgba(24, 24, 27, 0.1);
+  --field-background: #ffffff;
+  --field-foreground: #09090b;
+  --field-placeholder: #a1a1aa;
+  --field-border: #e7e7ea;
+  --field-border-hover: #d3d3d8;
+  --field-border-focus: #1b5cff;
+  --field-focus: #ffffff;
+  --field-border-width: 1px;
+  --focus: #1b5cff;
+
+  /* Status — valores oficiales HeroUI v3 (docs/colors) */
+  --success: oklch(0.7329 0.1935 150.81);
+  --success-foreground: oklch(0.2103 0.0059 285.89);
+  --success-soft: color-mix(in oklab, var(--success) 15%, transparent);
+  --success-soft-foreground: color-mix(in oklab, var(--success) 80%, var(--foreground, #141413) 60%);
+  --warning: oklch(0.7819 0.1585 72.33);
+  --warning-foreground: oklch(0.2103 0.0059 285.89);
+  --warning-soft: color-mix(in oklab, var(--warning) 15%, transparent);
+  --warning-soft-foreground: color-mix(in oklab, var(--warning) 80%, var(--foreground, #141413) 70%);
+  --danger: oklch(0.6532 0.2328 25.74);
+  --danger-foreground: oklch(0.9911 0 0);
+  --danger-soft: color-mix(in oklab, var(--danger) 15%, transparent);
+  --danger-soft-foreground: color-mix(in oklab, var(--danger) 70%, var(--foreground, #141413) 40%);
+  --accent-soft: color-mix(in oklab, #1b5cff 15%, transparent);
+  --accent-soft-foreground: color-mix(in oklab, #1b5cff 70%, var(--foreground, #141413) 30%);
+  /* Texto secundario de Alert (HeroUI --muted). El ERP redefine --muted como fondo #efefef. */
+  --alert-muted: oklch(0.5517 0.0138 285.94);
+}
+
+.dark {
+  --overlay: #111827;
+  --overlay-foreground: #f8fafc;
+  --overlay-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --field-background: #111827;
+  --field-foreground: #f8fafc;
+  --field-placeholder: #8ea0b8;
+  --field-border: #273244;
+  --field-border-hover: #3a4661;
+  --field-border-focus: #4b7cff;
+  --field-focus: #111827;
+  --focus: #4b7cff;
+
+  --success: oklch(0.7329 0.1935 150.81);
+  --success-foreground: oklch(0.9911 0 0);
+  --success-soft: color-mix(in oklab, var(--success) 12%, transparent);
+  --success-soft-foreground: color-mix(in oklab, var(--success) 80%, var(--foreground, #f8fafc) 30%);
+  --warning: oklch(0.8203 0.1388 76.34);
+  --warning-foreground: oklch(0.2103 0.0059 285.89);
+  --warning-soft: color-mix(in oklab, var(--warning) 12%, transparent);
+  --warning-soft-foreground: color-mix(in oklab, var(--warning) 80%, var(--foreground, #f8fafc) 30%);
+  --danger: oklch(0.594 0.1967 24.63);
+  --danger-foreground: oklch(0.9911 0 0);
+  --danger-soft: color-mix(in oklab, var(--danger) 15%, transparent);
+  --danger-soft-foreground: color-mix(in oklab, var(--danger) 80%, var(--foreground, #f8fafc) 30%);
+  --accent-soft: color-mix(in oklab, #4b7cff 12%, transparent);
+  --accent-soft-foreground: color-mix(in oklab, #4b7cff 80%, var(--foreground, #f8fafc) 30%);
+  --alert-muted: oklch(0.705 0.015 286.067);
+}
+
+/*
+ * Alert toast — anatomía HeroUI:
+ * fondo surface/overlay, título/icono en soft-foreground, descripción en muted.
+ * https://heroui.com/en/docs/react/components/alert
+ */
+.alert {
+  display: flex;
+  width: 100%;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--overlay, #ffffff);
+  color: var(--overlay-foreground, #09090b);
+  border: 1px solid color-mix(in oklab, var(--overlay-foreground, #09090b) 8%, transparent);
+  border-radius: min(32px, 1.5rem);
+  box-shadow: var(--overlay-shadow);
+}
+
+.alert__indicator {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  margin-top: 0.05rem;
+}
+
+.alert__content {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  flex-grow: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+}
+
+.alert__title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.alert__description {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--alert-muted);
+  opacity: 1;
+}
+
+.alert [data-slot="close-button"] {
+  flex-shrink: 0;
+  align-self: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  color: var(--alert-muted);
+  opacity: 1;
+}
+
+.alert--default .alert__title,
+.alert--default .alert__indicator {
+  color: var(--overlay-foreground, #09090b);
+}
+
+.alert--accent .alert__title,
+.alert--accent .alert__indicator {
+  color: var(--accent-soft-foreground);
+}
+
+.alert--success .alert__title,
+.alert--success .alert__indicator {
+  color: var(--success-soft-foreground);
+}
+
+.alert--warning .alert__title,
+.alert--warning .alert__indicator {
+  color: var(--warning-soft-foreground);
+}
+
+.alert--danger .alert__title,
+.alert--danger .alert__indicator {
+  color: var(--danger-soft-foreground);
+}
+
+.dark .alert {
+  background: color-mix(in oklab, var(--overlay, #111827) 92%, white 8%);
+  border-color: color-mix(in oklab, white 10%, transparent);
+}
+
+/* Listado por encima del Modal (z-99999), igual que SearchableSelect. */
+.combo-box__popover {
+  z-index: 100050;
+}
 
 /* =========================================================================
    Accessibility
@@ -117,6 +285,9 @@ html.dark {
 @theme {
   --font-*: initial;
   --font-outfit: Outfit, sans-serif;
+  --font-sans: Outfit, ui-sans-serif, system-ui, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   --breakpoint-*: initial;
   --breakpoint-2xsm: 375px;

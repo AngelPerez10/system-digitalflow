@@ -17,6 +17,8 @@
     "@fullcalendar/interaction": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
     "@fullcalendar/timegrid": "^6.1.15",
+    "@heroui/react": "^3.2.4",
+    "@heroui/styles": "^3.2.4",
     "@uiw/react-color-sketch": "^2.9.5",
     "apexcharts": "^4.1.0",
     "clsx": "^2.1.1",

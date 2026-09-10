@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { CalendarDays, FileText, UserRound } from "lucide-react";
 import DatePicker from "@/components/form/date-picker";
 import SearchableSelect from "@/components/form/SearchableSelect";
-import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
 import {
   erpInputLikeClass,
   erpSelectFieldClass,
@@ -11,7 +10,8 @@ import {
 const sectionLabelClass =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6E6E77] dark:text-[#8EA0B8] sm:text-xs";
 import { listCotizacionesDeCliente, type CotizacionOption } from "./list/polizaApi";
-import { clienteNombreFromOptionLabel, clienteToSelectOption, mergeClienteOptions } from "./list/polizaClienteOptions";
+import { clienteNombreFromOptionLabel } from "./list/polizaClienteOptions";
+import ClienteComboBox from "./form/ClienteComboBox";
 import {
   inferIntervaloMeses,
   parseIntervaloMeses,
@@ -68,7 +68,6 @@ export default function PolizaAltaForm({
   extraCotizacionOption = null,
   onSubmit,
 }: Props) {
-  const clienteErrorId = useId();
   const [clienteId, setClienteId] = useState(initialValues.clienteId);
   const [tipo, setTipo] = useState(initialValues.tipo || TIPO_CCTV);
   const [servicioTipo, setServicioTipo] = useState(initialValues.servicioTipo);
@@ -91,51 +90,15 @@ export default function PolizaAltaForm({
   const [servicioError, setServicioError] = useState("");
   const [equiposError, setEquiposError] = useState("");
   const [fechasError, setFechasError] = useState("");
-  const [clienteQuery, setClienteQuery] = useState("");
-  const [clienteOptions, setClienteOptions] = useState<SelectOption[]>(
-    extraClienteOption?.value ? [extraClienteOption] : []
-  );
-  const [loadingClientes, setLoadingClientes] = useState(false);
-  const [clienteLoadError, setClienteLoadError] = useState("");
-  const [cotizacionOptions, setCotizacionOptions] = useState<CotizacionOption[]>([]);
-  const [loadingCotizaciones, setLoadingCotizaciones] = useState(false);
-
   const extraClienteValue = extraClienteOption?.value || "";
   const extraClienteLabel = extraClienteOption?.label || "";
   const extraCotizacionValue = extraCotizacionOption?.value || "";
   const extraCotizacionLabel = extraCotizacionOption?.label || "";
-
-  useEffect(() => {
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      setLoadingClientes(true);
-      setClienteLoadError("");
-      void fetchClientesCatalog(clienteQuery, clienteQuery.trim() ? 80 : 200)
-        .then((rows) => {
-          if (cancelled) return;
-          const mapped = rows
-            .filter((c) => c && c.id != null)
-            .map((c) => clienteToSelectOption(c));
-          setClienteOptions(
-            mergeClienteOptions(mapped, extraClienteValue ? { value: extraClienteValue, label: extraClienteLabel } : null)
-          );
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setClienteLoadError("No se pudieron cargar Empresa, Personas ni Proveedores.");
-          setClienteOptions(
-            extraClienteValue ? [{ value: extraClienteValue, label: extraClienteLabel }] : []
-          );
-        })
-        .finally(() => {
-          if (!cancelled) setLoadingClientes(false);
-        });
-    }, 300);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [clienteQuery, extraClienteValue, extraClienteLabel]);
+  const [clienteNombre, setClienteNombre] = useState(
+    extraClienteLabel ? clienteNombreFromOptionLabel(extraClienteLabel) : ""
+  );
+  const [cotizacionOptions, setCotizacionOptions] = useState<CotizacionOption[]>([]);
+  const [loadingCotizaciones, setLoadingCotizaciones] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,9 +157,9 @@ export default function PolizaAltaForm({
   const getCurrentValues = useCallback((): PolizaAltaValues => {
     return {
       clienteId,
-      clienteNombre: clienteNombreFromOptionLabel(
-        clienteOptions.find((c) => c.value === clienteId)?.label || extraClienteLabel || ""
-      ),
+      clienteNombre:
+        clienteNombre ||
+        clienteNombreFromOptionLabel(extraClienteLabel || ""),
       tipo,
       servicioTipo: servicioTipo.trim(),
       equiposAtendidos: equiposAtendidos.trim(),
@@ -208,7 +171,7 @@ export default function PolizaAltaForm({
     };
   }, [
     clienteId,
-    clienteOptions,
+    clienteNombre,
     extraClienteLabel,
     tipo,
     servicioTipo,
@@ -253,7 +216,12 @@ export default function PolizaAltaForm({
     } else {
       setFechasError("");
     }
-    if (hasError) return;
+    if (hasError) {
+      if (!clienteId) {
+        document.getElementById("poliza-elegir-cliente")?.focus();
+      }
+      return;
+    }
     onSubmit?.(getCurrentValues());
   };
 
@@ -314,44 +282,17 @@ export default function PolizaAltaForm({
                 <UserRound className="size-4" strokeWidth={1.75} aria-hidden />
                 <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">Cliente</span>
               </div>
-              <SearchableSelect
-                id="poliza-elegir-cliente"
-                label="Elegir cliente"
-                required
-                value={clienteId}
-                onChange={(v) => {
-                  setClienteId(v);
+              <ClienteComboBox
+                clienteId={clienteId}
+                extraOption={extraClienteValue ? { value: extraClienteValue, label: extraClienteLabel } : null}
+                error={clienteError}
+                onClienteChange={(id, label) => {
+                  setClienteId(id);
+                  setClienteNombre(clienteNombreFromOptionLabel(label));
                   setCotizacionId("");
-                  if (v) setClienteError("");
+                  if (id) setClienteError("");
                 }}
-                onSearchChange={setClienteQuery}
-                options={clienteOptions}
-                placeholder={
-                  loadingClientes
-                    ? "Buscando contactos…"
-                    : "Buscar empresa, persona o proveedor"
-                }
-                filterLocally={false}
-                invalid={Boolean(clienteError)}
-                describedBy={clienteError ? clienteErrorId : undefined}
               />
-              {clienteError ? (
-                <p id={clienteErrorId} className="mt-2 text-sm text-[#c64545]" role="alert">
-                  {clienteError}
-                </p>
-              ) : clienteLoadError ? (
-                <p className="mt-2 text-sm text-[#c64545]" role="alert">
-                  {clienteLoadError}
-                </p>
-              ) : !loadingClientes && clienteOptions.length === 0 ? (
-                <p className="mt-2 text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
-                  No hay contactos para mostrar. Revísalos en Contactos: Empresa, Personas o Proveedores.
-                </p>
-              ) : (
-                <p className="mt-2 text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
-                  Incluye empresas, personas y proveedores. Escribe el nombre para buscar más allá de la primera página.
-                </p>
-              )}
             </div>
 
             <div>

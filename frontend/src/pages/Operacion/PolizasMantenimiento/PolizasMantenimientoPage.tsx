@@ -1,12 +1,10 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useId, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
-import { PencilIcon, TrashBinIcon } from "@/icons";
+import { TrashBinIcon } from "@/icons";
 import { useAuth } from "@/context/AuthContext";
-import { cn } from "@/lib/utils";
 import {
   erpDangerBtnClass,
   erpDeleteModalClass,
@@ -23,40 +21,47 @@ import {
   erpPageCanvasClass,
   erpPageInnerClass,
   erpPrimaryBtnClass,
-  erpRowActionBarClass,
-  erpRowActionBtnClass,
   erpSansStyle,
-  erpTableHeaderClass,
-  erpTableRowHoverClass,
-  erpTableWrapClass,
   osHeroBandClass,
   osHeroBodyClass,
   osHeroEyebrowClass,
-  osTableBodyClass,
-  osTdCellClass,
-  osThCellClass,
   pageCardShellClass,
   pageSearchInputClass,
 } from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
-import PolizaFormModal from "./form/PolizaFormModal";
-import { EstadoPolizaBadge } from "./list/EstadoPolizaBadge";
-import { PolizaPdfGlyph } from "./list/PolizaPdfGlyph";
+import { PolizasDesktopTable } from "./list/PolizasDesktopTable";
 import { PolizasMobileList } from "./list/PolizasMobileList";
 import { PolizasPageStats } from "./list/PolizasPageStats";
-import { PolizaStatusSectionHeader } from "./list/PolizaStatusSectionHeader";
 import { groupPolizasByEstado } from "./list/polizaStatusSections";
 import { polizaPdfSearchFromRow } from "./list/polizaPdf";
 import {
   EMPTY_POLIZA_VALUES,
   computePolizaStats,
   estadoPolizaLabel,
-  formatPolizaFecha,
   nextPolizaIdx,
-  nextVisitIso,
   valuesFromRow,
 } from "./list/polizaDemoData";
 import { createPoliza, deletePoliza, isPolizaApiError, listPolizas, updatePoliza } from "./list/polizaApi";
 import type { PolizaAltaValues, PolizaRow } from "./list/polizaListTypes";
+
+const PolizaFormModal = lazy(() => import("./form/PolizaFormModal"));
+
+function prefetchPolizaForm() {
+  void import("./form/PolizaFormModal");
+}
+
+function useIsDesktopList() {
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => setIsDesktop(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return isDesktop;
+}
 
 function polizaMatchesSearch(row: PolizaRow, q: string): boolean {
   const term = q.trim().toLowerCase();
@@ -73,11 +78,13 @@ function polizaMatchesSearch(row: PolizaRow, q: string): boolean {
 export default function PolizasMantenimientoPage() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+  const isDesktopList = useIsDesktopList();
   const deleteTitleId = useId();
   const [rows, setRows] = useState<PolizaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const deferredSearch = useDeferredValue(searchTerm);
   const [showModal, setShowModal] = useState(false);
   const [editingRow, setEditingRow] = useState<PolizaRow | null>(null);
   const [deletingRow, setDeletingRow] = useState<PolizaRow | null>(null);
@@ -91,13 +98,22 @@ export default function PolizasMantenimientoPage() {
 
   const stats = useMemo(() => computePolizaStats(rows), [rows]);
   const filteredRows = useMemo(
-    () => rows.filter((row) => polizaMatchesSearch(row, searchTerm)),
-    [rows, searchTerm]
+    () => rows.filter((row) => polizaMatchesSearch(row, deferredSearch)),
+    [rows, deferredSearch]
   );
   const statusSections = useMemo(() => groupPolizasByEstado(filteredRows), [filteredRows]);
-  const hasSearch = Boolean(searchTerm.trim());
+  const hasSearch = Boolean(deferredSearch.trim());
+  const searchPending = searchTerm !== deferredSearch;
   const nextIdx = nextPolizaIdx(rows);
   const nextFolio = formatDocumentFolio(FOLIO_SERIE.poliza, nextIdx);
+  const extraClienteOption = useMemo(
+    () => (editingRow ? { value: editingRow.clienteId, label: editingRow.cliente } : null),
+    [editingRow]
+  );
+  const extraCotizacionOption = useMemo(
+    () => (editingRow ? { value: editingRow.cotizacionId, label: editingRow.cotizacionFolio } : null),
+    [editingRow]
+  );
 
   const showAlert = useCallback((
     variant: "success" | "warning" | "error",
@@ -105,6 +121,11 @@ export default function PolizasMantenimientoPage() {
     message: string
   ) => {
     setAlert({ show: true, variant, title, message });
+  }, []);
+
+  useEffect(() => {
+    const idle = window.setTimeout(prefetchPolizaForm, 800);
+    return () => window.clearTimeout(idle);
   }, []);
 
   useEffect(() => {
@@ -131,27 +152,33 @@ export default function PolizasMantenimientoPage() {
     };
   }, [showAlert]);
 
-  const openNew = () => {
+  const openNew = useCallback(() => {
+    prefetchPolizaForm();
     setEditingRow(null);
     setShowModal(true);
-  };
+  }, []);
 
-  const openEdit = (row: PolizaRow) => {
+  const openEdit = useCallback((row: PolizaRow) => {
+    prefetchPolizaForm();
     setEditingRow(row);
     setShowModal(true);
-  };
+  }, []);
 
-  const openPdf = (row: PolizaRow) => {
+  const openPdf = useCallback((row: PolizaRow) => {
     navigate(`/polizas-mantenimiento/pdf?${polizaPdfSearchFromRow(row)}`, {
       state: { from: "/polizas-mantenimiento" },
     });
-  };
+  }, [navigate]);
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     if (saving) return;
     setShowModal(false);
     setEditingRow(null);
-  };
+  }, [saving]);
+
+  const requestDelete = useCallback((row: PolizaRow) => {
+    setDeletingRow(row);
+  }, []);
 
   const confirmDelete = async () => {
     if (!deletingRow) return;
@@ -206,7 +233,13 @@ export default function PolizasMantenimientoPage() {
         />
 
         {alert.show ? (
-          <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
+          <Alert
+            variant={alert.variant}
+            title={alert.title}
+            message={alert.message}
+            showLink={false}
+            onClose={() => setAlert((prev) => ({ ...prev, show: false }))}
+          />
         ) : null}
 
         <nav className={erpBreadcrumbNavClass} aria-label="Migas de pan">
@@ -273,6 +306,7 @@ export default function PolizasMantenimientoPage() {
               placeholder="Buscar por folio, cliente o cotización…"
               className={pageSearchInputClass}
               aria-label="Buscar pólizas"
+              aria-busy={searchPending || undefined}
             />
             {searchTerm ? (
               <button
@@ -288,7 +322,13 @@ export default function PolizasMantenimientoPage() {
             ) : null}
           </div>
 
-          <button type="button" onClick={openNew} className={`${erpPrimaryBtnClass} w-full sm:w-auto lg:shrink-0`}>
+          <button
+            type="button"
+            onClick={openNew}
+            onMouseEnter={prefetchPolizaForm}
+            onFocus={prefetchPolizaForm}
+            className={`${erpPrimaryBtnClass} w-full sm:w-auto lg:shrink-0`}
+          >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
               <path d="M12 5v14M5 12h14" strokeLinecap="round" />
             </svg>
@@ -313,189 +353,28 @@ export default function PolizasMantenimientoPage() {
               Resultados según búsqueda. En pantallas pequeñas desplázate horizontalmente si hace falta.
             </p>
           </div>
-          <div className="p-2 sm:p-3">
-            <PolizasMobileList
-              sections={statusSections}
-              hasSearch={hasSearch}
-              loading={loading}
-              onEdit={openEdit}
-              onPdf={openPdf}
-              onDelete={isAdmin ? setDeletingRow : undefined}
-            />
-
-            <div className={cn("hidden md:block", erpTableWrapClass)}>
-              <Table className="w-full min-w-[1020px] table-fixed border-collapse">
-                <TableHeader className={`${erpTableHeaderClass} sticky top-0 z-10`}>
-                  <TableRow>
-                    <TableCell
-                      isHeader
-                      scope="col"
-                      className={cn(osThCellClass, "w-[100px] min-w-[96px] whitespace-nowrap")}
-                    >
-                      Folio
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      scope="col"
-                      className={cn(osThCellClass, "w-[22%] min-w-[160px]")}
-                    >
-                      Cliente
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      scope="col"
-                      className={cn(osThCellClass, "w-[16%] min-w-[140px]")}
-                    >
-                      Tipo
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      scope="col"
-                      className={cn(osThCellClass, "w-[110px] min-w-[100px] whitespace-nowrap")}
-                    >
-                      Cotización
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      scope="col"
-                      className={cn(osThCellClass, "w-[120px] min-w-[110px] whitespace-nowrap")}
-                    >
-                      Próxima visita
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      scope="col"
-                      className={cn(osThCellClass, "w-[148px] min-w-[140px] whitespace-nowrap text-center")}
-                    >
-                      Estado
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      scope="col"
-                      className={cn(osThCellClass, "w-[148px] min-w-[140px] whitespace-nowrap text-center")}
-                    >
-                      Acciones
-                    </TableCell>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className={osTableBodyClass}>
-                  {filteredRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className={cn(osTdCellClass, "py-10")}>
-                        <div
-                          className="text-center text-sm text-[#6E6E77] dark:text-[#8EA0B8]"
-                          role="status"
-                          aria-busy={loading && !hasSearch}
-                        >
-                          {hasSearch
-                            ? "No hay pólizas que coincidan con la búsqueda."
-                            : loading
-                              ? "Cargando pólizas…"
-                              : "Aún no hay pólizas registradas."}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    statusSections.flatMap((section) => {
-                      const headingId = `polizas-table-${section.key}`;
-                      const headerRow = (
-                        <TableRow key={`${section.key}-header`} className="hover:bg-transparent dark:hover:bg-transparent">
-                          <TableCell isHeader scope="colgroup" colSpan={7} className="border-y-0 bg-transparent p-0 text-left">
-                            <div className="px-3 py-2">
-                              <PolizaStatusSectionHeader
-                                estado={section.key}
-                                label={section.label}
-                                count={section.rows.length}
-                                headingId={headingId}
-                              />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-
-                      const dataRows = section.rows.map((row) => (
-                        <TableRow key={row.id} className={erpTableRowHoverClass} aria-labelledby={headingId}>
-                          <TableCell className={cn(osTdCellClass, "w-[100px] min-w-[96px] whitespace-nowrap")}>
-                            <span className="inline-flex items-center justify-center rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] sm:text-[11px]">
-                              {row.folio}
-                            </span>
-                          </TableCell>
-                          <TableCell className={cn(osTdCellClass, "w-[22%] min-w-[160px]")}>
-                            <span className="block truncate font-medium text-[#09090B] dark:text-white" title={row.cliente}>
-                              {row.cliente}
-                            </span>
-                          </TableCell>
-                          <TableCell className={cn(osTdCellClass, "w-[16%] min-w-[140px]")}>
-                            <span className="block truncate text-[#52525B] dark:text-[#B7C1D1]" title={row.tipoLabel}>
-                              {row.tipoLabel}
-                            </span>
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              osTdCellClass,
-                              "w-[110px] min-w-[100px] whitespace-nowrap tabular-nums text-[#52525B] dark:text-[#B7C1D1]"
-                            )}
-                          >
-                            {row.cotizacionFolio}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              osTdCellClass,
-                              "w-[120px] min-w-[110px] whitespace-nowrap tabular-nums text-[#52525B] dark:text-[#B7C1D1]"
-                            )}
-                          >
-                            {formatPolizaFecha(nextVisitIso(row))}
-                          </TableCell>
-                          <TableCell className={cn(osTdCellClass, "w-[148px] min-w-[140px] text-center")}>
-                            <div className="flex justify-center">
-                              <EstadoPolizaBadge estado={row.estado} />
-                            </div>
-                          </TableCell>
-                          <TableCell className={cn(osTdCellClass, "w-[148px] min-w-[140px] text-center")}>
-                            <div className={cn(erpRowActionBarClass, "mx-auto")}>
-                              <button
-                                type="button"
-                                className={erpRowActionBtnClass}
-                                onClick={() => openEdit(row)}
-                                aria-label={`Ver póliza ${row.folio}`}
-                                title="Ver póliza"
-                              >
-                                <PencilIcon className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                className={erpRowActionBtnClass}
-                                onClick={() => openPdf(row)}
-                                aria-label={`Ver PDF de la póliza ${row.folio}`}
-                                title="Ver PDF"
-                              >
-                                <PolizaPdfGlyph className="h-3.5 w-3.5" />
-                              </button>
-                              {isAdmin ? (
-                                <button
-                                  type="button"
-                                  className={cn(
-                                    erpRowActionBtnClass,
-                                    "hover:border-rose-400 hover:text-rose-600 dark:hover:border-rose-500/60 dark:hover:text-rose-400"
-                                  )}
-                                  onClick={() => setDeletingRow(row)}
-                                  aria-label={`Eliminar póliza ${row.folio}`}
-                                  title="Eliminar"
-                                >
-                                  <TrashBinIcon className="h-3.5 w-3.5" />
-                                </button>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ));
-
-                      return [headerRow, ...dataRows];
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+          <div className="p-2 sm:p-3" aria-busy={searchPending || undefined}>
+            {isDesktopList ? (
+              <PolizasDesktopTable
+                sections={statusSections}
+                filteredCount={filteredRows.length}
+                hasSearch={hasSearch}
+                loading={loading}
+                canDelete={Boolean(isAdmin)}
+                onEdit={openEdit}
+                onPdf={openPdf}
+                onDelete={requestDelete}
+              />
+            ) : (
+              <PolizasMobileList
+                sections={statusSections}
+                hasSearch={hasSearch}
+                loading={loading}
+                onEdit={openEdit}
+                onPdf={openPdf}
+                onDelete={isAdmin ? requestDelete : undefined}
+              />
+            )}
           </div>
         </section>
 
@@ -517,26 +396,28 @@ export default function PolizasMantenimientoPage() {
         </p>
       </div>
 
-      <PolizaFormModal
-        open={showModal}
-        editing={Boolean(editingRow)}
-        folio={editingRow?.folio || nextFolio}
-        folioIsPreview={!editingRow}
-        initialValues={editingRow ? valuesFromRow(editingRow) : EMPTY_POLIZA_VALUES}
-        extraClienteOption={
-          editingRow
-            ? { value: editingRow.clienteId, label: editingRow.cliente }
-            : null
-        }
-        extraCotizacionOption={
-          editingRow
-            ? { value: editingRow.cotizacionId, label: editingRow.cotizacionFolio }
-            : null
-        }
-        saving={saving}
-        onClose={closeModal}
-        onSave={handleSave}
-      />
+      {showModal ? (
+        <Suspense
+          fallback={
+            <p className="sr-only" role="status">
+              Cargando formulario de póliza
+            </p>
+          }
+        >
+          <PolizaFormModal
+            open={showModal}
+            editing={Boolean(editingRow)}
+            folio={editingRow?.folio || nextFolio}
+            folioIsPreview={!editingRow}
+            initialValues={editingRow ? valuesFromRow(editingRow) : EMPTY_POLIZA_VALUES}
+            extraClienteOption={extraClienteOption}
+            extraCotizacionOption={extraCotizacionOption}
+            saving={saving}
+            onClose={closeModal}
+            onSave={handleSave}
+          />
+        </Suspense>
+      ) : null}
 
       <Modal
         isOpen={Boolean(deletingRow)}

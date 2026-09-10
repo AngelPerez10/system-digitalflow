@@ -247,13 +247,14 @@ export function ClienteFormModal({
                   title={isValidationWarning ? "Faltan campos" : "Error"}
                   message={modalError}
                   showLink={false}
+                  placement="inline"
                 />
               </div>
             )}
 
             {mapError && (
               <div role="alert" aria-live="polite">
-                <Alert variant="error" title="Error de mapa" message={mapError} showLink={false} />
+                <Alert variant="error" title="Error de mapa" message={mapError} showLink={false} placement="inline" />
               </div>
             )}
 

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { PolizaStats } from "./polizaListTypes";
 import { erpStatCardClass } from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 
@@ -5,7 +6,7 @@ type Props = {
   stats: PolizaStats;
 };
 
-export function PolizasPageStats({ stats }: Props) {
+export const PolizasPageStats = memo(function PolizasPageStats({ stats }: Props) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4" role="group" aria-label="Resumen de pólizas">
       <div className={erpStatCardClass}>
@@ -77,4 +78,4 @@ export function PolizasPageStats({ stats }: Props) {
       </div>
     </div>
   );
-}
+});
