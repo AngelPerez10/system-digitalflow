@@ -5,13 +5,11 @@ import {
   erpFilterBtnClass,
   erpFilterPopoverClass,
   erpFilterSectionLabelClass,
-  erpFilterStatusChipClass,
   erpPrimaryBtnClass,
   erpSecondaryBtnClass,
   erpSelectFieldClass,
 } from "../ordenServicioStyles";
 import type { Usuario } from "../shared/ordenesPageTypes";
-import type { OrdenListFilterStatus } from "../shared/useOrdenesList";
 
 function tecnicoOptionLabel(u: Usuario): string {
   if (u.first_name && u.last_name) return `${u.first_name} ${u.last_name}`;
@@ -21,8 +19,6 @@ function tecnicoOptionLabel(u: Usuario): string {
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  filterStatus: OrdenListFilterStatus;
-  setFilterStatus: Dispatch<SetStateAction<OrdenListFilterStatus>>;
   filterServicio: string[];
   setFilterServicio: Dispatch<SetStateAction<string[]>>;
   filterDate: string;
@@ -31,6 +27,7 @@ type Props = {
   setFilterTecnicoId: Dispatch<SetStateAction<number | null>>;
   serviciosDisponibles: string[];
   usuarios: Usuario[];
+  /** Solo filtros secundarios (sin estado). */
   activeFilterCount: number;
   onClear: () => void;
   /** Admin listado: filtrar por técnico. Técnico: oculto por defecto. */
@@ -38,18 +35,9 @@ type Props = {
   datePickerId?: string;
 };
 
-const STATUS_OPTIONS: { value: OrdenListFilterStatus; label: string }[] = [
-  { value: "", label: "Todos" },
-  { value: "pendiente", label: "Pendiente" },
-  { value: "pausado", label: "Pausado" },
-  { value: "resuelto", label: "Resuelto" },
-];
-
 export default function OrdenesListFiltersPopover({
   open,
   onOpenChange,
-  filterStatus,
-  setFilterStatus,
   filterServicio,
   setFilterServicio,
   filterDate,
@@ -64,7 +52,6 @@ export default function OrdenesListFiltersPopover({
   datePickerId = "filtro-fecha-ordenes",
 }: Props) {
   const panelId = useId();
-  const statusGroupId = useId();
   const tecnicoSelectId = useId();
   const servicioSearchId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -183,36 +170,10 @@ export default function OrdenesListFiltersPopover({
           </div>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 custom-scrollbar">
-            <fieldset>
-              <legend id={statusGroupId} className={erpFilterSectionLabelClass}>
-                Estado
-              </legend>
-              <div
-                className="flex gap-1.5"
-                role="group"
-                aria-labelledby={statusGroupId}
-              >
-                {STATUS_OPTIONS.map((opt) => {
-                  const active = filterStatus === opt.value;
-                  return (
-                    <button
-                      key={opt.value || "todos"}
-                      type="button"
-                      aria-pressed={active}
-                      className={erpFilterStatusChipClass(active)}
-                      onClick={() => setFilterStatus(opt.value)}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
-
             {showTecnicoFilter && (
               <div>
                 <label htmlFor={tecnicoSelectId} className={erpFilterSectionLabelClass}>
-                  Técnico
+                  Usuario
                 </label>
                 <select
                   id={tecnicoSelectId}
@@ -224,7 +185,7 @@ export default function OrdenesListFiltersPopover({
                   }}
                   className={`${erpSelectFieldClass} !h-10`}
                 >
-                  <option value="">Todos los técnicos</option>
+                  <option value="">Todos los usuarios</option>
                   <option value="0">Sin asignar</option>
                   {tecnicosOrdenados.map((u) => (
                     <option key={u.id} value={String(u.id)}>

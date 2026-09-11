@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Input as HeroInput } from "@heroui/react";
 import type { DropzoneRootProps, DropzoneInputProps } from "react-dropzone";
-import ActionSearchBar from "@/components/kokonutui/action-search-bar";
 import DatePicker from "@/components/form/date-picker";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import SignaturePad from "@/components/ui/signature/SignaturePad";
 import { TimeIcon } from "@/icons";
+import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { Cliente } from "@/types/cliente";
 import { ORDEN_BASE_MAX_FOTOS, type FotosExtraMax, type Usuario } from "../../shared/ordenesPageTypes";
 import {
@@ -13,8 +14,14 @@ import {
   OrdenPhotoPreviewModal,
 } from "../../../OrdenTrabajoModals";
 import type { OrdenFormData } from "../useOrdenFormDraft";
+import OrdenHeroComboBox, { type OrdenComboItem } from "../fields/OrdenHeroComboBox";
+import { clienteComboSelectedKey, usuarioComboLabel } from "../fields/ordenHeroComboBoxUtils";
 import { formatOrdenPhotoProgress } from "../../shared/ordenImageUpload";
 import { formatYmdToDMY } from "../../shared/ordenesPageUtils";
+import {
+  StatusChangedByChip,
+  resolveStatusChangedByName,
+} from "../../../../shared/StatusChangedByChip";
 import {
   ClearSelectionButton,
   openDireccionInMaps,
@@ -35,24 +42,29 @@ export type OrdenClienteTabProps = {
   variant: "admin" | "tecnico";
   panelId: string;
   labelledBy: string;
-  editingOrden: { id?: number } | null;
+  editingOrden:
+    | {
+        id?: number;
+        status_changed_at?: string | null;
+        status_changed_by_full_name?: string | null;
+        status_changed_by_username?: string | null;
+        creado_por_full_name?: string | null;
+        creado_por_username?: string | null;
+      }
+    | null;
   formData: OrdenFormData;
   setFormData: React.Dispatch<React.SetStateAction<OrdenFormData>>;
   ro: (field: OrdenFieldKey) => boolean;
   inputLockedClass: (field: OrdenFieldKey) => string;
-  clienteActions: unknown[];
   clienteSearch: string;
   setClienteSearch: (q: string) => void;
   clientes: Cliente[];
   selectCliente: (c: Cliente | null) => void;
   setShowClienteModal: (open: boolean) => void;
-  tecnicoActions: unknown[];
   tecnicoSearch: string;
   setTecnicoSearch: (q: string) => void;
-  quienInstaloActions: unknown[];
   quienInstaloSearch: string;
   setQuienInstaloSearch: (q: string) => void;
-  quienEntregoActions: unknown[];
   quienEntregoSearch: string;
   setQuienEntregoSearch: (q: string) => void;
   usuarios: Usuario[];
@@ -90,19 +102,15 @@ export function OrdenClienteTab({
   setFormData,
   ro,
   inputLockedClass,
-  clienteActions,
   clienteSearch,
   setClienteSearch,
   clientes,
   selectCliente,
   setShowClienteModal,
-  tecnicoActions,
   tecnicoSearch,
   setTecnicoSearch,
-  quienInstaloActions,
   quienInstaloSearch,
   setQuienInstaloSearch,
-  quienEntregoActions,
   quienEntregoSearch,
   setQuienEntregoSearch,
   usuarios,
@@ -137,6 +145,14 @@ export function OrdenClienteTab({
   const direccionId = "orden-cliente-direccion";
   const statusSelectId = variant === "admin" ? statusTecnicoId : "orden-estado-problema";
   const motivoPausaId = "orden-motivo-pausa";
+  const motivoCancelacionId = "orden-motivo-cancelacion";
+  /**
+   * "Cancelada" solo la asigna el admin y solo al editar una orden existente
+   * (no tiene sentido crear una orden ya cancelada). Se muestra deshabilitada
+   * si la orden ya viene cancelada.
+   */
+  const puedeCancelar = isAdmin && Boolean(editingOrden);
+  const mostrarOpcionCancelada = puedeCancelar || formData.status === "cancelada";
   const prioridadPoolId = "orden-prioridad-pool";
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState<Record<string, boolean>>({});
 
@@ -163,42 +179,82 @@ export function OrdenClienteTab({
     });
   }, [formData.fotos_urls]);
 
+  const clienteLocked = ro("cliente");
+  const tecnicoLocked = ro("tecnico_asignado");
+  const quienInstaloLocked = ro("quien_instalo");
+  const quienEntregoLocked = ro("quien_entrego");
+
   const onClienteQueryChange = (q: string) => {
     setClienteSearch(q);
-    if (!q.trim() && (formData.cliente_id || formData.cliente) && !ro("cliente")) {
+    if (!q.trim() && (formData.cliente_id || formData.cliente) && !clienteLocked) {
       selectCliente(null);
     }
   };
 
   const onTecnicoAsignadoQueryChange = (q: string) => {
     setTecnicoSearch(q);
-    if (!q.trim() && formData.tecnico_asignado && !ro("tecnico_asignado")) {
+    if (!q.trim() && formData.tecnico_asignado && !tecnicoLocked) {
       selectTecnico(null);
     }
   };
 
   const onQuienInstaloQueryChange = (q: string) => {
     setQuienInstaloSearch(q);
-    if (!q.trim() && formData.quien_instalo && !ro("quien_instalo")) {
+    if (!q.trim() && formData.quien_instalo && !quienInstaloLocked) {
       selectQuienInstalo(null);
     }
   };
 
   const onQuienEntregoQueryChange = (q: string) => {
     setQuienEntregoSearch(q);
-    if (!q.trim() && formData.quien_entrego && !ro("quien_entrego")) {
+    if (!q.trim() && formData.quien_entrego && !quienEntregoLocked) {
       selectQuienEntrego(null);
     }
   };
 
+  const clienteActions = useMemo(
+    () => buildClienteSearchActions(clientes, clienteSearch, { includeNew: !clienteLocked }),
+    [clientes, clienteSearch, clienteLocked],
+  );
+
+  const clienteItems = useMemo(
+    (): OrdenComboItem[] =>
+      clienteActions.map((a) => ({
+        id: a.id,
+        label: a.label,
+        description: a.description,
+      })),
+    [clienteActions],
+  );
+
+  const clienteSelectedKey = useMemo(
+    () =>
+      clienteComboSelectedKey(
+        formData.cliente_id,
+        formData.contacto_id,
+        clienteItems.map((item) => item.id),
+      ),
+    [formData.cliente_id, formData.contacto_id, clienteItems],
+  );
+
+  const tecnicoItems = useMemo(
+    (): OrdenComboItem[] =>
+      (usuarios || []).map((u) => ({
+        id: String(u.id),
+        label: usuarioComboLabel(u),
+        description: u.email,
+      })),
+    [usuarios],
+  );
+
   const handleClienteSelect = (action: { id?: string | number; label?: string; __contacto?: { id?: number; celular?: string; nombre_apellido?: string } }) => {
     if (variant === "admin") {
-      if (ro("cliente")) return;
-    } else if (ro("cliente") && action?.id !== "__new__") {
+      if (clienteLocked) return;
+    } else if (clienteLocked && action?.id !== "__new__") {
       return;
     }
     if (action?.id === "__new__") {
-      if (ro("cliente")) return;
+      if (clienteLocked) return;
       setShowClienteModal(true);
       return;
     }
@@ -225,6 +281,34 @@ export function OrdenClienteTab({
     selectCliente(c);
   };
 
+  const onClienteComboSelect = (key: string | null) => {
+    if (!key) {
+      if (!clienteLocked) selectCliente(null);
+      return;
+    }
+    const action = clienteActions.find((a) => a.id === key);
+    if (!action) return;
+    handleClienteSelect({
+      id: action.id,
+      label: action.label,
+      __contacto: action.__contacto as { id?: number; celular?: string; nombre_apellido?: string } | undefined,
+    });
+  };
+
+  const onUsuarioComboSelect = (
+    key: string | null,
+    locked: boolean,
+    select: (u: Usuario | null) => void,
+  ) => {
+    if (locked) return;
+    if (!key) {
+      select(null);
+      return;
+    }
+    const u = usuarios.find((x) => Number(x.id) === Number(key));
+    if (u) select(u);
+  };
+
   return (
     <div
       id={panelId}
@@ -244,18 +328,33 @@ export function OrdenClienteTab({
       >
         <div className="flex items-start gap-2">
           <div className="flex-1">
-            <ActionSearchBar
-              actions={clienteActions as never}
-              showAllActions={variant === "admin"}
-              defaultOpen={false}
-              label={<>Cliente<RequiredMark /></>}
+            <OrdenHeroComboBox
+              name="clienteId"
+              inputId="orden-elegir-cliente"
+              label={
+                <>
+                  Cliente
+                </>
+              }
               placeholder="Buscar cliente por nombre o teléfono..."
-              value={clienteSearch}
-              onQueryChange={onClienteQueryChange}
-              onSelectAction={handleClienteSelect as never}
+              triggerAriaLabel="Mostrar lista de clientes"
+              items={clienteItems}
+              selectedKey={clienteSelectedKey}
+              inputValue={clienteSearch}
+              onSelectionChange={onClienteComboSelect}
+              onInputChange={onClienteQueryChange}
+              isDisabled={clienteLocked}
+              isRequired
+              skipLocalFilter
+              emptyMessage="No hay contactos para mostrar. Escríbelos o crea uno nuevo."
+              liveRegionText={
+                clienteSearch.trim()
+                  ? `${clienteItems.filter((i) => i.id !== "__new__").length} contactos encontrados`
+                  : ""
+              }
             />
           </div>
-          {(formData.cliente_id || formData.cliente) && !ro("cliente") && (
+          {(formData.cliente_id || formData.cliente) && !clienteLocked && (
             <ClearSelectionButton onClick={() => selectCliente(null)} />
           )}
         </div>
@@ -389,22 +488,22 @@ export function OrdenClienteTab({
 
         <div className="flex items-start gap-2">
           <div className="flex-1">
-            <ActionSearchBar
-              actions={tecnicoActions as never}
-              defaultOpen={false}
+            <OrdenHeroComboBox
+              name="tecnicoAsignado"
+              inputId="orden-tecnico-asignado"
               label="Técnico asignado"
               placeholder="Buscar técnico..."
-              value={tecnicoSearch}
-              onQueryChange={onTecnicoAsignadoQueryChange}
-              onSelectAction={(action: { id?: string | number }) => {
-                if (ro("tecnico_asignado")) return;
-                const id = Number(action?.id);
-                const u = usuarios.find((x) => Number(x.id) === id);
-                if (u) selectTecnico(u);
-              }}
+              triggerAriaLabel="Mostrar lista de técnicos"
+              items={tecnicoItems}
+              selectedKey={formData.tecnico_asignado != null ? String(formData.tecnico_asignado) : null}
+              inputValue={tecnicoSearch}
+              onSelectionChange={(key) => onUsuarioComboSelect(key, tecnicoLocked, selectTecnico)}
+              onInputChange={onTecnicoAsignadoQueryChange}
+              isDisabled={tecnicoLocked}
+              emptyMessage="No hay técnicos para mostrar."
             />
           </div>
-          {formData.tecnico_asignado && !ro("tecnico_asignado") && (
+          {formData.tecnico_asignado && !tecnicoLocked && (
             <ClearSelectionButton onClick={() => selectTecnico(null)} />
           )}
         </div>
@@ -412,43 +511,43 @@ export function OrdenClienteTab({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="flex items-start gap-2">
             <div className="flex-1">
-              <ActionSearchBar
-                actions={quienInstaloActions as never}
-                defaultOpen={false}
+              <OrdenHeroComboBox
+                name="quienInstalo"
+                inputId="orden-quien-instalo"
                 label="¿Quién instaló?"
                 placeholder="Buscar técnico..."
-                value={quienInstaloSearch}
-                onQueryChange={onQuienInstaloQueryChange}
-                onSelectAction={(action: { id?: string | number }) => {
-                  if (ro("quien_instalo")) return;
-                  const id = Number(action?.id);
-                  const u = usuarios.find((x) => Number(x.id) === id);
-                  if (u) selectQuienInstalo(u);
-                }}
+                triggerAriaLabel="Mostrar lista de quién instaló"
+                items={tecnicoItems}
+                selectedKey={formData.quien_instalo != null ? String(formData.quien_instalo) : null}
+                inputValue={quienInstaloSearch}
+                onSelectionChange={(key) => onUsuarioComboSelect(key, quienInstaloLocked, selectQuienInstalo)}
+                onInputChange={onQuienInstaloQueryChange}
+                isDisabled={quienInstaloLocked}
+                emptyMessage="No hay técnicos para mostrar."
               />
             </div>
-            {formData.quien_instalo && !ro("quien_instalo") && (
+            {formData.quien_instalo && !quienInstaloLocked && (
               <ClearSelectionButton onClick={() => selectQuienInstalo(null)} />
             )}
           </div>
           <div className="flex items-start gap-2">
             <div className="flex-1">
-              <ActionSearchBar
-                actions={quienEntregoActions as never}
-                defaultOpen={false}
+              <OrdenHeroComboBox
+                name="quienEntrego"
+                inputId="orden-quien-entrego"
                 label="¿Quién entregó?"
                 placeholder="Buscar técnico..."
-                value={quienEntregoSearch}
-                onQueryChange={onQuienEntregoQueryChange}
-                onSelectAction={(action: { id?: string | number }) => {
-                  if (ro("quien_entrego")) return;
-                  const id = Number(action?.id);
-                  const u = usuarios.find((x) => Number(x.id) === id);
-                  if (u) selectQuienEntrego(u);
-                }}
+                triggerAriaLabel="Mostrar lista de quién entregó"
+                items={tecnicoItems}
+                selectedKey={formData.quien_entrego != null ? String(formData.quien_entrego) : null}
+                inputValue={quienEntregoSearch}
+                onSelectionChange={(key) => onUsuarioComboSelect(key, quienEntregoLocked, selectQuienEntrego)}
+                onInputChange={onQuienEntregoQueryChange}
+                isDisabled={quienEntregoLocked}
+                emptyMessage="No hay técnicos para mostrar."
               />
             </div>
-            {formData.quien_entrego && !ro("quien_entrego") && (
+            {formData.quien_entrego && !quienEntregoLocked && (
               <ClearSelectionButton onClick={() => selectQuienEntrego(null)} />
             )}
           </div>
@@ -464,7 +563,7 @@ export function OrdenClienteTab({
               value={formData.status}
               disabled={ro("status")}
               onChange={(e) => {
-                const next = e.target.value as "pendiente" | "pausado" | "resuelto";
+                const next = e.target.value as "pendiente" | "pausado" | "resuelto" | "cancelada";
                 setFormData((prev) => {
                   if (next === "resuelto") {
                     const { ymd, hm } = localYmdAndHm();
@@ -475,6 +574,10 @@ export function OrdenClienteTab({
                       hora_termino: prev.hora_termino || hm,
                     };
                   }
+                  // Al salir de "Cancelada" se limpia el motivo para no arrastrar texto obsoleto.
+                  if (prev.status === "cancelada" && next !== "cancelada") {
+                    return { ...prev, status: next, motivo_cancelacion: "" };
+                  }
                   return { ...prev, status: next };
                 });
               }}
@@ -483,12 +586,36 @@ export function OrdenClienteTab({
               <option value="pendiente">Pendiente</option>
               <option value="pausado">Pausado</option>
               <option value="resuelto">Resuelto</option>
+              {mostrarOpcionCancelada ? (
+                <option value="cancelada" disabled={!puedeCancelar}>
+                  Cancelada
+                </option>
+              ) : null}
             </select>
             {formData.status === "resuelto" && formData.fecha_finalizacion ? (
               <p className="mt-1.5 text-xs text-[#52525B] dark:text-[#8ea0b8]" aria-live="polite">
                 Fecha de cierre: {formatYmdToDMY(formData.fecha_finalizacion)}
                 {formData.hora_termino ? ` · ${formData.hora_termino.slice(0, 5)}` : ""}
               </p>
+            ) : null}
+            {editingOrden &&
+            (editingOrden.status_changed_by_full_name ||
+              editingOrden.status_changed_by_username ||
+              editingOrden.status_changed_at ||
+              editingOrden.creado_por_full_name ||
+              editingOrden.creado_por_username) ? (
+              <StatusChangedByChip
+                variant="panel"
+                name={resolveStatusChangedByName(
+                  editingOrden.status_changed_by_full_name,
+                  editingOrden.status_changed_by_username,
+                )}
+                at={editingOrden.status_changed_at}
+                fallbackName={resolveStatusChangedByName(
+                  editingOrden.creado_por_full_name,
+                  editingOrden.creado_por_username,
+                )}
+              />
             ) : null}
           </div>
 
@@ -562,6 +689,39 @@ export function OrdenClienteTab({
             />
             <p id={`${motivoPausaId}-hint`} className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
               Obligatorio al marcar Pausado.
+            </p>
+          </div>
+        ) : null}
+
+        {formData.status === "cancelada" ? (
+          <div>
+            <label
+              htmlFor={motivoCancelacionId}
+              className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]"
+            >
+              Motivo de cancelación<RequiredMark />
+            </label>
+            <HeroInput
+              id={motivoCancelacionId}
+              aria-label="Motivo de cancelación"
+              value={formData.motivo_cancelacion}
+              readOnly={ro("motivo_cancelacion")}
+              disabled={ro("motivo_cancelacion")}
+              onChange={(e) =>
+                setFormData({ ...formData, motivo_cancelacion: e.target.value })
+              }
+              required
+              aria-required="true"
+              aria-invalid={!formData.motivo_cancelacion.trim()}
+              aria-describedby={`${motivoCancelacionId}-hint`}
+              placeholder="Describe por qué se cancela la orden…"
+              className={`w-full rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] ${inputLockedClass("motivo_cancelacion")}`}
+            />
+            <p
+              id={`${motivoCancelacionId}-hint`}
+              className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]"
+            >
+              Obligatorio al marcar Cancelada. Solo el administrador puede cancelar.
             </p>
           </div>
         ) : null}

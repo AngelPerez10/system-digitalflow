@@ -21,7 +21,7 @@ import {
 
 export type OrdenesListVariant = "admin" | "tecnico";
 
-export type OrdenListFilterStatus = "" | "pendiente" | "pausado" | "resuelto";
+export type OrdenListFilterStatus = "" | "pendiente" | "pausado" | "resuelto" | "cancelada";
 
 export type OrdenListFilters = {
   status: OrdenListFilterStatus;
@@ -64,6 +64,23 @@ export function countActiveListFilters(filters: OrdenListFilters): number {
   if (filters.date) n += 1;
   if (filters.tecnicoId != null) n += 1;
   return n;
+}
+
+/** Filtros del popover (sin estado: el estado vive en la barra segmentada del listado). */
+export function countSecondaryListFilters(filters: OrdenListFilters): number {
+  let n = 0;
+  if (filters.servicio.length > 0) n += 1;
+  if (filters.date) n += 1;
+  if (filters.tecnicoId != null) n += 1;
+  return n;
+}
+
+export type OrdenStatusCountKey = "pendiente" | "pausado" | "resuelto" | "cancelada";
+
+export function ordenStatusCountKey(status: unknown): OrdenStatusCountKey {
+  const s = normalizeStatus(status);
+  if (s === "pausado" || s === "resuelto" || s === "cancelada") return s;
+  return "pendiente";
 }
 
 /** Shared with page init effects (servicios/usuarios/clientes + fetchOrdenes). */
@@ -217,10 +234,36 @@ export function useOrdenesList(opts: {
     }
   }, []);
 
-  const shownList = useMemo(() => {
+  const sortShownList = useCallback(
+    (list: Orden[]) => {
+      const toTs = (v: unknown) => {
+        if (!v) return 0;
+        const t = Date.parse(String(v));
+        return Number.isFinite(t) ? t : 0;
+      };
+
+      return list.slice().sort((a, b) => {
+        if (variant === "admin") {
+          const ai = toTs(a.fecha_inicio) || 0;
+          const bi = toTs(b.fecha_inicio) || 0;
+          if (bi !== ai) return bi - ai;
+          const ac = toTs(a.fecha_creacion) || 0;
+          const bc = toTs(b.fecha_creacion) || 0;
+          if (bc !== ac) return bc - ac;
+        } else {
+          const at = toTs(a.fecha_creacion || a.fecha_inicio) || 0;
+          const bt = toTs(b.fecha_creacion || b.fecha_inicio) || 0;
+          if (bt !== at) return bt - at;
+        }
+        return Number(b.id || 0) - Number(a.id || 0);
+      });
+    },
+    [variant],
+  );
+
+  /** Filas tras búsqueda + filtros secundarios, sin estado (base de conteos del segmento). */
+  const rowsBeforeStatus = useMemo(() => {
     if (!Array.isArray(ordenes)) return [];
-    // Mientras el mes pedido no coincide con el cargado, no pintar filas (evita mes anterior
-    // o “Sin órdenes” falso). El banner de loading cubre este estado.
     const mesPedido = selectedMonth || getCurrentYearMonth();
     if (loadedMonth !== mesPedido) return [];
 
@@ -228,46 +271,42 @@ export function useOrdenesList(opts: {
     const list = ordenes.filter((o) => {
       if (!ordenMatchesSearch(o, q, usuarios)) return false;
       return ordenPassesListFilters(o, {
-        status: filterStatus,
+        status: "",
         servicio: filterServicio,
         date: filterDate,
         tecnicoId: filterTecnicoId,
       });
     });
-
-    const toTs = (v: unknown) => {
-      if (!v) return 0;
-      const t = Date.parse(String(v));
-      return Number.isFinite(t) ? t : 0;
-    };
-
-    return list.slice().sort((a, b) => {
-      if (variant === "admin") {
-        const ai = toTs(a.fecha_inicio) || 0;
-        const bi = toTs(b.fecha_inicio) || 0;
-        if (bi !== ai) return bi - ai;
-        const ac = toTs(a.fecha_creacion) || 0;
-        const bc = toTs(b.fecha_creacion) || 0;
-        if (bc !== ac) return bc - ac;
-      } else {
-        const at = toTs(a.fecha_creacion || a.fecha_inicio) || 0;
-        const bt = toTs(b.fecha_creacion || b.fecha_inicio) || 0;
-        if (bt !== at) return bt - at;
-      }
-      return Number(b.id || 0) - Number(a.id || 0);
-    });
+    return sortShownList(list);
   }, [
     ordenes,
     loadedMonth,
     selectedMonth,
     searchTerm,
-    filterStatus,
     filterServicio,
     filterDate,
     filterTecnicoId,
     usuarios,
-    variant,
+    sortShownList,
   ]);
+
+  const statusCounts = useMemo(() => {
+    const c: Record<OrdenStatusCountKey, number> = {
+      pendiente: 0,
+      pausado: 0,
+      resuelto: 0,
+      cancelada: 0,
+    };
+    for (const o of rowsBeforeStatus) c[ordenStatusCountKey(o.status)] += 1;
+    return c;
+  }, [rowsBeforeStatus]);
+
+  const shownList = useMemo(() => {
+    if (!filterStatus) return rowsBeforeStatus;
+    return rowsBeforeStatus.filter(
+      (o) => normalizeStatus(o.status) === normalizeStatus(filterStatus),
+    );
+  }, [rowsBeforeStatus, filterStatus]);
 
   const monthLoading =
     loading || loadedMonth !== (selectedMonth || getCurrentYearMonth());
@@ -290,9 +329,26 @@ export function useOrdenesList(opts: {
     setFilterTecnicoId(null);
   }, []);
 
+  const clearSecondaryFilters = useCallback(() => {
+    setFilterServicio([]);
+    setFilterDate("");
+    setFilterTecnicoId(null);
+  }, []);
+
   const activeFilterCount = useMemo(
     () =>
       countActiveListFilters({
+        status: filterStatus,
+        servicio: filterServicio,
+        date: filterDate,
+        tecnicoId: filterTecnicoId,
+      }),
+    [filterStatus, filterServicio, filterDate, filterTecnicoId],
+  );
+
+  const secondaryFilterCount = useMemo(
+    () =>
+      countSecondaryListFilters({
         status: filterStatus,
         servicio: filterServicio,
         date: filterDate,
@@ -321,7 +377,11 @@ export function useOrdenesList(opts: {
     filterTecnicoId,
     setFilterTecnicoId,
     clearListFilters,
+    clearSecondaryFilters,
     activeFilterCount,
+    secondaryFilterCount,
+    statusCounts,
+    totalBeforeStatus: rowsBeforeStatus.length,
     shownList,
     stats,
     alert,

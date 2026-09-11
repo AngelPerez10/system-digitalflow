@@ -7,6 +7,7 @@ import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { OrdenesPageStats } from "./list/OrdenesPageStats";
 import OrdenesListFiltersPopover from "./list/OrdenesListFiltersPopover";
+import OrdenesStatusSegmentFilter from "./list/OrdenesStatusSegmentFilter";
 import OrdenLocationMapModal from "./form/fields/OrdenLocationMapModal";
 import OrdenFormModal, { ORDEN_FORM_PANEL_IDS, ORDEN_FORM_TAB_IDS } from "./form/OrdenFormModal";
 import { OrdenClienteTab } from "./form/tabs/OrdenClienteTab";
@@ -21,13 +22,16 @@ import { useOrdenFormModalState } from "./form/useOrdenFormModalState";
 import { useOrdenFormDraft } from "./form/useOrdenFormDraft";
 import { useOrdenesList } from "./shared/useOrdenesList";
 import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
-import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { MobileOrderList } from "./list/MobileOrderCard";
 import { OrdenStatusSectionHeader } from "./list/OrdenStatusSectionHeader";
 import { OrdenesMonthLoadingBanner } from "./list/OrdenesMonthLoadingBanner";
 import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
 import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./list/OrdenEnviarPdfModal";
+import {
+  StatusChangedByChip,
+  resolveStatusChangedByName,
+} from "../../shared/StatusChangedByChip";
 import {
   downloadOrdenesMesPdf,
   handleOrdenPdfClick,
@@ -36,6 +40,8 @@ import {
   displayOrdenFolio,
   resolveClienteCorreoSugerido,
   fetchOrdenDetail,
+  isOrdenCancelada,
+  fetchTodosLosUsuariosApi,
 } from "./shared/useOrdenesShared";
 import {
   formatYmdToDMY,
@@ -109,6 +115,8 @@ export default function Ordenes() {
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  /** Lista completa de usuarios para el filtro del listado (no solo técnicos). */
+  const [usuariosFiltro, setUsuariosFiltro] = useState<Usuario[]>([]);
   const {
     ordenes,
     setOrdenes,
@@ -126,8 +134,10 @@ export default function Ordenes() {
     setFilterDate,
     filterTecnicoId,
     setFilterTecnicoId,
-    clearListFilters,
-    activeFilterCount,
+    clearSecondaryFilters,
+    secondaryFilterCount,
+    statusCounts,
+    totalBeforeStatus,
     shownList,
     stats: ordenStats,
     alert,
@@ -204,6 +214,20 @@ export default function Ordenes() {
     if (authLoading || !isAuthenticated) return;
     void fetchOrdenes();
   }, [authLoading, isAuthenticated, canOrdenesView, fetchOrdenes]);
+
+  // Usuarios para el filtro del listado: se cargan al abrir la página (no solo
+  // al abrir el modal), si no el <select> de usuario sale vacío en producción.
+  // Estado propio para no pisar `usuarios` (que el modal usa para asignación).
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    let cancelled = false;
+    void fetchTodosLosUsuariosApi().then((rows) => {
+      if (!cancelled && rows.length > 0) setUsuariosFiltro(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated]);
 
   const [modalAlert, setModalAlert] = useState<{
     show: boolean;
@@ -529,8 +553,8 @@ export default function Ordenes() {
   const currentOrdenes = shownList;
   /**
    * Listado: se conservan las secciones por estado (Pendientes → Pausados →
-   * Resueltas) y dentro de cada sección las órdenes se ordenan por prioridad de
-   * bolsa: Alta arriba → Media → Baja → Sin prioridad al final.
+   * Canceladas → Resueltas) y dentro de cada sección las órdenes se ordenan por
+   * prioridad de bolsa: Alta arriba → Media → Baja → Sin prioridad al final.
    */
   const listadoOrdenes = useMemo(
     () => sortOrdenesByPrioridad(currentOrdenes),
@@ -547,40 +571,6 @@ export default function Ordenes() {
     });
     return map;
   }, [listadoOrdenes]);
-
-  const clienteActions = useMemo(
-    () => buildClienteSearchActions(clientes, clienteSearch),
-    [clientes, clienteSearch]
-  );
-
-  const buildTecnicoActions = (searchValue: string) => {
-    const q = searchValue.trim().toLowerCase();
-    return (usuarios || [])
-      .filter((u) => {
-        if (!q) return true;
-        const nombre = (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email).toLowerCase();
-        return nombre.includes(q);
-      })
-      .map((u) => {
-        const nombre = u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email;
-        return {
-          id: String(u.id),
-          label: nombre,
-          icon: (
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold">
-              {nombre.slice(0, 1).toUpperCase()}
-            </span>
-          ),
-          description: u.email,
-          short: '',
-          end: '',
-        };
-      });
-  };
-
-  const tecnicoActions = useMemo(() => buildTecnicoActions(tecnicoSearch), [usuarios, tecnicoSearch]);
-  const quienInstaloActions = useMemo(() => buildTecnicoActions(quienInstaloSearch), [usuarios, quienInstaloSearch]);
-  const quienEntregoActions = useMemo(() => buildTecnicoActions(quienEntregoSearch), [usuarios, quienEntregoSearch]);
 
   return (
     <div className={erpPageCanvasClass} style={erpSansStyle}>
@@ -742,8 +732,6 @@ export default function Ordenes() {
             <OrdenesListFiltersPopover
               open={filterOpen}
               onOpenChange={setFilterOpen}
-              filterStatus={filterStatus}
-              setFilterStatus={setFilterStatus}
               filterServicio={filterServicio}
               setFilterServicio={setFilterServicio}
               filterDate={filterDate}
@@ -751,13 +739,21 @@ export default function Ordenes() {
               filterTecnicoId={filterTecnicoId}
               setFilterTecnicoId={setFilterTecnicoId}
               serviciosDisponibles={serviciosDisponibles}
-              usuarios={usuarios}
-              activeFilterCount={activeFilterCount}
-              onClear={clearListFilters}
+              usuarios={usuariosFiltro.length > 0 ? usuariosFiltro : usuarios}
+              activeFilterCount={secondaryFilterCount}
+              onClear={clearSecondaryFilters}
               showTecnicoFilter
               datePickerId="filtro-fecha-ordenes-admin"
             />
           </div>
+          </div>
+          <div className="mt-3 min-w-0 max-w-full overflow-hidden">
+            <OrdenesStatusSegmentFilter
+              filterStatus={filterStatus}
+              setFilterStatus={setFilterStatus}
+              statusCounts={statusCounts}
+              totalBeforeStatus={totalBeforeStatus}
+            />
           </div>
         </div>
         <div className="p-2 sm:p-3">
@@ -830,14 +826,16 @@ export default function Ordenes() {
                   const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
                   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
-                  // En órdenes resueltas la prioridad de bolsa deja de ser relevante: no se muestra.
+                  // En órdenes resueltas o canceladas la prioridad de bolsa deja de ser relevante: no se muestra.
                   const isResuelta = isOrdenResuelta(orden.status);
+                  const isCancelada = isOrdenCancelada(orden.status);
+                  const isTerminal = isResuelta || isCancelada;
                   // Prioridad efectiva = base fijada por el admin, escalada por antigüedad
                   // (+1 nivel a las 72 h sin resolver, +2 a las 96 h).
                   const prioKey = ordenPrioridadKey(
-                    isResuelta ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
+                    isTerminal ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
                   );
-                  const prioEscalada = !isResuelta && ordenPrioridadEscalada(orden);
+                  const prioEscalada = !isTerminal && ordenPrioridadEscalada(orden);
                   const prioTone = getOrdenPrioridadSectionStyles(prioKey);
                   const prioShort =
                     prioKey === "ALTA" ? "Alta"
@@ -851,6 +849,10 @@ export default function Ordenes() {
                   const editadaPor = displayOrdenUserName(orden, "actualizado");
                   const creadaEn = formatIsoDateTime(orden.fecha_creacion);
                   const editadaEn = formatIsoDateTime(orden.fecha_actualizacion);
+                  const statusByName = resolveStatusChangedByName(
+                    orden.status_changed_by_full_name,
+                    orden.status_changed_by_username,
+                  );
 
                   const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
                   const tecnicoNombre = tecnico
@@ -859,8 +861,8 @@ export default function Ordenes() {
                   return (
                     <TableRow
                       key={orden.id ?? `${section.key}-${sectionIdx}`}
-                      className={`${erpTableRowHoverClass} ${recentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isResuelta ? "" : prioTone.rowAccent}`}
-                      aria-label={`Orden ${folioDisplay}${isResuelta ? "" : `, ${prioAria}`}${recentResolved ? ", resuelta recientemente" : ""}`}
+                      className={`${erpTableRowHoverClass} ${recentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isTerminal ? "" : prioTone.rowAccent}`}
+                      aria-label={`Orden ${folioDisplay}${isTerminal ? "" : `, ${prioAria}`}${isCancelada ? ", cancelada" : ""}${recentResolved ? ", resuelta recientemente" : ""}`}
                     >
                       <TableCell className="px-3 py-2 w-[100px] min-w-[96px] max-w-[110px] overflow-hidden font-medium tabular-nums">
                         <div className="flex min-w-0 flex-col items-stretch gap-1">
@@ -965,13 +967,25 @@ export default function Ordenes() {
                                 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
                                 : orden.status === 'pausado'
                                   ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
+                                  : orden.status === 'cancelada'
+                                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
                             const statusLabel =
-                              orden.status === 'resuelto' ? 'Resuelto' : orden.status === 'pausado' ? 'Pausado' : 'Pendiente';
+                              orden.status === 'resuelto'
+                                ? 'Resuelto'
+                                : orden.status === 'pausado'
+                                  ? 'Pausado'
+                                  : orden.status === 'cancelada'
+                                    ? 'Cancelada'
+                                    : 'Pendiente';
                             const statusTitle =
-                              orden.status === 'pausado' && orden.motivo_pausa ? String(orden.motivo_pausa) : undefined;
-                            // Resuelta: solo estado (la prioridad ya no aplica).
-                            if (isResuelta) {
+                              orden.status === 'pausado' && orden.motivo_pausa
+                                ? String(orden.motivo_pausa)
+                                : orden.status === 'cancelada' && orden.motivo_cancelacion
+                                  ? String(orden.motivo_cancelacion)
+                                  : undefined;
+                            // Resuelta o cancelada: solo estado (la prioridad ya no aplica).
+                            if (isTerminal) {
                               return (
                                 <span
                                   className={`inline-flex items-center rounded-full px-2 py-[3px] text-[10px] font-semibold ${statusPill}`}
@@ -1011,6 +1025,20 @@ export default function Ordenes() {
                               </svg>
                               Resuelto recién
                             </span>
+                          )}
+                          {(statusByName ||
+                            orden.status_changed_at ||
+                            orden.creado_por_username ||
+                            orden.creado_por_full_name) && (
+                            <StatusChangedByChip
+                              name={statusByName}
+                              at={orden.status_changed_at}
+                              fallbackName={resolveStatusChangedByName(
+                                orden.creado_por_full_name,
+                                orden.creado_por_username,
+                              )}
+                              align="center"
+                            />
                           )}
                         </div>
                       </TableCell>
@@ -1253,19 +1281,15 @@ export default function Ordenes() {
             setFormData={setFormData}
             ro={ro}
             inputLockedClass={inputLockedClass}
-            clienteActions={clienteActions}
             clienteSearch={clienteSearch}
             setClienteSearch={setClienteSearch}
             clientes={clientes}
             selectCliente={selectCliente}
             setShowClienteModal={setShowClienteModal}
-            tecnicoActions={tecnicoActions}
             tecnicoSearch={tecnicoSearch}
             setTecnicoSearch={setTecnicoSearch}
-            quienInstaloActions={quienInstaloActions}
             quienInstaloSearch={quienInstaloSearch}
             setQuienInstaloSearch={setQuienInstaloSearch}
-            quienEntregoActions={quienEntregoActions}
             quienEntregoSearch={quienEntregoSearch}
             setQuienEntregoSearch={setQuienEntregoSearch}
             usuarios={usuarios}

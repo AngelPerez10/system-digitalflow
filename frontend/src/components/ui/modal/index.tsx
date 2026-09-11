@@ -126,8 +126,8 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   const overlayClasses = mobileBottomSheet
-    ? "fixed inset-0 z-99999 flex items-end justify-center overflow-y-auto overscroll-contain sm:items-center sm:p-4"
-    : "fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto modal";
+    ? "erp-modal-overlay fixed inset-0 z-99999 flex items-end justify-center overflow-y-auto overscroll-contain sm:items-center sm:p-4"
+    : "erp-modal-overlay modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto";
 
   // Con mobileBottomSheet, el shell del caller controla max-h / radius (p. ej. erpModalShellClass).
   const contentClasses = isFullscreen

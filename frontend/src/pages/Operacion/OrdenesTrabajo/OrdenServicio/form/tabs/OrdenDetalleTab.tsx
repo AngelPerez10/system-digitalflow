@@ -1,9 +1,9 @@
 import { useMemo, type MutableRefObject } from "react";
 import DatePicker from "@/components/form/date-picker";
-import SearchableSelect from "@/components/form/SearchableSelect";
 import type { CotizacionResumen } from "@/pages/Operacion/Proyectos/shared/proyectoTypes";
 import LevantamientoForm from "../../../OrdenLevantamiento/LevantamientoForm";
 import OrdenAdminCotizacionesField from "../fields/OrdenAdminCotizacionesField";
+import OrdenHeroComboBox, { type OrdenComboItem } from "../fields/OrdenHeroComboBox";
 import type { OrdenStatusAdministrativo } from "../../shared/ordenesPageTypes";
 import { COMENTARIO_TECNICO_MIN_LENGTH } from "../../shared/ordenesPageTypes";
 import type { OrdenFormData } from "../useOrdenFormDraft";
@@ -83,20 +83,21 @@ export function OrdenDetalleTab({
     Boolean(editingOrden) &&
     (formData.status === "resuelto" || statusAdministrativo === "cerrado");
 
-  const servicioOptions = useMemo(() => {
-    const opts = serviciosDisponibles.map((s) => ({ value: s, label: s }));
-    if (selectedServicio && !opts.some((o) => o.value === selectedServicio)) {
-      opts.unshift({ value: selectedServicio, label: selectedServicio });
+  const servicioOptions = useMemo((): OrdenComboItem[] => {
+    const opts: OrdenComboItem[] = serviciosDisponibles.map((s) => ({ id: s, label: s }));
+    if (selectedServicio && !opts.some((o) => o.id === selectedServicio)) {
+      opts.unshift({ id: selectedServicio, label: selectedServicio });
     }
     const q = servicioSearch.trim();
     if (
       q &&
       !serviciosLocked &&
-      !opts.some((o) => o.value.toLowerCase() === q.toLowerCase())
+      !opts.some((o) => o.id.toLowerCase() === q.toLowerCase())
     ) {
       opts.unshift({
-        value: `${SERVICIO_CREAR_PREFIX}${q}`,
+        id: `${SERVICIO_CREAR_PREFIX}${q}`,
         label: `Crear «${q}»`,
+        description: "Agregar este servicio al catálogo de la orden",
       });
     }
     return opts;
@@ -118,6 +119,7 @@ export function OrdenDetalleTab({
     }
     if (!name) return;
     addServicio(name);
+    setServicioSearch(name);
   };
 
   return (
@@ -196,25 +198,35 @@ export function OrdenDetalleTab({
               </div>
 
               <div>
-                <SearchableSelect
-                  id="orden-servicios-realizados"
-                  label="Servicios realizados"
-                  required
-                  value={selectedServicio}
-                  onChange={handleServicioChange}
-                  onSearchChange={setServicioSearch}
-                  options={servicioOptions}
-                  disabled={serviciosLocked}
+                <OrdenHeroComboBox
+                  name="serviciosRealizados"
+                  inputId="orden-servicios-realizados"
+                  label={
+                    <>
+                      Servicios realizados
+                      <RequiredMark />
+                    </>
+                  }
                   placeholder={
                     serviciosLocked && variant === "tecnico"
                       ? "Servicios (solo lectura)"
                       : "Buscar o crear servicio…"
                   }
-                  filterLocally
+                  triggerAriaLabel="Mostrar lista de servicios"
+                  items={servicioOptions}
+                  selectedKey={selectedServicio || null}
+                  inputValue={servicioSearch || selectedServicio}
+                  onSelectionChange={(key) => handleServicioChange(key ?? "")}
+                  onInputChange={(value) => {
+                    if (serviciosLocked) return;
+                    setServicioSearch(value);
+                  }}
+                  isDisabled={serviciosLocked}
+                  isRequired
+                  skipLocalFilter
+                  description="Elige uno de la lista o escribe un nombre nuevo para crearlo."
+                  emptyMessage="No hay servicios. Escribe un nombre para crear uno."
                 />
-                <p className="mt-1.5 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
-                  Elige uno de la lista o escribe un nombre nuevo para crearlo.
-                </p>
               </div>
 
               <div>

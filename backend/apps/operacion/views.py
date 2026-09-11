@@ -3,6 +3,7 @@ import logging
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -70,6 +71,25 @@ def _firma_cloudinary_overrides(validated_data: dict) -> dict:
     return overrides
 
 
+def _proyecto_status_change_overrides(serializer, user) -> dict:
+    """Sella `status_changed_at` / `status_changed_by` cuando cambia el status."""
+    validated = serializer.validated_data
+    if "status" not in validated:
+        return {}
+    stamp_user = (
+        user if (user is not None and getattr(user, "is_authenticated", False)) else None
+    )
+    new_norm = str(validated.get("status") or "").strip().lower()
+    instance = serializer.instance
+    if instance is None:
+        # En alta no hubo "cambio de status": el chip muestra "Registro creado por".
+        return {}
+    old_norm = str(getattr(instance, "status", "") or "").strip().lower()
+    if new_norm != old_norm:
+        return {"status_changed_at": timezone.now(), "status_changed_by": stamp_user}
+    return {}
+
+
 def _pdf_response_from_html(html: str, filename: str, *, wants_html: bool = False):
     """HTML → PDF; si no hay motor o se pide HTML, regresa HTML imprimible."""
     if not html:
@@ -105,7 +125,7 @@ class ProyectoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, ProyectosPermission]
     pagination_class = None
     queryset = Proyecto.objects.select_related(
-        "cliente", "tecnico", "auxiliar", "creado_por"
+        "cliente", "tecnico", "auxiliar", "creado_por", "status_changed_by"
     ).all()
     serializer_class = ProyectoSerializer
 
@@ -120,7 +140,7 @@ class ProyectoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = (
             self.queryset.all()
-            .select_related("cliente", "tecnico", "auxiliar", "creado_por")
+            .select_related("cliente", "tecnico", "auxiliar", "creado_por", "status_changed_by")
             .order_by("-idx", "-id")
         )
         user = getattr(self.request, "user", None)
@@ -154,14 +174,22 @@ class ProyectoViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         try:
             firma_overrides = _firma_cloudinary_overrides(serializer.validated_data)
-            serializer.save(creado_por=self.request.user, **firma_overrides)
+            status_overrides = _proyecto_status_change_overrides(
+                serializer, getattr(self.request, "user", None)
+            )
+            serializer.save(
+                creado_por=self.request.user, **firma_overrides, **status_overrides
+            )
         except DjangoValidationError as exc:
             _raise_drf_validation(exc)
 
     def perform_update(self, serializer):
         try:
             firma_overrides = _firma_cloudinary_overrides(serializer.validated_data)
-            serializer.save(**firma_overrides)
+            status_overrides = _proyecto_status_change_overrides(
+                serializer, getattr(self.request, "user", None)
+            )
+            serializer.save(**firma_overrides, **status_overrides)
         except DjangoValidationError as exc:
             _raise_drf_validation(exc)
 

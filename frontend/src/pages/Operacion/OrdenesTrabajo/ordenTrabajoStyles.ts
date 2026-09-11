@@ -125,7 +125,7 @@ export const erpModalEyebrowClass =
 export const erpModalBodyClass = "flex min-h-0 w-full min-w-0 flex-1 flex-col bg-white dark:bg-[#111827]";
 
 export const erpModalFormScrollClass =
-  "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-y-contain touch-pan-y p-4 custom-scrollbar sm:space-y-5 sm:p-6 sm:touch-auto";
+  "erp-modal-form-scroll min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-y-contain touch-pan-y p-4 custom-scrollbar sm:space-y-5 sm:p-6 sm:touch-auto";
 
 export const erpModalFooterClass =
   "shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-[#273244] dark:bg-[#151E32] sm:px-6 sm:py-4 sm:pb-4";

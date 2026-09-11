@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Orden } from "./ordenesPageTypes";
 import {
   countActiveListFilters,
+  countSecondaryListFilters,
   ordenPassesListFilters,
   type OrdenListFilters,
 } from "./useOrdenesList";
@@ -105,5 +106,26 @@ describe("countActiveListFilters", () => {
         tecnicoId: 42,
       }),
     ).toBe(4);
+  });
+});
+
+describe("countSecondaryListFilters", () => {
+  it("no cuenta el estado (vive en la barra del listado)", () => {
+    expect(
+      countSecondaryListFilters({
+        status: "pendiente",
+        servicio: ["GPS"],
+        date: "2026-07-15",
+        tecnicoId: 42,
+      }),
+    ).toBe(3);
+    expect(
+      countSecondaryListFilters({
+        status: "resuelto",
+        servicio: [],
+        date: "",
+        tecnicoId: null,
+      }),
+    ).toBe(0);
   });
 });

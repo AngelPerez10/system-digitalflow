@@ -5,7 +5,6 @@ import {
   erpFilterBtnClass,
   erpFilterPopoverClass,
   erpFilterSectionLabelClass,
-  erpFilterStatusChipClass,
   erpPrimaryBtnClass,
   erpSecondaryBtnClass,
   erpSelectFieldClass,
@@ -22,8 +21,6 @@ export type ProyectoTecnicoFilterOption = {
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  filterStatus: ProyectoListFilterStatus;
-  setFilterStatus: Dispatch<SetStateAction<ProyectoListFilterStatus>>;
   filterTiposTrabajo: string[];
   setFilterTiposTrabajo: Dispatch<SetStateAction<string[]>>;
   filterDate: string;
@@ -32,34 +29,22 @@ type Props = {
   setFilterTecnicoId: Dispatch<SetStateAction<number | null>>;
   tiposTrabajoDisponibles: string[];
   tecnicos: ProyectoTecnicoFilterOption[];
+  /** Solo filtros secundarios (sin estado: el estado vive en la barra segmentada). */
   activeFilterCount: number;
   onClear: () => void;
   showTecnicoFilter?: boolean;
   datePickerId?: string;
 };
 
-const STATUS_OPTIONS: { value: ProyectoListFilterStatus; label: string }[] = [
-  { value: "", label: "Todos" },
-  { value: "en_proceso", label: "En proceso" },
-  { value: "pausado", label: "Pausado" },
-  { value: "cerrado", label: "Cerrado" },
-];
-
-/** Chips sin flex-1: en móvil van en grilla 2×2 y no se cortan. */
-function statusChipClass(active: boolean): string {
-  return `${erpFilterStatusChipClass(active)} !w-full !flex-none min-h-11`;
-}
-
 const proyectosFilterPanelClass = `${erpFilterPopoverClass} max-sm:!fixed max-sm:!inset-x-3 max-sm:!bottom-3 max-sm:!top-auto max-sm:!mt-0 max-sm:!w-auto max-sm:!max-h-[min(85dvh,36rem)]`;
 
 /**
  * Popover de filtros del listado de proyectos (mismo patrón visual que órdenes).
+ * El estado se filtra con `ProyectosStatusSegmentFilter` en la cabecera del listado.
  */
 export function ProyectosListFiltersPopover({
   open,
   onOpenChange,
-  filterStatus,
-  setFilterStatus,
   filterTiposTrabajo,
   setFilterTiposTrabajo,
   filterDate,
@@ -74,7 +59,6 @@ export function ProyectosListFiltersPopover({
   datePickerId = "filtro-fecha-proyectos",
 }: Props) {
   const panelId = useId();
-  const statusGroupId = useId();
   const tecnicoSelectId = useId();
   const tipoSearchId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -203,36 +187,10 @@ export function ProyectosListFiltersPopover({
           </div>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 custom-scrollbar">
-            <fieldset>
-              <legend id={statusGroupId} className={erpFilterSectionLabelClass}>
-                Estado
-              </legend>
-              <div
-                className="grid grid-cols-2 gap-1.5 sm:grid-cols-4"
-                role="group"
-                aria-labelledby={statusGroupId}
-              >
-                {STATUS_OPTIONS.map((opt) => {
-                  const active = filterStatus === opt.value;
-                  return (
-                    <button
-                      key={opt.value || "todos"}
-                      type="button"
-                      aria-pressed={active}
-                      className={statusChipClass(active)}
-                      onClick={() => setFilterStatus(opt.value)}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
-
             {showTecnicoFilter && (
               <div>
                 <label htmlFor={tecnicoSelectId} className={erpFilterSectionLabelClass}>
-                  Técnico
+                  Usuario
                 </label>
                 <select
                   id={tecnicoSelectId}
@@ -244,7 +202,7 @@ export function ProyectosListFiltersPopover({
                   }}
                   className={`${erpSelectFieldClass} !h-10`}
                 >
-                  <option value="">Todos los técnicos</option>
+                  <option value="">Todos los usuarios</option>
                   <option value="0">Sin asignar</option>
                   {tecnicosOrdenados.map((u) => (
                     <option key={u.id} value={String(u.id)}>

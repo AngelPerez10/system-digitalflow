@@ -9,6 +9,7 @@ import { formatProyectoFecha, proyectoOrigenBadgeClass } from "../shared/proyect
 import type { ProyectoStatusSection } from "../shared/proyectoStatusSections";
 import type { ProyectoRow } from "../shared/proyectoTypes";
 import { ProyectoStatusSectionHeader } from "./ProyectoStatusSectionHeader";
+import { StatusChangedByChip } from "../../shared/StatusChangedByChip";
 
 const actionBtnClass =
   "inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[#E7E7EA] bg-white text-[#52525B] transition hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:border-[#273244] dark:bg-[#111827] dark:text-[#B7C1D1] dark:hover:border-[#4B7CFF] dark:hover:text-[#4B7CFF]";
@@ -86,9 +87,16 @@ function ProyectoCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className={folioChipClass}>{displayProyectoFolio(row.folio)}</span>
-            <span className={estadoProyectoBadgeClass(row.estado)}>
-              {estadoProyectoLabel(row.estado)}
-            </span>
+            <StatusChangedByChip
+              name={row.draft.statusChangedByName}
+              at={row.draft.statusChangedAt}
+              fallbackName={row.draft.creadoPorName}
+              fallbackAt={row.draft.createdAt}
+            >
+              <span className={estadoProyectoBadgeClass(row.estado)}>
+                {estadoProyectoLabel(row.estado)}
+              </span>
+            </StatusChangedByChip>
           </div>
           <p className="mt-2 truncate text-sm font-semibold text-[#09090B] dark:text-white" title={row.cliente}>
             {row.cliente}

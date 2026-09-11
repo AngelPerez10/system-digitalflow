@@ -41,6 +41,11 @@ export type ApiProyecto = {
   cliente_nombre: string;
   status: ProyectoEstado;
   motivo_pausa: string;
+  motivo_cancelacion?: string;
+  status_changed_at?: string | null;
+  status_changed_by?: number | null;
+  status_changed_by_full_name?: string | null;
+  status_changed_by_username?: string | null;
   tipo_trabajo_id: number | null;
   tipo_trabajo_nombre: string;
   tipos_trabajo?: ProyectoTipoTrabajo[] | null;
@@ -78,6 +83,8 @@ export type ApiProyecto = {
   cotizacion_origen?: CotizacionOrigen | string;
   created_at?: string;
   updated_at?: string;
+  creado_por?: number | null;
+  creado_por_username?: string | null;
 };
 
 export type ProyectoApiError = {
@@ -139,6 +146,13 @@ function draftFromApi(api: ApiProyecto): ProyectoDraft {
     tipoTrabajoNombre: tiposTrabajo[0]?.nombre ?? "",
     status: (api.status as ProyectoEstado) || "en_proceso",
     motivoPausa: String(api.motivo_pausa || ""),
+    motivoCancelacion: String(api.motivo_cancelacion || ""),
+    statusChangedAt: String(api.status_changed_at || ""),
+    statusChangedByName: String(
+      api.status_changed_by_full_name || api.status_changed_by_username || "",
+    ),
+    creadoPorName: String(api.creado_por_username || "").trim(),
+    createdAt: String(api.created_at || ""),
     fechaAutorizacion: api.fecha_autorizacion ? String(api.fecha_autorizacion) : "",
     quienAutorizo: String(api.quien_autorizo || ""),
     fechasInicio: Array.isArray(api.fechas_inicio) && api.fechas_inicio.length
@@ -238,6 +252,8 @@ export function draftToApiPayload(
     cliente_nombre: draft.cliente.trim(),
     status: draft.status,
     motivo_pausa: draft.status === "pausado" ? draft.motivoPausa.trim() : "",
+    motivo_cancelacion:
+      draft.status === "cancelado" ? draft.motivoCancelacion.trim() : "",
     quien_autorizo: draft.quienAutorizo.trim(),
     fechas_inicio: draft.fechasInicio?.length ? draft.fechasInicio : [""],
     hora_llegada: draft.horaLlegada || "",

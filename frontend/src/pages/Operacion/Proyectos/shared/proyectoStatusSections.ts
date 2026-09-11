@@ -1,6 +1,11 @@
 import type { ProyectoEstado, ProyectoRow } from "./proyectoTypes";
 
-export type ProyectoStatusSectionKey = "EN_PROCESO" | "PAUSADO" | "CERRADO" | "OTROS";
+export type ProyectoStatusSectionKey =
+  | "EN_PROCESO"
+  | "PAUSADO"
+  | "CERRADO"
+  | "CANCELADO"
+  | "OTROS";
 
 export type ProyectoStatusSection = {
   key: ProyectoStatusSectionKey;
@@ -32,6 +37,11 @@ const STATUS_SECTION_ORDER: {
     match: (s) => s === "pausado",
   },
   {
+    key: "CANCELADO",
+    label: "Cancelados",
+    match: (s) => s === "cancelado",
+  },
+  {
     key: "CERRADO",
     label: "Cerrados",
     match: (s) => s === "cerrado",
@@ -47,12 +57,13 @@ export function normalizeProyectoEstado(raw: string | null | undefined): string 
   return String(raw || "").trim().toLowerCase();
 }
 
-/** Agrupa proyectos: En proceso → Pausados → Cerrados (y otros al final). Omite secciones vacías. */
+/** Agrupa proyectos: En proceso → Pausados → Cancelados → Cerrados (y otros al final). Omite secciones vacías. */
 export function groupProyectosByStatus(rows: ProyectoRow[]): ProyectoStatusSection[] {
   const buckets: Record<ProyectoStatusSectionKey, ProyectoRow[]> = {
     EN_PROCESO: [],
     PAUSADO: [],
     CERRADO: [],
+    CANCELADO: [],
     OTROS: [],
   };
 
@@ -85,6 +96,17 @@ export function getProyectoStatusSectionStyles(key: ProyectoStatusSectionKey): P
       badge:
         "border-emerald-300/80 bg-emerald-100 text-emerald-900 dark:border-emerald-400/35 dark:bg-emerald-500/20 dark:text-emerald-100",
       label: "text-[#14532d] dark:text-emerald-100",
+    };
+  }
+  if (key === "CANCELADO") {
+    return {
+      shell:
+        "border-rose-200/90 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-950/30",
+      accent: "bg-rose-600 dark:bg-rose-400",
+      icon: "text-rose-800 dark:text-rose-300",
+      badge:
+        "border-rose-300/90 bg-rose-100 text-rose-900 dark:border-rose-400/35 dark:bg-rose-500/20 dark:text-rose-100",
+      label: "text-rose-900 dark:text-rose-100",
     };
   }
   if (key === "PAUSADO") {
@@ -126,4 +148,25 @@ export function proyectoEstadoToSectionKey(estado: ProyectoEstado | string): Pro
     STATUS_SECTION_ORDER.find((s) => s.key !== "OTROS" && s.match(normalized)) ??
     STATUS_SECTION_ORDER[STATUS_SECTION_ORDER.length - 1];
   return section.key;
+}
+
+/**
+ * Estado de listado para la barra segmentada / filtro.
+ * `null` = no encaja en un segmento (p. ej. valor legacy → sección Otros).
+ */
+export function proyectoListStatusCountKey(
+  estado: ProyectoEstado | string | null | undefined,
+): ProyectoEstado | null {
+  switch (proyectoEstadoToSectionKey(estado ?? "")) {
+    case "EN_PROCESO":
+      return "en_proceso";
+    case "PAUSADO":
+      return "pausado";
+    case "CERRADO":
+      return "cerrado";
+    case "CANCELADO":
+      return "cancelado";
+    default:
+      return null;
+  }
 }

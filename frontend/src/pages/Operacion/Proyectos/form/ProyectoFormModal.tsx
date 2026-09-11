@@ -104,6 +104,8 @@ export default function ProyectoFormModal({
     status,
     motivoPausa,
     setMotivoPausa,
+    motivoCancelacion,
+    setMotivoCancelacion,
     fechaAutorizacion,
     setFechaAutorizacion,
     quienAutorizo,
@@ -311,8 +313,15 @@ export default function ProyectoFormModal({
                   assignedTechnicianLocked={assignedTechnicianLocked}
                   status={status}
                   handleStatusChange={handleStatusChange}
+                  isAdmin={isAdmin}
                   motivoPausa={motivoPausa}
                   setMotivoPausa={setMotivoPausa}
+                  motivoCancelacion={motivoCancelacion}
+                  setMotivoCancelacion={setMotivoCancelacion}
+                  statusChangedByName={initialDraft.statusChangedByName}
+                  statusChangedAt={initialDraft.statusChangedAt}
+                  creadoPorName={initialDraft.creadoPorName}
+                  createdAt={initialDraft.createdAt}
                   fechaAutorizacion={fechaAutorizacion}
                   setFechaAutorizacion={setFechaAutorizacion}
                   horaLlegada={horaLlegada}

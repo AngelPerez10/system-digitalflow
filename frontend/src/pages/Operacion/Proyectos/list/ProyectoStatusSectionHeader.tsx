@@ -19,6 +19,14 @@ function ProyectoStatusSectionIcon({ statusKey }: { statusKey: ProyectoStatusSec
       </svg>
     );
   }
+  if (statusKey === "CANCELADO") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        <path d="m15 9-6 6M9 9l6 6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
   if (statusKey === "EN_PROCESO") {
     return (
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

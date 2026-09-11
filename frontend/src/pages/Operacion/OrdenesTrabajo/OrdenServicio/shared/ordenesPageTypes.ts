@@ -50,11 +50,17 @@ export interface Orden {
   telefono_cliente: string;
   problematica: string;
   servicios_realizados: string[];
-  status: "pendiente" | "pausado" | "resuelto";
+  status: "pendiente" | "pausado" | "resuelto" | "cancelada";
   /** Motivo cuando status = pausado. */
   motivo_pausa?: string | null;
+  /** Motivo cuando status = cancelada (obligatorio; solo lo fija el admin). */
+  motivo_cancelacion?: string | null;
   /** Último cambio de status del técnico (ISO); null = sin resalte. */
   status_changed_at?: string | null;
+  /** Quién colocó el último status. */
+  status_changed_by?: number | null;
+  status_changed_by_username?: string | null;
+  status_changed_by_full_name?: string | null;
   comentario_tecnico: string;
   /** Prioridad de la bolsa de órdenes ("liberar / tomar"). La fija el admin. */
   prioridad_pool?: "alta" | "media" | "baja" | string | null;

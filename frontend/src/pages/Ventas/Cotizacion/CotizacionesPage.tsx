@@ -28,6 +28,7 @@ import {
   secondaryActionBtnClass,
 } from "./shared/cotizacionFormStyles";
 import { CotizacionExportOverlay } from "./form/CotizacionExportOverlay";
+import CotizacionesStatusSegmentFilter from "./list/CotizacionesStatusSegmentFilter";
 
 const searchInputClass =
   "min-h-[44px] w-full rounded-[10px] border border-[#E7E7EA] bg-white py-2 pl-10 pr-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] sm:min-h-[44px] sm:pl-11";
@@ -63,47 +64,6 @@ const PERMISSIONS_TTL_MS = 30_000;
 
 type FilterStatus = "" | "PENDIENTE" | "AUTORIZADA" | "CANCELADA";
 type StatusCountKey = "PENDIENTE" | "AUTORIZADA" | "CANCELADA";
-
-/** Segmentos del control de estado (barra tipo pestañas en la cabecera del listado). */
-const STATUS_SEGMENTS: {
-  value: FilterStatus;
-  label: string;
-  countKey: StatusCountKey | null;
-  activeClass: string;
-  dotClass: string;
-}[] = [
-  {
-    value: "",
-    label: "Todas",
-    countKey: null,
-    activeClass:
-      "bg-white text-[#09090B] shadow-[0_1px_2px_rgba(9,9,11,0.08)] dark:bg-[#243048] dark:text-white",
-    dotClass: "bg-[#A1A1AA] dark:bg-[#64748b]",
-  },
-  {
-    value: "PENDIENTE",
-    label: "Pendientes",
-    countKey: "PENDIENTE",
-    activeClass:
-      "bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:bg-[rgba(230,162,60,0.2)] dark:text-[#E6A23C]",
-    dotClass: "bg-amber-500 dark:bg-amber-400",
-  },
-  {
-    value: "AUTORIZADA",
-    label: "Autorizadas",
-    countKey: "AUTORIZADA",
-    activeClass:
-      "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-100",
-    dotClass: "bg-emerald-500 dark:bg-emerald-400",
-  },
-  {
-    value: "CANCELADA",
-    label: "Canceladas",
-    countKey: "CANCELADA",
-    activeClass: "bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-100",
-    dotClass: "bg-rose-500 dark:bg-rose-400",
-  },
-];
 
 const filterGroupLabelClass =
   "mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:text-[#8EA0B8]";
@@ -977,43 +937,14 @@ export default function CotizacionesPage() {
                   </div>
                 </div>
 
-              {/* Fila 2 — estado como control segmentado con conteos */}
-              <div className="px-4 pb-4 pt-3 sm:px-6">
-                <div
-                  role="group"
-                  aria-label="Filtrar por estado"
-                  className="flex w-full flex-wrap gap-1 rounded-[12px] border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#273244] dark:bg-[#0f172a]"
-                >
-                  {STATUS_SEGMENTS.map((seg) => {
-                    const active = filterStatus === seg.value;
-                    const count = seg.countKey ? statusCounts[seg.countKey] : rowsBeforeStatus.length;
-                    return (
-                      <button
-                        key={seg.value || "all"}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setFilterStatus(seg.value)}
-                        className={`inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-2.5 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.4)] sm:flex-none ${
-                          active
-                            ? seg.activeClass
-                            : "text-[#52525B] hover:bg-white hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
-                        }`}
-                      >
-                        <span className={`h-1.5 w-1.5 rounded-full ${seg.dotClass}`} aria-hidden />
-                        {seg.label}
-                        <span
-                          className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] tabular-nums ${
-                            active
-                              ? "bg-black/10 dark:bg-white/15"
-                              : "bg-black/[0.05] text-[#6E6E77] dark:bg-white/10 dark:text-[#8EA0B8]"
-                          }`}
-                        >
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* Fila 2 — estado: rail horizontal (mismo patrón responsivo que Inventario) */}
+              <div className="min-w-0 max-w-full overflow-hidden px-4 pb-4 pt-3 sm:px-6">
+                <CotizacionesStatusSegmentFilter
+                  filterStatus={filterStatus}
+                  setFilterStatus={setFilterStatus}
+                  statusCounts={statusCounts}
+                  totalBeforeStatus={rowsBeforeStatus.length}
+                />
 
                 {hasSecondaryFilters && (
                   <div className="mt-3 flex flex-wrap items-center gap-2">

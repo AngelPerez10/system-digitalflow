@@ -124,6 +124,7 @@ export function useProyectoFormState({
   );
   const [status, setStatus] = useState<ProyectoEstado>(initialDraft.status);
   const [motivoPausa, setMotivoPausa] = useState(initialDraft.motivoPausa);
+  const [motivoCancelacion, setMotivoCancelacion] = useState(initialDraft.motivoCancelacion);
   const [fechaAutorizacion, setFechaAutorizacion] = useState(initialDraft.fechaAutorizacion);
   const [quienAutorizo, setQuienAutorizo] = useState(initialDraft.quienAutorizo || "");
   const [fechasInicio, setFechasInicio] = useState(initialDraft.fechasInicio);
@@ -257,6 +258,7 @@ export function useProyectoFormState({
     );
     setStatus(initialDraft.status);
     setMotivoPausa(initialDraft.motivoPausa);
+    setMotivoCancelacion(initialDraft.motivoCancelacion);
     setFechaAutorizacion(initialDraft.fechaAutorizacion);
     setQuienAutorizo(initialDraft.quienAutorizo || "");
     setFechasInicio(initialDraft.fechasInicio.length ? initialDraft.fechasInicio : [""]);
@@ -478,6 +480,11 @@ export function useProyectoFormState({
       tipoTrabajoNombre: tiposTrabajo[0]?.nombre?.trim() || "",
       status,
       motivoPausa: status === "pausado" ? motivoPausa.trim() : "",
+      motivoCancelacion: status === "cancelado" ? motivoCancelacion.trim() : "",
+      statusChangedByName: initialDraft.statusChangedByName || "",
+      statusChangedAt: initialDraft.statusChangedAt || "",
+      creadoPorName: initialDraft.creadoPorName || "",
+      createdAt: initialDraft.createdAt || "",
       fechaAutorizacion,
       quienAutorizo: quienAutorizo.trim(),
       fechasInicio: fechasInicio.length ? fechasInicio : [""],
@@ -519,6 +526,7 @@ export function useProyectoFormState({
     horaSalida,
     incidencias,
     motivoPausa,
+    motivoCancelacion,
     notasPorDia,
     porcentajeAvance,
     quienAutorizo,
@@ -529,6 +537,10 @@ export function useProyectoFormState({
     tecnicosAsignados,
     tiposTrabajo,
     vehiculoAsignado,
+    initialDraft.statusChangedByName,
+    initialDraft.statusChangedAt,
+    initialDraft.creadoPorName,
+    initialDraft.createdAt,
   ]);
 
   const updateEquipo = (lineaId: string, patch: Partial<ProyectoEquipoLinea>) => {
@@ -739,6 +751,7 @@ export function useProyectoFormState({
     setNotaDiaErrors({});
     setStatus(next);
     if (next !== "pausado") setMotivoPausa("");
+    if (next !== "cancelado") setMotivoCancelacion("");
   };
 
   const tabIds: Record<ProyectoFormTab, string> = {
@@ -881,6 +894,13 @@ export function useProyectoFormState({
       setActiveTab("operacion");
       return;
     }
+    if (status === "cancelado" && !motivoCancelacion.trim()) {
+      setActiveTab("operacion");
+      requestAnimationFrame(() => {
+        document.getElementById("proyecto-motivo-cancelacion")?.focus();
+      });
+      return;
+    }
     const draft = buildCurrentDraft();
     if (draft.status === "cerrado") {
       const check = canCerrarProyecto(draft);
@@ -946,6 +966,8 @@ export function useProyectoFormState({
     status,
     motivoPausa,
     setMotivoPausa,
+    motivoCancelacion,
+    setMotivoCancelacion,
     fechaAutorizacion,
     setFechaAutorizacion: handleFechaAutorizacionChange,
     quienAutorizo,

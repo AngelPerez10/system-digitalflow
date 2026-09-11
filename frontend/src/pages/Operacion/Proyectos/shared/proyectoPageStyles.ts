@@ -113,7 +113,10 @@ export const proyectoStepBadgeClass =
   "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(27,92,255,0.12)] text-[11px] font-bold tabular-nums text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.18)] dark:text-[#4B7CFF]";
 
 /** Chip de status del proyecto (radiogroup). */
-export const proyectoStatusChipClass = (active: boolean, tone: "proceso" | "pausado" | "cerrado") => {
+export const proyectoStatusChipClass = (
+  active: boolean,
+  tone: "proceso" | "pausado" | "cerrado" | "cancelado",
+) => {
   const base =
     "inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] sm:flex-none sm:min-w-[7.5rem]";
   if (!active) {
@@ -124,6 +127,8 @@ export const proyectoStatusChipClass = (active: boolean, tone: "proceso" | "paus
       return `${base} border-amber-300 bg-amber-50 text-amber-900 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200`;
     case "cerrado":
       return `${base} border-emerald-300 bg-emerald-50 text-emerald-900 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-200`;
+    case "cancelado":
+      return `${base} border-rose-300 bg-rose-50 text-rose-900 shadow-sm dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-200`;
     default:
       return `${base} border-[#1B5CFF] bg-[#F1F5FF] text-[#1244D1] shadow-sm dark:border-[#4B7CFF]/50 dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]`;
   }

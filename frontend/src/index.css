@@ -30,22 +30,28 @@ layer(base);
   --field-border-width: 1px;
   --focus: #1b5cff;
 
-  /* Status — valores oficiales HeroUI v3 (docs/colors) */
+  /* Surface + status — Alert oficial (packages/styles/components/alert.css) */
+  --surface: #ffffff;
+  --surface-foreground: #09090b;
+  --surface-shadow:
+    0 2px 4px 0 rgba(0, 0, 0, 0.04),
+    0 1px 2px 0 rgba(0, 0, 0, 0.06),
+    0 0 1px 0 rgba(0, 0, 0, 0.06);
   --success: oklch(0.7329 0.1935 150.81);
   --success-foreground: oklch(0.2103 0.0059 285.89);
   --success-soft: color-mix(in oklab, var(--success) 15%, transparent);
-  --success-soft-foreground: color-mix(in oklab, var(--success) 80%, var(--foreground, #141413) 60%);
+  --success-soft-foreground: color-mix(in oklab, var(--success) 80%, var(--foreground, #09090b) 60%);
   --warning: oklch(0.7819 0.1585 72.33);
   --warning-foreground: oklch(0.2103 0.0059 285.89);
   --warning-soft: color-mix(in oklab, var(--warning) 15%, transparent);
-  --warning-soft-foreground: color-mix(in oklab, var(--warning) 80%, var(--foreground, #141413) 70%);
+  --warning-soft-foreground: color-mix(in oklab, var(--warning) 80%, var(--foreground, #09090b) 70%);
   --danger: oklch(0.6532 0.2328 25.74);
   --danger-foreground: oklch(0.9911 0 0);
   --danger-soft: color-mix(in oklab, var(--danger) 15%, transparent);
-  --danger-soft-foreground: color-mix(in oklab, var(--danger) 70%, var(--foreground, #141413) 40%);
+  --danger-soft-foreground: color-mix(in oklab, var(--danger) 70%, var(--foreground, #09090b) 40%);
   --accent-soft: color-mix(in oklab, #1b5cff 15%, transparent);
-  --accent-soft-foreground: color-mix(in oklab, #1b5cff 70%, var(--foreground, #141413) 30%);
-  /* Texto secundario de Alert (HeroUI --muted). El ERP redefine --muted como fondo #efefef. */
+  --accent-soft-foreground: color-mix(in oklab, #1b5cff 70%, var(--foreground, #09090b) 30%);
+  /* HeroUI --muted de texto. El ERP redefine --muted como fill (#efefef). */
   --alert-muted: oklch(0.5517 0.0138 285.94);
 }
 
@@ -62,6 +68,9 @@ layer(base);
   --field-focus: #111827;
   --focus: #4b7cff;
 
+  --surface: oklch(0.2103 0.0059 285.89);
+  --surface-foreground: #f8fafc;
+  --surface-shadow: 0 0 0 0 transparent;
   --success: oklch(0.7329 0.1935 150.81);
   --success-foreground: oklch(0.9911 0 0);
   --success-soft: color-mix(in oklab, var(--success) 12%, transparent);
@@ -80,58 +89,14 @@ layer(base);
 }
 
 /*
- * Alert toast — anatomía HeroUI:
- * fondo surface/overlay, título/icono en soft-foreground, descripción en muted.
- * https://heroui.com/en/docs/react/components/alert
+ * Alert — HeroUI anatomy + fondos de color por status.
+ * El CSS oficial usa bg-surface (blanco); ganamos con .alert.alert--* (más específico).
  */
 .alert {
-  display: flex;
-  width: 100%;
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  background: var(--overlay, #ffffff);
-  color: var(--overlay-foreground, #09090b);
-  border: 1px solid color-mix(in oklab, var(--overlay-foreground, #09090b) 8%, transparent);
-  border-radius: min(32px, 1.5rem);
-  box-shadow: var(--overlay-shadow);
-}
-
-.alert__indicator {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  padding: 0.25rem;
-  margin-top: 0.05rem;
-}
-
-.alert__content {
-  display: flex;
-  min-width: 0;
-  height: 100%;
-  flex-grow: 1;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.125rem;
-}
-
-.alert__title {
-  margin: 0;
-  font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1.5;
-}
-
-.alert__description {
-  margin: 0;
-  font-size: 0.875rem;
-  font-weight: 400;
-  line-height: 1.45;
-  color: var(--alert-muted);
-  opacity: 1;
+  --muted: var(--alert-muted);
+  --color-muted: var(--alert-muted);
+  border: 1px solid transparent;
+  box-shadow: var(--overlay-shadow, var(--surface-shadow));
 }
 
 .alert [data-slot="close-button"] {
@@ -139,43 +104,163 @@ layer(base);
   align-self: center;
   min-width: 2rem;
   min-height: 2rem;
-  color: var(--alert-muted);
-  opacity: 1;
 }
 
-.alert--default .alert__title,
-.alert--default .alert__indicator {
-  color: var(--overlay-foreground, #09090b);
+.alert.alert--default {
+  background-color: color-mix(in oklab, var(--foreground, #09090b) 8%, white);
+  border-color: color-mix(in oklab, var(--foreground, #09090b) 14%, transparent);
 }
 
-.alert--accent .alert__title,
-.alert--accent .alert__indicator {
-  color: var(--accent-soft-foreground);
+.alert.alert--success {
+  background-color: color-mix(in oklab, var(--success) 22%, white);
+  border-color: color-mix(in oklab, var(--success) 38%, transparent);
 }
 
-.alert--success .alert__title,
-.alert--success .alert__indicator {
-  color: var(--success-soft-foreground);
+.alert.alert--success .alert__title,
+.alert.alert--success .alert__indicator {
+  color: color-mix(in oklab, var(--success) 72%, black);
 }
 
-.alert--warning .alert__title,
-.alert--warning .alert__indicator {
-  color: var(--warning-soft-foreground);
+.alert.alert--success .alert__description,
+.alert.alert--success [data-slot="close-button"] {
+  color: color-mix(in oklab, var(--success) 45%, #3f3f46);
 }
 
-.alert--danger .alert__title,
-.alert--danger .alert__indicator {
-  color: var(--danger-soft-foreground);
+.alert.alert--warning {
+  background-color: color-mix(in oklab, var(--warning) 24%, white);
+  border-color: color-mix(in oklab, var(--warning) 42%, transparent);
 }
 
-.dark .alert {
-  background: color-mix(in oklab, var(--overlay, #111827) 92%, white 8%);
-  border-color: color-mix(in oklab, white 10%, transparent);
+.alert.alert--warning .alert__title,
+.alert.alert--warning .alert__indicator {
+  color: color-mix(in oklab, var(--warning) 55%, black);
 }
 
-/* Listado por encima del Modal (z-99999), igual que SearchableSelect. */
+.alert.alert--warning .alert__description,
+.alert.alert--warning [data-slot="close-button"] {
+  color: color-mix(in oklab, var(--warning) 40%, #44403c);
+}
+
+.alert.alert--danger {
+  background-color: color-mix(in oklab, var(--danger) 18%, white);
+  border-color: color-mix(in oklab, var(--danger) 34%, transparent);
+}
+
+.alert.alert--danger .alert__title,
+.alert.alert--danger .alert__indicator {
+  color: color-mix(in oklab, var(--danger) 75%, black);
+}
+
+.alert.alert--danger .alert__description,
+.alert.alert--danger [data-slot="close-button"] {
+  color: color-mix(in oklab, var(--danger) 40%, #52525b);
+}
+
+.alert.alert--accent {
+  background-color: color-mix(in oklab, #1b5cff 18%, white);
+  border-color: color-mix(in oklab, #1b5cff 32%, transparent);
+}
+
+.alert.alert--accent .alert__title,
+.alert.alert--accent .alert__indicator {
+  color: #1239a8;
+}
+
+.alert.alert--accent .alert__description,
+.alert.alert--accent [data-slot="close-button"] {
+  color: color-mix(in oklab, #1b5cff 35%, #52525b);
+}
+
+.dark .alert.alert--default {
+  background-color: color-mix(in oklab, white 10%, var(--surface, #111827));
+  border-color: color-mix(in oklab, white 14%, transparent);
+}
+
+.dark .alert.alert--success {
+  background-color: color-mix(in oklab, var(--success) 28%, var(--surface, #111827));
+  border-color: color-mix(in oklab, var(--success) 45%, transparent);
+}
+
+.dark .alert.alert--success .alert__title,
+.dark .alert.alert--success .alert__indicator {
+  color: color-mix(in oklab, var(--success) 85%, white);
+}
+
+.dark .alert.alert--success .alert__description,
+.dark .alert.alert--success [data-slot="close-button"] {
+  color: color-mix(in oklab, var(--success) 55%, #cbd5e1);
+}
+
+.dark .alert.alert--warning {
+  background-color: color-mix(in oklab, var(--warning) 28%, var(--surface, #111827));
+  border-color: color-mix(in oklab, var(--warning) 45%, transparent);
+}
+
+.dark .alert.alert--warning .alert__title,
+.dark .alert.alert--warning .alert__indicator {
+  color: color-mix(in oklab, var(--warning) 80%, white);
+}
+
+.dark .alert.alert--warning .alert__description,
+.dark .alert.alert--warning [data-slot="close-button"] {
+  color: color-mix(in oklab, var(--warning) 50%, #e7e5e4);
+}
+
+.dark .alert.alert--danger {
+  background-color: color-mix(in oklab, var(--danger) 30%, var(--surface, #111827));
+  border-color: color-mix(in oklab, var(--danger) 48%, transparent);
+}
+
+.dark .alert.alert--danger .alert__title,
+.dark .alert.alert--danger .alert__indicator {
+  color: color-mix(in oklab, var(--danger) 80%, white);
+}
+
+.dark .alert.alert--danger .alert__description,
+.dark .alert.alert--danger [data-slot="close-button"] {
+  color: color-mix(in oklab, var(--danger) 50%, #fecaca);
+}
+
+.dark .alert.alert--accent {
+  background-color: color-mix(in oklab, #4b7cff 28%, var(--surface, #111827));
+  border-color: color-mix(in oklab, #4b7cff 45%, transparent);
+}
+
+.dark .alert.alert--accent .alert__title,
+.dark .alert.alert--accent .alert__indicator {
+  color: #93b4ff;
+}
+
+.dark .alert.alert--accent .alert__description,
+.dark .alert.alert--accent [data-slot="close-button"] {
+  color: color-mix(in oklab, #4b7cff 45%, #cbd5e1);
+}
+
+/*
+ * ComboBox popover — HeroUI solo pone min-w-(--trigger-width); el contenido
+ * largo lo ensancha más que el input/modal. Fijamos el ancho al trigger.
+ * Al scroll de un ancestro, React Aria cierra el menú (useCloseOnScroll):
+ * bloqueamos overflow del modal mientras el trigger está data-open.
+ */
 .combo-box__popover {
   z-index: 100050;
+  width: var(--trigger-width);
+  max-width: min(var(--trigger-width), calc(100vw - 1.5rem));
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.combo-box__popover [data-slot="list-box"],
+.combo-box__popover [data-slot="list-box-item"] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+html:has([data-slot="combo-box-trigger"][data-open]),
+body:has([data-slot="combo-box-trigger"][data-open]),
+.erp-modal-overlay:has([data-slot="combo-box-trigger"][data-open]),
+.erp-modal-form-scroll:has([data-slot="combo-box-trigger"][data-open]) {
+  overflow-y: hidden;
 }
 
 /* =========================================================================

@@ -37,6 +37,8 @@ class OrdenSerializer(serializers.ModelSerializer):
     creado_por_full_name = serializers.SerializerMethodField()
     actualizado_por_username = serializers.CharField(source='actualizado_por.username', read_only=True)
     actualizado_por_full_name = serializers.SerializerMethodField()
+    status_changed_by_username = serializers.CharField(source='status_changed_by.username', read_only=True)
+    status_changed_by_full_name = serializers.SerializerMethodField()
     tipo_orden = serializers.SerializerMethodField()
     levantamiento_tipo = serializers.SerializerMethodField()
     equipos_inventario_total = serializers.SerializerMethodField()
@@ -84,6 +86,23 @@ class OrdenSerializer(serializers.ModelSerializer):
         if status is None and self.instance is not None:
             status = getattr(self.instance, "status", None)
         status_norm = str(status or "").strip().lower()
+        prev_status = (
+            str(getattr(self.instance, "status", "") or "").strip().lower()
+            if self.instance is not None
+            else ""
+        )
+        # Cancelar (entrar a cancelada) solo staff/superuser — defensa frente a API/móvil.
+        if status_norm == "cancelada" and status_norm != prev_status:
+            request = self.context.get("request")
+            user = getattr(request, "user", None) if request is not None else None
+            if not (
+                user
+                and getattr(user, "is_authenticated", False)
+                and (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+            ):
+                raise serializers.ValidationError(
+                    {"status": "Solo un administrador puede cancelar la orden."}
+                )
         if status_norm == "pausado":
             motivo = attrs.get("motivo_pausa", None)
             if motivo is None and self.instance is not None and "motivo_pausa" not in attrs:
@@ -91,6 +110,18 @@ class OrdenSerializer(serializers.ModelSerializer):
             if not str(motivo or "").strip():
                 raise serializers.ValidationError(
                     {"motivo_pausa": "Indique por qué se pausó la orden."}
+                )
+        if status_norm == "cancelada":
+            motivo_cancel = attrs.get("motivo_cancelacion", None)
+            if (
+                motivo_cancel is None
+                and self.instance is not None
+                and "motivo_cancelacion" not in attrs
+            ):
+                motivo_cancel = getattr(self.instance, "motivo_cancelacion", None)
+            if not str(motivo_cancel or "").strip():
+                raise serializers.ValidationError(
+                    {"motivo_cancelacion": "Indique el motivo de cancelación de la orden."}
                 )
         return attrs
 
@@ -154,6 +185,9 @@ class OrdenSerializer(serializers.ModelSerializer):
 
     def get_actualizado_por_full_name(self, obj):
         return self._user_display_name(obj.actualizado_por)
+
+    def get_status_changed_by_full_name(self, obj):
+        return self._user_display_name(obj.status_changed_by)
 
     def get_tipo_orden(self, obj):
         if getattr(obj, 'tiene_instalacion', False):
@@ -250,7 +284,11 @@ class OrdenSerializer(serializers.ModelSerializer):
             'servicios_realizados',
             'status',
             'motivo_pausa',
+            'motivo_cancelacion',
             'status_changed_at',
+            'status_changed_by',
+            'status_changed_by_username',
+            'status_changed_by_full_name',
             'prioridad',
             'prioridad_pool',
             'prioridad_pool_efectiva',
@@ -325,6 +363,9 @@ class OrdenSerializer(serializers.ModelSerializer):
             'actualizado_por_full_name',
             'pdf_url',
             'status_changed_at',
+            'status_changed_by',
+            'status_changed_by_username',
+            'status_changed_by_full_name',
             'en_pool',
             'liberada_por',
             'liberada_at',
@@ -368,7 +409,11 @@ class OrdenListSerializer(OrdenSerializer):
             'servicios_realizados',
             'status',
             'motivo_pausa',
+            'motivo_cancelacion',
             'status_changed_at',
+            'status_changed_by',
+            'status_changed_by_username',
+            'status_changed_by_full_name',
             'prioridad',
             'prioridad_pool',
             'prioridad_pool_efectiva',
@@ -425,6 +470,9 @@ class OrdenListSerializer(OrdenSerializer):
             'actualizado_por_username',
             'actualizado_por_full_name',
             'status_changed_at',
+            'status_changed_by',
+            'status_changed_by_username',
+            'status_changed_by_full_name',
             'en_pool',
             'liberada_por',
             'liberada_at',

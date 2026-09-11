@@ -13,6 +13,7 @@ const baseForm: OrdenFormData = {
   servicios_realizados: ["GPS"],
   status: "pendiente",
   motivo_pausa: "",
+  motivo_cancelacion: "",
   prioridad_pool: "media",
   comentario_tecnico: "",
   fecha_inicio: "2026-07-30",

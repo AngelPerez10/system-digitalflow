@@ -36,6 +36,7 @@ import {
   getCurrentYearMonth,
 } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
 import { parseYearMonth } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageUtils";
+import { fetchTodosLosUsuariosApi } from "../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
 import ProyectoFormModal from "./form/ProyectoFormModal";
 import ProyectoEnviarPdfModal, {
   type ProyectoEnviarPdfTarget,
@@ -49,6 +50,9 @@ import { ProyectosListTableRow } from "./list/ProyectosListTableRow";
 import { ProyectosMobileList } from "./list/ProyectosMobileList";
 import { ProyectoStatusSectionHeader } from "./list/ProyectoStatusSectionHeader";
 import { ProyectosPageStats } from "./list/ProyectosPageStats";
+import ProyectosStatusSegmentFilter, {
+  type ProyectoStatusCounts,
+} from "./list/ProyectosStatusSegmentFilter";
 import {
   createProyecto,
   deleteProyecto,
@@ -69,7 +73,10 @@ import {
   displayProyectoFolio,
   estadoProyectoLabel,
 } from "./shared/proyectoFormUtils";
-import { groupProyectosByStatus } from "./shared/proyectoStatusSections";
+import {
+  groupProyectosByStatus,
+  proyectoListStatusCountKey,
+} from "./shared/proyectoStatusSections";
 import { matchesDocumentFolio } from "@/utils/documentFolio";
 import { useProyectosPagePermissions } from "./useProyectosPagePermissions";
 import type { ProyectoDraft, ProyectoRow } from "./shared/proyectoTypes";
@@ -114,17 +121,15 @@ function proyectoTiposLabels(row: ProyectoRow): string[] {
   return legacy ? [legacy] : [];
 }
 
-function proyectoMatchesFilters(
+/** Filtros del popover (sin estado: el estado vive en la barra segmentada). */
+function proyectoMatchesSecondaryFilters(
   row: ProyectoRow,
   opts: {
-    status: ProyectoListFilterStatus;
     tipos: string[];
     date: string;
     tecnicoId: number | null;
   }
 ): boolean {
-  if (opts.status && row.estado !== opts.status) return false;
-
   if (opts.date) {
     const rowDate = String(row.fecha || row.draft?.fechaAutorizacion || "").slice(0, 10);
     if (rowDate !== opts.date.slice(0, 10)) return false;
@@ -151,6 +156,18 @@ function proyectoMatchesFilters(
   }
 
   return true;
+}
+
+function countSecondaryProyectoFilters(opts: {
+  tipos: string[];
+  date: string;
+  tecnicoId: number | null;
+}): number {
+  let n = 0;
+  if (opts.tipos.length > 0) n += 1;
+  if (opts.date.trim()) n += 1;
+  if (opts.tecnicoId != null) n += 1;
+  return n;
 }
 
 function isProyectoApiError(err: unknown): err is ProyectoApiError {
@@ -227,23 +244,23 @@ export default function ProyectosPage() {
     return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
   }, [catalogTecnicos, rows]);
 
-  const activeFilterCount = useMemo(() => {
-    let n = 0;
-    if (filterStatus) n += 1;
-    if (filterTiposTrabajo.length > 0) n += 1;
-    if (filterDate.trim()) n += 1;
-    if (filterTecnicoId != null) n += 1;
-    return n;
-  }, [filterStatus, filterTiposTrabajo, filterDate, filterTecnicoId]);
+  const secondaryFilterCount = useMemo(
+    () =>
+      countSecondaryProyectoFilters({
+        tipos: filterTiposTrabajo,
+        date: filterDate,
+        tecnicoId: filterTecnicoId,
+      }),
+    [filterTiposTrabajo, filterDate, filterTecnicoId],
+  );
 
-  const clearListFilters = () => {
-    setFilterStatus("");
+  const clearSecondaryFilters = () => {
     setFilterTiposTrabajo([]);
     setFilterDate("");
     setFilterTecnicoId(null);
   };
 
-  const filteredRows = useMemo(() => {
+  const rowsBeforeStatus = useMemo(() => {
     const q = searchTerm.trim();
     return rows.filter((r) => {
       if (!proyectoMatchesSearch(r, searchTerm)) return false;
@@ -252,16 +269,37 @@ export default function ProyectosPage() {
         const fecha = String(r.fecha || r.draft?.fechaAutorizacion || "").slice(0, 10);
         if (!fecha.startsWith(selectedMonth)) return false;
       }
-      return proyectoMatchesFilters(r, {
-        status: filterStatus,
+      return proyectoMatchesSecondaryFilters(r, {
         tipos: filterTiposTrabajo,
         date: filterDate,
         tecnicoId: filterTecnicoId,
       });
     });
-  }, [rows, searchTerm, selectedMonth, filterStatus, filterTiposTrabajo, filterDate, filterTecnicoId]);
+  }, [rows, searchTerm, selectedMonth, filterTiposTrabajo, filterDate, filterTecnicoId]);
 
-  const hasActiveListQuery = Boolean(searchTerm.trim()) || activeFilterCount > 0;
+  const statusCounts = useMemo(() => {
+    const c: ProyectoStatusCounts = {
+      en_proceso: 0,
+      pausado: 0,
+      cerrado: 0,
+      cancelado: 0,
+    };
+    for (const r of rowsBeforeStatus) {
+      const key = proyectoListStatusCountKey(r.estado ?? r.draft?.status);
+      if (key) c[key] += 1;
+    }
+    return c;
+  }, [rowsBeforeStatus]);
+
+  const filteredRows = useMemo(() => {
+    if (!filterStatus) return rowsBeforeStatus;
+    return rowsBeforeStatus.filter(
+      (r) => proyectoListStatusCountKey(r.estado ?? r.draft?.status) === filterStatus,
+    );
+  }, [rowsBeforeStatus, filterStatus]);
+
+  const hasActiveListQuery =
+    Boolean(searchTerm.trim()) || secondaryFilterCount > 0 || Boolean(filterStatus);
 
   const statusSections = useMemo(
     () => groupProyectosByStatus(filteredRows),
@@ -331,14 +369,12 @@ export default function ProyectosPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [servRes, tecRes] = await Promise.all([
+        const [servRes, usuariosList] = await Promise.all([
           fetchApi("/api/servicios/?page=1&page_size=500&ordering=idx", {
             cache: "no-store" as RequestCache,
           }),
-          fetchApi("/api/ordenes/tecnico-opciones/").then(async (res) => {
-            if (res.ok) return res;
-            return fetchApi("/api/users/accounts/");
-          }),
+          // Todos los usuarios activos (no solo técnicos) para el filtro por usuario.
+          fetchTodosLosUsuariosApi(),
         ]);
         if (cancelled) return;
 
@@ -351,17 +387,9 @@ export default function ProyectosPage() {
           setCatalogTiposTrabajo(Array.from(new Set(names)));
         }
 
-        if (tecRes.ok) {
-          const data = await tecRes.json().catch(() => null);
-          const rowsList = unwrapListResults<{
-            id?: number;
-            first_name?: string;
-            last_name?: string;
-            email?: string;
-            username?: string;
-          }>(data);
+        if (usuariosList.length > 0) {
           setCatalogTecnicos(
-            rowsList
+            usuariosList
               .filter((u) => u && u.id != null && Number(u.id) > 0)
               .map((u) => ({
                 id: Number(u.id),
@@ -645,9 +673,9 @@ export default function ProyectosPage() {
                   </h2>
                 </div>
                 <p className="mt-2 text-[13px] leading-[18px] text-[#52525B] dark:text-[#B7C1D1] sm:text-[14px] sm:leading-[20px]">
-                  <span className="sm:hidden">Por estado. Filtra por mes abajo.</span>
+                  <span className="sm:hidden">Usa la barra de estado y los filtros.</span>
                   <span className="hidden sm:inline">
-                    Agrupados por estado: en proceso, pausados y cerrados. Filtra por mes abajo.
+                    Usa la barra de estado y los filtros para acotar el listado. Agrupados por estado abajo.
                   </span>
                 </p>
               </div>
@@ -655,8 +683,6 @@ export default function ProyectosPage() {
                 <ProyectosListFiltersPopover
                   open={filterOpen}
                   onOpenChange={setFilterOpen}
-                  filterStatus={filterStatus}
-                  setFilterStatus={setFilterStatus}
                   filterTiposTrabajo={filterTiposTrabajo}
                   setFilterTiposTrabajo={setFilterTiposTrabajo}
                   filterDate={filterDate}
@@ -665,12 +691,20 @@ export default function ProyectosPage() {
                   setFilterTecnicoId={setFilterTecnicoId}
                   tiposTrabajoDisponibles={tiposTrabajoDisponibles}
                   tecnicos={tecnicosDisponibles}
-                  activeFilterCount={activeFilterCount}
-                  onClear={clearListFilters}
+                  activeFilterCount={secondaryFilterCount}
+                  onClear={clearSecondaryFilters}
                   showTecnicoFilter={isAdmin}
                   datePickerId="filtro-fecha-proyectos"
                 />
               </div>
+            </div>
+            <div className="mt-3 min-w-0 max-w-full overflow-hidden">
+              <ProyectosStatusSegmentFilter
+                filterStatus={filterStatus}
+                setFilterStatus={setFilterStatus}
+                statusCounts={statusCounts}
+                totalBeforeStatus={rowsBeforeStatus.length}
+              />
             </div>
           </div>
           <div className="p-2 sm:p-3">

@@ -2,7 +2,12 @@ import { OrdenViewModal } from "../../OrdenTrabajoModals";
 import { useMemo, useState } from "react";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { erpMobileCardClass } from "../ordenServicioStyles";
-import { displayOrdenFolio, isOrdenResuelta, isOrdenServicioTecnico } from "../shared/useOrdenesShared";
+import {
+  displayOrdenFolio,
+  isOrdenCancelada,
+  isOrdenResuelta,
+  isOrdenServicioTecnico,
+} from "../shared/useOrdenesShared";
 import {
   isOrdenStatusChangeRecent,
   ORDEN_RECIEN_RESUELTA_BADGE_CLASS,
@@ -17,6 +22,10 @@ import {
 } from "../shared/ordenPrioridadSections";
 import { OrdenStatusSectionHeader } from "./OrdenStatusSectionHeader";
 import { OrdenArrastreBadge } from "./OrdenArrastreBadge";
+import {
+  StatusChangedByChip,
+  resolveStatusChangedByName,
+} from "../../../shared/StatusChangedByChip";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;
@@ -88,23 +97,35 @@ export function MobileOrderCard({
   const fechaFinFmt = orden.fecha_finalizacion ? formatDate(orden.fecha_finalizacion) : "—";
   const showRecentResolved = highlightRecentStatus && isOrdenStatusChangeRecent(orden);
   const isResuelta = isOrdenResuelta(orden.status);
+  const isCancelada = isOrdenCancelada(orden.status);
+  const isTerminal = isResuelta || isCancelada;
   const prioKey = ordenPrioridadKey(
-    isResuelta ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
+    isTerminal ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
   );
-  const prioEscalada = !isResuelta && ordenPrioridadEscalada(orden);
+  const prioEscalada = !isTerminal && ordenPrioridadEscalada(orden);
   const prioTone = getOrdenPrioridadSectionStyles(prioKey);
   const prioLabel =
     prioKey === "ALTA" ? "Alta" : prioKey === "MEDIA" ? "Media" : prioKey === "BAJA" ? "Baja" : "Sin prioridad";
   const statusLabel =
-    orden.status === "resuelto" ? "Resuelto" : orden.status === "pausado" ? "Pausado" : "Pendiente";
+    orden.status === "resuelto"
+      ? "Resuelto"
+      : orden.status === "pausado"
+        ? "Pausado"
+        : orden.status === "cancelada"
+          ? "Cancelada"
+          : "Pendiente";
+  const statusByName = resolveStatusChangedByName(
+    orden.status_changed_by_full_name,
+    orden.status_changed_by_username,
+  );
   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
   const mapsUrl = isGoogleMapsUrl(orden.direccion) ? String(orden.direccion).trim() : null;
   const direccionTexto = !mapsUrl && orden.direccion ? String(orden.direccion).trim() : "";
 
   return (
     <article
-      className={`${erpMobileCardClass} !p-3.5 ${showRecentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isResuelta ? "" : prioTone.rowAccent}`}
-      aria-label={`Orden ${folioDisplay}, ${statusLabel}${isResuelta ? "" : `, prioridad ${prioLabel.toLowerCase()}`}${showRecentResolved ? ", resuelta recientemente" : ""}`}
+      className={`${erpMobileCardClass} !p-3.5 ${showRecentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isTerminal ? "" : prioTone.rowAccent}`}
+      aria-label={`Orden ${folioDisplay}, ${statusLabel}${isTerminal ? "" : `, prioridad ${prioLabel.toLowerCase()}`}${showRecentResolved ? ", resuelta recientemente" : ""}`}
     >
       {/* Cabecera: folio + chips (sin acciones; jerarquía contenido primero) */}
       <header className="flex min-w-0 flex-col gap-2">
@@ -128,13 +149,21 @@ export function MobileOrderCard({
                 ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300"
                 : orden.status === "pausado"
                   ? "bg-indigo-50 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300"
-                  : "bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200"
+                  : orden.status === "cancelada"
+                    ? "bg-rose-50 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300"
+                    : "bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200"
             }`}
-            title={orden.status === "pausado" && orden.motivo_pausa ? String(orden.motivo_pausa) : undefined}
+            title={
+              orden.status === "pausado" && orden.motivo_pausa
+                ? String(orden.motivo_pausa)
+                : orden.status === "cancelada" && orden.motivo_cancelacion
+                  ? String(orden.motivo_cancelacion)
+                  : undefined
+            }
           >
             {statusLabel}
           </span>
-          {!isResuelta && (
+          {!isTerminal && (
             <span
               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${prioTone.badge}`}
               title={
@@ -165,6 +194,19 @@ export function MobileOrderCard({
               </svg>
               Resuelto recién
             </span>
+          )}
+          {(statusByName ||
+            orden.status_changed_at ||
+            orden.creado_por_username ||
+            orden.creado_por_full_name) && (
+            <StatusChangedByChip
+              name={statusByName}
+              at={orden.status_changed_at}
+              fallbackName={resolveStatusChangedByName(
+                orden.creado_por_full_name,
+                orden.creado_por_username,
+              )}
+            />
           )}
         </div>
       </header>
@@ -345,7 +387,7 @@ interface MobileOrderListProps {
   onNotaChange?: (ordenId: number, value: string) => void;
   /** Si true (admin), resalta órdenes con status_changed_at reciente. */
   highlightRecentStatus?: boolean;
-  /** Agrupa cards por status técnico (Pendientes → Pausados → Resueltas). */
+  /** Agrupa cards por status técnico (Pendientes → Pausados → Canceladas → Resueltas). */
   groupByStatus?: boolean;
   /** Mes del listado (YYYY-MM) para badge de arrastre. */
   selectedMonth?: string;

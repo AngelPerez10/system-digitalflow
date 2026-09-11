@@ -1,10 +1,12 @@
 import { useId, type CSSProperties } from "react";
+import { Input as HeroInput } from "@heroui/react";
 import DatePicker from "@/components/form/date-picker";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import SignaturePad from "@/components/ui/signature/SignaturePad";
 import { TimeIcon } from "@/icons";
 import { erpInputLikeClass, erpPrimaryBtnClass, erpSecondaryBtnClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+import { StatusChangedByChip } from "../../../shared/StatusChangedByChip";
 import { proyectoRequiereCotizacionAdicional } from "../../shared/proyectoCloseValidation";
 import { ProyectoAsignadosMultiField } from "../fields/ProyectoAsignadosMultiField";
 import { ProyectoEvidenciasField } from "../fields/ProyectoEvidenciasField";
@@ -39,10 +41,17 @@ import type {
   ServicioOpcion,
 } from "../../shared/proyectoTypes";
 
-const STATUS_OPTIONS: { value: ProyectoEstado; label: string; tone: "proceso" | "pausado" | "cerrado" }[] = [
+const STATUS_OPTIONS: {
+  value: ProyectoEstado;
+  label: string;
+  tone: "proceso" | "pausado" | "cerrado" | "cancelado";
+  /** Solo administradores pueden cancelar un proyecto. */
+  adminOnly?: boolean;
+}[] = [
   { value: "en_proceso", label: "En proceso", tone: "proceso" },
   { value: "pausado", label: "Pausado", tone: "pausado" },
   { value: "cerrado", label: "Cerrado", tone: "cerrado" },
+  { value: "cancelado", label: "Cancelado", tone: "cancelado", adminOnly: true },
 ];
 
 const iconClock = (
@@ -125,8 +134,17 @@ export type ProyectoOperacionTabProps = {
   assignedTechnicianLocked?: boolean;
   status: ProyectoEstado;
   handleStatusChange: (v: ProyectoEstado) => void;
+  /** Habilita la opción «Cancelado» y el motivo de cancelación. */
+  isAdmin?: boolean;
   motivoPausa: string;
   setMotivoPausa: (v: string) => void;
+  motivoCancelacion: string;
+  setMotivoCancelacion: (v: string) => void;
+  /** Solo lectura: quién colocó el último status y cuándo (ISO). */
+  statusChangedByName?: string;
+  statusChangedAt?: string;
+  creadoPorName?: string;
+  createdAt?: string;
   fechaAutorizacion: string;
   setFechaAutorizacion: (v: string) => void;
   horaLlegada: string;
@@ -195,8 +213,15 @@ export function ProyectoOperacionTab({
   assignedTechnicianLocked = false,
   status,
   handleStatusChange,
+  isAdmin = false,
   motivoPausa,
   setMotivoPausa,
+  motivoCancelacion,
+  setMotivoCancelacion,
+  statusChangedByName = "",
+  statusChangedAt = "",
+  creadoPorName = "",
+  createdAt = "",
   fechaAutorizacion,
   setFechaAutorizacion,
   horaLlegada,
@@ -301,8 +326,9 @@ export function ProyectoOperacionTab({
             Status operativo
           </p>
           <p className="mb-2 text-[12px] leading-5 text-[#6E6E77] dark:text-[#8EA0B8]">
-            Opciones: En proceso, Pausado o Cerrado. No hay «Resuelto» (ese status es de órdenes de
-            servicio). Para cerrar hace falta bitácora completa
+            Opciones: En proceso, Pausado o Cerrado
+            {isAdmin && editing ? " (Cancelado, solo administradores)" : ""}. No hay «Resuelto» (ese
+            status es de órdenes de servicio). Para cerrar hace falta bitácora completa
             {bitacoraMinRequired ? ` (mín. ${NOTA_DIA_MIN_CHARS} caracteres por día)` : ""}.
           </p>
           <div
@@ -311,7 +337,9 @@ export function ProyectoOperacionTab({
             aria-labelledby="proyecto-status-label"
             aria-describedby={closeBlockedMessage ? "proyecto-close-blocked" : undefined}
           >
-            {STATUS_OPTIONS.map((opt) => (
+            {STATUS_OPTIONS.filter(
+              (opt) => !opt.adminOnly || (isAdmin && editing) || status === opt.value,
+            ).map((opt) => (
               <button
                 key={opt.value}
                 type="button"
@@ -324,6 +352,16 @@ export function ProyectoOperacionTab({
               </button>
             ))}
           </div>
+          {editing &&
+          (statusChangedByName || statusChangedAt || creadoPorName || createdAt) ? (
+            <StatusChangedByChip
+              variant="panel"
+              name={statusChangedByName}
+              at={statusChangedAt}
+              fallbackName={creadoPorName}
+              fallbackAt={createdAt}
+            />
+          ) : null}
           {closeBlockedMessage ? (
             <div
               id="proyecto-close-blocked"
@@ -353,6 +391,29 @@ export function ProyectoOperacionTab({
               aria-required="true"
               aria-invalid={status === "pausado" && !motivoPausa.trim()}
             />
+          </div>
+        ) : null}
+
+        {status === "cancelado" ? (
+          <div className="rounded-xl border border-rose-200/80 bg-rose-50/50 p-3 dark:border-rose-500/25 dark:bg-rose-500/5">
+            <label htmlFor="proyecto-motivo-cancelacion" className={proyectoFieldLabelClass}>
+              Motivo de cancelación <span className="text-rose-600">*</span>
+            </label>
+            <HeroInput
+              id="proyecto-motivo-cancelacion"
+              aria-label="Motivo de cancelación"
+              type="text"
+              value={motivoCancelacion}
+              onChange={(e) => setMotivoCancelacion(e.target.value)}
+              placeholder="¿Por qué se cancela el proyecto?"
+              className={erpInputLikeClass}
+              required
+              aria-required="true"
+              aria-invalid={status === "cancelado" && !motivoCancelacion.trim()}
+            />
+            <p className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">
+              Obligatorio al marcar Cancelado. Solo el administrador puede cancelar.
+            </p>
           </div>
         ) : null}
       </ProyectoFormSection>

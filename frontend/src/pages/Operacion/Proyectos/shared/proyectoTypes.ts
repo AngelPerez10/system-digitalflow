@@ -63,7 +63,7 @@ export type ProyectoEquipoLinea = {
 };
 
 /** Status operativo del proyecto (formulario). */
-export type ProyectoEstado = "en_proceso" | "pausado" | "cerrado";
+export type ProyectoEstado = "en_proceso" | "pausado" | "cerrado" | "cancelado";
 
 export type ProyectoPersonaAsignada = {
   id: number | null;
@@ -109,6 +109,14 @@ export type ProyectoDraft = {
   tipoTrabajoNombre: string;
   status: ProyectoEstado;
   motivoPausa: string;
+  /** Obligatorio cuando status = "cancelado". Solo lo edita el admin. */
+  motivoCancelacion: string;
+  /** Solo lectura: quién colocó el último status y cuándo (ISO). */
+  statusChangedByName: string;
+  statusChangedAt: string;
+  /** Fallback de auditoría cuando aún no hay sello de status. */
+  creadoPorName: string;
+  createdAt: string;
   fechaAutorizacion: string;
   /** Nombre libre de quien autorizó el proyecto / presupuesto. */
   quienAutorizo: string;

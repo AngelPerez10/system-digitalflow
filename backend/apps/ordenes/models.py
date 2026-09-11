@@ -11,6 +11,7 @@ STATUS_CHOICES = [
     ('pendiente', 'Pendiente'),
     ('pausado', 'Pausado'),
     ('resuelto', 'Resuelto'),
+    ('cancelada', 'Cancelada'),
 ]
 
 STATUS_ADMINISTRATIVO_CHOICES = [
@@ -48,8 +49,18 @@ class Orden(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pendiente')
     # Motivo obligatorio cuando status=pausado (¿por qué se pausó?).
     motivo_pausa = models.TextField(blank=True, null=True)
+    # Motivo obligatorio cuando status=cancelada (¿por qué se canceló?). Solo admins.
+    motivo_cancelacion = models.TextField(blank=True, null=True)
     # Momento del último cambio de status del técnico (para resalte admin ~48h).
     status_changed_at = models.DateTimeField(null=True, blank=True)
+    # Usuario que realizó el último cambio de status (quién lo colocó).
+    status_changed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ordenes_status_cambiado',
+    )
     prioridad = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='media')
     comentario_tecnico = models.TextField(blank=True, null=True)
 

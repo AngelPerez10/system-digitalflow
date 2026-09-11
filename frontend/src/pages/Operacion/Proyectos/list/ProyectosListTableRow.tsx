@@ -13,6 +13,7 @@ import {
 } from "../shared/proyectoFormUtils";
 import { formatProyectoFecha, proyectoOrigenBadgeClass } from "../shared/proyectoPageStyles";
 import type { ProyectoRow } from "../shared/proyectoTypes";
+import { StatusChangedByChip } from "../../shared/StatusChangedByChip";
 
 type Props = {
   row: ProyectoRow;
@@ -142,9 +143,18 @@ export function ProyectosListTableRow({
         )}
       </TableCell>
       <TableCell className="px-3 py-2 text-center align-middle">
-        <span className={estadoProyectoBadgeClass(row.estado)}>
-          {estadoProyectoLabel(row.estado)}
-        </span>
+        <div className="flex items-center justify-center">
+          <StatusChangedByChip
+            name={row.draft.statusChangedByName}
+            at={row.draft.statusChangedAt}
+            fallbackName={row.draft.creadoPorName}
+            fallbackAt={row.draft.createdAt}
+          >
+            <span className={estadoProyectoBadgeClass(row.estado)}>
+              {estadoProyectoLabel(row.estado)}
+            </span>
+          </StatusChangedByChip>
+        </div>
       </TableCell>
       <TableCell className="whitespace-nowrap px-3 py-2 align-middle tabular-nums text-[#52525B] dark:text-[#B7C1D1]">
         {formatProyectoFecha(row.fecha)}

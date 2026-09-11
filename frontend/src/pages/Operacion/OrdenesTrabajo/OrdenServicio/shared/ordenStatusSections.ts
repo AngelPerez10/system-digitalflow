@@ -1,6 +1,11 @@
-import { isOrdenResuelta, normalizeStatus } from "./useOrdenesShared";
+import { isOrdenCancelada, isOrdenResuelta, normalizeStatus } from "./useOrdenesShared";
 
-export type OrdenStatusSectionKey = "PENDIENTE" | "PAUSADO" | "RESUELTA" | "OTROS";
+export type OrdenStatusSectionKey =
+  | "PENDIENTE"
+  | "PAUSADO"
+  | "RESUELTA"
+  | "CANCELADA"
+  | "OTROS";
 
 export type OrdenStatusSection<T extends { status?: string | null } = { status?: string | null }> = {
   key: OrdenStatusSectionKey;
@@ -32,6 +37,11 @@ const STATUS_SECTION_ORDER: {
     match: (s) => s === "pausado",
   },
   {
+    key: "CANCELADA",
+    label: "Canceladas",
+    match: (s) => isOrdenCancelada(s),
+  },
+  {
     key: "RESUELTA",
     label: "Resueltas",
     match: (s) => isOrdenResuelta(s),
@@ -43,7 +53,7 @@ const STATUS_SECTION_ORDER: {
   },
 ];
 
-/** Agrupa órdenes: Pendientes → Pausados → Resueltas (y otros al final). Omite secciones vacías. */
+/** Agrupa órdenes: Pendientes → Pausados → Canceladas → Resueltas (y otros al final). Omite secciones vacías. */
 export function groupOrdenesByStatus<T extends { status?: string | null }>(
   ordenes: T[],
 ): OrdenStatusSection<T>[] {
@@ -51,6 +61,7 @@ export function groupOrdenesByStatus<T extends { status?: string | null }>(
     PENDIENTE: [],
     PAUSADO: [],
     RESUELTA: [],
+    CANCELADA: [],
     OTROS: [],
   };
 
@@ -94,6 +105,17 @@ export function getOrdenStatusSectionStyles(key: OrdenStatusSectionKey): OrdenSt
       badge:
         "border-indigo-300/90 bg-indigo-100 text-indigo-950 dark:border-indigo-400/35 dark:bg-indigo-500/20 dark:text-indigo-100",
       label: "text-[#312e81] dark:text-indigo-100",
+    };
+  }
+  if (key === "CANCELADA") {
+    return {
+      shell:
+        "border-rose-200/90 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-950/30",
+      accent: "bg-rose-600 dark:bg-rose-400",
+      icon: "text-rose-800 dark:text-rose-300",
+      badge:
+        "border-rose-300/90 bg-rose-100 text-rose-900 dark:border-rose-400/35 dark:bg-rose-500/20 dark:text-rose-100",
+      label: "text-rose-900 dark:text-rose-100",
     };
   }
   if (key === "PENDIENTE") {

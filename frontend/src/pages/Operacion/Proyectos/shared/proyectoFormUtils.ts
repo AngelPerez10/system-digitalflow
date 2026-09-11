@@ -245,6 +245,11 @@ export function createEmptyProyectoDraft(): ProyectoDraft {
     tipoTrabajoNombre: "",
     status: "en_proceso",
     motivoPausa: "",
+    motivoCancelacion: "",
+    statusChangedByName: "",
+    statusChangedAt: "",
+    creadoPorName: "",
+    createdAt: "",
     fechaAutorizacion: "",
     quienAutorizo: "",
     fechasInicio: [""],
@@ -452,6 +457,8 @@ export function estadoProyectoLabel(estado: ProyectoEstado): string {
       return "Pausado";
     case "cerrado":
       return "Cerrado";
+    case "cancelado":
+      return "Cancelado";
     default:
       return "En proceso";
   }
@@ -535,6 +542,8 @@ export function estadoProyectoBadgeClass(estado: ProyectoEstado): string {
       return `${base} bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400`;
     case "pausado":
       return `${base} bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300`;
+    case "cancelado":
+      return `${base} bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300`;
     default:
       return `${base} bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300`;
   }

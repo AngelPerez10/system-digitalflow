@@ -93,6 +93,67 @@ class ProyectosSmokeTests(APITestCase):
         self.assertEqual(patch_res.data["status"], "pausado")
         self.assertEqual(Proyecto.objects.get(pk=proyecto_id).motivo_pausa, "Clima")
 
+    def test_non_admin_cannot_cancel_proyecto(self):
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Cliente cancel",
+                "status": "en_proceso",
+                "tipo_trabajo_nombre": "Instalación",
+                "equipos": [],
+                "cotizaciones": [],
+                "porcentaje_avance": 0,
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
+        proyecto_id = create_res.data["id"]
+        response = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {"status": "cancelado", "motivo_cancelacion": "Cliente desistió"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+        proyecto = Proyecto.objects.get(pk=proyecto_id)
+        self.assertEqual(proyecto.status, "en_proceso")
+
+    def test_admin_can_cancel_proyecto(self):
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Cliente cancel admin",
+                "status": "en_proceso",
+                "tipo_trabajo_nombre": "Instalación",
+                "equipos": [],
+                "cotizaciones": [],
+                "porcentaje_avance": 0,
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
+        proyecto_id = create_res.data["id"]
+        admin = User.objects.create_user(
+            username="admin_cancel_proy",
+            password="test-pass-123",
+            is_staff=True,
+        )
+        UserPermissions.objects.create(
+            user=admin,
+            permissions={"proyectos": {"view": True, "create": True, "edit": True}},
+        )
+        self.client.force_authenticate(user=admin)
+        response = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {"status": "cancelado", "motivo_cancelacion": "Duplicado"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        proyecto = Proyecto.objects.get(pk=proyecto_id)
+        self.assertEqual(proyecto.status, "cancelado")
+        self.assertEqual(proyecto.motivo_cancelacion, "Duplicado")
+        self.assertEqual(proyecto.status_changed_by_id, admin.id)
+
     def test_proyecto_pdf_html_smoke(self):
         cliente = Cliente.objects.create(
             nombre="Cliente PDF",

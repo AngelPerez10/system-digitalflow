@@ -46,6 +46,69 @@ class OrdenesSmokeTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn("id", response.data)
 
+    def test_non_admin_cannot_cancel_orden(self):
+        create = self.client.post(
+            "/api/ordenes/",
+            {
+                "cliente": "Cliente cancel",
+                "direccion": "Calle 1",
+                "telefono_cliente": "5551234567",
+                "servicios_realizados": ["Instalación"],
+                "status": "pendiente",
+                "fecha_inicio": "2026-06-05",
+                "tipo_orden": "servicio_tecnico",
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, status.HTTP_201_CREATED)
+        oid = create.data["id"]
+        response = self.client.patch(
+            f"/api/ordenes/{oid}/",
+            {"status": "cancelada", "motivo_cancelacion": "Cliente desistió"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+        orden = Orden.objects.get(pk=oid)
+        self.assertEqual(orden.status, "pendiente")
+
+    def test_admin_can_cancel_orden(self):
+        admin = User.objects.create_user(
+            username="admin_cancel_orden",
+            password="test-pass-123",
+            is_staff=True,
+        )
+        UserPermissions.objects.create(
+            user=admin,
+            permissions={"ordenes": {"view": True, "create": True, "edit": True}},
+        )
+        create = self.client.post(
+            "/api/ordenes/",
+            {
+                "cliente": "Cliente cancel admin",
+                "direccion": "Calle 1",
+                "telefono_cliente": "5551234567",
+                "servicios_realizados": ["Instalación"],
+                "status": "pendiente",
+                "fecha_inicio": "2026-06-05",
+                "tipo_orden": "servicio_tecnico",
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, status.HTTP_201_CREATED)
+        oid = create.data["id"]
+        self.client.force_authenticate(user=admin)
+        response = self.client.patch(
+            f"/api/ordenes/{oid}/",
+            {"status": "cancelada", "motivo_cancelacion": "Duplicada"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        orden = Orden.objects.get(pk=oid)
+        self.assertEqual(orden.status, "cancelada")
+        self.assertEqual(orden.motivo_cancelacion, "Duplicada")
+        self.assertEqual(orden.status_changed_by_id, admin.id)
+
     def test_tecnico_opciones_denied_without_ordenes_access(self):
         denied = User.objects.create_user(username="sin_ordenes", password="test-pass-123")
         UserPermissions.objects.create(user=denied, permissions={"tareas": {"view": True}})

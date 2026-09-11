@@ -27,7 +27,9 @@ export type OrdenEditableField =
   | 'comentario_tecnico'
   | 'firma_cliente_url'
   | 'prioridad'
-  | 'nombre_encargado';
+  | 'nombre_encargado'
+  /** Solo admin (fuera del modo limitado del técnico). */
+  | 'motivo_cancelacion';
 
 export function getOrdenOwnerUserId(orden: Orden | null | undefined): number | null {
   if (!orden) return null;

@@ -267,6 +267,11 @@ export function isOrdenResuelta(status: unknown): boolean {
   return s === "resuelto" || s === "completado" || s === "completada";
 }
 
+export function isOrdenCancelada(status: unknown): boolean {
+  const s = String(status ?? "").trim().toLowerCase();
+  return s === "cancelada" || s === "cancelado";
+}
+
 /** Solo órdenes de servicio técnico (no levantamiento / instalación). */
 export function isOrdenServicioTecnico(tipo: unknown): boolean {
   const t = String(tipo ?? "").trim().toLowerCase();
@@ -405,6 +410,33 @@ export const fetchUsuariosApi = async () => {
     console.error("Error al cargar usuarios:", error);
     return [];
   }
+};
+
+/**
+ * Todos los usuarios activos, para el filtro de listado por usuario (órdenes y
+ * proyectos). A diferencia de `fetchUsuariosApi`, no se limita a técnicos /
+ * usuarios con permiso de órdenes. Cae a los endpoints previos si el nuevo no
+ * está disponible.
+ */
+export const fetchTodosLosUsuariosApi = async (): Promise<Usuario[]> => {
+  const commonHeaders = { "Content-Type": "application/json" } as HeadersInit;
+  const endpoints = [
+    "/api/ordenes/usuarios-opciones/",
+    "/api/ordenes/tecnico-opciones/",
+    "/api/users/accounts/",
+  ];
+  for (const url of endpoints) {
+    try {
+      const response = await fetchApi(url, { headers: commonHeaders });
+      if (!response.ok) continue;
+      const data = await response.json();
+      const rows = unwrapListResults<Usuario>(data);
+      if (rows.length > 0 || url === endpoints[0]) return rows;
+    } catch (error) {
+      console.error(`Error al cargar usuarios (${url}):`, error);
+    }
+  }
+  return [];
 };
 
 export const fetchServiciosApi = async (fallbackServicios: string[] = []) => {

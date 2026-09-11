@@ -98,11 +98,7 @@ function AlertBody({
         ) : null}
       </HeroAlert.Content>
       {showClose ? (
-        <CloseButton
-          aria-label="Cerrar aviso"
-          className="min-h-8 min-w-8 shrink-0 self-start"
-          onPress={() => onDismiss?.()}
-        />
+        <CloseButton aria-label="Cerrar aviso" onPress={() => onDismiss?.()} />
       ) : null}
     </HeroAlert>
   );

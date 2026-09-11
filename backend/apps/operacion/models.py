@@ -17,6 +17,7 @@ PROYECTO_STATUS_CHOICES = [
     ("en_proceso", "En proceso"),
     ("pausado", "Pausado"),
     ("cerrado", "Cerrado"),
+    ("cancelado", "Cancelado"),
 ]
 
 PROYECTO_STATUS_ADMINISTRATIVO_CHOICES = [
@@ -46,6 +47,17 @@ class Proyecto(models.Model):
         default="en_proceso",
     )
     motivo_pausa = models.TextField(blank=True, default="")
+    # Motivo obligatorio cuando status=cancelado (¿por qué se canceló?). Solo admins.
+    motivo_cancelacion = models.TextField(blank=True, default="")
+    # Último cambio de status: cuándo y quién lo colocó.
+    status_changed_at = models.DateTimeField(null=True, blank=True)
+    status_changed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="proyectos_status_cambiado",
+    )
 
     tipo_trabajo_id = models.IntegerField(null=True, blank=True)
     tipo_trabajo_nombre = models.CharField(max_length=255, blank=True, default="")

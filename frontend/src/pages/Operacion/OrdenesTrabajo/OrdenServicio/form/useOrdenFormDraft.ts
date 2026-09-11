@@ -58,8 +58,10 @@ export type OrdenFormData = {
   nombre_cliente: string;
   problematica: string;
   servicios_realizados: string[];
-  status: "pendiente" | "pausado" | "resuelto";
+  status: "pendiente" | "pausado" | "resuelto" | "cancelada";
   motivo_pausa: string;
+  /** Obligatorio cuando status = "cancelada". Solo lo edita el admin. */
+  motivo_cancelacion: string;
   /**
    * Prioridad de la bolsa de órdenes. Solo la asigna el admin y es obligatoria
    * al crear/guardar. `""` = aún sin seleccionar (estado inicial de una orden nueva).
@@ -94,6 +96,7 @@ export function createEmptyOrdenFormData(): OrdenFormData {
     servicios_realizados: [],
     status: "pendiente",
     motivo_pausa: "",
+    motivo_cancelacion: "",
     prioridad_pool: "",
     comentario_tecnico: "",
     fecha_inicio: new Date().toISOString().split("T")[0],
@@ -174,6 +177,7 @@ export function buildOrdenWritePayload(opts: {
   payload.problematica = toNullIfEmpty(payload.problematica);
   payload.comentario_tecnico = toNullIfEmpty(payload.comentario_tecnico);
   payload.motivo_pausa = toNullIfEmpty(payload.motivo_pausa);
+  payload.motivo_cancelacion = toNullIfEmpty(payload.motivo_cancelacion);
   payload.fecha_inicio = toNullIfEmpty(payload.fecha_inicio);
   payload.hora_inicio = toNullIfEmpty(payload.hora_inicio);
   payload.fecha_finalizacion = toNullIfEmpty(payload.fecha_finalizacion);
@@ -519,6 +523,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         comentario_tecnico: orden.comentario_tecnico || "",
         status: (orden.status as OrdenFormData["status"]) || "pendiente",
         motivo_pausa: orden.motivo_pausa || "",
+        motivo_cancelacion: orden.motivo_cancelacion || "",
         prioridad_pool:
           (orden.prioridad_pool as OrdenFormData["prioridad_pool"]) || "",
         fecha_inicio: orden.fecha_inicio || "",
@@ -873,6 +878,9 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     }
     if (formData.status === "pausado" && !(formData.motivo_pausa || "").trim()) {
       missing.push("¿Por qué se pausó?");
+    }
+    if (formData.status === "cancelada" && !(formData.motivo_cancelacion || "").trim()) {
+      missing.push("Motivo de cancelación");
     }
     // El admin debe asignar el nivel de prioridad al crear o guardar.
     if (variant === "admin" && isAdmin && !formData.prioridad_pool) {

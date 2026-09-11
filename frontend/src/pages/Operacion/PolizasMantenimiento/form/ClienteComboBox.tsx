@@ -9,12 +9,13 @@ import {
   ListBox,
 } from "@heroui/react";
 import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
+import { useComboBoxScrollLock } from "@/hooks/useComboBoxScrollLock";
 import { clienteToSelectOption, mergeClienteOptions } from "../list/polizaClienteOptions";
 
 type SelectOption = { value: string; label: string };
 
 const ITEM_CLASS =
-  "min-h-[44px] rounded-lg data-[focused=true]:bg-[#F1F5FF] data-[selected=true]:font-medium data-[selected=true]:text-[#1B5CFF] dark:data-[focused=true]:bg-white/[0.06] dark:data-[selected=true]:text-[#4B7CFF]";
+  "min-h-[44px] min-w-0 max-w-full overflow-hidden rounded-lg data-[focused=true]:bg-[#F1F5FF] data-[selected=true]:font-medium data-[selected=true]:text-[#1B5CFF] dark:data-[focused=true]:bg-white/[0.06] dark:data-[selected=true]:text-[#4B7CFF]";
 
 const PAGE_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 200;
@@ -71,6 +72,8 @@ export default function ClienteComboBox({
   }, [searchQuery, extraValue, extraLabel]);
 
   const isInvalid = Boolean(error) || Boolean(loadError);
+  const [menuOpen, setMenuOpen] = useState(false);
+  useComboBoxScrollLock(menuOpen);
 
   return (
     <>
@@ -83,6 +86,7 @@ export default function ClienteComboBox({
         name="clienteId"
         selectedKey={clienteId || null}
         items={options}
+        onOpenChange={setMenuOpen}
         onSelectionChange={(key: Key | null) => {
           const next = key == null ? "" : String(key);
           const label = options.find((c) => c.value === next)?.label || extraLabel;
@@ -113,7 +117,7 @@ export default function ClienteComboBox({
         </ComboBox.InputGroup>
         <ComboBox.Popover
           placement="bottom start"
-          className="z-[100050] max-h-72 overflow-y-auto rounded-[10px] border border-[#E7E7EA] dark:border-[#273244]"
+          className="z-[100050] w-(--trigger-width) max-w-(--trigger-width) max-h-72 overflow-x-hidden overflow-y-auto rounded-[10px] border border-[#E7E7EA] dark:border-[#273244]"
         >
           <ListBox
             renderEmptyState={() => (

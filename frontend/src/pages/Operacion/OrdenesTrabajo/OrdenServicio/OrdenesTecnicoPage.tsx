@@ -8,6 +8,7 @@ import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { OrdenesPageStats } from "./list/OrdenesPageStats";
 import OrdenesListFiltersPopover from "./list/OrdenesListFiltersPopover";
+import OrdenesStatusSegmentFilter from "./list/OrdenesStatusSegmentFilter";
 import OrdenFormModal, { ORDEN_FORM_PANEL_IDS, ORDEN_FORM_TAB_IDS } from "./form/OrdenFormModal";
 import { OrdenClienteTab } from "./form/tabs/OrdenClienteTab";
 import { OrdenDetalleTab } from "./form/tabs/OrdenDetalleTab";
@@ -20,7 +21,6 @@ import { useOrdenFormModalState } from "./form/useOrdenFormModalState";
 import { useOrdenFormDraft } from "./form/useOrdenFormDraft";
 import { useOrdenesList } from "./shared/useOrdenesList";
 import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
-import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { MobileOrderList } from "./list/MobileOrderCard";
 import { OrdenArrastreBadge } from "./list/OrdenArrastreBadge";
@@ -28,6 +28,10 @@ import { OrdenStatusSectionHeader } from "./list/OrdenStatusSectionHeader";
 import { OrdenesMonthLoadingBanner } from "./list/OrdenesMonthLoadingBanner";
 import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
 import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./list/OrdenEnviarPdfModal";
+import {
+  StatusChangedByChip,
+  resolveStatusChangedByName,
+} from "../../shared/StatusChangedByChip";
 import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
 import {
   getOrdenPrioridadSectionStyles,
@@ -39,6 +43,7 @@ import {
 import {
   handleOrdenPdfClick,
   isOrdenResuelta,
+  isOrdenCancelada,
   isOrdenServicioTecnico,
   displayOrdenFolio,
   resolveClienteCorreoSugerido,
@@ -120,8 +125,10 @@ export default function OrdenesTecnico() {
     setFilterDate,
     filterTecnicoId,
     setFilterTecnicoId,
-    clearListFilters,
-    activeFilterCount,
+    clearSecondaryFilters,
+    secondaryFilterCount,
+    statusCounts,
+    totalBeforeStatus,
     shownList,
     stats: ordenStats,
     alert,
@@ -562,40 +569,6 @@ export default function OrdenesTecnico() {
     return map;
   }, [listadoOrdenes]);
 
-  const clienteActions = useMemo(
-    () => buildClienteSearchActions(clientes, clienteSearch),
-    [clientes, clienteSearch]
-  );
-
-  const buildTecnicoActions = (searchValue: string) => {
-    const q = searchValue.trim().toLowerCase();
-    return (usuarios || [])
-      .filter((u) => {
-        if (!q) return true;
-        const nombre = (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email).toLowerCase();
-        return nombre.includes(q);
-      })
-      .map((u) => {
-        const nombre = u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email;
-        return {
-          id: String(u.id),
-          label: nombre,
-          icon: (
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 text-[11px] font-semibold">
-              {nombre.slice(0, 1).toUpperCase()}
-            </span>
-          ),
-          description: u.email,
-          short: '',
-          end: '',
-        };
-      });
-  };
-
-  const tecnicoActions = useMemo(() => buildTecnicoActions(tecnicoSearch), [usuarios, tecnicoSearch]);
-  const quienInstaloActions = useMemo(() => buildTecnicoActions(quienInstaloSearch), [usuarios, quienInstaloSearch]);
-  const quienEntregoActions = useMemo(() => buildTecnicoActions(quienEntregoSearch), [usuarios, quienEntregoSearch]);
-
   return (
     <div className={erpPageCanvasClass} style={erpSansStyle}>
     <div className={erpPageInnerClass}>
@@ -735,15 +708,13 @@ export default function OrdenesTecnico() {
                 </h2>
               </div>
               <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
-                Órdenes visibles para tu cuenta. Usa filtros para acotar por estado, servicio o fecha.
+                Órdenes visibles para tu cuenta. Usa la barra de estado y los filtros para acotar el listado.
               </p>
             </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
             <OrdenesListFiltersPopover
               open={filterOpen}
               onOpenChange={setFilterOpen}
-              filterStatus={filterStatus}
-              setFilterStatus={setFilterStatus}
               filterServicio={filterServicio}
               setFilterServicio={setFilterServicio}
               filterDate={filterDate}
@@ -752,12 +723,20 @@ export default function OrdenesTecnico() {
               setFilterTecnicoId={setFilterTecnicoId}
               serviciosDisponibles={serviciosDisponibles}
               usuarios={usuarios}
-              activeFilterCount={activeFilterCount}
-              onClear={clearListFilters}
+              activeFilterCount={secondaryFilterCount}
+              onClear={clearSecondaryFilters}
               showTecnicoFilter={false}
               datePickerId="filtro-fecha-ordenes-tecnico"
             />
           </div>
+          </div>
+          <div className="mt-3 min-w-0 max-w-full overflow-hidden">
+            <OrdenesStatusSegmentFilter
+              filterStatus={filterStatus}
+              setFilterStatus={setFilterStatus}
+              statusCounts={statusCounts}
+              totalBeforeStatus={totalBeforeStatus}
+            />
           </div>
         </div>
         <div className="p-2 sm:p-3">
@@ -828,10 +807,12 @@ export default function OrdenesTecnico() {
                   const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
                   const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
                   const isResuelta = isOrdenResuelta(orden.status);
+                  const isCancelada = isOrdenCancelada(orden.status);
+                  const isTerminal = isResuelta || isCancelada;
                   const prioKey = ordenPrioridadKey(
-                    isResuelta ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
+                    isTerminal ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
                   );
-                  const prioEscalada = !isResuelta && ordenPrioridadEscalada(orden);
+                  const prioEscalada = !isTerminal && ordenPrioridadEscalada(orden);
                   const prioTone = getOrdenPrioridadSectionStyles(prioKey);
                   const prioShort =
                     prioKey === "ALTA" ? "Alta"
@@ -840,6 +821,10 @@ export default function OrdenesTecnico() {
                       : "Sin prio.";
                   const prioAria =
                     prioKey === "SIN" ? "sin prioridad" : `prioridad ${prioShort.toLowerCase()}`;
+                  const statusByName = resolveStatusChangedByName(
+                    orden.status_changed_by_full_name,
+                    orden.status_changed_by_username,
+                  );
                   const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
                   let tecnicoNombre = '-';
                   if (tecnico) {
@@ -854,8 +839,8 @@ export default function OrdenesTecnico() {
                   return (
                     <TableRow
                       key={orden.id ?? `${section.key}-${sectionIdx}`}
-                      className={`${erpTableRowHoverClass} ${isResuelta ? "" : prioTone.rowAccent}`}
-                      aria-label={`Orden ${folioDisplay}${isResuelta ? "" : `, ${prioAria}`}`}
+                      className={`${erpTableRowHoverClass} ${isTerminal ? "" : prioTone.rowAccent}`}
+                      aria-label={`Orden ${folioDisplay}${isTerminal ? "" : `, ${prioAria}`}${isCancelada ? ", cancelada" : ""}`}
                     >
                       <TableCell className="px-3 py-2 w-[100px] min-w-[96px] max-w-[110px] overflow-hidden">
                         <div className="flex min-w-0 flex-col items-stretch gap-1">
@@ -922,18 +907,24 @@ export default function OrdenesTecnico() {
                                 ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
                                 : orden.status === "pausado"
                                   ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300"
-                                  : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300";
+                                  : orden.status === "cancelada"
+                                    ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                                    : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300";
                             const statusLabel =
                               orden.status === "resuelto"
                                 ? "Resuelto"
                                 : orden.status === "pausado"
                                   ? "Pausado"
-                                  : "Pendiente";
+                                  : orden.status === "cancelada"
+                                    ? "Cancelada"
+                                    : "Pendiente";
                             const statusTitle =
                               orden.status === "pausado" && orden.motivo_pausa
                                 ? String(orden.motivo_pausa)
-                                : undefined;
-                            if (isResuelta) {
+                                : orden.status === "cancelada" && orden.motivo_cancelacion
+                                  ? String(orden.motivo_cancelacion)
+                                  : undefined;
+                            if (isTerminal) {
                               return (
                                 <span
                                   className={`inline-flex items-center rounded-full px-2 py-[3px] text-[10px] font-semibold ${statusPill}`}
@@ -965,6 +956,20 @@ export default function OrdenesTecnico() {
                               </span>
                             );
                           })()}
+                          {(statusByName ||
+                            orden.status_changed_at ||
+                            orden.creado_por_username ||
+                            orden.creado_por_full_name) && (
+                            <StatusChangedByChip
+                              name={statusByName}
+                              at={orden.status_changed_at}
+                              fallbackName={resolveStatusChangedByName(
+                                orden.creado_por_full_name,
+                                orden.creado_por_username,
+                              )}
+                              align="center"
+                            />
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="px-3 py-2 text-center w-[150px] min-w-[150px]">
@@ -1211,19 +1216,15 @@ export default function OrdenesTecnico() {
             setFormData={setFormData}
             ro={ro}
             inputLockedClass={inputLockedClass}
-            clienteActions={clienteActions}
             clienteSearch={clienteSearch}
             setClienteSearch={setClienteSearch}
             clientes={clientes}
             selectCliente={selectCliente}
             setShowClienteModal={setShowClienteModal}
-            tecnicoActions={tecnicoActions}
             tecnicoSearch={tecnicoSearch}
             setTecnicoSearch={setTecnicoSearch}
-            quienInstaloActions={quienInstaloActions}
             quienInstaloSearch={quienInstaloSearch}
             setQuienInstaloSearch={setQuienInstaloSearch}
-            quienEntregoActions={quienEntregoActions}
             quienEntregoSearch={quienEntregoSearch}
             setQuienEntregoSearch={setQuienEntregoSearch}
             usuarios={usuarios}

@@ -101,6 +101,17 @@ class ProyectoSerializer(serializers.ModelSerializer):
     creado_por_username = serializers.CharField(
         source="creado_por.username", read_only=True, allow_null=True
     )
+    status_changed_by_username = serializers.CharField(
+        source="status_changed_by.username", read_only=True, allow_null=True
+    )
+    status_changed_by_full_name = serializers.SerializerMethodField()
+
+    def get_status_changed_by_full_name(self, obj) -> str:
+        user = getattr(obj, "status_changed_by", None)
+        if not user:
+            return ""
+        full = f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip()
+        return full or user.username or user.email or ""
 
     class Meta:
         model = Proyecto
@@ -112,6 +123,11 @@ class ProyectoSerializer(serializers.ModelSerializer):
             "cliente_nombre",
             "status",
             "motivo_pausa",
+            "motivo_cancelacion",
+            "status_changed_at",
+            "status_changed_by",
+            "status_changed_by_username",
+            "status_changed_by_full_name",
             "tipo_trabajo_id",
             "tipo_trabajo_nombre",
             "tipos_trabajo",
@@ -164,6 +180,10 @@ class ProyectoSerializer(serializers.ModelSerializer):
             "cotizacion_origen",
             "creado_por",
             "creado_por_username",
+            "status_changed_at",
+            "status_changed_by",
+            "status_changed_by_username",
+            "status_changed_by_full_name",
             "created_at",
             "updated_at",
         ]
@@ -398,6 +418,30 @@ class ProyectoSerializer(serializers.ModelSerializer):
         )
         if not result.ok:
             raise serializers.ValidationError({"status": [result.message]})
+
+        status_norm = str(status or "").strip().lower()
+        prev_status = (
+            str(getattr(instance, "status", "") or "").strip().lower() if instance is not None else ""
+        )
+        # Cancelar (entrar a cancelado) solo staff/superuser.
+        if status_norm == "cancelado" and status_norm != prev_status:
+            if not (
+                user
+                and getattr(user, "is_authenticated", False)
+                and (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+            ):
+                raise serializers.ValidationError(
+                    {"status": ["Solo un administrador puede cancelar el proyecto."]}
+                )
+
+        if status_norm == "cancelado":
+            motivo_cancel = attrs.get("motivo_cancelacion", None)
+            if motivo_cancel is None and instance is not None and "motivo_cancelacion" not in attrs:
+                motivo_cancel = getattr(instance, "motivo_cancelacion", None)
+            if not str(motivo_cancel or "").strip():
+                raise serializers.ValidationError(
+                    {"motivo_cancelacion": ["Indique el motivo de cancelación del proyecto."]}
+                )
 
         # Bitácora: mínimo 150 caracteres por jornada solo al cerrar.
         if str(status or "").strip().lower() == "cerrado":

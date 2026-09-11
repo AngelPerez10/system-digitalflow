@@ -112,8 +112,11 @@ def _apply_resuelto_cierre_fechas(data: dict, instance=None) -> dict:
     return data
 
 
-def _stamp_status_changed_at(data: dict, instance=None) -> dict:
-    """Si el status del técnico cambia (o es alta), registrar status_changed_at."""
+def _stamp_status_changed_at(data: dict, instance=None, user=None) -> dict:
+    """Si el status del técnico cambia (o es alta), registrar status_changed_at
+    y quién lo colocó (`status_changed_by`)."""
+    stamp_user = user if (user is not None and getattr(user, "is_authenticated", False)) else None
+
     if "status" not in data and instance is not None:
         return data
 
@@ -125,12 +128,15 @@ def _stamp_status_changed_at(data: dict, instance=None) -> dict:
 
     new_norm = str(new_status or "").strip().lower()
     if instance is None:
+        # Alta: se sella la fecha (resalte ~48h) pero NO se atribuye autor;
+        # el chip muestra "Registro creado por" hasta que alguien cambie el status.
         data["status_changed_at"] = timezone.now()
         return data
 
     old_norm = str(getattr(instance, "status", "") or "").strip().lower()
     if new_norm != old_norm:
         data["status_changed_at"] = timezone.now()
+        data["status_changed_by"] = stamp_user
     return data
 
 
@@ -609,6 +615,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated()]
         if self.action == 'tecnico_opciones':
             return [IsAuthenticated(), OrdenesAnyAccessPermission()]
+        if self.action == 'usuarios_opciones':
+            # Filtro de listado por usuario (órdenes y proyectos): cualquier
+            # usuario autenticado del ERP. Los campos sensibles (email, flags)
+            # siguen restringidos a staff dentro de la vista.
+            return [IsAuthenticated()]
         if self.action in ('upload_image', 'delete_image'):
             return [IsAuthenticated(), OrdenesAttachmentPermission()]
         if self.action in ('enviar_pdf', 'correo_sugerido'):
@@ -669,6 +680,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     'tecnico_asignado__permissions_profile',
                     'creado_por',
                     'actualizado_por',
+                    'status_changed_by',
                     'levantamiento',
                     'instalacion',
                 )
@@ -692,6 +704,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 'tecnico_asignado__permissions_profile',
                 'creado_por',
                 'actualizado_por',
+                'status_changed_by',
                 'quien_instalo',
                 'quien_entrego',
                 'levantamiento',
@@ -1531,6 +1544,38 @@ class OrdenViewSet(viewsets.ModelViewSet):
             data.append(row)
         return Response(data)
 
+    @action(detail=False, methods=['get'], url_path='usuarios-opciones')
+    def usuarios_opciones(self, request):
+        """Usuarios internos activos (técnicos y administrativos) para los
+        filtros de listado por usuario.
+
+        A diferencia de `tecnico-opciones`, no exige permiso de órdenes; pero
+        SÍ excluye las cuentas del portal de clientes (`cliente_portal_account`)
+        para que un cliente nunca aparezca en el filtro.
+        """
+        qs = (
+            User.objects.filter(is_active=True, cliente_portal_account__isnull=True)
+            .order_by('first_name', 'last_name', 'id')
+        )
+        include_sensitive = bool(
+            getattr(request.user, 'is_staff', False)
+            or getattr(request.user, 'is_superuser', False)
+        )
+        data = []
+        for u in qs:
+            row = {
+                'id': u.id,
+                'username': u.username or '',
+                'first_name': u.first_name or '',
+                'last_name': u.last_name or '',
+            }
+            if include_sensitive:
+                row['email'] = u.email or ''
+                row['is_staff'] = bool(getattr(u, 'is_staff', False))
+                row['is_superuser'] = bool(getattr(u, 'is_superuser', False))
+            data.append(row)
+        return Response(data)
+
     @action(detail=False, methods=['get'], url_path='reportes-tecnico-opciones')
     def reportes_tecnico_opciones(self, request):
         """Usuarios activos para selector de técnico al generar reporte (solo staff/superuser)."""
@@ -1733,7 +1778,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     raise ValidationError("fotos_urls contiene una entrada inválida")
             data['fotos_urls'] = new_fotos
         data = _apply_resuelto_cierre_fechas(dict(data))
-        data = _stamp_status_changed_at(data)
+        data = _stamp_status_changed_at(data, user=self.request.user)
         data = _fill_contacto_desde_portal(data)
         incoming_equipos = data.get('equipos_inventario', [])
         with transaction.atomic():
@@ -1836,7 +1881,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
             data['fotos_urls'] = new_fotos
 
         data = _apply_resuelto_cierre_fechas(data, instance=instance)
-        data = _stamp_status_changed_at(data, instance=instance)
+        data = _stamp_status_changed_at(data, instance=instance, user=user)
         data = _fill_contacto_desde_portal(data, instance=instance)
 
         # Limited editors never mutate equipos; ignore any payload value.

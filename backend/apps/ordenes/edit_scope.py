@@ -9,6 +9,7 @@ LIMITED_ORDEN_EDIT_FIELDS = frozenset({
     'comentario_tecnico',
     'status',
     'motivo_pausa',
+    # motivo_cancelacion / status=cancelada: solo admin (serializer + UI).
     'fecha_inicio',
     'hora_inicio',
     'fecha_finalizacion',

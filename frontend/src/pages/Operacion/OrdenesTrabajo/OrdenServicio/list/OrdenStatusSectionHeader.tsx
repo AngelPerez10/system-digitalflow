@@ -19,6 +19,14 @@ function OrdenStatusSectionIcon({ statusKey }: { statusKey: OrdenStatusSectionKe
       </svg>
     );
   }
+  if (statusKey === "CANCELADA") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        <path d="m15 9-6 6M9 9l6 6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path d="M6 6h12M6 12h12M6 18h12" strokeLinecap="round" />
