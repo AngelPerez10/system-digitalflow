@@ -18,6 +18,19 @@ export function resolveStatusChangedByName(
   return String(fullName || "").trim() || String(username || "").trim();
 }
 
+/** Creador, o último editor si no hay creador. */
+export function resolveOrdenStatusFallbackName(orden: {
+  creado_por_full_name?: string | null;
+  creado_por_username?: string | null;
+  actualizado_por_full_name?: string | null;
+  actualizado_por_username?: string | null;
+}): string {
+  return (
+    resolveStatusChangedByName(orden.creado_por_full_name, orden.creado_por_username) ||
+    resolveStatusChangedByName(orden.actualizado_por_full_name, orden.actualizado_por_username)
+  );
+}
+
 /** Resuelve nombre/fecha de auditoría; usa fallback (p. ej. creador) si aún no hay sello. */
 export function resolveStatusAudit({
   name,
@@ -32,13 +45,21 @@ export function resolveStatusAudit({
 }): { name: string; at: string; fromFallback: boolean } | null {
   const primaryName = String(name || "").trim();
   const primaryAt = String(at || "").trim();
-  if (primaryName || primaryAt) {
-    return { name: primaryName, at: primaryAt, fromFallback: false };
-  }
   const fbName = String(fallbackName || "").trim();
   const fbAt = String(fallbackAt || "").trim();
-  if (fbName || fbAt) {
-    return { name: fbName, at: fbAt, fromFallback: true };
+  // Fecha de status sin persona (alta o filas previas a status_changed_by):
+  // no es un sello de autor. Usar creador/editor y marcar fallback.
+  if (primaryName) {
+    return { name: primaryName, at: primaryAt, fromFallback: false };
+  }
+  if (fbName) {
+    return { name: fbName, at: primaryAt || fbAt, fromFallback: true };
+  }
+  if (primaryAt) {
+    return { name: "", at: primaryAt, fromFallback: false };
+  }
+  if (fbAt) {
+    return { name: "", at: fbAt, fromFallback: true };
   }
   return null;
 }

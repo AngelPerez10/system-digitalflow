@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   initialsFromDisplayName,
+  resolveOrdenStatusFallbackName,
   resolveStatusAudit,
   resolveStatusChangedByName,
 } from "./statusChangedBy";
@@ -40,6 +41,37 @@ describe("resolveStatusAudit", () => {
       fromFallback: true,
     });
     expect(resolveStatusAudit({ name: "", at: "" })).toBeNull();
+  });
+
+  it("usa el creador cuando hay fecha de status pero no hay autor", () => {
+    expect(
+      resolveStatusAudit({
+        name: "",
+        at: "2026-09-07T15:27:00Z",
+        fallbackName: "Ana García",
+        fallbackAt: "2026-09-07T15:00:00Z",
+      }),
+    ).toEqual({
+      name: "Ana García",
+      at: "2026-09-07T15:27:00Z",
+      fromFallback: true,
+    });
+  });
+});
+
+describe("resolveOrdenStatusFallbackName", () => {
+  it("prioriza creador y cae a último editor", () => {
+    expect(
+      resolveOrdenStatusFallbackName({
+        creado_por_full_name: "Ana",
+        actualizado_por_username: "luis",
+      }),
+    ).toBe("Ana");
+    expect(
+      resolveOrdenStatusFallbackName({
+        actualizado_por_full_name: "Luis Pérez",
+      }),
+    ).toBe("Luis Pérez");
   });
 });
 

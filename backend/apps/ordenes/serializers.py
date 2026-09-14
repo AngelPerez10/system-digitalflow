@@ -37,7 +37,9 @@ class OrdenSerializer(serializers.ModelSerializer):
     creado_por_full_name = serializers.SerializerMethodField()
     actualizado_por_username = serializers.CharField(source='actualizado_por.username', read_only=True)
     actualizado_por_full_name = serializers.SerializerMethodField()
-    status_changed_by_username = serializers.CharField(source='status_changed_by.username', read_only=True)
+    status_changed_by_username = serializers.CharField(
+        source='status_changed_by.username', read_only=True, allow_null=True
+    )
     status_changed_by_full_name = serializers.SerializerMethodField()
     tipo_orden = serializers.SerializerMethodField()
     levantamiento_tipo = serializers.SerializerMethodField()

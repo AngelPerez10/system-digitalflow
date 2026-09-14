@@ -1,4 +1,4 @@
-import { useState, type Key, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type Key, type ReactNode } from "react";
 import {
   ComboBox,
   Description,
@@ -9,6 +9,7 @@ import {
   ListBox,
 } from "@heroui/react";
 import { useComboBoxScrollLock } from "@/hooks/useComboBoxScrollLock";
+import { filterOrdenComboItems, shouldIgnoreComboCloseOnScroll } from "./ordenHeroComboBoxUtils";
 
 export type OrdenComboItem = {
   id: string;
@@ -67,7 +68,21 @@ export default function OrdenHeroComboBox({
   skipLocalFilter = false,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [reopenNonce, setReopenNonce] = useState(0);
+  const openedAtRef = useRef(0);
+  const reopenAttemptsRef = useRef(0);
   useComboBoxScrollLock(menuOpen);
+
+  useLayoutEffect(() => {
+    if (reopenNonce === 0) return;
+    openedAtRef.current = Date.now();
+    setMenuOpen(true);
+  }, [reopenNonce]);
+
+  const collection = useMemo(
+    () => (skipLocalFilter ? items : filterOrdenComboItems(items, inputValue)),
+    [items, inputValue, skipLocalFilter],
+  );
 
   return (
     <>
@@ -81,14 +96,36 @@ export default function OrdenHeroComboBox({
         isDisabled={isDisabled}
         isInvalid={isInvalid}
         selectedKey={selectedKey}
-        items={items}
+        items={collection}
         inputValue={inputValue}
+        isOpen={menuOpen}
         onInputChange={onInputChange}
-        onOpenChange={setMenuOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            openedAtRef.current = Date.now();
+            setMenuOpen(true);
+            return;
+          }
+          const input = document.getElementById(inputId);
+          const focusedHere = Boolean(input && document.activeElement === input);
+          if (focusedHere && shouldIgnoreComboCloseOnScroll(openedAtRef.current) && reopenAttemptsRef.current < 2) {
+            // RAC ya cerró por el scroll del modal; hay que bajar `isOpen`
+            // y volver a subirlo o el menú se queda cerrado con el input enfocado.
+            reopenAttemptsRef.current += 1;
+            setMenuOpen(false);
+            setReopenNonce((n) => n + 1);
+            return;
+          }
+          setMenuOpen(false);
+        }}
         onSelectionChange={(key: Key | null) => {
+          if (key != null) {
+            openedAtRef.current = 0;
+            setMenuOpen(false);
+          }
           onSelectionChange(key == null ? null : String(key));
         }}
-        defaultFilter={skipLocalFilter ? () => true : undefined}
+        defaultFilter={() => true}
         className="w-full"
       >
         <Label className="text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">{label}</Label>
@@ -98,7 +135,17 @@ export default function OrdenHeroComboBox({
             autoComplete="off"
             aria-busy={loading || undefined}
             placeholder={loading ? "Buscando…" : placeholder}
-            className="min-h-[44px] rounded-[10px] text-[15px] tracking-[-0.1px]"
+            className="min-h-11 rounded-[10px] text-[15px] tracking-[-0.1px]"
+            onFocus={() => {
+              if (!isDisabled) {
+                reopenAttemptsRef.current = 0;
+                openedAtRef.current = Date.now();
+                setMenuOpen(true);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") openedAtRef.current = 0;
+            }}
           />
           <ComboBox.Trigger aria-label={triggerAriaLabel} />
         </ComboBox.InputGroup>

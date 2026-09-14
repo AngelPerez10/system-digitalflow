@@ -25,7 +25,10 @@ import { OrdenArrastreBadge } from "./OrdenArrastreBadge";
 import {
   StatusChangedByChip,
 } from "../../../shared/StatusChangedByChip";
-import { resolveStatusChangedByName } from "../../../shared/statusChangedBy";
+import {
+  resolveOrdenStatusFallbackName,
+  resolveStatusChangedByName,
+} from "../../../shared/statusChangedBy";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;
@@ -202,10 +205,8 @@ export function MobileOrderCard({
             <StatusChangedByChip
               name={statusByName}
               at={orden.status_changed_at}
-              fallbackName={resolveStatusChangedByName(
-                orden.creado_por_full_name,
-                orden.creado_por_username,
-              )}
+              fallbackName={resolveOrdenStatusFallbackName(orden)}
+              fallbackAt={orden.fecha_creacion}
             />
           )}
         </div>

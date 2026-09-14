@@ -128,15 +128,17 @@ def _stamp_status_changed_at(data: dict, instance=None, user=None) -> dict:
 
     new_norm = str(new_status or "").strip().lower()
     if instance is None:
-        # Alta: se sella la fecha (resalte ~48h) pero NO se atribuye autor;
-        # el chip muestra "Registro creado por" hasta que alguien cambie el status.
+        # Alta: sello inicial (resalte ~48h) atribuido a quien crea la orden.
         data["status_changed_at"] = timezone.now()
+        if stamp_user is not None:
+            data["status_changed_by"] = stamp_user
         return data
 
     old_norm = str(getattr(instance, "status", "") or "").strip().lower()
     if new_norm != old_norm:
         data["status_changed_at"] = timezone.now()
-        data["status_changed_by"] = stamp_user
+        if stamp_user is not None:
+            data["status_changed_by"] = stamp_user
     return data
 
 

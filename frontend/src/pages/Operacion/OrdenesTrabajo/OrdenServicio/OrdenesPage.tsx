@@ -39,7 +39,10 @@ import OrdenEnviarPdfModal, {
 import {
   StatusChangedByChip,
 } from "../../shared/StatusChangedByChip";
-import { resolveStatusChangedByName } from "../../shared/statusChangedBy";
+import {
+  resolveOrdenStatusFallbackName,
+  resolveStatusChangedByName,
+} from "../../shared/statusChangedBy";
 import {
   downloadOrdenesMesPdf,
   handleOrdenPdfClick,
@@ -119,7 +122,7 @@ export default function Ordenes() {
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  /** Lista completa de usuarios para el filtro del listado (no solo t�cnicos). */
+  /** Lista completa de usuarios para el filtro del listado (no solo técnicos). */
   const [usuariosFiltro, setUsuariosFiltro] = useState<Usuario[]>([]);
   const {
     ordenes,
@@ -236,9 +239,9 @@ export default function Ordenes() {
     void fetchOrdenes();
   }, [authLoading, isAuthenticated, canOrdenesView, fetchOrdenes]);
 
-  // Usuarios para el filtro del listado: se cargan al abrir la p�gina (no solo
-  // al abrir el modal), si no el <select> de usuario sale vac�o en producci�n.
-  // Estado propio para no pisar `usuarios` (que el modal usa para asignaci�n).
+  // Usuarios para el filtro del listado: se cargan al abrir la página (no solo
+  // al abrir el modal), si no el <select> de usuario sale vacío en producción.
+  // Estado propio para no pisar `usuarios` (que el modal usa para asignación).
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
     let cancelled = false;
@@ -303,7 +306,7 @@ export default function Ordenes() {
         show: true,
         variant: "warning",
         title: "PDF del mes",
-        message: "Seleccione un mes v�lido para descargar el listado.",
+        message: "Seleccione un mes válido para descargar el listado.",
       });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
       return;
@@ -312,8 +315,8 @@ export default function Ordenes() {
       setAlert({
         show: true,
         variant: "info",
-        title: "Sin �rdenes",
-        message: "No hay �rdenes registradas en el mes seleccionado.",
+        title: "Sin órdenes",
+        message: "No hay órdenes registradas en el mes seleccionado.",
       });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
       return;
@@ -447,7 +450,7 @@ export default function Ordenes() {
         show: true,
         variant: "warning",
         title: "Sin permiso",
-        message: "No tienes permiso para eliminar �rdenes.",
+        message: "No tienes permiso para eliminar órdenes.",
       });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
       return;
@@ -520,7 +523,7 @@ export default function Ordenes() {
         show: true,
         variant: "warning",
         title: "Sin permiso",
-        message: "No tienes permiso para editar �rdenes.",
+        message: "No tienes permiso para editar órdenes.",
       });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
       return false;
@@ -540,7 +543,7 @@ export default function Ordenes() {
     setShowModal(true);
 
     const detail = await fetchOrdenDetail(orden.id);
-    if (seq !== editDetailSeqRef.current) return true; // se abri� otra orden mientras tanto
+    if (seq !== editDetailSeqRef.current) return true; // se abrió otra orden mientras tanto
 
     if (!detail) {
       setDetailLoading(false);
@@ -549,7 +552,7 @@ export default function Ordenes() {
         variant: "warning",
         title: "Detalle incompleto",
         message:
-          "No se pudieron cargar firma y fotos. Revisa tu conexi�n antes de guardar.",
+          "No se pudieron cargar firma y fotos. Revisa tu conexión antes de guardar.",
       });
       return true;
     }
@@ -569,7 +572,7 @@ export default function Ordenes() {
 
   const abrirOrdenFromQueryDoneRef = useRef<string | null>(null);
 
-  // Desde historial global (MonthlyTarget): /ordenes?abrir=<id> abre el modal de edici�n de esa orden
+  // Desde historial global (MonthlyTarget): /ordenes?abrir=<id> abre el modal de edición de esa orden
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const raw = params.get("abrir");
@@ -612,7 +615,7 @@ export default function Ordenes() {
   const currentOrdenes = shownList;
   /**
    * Listado: se conservan las secciones por estado (Pendientes ? Pausados ?
-   * Canceladas ? Resueltas) y dentro de cada secci�n las �rdenes se ordenan por
+   * Canceladas → Resueltas) y dentro de cada sección las órdenes se ordenan por
    * prioridad de bolsa: Alta arriba ? Media ? Baja ? Sin prioridad al final.
    */
   const listadoOrdenes = useMemo(
@@ -635,8 +638,8 @@ export default function Ordenes() {
     <div className={erpPageCanvasClass} style={erpSansStyle}>
       <div className={erpPageInnerClass}>
         <PageMeta
-          title="�rdenes de Trabajo | Sistema Grupo Intrax GPS"
-          description="Gesti�n de �rdenes de servicio para el sistema de administraci�n Grupo Intrax GPS"
+          title="Órdenes de Trabajo | Sistema Grupo Intrax GPS"
+          description="Gestión de órdenes de servicio para el sistema de administración Grupo Intrax GPS"
         />
         <nav className={erpBreadcrumbNavClass} aria-label="Migas de pan">
           <Link to="/" className={erpBreadcrumbLinkClass}>
@@ -646,7 +649,7 @@ export default function Ordenes() {
             /
           </span>
           <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">
-            �rdenes de trabajo
+            Órdenes de trabajo
           </span>
         </nav>
 
@@ -664,7 +667,7 @@ export default function Ordenes() {
               show: true,
               variant: "success",
               title: "Correo enviado",
-              message: `El PDF se envi� a ${correo}.`,
+              message: `El PDF se envió a ${correo}.`,
             });
             setTimeout(
               () => setAlert((prev) => ({ ...prev, show: false })),
@@ -719,12 +722,12 @@ export default function Ordenes() {
               </svg>
             </span>
             <div className="min-w-0 flex-1">
-              <p className={osHeroEyebrowClass}>Operaci�n</p>
+              <p className={osHeroEyebrowClass}>Operación</p>
               <h1 className={`mt-1 ${erpHeroHeadingClass}`}>
-                �rdenes de trabajo
+                Órdenes de trabajo
               </h1>
               <p className={osHeroBodyClass}>
-                Administra �rdenes de servicio, fotos, firmas y PDF. Filtra por
+                Administra órdenes de servicio, fotos, firmas y PDF. Filtra por
                 estado, servicio o fecha en el listado.
               </p>
             </div>
@@ -750,14 +753,14 @@ export default function Ordenes() {
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por folio, cliente, t�cnico o estado�"
+              placeholder="Buscar por folio, cliente, técnico o estado…"
               className={pageSearchInputClass}
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm("")}
-                aria-label="Limpiar b�squeda"
+                aria-label="Limpiar búsqueda"
                 className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-10 items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/6 sm:h-9 sm:min-w-11 sm:rounded-lg"
               >
                 <svg
@@ -779,7 +782,7 @@ export default function Ordenes() {
                   show: true,
                   variant: "warning",
                   title: "Sin permiso",
-                  message: "No tienes permiso para crear �rdenes.",
+                  message: "No tienes permiso para crear órdenes.",
                 });
                 setTimeout(
                   () => setAlert((prev) => ({ ...prev, show: false })),
@@ -839,12 +842,12 @@ export default function Ordenes() {
                     id="ordenes-listado-heading"
                     className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]"
                   >
-                    Listado de �rdenes
+                    Listado de órdenes
                   </h2>
                 </div>
                 <p className="mt-2 text-[14px] leading-5 text-[#52525B] dark:text-[#B7C1D1]">
-                  Resultados seg�n b�squeda y filtros. En pantallas peque�as
-                  despl�zate horizontalmente si hace falta.
+                  Resultados según búsqueda y filtros. En pantallas pequeñas
+                  desplázate horizontalmente si hace falta.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
@@ -855,7 +858,7 @@ export default function Ordenes() {
                   className={
                     erpSecondaryBtnClass + " h-10 w-full sm:w-auto shrink-0"
                   }
-                  title="Descargar PDF con todas las �rdenes del mes visible"
+                  title="Descargar PDF con todas las órdenes del mes visible"
                 >
                   <svg
                     className="w-3.5 h-3.5 shrink-0"
@@ -971,7 +974,7 @@ export default function Ordenes() {
                       isHeader
                       className="px-3 py-2 text-left w-40 min-w-40 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
                     >
-                      T�cnico
+                      Técnico
                     </TableCell>
                     <TableCell
                       isHeader
@@ -983,7 +986,7 @@ export default function Ordenes() {
                       isHeader
                       className="px-3 py-2 text-center w-37.5 min-w-37.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
                     >
-                      Prioridad � Estado
+                      Prioridad · Estado
                     </TableCell>
                     <TableCell
                       isHeader
@@ -1036,11 +1039,11 @@ export default function Ordenes() {
                           orden,
                           startIndex + idx + 1,
                         );
-                        // En �rdenes resueltas o canceladas la prioridad de bolsa deja de ser relevante: no se muestra.
+                        // En órdenes resueltas o canceladas la prioridad de bolsa deja de ser relevante: no se muestra.
                         const isResuelta = isOrdenResuelta(orden.status);
                         const isCancelada = isOrdenCancelada(orden.status);
                         const isTerminal = isResuelta || isCancelada;
-                        // Prioridad efectiva = base fijada por el admin, escalada por antig�edad
+                        // Prioridad efectiva = base fijada por el admin, escalada por antigüedad
                         // (+1 nivel a las 72 h sin resolver, +2 a las 96 h).
                         const prioKey = ordenPrioridadKey(
                           isTerminal
@@ -1148,7 +1151,7 @@ export default function Ordenes() {
                                     })
                                   }
                                   className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                                  title="Ver problem�tica"
+                                  title="Ver problemática"
                                 >
                                   <svg
                                     className="w-3.5 h-3.5"
@@ -1160,7 +1163,7 @@ export default function Ordenes() {
                                   >
                                     <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                   </svg>
-                                  Problem�tica
+                                  Problemática
                                 </button>
                                 <button
                                   type="button"
@@ -1220,7 +1223,7 @@ export default function Ordenes() {
                                     })
                                   }
                                   className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                                  title="Ver comentario del t�cnico"
+                                  title="Ver comentario del técnico"
                                 >
                                   <svg
                                     className="w-3.5 h-3.5"
@@ -1257,7 +1260,7 @@ export default function Ordenes() {
                                     </time>
                                   ) : (
                                     <span className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">
-                                      �
+                                      —
                                     </span>
                                   )}
                                 </div>
@@ -1320,14 +1323,14 @@ export default function Ordenes() {
                                       </span>
                                     );
                                   }
-                                  // Activa: pastilla combinada � segmento izq. = prioridad, der. = estado.
+                                  // Activa: pastilla combinada — segmento izq. = prioridad, der. = estado.
                                   return (
                                     <span className="inline-flex items-stretch overflow-hidden whitespace-nowrap rounded-full text-[10px] font-semibold leading-none ring-1 ring-inset ring-black/6 dark:ring-white/10">
                                       <span
                                         className={`flex items-center gap-1 px-1.5 py-0.75 ${prioTone.cap}`}
                                         title={
                                           prioEscalada
-                                            ? `Prioridad ${prioShort} � escalada autom�ticamente por antig�edad (+72 h sin resolver)`
+                                            ? `Prioridad ${prioShort} — escalada automáticamente por antigüedad (+72 h sin resolver)`
                                             : `Prioridad ${prioShort}`
                                         }
                                       >
@@ -1340,7 +1343,7 @@ export default function Ordenes() {
                                           <span
                                             className="font-bold leading-none"
                                             aria-hidden
-                                            title="Escalada por antig�edad"
+                                            title="Escalada por antigüedad"
                                           >
                                             ?
                                           </span>
@@ -1375,7 +1378,7 @@ export default function Ordenes() {
                                         strokeLinejoin="round"
                                       />
                                     </svg>
-                                    Resuelto reci�n
+                                    Resuelto recién
                                   </span>
                                 )}
                                 {(statusByName ||
@@ -1385,10 +1388,8 @@ export default function Ordenes() {
                                   <StatusChangedByChip
                                     name={statusByName}
                                     at={orden.status_changed_at}
-                                    fallbackName={resolveStatusChangedByName(
-                                      orden.creado_por_full_name,
-                                      orden.creado_por_username,
-                                    )}
+                                    fallbackName={resolveOrdenStatusFallbackName(orden)}
+                                    fallbackAt={orden.fecha_creacion}
                                     align="center"
                                   />
                                 )}
@@ -1482,7 +1483,7 @@ export default function Ordenes() {
                         className="px-2 py-8 text-center text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]"
                       >
                         <span role="status" aria-live="polite">
-                          Cargando �rdenes del mes�
+                          Cargando órdenes del mes…
                         </span>
                       </TableCell>
                     </TableRow>
@@ -1491,7 +1492,7 @@ export default function Ordenes() {
                     <TableRow>
                       <TableCell colSpan={8} className="px-4 py-10 text-center">
                         <p className="text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">
-                          Sin �rdenes
+                          Sin órdenes
                         </p>
                         <p className="mt-1 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">
                           Cambia de mes o ajusta los filtros para ver
@@ -1504,20 +1505,20 @@ export default function Ordenes() {
               </Table>
             </div>
 
-            {/* Navegaci�n por mes: siempre visible (tambi�n mientras carga). */}
+            {/* Navegación por mes: siempre visible (también mientras carga). */}
             <div className="border-t border-[#E7E7EA] px-5 py-4 dark:border-[#273244]">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between sm:gap-4 flex-wrap">
                 <p className="text-xs sm:text-sm text-[#52525B] dark:text-[#8EA0B8]">
                   {monthLoading ? (
                     <span role="status" aria-live="polite">
-                      Cargando �rdenes del mes seleccionado�
+                      Cargando órdenes del mes seleccionado…
                     </span>
                   ) : (
                     <>
                       <span className="font-medium text-[#09090B] dark:text-white">
                         {listadoOrdenes.length}
                       </span>{" "}
-                      {listadoOrdenes.length === 1 ? "orden" : "�rdenes"} en el
+                      {listadoOrdenes.length === 1 ? "orden" : "órdenes"} en el
                       mes
                     </>
                   )}
@@ -1598,7 +1599,7 @@ export default function Ordenes() {
         <OrdenViewModal
           open={problematicaModal.open}
           onClose={() => setProblematicaModal({ open: false, content: "" })}
-          title="Problem�tica"
+          title="Problemática"
           subtitle="Detalle completo reportado por el cliente"
           icon={
             <svg
@@ -1663,8 +1664,8 @@ export default function Ordenes() {
         <OrdenViewModal
           open={comentarioModal.open}
           onClose={() => setComentarioModal({ open: false, content: "" })}
-          title="Comentario del t�cnico"
-          subtitle="Observaciones y notas del t�cnico"
+          title="Comentario del técnico"
+          subtitle="Observaciones y notas del técnico"
           icon={
             <svg
               className="h-5 w-5"

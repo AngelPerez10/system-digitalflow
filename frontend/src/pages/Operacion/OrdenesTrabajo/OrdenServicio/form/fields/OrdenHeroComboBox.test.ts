@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clienteComboSelectedKey, usuarioComboLabel, withSelectedComboItem } from "./ordenHeroComboBoxUtils";
+import { clienteComboSelectedKey, comboSelectedKeyInItems, filterOrdenComboItems, shouldIgnoreComboCloseOnScroll, usuarioComboLabel, withSelectedComboItem } from "./ordenHeroComboBoxUtils";
 
 describe("clienteComboSelectedKey", () => {
   it("returns null without cliente", () => {
@@ -43,5 +43,40 @@ describe("usuarioComboLabel", () => {
 
   it("uses email when name is incomplete", () => {
     expect(usuarioComboLabel({ first_name: "", last_name: "", email: "a@x.com" })).toBe("a@x.com");
+  });
+});
+
+describe("filterOrdenComboItems", () => {
+  const items = [
+    { id: "1", label: "Ana Ruiz", description: "ana@x.com" },
+    { id: "2", label: "Luis Pérez", description: "luis@x.com" },
+  ];
+
+  it("returns the full list when the query is empty", () => {
+    expect(filterOrdenComboItems(items, "  ")).toEqual(items);
+  });
+
+  it("matches label or description", () => {
+    expect(filterOrdenComboItems(items, "luis@").map((i) => i.id)).toEqual(["2"]);
+  });
+});
+
+describe("shouldIgnoreComboCloseOnScroll", () => {
+  it("ignores close in the open window", () => {
+    expect(shouldIgnoreComboCloseOnScroll(1000, 1100, 220)).toBe(true);
+  });
+
+  it("allows close after the window", () => {
+    expect(shouldIgnoreComboCloseOnScroll(1000, 1300, 220)).toBe(false);
+  });
+});
+
+describe("comboSelectedKeyInItems", () => {
+  it("returns null when the key is missing from items", () => {
+    expect(comboSelectedKeyInItems("9", ["1", "2"])).toBeNull();
+  });
+
+  it("returns the key when it is present", () => {
+    expect(comboSelectedKeyInItems("2", ["1", "2"])).toBe("2");
   });
 });

@@ -15,7 +15,7 @@ import {
 } from "../../../OrdenTrabajoModals";
 import type { OrdenFormData } from "../useOrdenFormDraft";
 import OrdenHeroComboBox, { type OrdenComboItem } from "../fields/OrdenHeroComboBox";
-import { clienteComboSelectedKey, usuarioComboLabel, withSelectedComboItem } from "../fields/ordenHeroComboBoxUtils";
+import { clienteComboSelectedKey, comboSelectedKeyInItems, usuarioComboLabel, withSelectedComboItem } from "../fields/ordenHeroComboBoxUtils";
 import { formatOrdenPhotoProgress } from "../../shared/ordenImageUpload";
 import { formatYmdToDMY } from "../../shared/ordenesPageUtils";
 import {
@@ -245,15 +245,43 @@ export function OrdenClienteTab({
     [formData.cliente_id, formData.contacto_id, clienteItems],
   );
 
-  const tecnicoItems = useMemo(
-    (): OrdenComboItem[] =>
-      (usuarios || []).map((u) => ({
-        id: String(u.id),
-        label: usuarioComboLabel(u),
-        description: u.email,
-      })),
-    [usuarios],
-  );
+  const tecnicoItems = useMemo((): OrdenComboItem[] => {
+    const base: OrdenComboItem[] = (usuarios || []).map((u) => ({
+      id: String(u.id),
+      label: usuarioComboLabel(u),
+      description: u.email,
+    }));
+    const labelFor = (id: number | null, fallback: string) => {
+      if (id == null) return fallback;
+      const u = (usuarios || []).find((row) => Number(row.id) === id);
+      return u ? usuarioComboLabel(u) : fallback || `Usuario #${id}`;
+    };
+    const inject = (items: OrdenComboItem[], id: number | null, fallbackLabel: string) =>
+      withSelectedComboItem(
+        items,
+        id != null ? String(id) : null,
+        id != null ? { id: String(id), label: labelFor(id, fallbackLabel) } : null,
+      );
+    return inject(
+      inject(
+        inject(base, formData.tecnico_asignado, tecnicoSearch),
+        formData.quien_instalo,
+        quienInstaloSearch,
+      ),
+      formData.quien_entrego,
+      quienEntregoSearch,
+    );
+  }, [
+    usuarios,
+    formData.tecnico_asignado,
+    formData.quien_instalo,
+    formData.quien_entrego,
+    tecnicoSearch,
+    quienInstaloSearch,
+    quienEntregoSearch,
+  ]);
+
+  const tecnicoItemIds = useMemo(() => tecnicoItems.map((item) => item.id), [tecnicoItems]);
 
   const handleClienteSelect = (action: { id?: string | number; label?: string; __contacto?: { id?: number; celular?: string; nombre_apellido?: string } }) => {
     if (variant === "admin") {
@@ -504,7 +532,10 @@ export function OrdenClienteTab({
               placeholder="Buscar técnico..."
               triggerAriaLabel="Mostrar lista de técnicos"
               items={tecnicoItems}
-              selectedKey={formData.tecnico_asignado != null ? String(formData.tecnico_asignado) : null}
+              selectedKey={comboSelectedKeyInItems(
+                formData.tecnico_asignado != null ? String(formData.tecnico_asignado) : null,
+                tecnicoItemIds,
+              )}
               inputValue={tecnicoSearch}
               onSelectionChange={(key) => onUsuarioComboSelect(key, tecnicoLocked, selectTecnico)}
               onInputChange={onTecnicoAsignadoQueryChange}
@@ -527,7 +558,10 @@ export function OrdenClienteTab({
                 placeholder="Buscar técnico..."
                 triggerAriaLabel="Mostrar lista de quién instaló"
                 items={tecnicoItems}
-                selectedKey={formData.quien_instalo != null ? String(formData.quien_instalo) : null}
+                selectedKey={comboSelectedKeyInItems(
+                  formData.quien_instalo != null ? String(formData.quien_instalo) : null,
+                  tecnicoItemIds,
+                )}
                 inputValue={quienInstaloSearch}
                 onSelectionChange={(key) => onUsuarioComboSelect(key, quienInstaloLocked, selectQuienInstalo)}
                 onInputChange={onQuienInstaloQueryChange}
@@ -548,7 +582,10 @@ export function OrdenClienteTab({
                 placeholder="Buscar técnico..."
                 triggerAriaLabel="Mostrar lista de quién entregó"
                 items={tecnicoItems}
-                selectedKey={formData.quien_entrego != null ? String(formData.quien_entrego) : null}
+                selectedKey={comboSelectedKeyInItems(
+                  formData.quien_entrego != null ? String(formData.quien_entrego) : null,
+                  tecnicoItemIds,
+                )}
                 inputValue={quienEntregoSearch}
                 onSelectionChange={(key) => onUsuarioComboSelect(key, quienEntregoLocked, selectQuienEntrego)}
                 onInputChange={onQuienEntregoQueryChange}

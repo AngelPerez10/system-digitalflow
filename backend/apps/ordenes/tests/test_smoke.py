@@ -45,6 +45,14 @@ class OrdenesSmokeTests(APITestCase):
         response = self.client.post("/api/ordenes/", payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn("id", response.data)
+        orden = Orden.objects.get(pk=response.data["id"])
+        self.assertEqual(orden.status_changed_by_id, self.user.id)
+        self.assertIsNotNone(orden.status_changed_at)
+        self.assertEqual(response.data.get("status_changed_by"), self.user.id)
+        self.assertTrue(
+            response.data.get("status_changed_by_username")
+            or response.data.get("status_changed_by_full_name")
+        )
 
     def test_non_admin_cannot_cancel_orden(self):
         create = self.client.post(
@@ -440,7 +448,9 @@ class OrdenesVerTodasEditTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.orden_ajena.refresh_from_db()
         self.assertIsNotNone(self.orden_ajena.status_changed_at)
+        self.assertEqual(self.orden_ajena.status_changed_by_id, self.jefe.id)
         self.assertIsNotNone(response.data.get("status_changed_at"))
+        self.assertEqual(response.data.get("status_changed_by"), self.jefe.id)
 
     def test_patch_without_status_change_keeps_status_changed_at(self):
         first = self.client.patch(

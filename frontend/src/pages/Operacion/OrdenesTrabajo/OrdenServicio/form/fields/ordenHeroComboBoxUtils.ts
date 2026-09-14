@@ -31,3 +31,26 @@ export function withSelectedComboItem<T extends { id: string }>(
   next.splice(createIdx, 0, injected);
   return next;
 }
+
+/** Query vacío = toda la lista. RAC defaultFilter a veces deja 0 filas y no abre el menú. */
+export function filterOrdenComboItems<T extends { label: string; description?: string }>(
+  items: T[],
+  query: string,
+): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter((item) => {
+    const haystack = `${item.label} ${item.description ?? ""}`.toLowerCase();
+    return haystack.includes(q);
+  });
+}
+
+/** El modal hace scroll-into-view al enfocar; RAC lo toma como scroll y cierra el ComboBox. */
+export function shouldIgnoreComboCloseOnScroll(openedAtMs: number, nowMs = Date.now(), windowMs = 220): boolean {
+  return nowMs - openedAtMs < windowMs;
+}
+
+export function comboSelectedKeyInItems(selectedKey: string | null, itemIds: readonly string[]): string | null {
+  if (!selectedKey) return null;
+  return itemIds.includes(selectedKey) ? selectedKey : null;
+}

@@ -397,13 +397,13 @@ export const fetchClientesApi = async (search = "") => {
 export const fetchUsuariosApi = async () => {
   try {
     const commonHeaders = { "Content-Type": "application/json" } as HeadersInit;
-    let response = await fetchApi("/api/ordenes/tecnico-opciones/", { headers: commonHeaders });
-    if (!response.ok) {
-      response = await fetchApi("/api/users/accounts/", { headers: commonHeaders });
-    }
-    if (response.ok) {
+    const endpoints = ["/api/ordenes/tecnico-opciones/", "/api/users/accounts/"];
+    for (const url of endpoints) {
+      const response = await fetchApi(url, { headers: commonHeaders });
+      if (!response.ok) continue;
       const data = await response.json();
-      return unwrapListResults<Usuario>(data);
+      const rows = unwrapListResults<Usuario>(data);
+      if (rows.length > 0 || url === endpoints[endpoints.length - 1]) return rows;
     }
     return [];
   } catch (error) {

@@ -31,7 +31,10 @@ import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./list/OrdenEnvi
 import {
   StatusChangedByChip,
 } from "../../shared/StatusChangedByChip";
-import { resolveStatusChangedByName } from "../../shared/statusChangedBy";
+import {
+  resolveOrdenStatusFallbackName,
+  resolveStatusChangedByName,
+} from "../../shared/statusChangedBy";
 import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
 import {
   getOrdenPrioridadSectionStyles,
@@ -963,10 +966,8 @@ export default function OrdenesTecnico() {
                             <StatusChangedByChip
                               name={statusByName}
                               at={orden.status_changed_at}
-                              fallbackName={resolveStatusChangedByName(
-                                orden.creado_por_full_name,
-                                orden.creado_por_username,
-                              )}
+                              fallbackName={resolveOrdenStatusFallbackName(orden)}
+                              fallbackAt={orden.fecha_creacion}
                               align="center"
                             />
                           )}
