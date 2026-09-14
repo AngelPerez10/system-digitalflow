@@ -11,11 +11,17 @@ from .portal_views import (
     portal_solicitud_rechazar_view,
     portal_solicitudes_list_view,
 )
-from .views import ClienteContactoViewSet, ClienteDocumentoViewSet, ClienteViewSet
+from .views import (
+    ClienteContactoViewSet,
+    ClienteDireccionViewSet,
+    ClienteDocumentoViewSet,
+    ClienteViewSet,
+)
 
 router = DefaultRouter()
 router.register(r'clientes', ClienteViewSet, basename='cliente')
 router.register(r'cliente-contactos', ClienteContactoViewSet, basename='cliente-contacto')
+router.register(r'cliente-direcciones', ClienteDireccionViewSet, basename='cliente-direccion')
 router.register(r'cliente-documentos', ClienteDocumentoViewSet, basename='cliente-documento')
 
 urlpatterns = [

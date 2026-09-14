@@ -43,6 +43,10 @@ import type {
 import { emptyInstalacionDraft, type ProyectoInstalacionDraft } from "../instalaciones";
 import { useCotizacionPicker } from "./cotizaciones/useCotizacionPicker";
 import type { SyscomModeloSeleccionado } from "./fields/ProyectoSyscomModeloPicker";
+import {
+  shouldClearFetchedSignature,
+  toHttpsImageUrl,
+} from "@/pages/Operacion/shared/tecnicoSignatureDisplay";
 
 export type ProyectoFormTab = "cliente" | "operacion" | "presupuesto" | "instalaciones";
 
@@ -90,6 +94,9 @@ export function useProyectoFormState({
   const formScrollRef = useRef<HTMLDivElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
   const tecnicoSignatureCacheRef = useRef<Record<number, string>>({});
+  const signatureTecnicoIdRef = useRef<number | null>(
+    initialDraft.tecnico?.id != null ? Number(initialDraft.tecnico.id) : null,
+  );
 
   const [notasLiveMessage, setNotasLiveMessage] = useState("");
   const [clienteStepError, setClienteStepError] = useState("");
@@ -304,8 +311,12 @@ export function useProyectoFormState({
     setFechaEnvioAdmin(initialDraft.fechaEnvioAdmin);
     setEvidenciasUrls(initialDraft.evidenciasUrls ?? []);
     setFirmaClienteUrl(initialDraft.firmaClienteUrl);
-    setFirmaTecnicoUrl(initialDraft.firmaTecnicoUrl);
-    setTecnicoSignatureUrl("");
+    setFirmaTecnicoUrl(toHttpsImageUrl(initialDraft.firmaTecnicoUrl));
+    const nextTec = initialDraft.tecnico?.id != null ? Number(initialDraft.tecnico.id) : null;
+    if (shouldClearFetchedSignature(signatureTecnicoIdRef.current, nextTec)) {
+      setTecnicoSignatureUrl("");
+    }
+    signatureTecnicoIdRef.current = nextTec;
     setCloseBlockedMessage("");
     setClienteStepError("");
     setHoraSalidaError("");
@@ -390,18 +401,12 @@ export function useProyectoFormState({
     const tecnicoId = tecnico.id != null ? Number(tecnico.id) : null;
     if (!tecnicoId) {
       setTecnicoSignatureUrl("");
-      setFirmaTecnicoUrl("");
       return;
     }
 
-    // Al cambiar de responsable: limpiar firma previa hasta cargar la del nuevo.
-    setTecnicoSignatureUrl("");
-    setFirmaTecnicoUrl("");
-
     const cached = tecnicoSignatureCacheRef.current[tecnicoId];
-    if (typeof cached === "string") {
-      setTecnicoSignatureUrl(cached);
-      setFirmaTecnicoUrl(cached);
+    if (cached) {
+      setTecnicoSignatureUrl(toHttpsImageUrl(cached));
       return;
     }
 
@@ -413,16 +418,13 @@ export function useProyectoFormState({
         });
         const data = (await res.json().catch(() => null)) as { url?: string } | null;
         if (cancelled) return;
-        const url = res.ok ? String(data?.url || "") : "";
-        tecnicoSignatureCacheRef.current[tecnicoId] = url;
+        const url = res.ok ? toHttpsImageUrl(data?.url) : "";
+        // No cachear vacío: si el técnico aún no tenía firma, debe reintentarse
+        // la próxima vez (p. ej. la agregó después) en vez de quedar "pegado" en blanco.
+        if (url) tecnicoSignatureCacheRef.current[tecnicoId] = url;
         setTecnicoSignatureUrl(url);
-        setFirmaTecnicoUrl(url);
       } catch {
-        if (!cancelled) {
-          tecnicoSignatureCacheRef.current[tecnicoId] = "";
-          setTecnicoSignatureUrl("");
-          setFirmaTecnicoUrl("");
-        }
+        /* El pad usa firmaTecnicoUrl de la orden como respaldo. */
       }
     })();
 

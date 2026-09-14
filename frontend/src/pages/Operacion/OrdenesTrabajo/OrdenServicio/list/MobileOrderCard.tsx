@@ -24,8 +24,8 @@ import { OrdenStatusSectionHeader } from "./OrdenStatusSectionHeader";
 import { OrdenArrastreBadge } from "./OrdenArrastreBadge";
 import {
   StatusChangedByChip,
-  resolveStatusChangedByName,
 } from "../../../shared/StatusChangedByChip";
+import { resolveStatusChangedByName } from "../../../shared/statusChangedBy";
 
 const isGoogleMapsUrl = (value: string | null | undefined): boolean => {
   if (!value) return false;
@@ -124,7 +124,7 @@ export function MobileOrderCard({
 
   return (
     <article
-      className={`${erpMobileCardClass} !p-3.5 ${showRecentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isTerminal ? "" : prioTone.rowAccent}`}
+      className={`${erpMobileCardClass} p-3.5! ${showRecentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isTerminal ? "" : prioTone.rowAccent}`}
       aria-label={`Orden ${folioDisplay}, ${statusLabel}${isTerminal ? "" : `, prioridad ${prioLabel.toLowerCase()}`}${showRecentResolved ? ", resuelta recientemente" : ""}`}
     >
       {/* Cabecera: folio + chips (sin acciones; jerarquía contenido primero) */}
@@ -300,7 +300,7 @@ export function MobileOrderCard({
             onChange={(e) => onNotaChange(orden.id, e.target.value)}
             rows={2}
             placeholder="Escriba sus notas…"
-            className="w-full min-h-[40px] resize-y rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-2 text-[13px] text-[#09090B] outline-none placeholder:text-[#A1A1AA] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[rgba(27,92,255,0.2)] dark:border-[#273244] dark:bg-[#0f172a]/60 dark:text-[#e5e7eb]"
+            className="w-full min-h-10 resize-y rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-2 text-[13px] text-[#09090B] outline-none placeholder:text-[#A1A1AA] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[rgba(27,92,255,0.2)] dark:border-[#273244] dark:bg-[#0f172a]/60 dark:text-[#e5e7eb]"
           />
         </div>
       )}
@@ -308,7 +308,7 @@ export function MobileOrderCard({
       {/* Acciones al pie: no compiten con el contenido */}
       <footer className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#E7E7EA] pt-3 dark:border-[#273244]">
         <button type="button" onClick={() => onPdf(orden)} className={mobileActionBtnClass} aria-label="Descargar PDF">
-          <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <path d="M14 2v6h6" />
           </svg>
@@ -320,7 +320,7 @@ export function MobileOrderCard({
             className={mobileActionBtnClass}
             aria-label="Enviar PDF por correo"
           >
-            <MailIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+            <MailIcon className="h-4.5 w-4.5" aria-hidden="true" />
           </button>
         )}
         <button
@@ -329,14 +329,14 @@ export function MobileOrderCard({
           className={mobileActionBtnClass}
           aria-label="Ver problemática"
         >
-          <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
             <circle cx="12" cy="12" r="3" />
           </svg>
         </button>
         {canEdit && onEdit && (
           <button type="button" onClick={() => onEdit(orden)} className={mobileActionBtnClass} aria-label="Editar orden">
-            <PencilIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+            <PencilIcon className="h-4.5 w-4.5" aria-hidden="true" />
           </button>
         )}
         {canDelete && onDelete && (
@@ -346,7 +346,7 @@ export function MobileOrderCard({
             className={`${mobileActionBtnClass} hover:border-rose-400 hover:text-rose-600`}
             aria-label="Eliminar orden"
           >
-            <TrashBinIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+            <TrashBinIcon className="h-4.5 w-4.5" aria-hidden="true" />
           </button>
         )}
       </footer>
@@ -357,7 +357,7 @@ export function MobileOrderCard({
         title="Problemática"
         subtitle="Detalle reportado por el cliente"
       >
-        <pre className="whitespace-pre-wrap break-words leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 text-[13px] dark:border-[#273244] dark:bg-[#0f172a]/60">
+        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 text-[13px] dark:border-[#273244] dark:bg-[#0f172a]/60">
           {orden.problematica || "—"}
         </pre>
       </OrdenViewModal>

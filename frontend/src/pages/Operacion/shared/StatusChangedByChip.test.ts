@@ -3,7 +3,7 @@ import {
   initialsFromDisplayName,
   resolveStatusAudit,
   resolveStatusChangedByName,
-} from "./StatusChangedByChip";
+} from "./statusChangedBy";
 
 describe("resolveStatusChangedByName", () => {
   it("prioriza nombre completo sobre username", () => {

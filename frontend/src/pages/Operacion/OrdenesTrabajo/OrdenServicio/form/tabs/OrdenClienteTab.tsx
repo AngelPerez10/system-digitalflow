@@ -19,16 +19,13 @@ import { clienteComboSelectedKey, usuarioComboLabel } from "../fields/ordenHeroC
 import { formatOrdenPhotoProgress } from "../../shared/ordenImageUpload";
 import { formatYmdToDMY } from "../../shared/ordenesPageUtils";
 import {
-  StatusChangedByChip,
-  resolveStatusChangedByName,
-} from "../../../../shared/StatusChangedByChip";
-import {
   ClearSelectionButton,
   openDireccionInMaps,
   OrdenFormSection,
   RequiredMark,
   type OrdenFieldKey,
 } from "./ordenTabHelpers";
+import { pickTecnicoSignatureDisplayUrl } from "@/pages/Operacion/shared/tecnicoSignatureDisplay";
 
 function localYmdAndHm(now = new Date()): { ymd: string; hm: string } {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -423,7 +420,7 @@ export function OrdenClienteTab({
               type="button"
               onClick={() => setShowMapModal(true)}
               aria-label="Seleccionar dirección en mapa"
-              className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-blue-600 transition-colors hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] dark:text-blue-400 dark:hover:text-blue-300"
+              className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-blue-600 transition-colors hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] dark:text-blue-400 dark:hover:text-blue-300"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
@@ -447,7 +444,7 @@ export function OrdenClienteTab({
               <button
                 type="button"
                 onClick={() => openDireccionInMaps(formData.direccion)}
-                className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
+                className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
                 aria-label="Abrir dirección en Google Maps"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -597,25 +594,6 @@ export function OrdenClienteTab({
                 Fecha de cierre: {formatYmdToDMY(formData.fecha_finalizacion)}
                 {formData.hora_termino ? ` · ${formData.hora_termino.slice(0, 5)}` : ""}
               </p>
-            ) : null}
-            {editingOrden &&
-            (editingOrden.status_changed_by_full_name ||
-              editingOrden.status_changed_by_username ||
-              editingOrden.status_changed_at ||
-              editingOrden.creado_por_full_name ||
-              editingOrden.creado_por_username) ? (
-              <StatusChangedByChip
-                variant="panel"
-                name={resolveStatusChangedByName(
-                  editingOrden.status_changed_by_full_name,
-                  editingOrden.status_changed_by_username,
-                )}
-                at={editingOrden.status_changed_at}
-                fallbackName={resolveStatusChangedByName(
-                  editingOrden.creado_por_full_name,
-                  editingOrden.creado_por_username,
-                )}
-              />
             ) : null}
           </div>
 
@@ -812,7 +790,11 @@ export function OrdenClienteTab({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <SignaturePad
             label="Firma del encargado"
-            value={formData.tecnico_asignado != null ? tecnicoSignatureUrl : ""}
+            value={pickTecnicoSignatureDisplayUrl({
+              tecnicoAsignadoId: formData.tecnico_asignado,
+              fetchedProfileUrl: tecnicoSignatureUrl,
+              storedOrdenUrl: formData.firma_encargado_url,
+            })}
             disabled
             onChange={() => {}}
             width={400}
@@ -882,7 +864,7 @@ export function OrdenClienteTab({
               <input {...getInputProps()} />
               <div className="dz-message m-0! flex flex-col items-center">
                 <div className="mb-3 flex justify-center">
-                  <div className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-[#EDEDED] text-[#52525B] dark:bg-[#111827] dark:text-[#8ea0b8]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EDEDED] text-[#52525B] dark:bg-[#111827] dark:text-[#8ea0b8]">
                     <svg className="fill-current" width="22" height="22" viewBox="0 0 29 28" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                       <path
                         fillRule="evenodd"
@@ -902,7 +884,7 @@ export function OrdenClienteTab({
                 <span className="mb-2 block w-full max-w-[320px] text-center text-[12px] text-[#3F3F46] dark:text-[#8ea0b8]">
                   {uploadingPhotos
                     ? "Puedes elegir varias; se suben de dos en dos para que no salgan en blanco."
-                    : "JPG, PNG o WebP. En iPhone usa «Más compatible» (no HEIC)."}
+                    : "JPG, PNG o WebP. En Android, espera a que termine de procesar cada foto."}
                 </span>
                 {photoUploadProgress ? (
                   <p role="status" aria-live="polite" className="text-sm font-medium text-[#1244D1] dark:text-[#4B7CFF]">
@@ -919,7 +901,7 @@ export function OrdenClienteTab({
         {Array.isArray(formData.fotos_urls) && formData.fotos_urls.length > 0 && (
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:text-[#8ea0b8]">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#6E6E77] dark:text-[#8ea0b8]">
                 Fotos de la orden
               </p>
               <span className="text-[11px] tabular-nums text-[#6E6E77] dark:text-[#8ea0b8]">
@@ -972,7 +954,7 @@ export function OrdenClienteTab({
                           </span>
                         </>
                       )}
-                      <span className="pointer-events-none absolute bottom-1 left-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-md bg-black/55 px-1 text-[10px] font-semibold tabular-nums text-white">
+                      <span className="pointer-events-none absolute bottom-1 left-1 inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-black/55 px-1 text-[10px] font-semibold tabular-nums text-white">
                         {index + 1}
                       </span>
                     </button>
@@ -983,7 +965,7 @@ export function OrdenClienteTab({
                           e.stopPropagation();
                           setConfirmDelete({ open: true, index, url: preview });
                         }}
-                        className="absolute right-1 top-1 z-[1] inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-[#C22B2B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white active:scale-95 sm:opacity-0 sm:group-hover:opacity-100"
+                        className="absolute right-1 top-1 z-1 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-[#C22B2B] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white active:scale-95 sm:opacity-0 sm:group-hover:opacity-100"
                         aria-label={`Eliminar foto ${index + 1}`}
                       >
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

@@ -6,6 +6,7 @@ import type { Cliente } from "@/types/cliente";
 import { onlyDigits10 } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
 import { ClienteMapPickerModal } from "./ClienteMapPickerModal";
 import { ClienteSimplifiedFormFields } from "./ClienteSimplifiedFormFields";
+import { seedPrincipalDireccion } from "./clienteDireccionesApi";
 import {
   type ClienteFormTab,
   type ClienteTipo,
@@ -131,13 +132,14 @@ export function ClienteFormModal({
 
     const url = editingCliente ? `/api/clientes/${editingCliente.id}/` : "/api/clientes/";
     const method = editingCliente ? "PUT" : "POST";
+    const isEditing = !!editingCliente;
 
     setSaving(true);
     try {
       const response = await fetchApi(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildClientePayload(formData, fixedTipo)),
+        body: JSON.stringify(buildClientePayload(formData, fixedTipo, isEditing)),
       });
 
       if (!response.ok) {
@@ -161,6 +163,10 @@ export function ClienteFormModal({
             : "El cliente se guardó, pero no se pudo guardar el contacto."
         );
         return;
+      }
+
+      if (!isEditing) {
+        await seedPrincipalDireccion(saved.id, formData);
       }
 
       handleClose();

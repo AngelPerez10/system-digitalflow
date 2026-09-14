@@ -112,7 +112,7 @@ export default function OrdenesListFiltersPopover({
     filterTecnicoId == null ? "" : filterTecnicoId === 0 ? "0" : String(filterTecnicoId);
 
   return (
-    <div className={`relative w-full sm:w-auto ${open ? "z-[100]" : "z-0"}`} ref={rootRef}>
+    <div className={`relative w-full sm:w-auto ${open ? "z-100" : "z-0"}`} ref={rootRef}>
       <button
         type="button"
         className={`${erpFilterBtnClass} w-full sm:w-auto ${activeFilterCount > 0 ? erpFilterBtnActiveClass : ""}`}
@@ -183,7 +183,7 @@ export default function OrdenesListFiltersPopover({
                     if (v === "") setFilterTecnicoId(null);
                     else setFilterTecnicoId(Number(v));
                   }}
-                  className={`${erpSelectFieldClass} !h-10`}
+                  className={`${erpSelectFieldClass} h-10!`}
                 >
                   <option value="">Todos los usuarios</option>
                   <option value="0">Sin asignar</option>
@@ -198,7 +198,7 @@ export default function OrdenesListFiltersPopover({
 
             <div>
               <div className="mb-2 flex items-end justify-between gap-2">
-                <p id={`${panelId}-servicios-label`} className={`${erpFilterSectionLabelClass} !mb-0`}>
+                <p id={`${panelId}-servicios-label`} className={`${erpFilterSectionLabelClass} mb-0!`}>
                   Servicios realizados
                 </p>
                 {filterServicio.length > 0 && (
@@ -219,7 +219,7 @@ export default function OrdenesListFiltersPopover({
                   value={servicioQuery}
                   onChange={(e) => setServicioQuery(e.target.value)}
                   placeholder="Buscar servicio…"
-                  className={`${erpSelectFieldClass} !h-9 mb-2`}
+                  className={`${erpSelectFieldClass} h-9! mb-2`}
                   autoComplete="off"
                 />
               )}
@@ -245,7 +245,7 @@ export default function OrdenesListFiltersPopover({
                         className={`flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors ${
                           checked
                             ? "bg-[#F1F5FF] text-[#1244D1] dark:bg-[#4B7CFF]/10 dark:text-[#4B7CFF]"
-                            : "text-[#3d3d3a] hover:bg-white/80 dark:text-[#cbd5e1] dark:hover:bg-white/[0.04]"
+                            : "text-[#3d3d3a] hover:bg-white/80 dark:text-[#cbd5e1] dark:hover:bg-white/4"
                         }`}
                       >
                         <input
@@ -281,7 +281,7 @@ export default function OrdenesListFiltersPopover({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className={`${erpPrimaryBtnClass} h-10 flex-1 !w-full`}
+              className={`${erpPrimaryBtnClass} h-10 flex-1 w-full!`}
             >
               Aplicar
             </button>
@@ -292,7 +292,7 @@ export default function OrdenesListFiltersPopover({
                 setServicioQuery("");
                 onOpenChange(false);
               }}
-              className={`${erpSecondaryBtnClass} h-10 flex-1 !w-full`}
+              className={`${erpSecondaryBtnClass} h-10 flex-1 w-full!`}
             >
               Limpiar
             </button>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { Modal } from "@/components/ui/modal";
 import {
@@ -26,11 +26,14 @@ import {
   ordenImageRejectMessage,
   uploadOrdenImageBatch,
 } from "../OrdenServicio/shared/ordenImageUpload";
-import ActionSearchBar from "@/components/kokonutui/action-search-bar";
+import { pickTecnicoSignatureDisplayUrl, toHttpsImageUrl } from "@/pages/Operacion/shared/tecnicoSignatureDisplay";
+import ActionSearchBar, { type Action } from "@/components/kokonutui/action-search-bar";
 import LevantamientoForm from "./LevantamientoForm";
 import SignaturePad from "@/components/ui/signature/SignaturePad";
 import { TimeIcon } from "@/icons";
-import { Cliente } from "@/types/cliente";
+import { Cliente, type ClienteContacto } from "@/types/cliente";
+import { type Orden } from "../OrdenServicio/shared/ordenesPageTypes";
+import { type LevantamientoSnap } from "../OrdenServicio/form/useOrdenFormDraft";
 
 interface ServicioCatalogo {
   id: number;
@@ -48,12 +51,51 @@ interface Usuario {
   last_name: string;
 }
 
+type OrdenMapLatLng = { lat: number; lng: number };
+
+type LeafletMap = {
+  remove: () => void;
+  setView: (center: [number, number], zoom?: number) => LeafletMap;
+  getZoom: () => number;
+  on: (event: string, handler: (e?: { latlng?: OrdenMapLatLng }) => void) => LeafletMap;
+};
+
+type LeafletMarker = {
+  setLatLng: (latlng: [number, number]) => void;
+  addTo: (map: LeafletMap) => LeafletMarker;
+};
+
+type LeafletNS = {
+  map: (el: HTMLElement | string, options?: { zoomControl?: boolean }) => LeafletMap;
+  tileLayer: (
+    url: string,
+    options?: { maxZoom?: number; attribution?: string },
+  ) => { addTo: (map: LeafletMap) => void };
+  marker: (latlng: [number, number]) => LeafletMarker;
+};
+
+type ClienteSearchAction = Action & {
+  __cliente?: Cliente;
+  __contacto?: ClienteContacto | null;
+};
+
+type CercoMaterialItem = {
+  cantidad?: unknown;
+  precio_lista?: unknown;
+  descuento_pct?: unknown;
+  producto_externo_id?: unknown;
+  producto_nombre?: unknown;
+  producto_descripcion?: unknown;
+  unidad?: unknown;
+  thumbnail_url?: unknown;
+};
+
 export interface OrdenServicioModalProps {
   open: boolean;
   onClose: () => void;
-  orden: any | null;
+  orden: Orden | null;
   forceTipoOrden?: "levantamiento";
-  onSaved: (savedOrden: any) => void;
+  onSaved: (savedOrden: Orden) => void;
   /** Nueva orden: fecha de inicio sugerida (YYYY-MM-DD). Si no se envía, se usa hoy. */
   defaultFechaInicioForNewOrden?: string;
   /** Texto del mes seleccionado en el listado (solo informativo en el formulario de levantamiento). */
@@ -129,14 +171,16 @@ export default function OrdenServicioModal({
   const formScrollRef = useRef<HTMLFormElement | null>(null);
   const formNonceRef = useRef(0);
   const fotosUrlsRef = useRef<string[]>([]);
-  const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
+  const levantamientoSnapshotRef = useRef<LevantamientoSnap | null>(null);
 
   const [showMapModal, setShowMapModal] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+  const [selectedLocation, setSelectedLocation] = useState<OrdenMapLatLng | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const markerRef = useRef<LeafletMarker | null>(null);
   const zoomRef = useRef<number>(15);
   const mapContainerId = "leaflet-map-orden-lev-modal";
+  const formDireccionRef = useRef(formData.direccion);
+  formDireccionRef.current = formData.direccion;
 
   // Cargar Leaflet e inicializar mapa al abrir modal (mismo flujo que OrdenesPage)
   useEffect(() => {
@@ -153,8 +197,8 @@ export default function OrdenServicioModal({
       return;
     }
 
-    const parseCoordsFromDireccion = (): { lat: number; lng: number } | null => {
-      const d = (formData.direccion || "").trim();
+    const parseCoordsFromDireccion = (): OrdenMapLatLng | null => {
+      const d = (formDireccionRef.current || "").trim();
       const m = d.match(/q=([-\d.]+),([-\d.]+)/);
       if (m) {
         const lat = parseFloat(m[1]);
@@ -164,8 +208,8 @@ export default function OrdenServicioModal({
       return null;
     };
 
-    const ensureLeaflet = async () => {
-      const w: any = window as any;
+    const ensureLeaflet = async (): Promise<LeafletNS> => {
+      const w = window as Window & { L?: LeafletNS };
       if (w.L) return w.L;
       if (!document.getElementById("leaflet-css-lev")) {
         const link = document.createElement("link");
@@ -187,7 +231,9 @@ export default function OrdenServicioModal({
         script.onerror = () => reject(new Error("Leaflet load error"));
         document.body.appendChild(script);
       });
-      return (window as any).L;
+      const L = (window as Window & { L?: LeafletNS }).L;
+      if (!L) throw new Error("Leaflet no disponible");
+      return L;
     };
 
     (async () => {
@@ -210,9 +256,10 @@ export default function OrdenServicioModal({
             /* ignore */
           }
         });
-        map.on("click", (e: any) => {
-          const { lat, lng } = e.latlng;
-          setSelectedLocation({ lat, lng });
+        map.on("click", (e) => {
+          const latlng = e?.latlng;
+          if (!latlng) return;
+          setSelectedLocation({ lat: latlng.lat, lng: latlng.lng });
         });
         mapRef.current = map;
         markerRef.current = L.marker([initialCenter.lat, initialCenter.lng]).addTo(map);
@@ -229,7 +276,7 @@ export default function OrdenServicioModal({
   }, [showMapModal]);
 
   useEffect(() => {
-    const L: any = (window as any).L;
+    const L = (window as Window & { L?: LeafletNS }).L;
     if (!mapRef.current || !selectedLocation || !L) return;
     const map = mapRef.current;
     const currentZoom = typeof zoomRef.current === "number" ? zoomRef.current : map.getZoom?.() || 15;
@@ -304,7 +351,7 @@ export default function OrdenServicioModal({
         problematica: orden.problematica ?? "",
         servicios_realizados: Array.isArray(orden.servicios_realizados) ? orden.servicios_realizados : [],
         comentario_tecnico: orden.comentario_tecnico ?? "",
-        status: orden.status ?? "pendiente",
+        status: orden.status === "resuelto" ? "resuelto" : "pendiente",
         fecha_inicio: orden.fecha_inicio ?? "",
         hora_inicio: orden.hora_inicio ?? "",
         fecha_finalizacion: orden.fecha_finalizacion ?? "",
@@ -337,7 +384,7 @@ export default function OrdenServicioModal({
       setQuienEntregoSearch("");
       setServicioSearch("");
     }
-  }, [open, orden?.id, defaultFechaInicioForNewOrden]);
+  }, [open, orden, defaultFechaInicioForNewOrden]);
 
   useEffect(() => {
     const tecId = formData.tecnico_asignado;
@@ -353,12 +400,13 @@ export default function OrdenServicioModal({
         });
         const data = await res.json().catch(() => null);
         if (cancelled) return;
-        const url = res.ok && typeof (data as { url?: string })?.url === "string"
-          ? (data as { url: string }).url.trim()
-          : "";
+        const url =
+          res.ok && typeof (data as { url?: string })?.url === "string"
+            ? toHttpsImageUrl((data as { url: string }).url)
+            : "";
         setTecnicoSignatureUrl(url);
       } catch {
-        if (!cancelled) setTecnicoSignatureUrl("");
+        /* El pad usa firma_encargado_url de la orden como respaldo. */
       }
     })();
     return () => {
@@ -400,7 +448,7 @@ export default function OrdenServicioModal({
   const selectCliente = (cliente: Cliente | null) => {
     if (cliente) {
       const contactoPrincipal =
-        (cliente.contactos || []).find((c: any) => c.is_principal) || (cliente.contactos || [])[0];
+        (cliente.contactos || []).find((c) => c.is_principal) || (cliente.contactos || [])[0];
       setFormData((prev) => ({
         ...prev,
         cliente_id: cliente.id,
@@ -595,11 +643,11 @@ export default function OrdenServicioModal({
     }
   };
 
-  const clienteActions = useMemo(() => {
+  const clienteActions = useMemo((): ClienteSearchAction[] => {
     const q = clienteSearch.trim().toLowerCase();
     const base = (clientes || [])
-      .flatMap((c) => {
-        const contactos = Array.isArray((c as any).contactos) ? (c as any).contactos : [];
+      .flatMap((c): ClienteSearchAction[] => {
+        const contactos = Array.isArray(c.contactos) ? c.contactos : [];
         if (!contactos.length) {
           const labelBase = (c.nombre || "-").toString();
           return [
@@ -615,7 +663,7 @@ export default function OrdenServicioModal({
             },
           ];
         }
-        return contactos.map((ct: any, idx: number) => {
+        return contactos.map((ct, idx) => {
           const labelBase = (c.nombre || "-").toString();
           const contactoNombre = String(ct?.nombre_apellido ?? "").trim();
           const label = contactoNombre ? `${labelBase} - ${contactoNombre}` : labelBase;
@@ -631,7 +679,7 @@ export default function OrdenServicioModal({
           };
         });
       })
-      .filter((a: any) => {
+      .filter((a) => {
         if (!q) return true;
         const label = String(a?.label ?? "").toLowerCase();
         const desc = String(a?.description ?? "").toLowerCase();
@@ -640,7 +688,7 @@ export default function OrdenServicioModal({
     return base;
   }, [clientes, clienteSearch]);
 
-  const buildTecnicoActions = (searchValue: string) => {
+  const buildTecnicoActions = useCallback((searchValue: string): Action[] => {
     const q = searchValue.trim().toLowerCase();
     return (usuarios || [])
       .filter((u) => {
@@ -659,11 +707,11 @@ export default function OrdenServicioModal({
           end: "",
         };
       });
-  };
+  }, [usuarios]);
 
-  const tecnicoActions = useMemo(() => buildTecnicoActions(tecnicoSearch), [usuarios, tecnicoSearch]);
-  const quienInstaloActions = useMemo(() => buildTecnicoActions(quienInstaloSearch), [usuarios, quienInstaloSearch]);
-  const quienEntregoActions = useMemo(() => buildTecnicoActions(quienEntregoSearch), [usuarios, quienEntregoSearch]);
+  const tecnicoActions = useMemo(() => buildTecnicoActions(tecnicoSearch), [buildTecnicoActions, tecnicoSearch]);
+  const quienInstaloActions = useMemo(() => buildTecnicoActions(quienInstaloSearch), [buildTecnicoActions, quienInstaloSearch]);
+  const quienEntregoActions = useMemo(() => buildTecnicoActions(quienEntregoSearch), [buildTecnicoActions, quienEntregoSearch]);
 
   const servicioActions = useMemo(() => {
     const q = servicioSearch.trim().toLowerCase();
@@ -754,14 +802,14 @@ export default function OrdenServicioModal({
       const path = orden?.id ? `/api/ordenes/${orden.id}/` : "/api/ordenes/";
       const method = orden?.id ? "PUT" : "POST";
 
-      const payload: any = { ...formData };
+      const payload: Record<string, unknown> = { ...formData };
       delete payload.firma_encargado_url;
       delete payload.contacto_id;
       if (payload.tecnico_asignado == null) delete payload.tecnico_asignado;
       if (payload.quien_instalo == null) delete payload.quien_instalo;
       if (payload.quien_entrego == null) delete payload.quien_entrego;
 
-      const toNullIfEmpty = (v: any) => (typeof v === "string" && v.trim() === "" ? null : v);
+      const toNullIfEmpty = (v: unknown) => (typeof v === "string" && v.trim() === "" ? null : v);
       payload.direccion = toNullIfEmpty(payload.direccion);
       payload.telefono_cliente = toNullIfEmpty(payload.telefono_cliente);
       payload.problematica = toNullIfEmpty(payload.problematica);
@@ -804,16 +852,16 @@ export default function OrdenServicioModal({
         return;
       }
 
-      const savedOrden = await response.json();
-      const cid = payload?.cliente_id;
+      const savedOrden = (await response.json()) as Orden;
+      const cid = typeof payload.cliente_id === "number" ? payload.cliente_id : null;
 
-      if (cid && (payload?.direccion || payload?.telefono_cliente)) {
+      if (cid && (payload.direccion || payload.telefono_cliente)) {
         const existingCliente = clientes.find((c) => c.id === cid);
-        const updates: any = {};
+        const updates: Record<string, string> = {};
         const hasDir = !!existingCliente?.direccion && String(existingCliente.direccion).trim() !== "";
         const hasTel = !!existingCliente?.telefono && String(existingCliente.telefono).trim() !== "";
-        if (!hasDir && payload?.direccion) updates.direccion = String(payload.direccion);
-        if (!hasTel && payload?.telefono_cliente) updates.telefono = String(payload.telefono_cliente);
+        if (!hasDir && payload.direccion) updates.direccion = String(payload.direccion);
+        if (!hasTel && payload.telefono_cliente) updates.telefono = String(payload.telefono_cliente);
         if (Object.keys(updates).length > 0) {
           await fetchApi(`/api/clientes/${cid}/`, {
             method: "PATCH",
@@ -823,15 +871,15 @@ export default function OrdenServicioModal({
         }
       }
 
-      if (cid && (payload?.nombre_cliente || payload?.telefono_cliente)) {
+      if (cid && (payload.nombre_cliente || payload.telefono_cliente)) {
         const existingCliente = clientes.find((c) => c.id === cid);
-        const contactos = Array.isArray((existingCliente as any)?.contactos) ? (existingCliente as any).contactos : [];
-        const nombre = String(payload?.nombre_cliente ?? "").trim();
-        const celular = String(payload?.telefono_cliente ?? "").trim();
+        const contactos = Array.isArray(existingCliente?.contactos) ? existingCliente.contactos : [];
+        const nombre = String(payload.nombre_cliente ?? "").trim();
+        const celular = String(payload.telefono_cliente ?? "").trim();
         const contactoIdToUpdate = formData.contacto_id != null ? Number(formData.contacto_id) : null;
         let contactUpdated = false;
         if (contactoIdToUpdate != null && (nombre || celular)) {
-          const body: any = {};
+          const body: Record<string, string> = {};
           if (nombre) body.nombre_apellido = nombre;
           if (celular) body.celular = celular;
           if (Object.keys(body).length > 0) {
@@ -844,9 +892,9 @@ export default function OrdenServicioModal({
           }
         }
         if (!contactUpdated) {
-          const target = contactos.find((c: any) => c?.is_principal) || contactos[0];
+          const target = contactos.find((c) => c?.is_principal) || contactos[0];
           if (target?.id && (nombre || celular)) {
-            const body: any = {};
+            const body: Record<string, string> = {};
             if (nombre) body.nombre_apellido = nombre;
             if (celular) body.celular = celular;
             if (Object.keys(body).length > 0) {
@@ -884,12 +932,12 @@ export default function OrdenServicioModal({
 
         try {
           const payloadTipo = String(snap.payload?.tipo || '').toLowerCase();
-          const cercoItems = Array.isArray((snap as any).cerco_materiales) ? (snap as any).cerco_materiales : [];
+          const cercoItems = (Array.isArray(snap.cerco_materiales) ? snap.cerco_materiales : []) as CercoMaterialItem[];
           if (payloadTipo === 'cerco' && cercoItems.length > 0) {
             const todayIso = new Date().toISOString().slice(0, 10);
-            const cid = (savedOrden as any).cliente_id ?? null;
-            const clienteNombre = String((savedOrden as any).cliente || '').trim();
-            const contactoNombre = String((savedOrden as any).nombre_cliente || '').trim();
+            const savedClienteId = savedOrden.cliente_id ?? null;
+            const clienteNombre = String(savedOrden.cliente || '').trim();
+            const contactoNombre = String(savedOrden.nombre_cliente || '').trim();
 
             const toFiniteNumber = (v: unknown, fallback = 0) => {
               const n = typeof v === "number" ? v : Number(v);
@@ -898,7 +946,7 @@ export default function OrdenServicioModal({
             const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
             const subtotal = round2(
-              cercoItems.reduce((acc: number, it: any) => {
+              cercoItems.reduce((acc, it) => {
                 const qty = toFiniteNumber(it.cantidad, 0);
                 const price = toFiniteNumber(it.precio_lista, 0);
                 return acc + qty * price;
@@ -923,10 +971,10 @@ export default function OrdenServicioModal({
               }
             };
 
-            const cotPayload: any = {
-              cliente_id: cid != null ? Number(cid) : null,
+            const cotPayload: Record<string, unknown> = {
+              cliente_id: savedClienteId != null ? Number(savedClienteId) : null,
               cliente: clienteNombre,
-              prospecto: !cid,
+              prospecto: !savedClienteId,
               contacto: contactoNombre,
               // DRF valida `choices` del campo; si no tenemos info, mandamos un valor válido.
               medio_contacto: 'OTRO',
@@ -939,7 +987,7 @@ export default function OrdenServicioModal({
               total,
               texto_arriba_precios: 'A continuación cotización solicitada:',
               terminos: '',
-              items: cercoItems.map((it: any, index: number) => ({
+              items: cercoItems.map((it, index) => ({
                 producto_externo_id: String(it.producto_externo_id || ''),
                 producto_nombre: String(it.producto_nombre || ''),
                 producto_descripcion: String(it.producto_descripcion || ''),
@@ -956,7 +1004,7 @@ export default function OrdenServicioModal({
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(cotPayload),
-            }).catch(() => null as any);
+            }).catch(() => null);
 
             if (cotRes && cotRes.ok) {
               // Para que la UI de `CotizacionesPage` se refresque al crear desde otro módulo.
@@ -1075,7 +1123,7 @@ export default function OrdenServicioModal({
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
                       <ActionSearchBar
-                        actions={clienteActions as any}
+                        actions={clienteActions}
                         showAllActions={true}
                         defaultOpen={false}
                         label="Cliente"
@@ -1087,13 +1135,14 @@ export default function OrdenServicioModal({
                             selectCliente(null);
                           }
                         }}
-                        onSelectAction={(action: any) => {
-                          const rawId = String(action?.id ?? "");
+                        onSelectAction={(action: Action) => {
+                          const selected = action as ClienteSearchAction;
+                          const rawId = String(selected?.id ?? "");
                           const clienteIdStr = rawId.includes("::") ? rawId.split("::")[0] : rawId;
                           const id = Number(clienteIdStr);
                           const c = clientes.find((x) => Number(x.id) === id);
                           if (!c) return;
-                          const contacto = action?.__contacto;
+                          const contacto = selected.__contacto;
                           if (contacto) {
                             setFormData((prev) => ({
                               ...prev,
@@ -1104,7 +1153,7 @@ export default function OrdenServicioModal({
                               telefono_cliente: String(contacto?.celular || c.telefono || ""),
                               nombre_cliente: String(contacto?.nombre_apellido ?? ""),
                             }));
-                            setClienteSearch(String(action?.label || c.nombre || ""));
+                            setClienteSearch(String(selected?.label || c.nombre || ""));
                           } else {
                             selectCliente(c);
                           }
@@ -1112,7 +1161,7 @@ export default function OrdenServicioModal({
                       />
                     </div>
                     {(formData.cliente_id || formData.cliente) && (
-                      <button type="button" onClick={() => selectCliente(null)} aria-label="Limpiar cliente" className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 mt-[20px]">
+                      <button type="button" onClick={() => selectCliente(null)} aria-label="Limpiar cliente" className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 mt-5">
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" /><path d="M18 11l-4.3-4.3" /></svg>
                       </button>
                     )}
@@ -1131,7 +1180,7 @@ export default function OrdenServicioModal({
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
                         <ActionSearchBar
-                          actions={tecnicoActions as any}
+                          actions={tecnicoActions}
                           defaultOpen={false}
                           label="Técnico Asignado"
                           placeholder="Buscar técnico..."
@@ -1142,7 +1191,7 @@ export default function OrdenServicioModal({
                               selectTecnico(null);
                             }
                           }}
-                          onSelectAction={(action: any) => {
+                          onSelectAction={(action: Action) => {
                             const id = Number(action?.id);
                             const u = (usuarios || []).find((x) => Number(x.id) === id);
                             if (u) selectTecnico(u);
@@ -1154,7 +1203,7 @@ export default function OrdenServicioModal({
                           type="button"
                           onClick={() => selectTecnico(null)}
                           aria-label="Limpiar selección"
-                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-5"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -1177,7 +1226,7 @@ export default function OrdenServicioModal({
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
                         <ActionSearchBar
-                          actions={quienInstaloActions as any}
+                          actions={quienInstaloActions}
                           defaultOpen={false}
                           label="¿Quien instaló?"
                           placeholder="Buscar técnico..."
@@ -1188,7 +1237,7 @@ export default function OrdenServicioModal({
                               selectQuienInstalo(null);
                             }
                           }}
-                          onSelectAction={(action: any) => {
+                          onSelectAction={(action: Action) => {
                             const id = Number(action?.id);
                             const u = (usuarios || []).find((x) => Number(x.id) === id);
                             if (u) selectQuienInstalo(u);
@@ -1200,7 +1249,7 @@ export default function OrdenServicioModal({
                           type="button"
                           onClick={() => selectQuienInstalo(null)}
                           aria-label="Limpiar selección"
-                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-5"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                             <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
@@ -1212,7 +1261,7 @@ export default function OrdenServicioModal({
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
                         <ActionSearchBar
-                          actions={quienEntregoActions as any}
+                          actions={quienEntregoActions}
                           defaultOpen={false}
                           label="¿Quien entregó?"
                           placeholder="Buscar técnico..."
@@ -1223,7 +1272,7 @@ export default function OrdenServicioModal({
                               selectQuienEntrego(null);
                             }
                           }}
-                          onSelectAction={(action: any) => {
+                          onSelectAction={(action: Action) => {
                             const id = Number(action?.id);
                             const u = (usuarios || []).find((x) => Number(x.id) === id);
                             if (u) selectQuienEntrego(u);
@@ -1235,7 +1284,7 @@ export default function OrdenServicioModal({
                           type="button"
                           onClick={() => selectQuienEntrego(null)}
                           aria-label="Limpiar selección"
-                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-[20px]"
+                          className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition mt-5"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                             <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.9-9.9c1-1 2.5-1 3.4 0l4.3 4.3c1 1 1 2.5 0 3.4L10.5 21H22" />
@@ -1420,13 +1469,13 @@ export default function OrdenServicioModal({
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
                       <ActionSearchBar
-                        actions={servicioActions as any}
+                        actions={servicioActions}
                         defaultOpen={false}
                         label="Servicios Realizados"
                         placeholder="Buscar o agregar servicio..."
                         value={servicioSearch}
                         onQueryChange={(q: string) => setServicioSearch(q)}
-                        onSelectAction={(action: any) => {
+                        onSelectAction={(action: Action) => {
                           if (action?.id === "__new__") {
                             const nuevo = servicioSearch.trim();
                             if (nuevo && !serviciosDisponibles.includes(nuevo)) setServiciosDisponibles([...serviciosDisponibles, nuevo]);
@@ -1505,7 +1554,11 @@ export default function OrdenServicioModal({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <SignaturePad
                     label="Firma del Encargado"
-                    value={formData.tecnico_asignado != null ? tecnicoSignatureUrl : ""}
+                    value={pickTecnicoSignatureDisplayUrl({
+                      tecnicoAsignadoId: formData.tecnico_asignado,
+                      fetchedProfileUrl: tecnicoSignatureUrl,
+                      storedOrdenUrl: formData.firma_encargado_url,
+                    })}
                     disabled={true}
                     onChange={() => {}}
                     width={400}
@@ -1553,7 +1606,7 @@ export default function OrdenServicioModal({
                       <div className="dz-message flex flex-col items-center m-0!">
                         {/* Contenedor del icono */}
                         <div className="mb-3 flex justify-center">
-                          <div className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
                             <svg className="fill-current" width="22" height="22" viewBox="0 0 29 28" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                               <path
                                 fillRule="evenodd"
@@ -1576,7 +1629,7 @@ export default function OrdenServicioModal({
                         <span className="text-center mb-2 block w-full max-w-[320px] text-[12px] text-gray-700 dark:text-gray-400">
                           {uploadingPhotos
                             ? "Puedes elegir varias; se suben de dos en dos para que no salgan en blanco."
-                            : "JPG, PNG o WebP. En iPhone usa «Más compatible» (no HEIC)."}
+                            : "JPG, PNG o WebP. En Android, espera a que termine de procesar cada foto."}
                         </span>
 
                         {photoUploadProgress ? (
@@ -1614,7 +1667,7 @@ export default function OrdenServicioModal({
                           <button
                             type="button"
                             onClick={() => setConfirmDelete({ open: true, index, url: preview })}
-                            className="absolute right-1 top-1 z-[1] flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-error-600 text-white opacity-100 transition-opacity hover:bg-error-700 sm:h-6 sm:w-6 sm:min-h-0 sm:min-w-0 sm:opacity-0 sm:group-hover:opacity-100"
+                            className="absolute right-1 top-1 z-1 flex h-9 w-9 min-h-9 min-w-9 items-center justify-center rounded-full bg-error-600 text-white opacity-100 transition-opacity hover:bg-error-700 sm:h-6 sm:w-6 sm:min-h-0 sm:min-w-0 sm:opacity-0 sm:group-hover:opacity-100"
                             aria-label={`Eliminar foto ${index + 1}`}
                           >
                             <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>

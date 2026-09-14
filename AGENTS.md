@@ -236,6 +236,7 @@ Terminal 2: frontend → pnpm dev :5173
 | SSRF imágenes | `backend/apps/common/ssrf.py` |
 | CI | `.github/workflows/ci.yml` |
 | ESLint (frontend) | `frontend/eslint.config.js` |
+| Gotchas / bugs no obvios (local, no en git) | `docs/gotchas.md` |
 | Arquitectura frontend (roadmap) | `docs/superpowers/specs/2026-07-30-frontend-architecture-roadmap-design.md` |
 | Proyectos — Ola 1 (carpetas) | `docs/superpowers/specs/2026-07-30-proyectos-frontend-architecture-design.md` |
 | Órdenes servicio — Ola 2 (carpetas) | `docs/superpowers/specs/2026-07-30-ordenes-frontend-architecture-design.md` |

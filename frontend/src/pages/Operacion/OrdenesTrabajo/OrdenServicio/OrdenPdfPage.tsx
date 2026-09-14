@@ -38,7 +38,7 @@ const downloadIcon = (
 );
 
 const viewerFrameClass =
-  "h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
+  "h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-140 lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
 
 export default function OrdenPdfPage() {
   const params = useParams();
@@ -180,7 +180,7 @@ export default function OrdenPdfPage() {
         >
           <Link
             to="/"
-            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/3 hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Inicio
           </Link>
@@ -189,7 +189,7 @@ export default function OrdenPdfPage() {
           </span>
           <Link
             to="/ordenes"
-            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/3 hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Órdenes de servicio
           </Link>
@@ -207,9 +207,9 @@ export default function OrdenPdfPage() {
 
         <header className={`relative flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}>
           <div className="pointer-events-none absolute right-4 top-4 h-20 w-20 rounded-full bg-[#1B5CFF]/10 blur-2xl sm:right-6 sm:top-6" />
-          <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
+          <div className="relative z-1 flex min-w-0 items-center gap-3 sm:gap-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] text-white sm:h-11 sm:w-11">
-              <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+              <svg className="h-4.5 w-4.5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -219,7 +219,7 @@ export default function OrdenPdfPage() {
               <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
                 <h1 className={erpHeroHeadingClass}>Vista PDF</h1>
                 {ordenIdx != null && (
-                  <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/[0.12] dark:text-amber-200">
+                  <span className="inline-flex items-center rounded-md border border-amber-200/80 bg-amber-50/90 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/12 dark:text-amber-200">
                     #{ordenIdx}
                   </span>
                 )}
@@ -227,7 +227,7 @@ export default function OrdenPdfPage() {
               <p className={`mt-1.5 max-w-2xl sm:mt-2 ${claudeBodyClass}`}>
                 Revise el PDF en el panel principal; el lateral permite abrir en otra pestaña o descargar. El documento puede incluir fotos y firmas.
               </p>
-              <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#1B5CFF]/35 via-[#93B4FF]/30 to-transparent dark:from-[#4B7CFF]/35 dark:via-[#64748b]/25 dark:to-transparent" />
+              <div className="mt-3 h-px w-full max-w-xl bg-linear-to-r from-[#1B5CFF]/35 via-[#93B4FF]/30 to-transparent dark:from-[#4B7CFF]/35 dark:via-[#64748b]/25 dark:to-transparent" />
             </div>
           </div>
           <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
@@ -258,7 +258,7 @@ export default function OrdenPdfPage() {
               <div className="flex min-h-0 flex-1 flex-col bg-[#FAFAFA] p-2 dark:bg-[#0f172a] sm:p-3">
                 {loading ? (
                   <div
-                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
+                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-140 lg:min-h-[calc(100vh-13.5rem)]"
                     aria-busy="true"
                     aria-live="polite"
                     aria-label="Cargando documento"
@@ -336,7 +336,7 @@ export default function OrdenPdfPage() {
                   <button
                     type="button"
                     disabled={!pdfObjectUrl}
-                    className={`${erpPrimaryBtnClass} !min-h-[48px] sm:!min-h-0`}
+                    className={`${erpPrimaryBtnClass} min-h-12! sm:min-h-0!`}
                     onClick={() => {
                       if (!pdfObjectUrl) return;
                       const a = document.createElement("a");

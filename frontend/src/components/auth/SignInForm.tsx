@@ -45,7 +45,7 @@ async function login(loginValue: string, password: string, remember: boolean) {
 function LoadingSpinner() {
   return (
     <span
-      className="inline-block h-[1.125rem] w-[1.125rem] animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none"
+      className="inline-block h-4.5 w-4.5 animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none"
       aria-hidden
     />
   );
@@ -201,7 +201,7 @@ export default function SignInForm() {
               onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               type={showPassword ? "text" : "password"}
               placeholder="Ingresa tu contraseña"
-              className={cn(inputClass, "!pr-12")}
+              className={cn(inputClass, "pr-12!")}
               error={hasError}
               disabled={loading}
               required
@@ -214,12 +214,12 @@ export default function SignInForm() {
               aria-pressed={showPassword}
               onClick={() => setShowPassword(!showPassword)}
               disabled={loading}
-              className="absolute right-1.5 top-1/2 z-30 flex h-11 w-11 min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center rounded-[10px] text-[#6E6E77] transition-colors hover:bg-[#FAFAFA] hover:text-[#09090B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 disabled:opacity-50 dark:text-[#8EA0B8] dark:hover:bg-[#1e293b] dark:hover:text-[#F8FAFC]"
+              className="absolute right-1.5 top-1/2 z-30 flex h-11 w-11 min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-[10px] text-[#6E6E77] transition-colors hover:bg-[#FAFAFA] hover:text-[#09090B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 disabled:opacity-50 dark:text-[#8EA0B8] dark:hover:bg-[#1e293b] dark:hover:text-[#F8FAFC]"
             >
               {showPassword ? (
-                <EyeIcon className="size-[1.125rem] fill-current" />
+                <EyeIcon className="size-4.5 fill-current" />
               ) : (
-                <EyeCloseIcon className="size-[1.125rem] fill-current" />
+                <EyeCloseIcon className="size-4.5 fill-current" />
               )}
             </button>
           </div>

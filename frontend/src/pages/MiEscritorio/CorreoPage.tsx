@@ -20,7 +20,7 @@ const CorreoPage: React.FC = () => {
   const [selectedMails, setSelectedMails] = useState<Set<number>>(new Set());
   const [starredMails, setStarredMails] = useState<Set<number>>(new Set());
 
-  const toggleSelectAll = () => {
+  const toggleSelectAll: () => void = () => {
     if (selectedMails.size === demoMails.length) {
       setSelectedMails(new Set());
     } else {
@@ -88,7 +88,7 @@ const CorreoPage: React.FC = () => {
         <div className="no-scrollbar mt-6 flex-1 space-y-6 overflow-y-auto pb-2 text-sm max-h-[calc(100vh-260px)]">
           {/* MAILBOX */}
           <section>
-            <h3 className="mb-3 text-xs font-medium uppercase leading-[18px] text-gray-700 dark:text-gray-400">
+            <h3 className="mb-3 text-xs font-medium uppercase leading-4.5 text-gray-700 dark:text-gray-400">
               Buzón
             </h3>
             <ul className="flex flex-col gap-1">
@@ -218,7 +218,7 @@ const CorreoPage: React.FC = () => {
 
           {/* FILTER */}
           <section>
-            <h3 className="mb-3 text-xs font-medium uppercase leading-[18px] text-gray-700 dark:text-gray-400">
+            <h3 className="mb-3 text-xs font-medium uppercase leading-4.5 text-gray-700 dark:text-gray-400">
               Filtros
             </h3>
             <ul className="flex flex-col gap-1">
@@ -266,7 +266,7 @@ const CorreoPage: React.FC = () => {
 
           {/* LABELS */}
           <section>
-            <h3 className="mb-3 text-xs font-medium uppercase leading-[18px] text-gray-700 dark:text-gray-400">
+            <h3 className="mb-3 text-xs font-medium uppercase leading-4.5 text-gray-700 dark:text-gray-400">
               Etiquetas
             </h3>
             <ul className="flex flex-col gap-1">

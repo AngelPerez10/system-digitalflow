@@ -319,7 +319,7 @@ export function OrdenDetalleTab({
                     <label htmlFor={fechaEnvioAdminId} className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">
                       Fecha en que se envió
                     </label>
-                    <div className="[&_input]:!h-10 [&_input]:!py-2 [&_input]:!text-sm">
+                    <div className="[&_input]:h-10! [&_input]:py-2! [&_input]:text-sm!">
                       <DatePicker
                         key={`fecha-envio-admin-${editingOrden?.id ?? "new"}-${statusAdministrativo}`}
                         id={fechaEnvioAdminId}

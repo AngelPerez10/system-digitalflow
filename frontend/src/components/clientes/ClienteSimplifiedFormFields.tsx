@@ -5,6 +5,7 @@ import Input from "@/components/form/input/InputField";
 import SearchableSelect from "@/components/form/SearchableSelect";
 import { estadosPorPais, paisOptions } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
 import type { Cliente } from "@/types/cliente";
+import { ClienteDireccionesManager } from "./ClienteDireccionesManager";
 import {
   type ClienteFormTab,
   ClienteTipo,
@@ -522,10 +523,13 @@ export function ClienteSimplifiedFormFields({
           aria-labelledby={`${tabsId}-more`}
           className="space-y-4"
         >
-          {/* Información fiscal: identificadores para facturación CFDI. */}
+          {/* Información fiscal: identificadores para facturación CFDI.
+              RFC y CURP viven una sola vez, en "Datos generales" — aquí solo
+              lo que es exclusivo de facturación. */}
           <FieldGroup
             tone="azul"
             title="Información fiscal"
+            hint="El RFC y CURP se toman de Datos generales."
             icon={
               <svg {...iconSvgProps} className="size-4">
                 <path d="M4 19.5V4a2 2 0 0 1 2-2h10l4 4v13.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
@@ -536,13 +540,6 @@ export function ClienteSimplifiedFormFields({
           >
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
-                <Label>RFC</Label>
-                <Input
-                  value={String(formData.rfc_fiscal || "")}
-                  onChange={(e) => setFormData({ ...formData, rfc_fiscal: e.target.value })}
-                />
-              </div>
-              <div>
                 <Label>idCIF</Label>
                 <Input value={String(formData.idcif || "")} onChange={(e) => setFormData({ ...formData, idcif: e.target.value })} />
               </div>
@@ -551,13 +548,6 @@ export function ClienteSimplifiedFormFields({
                 <Input
                   value={String(formData.razon_social || "")}
                   onChange={(e) => setFormData({ ...formData, razon_social: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>CURP</Label>
-                <Input
-                  value={String(formData.curp_fiscal || "")}
-                  onChange={(e) => setFormData({ ...formData, curp_fiscal: e.target.value })}
                 />
               </div>
               <div>
@@ -577,156 +567,170 @@ export function ClienteSimplifiedFormFields({
             </div>
           </FieldGroup>
 
-          {/* Domicilio fiscal: dirección completa, con acceso rápido al mapa. */}
+          {/* Domicilio: libreta de direcciones (varias sucursales) una vez que el
+              cliente existe; antes de guardar, una sola dirección con mapa. */}
           <FieldGroup
             tone="dorado"
-            title="Domicilio fiscal"
+            title="Domicilio"
+            hint={
+              editingCliente?.id
+                ? "Este cliente puede tener varias direcciones — marca una como predeterminada."
+                : undefined
+            }
             icon={
               <svg {...iconSvgProps} className="size-4">
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
               </svg>
             }
             extra={
-              <button
-                type="button"
-                onClick={onOpenMap}
-                className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-[rgba(27,92,255,0.08)] px-3 text-[12px] font-medium text-[#1B5CFF] transition-colors hover:bg-[rgba(27,92,255,0.14)] dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] dark:hover:bg-[rgba(75,124,255,0.22)]"
-              >
-                <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path
-                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                Seleccionar en mapa
-              </button>
+              !editingCliente?.id ? (
+                <button
+                  type="button"
+                  onClick={onOpenMap}
+                  className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-[rgba(27,92,255,0.08)] px-3 text-[12px] font-medium text-[#1B5CFF] transition-colors hover:bg-[rgba(27,92,255,0.14)] dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] dark:hover:bg-[rgba(75,124,255,0.22)]"
+                >
+                  <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path
+                      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Seleccionar en mapa
+                </button>
+              ) : null
             }
           >
-            <div>
-              <Label>Domicilio</Label>
-              <div className="relative">
-                <textarea
-                  rows={3}
-                  value={String(formData.direccion || "")}
-                  onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                  className={`${modalTextareaClass} pr-12`}
-                  placeholder="Dirección, coordenadas o URL de Google Maps"
-                />
-                {!!String(formData.direccion || "").trim() && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const direccion = String(formData.direccion || "").trim();
-                      if (
-                        isGoogleMapsLink(direccion) ||
-                        direccion.includes("google.com/maps") ||
-                        direccion.includes("maps.app.goo.gl")
-                      ) {
-                        window.open(direccion, "_blank");
-                        return;
-                      }
-                      const coordMatch = direccion.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
-                      if (coordMatch) {
-                        window.open(`https://www.google.com/maps?q=${coordMatch[1]},${coordMatch[2]}`, "_blank");
-                        return;
-                      }
-                      window.open(
-                        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`,
-                        "_blank"
-                      );
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-[8px] bg-[rgba(27,92,255,0.08)] p-1.5 text-[#1B5CFF] transition-colors hover:bg-[rgba(27,92,255,0.14)] dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] dark:hover:bg-[rgba(75,124,255,0.22)]"
-                    title="Abrir en Google Maps"
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
+            {editingCliente?.id ? (
+              <ClienteDireccionesManager clienteId={editingCliente.id} />
+            ) : (
+              <>
+                <div>
+                  <Label>Domicilio</Label>
+                  <div className="relative">
+                    <textarea
+                      rows={3}
+                      value={String(formData.direccion || "")}
+                      onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+                      className={`${modalTextareaClass} pr-12`}
+                      placeholder="Dirección, coordenadas o URL de Google Maps"
+                    />
+                    {!!String(formData.direccion || "").trim() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const direccion = String(formData.direccion || "").trim();
+                          if (
+                            isGoogleMapsLink(direccion) ||
+                            direccion.includes("google.com/maps") ||
+                            direccion.includes("maps.app.goo.gl")
+                          ) {
+                            window.open(direccion, "_blank");
+                            return;
+                          }
+                          const coordMatch = direccion.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+                          if (coordMatch) {
+                            window.open(`https://www.google.com/maps?q=${coordMatch[1]},${coordMatch[2]}`, "_blank");
+                            return;
+                          }
+                          window.open(
+                            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`,
+                            "_blank"
+                          );
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-[8px] bg-[rgba(27,92,255,0.08)] p-1.5 text-[#1B5CFF] transition-colors hover:bg-[rgba(27,92,255,0.14)] dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] dark:hover:bg-[rgba(75,124,255,0.22)]"
+                        title="Abrir en Google Maps"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div>
-                <Label>No. Ext</Label>
-                <Input
-                  value={String(formData.numero_exterior || "")}
-                  onChange={(e) => setFormData({ ...formData, numero_exterior: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>No. Int</Label>
-                <Input
-                  value={String(formData.interior || "")}
-                  onChange={(e) => setFormData({ ...formData, interior: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Código Postal</Label>
-                <Input
-                  value={String(formData.codigo_postal || "")}
-                  onChange={(e) => setFormData({ ...formData, codigo_postal: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Colonia</Label>
-                <Input
-                  value={String(formData.colonia || "")}
-                  onChange={(e) => setFormData({ ...formData, colonia: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Ciudad</Label>
-                <Input
-                  value={String(formData.ciudad || "")}
-                  onChange={(e) => setFormData({ ...formData, ciudad: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Localidad</Label>
-                <Input
-                  value={String(formData.localidad || "")}
-                  onChange={(e) => setFormData({ ...formData, localidad: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Estado</Label>
-                <select
-                  value={String(formData.estado || "")}
-                  onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
-                  className={selectLikeClassName}
-                >
-                  <option value="">Seleccione</option>
-                  {estadosOptions.map((est) => (
-                    <option key={est} value={est}>
-                      {est}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label>País</Label>
-                <select
-                  value={String(formData.pais || "México")}
-                  onChange={(e) => {
-                    const pais = e.target.value;
-                    const nextEstados = estadosPorPais[pais] || estadosPorPais["México"] || [];
-                    const nextEstado = nextEstados.includes(String(formData.estado || ""))
-                      ? formData.estado
-                      : "";
-                    setFormData({ ...formData, pais, estado: nextEstado });
-                  }}
-                  className={selectLikeClassName}
-                >
-                  {paisOptions.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <Label>No. Ext</Label>
+                    <Input
+                      value={String(formData.numero_exterior || "")}
+                      onChange={(e) => setFormData({ ...formData, numero_exterior: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>No. Int</Label>
+                    <Input
+                      value={String(formData.interior || "")}
+                      onChange={(e) => setFormData({ ...formData, interior: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Código Postal</Label>
+                    <Input
+                      value={String(formData.codigo_postal || "")}
+                      onChange={(e) => setFormData({ ...formData, codigo_postal: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Colonia</Label>
+                    <Input
+                      value={String(formData.colonia || "")}
+                      onChange={(e) => setFormData({ ...formData, colonia: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Ciudad</Label>
+                    <Input
+                      value={String(formData.ciudad || "")}
+                      onChange={(e) => setFormData({ ...formData, ciudad: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Localidad</Label>
+                    <Input
+                      value={String(formData.localidad || "")}
+                      onChange={(e) => setFormData({ ...formData, localidad: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Estado</Label>
+                    <select
+                      value={String(formData.estado || "")}
+                      onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
+                      className={selectLikeClassName}
+                    >
+                      <option value="">Seleccione</option>
+                      {estadosOptions.map((est) => (
+                        <option key={est} value={est}>
+                          {est}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>País</Label>
+                    <select
+                      value={String(formData.pais || "México")}
+                      onChange={(e) => {
+                        const pais = e.target.value;
+                        const nextEstados = estadosPorPais[pais] || estadosPorPais["México"] || [];
+                        const nextEstado = nextEstados.includes(String(formData.estado || ""))
+                          ? formData.estado
+                          : "";
+                        setFormData({ ...formData, pais, estado: nextEstado });
+                      }}
+                      className={selectLikeClassName}
+                    >
+                      {paisOptions.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
           </FieldGroup>
         </div>
       )}

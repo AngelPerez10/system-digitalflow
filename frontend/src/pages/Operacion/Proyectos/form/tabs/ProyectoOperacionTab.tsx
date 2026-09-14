@@ -6,7 +6,6 @@ import Input from "@/components/form/input/InputField";
 import SignaturePad from "@/components/ui/signature/SignaturePad";
 import { TimeIcon } from "@/icons";
 import { erpInputLikeClass, erpPrimaryBtnClass, erpSecondaryBtnClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
-import { StatusChangedByChip } from "../../../shared/StatusChangedByChip";
 import { proyectoRequiereCotizacionAdicional } from "../../shared/proyectoCloseValidation";
 import { ProyectoAsignadosMultiField } from "../fields/ProyectoAsignadosMultiField";
 import { ProyectoEvidenciasField } from "../fields/ProyectoEvidenciasField";
@@ -31,6 +30,7 @@ import {
   proyectoStatusChipClass,
 } from "../../shared/proyectoPageStyles";
 import { NOTA_DIA_MIN_CHARS, proyectoRequiresNotaDiaMinLength } from "../../shared/proyectoOperacionValidation";
+import { pickTecnicoSignatureDisplayUrl } from "@/pages/Operacion/shared/tecnicoSignatureDisplay";
 import type {
   CotizacionResumen,
   ProyectoEstado,
@@ -218,10 +218,6 @@ export function ProyectoOperacionTab({
   setMotivoPausa,
   motivoCancelacion,
   setMotivoCancelacion,
-  statusChangedByName = "",
-  statusChangedAt = "",
-  creadoPorName = "",
-  createdAt = "",
   fechaAutorizacion,
   setFechaAutorizacion,
   horaLlegada,
@@ -352,16 +348,6 @@ export function ProyectoOperacionTab({
               </button>
             ))}
           </div>
-          {editing &&
-          (statusChangedByName || statusChangedAt || creadoPorName || createdAt) ? (
-            <StatusChangedByChip
-              variant="panel"
-              name={statusChangedByName}
-              at={statusChangedAt}
-              fallbackName={creadoPorName}
-              fallbackAt={createdAt}
-            />
-          ) : null}
           {closeBlockedMessage ? (
             <div
               id="proyecto-close-blocked"
@@ -1003,7 +989,11 @@ export function ProyectoOperacionTab({
                 ? `Firma del técnico · ${tecnicoResponsableNombre}`
                 : "Firma del técnico (responsable)"
             }
-            value={tecnicoSignatureUrl || firmaTecnicoUrl}
+            value={pickTecnicoSignatureDisplayUrl({
+              tecnicoAsignadoId: tecnico.id,
+              fetchedProfileUrl: tecnicoSignatureUrl,
+              storedOrdenUrl: firmaTecnicoUrl,
+            })}
             disabled
             onChange={() => {
               /* Solo lectura: se carga del perfil del técnico responsable */

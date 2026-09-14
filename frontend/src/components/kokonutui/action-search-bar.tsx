@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import useDebounce from "@/hooks/use-debounce";
 
-interface Action {
+export interface Action {
     id: string;
     label: string;
     icon: React.ReactNode;

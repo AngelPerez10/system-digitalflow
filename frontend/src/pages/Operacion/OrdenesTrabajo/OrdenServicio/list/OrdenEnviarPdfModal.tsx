@@ -224,7 +224,7 @@ export default function OrdenEnviarPdfModal({
         />
 
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1B5CFF] via-[#4B7CFF] to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-[#1B5CFF] via-[#4B7CFF] to-transparent"
           aria-hidden="true"
         />
         <div
@@ -253,7 +253,7 @@ export default function OrdenEnviarPdfModal({
             <div
               id={smtpAlertId}
               role="alert"
-              className="rounded-xl border border-amber-200/90 bg-amber-50 px-3.5 py-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/[0.1] dark:text-amber-100"
+              className="rounded-xl border border-amber-200/90 bg-amber-50 px-3.5 py-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
             >
               <p className="font-semibold">No se puede enviar desde esta cuenta</p>
               <p className="mt-1 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/90">

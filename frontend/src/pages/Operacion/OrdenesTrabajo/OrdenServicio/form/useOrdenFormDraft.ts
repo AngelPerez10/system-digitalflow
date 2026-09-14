@@ -37,6 +37,10 @@ import {
   uploadOrdenImageBatch,
 } from "../shared/ordenImageUpload";
 import { formatOrdenErrorMessage, round2 } from "../shared/ordenesPageUtils";
+import {
+  shouldClearFetchedSignature,
+  toHttpsImageUrl,
+} from "@/pages/Operacion/shared/tecnicoSignatureDisplay";
 import type { InventarioItem } from "@/pages/Inventario/shared/inventarioTypes";
 import {
   addEquipoFromItem as addEquipoFromItemPure,
@@ -118,12 +122,7 @@ export function createEmptyOrdenFormData(): OrdenFormData {
 const toNullIfEmpty = (v: unknown): unknown =>
   typeof v === "string" && v.trim() === "" ? null : v;
 
-const normalizeHttpUrl = (url: unknown): string => {
-  const raw = typeof url === "string" ? url.trim() : "";
-  if (!raw) return "";
-  if (raw.startsWith("http://")) return `https://${raw.slice("http://".length)}`;
-  return raw;
-};
+const normalizeHttpUrl = toHttpsImageUrl;
 
 export function buildOrdenWritePayload(opts: {
   formData: OrdenFormData;
@@ -243,7 +242,7 @@ export function buildOrdenWritePayload(opts: {
   return payload;
 }
 
-type LevantamientoSnap = {
+export type LevantamientoSnap = {
   payload: Record<string, unknown>;
   dibujo_url: string;
   cerco_materiales?: unknown[];
@@ -469,6 +468,8 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
 
   const [tecnicoSignatureUrl, setTecnicoSignatureUrl] = useState("");
   const tecnicoSignatureCacheRef = useRef<Record<number, string>>({});
+  const signatureTecnicoIdRef = useRef<number | null>(null);
+  const signatureFetchGenRef = useRef(0);
   const firmaClienteBaselineRef = useRef("");
   const firmaClienteClearedRef = useRef(false);
 
@@ -498,6 +499,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     if (variant === "admin") resetAdminSeguimientoUi();
     clearSearchFields();
     setTecnicoSignatureUrl("");
+    signatureTecnicoIdRef.current = null;
     firmaClienteBaselineRef.current = "";
     firmaClienteClearedRef.current = false;
   }, [variant, resetAdminSeguimientoUi, clearSearchFields]);
@@ -556,7 +558,11 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       );
       setServicioSearch("");
       if (variant === "admin") loadAdminSeguimientoFromOrden(orden);
-      setTecnicoSignatureUrl("");
+      const nextTec = orden.tecnico_asignado ? Number(orden.tecnico_asignado) : null;
+      if (shouldClearFetchedSignature(signatureTecnicoIdRef.current, nextTec)) {
+        setTecnicoSignatureUrl("");
+      }
+      signatureTecnicoIdRef.current = nextTec;
     },
     [bumpFormNonce, variant, loadAdminSeguimientoFromOrden],
   );
@@ -697,31 +703,34 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
 
   const loadTecnicoSignature = useCallback(
     async (tecUserId: number | null) => {
+      signatureTecnicoIdRef.current = tecUserId;
       if (!tecUserId) {
         setTecnicoSignatureUrl("");
         return;
       }
 
       const cached = tecnicoSignatureCacheRef.current[tecUserId];
-      if (typeof cached === "string") {
-        setTecnicoSignatureUrl(cached);
+      if (cached) {
+        setTecnicoSignatureUrl(toHttpsImageUrl(cached));
         return;
       }
 
-      setTecnicoSignatureUrl("");
-
       if (!isAuthenticated) return;
+      const gen = ++signatureFetchGenRef.current;
       try {
         const res = await fetchApi(`/api/users/accounts/${tecUserId}/signature/`, {
           cache: "no-store" as RequestCache,
         });
+        if (gen !== signatureFetchGenRef.current) return;
         const data = await res.json().catch(() => null);
         if (!res.ok) return;
-        const url = (data as { url?: string })?.url || "";
-        tecnicoSignatureCacheRef.current[tecUserId] = url;
+        const url = toHttpsImageUrl((data as { url?: string })?.url);
+        // No cachear vacío: si el técnico aún no tenía firma, debe reintentarse
+        // la próxima vez (p. ej. la agregó después) en vez de quedar "pegado" en blanco.
+        if (url) tecnicoSignatureCacheRef.current[tecUserId] = url;
         setTecnicoSignatureUrl(url);
       } catch {
-        /* ignore */
+        /* El pad usa firma_encargado_url de la orden como respaldo. */
       }
     },
     [isAuthenticated],
@@ -730,6 +739,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
   useEffect(() => {
     const tecnicoId = formData.tecnico_asignado != null ? Number(formData.tecnico_asignado) : null;
     if (!tecnicoId) {
+      signatureTecnicoIdRef.current = null;
       setTecnicoSignatureUrl("");
       return;
     }

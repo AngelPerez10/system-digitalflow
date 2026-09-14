@@ -1,7 +1,13 @@
 ﻿import { useState, useEffect, useId, useMemo, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
@@ -9,17 +15,17 @@ import { OrdenesPageStats } from "./list/OrdenesPageStats";
 import OrdenesListFiltersPopover from "./list/OrdenesListFiltersPopover";
 import OrdenesStatusSegmentFilter from "./list/OrdenesStatusSegmentFilter";
 import OrdenLocationMapModal from "./form/fields/OrdenLocationMapModal";
-import OrdenFormModal, { ORDEN_FORM_PANEL_IDS, ORDEN_FORM_TAB_IDS } from "./form/OrdenFormModal";
+import OrdenFormModal, {
+  ORDEN_FORM_PANEL_IDS,
+  ORDEN_FORM_TAB_IDS,
+} from "./form/OrdenFormModal";
 import { OrdenClienteTab } from "./form/tabs/OrdenClienteTab";
 import { OrdenDetalleTab } from "./form/tabs/OrdenDetalleTab";
 import { OrdenEquiposTab } from "./form/tabs/OrdenEquiposTab";
 import { OrdenCalificacionTab } from "./form/tabs/OrdenCalificacionTab";
-import {
-  type Orden,
-  type Usuario,
-} from "./shared/ordenesPageTypes";
+import { type Orden, type Usuario } from "./shared/ordenesPageTypes";
 import { useOrdenFormModalState } from "./form/useOrdenFormModalState";
-import { useOrdenFormDraft } from "./form/useOrdenFormDraft";
+import { useOrdenFormDraft, type LevantamientoSnap } from "./form/useOrdenFormDraft";
 import { useOrdenesList } from "./shared/useOrdenesList";
 import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
@@ -27,11 +33,13 @@ import { MobileOrderList } from "./list/MobileOrderCard";
 import { OrdenStatusSectionHeader } from "./list/OrdenStatusSectionHeader";
 import { OrdenesMonthLoadingBanner } from "./list/OrdenesMonthLoadingBanner";
 import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
-import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./list/OrdenEnviarPdfModal";
+import OrdenEnviarPdfModal, {
+  type OrdenEnviarPdfTarget,
+} from "./list/OrdenEnviarPdfModal";
 import {
   StatusChangedByChip,
-  resolveStatusChangedByName,
 } from "../../shared/StatusChangedByChip";
+import { resolveStatusChangedByName } from "../../shared/statusChangedBy";
 import {
   downloadOrdenesMesPdf,
   handleOrdenPdfClick,
@@ -65,10 +73,7 @@ import {
 } from "./shared/ordenPrioridadSections";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
-import {
-  OrdenDeleteModal,
-  OrdenViewModal,
-} from "../OrdenTrabajoModals";
+import { OrdenDeleteModal, OrdenViewModal } from "../OrdenTrabajoModals";
 import {
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
@@ -93,14 +98,13 @@ import {
   pageSearchInputClass,
 } from "./ordenServicioStyles";
 
-
 export default function Ordenes() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const formScrollRef = useRef<HTMLFormElement>(null);
 
-  const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
+  const levantamientoSnapshotRef = useRef<LevantamientoSnap | null>(null);
   const {
     permissions,
     authLoading,
@@ -115,7 +119,7 @@ export default function Ordenes() {
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  /** Lista completa de usuarios para el filtro del listado (no solo técnicos). */
+  /** Lista completa de usuarios para el filtro del listado (no solo t�cnicos). */
   const [usuariosFiltro, setUsuariosFiltro] = useState<Usuario[]>([]);
   const {
     ordenes,
@@ -178,25 +182,42 @@ export default function Ordenes() {
   const ro = isFieldReadOnly;
   const inputLockedClass = (field: Parameters<typeof isFieldReadOnly>[0]) =>
     ro(field)
-      ? 'bg-[#F1F5FF] text-[#52525B] cursor-not-allowed dark:bg-[#111827]/50 dark:text-[#8EA0B8]'
-      : 'bg-white text-[#09090B] dark:bg-[#111827] dark:text-[#B7C1D1] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/20 dark:focus:border-[#4B7CFF] dark:focus:ring-[#4B7CFF]/20';
+      ? "bg-[#F1F5FF] text-[#52525B] cursor-not-allowed dark:bg-[#111827]/50 dark:text-[#8EA0B8]"
+      : "bg-white text-[#09090B] dark:bg-[#111827] dark:text-[#B7C1D1] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/20 dark:focus:border-[#4B7CFF] dark:focus:ring-[#4B7CFF]/20";
   const [filterOpen, setFilterOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
-  const [photoPreview, setPhotoPreview] = useState<{ open: boolean; url: string | null; index: number }>({
+  const [confirmDelete, setConfirmDelete] = useState<{
+    open: boolean;
+    index: number | null;
+    url: string | null;
+  }>({ open: false, index: null, url: null });
+  const [photoPreview, setPhotoPreview] = useState<{
+    open: boolean;
+    url: string | null;
+    index: number;
+  }>({
     open: false,
     url: null,
     index: 0,
   });
   const [showMapModal, setShowMapModal] = useState(false);
-  const [problematicaModal, setProblematicaModal] = useState<{ open: boolean; content: string }>({
+  const [problematicaModal, setProblematicaModal] = useState<{
+    open: boolean;
+    content: string;
+  }>({
     open: false,
     content: "",
   });
-  const [serviciosModal, setServiciosModal] = useState<{ open: boolean; content: string[] }>({
+  const [serviciosModal, setServiciosModal] = useState<{
+    open: boolean;
+    content: string[];
+  }>({
     open: false,
     content: [],
   });
-  const [comentarioModal, setComentarioModal] = useState<{ open: boolean; content: string }>({
+  const [comentarioModal, setComentarioModal] = useState<{
+    open: boolean;
+    content: string;
+  }>({
     open: false,
     content: "",
   });
@@ -204,9 +225,9 @@ export default function Ordenes() {
   // Abrir modal de nueva orden con tipo "levantamiento" al llegar desde /levantamiento (Nueva Orden)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get('nueva') === 'levantamiento' && canOrdenesCreate) {
+    if (params.get("nueva") === "levantamiento" && canOrdenesCreate) {
       openNewOrden({ tipo: "levantamiento", tab: "cliente" });
-      navigate('/ordenes', { replace: true });
+      navigate("/ordenes", { replace: true });
     }
   }, [location.search, canOrdenesCreate, navigate, openNewOrden]);
 
@@ -215,9 +236,9 @@ export default function Ordenes() {
     void fetchOrdenes();
   }, [authLoading, isAuthenticated, canOrdenesView, fetchOrdenes]);
 
-  // Usuarios para el filtro del listado: se cargan al abrir la página (no solo
-  // al abrir el modal), si no el <select> de usuario sale vacío en producción.
-  // Estado propio para no pisar `usuarios` (que el modal usa para asignación).
+  // Usuarios para el filtro del listado: se cargan al abrir la p�gina (no solo
+  // al abrir el modal), si no el <select> de usuario sale vac�o en producci�n.
+  // Estado propio para no pisar `usuarios` (que el modal usa para asignaci�n).
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
     let cancelled = false;
@@ -238,7 +259,8 @@ export default function Ordenes() {
 
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [mesPdfLoading, setMesPdfLoading] = useState(false);
-  const [enviarPdfOrden, setEnviarPdfOrden] = useState<OrdenEnviarPdfTarget | null>(null);
+  const [enviarPdfOrden, setEnviarPdfOrden] =
+    useState<OrdenEnviarPdfTarget | null>(null);
   const [enviarPdfInitialCorreo, setEnviarPdfInitialCorreo] = useState("");
 
   const openEnviarPdfModal = (orden: Orden | OrdenEnviarPdfTarget) => {
@@ -281,7 +303,7 @@ export default function Ordenes() {
         show: true,
         variant: "warning",
         title: "PDF del mes",
-        message: "Seleccione un mes válido para descargar el listado.",
+        message: "Seleccione un mes v�lido para descargar el listado.",
       });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
       return;
@@ -290,8 +312,8 @@ export default function Ordenes() {
       setAlert({
         show: true,
         variant: "info",
-        title: "Sin órdenes",
-        message: "No hay órdenes registradas en el mes seleccionado.",
+        title: "Sin �rdenes",
+        message: "No hay �rdenes registradas en el mes seleccionado.",
       });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4000);
       return;
@@ -300,7 +322,12 @@ export default function Ordenes() {
     void downloadOrdenesMesPdf(selectedMonth).then((result) => {
       setMesPdfLoading(false);
       if (!result.ok && result.message) {
-        setAlert({ show: true, variant: "error", title: "PDF del mes", message: result.message });
+        setAlert({
+          show: true,
+          variant: "error",
+          title: "PDF del mes",
+          message: result.message,
+        });
         setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 5000);
       }
     });
@@ -416,8 +443,13 @@ export default function Ordenes() {
 
   const handleDeleteClick = (orden: Orden) => {
     if (!canOrdenesDelete) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para eliminar órdenes.' });
-      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
+      setAlert({
+        show: true,
+        variant: "warning",
+        title: "Sin permiso",
+        message: "No tienes permiso para eliminar �rdenes.",
+      });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
       return;
     }
     setOrdenToDelete(orden);
@@ -425,9 +457,11 @@ export default function Ordenes() {
   };
 
   const handleConfirmDelete = async () => {
-    if (!ordenToDelete) return;    try {
+    if (!ordenToDelete) return;
+    try {
       const response = await fetchApi(`/api/ordenes/${ordenToDelete.id}/`, {
-        method: "DELETE",      });
+        method: "DELETE",
+      });
 
       if (response.ok) {
         await fetchOrdenes();
@@ -438,22 +472,37 @@ export default function Ordenes() {
           show: true,
           variant: "success",
           title: "Orden Eliminada",
-          message: `La orden para "${ordenToDelete?.cliente}" ha sido eliminada exitosamente.`
+          message: `La orden para "${ordenToDelete?.cliente}" ha sido eliminada exitosamente.`,
         });
         setOrdenToDelete(null);
-        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
+        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
       } else {
         if (response.status === 403) {
-          setAlert({ show: true, variant: "error", title: "Sin permisos", message: "No tienes permisos para eliminar esta orden." });
+          setAlert({
+            show: true,
+            variant: "error",
+            title: "Sin permisos",
+            message: "No tienes permisos para eliminar esta orden.",
+          });
         } else if (response.status === 404) {
-          setAlert({ show: true, variant: "error", title: "No encontrada", message: "La orden no existe o ya no tienes acceso." });
+          setAlert({
+            show: true,
+            variant: "error",
+            title: "No encontrada",
+            message: "La orden no existe o ya no tienes acceso.",
+          });
         } else {
-          setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo eliminar la orden." });
+          setAlert({
+            show: true,
+            variant: "error",
+            title: "Error",
+            message: "No se pudo eliminar la orden.",
+          });
         }
         await fetchOrdenes();
         setShowDeleteModal(false);
         setOrdenToDelete(null);
-        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3500);
+        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
       }
     } catch (error) {
       console.error("Error al eliminar orden:", error);
@@ -467,8 +516,13 @@ export default function Ordenes() {
 
   const handleEdit = async (orden: Orden): Promise<boolean> => {
     if (!canOrdenesEdit) {
-      setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar órdenes.' });
-      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
+      setAlert({
+        show: true,
+        variant: "warning",
+        title: "Sin permiso",
+        message: "No tienes permiso para editar �rdenes.",
+      });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 2500);
       return false;
     }
 
@@ -477,14 +531,16 @@ export default function Ordenes() {
     const seq = ++editDetailSeqRef.current;
     setEditingOrden(orden);
     setActiveTab("cliente");
-    const seedType = String(orden.tipo_orden || '').toLowerCase();
-    setTipoOrden(seedType === 'levantamiento' ? 'levantamiento' : 'servicio_tecnico');
+    const seedType = String(orden.tipo_orden || "").toLowerCase();
+    setTipoOrden(
+      seedType === "levantamiento" ? "levantamiento" : "servicio_tecnico",
+    );
     loadFromOrden(orden);
     setDetailLoading(true);
     setShowModal(true);
 
     const detail = await fetchOrdenDetail(orden.id);
-    if (seq !== editDetailSeqRef.current) return true; // se abrió otra orden mientras tanto
+    if (seq !== editDetailSeqRef.current) return true; // se abri� otra orden mientras tanto
 
     if (!detail) {
       setDetailLoading(false);
@@ -492,14 +548,17 @@ export default function Ordenes() {
         show: true,
         variant: "warning",
         title: "Detalle incompleto",
-        message: "No se pudieron cargar firma y fotos. Revisa tu conexión antes de guardar.",
+        message:
+          "No se pudieron cargar firma y fotos. Revisa tu conexi�n antes de guardar.",
       });
       return true;
     }
 
     setEditingOrden(detail);
-    const orderType = String(detail.tipo_orden || '').toLowerCase();
-    setTipoOrden(orderType === 'levantamiento' ? 'levantamiento' : 'servicio_tecnico');
+    const orderType = String(detail.tipo_orden || "").toLowerCase();
+    setTipoOrden(
+      orderType === "levantamiento" ? "levantamiento" : "servicio_tecnico",
+    );
     loadFromOrden(detail);
     setDetailLoading(false);
     return true;
@@ -510,7 +569,7 @@ export default function Ordenes() {
 
   const abrirOrdenFromQueryDoneRef = useRef<string | null>(null);
 
-  // Desde historial global (MonthlyTarget): /ordenes?abrir=<id> abre el modal de edición de esa orden
+  // Desde historial global (MonthlyTarget): /ordenes?abrir=<id> abre el modal de edici�n de esa orden
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const raw = params.get("abrir");
@@ -552,9 +611,9 @@ export default function Ordenes() {
   const startIndex = 0;
   const currentOrdenes = shownList;
   /**
-   * Listado: se conservan las secciones por estado (Pendientes → Pausados →
-   * Canceladas → Resueltas) y dentro de cada sección las órdenes se ordenan por
-   * prioridad de bolsa: Alta arriba → Media → Baja → Sin prioridad al final.
+   * Listado: se conservan las secciones por estado (Pendientes ? Pausados ?
+   * Canceladas ? Resueltas) y dentro de cada secci�n las �rdenes se ordenan por
+   * prioridad de bolsa: Alta arriba ? Media ? Baja ? Sin prioridad al final.
    */
   const listadoOrdenes = useMemo(
     () => sortOrdenesByPrioridad(currentOrdenes),
@@ -574,569 +633,892 @@ export default function Ordenes() {
 
   return (
     <div className={erpPageCanvasClass} style={erpSansStyle}>
-    <div className={erpPageInnerClass}>
-      <PageMeta
-        title="Órdenes de Trabajo | Sistema Grupo Intrax GPS"
-        description="Gestión de órdenes de servicio para el sistema de administración Grupo Intrax GPS"
-      />
-      <nav
-        className={erpBreadcrumbNavClass}
-        aria-label="Migas de pan"
-      >
-        <Link to="/" className={erpBreadcrumbLinkClass}>
-          Inicio
-        </Link>
-        <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
-          /
-        </span>
-        <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">Órdenes de trabajo</span>
-      </nav>
-
-      <OrdenPdfLoadingModal open={pdfDownloading || mesPdfLoading} downloading />
-      <OrdenEnviarPdfModal
-        open={enviarPdfOrden != null}
-        orden={enviarPdfOrden}
-        initialCorreo={enviarPdfInitialCorreo}
-        onClose={() => setEnviarPdfOrden(null)}
-        onSent={(correo) => {
-          setAlert({
-            show: true,
-            variant: "success",
-            title: "Correo enviado",
-            message: `El PDF se envió a ${correo}.`,
-          });
-          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
-        }}
-        onError={(message) => {
-          setAlert({ show: true, variant: "error", title: "Correo", message });
-          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 5000);
-        }}
-      />
-
-      {alert.show && (
-        <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
-      )}
-
-      <header className={osHeroBandClass}>
-        <div className={erpHeroBlurClass} aria-hidden />
-        <div className="relative flex min-w-0 items-start gap-4">
-          <span className={erpHeroIconWrapClass} aria-hidden>
-            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+      <div className={erpPageInnerClass}>
+        <PageMeta
+          title="�rdenes de Trabajo | Sistema Grupo Intrax GPS"
+          description="Gesti�n de �rdenes de servicio para el sistema de administraci�n Grupo Intrax GPS"
+        />
+        <nav className={erpBreadcrumbNavClass} aria-label="Migas de pan">
+          <Link to="/" className={erpBreadcrumbLinkClass}>
+            Inicio
+          </Link>
+          <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
+            /
           </span>
-          <div className="min-w-0 flex-1">
-            <p className={osHeroEyebrowClass}>Operación</p>
-            <h1 className={`mt-1 ${erpHeroHeadingClass}`}>Órdenes de trabajo</h1>
-            <p className={osHeroBodyClass}>
-              Administra órdenes de servicio, fotos, firmas y PDF. Filtra por estado, servicio o fecha en el listado.
-            </p>
-          </div>
-        </div>
-      </header>
+          <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]">
+            �rdenes de trabajo
+          </span>
+        </nav>
 
-      <OrdenesPageStats stats={ordenStats} />
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
-        <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
-          <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8EA0B8] sm:left-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por folio, cliente, técnico o estado…"
-            className={pageSearchInputClass}
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              aria-label="Limpiar búsqueda"
-              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
-            >
-              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (!canOrdenesCreate) {
-              setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para crear órdenes.' });
-              setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-              return;
-            }
-            if (!editingOrden) {
-              const today = new Date().toISOString().slice(0, 10);
-              setFormData({
-                ...formData,
-                fecha_inicio: formData.fecha_inicio || today,
-                hora_inicio: getNowHHMM(),
-              });
-            }
-            setTipoOrden('servicio_tecnico');
-            setActiveTab("cliente");
-            setShowModal(true);
+        <OrdenPdfLoadingModal
+          open={pdfDownloading || mesPdfLoading}
+          downloading
+        />
+        <OrdenEnviarPdfModal
+          open={enviarPdfOrden != null}
+          orden={enviarPdfOrden}
+          initialCorreo={enviarPdfInitialCorreo}
+          onClose={() => setEnviarPdfOrden(null)}
+          onSent={(correo) => {
+            setAlert({
+              show: true,
+              variant: "success",
+              title: "Correo enviado",
+              message: `El PDF se envi� a ${correo}.`,
+            });
+            setTimeout(
+              () => setAlert((prev) => ({ ...prev, show: false })),
+              3500,
+            );
           }}
-          className={erpPrimaryBtnClass + " lg:shrink-0"}
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-          </svg>
-          Nueva orden
-        </button>
-      </div>
+          onError={(message) => {
+            setAlert({
+              show: true,
+              variant: "error",
+              title: "Correo",
+              message,
+            });
+            setTimeout(
+              () => setAlert((prev) => ({ ...prev, show: false })),
+              5000,
+            );
+          }}
+        />
 
-      <section
-        className={`overflow-visible ${pageCardShellClass}`}
-        aria-labelledby="ordenes-listado-heading"
-      >
-        <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2.5">
-                <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
-                  <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                    <rect x="3" y="4" width="18" height="17" rx="2.2" />
-                    <path d="M3 9.5h18" />
-                  </svg>
-                </span>
-                <h2 id="ordenes-listado-heading" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
-                  Listado de órdenes
-                </h2>
-              </div>
-              <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
-                Resultados según búsqueda y filtros. En pantallas pequeñas desplázate horizontalmente si hace falta.
+        {alert.show && (
+          <Alert
+            variant={alert.variant}
+            title={alert.title}
+            message={alert.message}
+            showLink={false}
+          />
+        )}
+
+        <header className={osHeroBandClass}>
+          <div className={erpHeroBlurClass} aria-hidden />
+          <div className="relative flex min-w-0 items-start gap-4">
+            <span className={erpHeroIconWrapClass} aria-hidden>
+              <svg
+                className="size-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                aria-hidden
+              >
+                <path
+                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className={osHeroEyebrowClass}>Operaci�n</p>
+              <h1 className={`mt-1 ${erpHeroHeadingClass}`}>
+                �rdenes de trabajo
+              </h1>
+              <p className={osHeroBodyClass}>
+                Administra �rdenes de servicio, fotos, firmas y PDF. Filtra por
+                estado, servicio o fecha en el listado.
               </p>
             </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={handleDownloadMesPdf}
-              disabled={mesPdfLoading || loading}
-              className={erpSecondaryBtnClass + " h-10 w-full sm:w-auto shrink-0"}
-              title="Descargar PDF con todas las órdenes del mes visible"
+          </div>
+        </header>
+
+        <OrdenesPageStats stats={ordenStats} />
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
+          <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
+            <svg
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8EA0B8] sm:left-3 sm:h-4 sm:w-4"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
             >
-              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M7 10l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M12 15V3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              PDF del mes
-            </button>
-            {/* Filtro desplegable */}
-            <OrdenesListFiltersPopover
-              open={filterOpen}
-              onOpenChange={setFilterOpen}
-              filterServicio={filterServicio}
-              setFilterServicio={setFilterServicio}
-              filterDate={filterDate}
-              setFilterDate={setFilterDate}
-              filterTecnicoId={filterTecnicoId}
-              setFilterTecnicoId={setFilterTecnicoId}
-              serviciosDisponibles={serviciosDisponibles}
-              usuarios={usuariosFiltro.length > 0 ? usuariosFiltro : usuarios}
-              activeFilterCount={secondaryFilterCount}
-              onClear={clearSecondaryFilters}
-              showTecnicoFilter
-              datePickerId="filtro-fecha-ordenes-admin"
+              <path
+                d="M9.5 3.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm6 12-2.5-2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por folio, cliente, t�cnico o estado�"
+              className={pageSearchInputClass}
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                aria-label="Limpiar b�squeda"
+                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-10 items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/6 sm:h-9 sm:min-w-11 sm:rounded-lg"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="w-4 h-4"
+                  fill="currentColor"
+                >
+                  <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
+                </svg>
+              </button>
+            )}
           </div>
-          </div>
-          <div className="mt-3 min-w-0 max-w-full overflow-hidden">
-            <OrdenesStatusSegmentFilter
-              filterStatus={filterStatus}
-              setFilterStatus={setFilterStatus}
-              statusCounts={statusCounts}
-              totalBeforeStatus={totalBeforeStatus}
-            />
-          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (!canOrdenesCreate) {
+                setAlert({
+                  show: true,
+                  variant: "warning",
+                  title: "Sin permiso",
+                  message: "No tienes permiso para crear �rdenes.",
+                });
+                setTimeout(
+                  () => setAlert((prev) => ({ ...prev, show: false })),
+                  2500,
+                );
+                return;
+              }
+              if (!editingOrden) {
+                const today = new Date().toISOString().slice(0, 10);
+                setFormData({
+                  ...formData,
+                  fecha_inicio: formData.fecha_inicio || today,
+                  hora_inicio: getNowHHMM(),
+                });
+              }
+              setTipoOrden("servicio_tecnico");
+              setActiveTab("cliente");
+              setShowModal(true);
+            }}
+            className={erpPrimaryBtnClass + " lg:shrink-0"}
+          >
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+            </svg>
+            Nueva orden
+          </button>
         </div>
-        <div className="p-2 sm:p-3">
-          {monthLoading ? (
-            <OrdenesMonthLoadingBanner selectedMonth={selectedMonth} className="mb-3" />
-          ) : null}
-          <MobileOrderList
-            ordenes={listadoOrdenes}
-            startIndex={startIndex}
-            loading={monthLoading}
-            formatDate={formatYmdToDMY}
-            onPdf={handleOrdenPdf}
-            onEnviarPdf={openEnviarPdfModal}
-            onEdit={canOrdenesEdit ? handleEdit : undefined}
-            onDelete={canOrdenesDelete ? handleDeleteClick : undefined}
-            canEdit={canOrdenesEdit}
-            canDelete={canOrdenesDelete}
-            usuarios={usuarios}
-            highlightRecentStatus={isAdmin}
-            groupByStatus
-            selectedMonth={selectedMonth}
-          />
-          <div className={"hidden md:block " + erpTableWrapClass}>
-            <Table className="w-full min-w-[1090px] table-fixed sm:min-w-0 xl:min-w-full">
-              <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
-                <TableRow>
-                  <TableCell isHeader className="px-3 py-2 text-left w-[100px] min-w-[96px] max-w-[110px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Folio</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Cliente</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-left w-1/5 min-w-[220px] text-[#52525B] dark:text-[#B7C1D1]">Detalles</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Fechas</TableCell>
 
-                  <TableCell isHeader className="px-3 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Técnico</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-left w-[180px] min-w-[180px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Registro</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Prioridad · Estado</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Acciones</TableCell>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-[#EDEDED] bg-white text-[12px] text-[#44403c] dark:divide-[#273244] dark:bg-[#111827] dark:text-[#e5e7eb]">
-                {statusSections.flatMap((section) => {
-                  const headingId = `ordenes-table-${section.key.toLowerCase()}`;
-                  const headerRow = (
-                    <TableRow
-                      key={`${section.key}-header`}
-                      className="hover:bg-transparent dark:hover:bg-transparent"
+        <section
+          className={`overflow-visible ${pageCardShellClass}`}
+          aria-labelledby="ordenes-listado-heading"
+        >
+          <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="size-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      aria-hidden
                     >
-                      <TableCell
-                        isHeader
-                        scope="colgroup"
-                        colSpan={8}
-                        className="border-y-0 bg-transparent p-0 text-left"
-                      >
-                        <div className="px-3 py-2">
-                          <OrdenStatusSectionHeader
-                            statusKey={section.key}
-                            label={section.label}
-                            count={section.ordenes.length}
-                            headingId={headingId}
-                          />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-
-                  const dataRows = section.ordenes.map((orden, sectionIdx) => {
-                  const idx =
-                    typeof orden.id === "number" && ordenIndexById.has(orden.id)
-                      ? (ordenIndexById.get(orden.id) as number)
-                      : sectionIdx;
-                  const fecha = orden.fecha_inicio || orden.fecha_creacion || '';
-                  const fechaFmt = fecha ? formatYmdToDMY(fecha) : '-';
-                  const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : '-';
-                  const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
-                  // En órdenes resueltas o canceladas la prioridad de bolsa deja de ser relevante: no se muestra.
-                  const isResuelta = isOrdenResuelta(orden.status);
-                  const isCancelada = isOrdenCancelada(orden.status);
-                  const isTerminal = isResuelta || isCancelada;
-                  // Prioridad efectiva = base fijada por el admin, escalada por antigüedad
-                  // (+1 nivel a las 72 h sin resolver, +2 a las 96 h).
-                  const prioKey = ordenPrioridadKey(
-                    isTerminal ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
-                  );
-                  const prioEscalada = !isTerminal && ordenPrioridadEscalada(orden);
-                  const prioTone = getOrdenPrioridadSectionStyles(prioKey);
-                  const prioShort =
-                    prioKey === "ALTA" ? "Alta"
-                      : prioKey === "MEDIA" ? "Media"
-                      : prioKey === "BAJA" ? "Baja"
-                      : "Sin prio.";
-                  const prioAria =
-                    prioKey === "SIN" ? "sin prioridad" : `prioridad ${prioShort.toLowerCase()}`;
-                  const recentResolved = isAdmin && isOrdenStatusChangeRecent(orden);
-                  const creadaPor = displayOrdenUserName(orden, "creado");
-                  const editadaPor = displayOrdenUserName(orden, "actualizado");
-                  const creadaEn = formatIsoDateTime(orden.fecha_creacion);
-                  const editadaEn = formatIsoDateTime(orden.fecha_actualizacion);
-                  const statusByName = resolveStatusChangedByName(
-                    orden.status_changed_by_full_name,
-                    orden.status_changed_by_username,
-                  );
-
-                  const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
-                  const tecnicoNombre = tecnico
-                    ? (tecnico.first_name && tecnico.last_name ? `${tecnico.first_name} ${tecnico.last_name}` : tecnico.email)
-                    : ((orden as any).nombre_encargado || '-');
-                  return (
-                    <TableRow
-                      key={orden.id ?? `${section.key}-${sectionIdx}`}
-                      className={`${erpTableRowHoverClass} ${recentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isTerminal ? "" : prioTone.rowAccent}`}
-                      aria-label={`Orden ${folioDisplay}${isTerminal ? "" : `, ${prioAria}`}${isCancelada ? ", cancelada" : ""}${recentResolved ? ", resuelta recientemente" : ""}`}
-                    >
-                      <TableCell className="px-3 py-2 w-[100px] min-w-[96px] max-w-[110px] overflow-hidden font-medium tabular-nums">
-                        <div className="flex min-w-0 flex-col items-stretch gap-1">
-                          <span className="whitespace-nowrap">{folioDisplay}</span>
-                          <OrdenArrastreBadge orden={orden} selectedMonth={selectedMonth} />
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-[#09090B] dark:text-white w-1/5 min-w-[220px]">
-                        <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
-                        {orden.direccion && (
-                          isGoogleMapsUrl(orden.direccion) ? (
-                            <a href={orden.direccion} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-600 dark:text-blue-400 hover:underline truncate">{orden.direccion}</a>
-                          ) : (
-                            <span className="block text-[11px] text-[#52525B] dark:text-[#8EA0B8] truncate" title={orden.direccion}>{orden.direccion}</span>
-                          )
-                        )}
-                        {orden.telefono_cliente && (
-                          <a href={`tel:${orden.telefono_cliente}`} className="inline-block text-[11px] text-[#52525B] dark:text-[#8EA0B8]">{orden.telefono_cliente}</a>
-                        )}
-                      </TableCell>
-                      <TableCell className="px-3 py-2 w-2/5 min-w-[220px] whitespace-normal">
-                        <div className="flex flex-col gap-1 items-start">
-                          <button
-                            type="button"
-                            onClick={() => setProblematicaModal({ open: true, content: orden.problematica || '-' })}
-                            className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                            title="Ver problemática"
-                          >
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            Problemática
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setServiciosModal({ open: true, content: Array.isArray(orden.servicios_realizados) ? orden.servicios_realizados : [] })}
-                            className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                            title="Ver servicios realizados"
-                          >
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-                            Servicios
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 whitespace-nowrap w-[130px] min-w-[130px]">
-                        <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
-                          <div><span className="text-[#6E6E77]">Inicio:</span> {fechaFmt}</div>
-                          <div><span className="text-[#6E6E77]">Fin:</span> {finFmt}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 whitespace-nowrap w-[160px] min-w-[160px]">
-                        <div className="space-y-1">
-                          <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1] truncate">{tecnicoNombre}</div>
-                          <button
-                            type="button"
-                            onClick={() => setComentarioModal({ open: true, content: (orden.comentario_tecnico || '') as string })}
-                            className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                            title="Ver comentario del técnico"
-                          >
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /></svg>
-                            Comentarios
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 w-[180px] min-w-[180px] align-top">
-                        <div className="flex min-w-0 flex-col gap-1.5 text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
-                          <div className="min-w-0">
-                            <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">Creada por</div>
-                            <div className="truncate font-medium text-[#09090B] dark:text-white" title={creadaPor}>
-                              {creadaPor}
-                            </div>
-                            {orden.fecha_creacion ? (
-                              <time
-                                className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]"
-                                dateTime={orden.fecha_creacion}
-                              >
-                                {creadaEn}
-                              </time>
-                            ) : (
-                              <span className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">—</span>
-                            )}
-                          </div>
-                          <div className="min-w-0 border-t border-[#EDEDED] pt-1.5 dark:border-[#273244]">
-                            <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">Editada por</div>
-                            <div className="truncate font-medium text-[#09090B] dark:text-white" title={editadaPor}>
-                              {editadaPor}
-                            </div>
-                            {orden.fecha_actualizacion ? (
-                              <time
-                                className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]"
-                                dateTime={orden.fecha_actualizacion}
-                              >
-                                {editadaEn}
-                              </time>
-                            ) : null}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-center w-[164px] min-w-[156px]">
-                        <div className="flex flex-col items-center gap-1">
-                          {(() => {
-                            const statusPill =
-                              orden.status === 'resuelto'
-                                ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                                : orden.status === 'pausado'
-                                  ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'
-                                  : orden.status === 'cancelada'
-                                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
-                            const statusLabel =
-                              orden.status === 'resuelto'
-                                ? 'Resuelto'
-                                : orden.status === 'pausado'
-                                  ? 'Pausado'
-                                  : orden.status === 'cancelada'
-                                    ? 'Cancelada'
-                                    : 'Pendiente';
-                            const statusTitle =
-                              orden.status === 'pausado' && orden.motivo_pausa
-                                ? String(orden.motivo_pausa)
-                                : orden.status === 'cancelada' && orden.motivo_cancelacion
-                                  ? String(orden.motivo_cancelacion)
-                                  : undefined;
-                            // Resuelta o cancelada: solo estado (la prioridad ya no aplica).
-                            if (isTerminal) {
-                              return (
-                                <span
-                                  className={`inline-flex items-center rounded-full px-2 py-[3px] text-[10px] font-semibold ${statusPill}`}
-                                  title={statusTitle}
-                                >
-                                  {statusLabel}
-                                </span>
-                              );
-                            }
-                            // Activa: pastilla combinada — segmento izq. = prioridad, der. = estado.
-                            return (
-                              <span className="inline-flex items-stretch overflow-hidden whitespace-nowrap rounded-full text-[10px] font-semibold leading-none ring-1 ring-inset ring-black/[0.06] dark:ring-white/10">
-                                <span
-                                  className={`flex items-center gap-1 px-1.5 py-[3px] ${prioTone.cap}`}
-                                  title={
-                                    prioEscalada
-                                      ? `Prioridad ${prioShort} — escalada automáticamente por antigüedad (+72 h sin resolver)`
-                                      : `Prioridad ${prioShort}`
-                                  }
-                                >
-                                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${prioTone.dot}`} aria-hidden />
-                                  {prioShort}
-                                  {prioEscalada && (
-                                    <span className="font-bold leading-none" aria-hidden title="Escalada por antigüedad">↑</span>
-                                  )}
-                                </span>
-                                <span className={`px-2 py-[3px] ${statusPill}`} title={statusTitle}>
-                                  {statusLabel}
-                                </span>
-                              </span>
-                            );
-                          })()}
-                          {recentResolved && (
-                            <span className={ORDEN_RECIEN_RESUELTA_BADGE_CLASS}>
-                              <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                                <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                              Resuelto recién
-                            </span>
-                          )}
-                          {(statusByName ||
-                            orden.status_changed_at ||
-                            orden.creado_por_username ||
-                            orden.creado_por_full_name) && (
-                            <StatusChangedByChip
-                              name={statusByName}
-                              at={orden.status_changed_at}
-                              fallbackName={resolveStatusChangedByName(
-                                orden.creado_por_full_name,
-                                orden.creado_por_username,
-                              )}
-                              align="center"
-                            />
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-center w-[150px] min-w-[150px]">
-                        <div className={erpRowActionBarClass}>
-                          <button
-                            type="button"
-                            onClick={() => handleOrdenPdf(orden)}
-                            className={erpRowActionBtnClass + " hover:border-red-400 hover:text-red-600"}
-                            title={orden.status === "resuelto" ? "Descargar PDF" : "Ver PDF"}
-                            aria-label={orden.status === "resuelto" ? "Descargar PDF" : "Ver PDF"}
-                          >
-                            <svg className="w-4 h-4" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
-                              <g>
-                                <path d="M378.413,0H208.297h-13.182L185.8,9.314L57.02,138.102l-9.314,9.314v13.176v265.514 c0,47.36,38.528,85.895,85.896,85.895h244.811c47.353,0,85.881-38.535,85.881-85.895V85.896C464.294,38.528,425.766,0,378.413,0z M432.497,426.105c0,29.877-24.214,54.091-54.084,54.091H133.602c-29.884,0-54.098-24.214-54.098-54.091V160.591h83.716 c24.885,0,45.077-20.178,45.077-45.07V31.804h170.116c29.87,0,54.084,24.214,54.084,54.092V426.105Z" />
-                                <path d="M171.947,252.785h-28.529c-5.432,0-8.686,3.533-8.686,8.825v73.754c0,6.388,4.204,10.599,10.041,10.599 c5.711,0,9.914-4.21,9.914-10.599v-22.406c0-0.545,0.279-0.817,0.824-0.817h16.436c20.095,0,32.188-12.226,32.188-29.612 C204.136,264.871,192.182,252.785,171.947,252.785z M170.719,294.888h-15.208c-0.545,0-0.824-0.272-0.824-0.81v-23.23 c0-0.545,0.279-0.816,0.824-0.816h15.208c8.42,0,13.447,5.027,13.447,12.498C184.167,290,179.139,294.888,170.719,294.888z" />
-                                <path d="M250.191,252.785h-21.868c-5.432,0-8.686,3.533-8.686,8.825v74.843c0,5.3,3.253,8.693,8.686,8.693h21.868 c19.69,0,31.923-6.249,36.81-21.324c1.76-5.3,2.723-11.681,2.723-24.857c0-13.175-0.964-19.557-2.723-24.856 C282.113,259.034,269.881,252.785,250.191,252.785z M267.856,316.896c-2.318,7.331-8.965,10.459-18.21,10.459h-9.23 c-0.545,0-0.824-0.272-0.824-0.816v-55.146c0-0.545,0.279-0.817,0.824-0.817h9.23c9.245,0,15.892,3.128,18.21,10.46 c0.95,3.128,1.62,8.56,1.62,17.93C269.476,308.336,268.805,313.768,267.856,316.896z" />
-                                <path d="M361.167,252.785h-44.812c-5.432,0-8.7,3.533-8.7,8.825v73.754c0,6.388,4.218,10.599,10.055,10.599 c5.697,0,9.914-4.21,9.914-10.599v-26.351c0-0.538,0.265-0.81,0.81-0.81h26.086c5.837,0,9.23-3.532,9.23-8.56 c0-5.028-3.393-8.553-9.23-8.553h-26.086c-0.545,0-0.81-0.272-0.81-0.817v-19.425c0-0.545,0.265-0.816,0.81-0.816h32.733 c5.572,0,9.245-3.666,9.245-8.553C370.411,256.45,366.738,252.785,361.167,252.785z" />
-                              </g>
-                            </svg>
-                          </button>
-                          {isOrdenResuelta(orden.status) && isOrdenServicioTecnico(orden.tipo_orden) && (
-                            <button
-                              type="button"
-                              onClick={() => openEnviarPdfModal(orden)}
-                              className={erpRowActionBtnClass + " hover:border-sky-400 hover:text-sky-600"}
-                              title="Enviar PDF por correo"
-                              aria-label="Enviar PDF por correo"
-                            >
-                              <MailIcon className="w-4 h-4" />
-                            </button>
-                          )}
-                          {canOrdenesEdit && (
-                            <button
-                              onClick={() => handleEdit(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-[#111827] border border-[#E7E7EA] dark:border-white/10 hover:border-[#1B5CFF] hover:text-[#1B5CFF] dark:hover:border-[#1B5CFF] transition"
-                              title="Editar"
-                              aria-label="Editar"
-                            >
-                              <PencilIcon className="w-4 h-4" />
-                            </button>
-                          )}
-                          {canOrdenesDelete && (
-                            <button
-                              onClick={() => handleDeleteClick(orden)}
-                              className={erpRowActionBtnClass + " hover:border-rose-400 hover:text-rose-600"}
-                              title="Eliminar"
-                              aria-label="Eliminar"
-                            >
-                              <TrashBinIcon className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                  });
-
-                  return [headerRow, ...dataRows];
-                })}
-                {monthLoading && listadoOrdenes.length === 0 && (
+                      <rect x="3" y="4" width="18" height="17" rx="2.2" />
+                      <path d="M3 9.5h18" />
+                    </svg>
+                  </span>
+                  <h2
+                    id="ordenes-listado-heading"
+                    className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]"
+                  >
+                    Listado de �rdenes
+                  </h2>
+                </div>
+                <p className="mt-2 text-[14px] leading-5 text-[#52525B] dark:text-[#B7C1D1]">
+                  Resultados seg�n b�squeda y filtros. En pantallas peque�as
+                  despl�zate horizontalmente si hace falta.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadMesPdf}
+                  disabled={mesPdfLoading || loading}
+                  className={
+                    erpSecondaryBtnClass + " h-10 w-full sm:w-auto shrink-0"
+                  }
+                  title="Descargar PDF con todas las �rdenes del mes visible"
+                >
+                  <svg
+                    className="w-3.5 h-3.5 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden
+                  >
+                    <path
+                      d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M7 10l5 5 5-5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M12 15V3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  PDF del mes
+                </button>
+                {/* Filtro desplegable */}
+                <OrdenesListFiltersPopover
+                  open={filterOpen}
+                  onOpenChange={setFilterOpen}
+                  filterServicio={filterServicio}
+                  setFilterServicio={setFilterServicio}
+                  filterDate={filterDate}
+                  setFilterDate={setFilterDate}
+                  filterTecnicoId={filterTecnicoId}
+                  setFilterTecnicoId={setFilterTecnicoId}
+                  serviciosDisponibles={serviciosDisponibles}
+                  usuarios={
+                    usuariosFiltro.length > 0 ? usuariosFiltro : usuarios
+                  }
+                  activeFilterCount={secondaryFilterCount}
+                  onClear={clearSecondaryFilters}
+                  showTecnicoFilter
+                  datePickerId="filtro-fecha-ordenes-admin"
+                />
+              </div>
+            </div>
+            <div className="mt-3 min-w-0 max-w-full overflow-hidden">
+              <OrdenesStatusSegmentFilter
+                filterStatus={filterStatus}
+                setFilterStatus={setFilterStatus}
+                statusCounts={statusCounts}
+                totalBeforeStatus={totalBeforeStatus}
+              />
+            </div>
+          </div>
+          <div className="p-2 sm:p-3">
+            {monthLoading ? (
+              <OrdenesMonthLoadingBanner
+                selectedMonth={selectedMonth}
+                className="mb-3"
+              />
+            ) : null}
+            <MobileOrderList
+              ordenes={listadoOrdenes}
+              startIndex={startIndex}
+              loading={monthLoading}
+              formatDate={formatYmdToDMY}
+              onPdf={handleOrdenPdf}
+              onEnviarPdf={openEnviarPdfModal}
+              onEdit={canOrdenesEdit ? handleEdit : undefined}
+              onDelete={canOrdenesDelete ? handleDeleteClick : undefined}
+              canEdit={canOrdenesEdit}
+              canDelete={canOrdenesDelete}
+              usuarios={usuarios}
+              highlightRecentStatus={isAdmin}
+              groupByStatus
+              selectedMonth={selectedMonth}
+            />
+            <div className={"hidden md:block " + erpTableWrapClass}>
+              <Table className="w-full min-w-272.5 table-fixed sm:min-w-0 xl:min-w-full">
+                <TableHeader
+                  className={erpTableHeaderClass + " sticky top-0 z-10"}
+                >
                   <TableRow>
                     <TableCell
-                      colSpan={8}
-                      className="px-2 py-8 text-center text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]"
+                      isHeader
+                      className="px-3 py-2 text-left w-25 min-w-24 max-w-27.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
                     >
-                      <span role="status" aria-live="polite">
-                        Cargando órdenes del mes…
-                      </span>
+                      Folio
                     </TableCell>
-                  </TableRow>
-                )}
-                {(!monthLoading && listadoOrdenes.length === 0) && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="px-4 py-10 text-center">
-                      <p className="text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">Sin órdenes</p>
-                      <p className="mt-1 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">
-                        Cambia de mes o ajusta los filtros para ver resultados.
-                      </p>
+                    <TableCell
+                      isHeader
+                      className="px-3 py-2 text-left w-2/5 min-w-55 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
+                    >
+                      Cliente
                     </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                    <TableCell
+                      isHeader
+                      className="px-3 py-2 text-left w-1/5 min-w-55 text-[#52525B] dark:text-[#B7C1D1]"
+                    >
+                      Detalles
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-3 py-2 text-left w-32.5 min-w-32.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
+                    >
+                      Fechas
+                    </TableCell>
 
-          {/* Navegación por mes: siempre visible (también mientras carga). */}
-          <div className="border-t border-[#E7E7EA] px-5 py-4 dark:border-[#273244]">
+                    <TableCell
+                      isHeader
+                      className="px-3 py-2 text-left w-40 min-w-40 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
+                    >
+                      T�cnico
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-3 py-2 text-left w-45 min-w-45 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
+                    >
+                      Registro
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-3 py-2 text-center w-37.5 min-w-37.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
+                    >
+                      Prioridad � Estado
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-3 py-2 text-center w-37.5 min-w-37.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
+                    >
+                      Acciones
+                    </TableCell>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-[#EDEDED] bg-white text-[12px] text-[#44403c] dark:divide-[#273244] dark:bg-[#111827] dark:text-[#e5e7eb]">
+                  {statusSections.flatMap((section) => {
+                    const headingId = `ordenes-table-${section.key.toLowerCase()}`;
+                    const headerRow = (
+                      <TableRow
+                        key={`${section.key}-header`}
+                        className="hover:bg-transparent dark:hover:bg-transparent"
+                      >
+                        <TableCell
+                          isHeader
+                          scope="colgroup"
+                          colSpan={8}
+                          className="border-y-0 bg-transparent p-0 text-left"
+                        >
+                          <div className="px-3 py-2">
+                            <OrdenStatusSectionHeader
+                              statusKey={section.key}
+                              label={section.label}
+                              count={section.ordenes.length}
+                              headingId={headingId}
+                            />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+
+                    const dataRows = section.ordenes.map(
+                      (orden, sectionIdx) => {
+                        const idx =
+                          typeof orden.id === "number" &&
+                          ordenIndexById.has(orden.id)
+                            ? (ordenIndexById.get(orden.id) as number)
+                            : sectionIdx;
+                        const fecha =
+                          orden.fecha_inicio || orden.fecha_creacion || "";
+                        const fechaFmt = fecha ? formatYmdToDMY(fecha) : "-";
+                        const finFmt = orden.fecha_finalizacion
+                          ? formatYmdToDMY(orden.fecha_finalizacion)
+                          : "-";
+                        const folioDisplay = displayOrdenFolio(
+                          orden,
+                          startIndex + idx + 1,
+                        );
+                        // En �rdenes resueltas o canceladas la prioridad de bolsa deja de ser relevante: no se muestra.
+                        const isResuelta = isOrdenResuelta(orden.status);
+                        const isCancelada = isOrdenCancelada(orden.status);
+                        const isTerminal = isResuelta || isCancelada;
+                        // Prioridad efectiva = base fijada por el admin, escalada por antig�edad
+                        // (+1 nivel a las 72 h sin resolver, +2 a las 96 h).
+                        const prioKey = ordenPrioridadKey(
+                          isTerminal
+                            ? orden.prioridad_pool
+                            : ordenPrioridadEfectiva(orden),
+                        );
+                        const prioEscalada =
+                          !isTerminal && ordenPrioridadEscalada(orden);
+                        const prioTone =
+                          getOrdenPrioridadSectionStyles(prioKey);
+                        const prioShort =
+                          prioKey === "ALTA"
+                            ? "Alta"
+                            : prioKey === "MEDIA"
+                              ? "Media"
+                              : prioKey === "BAJA"
+                                ? "Baja"
+                                : "Sin prio.";
+                        const prioAria =
+                          prioKey === "SIN"
+                            ? "sin prioridad"
+                            : `prioridad ${prioShort.toLowerCase()}`;
+                        const recentResolved =
+                          isAdmin && isOrdenStatusChangeRecent(orden);
+                        const creadaPor = displayOrdenUserName(orden, "creado");
+                        const editadaPor = displayOrdenUserName(
+                          orden,
+                          "actualizado",
+                        );
+                        const creadaEn = formatIsoDateTime(
+                          orden.fecha_creacion,
+                        );
+                        const editadaEn = formatIsoDateTime(
+                          orden.fecha_actualizacion,
+                        );
+                        const statusByName = resolveStatusChangedByName(
+                          orden.status_changed_by_full_name,
+                          orden.status_changed_by_username,
+                        );
+
+                        const tecnico = usuarios.find(
+                          (u) => u.id === orden.tecnico_asignado,
+                        );
+                        const tecnicoNombre = tecnico
+                          ? tecnico.first_name && tecnico.last_name
+                            ? `${tecnico.first_name} ${tecnico.last_name}`
+                            : tecnico.email
+                          : orden.nombre_encargado || "-";
+                        return (
+                          <TableRow
+                            key={orden.id ?? `${section.key}-${sectionIdx}`}
+                            className={`${erpTableRowHoverClass} ${recentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isTerminal ? "" : prioTone.rowAccent}`}
+                            aria-label={`Orden ${folioDisplay}${isTerminal ? "" : `, ${prioAria}`}${isCancelada ? ", cancelada" : ""}${recentResolved ? ", resuelta recientemente" : ""}`}
+                          >
+                            <TableCell className="px-3 py-2 w-25 min-w-24 max-w-27.5 overflow-hidden font-medium tabular-nums">
+                              <div className="flex min-w-0 flex-col items-stretch gap-1">
+                                <span className="whitespace-nowrap">
+                                  {folioDisplay}
+                                </span>
+                                <OrdenArrastreBadge
+                                  orden={orden}
+                                  selectedMonth={selectedMonth}
+                                />
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-[#09090B] dark:text-white w-1/5 min-w-55">
+                              <div className="font-medium truncate">
+                                {orden.cliente || "Sin cliente"}
+                              </div>
+                              {orden.direccion &&
+                                (isGoogleMapsUrl(orden.direccion) ? (
+                                  <a
+                                    href={orden.direccion}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="block text-[11px] text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                  >
+                                    {orden.direccion}
+                                  </a>
+                                ) : (
+                                  <span
+                                    className="block text-[11px] text-[#52525B] dark:text-[#8EA0B8] truncate"
+                                    title={orden.direccion}
+                                  >
+                                    {orden.direccion}
+                                  </span>
+                                ))}
+                              {orden.telefono_cliente && (
+                                <a
+                                  href={`tel:${orden.telefono_cliente}`}
+                                  className="inline-block text-[11px] text-[#52525B] dark:text-[#8EA0B8]"
+                                >
+                                  {orden.telefono_cliente}
+                                </a>
+                              )}
+                            </TableCell>
+                            <TableCell className="px-3 py-2 w-2/5 min-w-55 whitespace-normal">
+                              <div className="flex flex-col gap-1 items-start">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setProblematicaModal({
+                                      open: true,
+                                      content: orden.problematica || "-",
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
+                                  title="Ver problem�tica"
+                                >
+                                  <svg
+                                    className="w-3.5 h-3.5"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    aria-hidden="true"
+                                  >
+                                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Problem�tica
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setServiciosModal({
+                                      open: true,
+                                      content: Array.isArray(
+                                        orden.servicios_realizados,
+                                      )
+                                        ? orden.servicios_realizados
+                                        : [],
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
+                                  title="Ver servicios realizados"
+                                >
+                                  <svg
+                                    className="w-3.5 h-3.5"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    aria-hidden="true"
+                                  >
+                                    <path d="M4 6h16M4 12h16M4 18h16" />
+                                  </svg>
+                                  Servicios
+                                </button>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-3 py-2 whitespace-nowrap w-32.5 min-w-32.5">
+                              <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
+                                <div>
+                                  <span className="text-[#6E6E77]">
+                                    Inicio:
+                                  </span>{" "}
+                                  {fechaFmt}
+                                </div>
+                                <div>
+                                  <span className="text-[#6E6E77]">Fin:</span>{" "}
+                                  {finFmt}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-3 py-2 whitespace-nowrap w-40 min-w-40">
+                              <div className="space-y-1">
+                                <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1] truncate">
+                                  {tecnicoNombre}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setComentarioModal({
+                                      open: true,
+                                      content: (orden.comentario_tecnico ||
+                                        "") as string,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:underline dark:text-blue-400"
+                                  title="Ver comentario del t�cnico"
+                                >
+                                  <svg
+                                    className="w-3.5 h-3.5"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    aria-hidden="true"
+                                  >
+                                    <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+                                  </svg>
+                                  Comentarios
+                                </button>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-3 py-2 w-45 min-w-45 align-top">
+                              <div className="flex min-w-0 flex-col gap-1.5 text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
+                                <div className="min-w-0">
+                                  <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">
+                                    Creada por
+                                  </div>
+                                  <div
+                                    className="truncate font-medium text-[#09090B] dark:text-white"
+                                    title={creadaPor}
+                                  >
+                                    {creadaPor}
+                                  </div>
+                                  {orden.fecha_creacion ? (
+                                    <time
+                                      className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]"
+                                      dateTime={orden.fecha_creacion}
+                                    >
+                                      {creadaEn}
+                                    </time>
+                                  ) : (
+                                    <span className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">
+                                      �
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="min-w-0 border-t border-[#EDEDED] pt-1.5 dark:border-[#273244]">
+                                  <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">
+                                    Editada por
+                                  </div>
+                                  <div
+                                    className="truncate font-medium text-[#09090B] dark:text-white"
+                                    title={editadaPor}
+                                  >
+                                    {editadaPor}
+                                  </div>
+                                  {orden.fecha_actualizacion ? (
+                                    <time
+                                      className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]"
+                                      dateTime={orden.fecha_actualizacion}
+                                    >
+                                      {editadaEn}
+                                    </time>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-center w-41 min-w-39">
+                              <div className="flex flex-col items-center gap-1">
+                                {(() => {
+                                  const statusPill =
+                                    orden.status === "resuelto"
+                                      ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                                      : orden.status === "pausado"
+                                        ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300"
+                                        : orden.status === "cancelada"
+                                          ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                                          : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300";
+                                  const statusLabel =
+                                    orden.status === "resuelto"
+                                      ? "Resuelto"
+                                      : orden.status === "pausado"
+                                        ? "Pausado"
+                                        : orden.status === "cancelada"
+                                          ? "Cancelada"
+                                          : "Pendiente";
+                                  const statusTitle =
+                                    orden.status === "pausado" &&
+                                    orden.motivo_pausa
+                                      ? String(orden.motivo_pausa)
+                                      : orden.status === "cancelada" &&
+                                          orden.motivo_cancelacion
+                                        ? String(orden.motivo_cancelacion)
+                                        : undefined;
+                                  // Resuelta o cancelada: solo estado (la prioridad ya no aplica).
+                                  if (isTerminal) {
+                                    return (
+                                      <span
+                                        className={`inline-flex items-center rounded-full px-2 py-0.75 text-[10px] font-semibold ${statusPill}`}
+                                        title={statusTitle}
+                                      >
+                                        {statusLabel}
+                                      </span>
+                                    );
+                                  }
+                                  // Activa: pastilla combinada � segmento izq. = prioridad, der. = estado.
+                                  return (
+                                    <span className="inline-flex items-stretch overflow-hidden whitespace-nowrap rounded-full text-[10px] font-semibold leading-none ring-1 ring-inset ring-black/6 dark:ring-white/10">
+                                      <span
+                                        className={`flex items-center gap-1 px-1.5 py-0.75 ${prioTone.cap}`}
+                                        title={
+                                          prioEscalada
+                                            ? `Prioridad ${prioShort} � escalada autom�ticamente por antig�edad (+72 h sin resolver)`
+                                            : `Prioridad ${prioShort}`
+                                        }
+                                      >
+                                        <span
+                                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${prioTone.dot}`}
+                                          aria-hidden
+                                        />
+                                        {prioShort}
+                                        {prioEscalada && (
+                                          <span
+                                            className="font-bold leading-none"
+                                            aria-hidden
+                                            title="Escalada por antig�edad"
+                                          >
+                                            ?
+                                          </span>
+                                        )}
+                                      </span>
+                                      <span
+                                        className={`px-2 py-0.75 ${statusPill}`}
+                                        title={statusTitle}
+                                      >
+                                        {statusLabel}
+                                      </span>
+                                    </span>
+                                  );
+                                })()}
+                                {recentResolved && (
+                                  <span
+                                    className={
+                                      ORDEN_RECIEN_RESUELTA_BADGE_CLASS
+                                    }
+                                  >
+                                    <svg
+                                      className="h-2.5 w-2.5 shrink-0"
+                                      viewBox="0 0 16 16"
+                                      fill="none"
+                                      aria-hidden="true"
+                                    >
+                                      <path
+                                        d="M3.5 8.5 6.5 11.5 12.5 4.5"
+                                        stroke="currentColor"
+                                        strokeWidth="1.8"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      />
+                                    </svg>
+                                    Resuelto reci�n
+                                  </span>
+                                )}
+                                {(statusByName ||
+                                  orden.status_changed_at ||
+                                  orden.creado_por_username ||
+                                  orden.creado_por_full_name) && (
+                                  <StatusChangedByChip
+                                    name={statusByName}
+                                    at={orden.status_changed_at}
+                                    fallbackName={resolveStatusChangedByName(
+                                      orden.creado_por_full_name,
+                                      orden.creado_por_username,
+                                    )}
+                                    align="center"
+                                  />
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-center w-37.5 min-w-37.5">
+                              <div className={erpRowActionBarClass}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOrdenPdf(orden)}
+                                  className={
+                                    erpRowActionBtnClass +
+                                    " hover:border-red-400 hover:text-red-600"
+                                  }
+                                  title={
+                                    orden.status === "resuelto"
+                                      ? "Descargar PDF"
+                                      : "Ver PDF"
+                                  }
+                                  aria-label={
+                                    orden.status === "resuelto"
+                                      ? "Descargar PDF"
+                                      : "Ver PDF"
+                                  }
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    viewBox="0 0 512 512"
+                                    fill="currentColor"
+                                    aria-hidden="true"
+                                  >
+                                    <g>
+                                      <path d="M378.413,0H208.297h-13.182L185.8,9.314L57.02,138.102l-9.314,9.314v13.176v265.514 c0,47.36,38.528,85.895,85.896,85.895h244.811c47.353,0,85.881-38.535,85.881-85.895V85.896C464.294,38.528,425.766,0,378.413,0z M432.497,426.105c0,29.877-24.214,54.091-54.084,54.091H133.602c-29.884,0-54.098-24.214-54.098-54.091V160.591h83.716 c24.885,0,45.077-20.178,45.077-45.07V31.804h170.116c29.87,0,54.084,24.214,54.084,54.092V426.105Z" />
+                                      <path d="M171.947,252.785h-28.529c-5.432,0-8.686,3.533-8.686,8.825v73.754c0,6.388,4.204,10.599,10.041,10.599 c5.711,0,9.914-4.21,9.914-10.599v-22.406c0-0.545,0.279-0.817,0.824-0.817h16.436c20.095,0,32.188-12.226,32.188-29.612 C204.136,264.871,192.182,252.785,171.947,252.785z M170.719,294.888h-15.208c-0.545,0-0.824-0.272-0.824-0.81v-23.23 c0-0.545,0.279-0.816,0.824-0.816h15.208c8.42,0,13.447,5.027,13.447,12.498C184.167,290,179.139,294.888,170.719,294.888z" />
+                                      <path d="M250.191,252.785h-21.868c-5.432,0-8.686,3.533-8.686,8.825v74.843c0,5.3,3.253,8.693,8.686,8.693h21.868 c19.69,0,31.923-6.249,36.81-21.324c1.76-5.3,2.723-11.681,2.723-24.857c0-13.175-0.964-19.557-2.723-24.856 C282.113,259.034,269.881,252.785,250.191,252.785z M267.856,316.896c-2.318,7.331-8.965,10.459-18.21,10.459h-9.23 c-0.545,0-0.824-0.272-0.824-0.816v-55.146c0-0.545,0.279-0.817,0.824-0.817h9.23c9.245,0,15.892,3.128,18.21,10.46 c0.95,3.128,1.62,8.56,1.62,17.93C269.476,308.336,268.805,313.768,267.856,316.896z" />
+                                      <path d="M361.167,252.785h-44.812c-5.432,0-8.7,3.533-8.7,8.825v73.754c0,6.388,4.218,10.599,10.055,10.599 c5.697,0,9.914-4.21,9.914-10.599v-26.351c0-0.538,0.265-0.81,0.81-0.81h26.086c5.837,0,9.23-3.532,9.23-8.56 c0-5.028-3.393-8.553-9.23-8.553h-26.086c-0.545,0-0.81-0.272-0.81-0.817v-19.425c0-0.545,0.265-0.816,0.81-0.816h32.733 c5.572,0,9.245-3.666,9.245-8.553C370.411,256.45,366.738,252.785,361.167,252.785z" />
+                                    </g>
+                                  </svg>
+                                </button>
+                                {isOrdenResuelta(orden.status) &&
+                                  isOrdenServicioTecnico(orden.tipo_orden) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openEnviarPdfModal(orden)}
+                                      className={
+                                        erpRowActionBtnClass +
+                                        " hover:border-sky-400 hover:text-sky-600"
+                                      }
+                                      title="Enviar PDF por correo"
+                                      aria-label="Enviar PDF por correo"
+                                    >
+                                      <MailIcon className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                {canOrdenesEdit && (
+                                  <button
+                                    onClick={() => handleEdit(orden)}
+                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-[#111827] border border-[#E7E7EA] dark:border-white/10 hover:border-[#1B5CFF] hover:text-[#1B5CFF] dark:hover:border-[#1B5CFF] transition"
+                                    title="Editar"
+                                    aria-label="Editar"
+                                  >
+                                    <PencilIcon className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {canOrdenesDelete && (
+                                  <button
+                                    onClick={() => handleDeleteClick(orden)}
+                                    className={
+                                      erpRowActionBtnClass +
+                                      " hover:border-rose-400 hover:text-rose-600"
+                                    }
+                                    title="Eliminar"
+                                    aria-label="Eliminar"
+                                  >
+                                    <TrashBinIcon className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      },
+                    );
+
+                    return [headerRow, ...dataRows];
+                  })}
+                  {monthLoading && listadoOrdenes.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={8}
+                        className="px-2 py-8 text-center text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]"
+                      >
+                        <span role="status" aria-live="polite">
+                          Cargando �rdenes del mes�
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!monthLoading && listadoOrdenes.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="px-4 py-10 text-center">
+                        <p className="text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">
+                          Sin �rdenes
+                        </p>
+                        <p className="mt-1 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                          Cambia de mes o ajusta los filtros para ver
+                          resultados.
+                        </p>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Navegaci�n por mes: siempre visible (tambi�n mientras carga). */}
+            <div className="border-t border-[#E7E7EA] px-5 py-4 dark:border-[#273244]">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between sm:gap-4 flex-wrap">
                 <p className="text-xs sm:text-sm text-[#52525B] dark:text-[#8EA0B8]">
                   {monthLoading ? (
                     <span role="status" aria-live="polite">
-                      Cargando órdenes del mes seleccionado…
+                      Cargando �rdenes del mes seleccionado�
                     </span>
                   ) : (
                     <>
-                      <span className="font-medium text-[#09090B] dark:text-white">{listadoOrdenes.length}</span>{" "}
-                      {listadoOrdenes.length === 1 ? "orden" : "órdenes"} en el mes
+                      <span className="font-medium text-[#09090B] dark:text-white">
+                        {listadoOrdenes.length}
+                      </span>{" "}
+                      {listadoOrdenes.length === 1 ? "orden" : "�rdenes"} en el
+                      mes
                     </>
                   )}
                 </p>
@@ -1148,22 +1530,38 @@ export default function Ordenes() {
                       const ym = parseYearMonth(selectedMonth);
                       if (!ym) return;
                       const d = new Date(ym.year, ym.month - 2, 1);
-                      const mm = String(d.getMonth() + 1).padStart(2, '0');
+                      const mm = String(d.getMonth() + 1).padStart(2, "0");
                       selectMonth(`${d.getFullYear()}-${mm}`);
                     }}
                     className={erpMonthNavBtnClass}
                     title="Mes anterior"
                     aria-label="Mes anterior"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      className="w-4 h-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M15 18l-6-6 6-6" />
                     </svg>
                   </button>
-                  <span className="min-w-[130px] sm:min-w-[160px] text-center text-[11px] sm:text-[12px] text-[#52525B] dark:text-[#B7C1D1] capitalize">
+                  <span className="min-w-32.5 sm:min-w-40 text-center text-[11px] sm:text-[12px] text-[#52525B] dark:text-[#B7C1D1] capitalize">
                     {(() => {
                       const ym = parseYearMonth(selectedMonth);
-                      if (!ym) return selectedMonth ? selectedMonth : 'Todos los meses';
-                      return new Date(ym.year, ym.month - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+                      if (!ym)
+                        return selectedMonth
+                          ? selectedMonth
+                          : "Todos los meses";
+                      return new Date(
+                        ym.year,
+                        ym.month - 1,
+                        1,
+                      ).toLocaleDateString("es-MX", {
+                        month: "long",
+                        year: "numeric",
+                      });
                     })()}
                   </span>
                   <button
@@ -1173,239 +1571,279 @@ export default function Ordenes() {
                       if (!ym) return;
                       const dt = new Date(ym.year, ym.month - 1, 1);
                       dt.setMonth(dt.getMonth() + 1);
-                      const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+                      const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
                       selectMonth(next);
                     }}
                     className={erpMonthNavBtnClass}
                     title="Mes siguiente"
                     aria-label="Mes siguiente"
                   >
-                    <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      className="w-4 h-4 rotate-90"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M9 18l6-6 6 6" />
                     </svg>
                   </button>
                 </div>
               </div>
             </div>
-        </div>
-      </section>
-
-      {/* Modales de detalle */}
-      <OrdenViewModal
-        open={problematicaModal.open}
-        onClose={() => setProblematicaModal({ open: false, content: "" })}
-        title="Problemática"
-        subtitle="Detalle completo reportado por el cliente"
-        icon={
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-            <path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        }
-      >
-        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
-          {problematicaModal.content || "-"}
-        </pre>
-      </OrdenViewModal>
-
-      <OrdenViewModal
-        open={serviciosModal.open}
-        onClose={() => setServiciosModal({ open: false, content: [] })}
-        title="Servicios realizados"
-        subtitle="Listado de servicios registrados"
-        icon={
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-            <path d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        }
-      >
-        {Array.isArray(serviciosModal.content) && serviciosModal.content.length > 0 ? (
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {serviciosModal.content.map((s: string, i: number) => (
-              <li key={i} className="inline-flex items-center gap-2 rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] px-3 py-2 dark:border-[#273244] dark:bg-[#0f172a]/40">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#1B5CFF]" />
-                <span>{s}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="rounded-lg border border-dashed border-[#E7E7EA] p-4 text-center text-[#6E6E77] dark:border-[#273244]">
-            Sin servicios registrados
           </div>
-        )}
-      </OrdenViewModal>
+        </section>
 
-      <OrdenViewModal
-        open={comentarioModal.open}
-        onClose={() => setComentarioModal({ open: false, content: "" })}
-        title="Comentario del técnico"
-        subtitle="Observaciones y notas del técnico"
-        icon={
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-            <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
-          </svg>
-        }
-      >
-        <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
-          {comentarioModal.content || "-"}
-        </pre>
-      </OrdenViewModal>
+        {/* Modales de detalle */}
+        <OrdenViewModal
+          open={problematicaModal.open}
+          onClose={() => setProblematicaModal({ open: false, content: "" })}
+          title="Problem�tica"
+          subtitle="Detalle completo reportado por el cliente"
+          icon={
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden
+            >
+              <path
+                d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          }
+        >
+          <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
+            {problematicaModal.content || "-"}
+          </pre>
+        </OrdenViewModal>
 
-      <OrdenFormModal
-        variant="admin"
-        isOpen={showModal}
-        onClose={handleCloseModal}
-        closeOnEscape={!confirmDelete.open && !photoPreview.open}
-        editingOrden={editingOrden}
-        tipoOrdenLabel={tipoOrdenLabel}
-        isLimitedEdit={isLimitedEdit}
-        formScrollRef={formScrollRef}
-        onSubmit={handleSubmit}
-        activeTabRef={activeTabRef}
-        goToOrdenTab={goToOrdenTab}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        modalAlert={modalAlert}
-        isSaving={isSaving}
-        uploadingPhotos={uploadingPhotos}
-        bodyLoading={detailLoading}
-        triggerSaveFromFooter={triggerSaveFromFooter}
-        showCalificacionTab={isAdmin && !!editingOrden}
-      >
-        {activeTab === "cliente" && (
-          <OrdenClienteTab
-            variant="admin"
-            panelId={ORDEN_FORM_PANEL_IDS.cliente}
-            labelledBy={ORDEN_FORM_TAB_IDS.cliente}
-            editingOrden={editingOrden}
-            formData={formData}
-            setFormData={setFormData}
-            ro={ro}
-            inputLockedClass={inputLockedClass}
-            clienteSearch={clienteSearch}
-            setClienteSearch={setClienteSearch}
-            clientes={clientes}
-            selectCliente={selectCliente}
-            setShowClienteModal={setShowClienteModal}
-            tecnicoSearch={tecnicoSearch}
-            setTecnicoSearch={setTecnicoSearch}
-            quienInstaloSearch={quienInstaloSearch}
-            setQuienInstaloSearch={setQuienInstaloSearch}
-            quienEntregoSearch={quienEntregoSearch}
-            setQuienEntregoSearch={setQuienEntregoSearch}
-            usuarios={usuarios}
-            selectTecnico={selectTecnico}
-            selectQuienInstalo={selectQuienInstalo}
-            selectQuienEntrego={selectQuienEntrego}
-            setFirmaClienteUrl={setFirmaClienteUrl}
-            setShowMapModal={setShowMapModal}
-            tecnicoSignatureUrl={tecnicoSignatureUrl}
-            maxPhotosAllowed={maxPhotosAllowed}
-            getRootProps={getRootProps}
-            getInputProps={getInputProps}
-            isDragActive={isDragActive}
-            photoPreview={photoPreview}
-            setPhotoPreview={setPhotoPreview}
-            confirmDelete={confirmDelete}
-            setConfirmDelete={setConfirmDelete}
-            confirmDeletePhoto={confirmDeletePhoto}
-            deletingPhoto={deletingPhoto}
-            uploadingPhotos={uploadingPhotos}
-            photoUploadProgress={photoUploadProgress}
-            statusTecnicoId={statusTecnicoId}
-            isReadOnly={isReadOnly}
-            isLimitedEdit={isLimitedEdit}
-            isAdmin={isAdmin}
-          />
-        )}
-        {(activeTab === "orden" || tipoOrden === "levantamiento") && (
-          <OrdenDetalleTab
-            variant="admin"
-            panelId={ORDEN_FORM_PANEL_IDS.orden}
-            labelledBy={ORDEN_FORM_TAB_IDS.orden}
-            isActive={activeTab === "orden"}
-            showLevantamiento={tipoOrden === "levantamiento"}
-            tipoOrden={tipoOrden}
-            setTipoOrden={setTipoOrden}
-            isReadOnly={isReadOnly}
-            isLimitedEdit={isLimitedEdit}
-            editingOrden={editingOrden}
-            levantamientoSnapshotRef={levantamientoSnapshotRef}
-            formData={formData}
-            setFormData={setFormData}
-            ro={ro}
-            inputLockedClass={inputLockedClass}
-            servicioSearch={servicioSearch}
-            setServicioSearch={setServicioSearch}
-            serviciosDisponibles={serviciosDisponibles}
-            setServiciosDisponibles={setServiciosDisponibles}
-            addServicio={addServicio}
-            isAdmin={isAdmin}
-            statusAdminId={statusAdminId}
-            fechaEnvioAdminId={fechaEnvioAdminId}
-            statusAdministrativo={statusAdministrativo}
-            setStatusAdministrativo={setStatusAdministrativo}
-            fechaEnvioAdmin={fechaEnvioAdmin}
-            setFechaEnvioAdmin={setFechaEnvioAdmin}
-            cotizacionesAdmin={cotizacionesAdmin}
-            setCotizacionesAdmin={setCotizacionesAdmin}
-          />
-        )}
-        {activeTab === "equipos" && (
-          <OrdenEquiposTab
-            panelId={ORDEN_FORM_PANEL_IDS.equipos}
-            labelledBy={ORDEN_FORM_TAB_IDS.equipos}
-            equipos={formData.equipos_inventario}
-            isAdmin={isAdmin}
-            isReadOnly={isReadOnly}
-            canMarkInstalacion={
-              !isReadOnly && (isAdmin || (!isLimitedEdit && canOrdenesEdit))
-            }
-            onAddFromItem={addEquipoFromItem}
-            onUpdateEquipo={updateEquipo}
-            onRemoveEquipo={removeEquipo}
-          />
-        )}
-        {activeTab === "calificacion" && isAdmin && (
-          <OrdenCalificacionTab
-            panelId={ORDEN_FORM_PANEL_IDS.calificacion}
-            labelledBy={ORDEN_FORM_TAB_IDS.calificacion}
-            calificacion={editingOrden?.calificacion_cliente ?? null}
-            tecnicoNombre={editingOrden?.tecnico_asignado_full_name ?? null}
-            tecnicoAvatarUrl={editingOrden?.tecnico_asignado_avatar_url ?? null}
-          />
-        )}
-      </OrdenFormModal>
+        <OrdenViewModal
+          open={serviciosModal.open}
+          onClose={() => setServiciosModal({ open: false, content: [] })}
+          title="Servicios realizados"
+          subtitle="Listado de servicios registrados"
+          icon={
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          }
+        >
+          {Array.isArray(serviciosModal.content) &&
+          serviciosModal.content.length > 0 ? (
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {serviciosModal.content.map((s: string, i: number) => (
+                <li
+                  key={i}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] px-3 py-2 dark:border-[#273244] dark:bg-[#0f172a]/40"
+                >
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#1B5CFF]" />
+                  <span>{s}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="rounded-lg border border-dashed border-[#E7E7EA] p-4 text-center text-[#6E6E77] dark:border-[#273244]">
+              Sin servicios registrados
+            </div>
+          )}
+        </OrdenViewModal>
 
-      {ordenToDelete && (
-        <OrdenDeleteModal
-          open={showDeleteModal}
-          clienteLabel={ordenToDelete.cliente}
-          onCancel={handleCancelDelete}
-          onConfirm={handleConfirmDelete}
+        <OrdenViewModal
+          open={comentarioModal.open}
+          onClose={() => setComentarioModal({ open: false, content: "" })}
+          title="Comentario del t�cnico"
+          subtitle="Observaciones y notas del t�cnico"
+          icon={
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden
+            >
+              <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+            </svg>
+          }
+        >
+          <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
+            {comentarioModal.content || "-"}
+          </pre>
+        </OrdenViewModal>
+
+        <OrdenFormModal
+          variant="admin"
+          isOpen={showModal}
+          onClose={handleCloseModal}
+          closeOnEscape={!confirmDelete.open && !photoPreview.open}
+          editingOrden={editingOrden}
+          tipoOrdenLabel={tipoOrdenLabel}
+          isLimitedEdit={isLimitedEdit}
+          formScrollRef={formScrollRef}
+          onSubmit={handleSubmit}
+          activeTabRef={activeTabRef}
+          goToOrdenTab={goToOrdenTab}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          modalAlert={modalAlert}
+          isSaving={isSaving}
+          uploadingPhotos={uploadingPhotos}
+          bodyLoading={detailLoading}
+          triggerSaveFromFooter={triggerSaveFromFooter}
+          showCalificacionTab={isAdmin && !!editingOrden}
+        >
+          {activeTab === "cliente" && (
+            <OrdenClienteTab
+              variant="admin"
+              panelId={ORDEN_FORM_PANEL_IDS.cliente}
+              labelledBy={ORDEN_FORM_TAB_IDS.cliente}
+              editingOrden={editingOrden}
+              formData={formData}
+              setFormData={setFormData}
+              ro={ro}
+              inputLockedClass={inputLockedClass}
+              clienteSearch={clienteSearch}
+              setClienteSearch={setClienteSearch}
+              clientes={clientes}
+              selectCliente={selectCliente}
+              setShowClienteModal={setShowClienteModal}
+              tecnicoSearch={tecnicoSearch}
+              setTecnicoSearch={setTecnicoSearch}
+              quienInstaloSearch={quienInstaloSearch}
+              setQuienInstaloSearch={setQuienInstaloSearch}
+              quienEntregoSearch={quienEntregoSearch}
+              setQuienEntregoSearch={setQuienEntregoSearch}
+              usuarios={usuarios}
+              selectTecnico={selectTecnico}
+              selectQuienInstalo={selectQuienInstalo}
+              selectQuienEntrego={selectQuienEntrego}
+              setFirmaClienteUrl={setFirmaClienteUrl}
+              setShowMapModal={setShowMapModal}
+              tecnicoSignatureUrl={tecnicoSignatureUrl}
+              maxPhotosAllowed={maxPhotosAllowed}
+              getRootProps={getRootProps}
+              getInputProps={getInputProps}
+              isDragActive={isDragActive}
+              photoPreview={photoPreview}
+              setPhotoPreview={setPhotoPreview}
+              confirmDelete={confirmDelete}
+              setConfirmDelete={setConfirmDelete}
+              confirmDeletePhoto={confirmDeletePhoto}
+              deletingPhoto={deletingPhoto}
+              uploadingPhotos={uploadingPhotos}
+              photoUploadProgress={photoUploadProgress}
+              statusTecnicoId={statusTecnicoId}
+              isReadOnly={isReadOnly}
+              isLimitedEdit={isLimitedEdit}
+              isAdmin={isAdmin}
+            />
+          )}
+          {(activeTab === "orden" || tipoOrden === "levantamiento") && (
+            <OrdenDetalleTab
+              variant="admin"
+              panelId={ORDEN_FORM_PANEL_IDS.orden}
+              labelledBy={ORDEN_FORM_TAB_IDS.orden}
+              isActive={activeTab === "orden"}
+              showLevantamiento={tipoOrden === "levantamiento"}
+              tipoOrden={tipoOrden}
+              setTipoOrden={setTipoOrden}
+              isReadOnly={isReadOnly}
+              isLimitedEdit={isLimitedEdit}
+              editingOrden={editingOrden}
+              levantamientoSnapshotRef={levantamientoSnapshotRef}
+              formData={formData}
+              setFormData={setFormData}
+              ro={ro}
+              inputLockedClass={inputLockedClass}
+              servicioSearch={servicioSearch}
+              setServicioSearch={setServicioSearch}
+              serviciosDisponibles={serviciosDisponibles}
+              setServiciosDisponibles={setServiciosDisponibles}
+              addServicio={addServicio}
+              isAdmin={isAdmin}
+              statusAdminId={statusAdminId}
+              fechaEnvioAdminId={fechaEnvioAdminId}
+              statusAdministrativo={statusAdministrativo}
+              setStatusAdministrativo={setStatusAdministrativo}
+              fechaEnvioAdmin={fechaEnvioAdmin}
+              setFechaEnvioAdmin={setFechaEnvioAdmin}
+              cotizacionesAdmin={cotizacionesAdmin}
+              setCotizacionesAdmin={setCotizacionesAdmin}
+            />
+          )}
+          {activeTab === "equipos" && (
+            <OrdenEquiposTab
+              panelId={ORDEN_FORM_PANEL_IDS.equipos}
+              labelledBy={ORDEN_FORM_TAB_IDS.equipos}
+              equipos={formData.equipos_inventario}
+              isAdmin={isAdmin}
+              isReadOnly={isReadOnly}
+              canMarkInstalacion={
+                !isReadOnly && (isAdmin || (!isLimitedEdit && canOrdenesEdit))
+              }
+              onAddFromItem={addEquipoFromItem}
+              onUpdateEquipo={updateEquipo}
+              onRemoveEquipo={removeEquipo}
+            />
+          )}
+          {activeTab === "calificacion" && isAdmin && (
+            <OrdenCalificacionTab
+              panelId={ORDEN_FORM_PANEL_IDS.calificacion}
+              labelledBy={ORDEN_FORM_TAB_IDS.calificacion}
+              calificacion={editingOrden?.calificacion_cliente ?? null}
+              tecnicoNombre={editingOrden?.tecnico_asignado_full_name ?? null}
+              tecnicoAvatarUrl={
+                editingOrden?.tecnico_asignado_avatar_url ?? null
+              }
+            />
+          )}
+        </OrdenFormModal>
+
+        {ordenToDelete && (
+          <OrdenDeleteModal
+            open={showDeleteModal}
+            clienteLabel={ordenToDelete.cliente}
+            onCancel={handleCancelDelete}
+            onConfirm={handleConfirmDelete}
+          />
+        )}
+
+        <OrdenLocationMapModal
+          open={showMapModal}
+          onClose={() => setShowMapModal(false)}
+          direccion={formData.direccion}
+          onConfirm={(url) => {
+            setFormData((prev) => ({ ...prev, direccion: url }));
+          }}
+          onNotify={({ variant, title, message }) => {
+            setAlert({ show: true, variant, title, message });
+            setTimeout(
+              () => setAlert((prev) => ({ ...prev, show: false })),
+              3200,
+            );
+          }}
         />
-      )}
 
-      <OrdenLocationMapModal
-        open={showMapModal}
-        onClose={() => setShowMapModal(false)}
-        direccion={formData.direccion}
-        onConfirm={(url) => {
-          setFormData((prev) => ({ ...prev, direccion: url }));
-        }}
-        onNotify={({ variant, title, message }) => {
-          setAlert({ show: true, variant, title, message });
-          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3200);
-        }}
-      />
-
-      <ClienteFormModal
-        isOpen={showClienteModal}
-        onClose={() => setShowClienteModal(false)}
-        onSuccess={handleClienteSuccess}
-        editingCliente={null}
-        permissions={permissions}
-      />
-    </div>
+        <ClienteFormModal
+          isOpen={showClienteModal}
+          onClose={() => setShowClienteModal(false)}
+          onSuccess={handleClienteSuccess}
+          editingCliente={null}
+          permissions={permissions}
+        />
+      </div>
     </div>
   );
 }

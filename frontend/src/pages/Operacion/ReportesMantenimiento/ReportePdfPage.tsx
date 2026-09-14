@@ -353,7 +353,7 @@ export default function ReportePdfPage() {
               <div className="flex min-h-0 flex-1 flex-col bg-[#FAFAFA] p-2 dark:bg-[#0f172a] sm:p-3">
                 {loading ? (
                   <div
-                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-[14px] border border-dashed border-[#E7E7EA] bg-white/60 dark:border-[#273244] dark:bg-[#111827]/40 sm:min-h-[560px] lg:min-h-[calc(100vh-15rem)]"
+                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-[14px] border border-dashed border-[#E7E7EA] bg-white/60 dark:border-[#273244] dark:bg-[#111827]/40 sm:min-h-140 lg:min-h-[calc(100vh-15rem)]"
                     role="status"
                     aria-busy="true"
                     aria-live="polite"
@@ -438,7 +438,7 @@ export default function ReportePdfPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8EA0B8]">
                     Nombre de archivo
                   </p>
-                  <code className="mt-1 block break-all rounded-[8px] border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-xs font-medium text-[#09090B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
+                  <code className="mt-1 block break-all rounded-xl border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-xs font-medium text-[#09090B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
                     {filename}
                   </code>
                 </div>

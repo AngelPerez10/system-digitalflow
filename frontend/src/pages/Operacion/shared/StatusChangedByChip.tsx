@@ -2,51 +2,11 @@ import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 
 import { Avatar, Surface } from "@heroui/react";
 import { History, UserRound } from "lucide-react";
 import { formatIsoDateTime } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageUtils";
-
-const UNKNOWN_ACTOR = "Autor no registrado";
-
-/** Iniciales cortas para el avatar de auditoría (máx. 2 letras). */
-export function initialsFromDisplayName(name: string): string {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length === 0) return "";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-}
-
-export function resolveStatusChangedByName(
-  fullName?: string | null,
-  username?: string | null,
-): string {
-  return String(fullName || "").trim() || String(username || "").trim();
-}
-
-/** Resuelve nombre/fecha de auditoría; usa fallback (p. ej. creador) si aún no hay sello. */
-export function resolveStatusAudit({
-  name,
-  at,
-  fallbackName,
-  fallbackAt,
-}: {
-  name?: string | null;
-  at?: string | null;
-  fallbackName?: string | null;
-  fallbackAt?: string | null;
-}): { name: string; at: string; fromFallback: boolean } | null {
-  const primaryName = String(name || "").trim();
-  const primaryAt = String(at || "").trim();
-  if (primaryName || primaryAt) {
-    return { name: primaryName, at: primaryAt, fromFallback: false };
-  }
-  const fbName = String(fallbackName || "").trim();
-  const fbAt = String(fallbackAt || "").trim();
-  if (fbName || fbAt) {
-    return { name: fbName, at: fbAt, fromFallback: true };
-  }
-  return null;
-}
+import {
+  UNKNOWN_ACTOR,
+  initialsFromDisplayName,
+  resolveStatusAudit,
+} from "./statusChangedBy";
 
 /** "hace 3 días" desde un ISO; "" si no es una fecha válida. Sin dependencias. */
 function relativeTimeEs(iso: string): string {
@@ -129,7 +89,7 @@ function AuditAvatar({
       variant="soft"
       className={[
         "shrink-0",
-        isCompact ? "size-[18px]" : "size-8 sm:size-9",
+        isCompact ? "size-4.5" : "size-8 sm:size-9",
         muted
           ? "border border-dashed border-[#C7C9D1] bg-[#F4F4F5] dark:border-[#3A4661] dark:bg-[#1e293b]"
           : "",
@@ -214,7 +174,7 @@ export function StatusChangedByChip({
         variant="secondary"
         aria-label={aria}
         className={[
-          "mt-2 flex min-w-0 items-center gap-3 rounded-[12px] border border-[#E7E7EA] bg-[#FAFAFA] px-3 py-2.5",
+          "mt-2 flex min-w-0 items-center gap-3 rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] px-3 py-2.5",
           "dark:border-[#273244] dark:bg-[#0f172a]/80",
           className,
         ].join(" ")}
@@ -242,7 +202,7 @@ export function StatusChangedByChip({
         </div>
         {rel ? (
           <span
-            className="hidden shrink-0 items-center rounded-full border border-[#E7E7EA] bg-white px-2 py-[3px] text-[10px] font-semibold tabular-nums text-[#52525B] dark:border-[#334155] dark:bg-[#111827] dark:text-[#B7C1D1] sm:inline-flex"
+            className="hidden shrink-0 items-center rounded-full border border-[#E7E7EA] bg-white px-2 py-0.75 text-[10px] font-semibold tabular-nums text-[#52525B] dark:border-[#334155] dark:bg-[#111827] dark:text-[#B7C1D1] sm:inline-flex"
             aria-hidden
           >
             {rel}
@@ -263,8 +223,8 @@ export function StatusChangedByChip({
         aria-label={aria}
         title={hoverSummary}
         className={[
-          "inline-flex max-w-[13rem] min-w-0 cursor-default items-center gap-1.5 rounded-full",
-          "border border-[#E7E7EA] bg-white/70 px-2 py-[3px]",
+          "inline-flex max-w-52 min-w-0 cursor-default items-center gap-1.5 rounded-full",
+          "border border-[#E7E7EA] bg-white/70 px-2 py-0.75",
           "transition-colors duration-150 hover:border-[#1B5CFF]/40 hover:bg-[#F1F5FF]/70",
           "dark:border-[#273244] dark:bg-[#0f172a]/60 dark:hover:border-[#4B7CFF]/50 dark:hover:bg-[#4B7CFF]/10",
           "motion-reduce:transition-none",

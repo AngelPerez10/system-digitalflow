@@ -72,10 +72,8 @@ export const emptyFormData = (fixedTipo?: ClienteTipo) => ({
   municipio: "",
   rfc: "",
   curp: "",
-  rfc_fiscal: "",
   idcif: "",
   razon_social: "",
-  curp_fiscal: "",
   regimen_fiscal: "",
   uso_cfdi: "",
   aplica_retenciones: false,
@@ -111,7 +109,15 @@ const pickPrincipalContacto = (cliente: Cliente) => {
 };
 export const buildClientePayload = (
   formData: Record<string, unknown>,
-  fixedTipo?: ClienteTipo
+  fixedTipo?: ClienteTipo,
+  /**
+   * Al editar, el domicilio ya lo administra la libreta de direcciones
+   * (`ClienteDireccionesManager`), que sincroniza estos mismos campos del
+   * lado del backend cuando se guarda la dirección predeterminada. No
+   * reenviarlos aquí evita pisar esos cambios con el `formData` desactualizado
+   * que trae el modal desde que se abrió.
+   */
+  isEditing = false
 ): Record<string, unknown> => ({
   clave: trimOrEmpty(formData.clave),
   representante: trimOrEmpty(formData.representante),
@@ -121,18 +127,22 @@ export const buildClientePayload = (
     String(formData.telefono || "")
   ),
   celular: trimOrEmpty(formData.celular),
-  direccion: trimOrEmpty(formData.direccion),
   correo: trimOrEmpty(formData.correo),
-  calle: trimOrEmpty(formData.calle),
-  numero_exterior: trimOrEmpty(formData.numero_exterior),
-  interior: trimOrEmpty(formData.interior),
-  colonia: trimOrEmpty(formData.colonia),
-  codigo_postal: trimOrEmpty(formData.codigo_postal),
-  ciudad: trimOrEmpty(formData.ciudad),
-  pais: trimOrEmpty(formData.pais),
-  estado: trimOrEmpty(formData.estado),
-  localidad: trimOrEmpty(formData.localidad),
-  municipio: trimOrEmpty(formData.municipio),
+  ...(isEditing
+    ? {}
+    : {
+        direccion: trimOrEmpty(formData.direccion),
+        calle: trimOrEmpty(formData.calle),
+        numero_exterior: trimOrEmpty(formData.numero_exterior),
+        interior: trimOrEmpty(formData.interior),
+        colonia: trimOrEmpty(formData.colonia),
+        codigo_postal: trimOrEmpty(formData.codigo_postal),
+        ciudad: trimOrEmpty(formData.ciudad),
+        pais: trimOrEmpty(formData.pais),
+        estado: trimOrEmpty(formData.estado),
+        localidad: trimOrEmpty(formData.localidad),
+        municipio: trimOrEmpty(formData.municipio),
+      }),
   rfc: trimOrEmpty(formData.rfc),
   curp: trimOrEmpty(formData.curp),
   notas: trimOrEmpty(formData.notas),
@@ -144,10 +154,12 @@ export const buildClientePayload = (
   descuento_pct: toNumberOr(formData.descuento_pct, null),
   portal_web: trimOrEmpty(formData.portal_web),
   nombre_facturacion: trimOrEmpty(formData.razon_social || formData.nombre_facturacion),
-  numero_facturacion: trimOrEmpty(formData.rfc_fiscal || formData.numero_facturacion),
+  // RFC único en el formulario (Datos generales); se reutiliza aquí para el campo fiscal del backend.
+  numero_facturacion: trimOrEmpty(formData.rfc),
   domicilio_facturacion: trimOrEmpty(formData.domicilio_facturacion),
   idcif: trimOrEmpty(formData.idcif),
-  curp_fiscal: trimOrEmpty(formData.curp_fiscal || formData.curp),
+  // CURP único en el formulario (Datos generales); se reutiliza aquí para el campo fiscal del backend.
+  curp_fiscal: trimOrEmpty(formData.curp),
   regimen_fiscal: trimOrEmpty(formData.regimen_fiscal),
   uso_cfdi: trimOrEmpty(formData.uso_cfdi),
   calle_envio: trimOrEmpty(formData.calle_envio),
@@ -194,9 +206,7 @@ export const formDataFromCliente = (cliente: Cliente, fixedTipo?: ClienteTipo) =
     nombre_facturacion: cliente.nombre_facturacion || "",
     numero_facturacion: cliente.numero_facturacion || "",
     razon_social: cliente.nombre_facturacion || "",
-    rfc_fiscal: cliente.numero_facturacion || cliente.rfc || "",
     idcif: cliente.idcif || "",
-    curp_fiscal: cliente.curp_fiscal || cliente.curp || "",
     regimen_fiscal: cliente.regimen_fiscal || "",
     uso_cfdi: cliente.uso_cfdi || "",
     domicilio_facturacion: cliente.domicilio_facturacion || "",

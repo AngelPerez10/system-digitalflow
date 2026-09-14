@@ -299,7 +299,7 @@ export default function TechnicianDashboard() {
                 title="Panel del Técnico | Sistema DigitalFlow"
                 description="Panel de control para técnicos"
             />
-            <div className="space-y-5 [font-family:'Geist','Outfit',system-ui,sans-serif] sm:space-y-6">
+            <div className="space-y-5 font-['Geist','Outfit',system-ui,sans-serif] sm:space-y-6">
                 {/* Banda marina de cabecera con el control de rango. */}
                 <header className="relative overflow-hidden rounded-[24px] bg-[#17235B] px-5 py-6 dark:bg-[#1B2A63] sm:px-8 sm:py-7">
                     <div
@@ -323,14 +323,14 @@ export default function TechnicianDashboard() {
                                 <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[30px] sm:tracking-[-1px]">
                                     {saludo}{nombre ? `, ${nombre}` : ""}
                                 </h1>
-                                <p className="mt-1.5 max-w-[54ch] text-[14px] leading-[21px] text-white/70">
+                                <p className="mt-1.5 max-w-[54ch] text-[14px] leading-5.25 text-white/70">
                                     Estas son tus órdenes asignadas, tu avance y los clientes atendidos en el periodo seleccionado.
                                 </p>
                             </div>
                         </div>
 
                         <div
-                            className="inline-flex shrink-0 items-center gap-1 self-start rounded-[12px] bg-white/10 p-1 lg:self-center"
+                            className="inline-flex shrink-0 items-center gap-1 self-start rounded-2xl bg-white/10 p-1 lg:self-center"
                             role="group"
                             aria-label="Rango de tiempo"
                         >
@@ -342,7 +342,7 @@ export default function TechnicianDashboard() {
                                         type="button"
                                         onClick={() => setSelectedRange(r.key)}
                                         aria-pressed={active}
-                                        className={`inline-flex min-h-[40px] items-center justify-center rounded-[9px] px-4 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
+                                        className={`inline-flex min-h-10 items-center justify-center rounded-[9px] px-4 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
                                             active
                                                 ? "bg-white text-[#17235B] shadow-sm"
                                                 : "text-white/70 hover:bg-white/10 hover:text-white"
@@ -364,7 +364,7 @@ export default function TechnicianDashboard() {
                                 <p className="text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]">Órdenes totales</p>
                                 <p className="mt-1.5 text-[26px] font-bold tabular-nums leading-none text-[#09090B] dark:text-[#F8FAFC]">{stats.total}</p>
                             </div>
-                            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-2xl bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
                                 <BoltIcon className="size-4" />
                             </span>
                         </div>
@@ -379,7 +379,7 @@ export default function TechnicianDashboard() {
                                 <p className="text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]">Resueltas</p>
                                 <p className="mt-1.5 text-[26px] font-bold tabular-nums leading-none text-[#09090B] dark:text-[#F8FAFC]">{stats.resolved}</p>
                             </div>
-                            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[rgba(4,114,77,0.10)] text-[#04724D] dark:bg-[rgba(74,222,128,0.14)] dark:text-[#4ADE80]">
+                            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-2xl bg-[rgba(4,114,77,0.10)] text-[#04724D] dark:bg-[rgba(74,222,128,0.14)] dark:text-[#4ADE80]">
                                 <ArrowUpIcon className="size-4" />
                             </span>
                         </div>
@@ -394,7 +394,7 @@ export default function TechnicianDashboard() {
                                 <p className="text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]">Pendientes</p>
                                 <p className="mt-1.5 text-[26px] font-bold tabular-nums leading-none text-[#09090B] dark:text-[#F8FAFC]">{stats.pending}</p>
                             </div>
-                            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:text-[#E6A23C]">
+                            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-2xl bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:text-[#E6A23C]">
                                 <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <circle cx="12" cy="12" r="9" />
                                     <path d="M12 7v5l3 3" strokeLinecap="round" strokeLinejoin="round" />
@@ -412,7 +412,7 @@ export default function TechnicianDashboard() {
                                 <p className="text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]">Clientes atendidos</p>
                                 <p className="mt-1.5 text-[26px] font-bold tabular-nums leading-none text-[#09090B] dark:text-[#F8FAFC]">{stats.clients}</p>
                             </div>
-                            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[#f5f0e8] text-[#6E6E77] dark:bg-[#243048] dark:text-[#8EA0B8]">
+                            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-2xl bg-[#f5f0e8] text-[#6E6E77] dark:bg-[#243048] dark:text-[#8EA0B8]">
                                 <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                                     <circle cx="12" cy="7" r="4" />
@@ -441,7 +441,7 @@ export default function TechnicianDashboard() {
                                 </div>
                             </div>
                             <div className="custom-scrollbar max-w-full overflow-x-auto">
-                                <div className="-ml-4 min-w-[600px] xl:min-w-full">
+                                <div className="-ml-4 min-w-150 xl:min-w-full">
                                     <Chart options={chartOptions} series={[{ name: "Órdenes", data: chartData.counts }]} type="bar" height={220} />
                                 </div>
                             </div>
@@ -470,7 +470,7 @@ export default function TechnicianDashboard() {
                                     </TableHeader>
                                     <TableBody className="divide-y divide-[#EDEDED] dark:divide-[#273244]">
                                         {recentOrders.map((o) => (
-                                            <TableRow key={o.id} className="transition-colors hover:bg-[#FAFAFA] dark:hover:bg-white/[0.04]">
+                                            <TableRow key={o.id} className="transition-colors hover:bg-[#FAFAFA] dark:hover:bg-white/4">
                                                 <TableCell className="px-5 py-3.5 text-sm font-bold text-[#1B5CFF] dark:text-[#4B7CFF]">#{o.idx}</TableCell>
                                                 <TableCell className="px-5 py-3.5 text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]">{o.cliente}</TableCell>
                                                 <TableCell className="px-5 py-3.5 text-sm text-[#6E6E77] dark:text-[#8EA0B8]">{o.fecha_inicio}</TableCell>
@@ -500,12 +500,12 @@ export default function TechnicianDashboard() {
                                 <p className={cardSubtitleClass}>Progreso sobre 20 órdenes</p>
                             </div>
                             <div className="relative flex justify-center">
-                                <div className="w-full max-w-[280px]">
+                                <div className="w-full max-w-70">
                                     <Chart options={targetOptions} series={[targetProgress]} type="radialBar" height={300} />
                                 </div>
                             </div>
-                            <div className="mt-4 rounded-[12px] border border-[rgba(27,92,255,0.20)] bg-[rgba(27,92,255,0.06)] p-4 dark:border-[rgba(75,124,255,0.24)] dark:bg-[rgba(75,124,255,0.08)]">
-                                <p className="text-center text-[13px] leading-[19px] text-[#3d3d3a] dark:text-[#B7C1D1]">
+                            <div className="mt-4 rounded-2xl border border-[rgba(27,92,255,0.20)] bg-[rgba(27,92,255,0.06)] p-4 dark:border-[rgba(75,124,255,0.24)] dark:bg-[rgba(75,124,255,0.08)]">
+                                <p className="text-center text-[13px] leading-4.75 text-[#3d3d3a] dark:text-[#B7C1D1]">
                                     Has resuelto <span className="font-bold text-[#1244D1] dark:text-[#4B7CFF]">{stats.resolved}</span> órdenes este mes.
                                     {targetProgress >= 100 ? " ¡Meta alcanzada!" : ` Te faltan ${Math.max(0, 20 - stats.resolved)} para tu objetivo.`}
                                 </p>

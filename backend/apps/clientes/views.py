@@ -17,8 +17,13 @@ from rest_framework.serializers import ValidationError as DrfValidationError
 
 from apps.users.permissions import ModulePermission, user_has_any_ordenes_access
 
-from .models import Cliente, ClienteContacto, ClienteDocumento
-from .serializers import ClienteContactoSerializer, ClienteDocumentoSerializer, ClienteSerializer
+from .models import Cliente, ClienteContacto, ClienteDireccion, ClienteDocumento
+from .serializers import (
+    ClienteContactoSerializer,
+    ClienteDireccionSerializer,
+    ClienteDocumentoSerializer,
+    ClienteSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +152,31 @@ class ClienteContactoViewSet(viewsets.ModelViewSet):
         if cliente_id:
             qs = qs.filter(cliente_id=cliente_id)
         return qs
+
+
+class ClienteDireccionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para la libreta de direcciones del cliente (estilo Mercado Libre /
+    Amazon: varias sucursales, una marcada como principal).
+    """
+    queryset = ClienteDireccion.objects.select_related('cliente').all()
+    serializer_class = ClienteDireccionSerializer
+    permission_classes = [ClientesModulePermission]
+    pagination_class = None
+
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ['id', 'is_principal', 'fecha_creacion']
+    ordering = ['-is_principal', 'id']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        cliente_id = self.request.query_params.get('cliente')
+        if cliente_id:
+            qs = qs.filter(cliente_id=cliente_id)
+        return qs
+    # La promoción a principal tras borrar vive en `ClienteDireccion.delete()`
+    # (modelo), no aquí, para que también aplique fuera de la API (admin,
+    # cascada al borrar un Cliente, shell).
 
 
 class ClienteDocumentoViewSet(viewsets.ModelViewSet):

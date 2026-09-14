@@ -223,8 +223,6 @@ export function formDataFromSicarCliente(
     representante: c.representante || "",
     rfc: c.rfc || "",
     curp: c.curp || "",
-    curp_fiscal: c.curp || "",
-    rfc_fiscal: c.rfc || "",
     razon_social: c.nombre || "",
     codigo_postal: c.codigoPostal || "",
     direccion: c.domicilio || "",
@@ -250,7 +248,7 @@ export function formDataFromSicarCliente(
 
 export function payloadFromFacturaForm(formData: Record<string, unknown>) {
   const nombre = trim(formData.razon_social) || trim(formData.nombre);
-  const rfc = trim(formData.rfc_fiscal) || trim(formData.rfc);
+  const rfc = trim(formData.rfc);
   const telefono = phoneDigits(formData.telefono) || phoneDigits(formData.celular);
   const pais = normalizeSicarPais(formData.pais);
   return {

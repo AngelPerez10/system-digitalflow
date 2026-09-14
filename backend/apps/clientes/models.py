@@ -128,6 +128,80 @@ class ClienteContacto(models.Model):
         ]
 
 
+class ClienteDireccion(models.Model):
+    """
+    Libreta de direcciones del cliente (estilo Mercado Libre / Amazon): un
+    cliente puede tener varias sucursales/domicilios. La dirección marcada
+    `is_principal` se refleja en los campos planos de `Cliente` para no
+    romper a los consumidores existentes (PDFs, portal, CFDI).
+    """
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='direcciones')
+    etiqueta = models.CharField(max_length=100, blank=True, default='')
+    direccion = models.TextField(blank=True, default='')
+    calle = models.CharField(max_length=255, blank=True, default='')
+    numero_exterior = models.CharField(max_length=100, blank=True, default='')
+    interior = models.CharField(max_length=100, blank=True, default='')
+    colonia = models.CharField(max_length=255, blank=True, default='')
+    localidad = models.CharField(max_length=255, blank=True, default='')
+    municipio = models.CharField(max_length=255, blank=True, default='')
+    codigo_postal = models.CharField(max_length=50, blank=True, default='')
+    ciudad = models.CharField(max_length=255, blank=True, default='')
+    pais = models.CharField(max_length=255, blank=True, default='México')
+    estado = models.CharField(max_length=255, blank=True, default='')
+    is_principal = models.BooleanField(default=False)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def _sync_legacy_cliente_fields(self):
+        Cliente.objects.filter(pk=self.cliente_id).update(
+            direccion=self.direccion,
+            calle=self.calle,
+            numero_exterior=self.numero_exterior,
+            interior=self.interior,
+            colonia=self.colonia,
+            localidad=self.localidad,
+            municipio=self.municipio,
+            codigo_postal=self.codigo_postal,
+            ciudad=self.ciudad,
+            pais=self.pais,
+            estado=self.estado,
+        )
+
+    def save(self, *args, **kwargs):
+        # La primera dirección de un cliente siempre es la principal.
+        if not self.pk and self.cliente_id and not ClienteDireccion.objects.filter(cliente_id=self.cliente_id).exists():
+            self.is_principal = True
+        if self.is_principal:
+            # Solo puede haber una dirección principal por cliente.
+            ClienteDireccion.objects.filter(cliente_id=self.cliente_id, is_principal=True).exclude(pk=self.pk).update(is_principal=False)
+        super().save(*args, **kwargs)
+        if self.is_principal:
+            self._sync_legacy_cliente_fields()
+
+    def delete(self, *args, **kwargs):
+        cliente_id = self.cliente_id
+        was_principal = self.is_principal
+        result = super().delete(*args, **kwargs)
+        if was_principal:
+            # Promueve otra dirección a principal para no dejar al cliente sin
+            # ninguna (y para que sus campos planos de compatibilidad no
+            # queden apuntando a una dirección que ya no existe).
+            siguiente = ClienteDireccion.objects.filter(cliente_id=cliente_id).order_by('id').first()
+            if siguiente:
+                siguiente.is_principal = True
+                siguiente.save()
+        return result
+
+    class Meta:
+        verbose_name = 'Dirección de Cliente'
+        verbose_name_plural = 'Direcciones de Cliente'
+        ordering = ['-is_principal', 'id']
+        indexes = [
+            models.Index(fields=['cliente']),
+            models.Index(fields=['is_principal']),
+        ]
+
+
 class ClienteDocumento(models.Model):
     cliente = models.OneToOneField(Cliente, on_delete=models.CASCADE, related_name='documento')
     url = models.URLField(blank=True, default='')

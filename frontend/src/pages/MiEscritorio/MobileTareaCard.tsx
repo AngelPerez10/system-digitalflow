@@ -29,7 +29,7 @@ export function MobileTareaCard({ tarea, idx: _i, startIndex: _si, formatDate, o
   const fc = Array.isArray(tarea.fotos_urls) ? tarea.fotos_urls.length : 0;
   const id = tarea.id ?? _si + _i + 1;
   return (
-    <article className="rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]">
+    <article className="rounded-3xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]">
       <div className="flex items-start justify-between gap-2 p-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -129,7 +129,7 @@ export function MobileTareaList({ tareas, startIndex, loading: _loading, formatD
         />
       ))}
       {!_loading && tareas.length === 0 && (
-        <p className="rounded-[16px] border border-dashed border-[#D3D3D8] bg-white py-10 text-center text-[14px] text-[#6E6E77] dark:border-[#3A4661] dark:bg-[#111827] dark:text-[#8EA0B8]">
+        <p className="rounded-3xl border border-dashed border-[#D3D3D8] bg-white py-10 text-center text-[14px] text-[#6E6E77] dark:border-[#3A4661] dark:bg-[#111827] dark:text-[#8EA0B8]">
           Sin registros en esta vista.
         </p>
       )}

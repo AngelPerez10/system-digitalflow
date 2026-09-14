@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Cliente, ClienteContacto, ClienteDocumento
+from .models import Cliente, ClienteContacto, ClienteDireccion, ClienteDocumento
 
 
 class ClienteContactoSerializer(serializers.ModelSerializer):
@@ -14,6 +14,31 @@ class ClienteContactoSerializer(serializers.ModelSerializer):
             'area_puesto',
             'celular',
             'correo',
+            'is_principal',
+            'fecha_creacion',
+            'fecha_actualizacion',
+        ]
+        read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
+
+
+class ClienteDireccionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClienteDireccion
+        fields = [
+            'id',
+            'cliente',
+            'etiqueta',
+            'direccion',
+            'calle',
+            'numero_exterior',
+            'interior',
+            'colonia',
+            'localidad',
+            'municipio',
+            'codigo_postal',
+            'ciudad',
+            'pais',
+            'estado',
             'is_principal',
             'fecha_creacion',
             'fecha_actualizacion',
@@ -39,6 +64,7 @@ class ClienteDocumentoSerializer(serializers.ModelSerializer):
 
 class ClienteSerializer(serializers.ModelSerializer):
     contactos = ClienteContactoSerializer(many=True, read_only=True)
+    direcciones = ClienteDireccionSerializer(many=True, read_only=True)
     documento = ClienteDocumentoSerializer(read_only=True)
 
     class Meta:
@@ -92,6 +118,7 @@ class ClienteSerializer(serializers.ModelSerializer):
             'fecha_creacion',
             'fecha_actualizacion',
             'contactos',
+            'direcciones',
             'documento',
         ]
         read_only_fields = ['id', 'idx', 'fecha_creacion', 'fecha_actualizacion']

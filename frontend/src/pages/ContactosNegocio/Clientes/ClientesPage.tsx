@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 import { useAuth } from "@/context/AuthContext";
 import PageMeta from "@/components/common/PageMeta";
@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
 import { TrashBinIcon } from "@/icons";
 import { onlyDigits10 } from "./clientesCatalogos";
+import { seedPrincipalDireccion } from "@/components/clientes/clienteDireccionesApi";
 import { ClienteSimplifiedFormFields } from "@/components/clientes/ClienteSimplifiedFormFields";
 import { ClienteMapPickerModal } from "@/components/clientes/ClienteMapPickerModal";
 import {
@@ -39,7 +40,7 @@ const panelClass =
   "overflow-hidden rounded-[24px] border border-[#E7E7EA] bg-white shadow-[0_6px_20px_-10px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_10px_28px_-12px_rgba(0,0,0,0.6)]";
 
 const sunkenCardClass =
-  "rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]";
+  "rounded-3xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]";
 
 const searchInputClass =
   "h-12 w-full rounded-[10px] border border-[#E7E7EA] bg-white pl-10 pr-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] sm:h-11";
@@ -54,10 +55,10 @@ const dangerBtnClass =
   "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#C22B2B] bg-[#C22B2B] px-5 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,transform] duration-150 hover:bg-[#A82424] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(194,43,43,0.22)] disabled:cursor-not-allowed disabled:opacity-60 max-sm:w-full sm:h-11";
 
 const actionBtnClass =
-  "inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#1B5CFF]/50 hover:text-[#1B5CFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:border-[#4B7CFF]/50 dark:hover:text-[#4B7CFF]";
+  "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#1B5CFF]/50 hover:text-[#1B5CFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:border-[#4B7CFF]/50 dark:hover:text-[#4B7CFF]";
 
 const actionDangerBtnClass =
-  "inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#C22B2B]/50 hover:text-[#C22B2B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C22B2B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:border-[#F87171]/50 dark:hover:text-[#F87171]";
+  "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#C22B2B]/50 hover:text-[#C22B2B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C22B2B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:border-[#F87171]/50 dark:hover:text-[#F87171]";
 
 const pagerBtnClass =
   "inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#09090B] transition-colors hover:bg-[#FAFAFA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] disabled:cursor-not-allowed disabled:opacity-45 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:bg-[#243048]";
@@ -75,7 +76,7 @@ const modalHeaderIconClass =
   "inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]";
 const modalEyebrowClass = "text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55";
 const modalTitleClass = "text-[20px] font-semibold leading-[1.25] tracking-[-0.5px] text-white";
-const modalSubtitleClass = "mt-1 text-[14px] leading-[20px] text-white/70";
+const modalSubtitleClass = "mt-1 text-[14px] leading-5 text-white/70";
 const modalFooterClass =
   "shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:px-6";
 
@@ -121,7 +122,7 @@ function InlineAlert({ variant, title, message }: { variant: AlertVariant; title
       aria-live={assertive ? "assertive" : "polite"}
       className={`flex items-start gap-3 rounded-[14px] border px-4 py-3 ${tone.border} ${tone.bg}`}
     >
-      <span className={`mt-1.5 size-[7px] shrink-0 rounded-full ${tone.dot}`} aria-hidden />
+      <span className={`mt-1.5 size-1.75 shrink-0 rounded-full ${tone.dot}`} aria-hidden />
       <div className="min-w-0">
         <p className={`text-[15px] font-medium ${tone.title}`}>{title}</p>
         <p className={`mt-0.5 text-[13px] ${tone.msg}`}>{message}</p>
@@ -145,7 +146,7 @@ function RowActions({
 }) {
   if (!canEdit && !canDelete) return null;
   return (
-    <div className="inline-flex items-center gap-1 rounded-[8px] bg-[#FAFAFA] px-1.5 py-1 dark:bg-white/[0.06]">
+    <div className="inline-flex items-center gap-1 rounded-xl bg-[#FAFAFA] px-1.5 py-1 dark:bg-white/6">
       {canEdit ? (
         <button
           type="button"
@@ -269,6 +270,33 @@ const trimOrEmpty = (value: unknown) => String(value ?? "").trim();
 const getTipoLabel = (tipo?: ClienteTipo) =>
   TIPO_OPTIONS.find((o) => o.value === tipo)?.label || tipo || "—";
 
+const tipoBadgeClass = (tipo?: ClienteTipo) => {
+  if (tipo === "EMPRESA") {
+    return "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300";
+  }
+  if (tipo === "PROVEEDOR") {
+    return "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300";
+  }
+  return "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300";
+};
+
+const avatarToneClass = (tipo?: ClienteTipo) => {
+  if (tipo === "EMPRESA") {
+    return "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300";
+  }
+  if (tipo === "PROVEEDOR") {
+    return "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300";
+  }
+  return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300";
+};
+
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
 const CLIENTES_MAP_CONTAINER_ID = "clientes-leaflet-map";
 
 type ClientesPageProps = {
@@ -355,7 +383,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
 
   }, [fixedTipo]);
 
-  const fetchClientes = async (page = 1, search = "") => {
+  const fetchClientes = useCallback(async (page = 1, search = "") => {
     if (!canClientesView) return;
     setLoading(true);
     try {
@@ -377,7 +405,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [canClientesView, fixedTipo]);
 
   useEffect(() => {
     if (!canClientesView) {
@@ -391,7 +419,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
     Promise.resolve(fetchClientes(currentPage, debouncedSearch)).finally(() => {
       clientesFetchInFlightRef.current = false;
     });
-  }, [canClientesView, currentPage, debouncedSearch, fixedTipo]);
+  }, [canClientesView, currentPage, debouncedSearch, fixedTipo, fetchClientes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -429,7 +457,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
       const response = await fetchApi(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildClientePayload(formData, fixedTipo)),
+        body: JSON.stringify(buildClientePayload(formData, fixedTipo, isEditing)),
       });
 
       if (!response.ok) {
@@ -455,6 +483,10 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
         );
         await fetchClientes();
         return;
+      }
+
+      if (!isEditing) {
+        await seedPrincipalDireccion(Number(clienteId), formData);
       }
 
       await fetchClientes();
@@ -562,7 +594,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
 
   return (
     <div className="w-full min-w-0 overflow-x-hidden">
-      <div className="mx-auto w-full max-w-[1400px]" style={sheetFontStyle}>
+      <div className="mx-auto w-full max-w-350" style={sheetFontStyle}>
         <PageMeta
           title={`${viewPlural} | Sistema Grupo Intrax GPS`}
           description={`Gestión de ${viewPlural.toLowerCase()} para el sistema de administración Grupo Intrax GPS`}
@@ -586,7 +618,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
             >
               <Link
                 to="/"
-                className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+                className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/4 hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
               >
                 Inicio
               </Link>
@@ -616,13 +648,13 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                       <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]">
                         {viewPlural}
                       </h1>
-                      <p className="mt-1.5 max-w-[58ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70">
+                      <p className="mt-1.5 max-w-[58ch] text-[15px] leading-5.5 tracking-[-0.1px] text-white/70">
                         Consulta, crea y edita registros con contactos, dirección y datos fiscales.
                       </p>
                     </div>
                   </div>
 
-                  <div className="inline-flex h-[3.25rem] shrink-0 items-center gap-3 self-start rounded-[16px] bg-white/10 px-4 lg:self-center">
+                  <div className="inline-flex h-13 shrink-0 items-center gap-3 self-start rounded-3xl bg-white/10 px-4 lg:self-center">
                     <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-white/10 text-[#E6A23C]">
                       <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                         <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
@@ -630,7 +662,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                       </svg>
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/55">Total {viewPlural}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-white/55">Total {viewPlural}</p>
                       <p className="text-[18px] font-semibold tabular-nums leading-none text-white">{totalCount}</p>
                     </div>
                   </div>
@@ -654,7 +686,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                       type="button"
                       onClick={() => setSearchTerm("")}
                       aria-label="Limpiar búsqueda"
-                      className="absolute inset-y-0 right-0 my-1.5 mr-1.5 inline-flex h-8 min-w-[32px] items-center justify-center rounded-[8px] text-[#A1A1AA] transition-colors hover:bg-[#FAFAFA] hover:text-[#52525B] dark:hover:bg-white/[0.06] dark:hover:text-[#F8FAFC]"
+                      className="absolute inset-y-0 right-0 my-1.5 mr-1.5 inline-flex h-8 min-w-8 items-center justify-center rounded-xl text-[#A1A1AA] transition-colors hover:bg-[#FAFAFA] hover:text-[#52525B] dark:hover:bg-white/6 dark:hover:text-[#F8FAFC]"
                     >
                       <svg viewBox="0 0 24 24" className="size-3.5" fill="currentColor">
                         <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -674,7 +706,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                   }}
                   className={primaryBtnClass}
                 >
-                  <svg {...iconSvgProps} className="size-[18px]" strokeWidth={2}>
+                  <svg {...iconSvgProps} className="size-4.5" strokeWidth={2}>
                     <path d="M12 5v14M5 12h14" />
                   </svg>
                   Nuevo {viewSingular}
@@ -694,77 +726,143 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                       Listado de {viewPlural.toLowerCase()}
                     </h2>
                   </div>
-                  <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
-                    En pantallas pequeñas desplázate horizontalmente para ver todas las columnas.
-                  </p>
                 </div>
 
-                <div className="p-2 sm:p-3">
-                  <div className="overflow-x-auto rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]">
-                    <Table className="w-full min-w-[820px] sm:min-w-0 xl:min-w-full">
-                      <TableHeader className="sticky top-0 z-10 border-b border-[#E7E7EA] bg-white text-[11px] font-semibold text-[#09090B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC]">
-                        <TableRow>
-                          <TableCell isHeader className="px-3 py-2 text-left w-[64px] text-[#52525B] dark:text-[#B7C1D1]">ID</TableCell>
-                          {!fixedTipo && (
-                            <TableCell isHeader className="px-3 py-2 text-left w-[110px] text-[#52525B] dark:text-[#B7C1D1]">Tipo</TableCell>
-                          )}
-                          <TableCell isHeader className="px-3 py-2 text-left min-w-[180px] max-w-[280px] text-[#52525B] dark:text-[#B7C1D1]">{nombreColHeader}</TableCell>
-                          <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-[#52525B] dark:text-[#B7C1D1]">Ciudad</TableCell>
-                          <TableCell isHeader className="px-3 py-2 text-left w-[120px] text-[#52525B] dark:text-[#B7C1D1]">Teléfono</TableCell>
-                          <TableCell isHeader className="px-3 py-2 text-left min-w-[160px] max-w-[220px] text-[#52525B] dark:text-[#B7C1D1]">Contacto</TableCell>
-                          <TableCell isHeader className="px-3 py-2 text-left min-w-[180px] max-w-[280px] text-[#52525B] dark:text-[#B7C1D1]">Dirección</TableCell>
-                          <TableCell isHeader className="px-3 py-2 text-center w-[100px] text-[#52525B] dark:text-[#B7C1D1]">Acción</TableCell>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody className="divide-y divide-[#EDEDED] text-[12px] text-[#44403c] dark:divide-[#273244] dark:text-[#e5e7eb]">
-                        {loading ? (
-                          <TableRow>
-                            <TableCell colSpan={fixedTipo ? 7 : 8} className="px-3 py-8 text-center text-[#6E6E77] dark:text-[#8EA0B8]">
-                              <div className="inline-flex items-center gap-2 text-[15px]">
-                                <svg {...iconSvgProps} className="h-4.5 w-4.5 animate-spin" strokeWidth={2}>
-                                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                                </svg>
-                                Cargando…
+                {loading ? (
+                  <div
+                    className="flex items-center justify-center gap-2 px-4 py-16 text-[15px] text-[#6E6E77] dark:text-[#8EA0B8]"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <svg {...iconSvgProps} className="size-4 animate-spin" strokeWidth={2}>
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    Cargando…
+                  </div>
+                ) : currentClientes.length === 0 ? (
+                  <div className="px-4 py-16 text-center text-[15px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                    No hay {viewPlural.toLowerCase()}.
+                  </div>
+                ) : (
+                  <>
+                    <ul className="divide-y divide-[#E7E7EA] dark:divide-[#273244] md:hidden">
+                      {currentClientes.map((cliente) => (
+                        <li key={cliente.id} className="flex items-start gap-3 px-4 py-3.5">
+                          <span
+                            className={`inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold ${avatarToneClass(cliente.tipo)}`}
+                            aria-hidden
+                          >
+                            {initialsFromName(cliente.nombre)}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                                  {cliente.nombre}
+                                </p>
+                                {!fixedTipo && (
+                                  <span
+                                    className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${tipoBadgeClass(cliente.tipo)}`}
+                                  >
+                                    {getTipoLabel(cliente.tipo)}
+                                  </span>
+                                )}
                               </div>
+                              <RowActions
+                                name={cliente.nombre}
+                                canEdit={canClientesEdit}
+                                canDelete={canClientesDelete}
+                                onEdit={() => handleEdit(cliente)}
+                                onDelete={() => handleDeleteClick(cliente)}
+                              />
+                            </div>
+                            <p className="mt-1 truncate text-[12.5px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                              {[cliente.ciudad, cliente.estado].filter(Boolean).join(", ") || "Sin ciudad"}
+                            </p>
+                            <a
+                              href={`tel:${cliente.telefono}`}
+                              className="mt-0.5 inline-block text-[12.5px] font-medium text-[#1B5CFF] dark:text-[#4B7CFF]"
+                            >
+                              {cliente.telefono || "Sin teléfono"}
+                            </a>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="hidden overflow-x-auto md:block">
+                      <Table className="w-full min-w-225">
+                        <TableHeader>
+                          <TableRow className="border-b border-[#E7E7EA] dark:border-[#273244]">
+                            <TableCell isHeader className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                              {nombreColHeader}
+                            </TableCell>
+                            <TableCell isHeader className="w-32.5 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                              Ciudad
+                            </TableCell>
+                            <TableCell isHeader className="w-32.5 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                              Teléfono
+                            </TableCell>
+                            <TableCell isHeader className="min-w-45 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                              Contacto
+                            </TableCell>
+                            <TableCell isHeader className="min-w-45 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                              Dirección
+                            </TableCell>
+                            <TableCell isHeader className="w-22 px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                              Acción
                             </TableCell>
                           </TableRow>
-                        ) : currentClientes.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={fixedTipo ? 7 : 8} className="px-3 py-10 text-center text-[15px] text-[#6E6E77] dark:text-[#8EA0B8]">
-                              No hay {viewPlural.toLowerCase()}.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          currentClientes.map((cliente) => (
-                            <TableRow key={cliente.id} className="hover:bg-[#FAFAFA] dark:hover:bg-white/[0.04]">
-                              <TableCell className="px-3 py-2 w-[64px] whitespace-nowrap font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">{cliente.idx}</TableCell>
-                              {!fixedTipo && (
-                                <TableCell className="px-3 py-2 w-[110px] whitespace-nowrap">
-                                  {getTipoLabel(cliente.tipo)}
-                                </TableCell>
-                              )}
-                              <TableCell className="max-w-[280px] min-w-[180px] overflow-hidden px-3 py-2">
-                                <span className="block truncate font-medium text-[#09090B] dark:text-[#F8FAFC]" title={cliente.nombre}>{cliente.nombre}</span>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-[#E7E7EA] dark:divide-[#273244]">
+                          {currentClientes.map((cliente) => (
+                            <TableRow key={cliente.id} className="group transition-colors hover:bg-[#FAFAFA] dark:hover:bg-white/4">
+                              <TableCell className="max-w-70 px-4 py-3">
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <span
+                                    className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${avatarToneClass(cliente.tipo)}`}
+                                    aria-hidden
+                                  >
+                                    {initialsFromName(cliente.nombre)}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="truncate text-[13.5px] font-semibold text-[#09090B] dark:text-[#F8FAFC]" title={cliente.nombre}>
+                                      {cliente.nombre}
+                                    </p>
+                                    {!fixedTipo && (
+                                      <span
+                                        className={`mt-0.5 inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-semibold ${tipoBadgeClass(cliente.tipo)}`}
+                                      >
+                                        {getTipoLabel(cliente.tipo)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </TableCell>
-                              <TableCell className="px-3 py-2 w-[120px]">
-                                {(() => {
-                                  const ciudad = cliente.ciudad || '';
-                                  const estado = cliente.estado || '';
-                                  if (!ciudad && !estado) return <span className="text-[#A1A1AA]">—</span>;
-                                  return (
-                                    <div className="leading-tight">
-                                      <div className="truncate text-[#09090B] dark:text-[#F8FAFC]" title={ciudad || undefined}>{ciudad || "—"}</div>
-                                      <div className="truncate text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]" title={estado || undefined}>{estado || "—"}</div>
+                              <TableCell className="px-3 py-3">
+                                {cliente.ciudad || cliente.estado ? (
+                                  <div className="leading-tight">
+                                    <div className="truncate text-[13px] text-[#09090B] dark:text-[#F8FAFC]" title={cliente.ciudad || undefined}>
+                                      {cliente.ciudad || "—"}
                                     </div>
-                                  );
-                                })()}
+                                    <div className="truncate text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]" title={cliente.estado || undefined}>
+                                      {cliente.estado || "—"}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-[#A1A1AA]">—</span>
+                                )}
                               </TableCell>
-                              <TableCell className="px-3 py-2 w-[120px] whitespace-nowrap">
-                                <a href={`tel:${cliente.telefono}`} className="font-medium text-[#1B5CFF] hover:underline dark:text-[#4B7CFF]">
-                                  {cliente.telefono}
-                                </a>
+                              <TableCell className="px-3 py-3 whitespace-nowrap">
+                                {cliente.telefono ? (
+                                  <a href={`tel:${cliente.telefono}`} className="text-[13px] font-medium text-[#1B5CFF] hover:underline dark:text-[#4B7CFF]">
+                                    {cliente.telefono}
+                                  </a>
+                                ) : (
+                                  <span className="text-[#A1A1AA]">—</span>
+                                )}
                               </TableCell>
-                              <TableCell className="max-w-[220px] min-w-[160px] overflow-hidden px-3 py-2">
+                              <TableCell className="max-w-55 px-3 py-3">
                                 {(() => {
                                   const principal = (cliente.contactos || []).find((c) => c.is_principal) || (cliente.contactos || [])[0];
                                   const nombre =
@@ -776,52 +874,54 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                                   if (!nombre && !correo) return <span className="text-[#A1A1AA]">—</span>;
                                   return (
                                     <div className="leading-tight">
-                                      <div className="truncate text-[#09090B] dark:text-[#F8FAFC]" title={nombre || undefined}>{nombre || "—"}</div>
+                                      <div className="truncate text-[13px] text-[#09090B] dark:text-[#F8FAFC]" title={nombre || undefined}>{nombre || "—"}</div>
                                       {correo ? (
                                         <div className="truncate text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]" title={correo}>{correo}</div>
-                                      ) : (
-                                        <div className="text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">—</div>
-                                      )}
+                                      ) : null}
                                     </div>
                                   );
                                 })()}
                               </TableCell>
-                              <TableCell className="max-w-[280px] min-w-[180px] overflow-hidden px-3 py-2">
+                              <TableCell className="max-w-55 px-3 py-3">
                                 {isGoogleMapsLink(cliente.direccion) ? (
                                   <a
                                     href={cliente.direccion}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 font-semibold text-[#1B5CFF] hover:underline dark:text-[#4B7CFF]"
+                                    className="inline-flex items-center gap-1 text-[13px] font-medium text-[#1B5CFF] hover:underline dark:text-[#4B7CFF]"
                                   >
-                                    <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                                    <svg viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                       <circle cx="12" cy="10" r="3" />
                                     </svg>
                                     Ver ubicación
                                   </a>
-                                ) : (
-                                  <span className="block truncate" title={cliente.direccion || undefined}>
-                                    {cliente.direccion || <span className="text-[#A1A1AA]">—</span>}
+                                ) : cliente.direccion ? (
+                                  <span className="block truncate text-[13px] text-[#09090B] dark:text-[#F8FAFC]" title={cliente.direccion}>
+                                    {cliente.direccion}
                                   </span>
+                                ) : (
+                                  <span className="text-[#A1A1AA]">—</span>
                                 )}
                               </TableCell>
-                              <TableCell className="px-3 py-2 text-center w-[100px]">
-                                <RowActions
-                                  name={cliente.nombre}
-                                  canEdit={canClientesEdit}
-                                  canDelete={canClientesDelete}
-                                  onEdit={() => handleEdit(cliente)}
-                                  onDelete={() => handleDeleteClick(cliente)}
-                                />
+                              <TableCell className="px-3 py-3">
+                                <div className="flex justify-end opacity-60 transition-opacity group-hover:opacity-100">
+                                  <RowActions
+                                    name={cliente.nombre}
+                                    canEdit={canClientesEdit}
+                                    canDelete={canClientesDelete}
+                                    onEdit={() => handleEdit(cliente)}
+                                    onDelete={() => handleDeleteClick(cliente)}
+                                  />
+                                </div>
                               </TableCell>
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                )}
 
                 {!loading && totalCount > 0 && currentClientes.length > 0 && (
                   <div className="border-t border-[#E7E7EA] px-4 py-3 dark:border-[#273244] sm:px-5 sm:py-4">
@@ -874,7 +974,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                                 aria-current={currentPage === page ? "page" : undefined}
                                 className={`inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] border text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] ${currentPage === page
                                   ? 'border-[#1B5CFF] bg-[#1B5CFF] text-white dark:border-[#4B7CFF] dark:bg-[#4B7CFF]'
-                                  : 'border-[#E7E7EA] bg-white text-[#09090B] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:bg-white/[0.06]'
+                                  : 'border-[#E7E7EA] bg-white text-[#09090B] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:bg-white/6'
                                   }`}
                               >
                                 {page}
@@ -971,7 +1071,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                     Cancelar
                   </button>
                   <button type="submit" className={primaryBtnClass}>
-                    <svg {...iconSvgProps} className="size-[18px]" strokeWidth={2}>
+                    <svg {...iconSvgProps} className="size-4.5" strokeWidth={2}>
                       <path d="m5 12.5 4.5 4.5L19 7.5" />
                     </svg>
                     {editingCliente ? "Actualizar" : "Guardar"}
@@ -1019,15 +1119,15 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                   <h3 className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
                     Eliminar {viewSingular}
                   </h3>
-                  <p className="mt-1 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">Esta acción no se puede deshacer.</p>
+                  <p className="mt-1 text-[14px] leading-5 text-[#52525B] dark:text-[#B7C1D1]">Esta acción no se puede deshacer.</p>
                 </div>
               </div>
 
-              <p className="text-[15px] leading-[22px] text-[#52525B] dark:text-[#B7C1D1]">
+              <p className="text-[15px] leading-5.5 text-[#52525B] dark:text-[#B7C1D1]">
                 ¿Estás seguro de que deseas eliminar al {viewSingular.toLowerCase()}{" "}
                 <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">{clienteToDelete.nombre}</span>?
               </p>
-              <div className="mt-3 rounded-[12px] border border-[#F6CFCF] bg-[#FEF2F2] p-3 dark:border-[#7F1D1D] dark:bg-[#3F1518]">
+              <div className="mt-3 rounded-2xl border border-[#F6CFCF] bg-[#FEF2F2] p-3 dark:border-[#7F1D1D] dark:bg-[#3F1518]">
                 <p className="text-[13px] text-[#C22B2B] dark:text-[#F87171]">
                   <strong>Advertencia:</strong> todos los datos asociados a este registro se eliminarán permanentemente.
                 </p>

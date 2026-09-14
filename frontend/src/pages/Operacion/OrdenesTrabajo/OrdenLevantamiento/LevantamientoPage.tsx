@@ -906,7 +906,7 @@ export default function LevantamientoPage() {
       <OrdenServicioModal
         open={showOrderModal}
         onClose={() => { setShowOrderModal(false); setEditingOrdenForModal(null); }}
-        orden={editingOrdenForModal}
+        orden={editingOrdenForModal as import("../OrdenServicio/shared/ordenesPageTypes").Orden | null}
         forceTipoOrden="levantamiento"
         defaultFechaInicioForNewOrden={selectedMonth === getCurrentMonthKey() ? undefined : `${selectedMonth}-01`}
         levantamientoListadoMonthLabel={formatMonthLabelEs(selectedMonth)}

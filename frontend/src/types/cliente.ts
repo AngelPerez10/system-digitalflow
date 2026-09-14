@@ -50,6 +50,7 @@ export interface Cliente {
     is_prospecto?: boolean;
 
     contactos?: ClienteContacto[];
+    direcciones?: ClienteDireccion[];
     documento?: ClienteDocumento | null;
 }
 
@@ -62,6 +63,25 @@ export type ClienteContacto = {
     celular: string;
     correo: string;
     is_principal?: boolean;
+};
+
+/** Libreta de direcciones del cliente (varias sucursales, una principal). */
+export type ClienteDireccion = {
+    id: number;
+    cliente: number;
+    etiqueta: string;
+    direccion: string;
+    calle: string;
+    numero_exterior: string;
+    interior: string;
+    colonia: string;
+    localidad: string;
+    municipio: string;
+    codigo_postal: string;
+    ciudad: string;
+    pais: string;
+    estado: string;
+    is_principal: boolean;
 };
 
 export type ClienteDocumento = {

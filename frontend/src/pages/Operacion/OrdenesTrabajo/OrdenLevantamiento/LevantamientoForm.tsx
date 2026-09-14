@@ -245,9 +245,14 @@ const round2 = (v: number) => {
 };
 
 type LevantamientoSnapshot = {
-  payload: any;
+  payload: Record<string, unknown>;
   dibujo_url: string;
-  cerco_materiales?: any[];
+  cerco_materiales?: unknown[];
+};
+
+type LevantamientoApiResponse = {
+  payload?: Record<string, unknown> | null;
+  dibujo_url?: string | null;
 };
 
 type Props = {
@@ -309,18 +314,21 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
       try {
         const res = await fetchApi(`/api/ordenes/${oid}/levantamiento/`, { cache: 'no-store' as RequestCache });
 
-        const data = await res.json().catch(() => null);
+        const data = (await res.json().catch(() => null)) as LevantamientoApiResponse | null;
         if (!res.ok) {
           setAlert({ show: true, variant: 'error', title: 'Error', message: 'No se pudo cargar el levantamiento.' });
           return;
         }
 
-        const payload = (data as any)?.payload && typeof (data as any).payload === 'object' ? (data as any).payload : {};
-        const dibujo_url = (data as any)?.dibujo_url || '';
+        const rawPayload = data?.payload;
+        const payload =
+          rawPayload && typeof rawPayload === 'object' && !Array.isArray(rawPayload) ? rawPayload : {};
+        const dibujo_url = typeof data?.dibujo_url === 'string' ? data.dibujo_url : '';
 
         setV((prev) => {
           const next = { ...defaultValue, ...payload } as LevantamientoFormValue;
-          next.dibujo_url = dibujo_url || (payload as any)?.dibujo_url || prev.dibujo_url || '';
+          const payloadDibujo = typeof payload.dibujo_url === 'string' ? payload.dibujo_url : '';
+          next.dibujo_url = dibujo_url || payloadDibujo || prev.dibujo_url || '';
           return next;
         });
       } catch {
@@ -464,7 +472,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
     return () => {
       cancelled = true;
     };
-  }, [v.tipo, cercoModelosToFetch.join(','), cercoKitQtyByModel]);
+  }, [v.tipo, cercoModelosToFetch, cercoKitQtyByModel]);
 
   return (
     <>
@@ -617,7 +625,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_bala_cantidad || 0}
                             </div>
                             <button
@@ -661,7 +669,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_bala_megapixeles || megapixelesOptions[0]}
                             </div>
                             <button
@@ -764,7 +772,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_cubo_cantidad || 0}
                             </div>
                             <button
@@ -808,7 +816,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_cubo_megapixeles || megapixelesOptions[0]}
                             </div>
                             <button
@@ -911,7 +919,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_domo_cantidad || 0}
                             </div>
                             <button
@@ -955,7 +963,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_domo_megapixeles || megapixelesOptions[0]}
                             </div>
                             <button
@@ -1058,7 +1066,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_pinhole_cantidad || 0}
                             </div>
                             <button
@@ -1102,7 +1110,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_pinhole_megapixeles || megapixelesOptions[0]}
                             </div>
                             <button
@@ -1205,7 +1213,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_ptz_cantidad || 0}
                             </div>
                             <button
@@ -1249,7 +1257,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_ptz_megapixeles || megapixelesOptions[0]}
                             </div>
                             <button
@@ -1352,7 +1360,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_turret_cantidad || 0}
                             </div>
                             <button
@@ -1396,7 +1404,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                             >
                               -
                             </button>
-                            <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                               {v.camara_turret_megapixeles || megapixelesOptions[0]}
                             </div>
                             <button
@@ -1469,7 +1477,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <select
                   value={v.camara_grabado_tecnologia}
                   onChange={(e) => {
-                    const value = (e.target.value as any) as 'NVR' | 'DVR' | 'SVR' | '';
+                    const value = e.target.value as LevantamientoFormValue['camara_grabado_tecnologia'];
                     setV((prev) => ({
                       ...prev,
                       camara_grabado_tecnologia: value,
@@ -1509,7 +1517,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <select
                   value={v.camara_grabado_compuertas}
                   onChange={(e) => {
-                    const value = (e.target.value as any) as 'si' | 'no' | '';
+                    const value = e.target.value as LevantamientoFormValue['camara_grabado_compuertas'];
                     setV((prev) => ({
                       ...prev,
                       camara_grabado_compuertas: value,
@@ -1561,7 +1569,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Capacidad de Canales</label>
                 <select
                   value={v.camara_grabado_capacidad_canales}
-                  onChange={(e) => setV((prev) => ({ ...prev, camara_grabado_capacidad_canales: (e.target.value as any) }))}
+                  onChange={(e) => setV((prev) => ({ ...prev, camara_grabado_capacidad_canales: e.target.value as LevantamientoFormValue['camara_grabado_capacidad_canales'] }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -1593,7 +1601,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 >
                   -
                 </button>
-                <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                   {v.camara_grabado_puertos_hdd || 0}
                 </div>
                 <button
@@ -1649,7 +1657,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 >
                   -
                 </button>
-                <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                   {v.camara_grabado_capacidad_tb || 1} TB
                 </div>
                 <button
@@ -1703,7 +1711,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                   <div className="text-xs font-medium text-gray-600 dark:text-gray-300">Capacidad por Switch</div>
                   {Array.from({ length: v.camara_grabado_switch_poe_piezas }).map((_, idx) => (
                     <div key={idx} className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400 min-w-[80px]">Switch {idx + 1}:</span>
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400 min-w-20">Switch {idx + 1}:</span>
                       <select
                         value={v.camara_grabado_switch_poe_capacidades[idx] || ''}
                         onChange={(e) => {
@@ -1742,7 +1750,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo</label>
                 <select
                   value={v.cable_tipo}
-                  onChange={(e) => setV((prev) => ({ ...prev, cable_tipo: (e.target.value as any) }))}
+                  onChange={(e) => setV((prev) => ({ ...prev, cable_tipo: e.target.value as LevantamientoFormValue['cable_tipo'] }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -1771,7 +1779,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                   >
                     -
                   </button>
-                  <div className="min-w-[54px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                  <div className="min-w-13.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                     {v.cable_categoria}
                   </div>
                   <button
@@ -1838,7 +1846,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                               >
                                 -
                               </button>
-                              <div className="min-w-[42px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                              <div className="min-w-10.5 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
                                 {v.bobina_cable_cantidad || 0}
                               </div>
                               <button
@@ -1867,7 +1875,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                               <select
                                 value={metraje}
                                 onChange={(e) => {
-                                  const value = (e.target.value as any) || '';
+                                  const value = (e.target.value || '') as LevantamientoFormValue['bobina_cable_metrajes'][number];
                                   setV((prev) => {
                                     const next = [...(prev.bobina_cable_metrajes || [])];
                                     next[idx] = value;
@@ -1909,7 +1917,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Resistencia</label>
                 <select
                   value={v.cable_resistencia}
-                  onChange={(e) => setV((prev) => ({ ...prev, cable_resistencia: (e.target.value as any) }))}
+                  onChange={(e) => setV((prev) => ({ ...prev, cable_resistencia: e.target.value as LevantamientoFormValue['cable_resistencia'] }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -1922,7 +1930,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Blindado</label>
                 <select
                   value={v.cable_blindado}
-                  onChange={(e) => setV((prev) => ({ ...prev, cable_blindado: (e.target.value as any) }))}
+                  onChange={(e) => setV((prev) => ({ ...prev, cable_blindado: e.target.value as LevantamientoFormValue['cable_blindado'] }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -1998,7 +2006,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de alambre</label>
                 <select
                   value={v.cerco_tipo_material}
-                  onChange={(e) => setV((prev) => ({ ...prev, cerco_tipo_material: (e.target.value as any) || '' }))}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_tipo_material: (e.target.value || '') as LevantamientoFormValue['cerco_tipo_material'] }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -2010,7 +2018,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Color del poste</label>
                 <select
                   value={v.cerco_color}
-                  onChange={(e) => setV((prev) => ({ ...prev, cerco_color: (e.target.value as any) || '' }))}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_color: (e.target.value || '') as LevantamientoFormValue['cerco_color'] }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -2057,7 +2065,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Gabinete de energizador</label>
                 <select
                   value={v.cerco_gabinete}
-                  onChange={(e) => setV((prev) => ({ ...prev, cerco_gabinete: (e.target.value as any) || '' }))}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_gabinete: (e.target.value || '') as LevantamientoFormValue['cerco_gabinete'] }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -2072,7 +2080,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿Lleva sirena?</label>
                 <select
                   value={v.cerco_sirena}
-                  onChange={(e) => setV((prev) => ({ ...prev, cerco_sirena: (e.target.value as any) || '', cerco_sirena_con_gabinete: '' }))}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_sirena: (e.target.value || '') as LevantamientoFormValue['cerco_sirena'], cerco_sirena_con_gabinete: '' }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -2086,7 +2094,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">¿Con gabinete?</label>
                   <select
                     value={v.cerco_sirena_con_gabinete}
-                    onChange={(e) => setV((prev) => ({ ...prev, cerco_sirena_con_gabinete: (e.target.value as any) || '' }))}
+                    onChange={(e) => setV((prev) => ({ ...prev, cerco_sirena_con_gabinete: (e.target.value || '') as LevantamientoFormValue['cerco_sirena_con_gabinete'] }))}
                     className={inputBaseClass}
                   >
                     <option value="">Seleccionar...</option>
@@ -2102,7 +2110,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Kit tierra física</label>
                 <select
                   value={v.cerco_kit_tierra_fisica}
-                  onChange={(e) => setV((prev) => ({ ...prev, cerco_kit_tierra_fisica: (e.target.value as any) || '' }))}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_kit_tierra_fisica: (e.target.value || '') as LevantamientoFormValue['cerco_kit_tierra_fisica'] }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -2114,7 +2122,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Antiplantas</label>
                 <select
                   value={v.cerco_antiplantas}
-                  onChange={(e) => setV((prev) => ({ ...prev, cerco_antiplantas: (e.target.value as any) || '' }))}
+                  onChange={(e) => setV((prev) => ({ ...prev, cerco_antiplantas: (e.target.value || '') as LevantamientoFormValue['cerco_antiplantas'] }))}
                   className={inputBaseClass}
                 >
                   <option value="">Seleccionar...</option>
@@ -2131,7 +2139,7 @@ export default function LevantamientoForm({ ordenId, disabled, onSnapshot, lista
                 onChange={(e) => setV((prev) => ({ ...prev, cerco_adicionales: e.target.value }))}
                 placeholder="Notas o datos adicionales"
                 rows={3}
-                className={`${inputBaseClass} min-h-[80px] resize-y`}
+                className={`${inputBaseClass} min-h-20 resize-y`}
               />
             </div>
           </div>

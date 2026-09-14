@@ -30,8 +30,8 @@ import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
 import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./list/OrdenEnviarPdfModal";
 import {
   StatusChangedByChip,
-  resolveStatusChangedByName,
 } from "../../shared/StatusChangedByChip";
+import { resolveStatusChangedByName } from "../../shared/statusChangedBy";
 import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
 import {
   getOrdenPrioridadSectionStyles,
@@ -655,7 +655,7 @@ export default function OrdenesTecnico() {
               type="button"
               onClick={() => setSearchTerm('')}
               aria-label="Limpiar búsqueda"
-              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-10 items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/6 sm:h-9 sm:min-w-11 sm:rounded-lg"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
                 <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -707,7 +707,7 @@ export default function OrdenesTecnico() {
                   Listado de órdenes
                 </h2>
               </div>
-              <p className="mt-2 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
+              <p className="mt-2 text-[14px] leading-5 text-[#52525B] dark:text-[#B7C1D1]">
                 Órdenes visibles para tu cuenta. Usa la barra de estado y los filtros para acotar el listado.
               </p>
             </div>
@@ -759,16 +759,16 @@ export default function OrdenesTecnico() {
             selectedMonth={selectedMonth}
           />
           <div className={"hidden md:block " + erpTableWrapClass}>
-            <Table className="w-full min-w-[940px] sm:table-fixed sm:min-w-0 xl:min-w-full">
+            <Table className="w-full min-w-235 sm:table-fixed sm:min-w-0 xl:min-w-full">
               <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                 <TableRow>
-                  <TableCell isHeader className="px-3 py-2 text-left w-[100px] min-w-[96px] max-w-[110px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">ID</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-left w-2/5 min-w-[220px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Cliente</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-left w-1/5 min-w-[220px] text-[#52525B] dark:text-[#B7C1D1]">Detalles</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-left w-[130px] min-w-[130px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Fechas</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-left w-[160px] min-w-[160px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Técnico</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Prioridad · Estado</TableCell>
-                  <TableCell isHeader className="px-3 py-2 text-center w-[150px] min-w-[150px] whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Acciones</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-25 min-w-24 max-w-27.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">ID</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-2/5 min-w-55 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Cliente</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-1/5 min-w-55 text-[#52525B] dark:text-[#B7C1D1]">Detalles</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-32.5 min-w-32.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Fechas</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-left w-40 min-w-40 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Técnico</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-center w-37.5 min-w-37.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Prioridad · Estado</TableCell>
+                  <TableCell isHeader className="px-3 py-2 text-center w-37.5 min-w-37.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]">Acciones</TableCell>
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-[#EDEDED] bg-white text-[12px] text-[#44403c] dark:divide-[#273244] dark:bg-[#111827] dark:text-[#e5e7eb]">
@@ -842,13 +842,13 @@ export default function OrdenesTecnico() {
                       className={`${erpTableRowHoverClass} ${isTerminal ? "" : prioTone.rowAccent}`}
                       aria-label={`Orden ${folioDisplay}${isTerminal ? "" : `, ${prioAria}`}${isCancelada ? ", cancelada" : ""}`}
                     >
-                      <TableCell className="px-3 py-2 w-[100px] min-w-[96px] max-w-[110px] overflow-hidden">
+                      <TableCell className="px-3 py-2 w-25 min-w-24 max-w-27.5 overflow-hidden">
                         <div className="flex min-w-0 flex-col items-stretch gap-1">
                           <span className="whitespace-nowrap">{folioDisplay}</span>
                           <OrdenArrastreBadge orden={orden} selectedMonth={selectedMonth} />
                         </div>
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-[#09090B] dark:text-white w-1/5 min-w-[220px]">
+                      <TableCell className="px-3 py-2 text-[#09090B] dark:text-white w-1/5 min-w-55">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
                         {orden.direccion && (
                           <a href={orden.direccion} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-600 dark:text-blue-400 hover:underline truncate">{orden.direccion}</a>
@@ -857,7 +857,7 @@ export default function OrdenesTecnico() {
                           <a href={`tel:${orden.telefono_cliente}`} className="inline-block text-[11px] text-[#52525B] dark:text-[#8EA0B8]">{orden.telefono_cliente}</a>
                         )}
                       </TableCell>
-                      <TableCell className="px-3 py-2 w-2/5 min-w-[220px] whitespace-normal">
+                      <TableCell className="px-3 py-2 w-2/5 min-w-55 whitespace-normal">
                         <div className="flex flex-col gap-1 items-start">
                           <button
                             type="button"
@@ -879,13 +879,13 @@ export default function OrdenesTecnico() {
                           </button>
                         </div>
                       </TableCell>
-                      <TableCell className="px-3 py-2 whitespace-nowrap w-[130px] min-w-[130px]">
+                      <TableCell className="px-3 py-2 whitespace-nowrap w-32.5 min-w-32.5">
                         <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
                           <div><span className="text-[#6E6E77]">Inicio:</span> {fechaFmt}</div>
                           <div><span className="text-[#6E6E77]">Fin:</span> {finFmt}</div>
                         </div>
                       </TableCell>
-                      <TableCell className="px-3 py-2 whitespace-nowrap w-[160px] min-w-[160px]">
+                      <TableCell className="px-3 py-2 whitespace-nowrap w-40 min-w-40">
                         <div className="space-y-1">
                           <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1] truncate">{tecnicoNombre}</div>
                           <button
@@ -899,7 +899,7 @@ export default function OrdenesTecnico() {
                           </button>
                         </div>
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-center w-[164px] min-w-[156px]">
+                      <TableCell className="px-3 py-2 text-center w-41 min-w-39">
                         <div className="flex flex-col items-center gap-1">
                           {(() => {
                             const statusPill =
@@ -927,7 +927,7 @@ export default function OrdenesTecnico() {
                             if (isTerminal) {
                               return (
                                 <span
-                                  className={`inline-flex items-center rounded-full px-2 py-[3px] text-[10px] font-semibold ${statusPill}`}
+                                  className={`inline-flex items-center rounded-full px-2 py-0.75 text-[10px] font-semibold ${statusPill}`}
                                   title={statusTitle}
                                 >
                                   {statusLabel}
@@ -935,9 +935,9 @@ export default function OrdenesTecnico() {
                               );
                             }
                             return (
-                              <span className="inline-flex items-stretch overflow-hidden whitespace-nowrap rounded-full text-[10px] font-semibold leading-none ring-1 ring-inset ring-black/[0.06] dark:ring-white/10">
+                              <span className="inline-flex items-stretch overflow-hidden whitespace-nowrap rounded-full text-[10px] font-semibold leading-none ring-1 ring-inset ring-black/6 dark:ring-white/10">
                                 <span
-                                  className={`flex items-center gap-1 px-1.5 py-[3px] ${prioTone.cap}`}
+                                  className={`flex items-center gap-1 px-1.5 py-0.75 ${prioTone.cap}`}
                                   title={
                                     prioEscalada
                                       ? `Prioridad ${prioShort} — escalada automáticamente por antigüedad (+72 h sin resolver)`
@@ -950,7 +950,7 @@ export default function OrdenesTecnico() {
                                     <span className="font-bold leading-none" aria-hidden title="Escalada por antigüedad">↑</span>
                                   )}
                                 </span>
-                                <span className={`px-2 py-[3px] ${statusPill}`} title={statusTitle}>
+                                <span className={`px-2 py-0.75 ${statusPill}`} title={statusTitle}>
                                   {statusLabel}
                                 </span>
                               </span>
@@ -972,7 +972,7 @@ export default function OrdenesTecnico() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-center w-[150px] min-w-[150px]">
+                      <TableCell className="px-3 py-2 text-center w-37.5 min-w-37.5">
                         <div className={erpRowActionBarClass}>
                           <button
                             type="button"
@@ -1093,7 +1093,7 @@ export default function OrdenesTecnico() {
                       <path d="M15 18l-6-6 6-6" />
                     </svg>
                   </button>
-                  <span className="min-w-[130px] sm:min-w-[160px] text-center text-[11px] sm:text-[12px] text-[#52525B] dark:text-[#B7C1D1] capitalize">
+                  <span className="min-w-32.5 sm:min-w-40 text-center text-[11px] sm:text-[12px] text-[#52525B] dark:text-[#B7C1D1] capitalize">
                     {(() => {
                       const ym = parseYearMonth(selectedMonth);
                       if (!ym) return selectedMonth ? selectedMonth : 'Todos los meses';

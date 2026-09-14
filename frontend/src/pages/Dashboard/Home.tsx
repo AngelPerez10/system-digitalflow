@@ -49,7 +49,7 @@ export default function Home() {
         title="Panel de Control | Sistema Grupo Intrax GPS"
         description="Panel principal del sistema de administración Grupo Intrax GPS"
       />
-      <div className="mb-5 [font-family:'Geist','Outfit',system-ui,sans-serif] sm:mb-6">
+      <div className="mb-5 font-['Geist','Outfit',system-ui,sans-serif] sm:mb-6">
         <header className="relative overflow-hidden rounded-[24px] bg-[#17235B] px-5 py-6 dark:bg-[#1B2A63] sm:px-8 sm:py-7">
           <div
             className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-[#E6A23C]/15 blur-3xl"
@@ -74,14 +74,14 @@ export default function Home() {
               <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]">
                 {saludo}{nombre ? `, ${nombre}` : ""}
               </h1>
-              <p className="mt-1.5 max-w-[62ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70">
+              <p className="mt-1.5 max-w-[62ch] text-[15px] leading-5.5 tracking-[-0.1px] text-white/70">
                 Este es el resumen de cotizaciones, órdenes de trabajo y actividad reciente del sistema.
               </p>
             </div>
           </div>
         </header>
       </div>
-      <div className="grid grid-cols-12 gap-4 [font-family:'Geist','Outfit',system-ui,sans-serif] md:gap-6">
+      <div className="grid grid-cols-12 gap-4 font-['Geist','Outfit',system-ui,sans-serif] md:gap-6">
         <div className="col-span-12 space-y-6 xl:col-span-7">
           <EcommerceMetrics loading={dashboard.loading} mesActual={dashboard.mesActual} />
 

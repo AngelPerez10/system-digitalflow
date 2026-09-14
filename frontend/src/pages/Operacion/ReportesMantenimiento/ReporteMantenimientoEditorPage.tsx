@@ -59,7 +59,7 @@ const heading2Class = "text-[15px] font-semibold text-[#09090B] dark:text-[#F8FA
 const helpTextClass = "text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]";
 
 const iconBtnClass =
-  "inline-flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#1B5CFF]/50 hover:text-[#1B5CFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] disabled:pointer-events-none disabled:opacity-40 dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:border-[#4B7CFF]/50 dark:hover:text-[#4B7CFF]";
+  "inline-flex size-8 shrink-0 items-center justify-center rounded-xl border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#1B5CFF]/50 hover:text-[#1B5CFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] disabled:pointer-events-none disabled:opacity-40 dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:border-[#4B7CFF]/50 dark:hover:text-[#4B7CFF]";
 
 type Accent = "orden" | "antes" | "despues";
 
@@ -568,7 +568,7 @@ export default function ReporteMantenimientoEditorPage() {
         <button
           type="button"
           onClick={addSeccion}
-          className="flex w-full flex-col items-center gap-2 rounded-[16px] border border-dashed border-[#D3D3D8] bg-[#FAFAFA] px-4 py-10 text-center transition-colors hover:border-[#1B5CFF]/50 hover:bg-[rgba(27,92,255,0.04)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] dark:border-[#3A4661] dark:bg-[#1B2539]"
+          className="flex w-full flex-col items-center gap-2 rounded-3xl border border-dashed border-[#D3D3D8] bg-[#FAFAFA] px-4 py-10 text-center transition-colors hover:border-[#1B5CFF]/50 hover:bg-[rgba(27,92,255,0.04)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] dark:border-[#3A4661] dark:bg-[#1B2539]"
         >
           <span className="inline-flex size-12 items-center justify-center rounded-[14px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
             <svg className="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
@@ -586,16 +586,16 @@ export default function ReporteMantenimientoEditorPage() {
             {draft.secciones.map((sec, index) => (
               <li
                 key={sec.id}
-                className="overflow-hidden rounded-[16px] border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#111827]"
+                className="overflow-hidden rounded-3xl border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#111827]"
               >
                 <div className="border-b border-[#E7E7EA] bg-[#FAFAFA] px-3 py-2.5 dark:border-[#273244] dark:bg-[#151E32]">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-[8px] bg-[#1B5CFF] font-mono text-[11px] font-semibold text-white dark:bg-[#4B7CFF]">
+                    <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] font-mono text-[11px] font-semibold text-white dark:bg-[#4B7CFF]">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <input
                       type="text"
-                      className="min-w-0 flex-1 rounded-[8px] border border-transparent bg-transparent px-2 py-1.5 text-sm font-semibold text-[#09090B] outline-none transition-colors placeholder:font-normal placeholder:text-[#A1A1AA] hover:border-[#E7E7EA] hover:bg-white focus:border-[#1B5CFF] focus:bg-white dark:text-[#F8FAFC] dark:hover:border-[#273244] dark:hover:bg-[#0f172a] dark:focus:bg-[#0f172a]"
+                      className="min-w-0 flex-1 rounded-xl border border-transparent bg-transparent px-2 py-1.5 text-sm font-semibold text-[#09090B] outline-none transition-colors placeholder:font-normal placeholder:text-[#A1A1AA] hover:border-[#E7E7EA] hover:bg-white focus:border-[#1B5CFF] focus:bg-white dark:text-[#F8FAFC] dark:hover:border-[#273244] dark:hover:bg-[#0f172a] dark:focus:bg-[#0f172a]"
                       placeholder={`Zona ${index + 1} — ej. Cámara entrada`}
                       value={sec.titulo}
                       onChange={(e) => updateSeccion(sec.id, { titulo: e.target.value })}
@@ -640,7 +640,7 @@ export default function ReporteMantenimientoEditorPage() {
                         "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
                         sec.fotos_antes[0]
                           ? "bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:text-[#E6A23C]"
-                          : "bg-[#F4F4F5] text-[#A1A1AA] dark:bg-white/[0.06] dark:text-[#6E6E77]"
+                          : "bg-[#F4F4F5] text-[#A1A1AA] dark:bg-white/6 dark:text-[#6E6E77]"
                       )}
                     >
                       {sec.fotos_antes[0] ? "Antes ✓" : "Antes —"}
@@ -650,7 +650,7 @@ export default function ReporteMantenimientoEditorPage() {
                         "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
                         sec.fotos_despues[0]
                           ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-                          : "bg-[#F4F4F5] text-[#A1A1AA] dark:bg-white/[0.06] dark:text-[#6E6E77]"
+                          : "bg-[#F4F4F5] text-[#A1A1AA] dark:bg-white/6 dark:text-[#6E6E77]"
                       )}
                     >
                       {sec.fotos_despues[0] ? "Después ✓" : "Después —"}
@@ -661,7 +661,7 @@ export default function ReporteMantenimientoEditorPage() {
                 <div className="relative grid gap-4 p-3 sm:grid-cols-2 sm:gap-5 sm:p-4">
                   <span
                     aria-hidden
-                    className="pointer-events-none absolute inset-y-4 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-[rgba(230,162,60,0.5)] via-[#E7E7EA] to-emerald-400/50 sm:block dark:via-[#273244]"
+                    className="pointer-events-none absolute inset-y-4 left-1/2 hidden w-px -translate-x-1/2 bg-linear-to-b from-[rgba(230,162,60,0.5)] via-[#E7E7EA] to-emerald-400/50 sm:block dark:via-[#273244]"
                   />
                   <SinglePhoto
                     accent="antes"
@@ -689,7 +689,7 @@ export default function ReporteMantenimientoEditorPage() {
           <button
             type="button"
             onClick={addSeccion}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-[14px] border border-dashed border-[#D3D3D8] bg-[#FAFAFA] py-3 text-[13px] font-semibold text-[#52525B] transition-colors hover:border-[#1B5CFF]/50 hover:bg-[rgba(27,92,255,0.04)] hover:text-[#1B5CFF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] dark:border-[#3A4661] dark:bg-[#1B2539] dark:text-[#B7C1D1]"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-[14px] border border-dashed border-[#D3D3D8] bg-[#FAFAFA] py-3 text-[13px] font-semibold text-[#52525B] transition-colors hover:border-[#1B5CFF]/50 hover:bg-[rgba(27,92,255,0.04)] hover:text-[#1B5CFF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] dark:border-[#3A4661] dark:bg-[#1B2539] dark:text-[#B7C1D1]"
           >
             <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
               <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -761,7 +761,7 @@ export default function ReporteMantenimientoEditorPage() {
         </nav>
 
         {/* Hero marino compacto */}
-        <header className={cn(osHeroBandClass, "!py-5 sm:!py-6")}>
+        <header className={cn(osHeroBandClass, "py-5! sm:py-6!")}>
           <div className={erpHeroBlurClass} aria-hidden />
           <div className="relative flex min-w-0 items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-4">
@@ -841,10 +841,10 @@ export default function ReporteMantenimientoEditorPage() {
                         aria-current={active ? "step" : undefined}
                         onClick={() => setActiveStep(s.id)}
                         className={cn(
-                          "flex w-full items-start gap-3 rounded-[12px] px-2.5 py-2.5 text-left transition-colors",
+                          "flex w-full items-start gap-3 rounded-2xl px-2.5 py-2.5 text-left transition-colors",
                           active
                             ? "bg-[rgba(27,92,255,0.08)] dark:bg-[rgba(75,124,255,0.12)]"
-                            : "hover:bg-[#FAFAFA] dark:hover:bg-white/[0.04]"
+                            : "hover:bg-[#FAFAFA] dark:hover:bg-white/4"
                         )}
                       >
                         <span
@@ -887,12 +887,12 @@ export default function ReporteMantenimientoEditorPage() {
 
                 <div className="mt-4 hidden space-y-2 border-t border-[#E7E7EA] pt-4 dark:border-[#273244] lg:block">
                   {/* sm:w-full anula sm:w-auto de erp*BtnClass en el rail estrecho */}
-                  {saveBtn("sm:w-full sm:min-h-[44px]")}
+                  {saveBtn("sm:w-full sm:min-h-11")}
                   <Link
                     to="/reportes-mantenimiento"
                     className={cn(
                       erpSecondaryBtnClass,
-                      "h-11 w-full gap-1.5 sm:w-full sm:min-h-[44px]"
+                      "h-11 w-full gap-1.5 sm:w-full sm:min-h-11"
                     )}
                   >
                     <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -906,7 +906,7 @@ export default function ReporteMantenimientoEditorPage() {
                       state={{ from: `/reportes-mantenimiento/${reporteId}` }}
                       className={cn(
                         erpSecondaryBtnClass,
-                        "h-11 w-full gap-1.5 sm:w-full sm:min-h-[44px]"
+                        "h-11 w-full gap-1.5 sm:w-full sm:min-h-11"
                       )}
                     >
                       <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -985,12 +985,12 @@ export default function ReporteMantenimientoEditorPage() {
         {/* Guardar fijo en móvil */}
         {!loading ? (
           <div className="sticky bottom-3 z-30 lg:hidden">
-            <div className="flex gap-2 rounded-[16px] border border-[#E7E7EA] bg-white/95 p-2.5 shadow-[0_16px_40px_-16px_rgba(9,9,11,0.28)] backdrop-blur dark:border-[#273244] dark:bg-[#111827]/95">
+            <div className="flex gap-2 rounded-3xl border border-[#E7E7EA] bg-white/95 p-2.5 shadow-[0_16px_40px_-16px_rgba(9,9,11,0.28)] backdrop-blur dark:border-[#273244] dark:bg-[#111827]/95">
               <Link
                 to="/reportes-mantenimiento"
                 className={cn(
                   erpSecondaryBtnClass,
-                  "h-11 min-h-[44px] w-auto flex-1 gap-1.5"
+                  "h-11 min-h-11 w-auto flex-1 gap-1.5"
                 )}
               >
                 <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -998,7 +998,7 @@ export default function ReporteMantenimientoEditorPage() {
                 </svg>
                 Cancelar
               </Link>
-              {saveBtn("w-auto flex-1 sm:min-h-[44px]")}
+              {saveBtn("w-auto flex-1 sm:min-h-11")}
             </div>
           </div>
         ) : null}
@@ -1033,7 +1033,7 @@ export default function ReporteMantenimientoEditorPage() {
               <h3 id={deleteSeccionTitleId} className="text-base font-semibold text-[#09090B] dark:text-[#F8FAFC]">
                 Eliminar zona
               </h3>
-              <p className="mt-2 max-w-[22rem] text-sm leading-relaxed text-[#52525B] dark:text-[#94a3b8]">
+              <p className="mt-2 max-w-88 text-sm leading-relaxed text-[#52525B] dark:text-[#94a3b8]">
                 {deletingSeccion ? (
                   "Por favor espera; se están borrando las imágenes…"
                 ) : (
@@ -1053,7 +1053,7 @@ export default function ReporteMantenimientoEditorPage() {
             <div className="mt-5 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-center sm:gap-3">
               <button
                 type="button"
-                className={`${erpSecondaryBtnClass} sm:min-w-[8rem]`}
+                className={`${erpSecondaryBtnClass} sm:min-w-32`}
                 disabled={deletingSeccion}
                 onClick={() => setSeccionToDelete(null)}
               >
@@ -1061,7 +1061,7 @@ export default function ReporteMantenimientoEditorPage() {
               </button>
               <button
                 type="button"
-                className={`${erpDangerBtnClass} sm:min-w-[8rem]`}
+                className={`${erpDangerBtnClass} sm:min-w-32`}
                 disabled={deletingSeccion}
                 aria-busy={deletingSeccion || undefined}
                 onClick={() => void confirmDeleteSeccion()}
@@ -1130,7 +1130,7 @@ function SinglePhoto({
         <div className="mb-2.5 flex items-center justify-between">
           <span
             className={cn(
-              "inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em]",
+              "inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest",
               a.label
             )}
           >
@@ -1177,12 +1177,12 @@ function SinglePhoto({
           <img
             src={url}
             alt={title}
-            className="aspect-[4/3] w-full object-cover transition-transform duration-200 group-hover:scale-105"
+            className="aspect-4/3 w-full object-cover transition-transform duration-200 group-hover:scale-105"
           />
-          <div className="absolute inset-x-0 bottom-0 flex justify-end gap-1.5 bg-gradient-to-t from-black/60 to-transparent p-2">
+          <div className="absolute inset-x-0 bottom-0 flex justify-end gap-1.5 bg-linear-to-t from-black/60 to-transparent p-2">
             <button
               type="button"
-              className="inline-flex h-7 items-center rounded-[8px] bg-white/95 px-2 text-[11px] font-medium text-[#09090B] shadow-sm hover:bg-white disabled:opacity-60"
+              className="inline-flex h-7 items-center rounded-xl bg-white/95 px-2 text-[11px] font-medium text-[#09090B] shadow-sm hover:bg-white disabled:opacity-60"
               disabled={busy}
               onClick={() => inputRef.current?.click()}
             >
@@ -1191,7 +1191,7 @@ function SinglePhoto({
             {!header ? (
               <button
                 type="button"
-                className="inline-flex h-7 items-center rounded-[8px] bg-white/95 px-2 text-[11px] font-medium text-rose-600 shadow-sm hover:bg-white disabled:opacity-60"
+                className="inline-flex h-7 items-center rounded-xl bg-white/95 px-2 text-[11px] font-medium text-rose-600 shadow-sm hover:bg-white disabled:opacity-60"
                 disabled={busy}
                 onClick={onClear}
               >
@@ -1206,7 +1206,7 @@ function SinglePhoto({
           disabled={busy}
           onClick={() => inputRef.current?.click()}
           className={cn(
-            "flex aspect-[4/3] w-full flex-col items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-[#D3D3D8] bg-[#FAFAFA] text-[12px] text-[#6E6E77] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-60 dark:border-[#3A4661] dark:bg-[#1B2539] dark:text-[#8EA0B8]",
+            "flex aspect-4/3 w-full flex-col items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-[#D3D3D8] bg-[#FAFAFA] text-[12px] text-[#6E6E77] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-60 dark:border-[#3A4661] dark:bg-[#1B2539] dark:text-[#8EA0B8]",
             a.add
           )}
         >
