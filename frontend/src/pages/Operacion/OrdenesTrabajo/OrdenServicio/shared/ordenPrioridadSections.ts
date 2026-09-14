@@ -1,7 +1,7 @@
 import { isOrdenResuelta, normalizeStatus } from "./useOrdenesShared";
 
 /**
- * Agrupamiento del listado admin por prioridad efectiva de la bolsa.
+ * Agrupamiento del listado admin por prioridad de bolsa (`prioridad_pool`).
  * Orden fijo: Alta arriba → Media → Baja → Sin prioridad al final.
  * Las órdenes resueltas se excluyen del listado (salvo que el usuario filtre
  * explícitamente por estado = Resuelto).
@@ -111,32 +111,31 @@ export function ordenPrioridadLabel(key: OrdenPrioridadSectionKey): string {
 }
 
 /**
- * Chip del listado: una sola etiqueta Alta / Media / Baja (la efectiva por
- * antigüedad). Si ya subió, title y aria-label explican la asignada original.
+ * Chip del listado: Alta / Media / Baja tal como está en el formulario.
+ * Las horas no cambian esa etiqueta; sí marcan `escalada` para reordenar la cola.
  */
 export function ordenPrioridadListBadge(orden: OrdenPrioridadRow, now?: number) {
   const assignedKey = ordenPrioridadKey(orden.prioridad_pool);
   const effectiveKey = ordenPrioridadKey(ordenPrioridadEfectiva(orden, now));
   const escalada = !isOrdenResuelta(orden.status) && assignedKey !== effectiveKey;
   const assigned = ordenPrioridadLabel(assignedKey);
-  const effective = ordenPrioridadLabel(effectiveKey);
   if (!escalada) {
     return {
       assignedKey,
       effectiveKey,
       escalada: false,
-      visibleLabel: effective,
-      title: `Prioridad ${effective}`,
-      ariaLabel: `Prioridad ${effective}`,
+      visibleLabel: assigned,
+      title: `Prioridad ${assigned}`,
+      ariaLabel: `Prioridad ${assigned}`,
     };
   }
   return {
     assignedKey,
     effectiveKey,
     escalada: true,
-    visibleLabel: effective,
-    title: `Prioridad ${effective} (asignada ${assigned}; subió por antigüedad, más de 72 h sin resolver)`,
-    ariaLabel: `Prioridad ${effective}, asignada ${assigned}, subió por antigüedad`,
+    visibleLabel: assigned,
+    title: `Prioridad ${assigned}. Subió en la cola por antigüedad (más de 72 h sin resolver).`,
+    ariaLabel: `Prioridad ${assigned}, subió en la cola por antigüedad`,
   };
 }
 
@@ -166,10 +165,10 @@ export function sortOrdenesByPrioridad<T extends OrdenPrioridadRow>(list: T[], n
     .map((entry) => entry.orden);
 }
 
-/** Agrupa por prioridad efectiva (la que cambia con las horas); omite secciones vacías. */
+/** Agrupa por la prioridad del formulario (`prioridad_pool`); omite secciones vacías. */
 export function groupOrdenesByPrioridad<T extends OrdenPrioridadRow>(
   ordenes: T[],
-  now: number = Date.now(),
+  _now: number = Date.now(),
 ): OrdenPrioridadSection<T>[] {
   const buckets: Record<OrdenPrioridadSectionKey, T[]> = {
     ALTA: [],
@@ -179,7 +178,7 @@ export function groupOrdenesByPrioridad<T extends OrdenPrioridadRow>(
   };
 
   for (const orden of ordenes) {
-    buckets[ordenPrioridadKey(ordenPrioridadEfectiva(orden, now))].push(orden);
+    buckets[ordenPrioridadKey(orden.prioridad_pool)].push(orden);
   }
 
   return SECTION_META.map((meta) => ({

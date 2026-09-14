@@ -1041,9 +1041,9 @@ export default function Ordenes() {
                         const isResuelta = isOrdenResuelta(orden.status);
                         const isCancelada = isOrdenCancelada(orden.status);
                         const isTerminal = isResuelta || isCancelada;
-                        // Prioridad de bolsa: Alta / Media / Baja según antigüedad (efectiva).
+                        // Chip = prioridad del formulario. Las horas solo reordenan la cola.
                         const prioBadge = ordenPrioridadListBadge(orden);
-                        const prioKey = isTerminal ? prioBadge.assignedKey : prioBadge.effectiveKey;
+                        const prioKey = prioBadge.assignedKey;
                         const prioTone = getOrdenPrioridadSectionStyles(prioKey);
                         const prioAria = isTerminal
                           ? ""

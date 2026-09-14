@@ -68,7 +68,7 @@ describe("sortOrdenesByPrioridad", () => {
 });
 
 describe("ordenPrioridadListBadge", () => {
-  it("el chip visible es solo Alta, Media o Baja (la efectiva por horas)", () => {
+  it("el chip visible es la del formulario (Alta / Media / Baja), no la escalada", () => {
     const labels = [
       ordenPrioridadListBadge(
         { prioridad_pool: "baja", fecha_creacion: hace(10), status: "pendiente" },
@@ -83,27 +83,28 @@ describe("ordenPrioridadListBadge", () => {
         NOW,
       ).visibleLabel,
       ordenPrioridadListBadge(
-        { prioridad_pool: "baja", fecha_creacion: hace(100), status: "pendiente" },
+        { prioridad_pool: "alta", fecha_creacion: hace(100), status: "pendiente" },
         NOW,
       ).visibleLabel,
     ];
-    expect(labels).toEqual(["Baja", "Media", "Alta", "Alta"]);
+    expect(labels).toEqual(["Baja", "Baja", "Media", "Alta"]);
     for (const label of labels) {
       expect(["Alta", "Media", "Baja"]).toContain(label);
       expect(label).not.toMatch(/ a /);
     }
   });
 
-  it("una media con más de 72 h muestra Alta, no 'Media a Alta'", () => {
+  it("una media antigua sigue diciendo Media; las horas solo marcan escalada para la cola", () => {
     const badge = ordenPrioridadListBadge(
       { prioridad_pool: "media", fecha_creacion: hace(80), status: "pendiente" },
       NOW,
     );
-    expect(badge.visibleLabel).toBe("Alta");
+    expect(badge.visibleLabel).toBe("Media");
+    expect(badge.assignedKey).toBe("MEDIA");
     expect(badge.effectiveKey).toBe("ALTA");
     expect(badge.escalada).toBe(true);
-    expect(badge.ariaLabel).toContain("Alta");
-    expect(badge.ariaLabel).toContain("Media");
+    expect(badge.ariaLabel).toMatch(/Media/i);
+    expect(badge.ariaLabel).toMatch(/antigüedad/i);
   });
 
   it("si no escala, muestra la asignada", () => {
@@ -118,7 +119,7 @@ describe("ordenPrioridadListBadge", () => {
 });
 
 describe("groupOrdenesByPrioridad", () => {
-  it("agrupa por la prioridad efectiva: media antigua pasa a Alta", () => {
+  it("agrupa por la prioridad del formulario, no por la escalada", () => {
     const sections = groupOrdenesByPrioridad(
       [
         { id: 1, prioridad_pool: "media", fecha_creacion: hace(80), status: "pendiente" },
@@ -126,10 +127,10 @@ describe("groupOrdenesByPrioridad", () => {
       ],
       NOW,
     );
-    const alta = sections.find((s) => s.key === "ALTA");
+    const media = sections.find((s) => s.key === "MEDIA");
     const baja = sections.find((s) => s.key === "BAJA");
-    expect(alta?.ordenes.map((o) => o.id)).toEqual([1]);
+    expect(media?.ordenes.map((o) => o.id)).toEqual([1]);
     expect(baja?.ordenes.map((o) => o.id)).toEqual([2]);
-    expect(sections.some((s) => s.key === "MEDIA")).toBe(false);
+    expect(sections.some((s) => s.key === "ALTA")).toBe(false);
   });
 });

@@ -811,7 +811,7 @@ export default function OrdenesTecnico() {
                   const isCancelada = isOrdenCancelada(orden.status);
                   const isTerminal = isResuelta || isCancelada;
                   const prioBadge = ordenPrioridadListBadge(orden);
-                  const prioKey = isTerminal ? prioBadge.assignedKey : prioBadge.effectiveKey;
+                  const prioKey = prioBadge.assignedKey;
                   const prioTone = getOrdenPrioridadSectionStyles(prioKey);
                   const prioAria = isTerminal ? "" : prioBadge.ariaLabel.toLowerCase();
                   const statusByName = resolveStatusChangedByName(

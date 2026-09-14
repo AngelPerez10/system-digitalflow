@@ -101,7 +101,7 @@ export function MobileOrderCard({
   const isCancelada = isOrdenCancelada(orden.status);
   const isTerminal = isResuelta || isCancelada;
   const prioBadge = ordenPrioridadListBadge(orden);
-  const prioKey = isTerminal ? prioBadge.assignedKey : prioBadge.effectiveKey;
+  const prioKey = prioBadge.assignedKey;
   const prioTone = getOrdenPrioridadSectionStyles(prioKey);
   const statusLabel =
     orden.status === "resuelto"
