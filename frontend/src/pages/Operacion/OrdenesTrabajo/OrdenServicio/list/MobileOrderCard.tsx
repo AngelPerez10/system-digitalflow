@@ -16,9 +16,7 @@ import {
 import { groupOrdenesByStatus } from "../shared/ordenStatusSections";
 import {
   getOrdenPrioridadSectionStyles,
-  ordenPrioridadEfectiva,
-  ordenPrioridadEscalada,
-  ordenPrioridadKey,
+  ordenPrioridadListBadge,
 } from "../shared/ordenPrioridadSections";
 import { OrdenStatusSectionHeader } from "./OrdenStatusSectionHeader";
 import { OrdenArrastreBadge } from "./OrdenArrastreBadge";
@@ -102,13 +100,9 @@ export function MobileOrderCard({
   const isResuelta = isOrdenResuelta(orden.status);
   const isCancelada = isOrdenCancelada(orden.status);
   const isTerminal = isResuelta || isCancelada;
-  const prioKey = ordenPrioridadKey(
-    isTerminal ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
-  );
-  const prioEscalada = !isTerminal && ordenPrioridadEscalada(orden);
+  const prioBadge = ordenPrioridadListBadge(orden);
+  const prioKey = isTerminal ? prioBadge.assignedKey : prioBadge.effectiveKey;
   const prioTone = getOrdenPrioridadSectionStyles(prioKey);
-  const prioLabel =
-    prioKey === "ALTA" ? "Alta" : prioKey === "MEDIA" ? "Media" : prioKey === "BAJA" ? "Baja" : "Sin prioridad";
   const statusLabel =
     orden.status === "resuelto"
       ? "Resuelto"
@@ -128,7 +122,7 @@ export function MobileOrderCard({
   return (
     <article
       className={`${erpMobileCardClass} p-3.5! ${showRecentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isTerminal ? "" : prioTone.rowAccent}`}
-      aria-label={`Orden ${folioDisplay}, ${statusLabel}${isTerminal ? "" : `, prioridad ${prioLabel.toLowerCase()}`}${showRecentResolved ? ", resuelta recientemente" : ""}`}
+      aria-label={`Orden ${folioDisplay}, ${statusLabel}${isTerminal ? "" : `, ${prioBadge.ariaLabel.toLowerCase()}`}${showRecentResolved ? ", resuelta recientemente" : ""}`}
     >
       {/* Cabecera: folio + chips (sin acciones; jerarquía contenido primero) */}
       <header className="flex min-w-0 flex-col gap-2">
@@ -169,19 +163,11 @@ export function MobileOrderCard({
           {!isTerminal && (
             <span
               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${prioTone.badge}`}
-              title={
-                prioEscalada
-                  ? `Prioridad ${prioLabel} — escalada automáticamente por antigüedad (+72 h sin resolver)`
-                  : `Prioridad: ${prioLabel}`
-              }
+              title={prioBadge.title}
+              aria-label={prioBadge.ariaLabel}
             >
               <span className={`inline-block h-1.5 w-1.5 rounded-full ${prioTone.dot}`} aria-hidden />
-              {prioLabel}
-              {prioEscalada && (
-                <span className="font-bold leading-none" aria-hidden>
-                  ↑
-                </span>
-              )}
+              {prioBadge.visibleLabel}
             </span>
           )}
           {showRecentResolved && (

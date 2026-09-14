@@ -1,7 +1,7 @@
 import { isOrdenResuelta, normalizeStatus } from "./useOrdenesShared";
 
 /**
- * Agrupamiento del listado admin por prioridad de la bolsa (`prioridad_pool`).
+ * Agrupamiento del listado admin por prioridad efectiva de la bolsa.
  * Orden fijo: Alta arriba → Media → Baja → Sin prioridad al final.
  * Las órdenes resueltas se excluyen del listado (salvo que el usuario filtre
  * explícitamente por estado = Resuelto).
@@ -103,6 +103,43 @@ export function ordenPrioridadRank(value: unknown): number {
   return RANK[ordenPrioridadKey(value)];
 }
 
+export function ordenPrioridadLabel(key: OrdenPrioridadSectionKey): string {
+  if (key === "ALTA") return "Alta";
+  if (key === "MEDIA") return "Media";
+  if (key === "BAJA") return "Baja";
+  return "Sin prio.";
+}
+
+/**
+ * Chip del listado: una sola etiqueta Alta / Media / Baja (la efectiva por
+ * antigüedad). Si ya subió, title y aria-label explican la asignada original.
+ */
+export function ordenPrioridadListBadge(orden: OrdenPrioridadRow, now?: number) {
+  const assignedKey = ordenPrioridadKey(orden.prioridad_pool);
+  const effectiveKey = ordenPrioridadKey(ordenPrioridadEfectiva(orden, now));
+  const escalada = !isOrdenResuelta(orden.status) && assignedKey !== effectiveKey;
+  const assigned = ordenPrioridadLabel(assignedKey);
+  const effective = ordenPrioridadLabel(effectiveKey);
+  if (!escalada) {
+    return {
+      assignedKey,
+      effectiveKey,
+      escalada: false,
+      visibleLabel: effective,
+      title: `Prioridad ${effective}`,
+      ariaLabel: `Prioridad ${effective}`,
+    };
+  }
+  return {
+    assignedKey,
+    effectiveKey,
+    escalada: true,
+    visibleLabel: effective,
+    title: `Prioridad ${effective} (asignada ${assigned}; subió por antigüedad, más de 72 h sin resolver)`,
+    ariaLabel: `Prioridad ${effective}, asignada ${assigned}, subió por antigüedad`,
+  };
+}
+
 /** ¿Se muestra la orden en el listado activo? Oculta resueltas salvo filtro explícito. */
 export function ordenEsVisibleEnListado(
   orden: OrdenPrioridadRow,
@@ -117,8 +154,7 @@ export function ordenEsVisibleEnListado(
  * de cada nivel conserva el orden de entrada (que ya viene por fecha desc).
  * Usa la prioridad escalada por antigüedad, no solo la base fijada por el admin.
  */
-export function sortOrdenesByPrioridad<T extends OrdenPrioridadRow>(list: T[]): T[] {
-  const now = Date.now();
+export function sortOrdenesByPrioridad<T extends OrdenPrioridadRow>(list: T[], now: number = Date.now()): T[] {
   return list
     .map((orden, index) => ({ orden, index }))
     .sort((a, b) => {
@@ -130,9 +166,10 @@ export function sortOrdenesByPrioridad<T extends OrdenPrioridadRow>(list: T[]): 
     .map((entry) => entry.orden);
 }
 
-/** Agrupa por prioridad; omite secciones vacías. Espera la lista ya filtrada. */
+/** Agrupa por prioridad efectiva (la que cambia con las horas); omite secciones vacías. */
 export function groupOrdenesByPrioridad<T extends OrdenPrioridadRow>(
   ordenes: T[],
+  now: number = Date.now(),
 ): OrdenPrioridadSection<T>[] {
   const buckets: Record<OrdenPrioridadSectionKey, T[]> = {
     ALTA: [],
@@ -142,7 +179,7 @@ export function groupOrdenesByPrioridad<T extends OrdenPrioridadRow>(
   };
 
   for (const orden of ordenes) {
-    buckets[ordenPrioridadKey(orden.prioridad_pool)].push(orden);
+    buckets[ordenPrioridadKey(ordenPrioridadEfectiva(orden, now))].push(orden);
   }
 
   return SECTION_META.map((meta) => ({

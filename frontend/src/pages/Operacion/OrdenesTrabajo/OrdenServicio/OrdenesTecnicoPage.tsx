@@ -38,9 +38,7 @@ import {
 import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
 import {
   getOrdenPrioridadSectionStyles,
-  ordenPrioridadEfectiva,
-  ordenPrioridadEscalada,
-  ordenPrioridadKey,
+  ordenPrioridadListBadge,
   sortOrdenesByPrioridad,
 } from "./shared/ordenPrioridadSections";
 import {
@@ -812,18 +810,10 @@ export default function OrdenesTecnico() {
                   const isResuelta = isOrdenResuelta(orden.status);
                   const isCancelada = isOrdenCancelada(orden.status);
                   const isTerminal = isResuelta || isCancelada;
-                  const prioKey = ordenPrioridadKey(
-                    isTerminal ? orden.prioridad_pool : ordenPrioridadEfectiva(orden),
-                  );
-                  const prioEscalada = !isTerminal && ordenPrioridadEscalada(orden);
+                  const prioBadge = ordenPrioridadListBadge(orden);
+                  const prioKey = isTerminal ? prioBadge.assignedKey : prioBadge.effectiveKey;
                   const prioTone = getOrdenPrioridadSectionStyles(prioKey);
-                  const prioShort =
-                    prioKey === "ALTA" ? "Alta"
-                      : prioKey === "MEDIA" ? "Media"
-                      : prioKey === "BAJA" ? "Baja"
-                      : "Sin prio.";
-                  const prioAria =
-                    prioKey === "SIN" ? "sin prioridad" : `prioridad ${prioShort.toLowerCase()}`;
+                  const prioAria = isTerminal ? "" : prioBadge.ariaLabel.toLowerCase();
                   const statusByName = resolveStatusChangedByName(
                     orden.status_changed_by_full_name,
                     orden.status_changed_by_username,
@@ -941,17 +931,11 @@ export default function OrdenesTecnico() {
                               <span className="inline-flex items-stretch overflow-hidden whitespace-nowrap rounded-full text-[10px] font-semibold leading-none ring-1 ring-inset ring-black/6 dark:ring-white/10">
                                 <span
                                   className={`flex items-center gap-1 px-1.5 py-0.75 ${prioTone.cap}`}
-                                  title={
-                                    prioEscalada
-                                      ? `Prioridad ${prioShort} — escalada automáticamente por antigüedad (+72 h sin resolver)`
-                                      : `Prioridad ${prioShort}`
-                                  }
+                                  title={prioBadge.title}
+                                  aria-label={prioBadge.ariaLabel}
                                 >
                                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${prioTone.dot}`} aria-hidden />
-                                  {prioShort}
-                                  {prioEscalada && (
-                                    <span className="font-bold leading-none" aria-hidden title="Escalada por antigüedad">↑</span>
-                                  )}
+                                  {prioBadge.visibleLabel}
                                 </span>
                                 <span className={`px-2 py-0.75 ${statusPill}`} title={statusTitle}>
                                   {statusLabel}
