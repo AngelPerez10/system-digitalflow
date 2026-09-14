@@ -277,10 +277,11 @@ export function ProyectoOperacionTab({
   const motivoId = useId();
   const notasLiveId = useId();
   const bitacoraMinRequired = proyectoRequiresNotaDiaMinLength(status);
-  const tecnicoResponsableNombre =
-    tecnicosAsignados.find((t) => t.responsable)?.nombre?.trim() ||
-    tecnicosAsignados[0]?.nombre?.trim() ||
-    "";
+  const tecnicoResponsable =
+    tecnicosAsignados.find((t) => t.responsable) || tecnicosAsignados[0] || null;
+  const tecnicoResponsableNombre = tecnicoResponsable?.nombre?.trim() || "";
+  const tecnicoResponsableId =
+    tecnicoResponsable?.id != null ? Number(tecnicoResponsable.id) : null;
 
   return (
     <div id={panelId} role="tabpanel" aria-labelledby={labelledBy} className="space-y-5">
@@ -990,7 +991,7 @@ export function ProyectoOperacionTab({
                 : "Firma del técnico (responsable)"
             }
             value={pickTecnicoSignatureDisplayUrl({
-              tecnicoAsignadoId: tecnico.id,
+              tecnicoAsignadoId: tecnicoResponsableId,
               fetchedProfileUrl: tecnicoSignatureUrl,
               storedOrdenUrl: firmaTecnicoUrl,
             })}
