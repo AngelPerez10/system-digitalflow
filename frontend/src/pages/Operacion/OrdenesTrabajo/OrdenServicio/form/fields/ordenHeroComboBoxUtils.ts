@@ -15,3 +15,19 @@ export function clienteComboSelectedKey(
   const match = itemIds.find((id) => id === simple || id.startsWith(`${simple}::`));
   return match ?? simple;
 }
+
+/** HeroUI/RAC ComboBox clears `selectedKey` if it is not in `items`. Keep the chosen row visible. */
+export function withSelectedComboItem<T extends { id: string }>(
+  items: T[],
+  selectedKey: string | null,
+  fallback: T | null,
+): T[] {
+  if (!selectedKey || !fallback) return items;
+  if (items.some((item) => item.id === selectedKey)) return items;
+  const injected = { ...fallback, id: selectedKey };
+  const createIdx = items.findIndex((item) => item.id === "__new__");
+  if (createIdx === -1) return [...items, injected];
+  const next = items.slice();
+  next.splice(createIdx, 0, injected);
+  return next;
+}

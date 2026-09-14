@@ -100,5 +100,7 @@ export function buildClienteSearchActions(
     end: "",
   };
 
-  return [newAction, ...base];
+  // Al final: si va primero, el ComboBox deja `__new__` como activedescendant
+  // y Enter/blur parece “seleccionar” al cliente cuando en realidad abre alta.
+  return [...base, newAction];
 }

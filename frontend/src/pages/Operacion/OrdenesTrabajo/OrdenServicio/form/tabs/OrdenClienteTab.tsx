@@ -15,7 +15,7 @@ import {
 } from "../../../OrdenTrabajoModals";
 import type { OrdenFormData } from "../useOrdenFormDraft";
 import OrdenHeroComboBox, { type OrdenComboItem } from "../fields/OrdenHeroComboBox";
-import { clienteComboSelectedKey, usuarioComboLabel } from "../fields/ordenHeroComboBoxUtils";
+import { clienteComboSelectedKey, usuarioComboLabel, withSelectedComboItem } from "../fields/ordenHeroComboBoxUtils";
 import { formatOrdenPhotoProgress } from "../../shared/ordenImageUpload";
 import { formatYmdToDMY } from "../../shared/ordenesPageUtils";
 import {
@@ -88,6 +88,8 @@ export type OrdenClienteTabProps = {
   isReadOnly?: boolean;
   isLimitedEdit?: boolean;
   isAdmin?: boolean;
+  /** Si true, el panel sigue montado pero oculto (no desmontar el ComboBox). */
+  hidden?: boolean;
 };
 
 export function OrdenClienteTab({
@@ -133,6 +135,7 @@ export function OrdenClienteTab({
   isReadOnly = false,
   isLimitedEdit = false,
   isAdmin = false,
+  hidden = false,
 }: OrdenClienteTabProps) {
   const fotosExtraId = variant === "admin" ? "fotos-extra-max" : "fotos-extra-max-tecnico";
   const fotosExtraHintId = variant === "admin" ? "fotos-extra-hint-admin" : "fotos-extra-hint-tecnico";
@@ -183,30 +186,18 @@ export function OrdenClienteTab({
 
   const onClienteQueryChange = (q: string) => {
     setClienteSearch(q);
-    if (!q.trim() && (formData.cliente_id || formData.cliente) && !clienteLocked) {
-      selectCliente(null);
-    }
   };
 
   const onTecnicoAsignadoQueryChange = (q: string) => {
     setTecnicoSearch(q);
-    if (!q.trim() && formData.tecnico_asignado && !tecnicoLocked) {
-      selectTecnico(null);
-    }
   };
 
   const onQuienInstaloQueryChange = (q: string) => {
     setQuienInstaloSearch(q);
-    if (!q.trim() && formData.quien_instalo && !quienInstaloLocked) {
-      selectQuienInstalo(null);
-    }
   };
 
   const onQuienEntregoQueryChange = (q: string) => {
     setQuienEntregoSearch(q);
-    if (!q.trim() && formData.quien_entrego && !quienEntregoLocked) {
-      selectQuienEntrego(null);
-    }
   };
 
   const clienteActions = useMemo(
@@ -214,15 +205,35 @@ export function OrdenClienteTab({
     [clientes, clienteSearch, clienteLocked],
   );
 
-  const clienteItems = useMemo(
-    (): OrdenComboItem[] =>
-      clienteActions.map((a) => ({
-        id: a.id,
-        label: a.label,
-        description: a.description,
-      })),
-    [clienteActions],
-  );
+  const clienteItems = useMemo((): OrdenComboItem[] => {
+    const items = clienteActions.map((a) => ({
+      id: a.id,
+      label: a.label,
+      description: a.description,
+    }));
+    const selectedKey = clienteComboSelectedKey(
+      formData.cliente_id,
+      formData.contacto_id,
+      items.map((item) => item.id),
+    );
+    return withSelectedComboItem(
+      items,
+      selectedKey,
+      formData.cliente
+        ? {
+            id: selectedKey || String(formData.cliente_id),
+            label: formData.cliente,
+            description: formData.telefono_cliente || undefined,
+          }
+        : null,
+    );
+  }, [
+    clienteActions,
+    formData.cliente_id,
+    formData.contacto_id,
+    formData.cliente,
+    formData.telefono_cliente,
+  ]);
 
   const clienteSelectedKey = useMemo(
     () =>
@@ -280,7 +291,8 @@ export function OrdenClienteTab({
 
   const onClienteComboSelect = (key: string | null) => {
     if (!key) {
-      if (!clienteLocked) selectCliente(null);
+      // RAC dispara `null` al desmontar, al filtrar o si la key deja de estar
+      // en `items`. No borrar el cliente; el botón de limpiar sí lo hace.
       return;
     }
     const action = clienteActions.find((a) => a.id === key);
@@ -299,7 +311,6 @@ export function OrdenClienteTab({
   ) => {
     if (locked) return;
     if (!key) {
-      select(null);
       return;
     }
     const u = usuarios.find((x) => Number(x.id) === Number(key));
@@ -311,7 +322,8 @@ export function OrdenClienteTab({
       id={panelId}
       role="tabpanel"
       aria-labelledby={labelledBy}
-      tabIndex={-1}
+      hidden={hidden}
+      tabIndex={hidden ? undefined : -1}
       className="space-y-6 focus:outline-none"
     >
       <OrdenFormSection

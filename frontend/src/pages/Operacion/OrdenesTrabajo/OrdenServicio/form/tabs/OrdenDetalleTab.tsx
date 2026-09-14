@@ -106,8 +106,6 @@ export function OrdenDetalleTab({
   const handleServicioChange = (value: string) => {
     if (serviciosLocked) return;
     if (!value) {
-      setFormData((prev) => ({ ...prev, servicios_realizados: [] }));
-      setServicioSearch("");
       return;
     }
     let name = value;
@@ -136,12 +134,12 @@ export function OrdenDetalleTab({
         </div>
       )}
 
-      {isActive && (
-        <div
+      <div
           id={panelId}
           role="tabpanel"
           aria-labelledby={labelledBy}
-          tabIndex={-1}
+          hidden={!isActive}
+          tabIndex={isActive ? -1 : undefined}
           className="space-y-6 focus:outline-none"
         >
           <OrdenFormSection
@@ -342,7 +340,6 @@ export function OrdenDetalleTab({
             </OrdenFormSection>
           ) : null}
         </div>
-      )}
     </>
   );
 }

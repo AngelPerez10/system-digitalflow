@@ -1704,8 +1704,8 @@ export default function Ordenes() {
           triggerSaveFromFooter={triggerSaveFromFooter}
           showCalificacionTab={isAdmin && !!editingOrden}
         >
-          {activeTab === "cliente" && (
-            <OrdenClienteTab
+          <OrdenClienteTab
+              hidden={activeTab !== "cliente"}
               variant="admin"
               panelId={ORDEN_FORM_PANEL_IDS.cliente}
               labelledBy={ORDEN_FORM_TAB_IDS.cliente}
@@ -1749,8 +1749,6 @@ export default function Ordenes() {
               isLimitedEdit={isLimitedEdit}
               isAdmin={isAdmin}
             />
-          )}
-          {(activeTab === "orden" || tipoOrden === "levantamiento") && (
             <OrdenDetalleTab
               variant="admin"
               panelId={ORDEN_FORM_PANEL_IDS.orden}
@@ -1782,7 +1780,6 @@ export default function Ordenes() {
               cotizacionesAdmin={cotizacionesAdmin}
               setCotizacionesAdmin={setCotizacionesAdmin}
             />
-          )}
           {activeTab === "equipos" && (
             <OrdenEquiposTab
               panelId={ORDEN_FORM_PANEL_IDS.equipos}

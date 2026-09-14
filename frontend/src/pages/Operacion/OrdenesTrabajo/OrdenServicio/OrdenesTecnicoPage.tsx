@@ -1206,8 +1206,8 @@ export default function OrdenesTecnico() {
         canOrdenesCreate={canOrdenesCreate}
       >
 
-            {activeTab === "cliente" && (
           <OrdenClienteTab
+            hidden={activeTab !== "cliente"}
             variant="tecnico"
             panelId={ORDEN_FORM_PANEL_IDS.cliente}
             labelledBy={ORDEN_FORM_TAB_IDS.cliente}
@@ -1250,9 +1250,7 @@ export default function OrdenesTecnico() {
             isLimitedEdit={isLimitedEdit}
             isAdmin={isAdmin}
           />
-        )}
-        {(activeTab === "orden" || tipoOrden === "levantamiento") && (
-          <OrdenDetalleTab
+        <OrdenDetalleTab
             variant="tecnico"
             panelId={ORDEN_FORM_PANEL_IDS.orden}
             labelledBy={ORDEN_FORM_TAB_IDS.orden}
@@ -1274,7 +1272,6 @@ export default function OrdenesTecnico() {
             setServiciosDisponibles={setServiciosDisponibles}
             addServicio={addServicio}
           />
-        )}
         {activeTab === "equipos" && (
           <OrdenEquiposTab
             panelId={ORDEN_FORM_PANEL_IDS.equipos}
