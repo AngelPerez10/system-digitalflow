@@ -454,7 +454,7 @@ export function ProyectoOperacionTab({
                 <TimeIcon className="size-5" />
               </button>
             </div>
-            <p id="proyecto-hora-llegada-hint" className={`${proyectoSectionHintClass} !mt-1.5`}>
+            <p id="proyecto-hora-llegada-hint" className={`${proyectoSectionHintClass} mt-1.5!`}>
               Clic para capturar la hora del dispositivo.
             </p>
           </div>
@@ -497,7 +497,7 @@ export function ProyectoOperacionTab({
                 {horaSalidaError}
               </p>
             ) : null}
-            <p id="proyecto-hora-salida-hint" className={`${proyectoSectionHintClass} !mt-1.5`}>
+            <p id="proyecto-hora-salida-hint" className={`${proyectoSectionHintClass} mt-1.5!`}>
               Requiere hora de llegada. Clic para capturar la hora actual.
             </p>
           </div>
@@ -507,7 +507,7 @@ export function ProyectoOperacionTab({
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <p className={proyectoFieldLabelClass}>Periodo de trabajo</p>
-              <p className={`${proyectoSectionHintClass} !mt-0`}>
+              <p className={`${proyectoSectionHintClass} mt-0!`}>
                 Define el rango de fechas. Se generan las jornadas día por día para la bitácora.
               </p>
             </div>
@@ -611,7 +611,7 @@ export function ProyectoOperacionTab({
             onChange={(e) => setHerramientasGenerales(e.target.value)}
             rows={2}
             placeholder="Lista breve de herramientas o equipo general"
-            className={`${erpInputLikeClass} !min-h-0 max-h-36 resize-y py-2 sm:!min-h-0 sm:py-2`}
+            className={`${erpInputLikeClass} min-h-0! max-h-36 resize-y py-2 sm:min-h-0! sm:py-2`}
           />
         </div>
       </ProyectoFormSection>
@@ -666,7 +666,7 @@ export function ProyectoOperacionTab({
               <li key={item.id} className="group relative flex gap-3 pb-4 last:pb-0">
                 {index < notasPorDia.length - 1 ? (
                   <span
-                    className="absolute bottom-0 left-[15px] top-10 w-px bg-gradient-to-b from-[#1B5CFF]/45 via-[#E7E7EA] to-[#E7E7EA] dark:from-[#1B5CFF]/40 dark:via-[#334155] dark:to-[#334155]"
+                    className="absolute bottom-0 left-3.75 top-10 w-px bg-linear-to-b from-[#1B5CFF]/45 via-[#E7E7EA] to-[#E7E7EA] dark:from-[#1B5CFF]/40 dark:via-[#334155] dark:to-[#334155]"
                     aria-hidden
                   />
                 ) : null}
@@ -680,7 +680,7 @@ export function ProyectoOperacionTab({
                   className={proyectoNotaCardClass}
                   aria-labelledby={`proyecto-nota-title-${item.id}`}
                 >
-                  <div className="flex items-start justify-between gap-2 border-b border-[#E7E7EA] bg-gradient-to-r from-[#F1F5FF]/90 to-transparent px-3 py-2.5 dark:border-[#273244] dark:from-[#1B5CFF]/10 dark:to-transparent">
+                  <div className="flex items-start justify-between gap-2 border-b border-[#E7E7EA] bg-linear-to-r from-[#F1F5FF]/90 to-transparent px-3 py-2.5 dark:border-[#273244] dark:from-[#1B5CFF]/10 dark:to-transparent">
                     <div className="min-w-0">
                       <h5
                         id={`proyecto-nota-title-${item.id}`}
@@ -736,7 +736,7 @@ export function ProyectoOperacionTab({
                         placeholder={`Avances, pendientes o hallazgos del día ${index + 1}…`}
                         className={`${proyectoNotaTextareaClass}${
                           notaError
-                            ? " !border-rose-400 focus:!border-rose-500 focus-visible:!ring-rose-500/25 dark:!border-rose-500/60"
+                            ? " border-rose-400! focus:border-rose-500! focus-visible:ring-rose-500/25! dark:border-rose-500/60!"
                             : ""
                         }`}
                         aria-required={bitacoraMinRequired || undefined}
@@ -829,7 +829,7 @@ export function ProyectoOperacionTab({
             </div>
           </div>
 
-          <div className="sm:w-[7.5rem]">
+          <div className="sm:w-30">
             <label htmlFor="proyecto-porcentaje" className={proyectoFieldLabelClass}>
               Exacto
             </label>
@@ -878,7 +878,7 @@ export function ProyectoOperacionTab({
             onChange={(e) => setIncidencias(e.target.value)}
             rows={3}
             placeholder="Describe incidencias del proyecto…"
-            className={`${erpInputLikeClass} min-h-[4.5rem] resize-y`}
+            className={`${erpInputLikeClass} min-h-18 resize-y`}
           />
         </div>
 
@@ -895,7 +895,7 @@ export function ProyectoOperacionTab({
             }}
             rows={3}
             placeholder="Material, servicios o trabajos extra…"
-            className={`${erpInputLikeClass} min-h-[4.5rem] resize-y`}
+            className={`${erpInputLikeClass} min-h-18 resize-y`}
           />
         </div>
 

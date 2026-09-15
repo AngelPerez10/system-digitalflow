@@ -15,6 +15,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.common.pdf_html import request_wants_html_preview
 from apps.ordenes.image_services import (
     cloudinary,
     delete_cloudinary_resource,
@@ -122,11 +123,7 @@ class ReporteMantenimientoViewSet(viewsets.ModelViewSet):
         reporte = self.get_object()
         html = generate_reporte_mantenimiento_pdf_html(overlay_from_reporte(reporte))
         folio = str(getattr(reporte, "folio", "") or f"RM-{reporte.pk}")
-        wants_html = str(request.query_params.get("html") or "").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-        )
+        wants_html = request_wants_html_preview(request)
         return _pdf_response_from_html(html, f"Reporte_{folio}.pdf", wants_html=wants_html)
 
     @action(detail=False, methods=["post"], url_path="upload-image")

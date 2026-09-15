@@ -394,6 +394,7 @@ export type UseOrdenFormDraftOpts = {
   fetchOrdenes: () => Promise<void>;
   levantamientoSnapshotRef: RefObject<LevantamientoSnap | null>;
   activeTabRef: RefObject<OrdenFormTab>;
+  setActiveTab: (tab: OrdenFormTab) => void;
   goToOrdenTab: (fromPointer?: boolean) => void;
   setAlert: React.Dispatch<React.SetStateAction<{
     show: boolean;
@@ -433,6 +434,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     fetchOrdenes,
     levantamientoSnapshotRef,
     activeTabRef,
+    setActiveTab,
     goToOrdenTab,
     setAlert,
     setModalAlert,
@@ -1003,6 +1005,26 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
 
       const { ok, missing } = validateForm();
       if (!ok) {
+        // Llevar a la pestaña donde está el campo (el form usa noValidate; no se puede
+        // enfocar controles required en paneles hidden).
+        const needsCliente = missing.some(
+          (m) =>
+            m === "Cliente" ||
+            m === "Teléfono" ||
+            m === "Nivel de prioridad" ||
+            m.startsWith("¿Por qué") ||
+            m.startsWith("Motivo de cancelación"),
+        );
+        const needsOrden = missing.some(
+          (m) => m === "Servicios Realizados" || m.startsWith("Comentario del técnico"),
+        );
+        if (needsCliente) {
+          setActiveTab("cliente");
+          activeTabRef.current = "cliente";
+        } else if (needsOrden) {
+          setActiveTab("orden");
+          activeTabRef.current = "orden";
+        }
         setModalAlert({
           show: true,
           variant: "warning",
@@ -1160,6 +1182,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     [
       isSaving,
       activeTabRef,
+      setActiveTab,
       goToOrdenTab,
       validateForm,
       formData,

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { fetchApi } from "@/config/api";
+import { objectUrlsForPdfViewer } from "@/utils/pdfViewerPreview";
 import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
 import {
   erpCardShellClass as cardShellClass,
@@ -38,7 +39,7 @@ const downloadIcon = (
 );
 
 const viewerFrameClass =
-  "h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-140 lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
+  "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-140 lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
 
 export default function OrdenPdfPage() {
   const params = useParams();
@@ -48,6 +49,7 @@ export default function OrdenPdfPage() {
   const returnPath = (location.state as { from?: string } | null)?.from || "/ordenes";
 
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
+  const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
   const [filename, setFilename] = useState<string>("orden.pdf");
   const [loading, setLoading] = useState(true);
   const [directDownload, setDirectDownload] = useState(false);
@@ -108,7 +110,8 @@ export default function OrdenPdfPage() {
           }
         }
 
-        const resp = await fetchApi(`/api/ordenes/${ordenId}/pdf/`);
+        const pdfPath = `/api/ordenes/${ordenId}/pdf/`;
+        const resp = await fetchApi(pdfPath);
 
         if (!isMounted) return;
 
@@ -143,8 +146,9 @@ export default function OrdenPdfPage() {
         setFilename(nextFilename);
 
         const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
-        setPdfObjectUrl(url);
+        const urls = isPdf ? objectUrlsForPdfViewer(blob) : { previewUrl: URL.createObjectURL(blob), downloadUrl: URL.createObjectURL(blob) };
+        setPdfObjectUrl(urls.previewUrl);
+        setPdfDownloadUrl(urls.downloadUrl);
       } catch {
         if (isMounted) {
           setAlert({ show: true, variant: "error", title: "Error", message: "No se pudo cargar la información." });
@@ -318,14 +322,14 @@ export default function OrdenPdfPage() {
 
                 <div className="grid grid-cols-1 gap-2">
                   <a
-                    href={pdfObjectUrl || undefined}
+                    href={pdfDownloadUrl || undefined}
                     target="_blank"
                     rel="noreferrer"
-                    tabIndex={pdfObjectUrl ? undefined : -1}
-                    className={`${erpModalOutlineBtnClass} ${!pdfObjectUrl ? "pointer-events-none opacity-50" : ""}`}
-                    aria-disabled={!pdfObjectUrl}
+                    tabIndex={pdfDownloadUrl ? undefined : -1}
+                    className={`${erpModalOutlineBtnClass} ${!pdfDownloadUrl ? "pointer-events-none opacity-50" : ""}`}
+                    aria-disabled={!pdfDownloadUrl}
                     onClick={(e) => {
-                      if (!pdfObjectUrl) e.preventDefault();
+                      if (!pdfDownloadUrl) e.preventDefault();
                     }}
                   >
                     {externalLinkIcon}
@@ -335,12 +339,12 @@ export default function OrdenPdfPage() {
 
                   <button
                     type="button"
-                    disabled={!pdfObjectUrl}
+                    disabled={!pdfDownloadUrl}
                     className={`${erpPrimaryBtnClass} min-h-12! sm:min-h-0!`}
                     onClick={() => {
-                      if (!pdfObjectUrl) return;
+                      if (!pdfDownloadUrl) return;
                       const a = document.createElement("a");
-                      a.href = pdfObjectUrl;
+                      a.href = pdfDownloadUrl;
                       a.download = filename;
                       document.body.appendChild(a);
                       a.click();

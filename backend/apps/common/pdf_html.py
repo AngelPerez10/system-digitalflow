@@ -82,6 +82,37 @@ def load_public_image_data_uri(relative_public_path: str) -> str:
         return ""
 
 
+PDF_PAGE_NUMBERS_STYLE_ID = "df-pdf-page-numbers"
+
+
+def request_wants_html_preview(request) -> bool:
+    """Vista previa HTML. No usar ?format=html: DRF lo toma como renderer y da 404."""
+    params = getattr(request, "query_params", None) or {}
+    html = str(params.get("html") or "").strip().lower()
+    return html in ("1", "true", "yes")
+
+
+def ensure_print_page_numbers(html: str) -> str:
+    """Folio CSS abajo a la derecha (htmldocs / impresión HTML). Idempotente."""
+    if not html or PDF_PAGE_NUMBERS_STYLE_ID in html:
+        return html
+    snippet = (
+        f'<style id="{PDF_PAGE_NUMBERS_STYLE_ID}">'
+        "html,body{color-scheme:light;background:#fff;}"
+        "@page{"
+        "@bottom-right{"
+        'content:counter(page);'
+        "font-size:9pt;font-family:Arial,Helvetica,sans-serif;color:#555555;"
+        "}"
+        "}"
+        "</style>"
+    )
+    close = html.lower().find("</head>")
+    if close != -1:
+        return html[:close] + snippet + html[close:]
+    return snippet + html
+
+
 def subtotal_iva_display_split(total_con_iva: float, *, iva_rate: float = IVA_MX_DISPLAY) -> tuple[float, float]:
     """Presentation split: total includes IVA; show base + IVA portion."""
     total = max(0.0, float(total_con_iva or 0))

@@ -22,6 +22,17 @@ logger = logging.getLogger(__name__)
 
 HTMLDOCS_URL = "https://htmldocs.com/api/generate"
 
+# Chromium no evalúa scripts en header/footer y el font-size por defecto es 0.
+# Clase pageNumber: Playwright page.pdf() (playwright.dev). Solo el número de página.
+PDF_HEADER_TEMPLATE = "<div></div>"
+PDF_FOOTER_TEMPLATE = (
+    '<div style="width:100%;font-size:10px;line-height:14px;'
+    "font-family:Arial,Helvetica,sans-serif;color:#555555;"
+    'padding:0 12mm 4px 0;text-align:right;box-sizing:border-box;">'
+    '<span class="pageNumber"></span>'
+    "</div>"
+)
+
 
 class PdfRenderError(Exception):
     """No se pudo obtener bytes de PDF."""
@@ -74,8 +85,10 @@ def _try_htmldocs(html: str, size: str, landscape: bool, timeout: int) -> bytes 
     api_key = _htmldocs_api_key()
     if not api_key:
         return None
+    from apps.common.pdf_html import ensure_print_page_numbers
+
     payload = {
-        "html": html,
+        "html": ensure_print_page_numbers(html),
         "format": "pdf",
         "size": size,
         "orientation": "landscape" if landscape else "portrait",
@@ -109,6 +122,21 @@ def _playwright_browsers_path_if_bundled() -> str | None:
     return None
 
 
+def playwright_pdf_kwargs(*, paper_format: str, landscape: bool) -> dict:
+    """Opciones de ``page.pdf``: folio Chromium abajo a la derecha en todas las páginas."""
+    return {
+        "format": paper_format,
+        "landscape": landscape,
+        "print_background": True,
+        "prefer_css_page_size": True,
+        "display_header_footer": True,
+        "header_template": PDF_HEADER_TEMPLATE,
+        "footer_template": PDF_FOOTER_TEMPLATE,
+        # El pie de Chromium solo pinta dentro del margen de page.pdf(), no del @page CSS.
+        "margin": {"top": "0", "right": "0", "bottom": "10mm", "left": "0"},
+    }
+
+
 def _try_playwright(html: str, size: str, landscape: bool, timeout: int) -> bytes:
     """Genera PDF con print media (comportamiento por defecto de ``page.pdf``)."""
     from playwright.sync_api import sync_playwright
@@ -137,6 +165,7 @@ def _try_playwright(html: str, size: str, landscape: bool, timeout: int) -> byte
         fmt = "A4"
 
     timeout_ms = max(5_000, min(int(timeout * 1000), 120_000))
+    pdf_kwargs = playwright_pdf_kwargs(paper_format=fmt, landscape=landscape)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -152,14 +181,10 @@ def _try_playwright(html: str, size: str, landscape: bool, timeout: int) -> byte
             page = browser.new_page()
             # HTML embebido (sin red): domcontentloaded es suficiente y más rápido que load.
             page.set_content(html, wait_until="domcontentloaded", timeout=timeout_ms)
+            # Sin esto, Chromium hereda prefers-color-scheme: dark y el PDF sale negro.
+            page.emulate_media(media="print", color_scheme="light")
             # ``page.pdf`` usa media print; colores de fondo con print_background.
-            return page.pdf(
-                format=fmt,
-                landscape=landscape,
-                print_background=True,
-                prefer_css_page_size=True,
-                margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
-            )
+            return page.pdf(**pdf_kwargs)
         finally:
             browser.close()
 

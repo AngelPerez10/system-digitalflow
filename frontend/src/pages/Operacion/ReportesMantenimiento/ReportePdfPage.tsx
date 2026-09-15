@@ -4,6 +4,7 @@ import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { cn } from "@/lib/utils";
 import { fetchApi } from "@/config/api";
+import { objectUrlsForPdfViewer } from "@/utils/pdfViewerPreview";
 import {
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
@@ -26,7 +27,7 @@ import {
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 
 const viewerFrameClass =
-  "h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-14rem)] lg:min-h-[calc(100vh-14rem)]";
+  "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-14rem)] lg:min-h-[calc(100vh-14rem)]";
 
 const iconClass = "h-4 w-4 shrink-0";
 
@@ -134,6 +135,7 @@ export default function ReportePdfPage() {
   const returnPath = (location.state as { from?: string } | null)?.from || "/reportes-mantenimiento";
 
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
+  const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
   const [filename, setFilename] = useState("reporte-mantenimiento.pdf");
   const [isHtmlFallback, setIsHtmlFallback] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -171,11 +173,12 @@ export default function ReportePdfPage() {
           setAlert((prev) => ({ ...prev, show: false }));
         }
 
+        const pdfPath = `/api/reportes-mantenimiento/${reporteId}/pdf/`;
         const [metaRes, resp] = await Promise.all([
           fetchApi(`/api/reportes-mantenimiento/${reporteId}/`, {
             cache: "no-store" as RequestCache,
           }),
-          fetchApi(`/api/reportes-mantenimiento/${reporteId}/pdf/`),
+          fetchApi(pdfPath),
         ]);
         if (isMounted && metaRes.ok) {
           const meta = (await metaRes.json().catch(() => null)) as {
@@ -229,7 +232,9 @@ export default function ReportePdfPage() {
         );
 
         const blob = await resp.blob();
-        setPdfObjectUrl(URL.createObjectURL(blob));
+        const urls = isPdf ? objectUrlsForPdfViewer(blob) : { previewUrl: URL.createObjectURL(blob), downloadUrl: URL.createObjectURL(blob) };
+        setPdfObjectUrl(urls.previewUrl);
+        setPdfDownloadUrl(urls.downloadUrl);
       } catch {
         if (isMounted) {
           setAlert({
@@ -445,14 +450,14 @@ export default function ReportePdfPage() {
 
                 <div className="grid grid-cols-1 gap-2">
                   <a
-                    href={pdfObjectUrl || undefined}
+                    href={pdfDownloadUrl || undefined}
                     target="_blank"
                     rel="noreferrer"
-                    tabIndex={pdfObjectUrl ? undefined : -1}
-                    className={cn(outlineBlueBtnClass, !pdfObjectUrl && "pointer-events-none opacity-50")}
-                    aria-disabled={!pdfObjectUrl}
+                    tabIndex={pdfDownloadUrl ? undefined : -1}
+                    className={cn(outlineBlueBtnClass, !pdfDownloadUrl && "pointer-events-none opacity-50")}
+                    aria-disabled={!pdfDownloadUrl}
                     onClick={(e) => {
-                      if (!pdfObjectUrl) e.preventDefault();
+                      if (!pdfDownloadUrl) e.preventDefault();
                     }}
                   >
                     {externalLinkIcon}
@@ -462,12 +467,12 @@ export default function ReportePdfPage() {
 
                   <button
                     type="button"
-                    disabled={!pdfObjectUrl}
+                    disabled={!pdfDownloadUrl}
                     className={cn(erpPrimaryBtnClass, "h-11 sm:h-10")}
                     onClick={() => {
-                      if (!pdfObjectUrl) return;
+                      if (!pdfDownloadUrl) return;
                       const a = document.createElement("a");
-                      a.href = pdfObjectUrl;
+                      a.href = pdfDownloadUrl;
                       a.download = filename;
                       document.body.appendChild(a);
                       a.click();

@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 
 from apps.clientes.models import Cliente
 from apps.common.document_folio import FOLIO_SERIE_COT, format_document_folio
+from apps.common.pdf_html import request_wants_html_preview
 from apps.cotizaciones.models import Cotizacion
 
 from .models import PolizaMantenimiento
@@ -233,7 +234,9 @@ class PolizaMantenimientoPdfView(APIView):
         html = generate_poliza_cctv_pdf_html(overlay or None)
         folio = str(overlay.get("folio") or POLIZA_CCTV_DEMO.get("folio") or "POL-CCTV")
         filename = f"Poliza_{folio}.pdf"
-        wants_html = (request.query_params.get("format") or "").lower() == "html"
+        wants_html = request_wants_html_preview(request) or (
+            request.query_params.get("format") or ""
+        ).lower() == "html"
         return _pdf_response_from_html(html, filename, wants_html=wants_html)
 
 
@@ -318,7 +321,9 @@ class PolizaMantenimientoViewSet(viewsets.ModelViewSet):
         html = generate_poliza_cctv_pdf_html(overlay or None)
         folio = poliza.folio or f"POL-{poliza.idx or poliza.id}"
         filename = f"Poliza_{folio}.pdf"
-        wants_html = (request.query_params.get("format") or "").lower() == "html"
+        wants_html = request_wants_html_preview(request) or (
+            request.query_params.get("format") or ""
+        ).lower() == "html"
         return _pdf_response_from_html(html, filename, wants_html=wants_html)
 
     @action(detail=True, methods=["get"], url_path="xml")

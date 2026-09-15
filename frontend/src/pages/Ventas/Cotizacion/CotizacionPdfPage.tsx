@@ -5,6 +5,7 @@ import Alert from "@/components/ui/alert/Alert";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi, hasAuthSessionFlag } from "@/config/api";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
+import { objectUrlsForPdfViewer } from "@/utils/pdfViewerPreview";
 import { cotizacionListPath, listSearchFromLocationState } from "@/pages/Ventas/Cotizacion/shared/cotizacionListNav";
 import {
   cardShellClass,
@@ -63,7 +64,7 @@ const htmlIcon = (
 
 /** Altura del visor: una sola vista útil (viewport menos cabecera del layout + migas + header de página). */
 const viewerFrameClass =
-  "h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
+  "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
 
 type AlertState = {
   show: boolean;
@@ -192,6 +193,7 @@ export default function CotizacionPdfPage() {
   const isPreviewMode = String(cotizacionId || "").toUpperCase() === "PREVIEW" || searchParams.get("preview") === "1";
 
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
+  const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
   const [docIsPdf, setDocIsPdf] = useState(true);
   const [filename, setFilename] = useState<string>("cotizacion.pdf");
   const [loading, setLoading] = useState(true);
@@ -209,8 +211,9 @@ export default function CotizacionPdfPage() {
         ? formatDocumentFolio(FOLIO_SERIE.cotizacion, cotizacionIdx)
         : null;
 
-  /** Mantenemos el último objectURL para revocarlo cuando se reemplace. */
+  /** Object URLs de vista previa (HTML) y de descarga (PDF). */
   const lastObjectUrlRef = useRef<string | null>(null);
+  const lastPdfDownloadUrlRef = useRef<string | null>(null);
 
   const revokeLater = useCallback((url: string | null) => {
     if (!url) return;
@@ -294,7 +297,7 @@ export default function CotizacionPdfPage() {
           setAlert((p) => ({ ...p, show: false }));
         }
 
-        let resp: Response;
+        let pdfResp: Response;
         if (isPreviewMode) {
           const rawPayload = sessionStorage.getItem("cotizacion:pdf-preview-payload");
           if (!rawPayload) {
@@ -307,83 +310,99 @@ export default function CotizacionPdfPage() {
                 message: "No se encontró el contenido de la vista previa.",
               });
               setPdfObjectUrl(null);
+              setPdfDownloadUrl(null);
               if (lastObjectUrlRef.current) {
                 revokeLater(lastObjectUrlRef.current);
                 lastObjectUrlRef.current = null;
+              }
+              if (lastPdfDownloadUrlRef.current) {
+                revokeLater(lastPdfDownloadUrlRef.current);
+                lastPdfDownloadUrlRef.current = null;
               }
               setLoading(false);
             }
             return;
           }
-          resp = await fetchApi("/api/cotizaciones/pdf-preview/", {
+          pdfResp = await fetchApi("/api/cotizaciones/pdf-preview/", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: rawPayload,
           });
         } else {
-          resp = await fetchApi(`/api/cotizaciones/${cotizacionId}/pdf/`);
+          pdfResp = await fetchApi(`/api/cotizaciones/${cotizacionId}/pdf/`);
         }
 
         if (!isMounted) return;
 
-        if (!resp.ok) {
+        if (!pdfResp.ok) {
           let detail = "";
           let backendError = "";
           try {
-            const ct = resp.headers.get("content-type") || "";
+            const ct = pdfResp.headers.get("content-type") || "";
             if (ct.includes("application/json")) {
-              const data = (await resp.json()) as { detail?: string; error?: string };
+              const data = (await pdfResp.json()) as { detail?: string; error?: string };
               detail = data?.detail || "";
               backendError = typeof data?.error === "string" ? data.error : "";
             } else {
-              detail = (await resp.text()) || "";
+              detail = (await pdfResp.text()) || "";
             }
           } catch {
             /* ignore */
           }
 
           const combined = [detail, backendError].filter(Boolean).join(" — ");
-          const friendly = friendlyPdfErrorMessage(combined || `HTTP ${resp.status}`, resp.status);
+          const friendly = friendlyPdfErrorMessage(combined || `HTTP ${pdfResp.status}`, pdfResp.status);
           setHasError(true);
           setAlert({
             show: true,
-            variant: resp.status >= 500 ? "error" : "warning",
+            variant: pdfResp.status >= 500 ? "error" : "warning",
             title: friendly.title,
             message: friendly.message,
           });
           setPdfObjectUrl(null);
+          setPdfDownloadUrl(null);
           if (lastObjectUrlRef.current) {
             revokeLater(lastObjectUrlRef.current);
             lastObjectUrlRef.current = null;
           }
+          if (lastPdfDownloadUrlRef.current) {
+            revokeLater(lastPdfDownloadUrlRef.current);
+            lastPdfDownloadUrlRef.current = null;
+          }
           return;
         }
 
-        const ct = (resp.headers.get("content-type") || "").toLowerCase();
+        const ct = (pdfResp.headers.get("content-type") || "").toLowerCase();
 
-        const dispo = resp.headers.get("content-disposition") || "";
+        const dispo = pdfResp.headers.get("content-disposition") || "";
         const m = dispo.match(/filename="?([^";]+)"?/i);
 
         const isPdf = ct.includes("application/pdf");
         const baseName = isPreviewMode ? "Cotizacion_PREVIEW" : `Cotizacion_${cotizacionId}`;
         const nextFilename = m?.[1] ? String(m[1]) : isPdf ? `${baseName}.pdf` : `${baseName}.html`;
         setFilename(nextFilename);
+
+        const rawBlob = await pdfResp.blob();
+        let previewUrl: string;
+        let downloadUrl: string;
+        if (isPdf) {
+          const urls = objectUrlsForPdfViewer(rawBlob);
+          previewUrl = urls.previewUrl;
+          downloadUrl = urls.downloadUrl;
+        } else {
+          downloadUrl = URL.createObjectURL(rawBlob);
+          previewUrl = downloadUrl;
+        }
         setDocIsPdf(isPdf);
 
-        const rawBlob = await resp.blob();
-        // Algunos servidores/proxies devuelven el PDF sin `Content-Type`; sin el tipo
-        // correcto el visor embebido de Chrome lo pinta en negro. Reetiquetamos el blob.
-        const blob =
-          isPdf && rawBlob.type !== "application/pdf"
-            ? new Blob([rawBlob], { type: "application/pdf" })
-            : rawBlob;
-        const url = URL.createObjectURL(blob);
-        const prev = lastObjectUrlRef.current;
-        lastObjectUrlRef.current = url;
-        setPdfObjectUrl(url);
-        if (prev && prev !== url) revokeLater(prev);
+        const prevPreview = lastObjectUrlRef.current;
+        const prevPdf = lastPdfDownloadUrlRef.current;
+        lastObjectUrlRef.current = previewUrl;
+        lastPdfDownloadUrlRef.current = downloadUrl;
+        setPdfObjectUrl(previewUrl);
+        setPdfDownloadUrl(downloadUrl);
+        if (prevPreview && prevPreview !== previewUrl) revokeLater(prevPreview);
+        if (prevPdf && prevPdf !== downloadUrl && prevPdf !== previewUrl) revokeLater(prevPdf);
       } catch {
         if (isMounted) {
           setHasError(true);
@@ -429,6 +448,9 @@ export default function CotizacionPdfPage() {
       const url = lastObjectUrlRef.current;
       lastObjectUrlRef.current = null;
       revokeLater(url);
+      const pdfUrl = lastPdfDownloadUrlRef.current;
+      lastPdfDownloadUrlRef.current = null;
+      revokeLater(pdfUrl);
     };
   }, [revokeLater]);
 
@@ -449,7 +471,7 @@ export default function CotizacionPdfPage() {
     if (!hasAuthSessionFlag() || !cotizacionId) return;
 
     try {
-      const resp = await fetchApi(`/api/cotizaciones/${cotizacionId}/pdf/?format=html`);
+      const resp = await fetchApi(`/api/cotizaciones/${cotizacionId}/pdf/?html=1`);
       if (!resp.ok) {
         const friendly = friendlyPdfErrorMessage(`HTTP ${resp.status}`, resp.status);
         setAlert({ show: true, variant: "error", title: friendly.title, message: friendly.message });
@@ -703,14 +725,14 @@ export default function CotizacionPdfPage() {
 
                 <div className="grid grid-cols-1 gap-2">
                   <a
-                    href={pdfObjectUrl || undefined}
+                    href={pdfDownloadUrl || undefined}
                     target="_blank"
                     rel="noreferrer"
-                    tabIndex={pdfObjectUrl ? undefined : -1}
-                    className={`${outlineCoralBtnClass} ${!pdfObjectUrl ? "pointer-events-none opacity-50" : ""}`}
-                    aria-disabled={!pdfObjectUrl}
+                    tabIndex={pdfDownloadUrl ? undefined : -1}
+                    className={`${outlineCoralBtnClass} ${!pdfDownloadUrl ? "pointer-events-none opacity-50" : ""}`}
+                    aria-disabled={!pdfDownloadUrl}
                     onClick={(e) => {
-                      if (!pdfObjectUrl) e.preventDefault();
+                      if (!pdfDownloadUrl) e.preventDefault();
                     }}
                   >
                     {externalLinkIcon}
@@ -720,12 +742,12 @@ export default function CotizacionPdfPage() {
 
                   <button
                     type="button"
-                    disabled={!pdfObjectUrl}
+                    disabled={!pdfDownloadUrl}
                     className={`${erpPrimaryBtnClass} !min-h-[48px] sm:!min-h-0`}
                     onClick={() => {
-                      if (!pdfObjectUrl) return;
+                      if (!pdfDownloadUrl) return;
                       const a = document.createElement("a");
-                      a.href = pdfObjectUrl;
+                      a.href = pdfDownloadUrl;
                       a.download = filename;
                       document.body.appendChild(a);
                       a.click();

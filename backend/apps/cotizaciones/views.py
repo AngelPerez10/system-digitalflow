@@ -625,11 +625,16 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         idx = format_document_folio(FOLIO_SERIE_COT, getattr(cotizacion, "idx", None) or cotizacion.id)
         filename = f"Cotizacion_{idx}.pdf"
 
-        # Allow clients to explicitly ask for HTML as a printable fallback
-        # when the PDF engines are unavailable (e.g. ?format=html).
-        wants_html = (request.query_params.get("format") or "").lower() == "html"
+        # Vista previa HTML: ?html=1 (no ?format=html: DRF lo intercepta).
+        from apps.common.pdf_html import ensure_print_page_numbers, request_wants_html_preview
+
+        wants_html = request_wants_html_preview(request)
         if wants_html or not any_provider_configured():
-            response = HttpResponse(html, content_type="text/html; charset=utf-8")
+
+            response = HttpResponse(
+                ensure_print_page_numbers(html),
+                content_type="text/html; charset=utf-8",
+            )
             if wants_html:
                 response["Content-Disposition"] = f'inline; filename="Cotizacion_{idx}.html"'
             return response
@@ -848,8 +853,14 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         if not html:
             return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
 
-        if not any_provider_configured():
-            return HttpResponse(html, content_type="text/html; charset=utf-8")
+        from apps.common.pdf_html import ensure_print_page_numbers, request_wants_html_preview
+
+        wants_html = request_wants_html_preview(request)
+        if wants_html or not any_provider_configured():
+            return HttpResponse(
+                ensure_print_page_numbers(html),
+                content_type="text/html; charset=utf-8",
+            )
 
         try:
             pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)

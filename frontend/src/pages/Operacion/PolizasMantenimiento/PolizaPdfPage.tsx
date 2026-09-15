@@ -4,6 +4,7 @@ import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { cn } from "@/lib/utils";
 import { fetchApi } from "@/config/api";
+import { objectUrlsForPdfViewer } from "@/utils/pdfViewerPreview";
 import {
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
@@ -25,7 +26,7 @@ import {
 } from "@/pages/Operacion/OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 
 const viewerFrameClass =
-  "h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-14rem)] lg:min-h-[calc(100vh-14rem)]";
+  "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-14rem)] lg:min-h-[calc(100vh-14rem)]";
 
 const iconClass = "h-4 w-4 shrink-0";
 
@@ -188,6 +189,7 @@ export default function PolizaPdfPage() {
   const lastObjectUrlRef = useRef<string | null>(null);
   const [htmlPreview, setHtmlPreview] = useState<string | null>(null);
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
+  const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
   const [isHtmlFallback, setIsHtmlFallback] = useState(false);
   const [filename, setFilename] = useState("poliza.pdf");
   const [loading, setLoading] = useState(true);
@@ -254,10 +256,13 @@ export default function PolizaPdfPage() {
         }
 
         if (lastObjectUrlRef.current) URL.revokeObjectURL(lastObjectUrlRef.current);
-        let nextUrl: string;
         if (isPdf) {
+          const urls = objectUrlsForPdfViewer(blob);
+          lastObjectUrlRef.current = urls.previewUrl;
           setHtmlPreview(null);
-          nextUrl = URL.createObjectURL(blob);
+          setIsHtmlFallback(false);
+          setPdfObjectUrl(urls.previewUrl);
+          setPdfDownloadUrl(urls.downloadUrl);
         } else {
           const html = await blob.text();
           if (!html.trim()) {
@@ -269,13 +274,16 @@ export default function PolizaPdfPage() {
             });
             setHtmlPreview(null);
             setPdfObjectUrl(null);
+            setPdfDownloadUrl(null);
             return;
           }
+          const htmlUrl = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+          lastObjectUrlRef.current = htmlUrl;
           setHtmlPreview(html);
-          nextUrl = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+          setIsHtmlFallback(true);
+          setPdfObjectUrl(htmlUrl);
+          setPdfDownloadUrl(htmlUrl);
         }
-        lastObjectUrlRef.current = nextUrl;
-        setPdfObjectUrl(nextUrl);
       } catch {
         if (isMounted) {
           setAlert({
@@ -554,19 +562,19 @@ export default function PolizaPdfPage() {
 
                 <div className="grid grid-cols-1 gap-2">
                   <a
-                    href={pdfObjectUrl || undefined}
+                    href={pdfDownloadUrl || undefined}
                     target="_blank"
                     rel="noreferrer"
-                    tabIndex={pdfObjectUrl ? undefined : -1}
-                    className={cn(outlineBlueBtnClass, !pdfObjectUrl && "pointer-events-none opacity-50")}
-                    aria-disabled={!pdfObjectUrl}
+                    tabIndex={pdfDownloadUrl ? undefined : -1}
+                    className={cn(outlineBlueBtnClass, !pdfDownloadUrl && "pointer-events-none opacity-50")}
+                    aria-disabled={!pdfDownloadUrl}
                     aria-label={
                       folioLabel
                         ? `Abrir PDF de la póliza ${folioLabel} en una pestaña nueva`
                         : "Abrir PDF de la póliza en una pestaña nueva"
                     }
                     onClick={(e) => {
-                      if (!pdfObjectUrl) e.preventDefault();
+                      if (!pdfDownloadUrl) e.preventDefault();
                     }}
                   >
                     {externalLinkIcon}

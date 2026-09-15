@@ -22,6 +22,7 @@ from rest_framework.response import Response
 
 from apps.common.document_folio import FOLIO_SERIE_ODT, resolve_document_folio
 from apps.common.marca import logo_data_uri_for_pdf
+from apps.common.pdf_html import request_wants_html_preview
 from apps.common.ssrf import is_cloudinary_host
 from apps.cotizaciones.pdf_render import (
     PdfRenderError,
@@ -278,7 +279,7 @@ class ReportesPermission(ModulePermission):
     module_key = 'reportes'
 
 
-def _pdf_response_from_html(html: str, filename: str):
+def _pdf_response_from_html(html: str, filename: str, *, wants_html: bool = False):
     """Convierte HTML a PDF (htmldocs opcional, luego Playwright en servidor).
 
     Si no hay htmldocs ni paquete Playwright instalado, regresa HTML para
@@ -287,8 +288,13 @@ def _pdf_response_from_html(html: str, filename: str):
     if not html:
         return Response({"detail": "No se pudo generar el HTML del PDF."}, status=500)
 
-    if not any_provider_configured():
-        return HttpResponse(html, content_type="text/html; charset=utf-8")
+    if wants_html or not any_provider_configured():
+        from apps.common.pdf_html import ensure_print_page_numbers
+
+        return HttpResponse(
+            ensure_print_page_numbers(html),
+            content_type="text/html; charset=utf-8",
+        )
 
     try:
         pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)
@@ -1490,7 +1496,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
         ordenes = self._ordenes_for_month(mes)
         html = self._generate_listado_mes_pdf_html(mes, ordenes)
         filename = _filename_listado_mes_pdf(mes)
-        return _pdf_response_from_html(html, filename)
+        wants_html = request_wants_html_preview(request)
+        return _pdf_response_from_html(html, filename, wants_html=wants_html)
 
     @action(
         detail=False,
@@ -1501,7 +1508,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
         reporte = self._get_reporte_semanal_for_user(request, reporte_id)
         html = self._generate_reporte_semanal_pdf_html(reporte)
         filename = _filename_reporte_semanal_pdf(reporte)
-        return _pdf_response_from_html(html, filename)
+        wants_html = request_wants_html_preview(request)
+        return _pdf_response_from_html(html, filename, wants_html=wants_html)
 
     @action(detail=False, methods=['delete'], url_path=r'reportes-semanales/(?P<reporte_id>[^/.]+)')
     def reporte_semanal_delete(self, request, reporte_id=None):
@@ -2137,7 +2145,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
         orden = self.get_object()
         html = self._generate_pdf_html(orden)
         filename = f"Ordenes_Servicio_{orden.id}.pdf"
-        return _pdf_response_from_html(html, filename)
+        wants_html = request_wants_html_preview(request)
+        return _pdf_response_from_html(html, filename, wants_html=wants_html)
 
     @action(
         detail=True,

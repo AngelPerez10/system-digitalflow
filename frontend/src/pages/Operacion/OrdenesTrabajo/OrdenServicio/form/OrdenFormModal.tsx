@@ -246,6 +246,7 @@ export default function OrdenFormModal({
         <form
           ref={formScrollRef}
           onSubmit={onSubmit}
+          noValidate
           className="flex min-h-0 min-w-0 flex-1 flex-col"
         >
           <div className={erpModalFormScrollClass}>

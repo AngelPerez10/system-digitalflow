@@ -416,6 +416,7 @@ export default function Ordenes() {
     fetchOrdenes,
     levantamientoSnapshotRef,
     activeTabRef,
+    setActiveTab,
     goToOrdenTab,
     setAlert,
     setModalAlert,

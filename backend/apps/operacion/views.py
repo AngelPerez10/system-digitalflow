@@ -11,6 +11,7 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.common.pdf_html import request_wants_html_preview
 from apps.cotizaciones.pdf_render import PdfRenderError, any_provider_configured, render_html_to_pdf
 from apps.ordenes.image_services import (
     ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES,
@@ -97,6 +98,9 @@ def _pdf_response_from_html(html: str, filename: str, *, wants_html: bool = Fals
 
     # Preferir HTML explícito (query) o fallback sin motor PDF.
     if wants_html or not any_provider_configured():
+        from apps.common.pdf_html import ensure_print_page_numbers
+
+        html = ensure_print_page_numbers(html)
         response = HttpResponse(html, content_type="text/html; charset=utf-8")
         stem = filename[:-4] if filename.lower().endswith(".pdf") else filename
         response["Content-Disposition"] = f'inline; filename="{stem}.html"'
@@ -109,6 +113,9 @@ def _pdf_response_from_html(html: str, filename: str, *, wants_html: bool = Fals
     except PdfRenderError as e:
         logger.exception("Proyecto PDF render failed: %s", e.detail)
         # Fallback útil en local sin Chromium/Playwright instalado.
+        from apps.common.pdf_html import ensure_print_page_numbers
+
+        html = ensure_print_page_numbers(html)
         response = HttpResponse(html, content_type="text/html; charset=utf-8")
         stem = filename[:-4] if filename.lower().endswith(".pdf") else filename
         response["Content-Disposition"] = f'inline; filename="{stem}.html"'
@@ -205,7 +212,7 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         html = self._generate_pdf_html(proyecto)
         folio = getattr(proyecto, "folio", None) or getattr(proyecto, "idx", None) or proyecto.id
         filename = f"Proyecto_{folio}.pdf"
-        wants_html = (request.query_params.get("format") or "").lower() == "html"
+        wants_html = request_wants_html_preview(request)
         return _pdf_response_from_html(html, filename, wants_html=wants_html)
 
     @action(detail=True, methods=["get"], url_path="correo-sugerido")

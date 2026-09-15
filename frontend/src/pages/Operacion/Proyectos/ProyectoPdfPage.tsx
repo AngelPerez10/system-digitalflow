@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { fetchApi } from "@/config/api";
+import { objectUrlsForPdfViewer } from "@/utils/pdfViewerPreview";
 import {
   claudeBodyClass,
   erpCardShellClass as cardShellClass,
@@ -21,7 +22,7 @@ const erpCardShellMutedClass =
 import { displayProyectoFolio } from "./shared/proyectoFormUtils";
 
 const viewerFrameClass =
-  "h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
+  "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
 
 const iconClass = "h-4 w-4 shrink-0";
 
@@ -136,6 +137,7 @@ export default function ProyectoPdfPage() {
   const returnPath = (location.state as { from?: string } | null)?.from || "/proyectos";
 
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
+  const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
   const [filename, setFilename] = useState("proyecto.pdf");
   const [isHtmlFallback, setIsHtmlFallback] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -173,11 +175,12 @@ export default function ProyectoPdfPage() {
           setAlert((prev) => ({ ...prev, show: false }));
         }
 
+        const pdfPath = `/api/proyectos/${proyectoId}/pdf/`;
         const [metaRes, resp] = await Promise.all([
           fetchApi(`/api/proyectos/${proyectoId}/`, {
             cache: "no-store" as RequestCache,
           }),
-          fetchApi(`/api/proyectos/${proyectoId}/pdf/`),
+          fetchApi(pdfPath),
         ]);
         if (isMounted && metaRes.ok) {
           const meta = (await metaRes.json().catch(() => null)) as {
@@ -228,7 +231,9 @@ export default function ProyectoPdfPage() {
         );
 
         const blob = await resp.blob();
-        setPdfObjectUrl(URL.createObjectURL(blob));
+        const urls = isPdf ? objectUrlsForPdfViewer(blob) : { previewUrl: URL.createObjectURL(blob), downloadUrl: URL.createObjectURL(blob) };
+        setPdfObjectUrl(urls.previewUrl);
+        setPdfDownloadUrl(urls.downloadUrl);
       } catch {
         if (isMounted) {
           setAlert({
@@ -458,14 +463,14 @@ export default function ProyectoPdfPage() {
 
                 <div className="grid grid-cols-1 gap-2">
                   <a
-                    href={pdfObjectUrl || undefined}
+                    href={pdfDownloadUrl || undefined}
                     target="_blank"
                     rel="noreferrer"
-                    tabIndex={pdfObjectUrl ? undefined : -1}
-                    className={`${outlineCoralBtnClass} ${!pdfObjectUrl ? "pointer-events-none opacity-50" : ""}`}
-                    aria-disabled={!pdfObjectUrl}
+                    tabIndex={pdfDownloadUrl ? undefined : -1}
+                    className={`${outlineCoralBtnClass} ${!pdfDownloadUrl ? "pointer-events-none opacity-50" : ""}`}
+                    aria-disabled={!pdfDownloadUrl}
                     onClick={(e) => {
-                      if (!pdfObjectUrl) e.preventDefault();
+                      if (!pdfDownloadUrl) e.preventDefault();
                     }}
                   >
                     {externalLinkIcon}
@@ -475,12 +480,12 @@ export default function ProyectoPdfPage() {
 
                   <button
                     type="button"
-                    disabled={!pdfObjectUrl}
+                    disabled={!pdfDownloadUrl}
                     className={`${erpPrimaryBtnClass} !min-h-[48px] sm:!min-h-0`}
                     onClick={() => {
-                      if (!pdfObjectUrl) return;
+                      if (!pdfDownloadUrl) return;
                       const a = document.createElement("a");
-                      a.href = pdfObjectUrl;
+                      a.href = pdfDownloadUrl;
                       a.download = filename;
                       document.body.appendChild(a);
                       a.click();

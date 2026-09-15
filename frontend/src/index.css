@@ -336,6 +336,14 @@ html.dark {
   color-scheme: dark;
 }
 
+/* Chrome’s PDF plugin inherits html.dark color-scheme and paints pages black
+   (looks like an empty viewer). The document is designed as white paper. */
+iframe.pdf-browser-viewer,
+iframe[src^="blob:"] {
+  color-scheme: light;
+  background-color: #ffffff;
+}
+
 /* Alert animations */
 @keyframes alertSlideIn {
   from {

@@ -658,7 +658,6 @@ export function OrdenClienteTab({
                 id={prioridadPoolId}
                 value={formData.prioridad_pool}
                 disabled={isReadOnly || isLimitedEdit || !isAdmin}
-                required
                 aria-required="true"
                 aria-invalid={!formData.prioridad_pool}
                 onChange={(e) =>
@@ -708,7 +707,6 @@ export function OrdenClienteTab({
               disabled={ro("motivo_pausa")}
               onChange={(e) => setFormData({ ...formData, motivo_pausa: e.target.value })}
               rows={3}
-              required
               aria-required="true"
               aria-describedby={`${motivoPausaId}-hint`}
               placeholder="Describe el motivo de la pausa…"
@@ -737,7 +735,6 @@ export function OrdenClienteTab({
               onChange={(e) =>
                 setFormData({ ...formData, motivo_cancelacion: e.target.value })
               }
-              required
               aria-required="true"
               aria-invalid={!formData.motivo_cancelacion.trim()}
               aria-describedby={`${motivoCancelacionId}-hint`}

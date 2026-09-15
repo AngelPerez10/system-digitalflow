@@ -261,6 +261,7 @@ export default function OrdenesTecnico() {
     fetchOrdenes,
     levantamientoSnapshotRef,
     activeTabRef,
+    setActiveTab,
     goToOrdenTab,
     setAlert,
     setModalAlert,
