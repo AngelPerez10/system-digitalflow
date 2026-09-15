@@ -56,7 +56,7 @@ export function MesSelector({ mes, onChange, cargando = false }: Props) {
         {cargando ? (
           <ActivityIndicator
             size="small"
-            color={colors.navy}
+            color={colors.navyText}
             style={styles.spinner}
             accessibilityLabel="Cargando órdenes del mes"
           />

@@ -46,6 +46,13 @@ export type ThemeColors = {
   navyDisabled: string;
   onNavy: string;
   onNavyMuted: string;
+  /**
+   * Variante de `navy` para texto/iconos sobre el lienzo (no sobre una banda
+   * rellena de `navy`). El propio `navy` es casi negro en modo oscuro y se
+   * volvía ilegible sobre `canvas`/`surface`; esta variante se aclara en
+   * oscuro para mantener el mismo acento marino con contraste real.
+   */
+  navyText: string;
   gold: string;
   onGold: string;
   goldSoftBg: string;
@@ -88,6 +95,7 @@ export const lightColors: ThemeColors = {
   navyDisabled: '#C6CCE0',
   onNavy: '#FFFFFF',
   onNavyMuted: 'rgba(255, 255, 255, 0.72)',
+  navyText: '#17235B',
   gold: '#E6A23C',
   onGold: '#17235B',
   goldSoftBg: 'rgba(230, 162, 60, 0.14)',
@@ -129,6 +137,7 @@ export const darkColors: ThemeColors = {
   navyDisabled: '#2A3560',
   onNavy: '#FFFFFF',
   onNavyMuted: 'rgba(255, 255, 255, 0.72)',
+  navyText: '#A5B4FC',
   gold: '#E6A23C',
   onGold: '#17235B',
   goldSoftBg: 'rgba(230, 162, 60, 0.18)',

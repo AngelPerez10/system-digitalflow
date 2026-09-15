@@ -10,6 +10,7 @@ import Geist_700Bold from '@expo-google-fonts/geist/700Bold/Geist_700Bold.ttf';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Appearance, View } from 'react-native';
 import { SessionProvider } from '@/auth/SessionProvider';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { animationDurationMs, fadeAnimation } from '@/navigation/navMotion';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { darkColors, lightColors, type } from '@/theme/tokens';
@@ -103,9 +104,11 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <View style={{ flex: 1, backgroundColor: BOOT_BG }}>
         <ThemeProvider>
-          <SessionProvider>
-            <ThemedChrome fontsReady={fontsReady} />
-          </SessionProvider>
+          <ErrorBoundary>
+            <SessionProvider>
+              <ThemedChrome fontsReady={fontsReady} />
+            </SessionProvider>
+          </ErrorBoundary>
         </ThemeProvider>
       </View>
     </SafeAreaProvider>

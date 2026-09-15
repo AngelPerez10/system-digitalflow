@@ -38,6 +38,8 @@ export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Prop
   const { colors } = useTheme();
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fallidas, setFallidas] = useState<Record<string, boolean>>({});
+  const [reintentos, setReintentos] = useState<Record<string, number>>({});
   const cupo = Math.max(0, maxFotos - urls.length);
   const lleno = cupo <= 0;
 
@@ -115,7 +117,23 @@ export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Prop
   };
 
   const quitar = (index: number) => {
-    onChange(urls.filter((_, i) => i !== index));
+    Alert.alert(
+      'Eliminar foto',
+      '¿Seguro que quieres eliminar esta foto? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => onChange(urls.filter((_, i) => i !== index)),
+        },
+      ],
+    );
+  };
+
+  const reintentarCarga = (key: string) => {
+    setFallidas((prev) => ({ ...prev, [key]: false }));
+    setReintentos((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
   };
 
   return (
@@ -125,29 +143,53 @@ export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Prop
       </Text>
 
       <View style={styles.grid}>
-        {urls.map((url, index) => (
-          <View key={`${url}-${index}`} style={styles.celda}>
-            <Image
-              source={{ uri: url }}
-              style={[
-                styles.miniatura,
-                { backgroundColor: colors.surfaceSunken },
-                elevationFor(colors, 'panel'),
-              ]}
-              resizeMode="cover"
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Quitar foto ${index + 1}`}
-              disabled={disabled || subiendo}
-              onPress={() => quitar(index)}
-              style={({ pressed }) => [styles.quitar, pressed ? styles.quitarPressed : null]}
-              hitSlop={6}
-            >
-              <Text style={styles.quitarTexto}>×</Text>
-            </Pressable>
-          </View>
-        ))}
+        {urls.map((url, index) => {
+          const key = `${url}-${index}`;
+          const fallo = fallidas[key] ?? false;
+          const intento = reintentos[key] ?? 0;
+          return (
+            <View key={key} style={styles.celda}>
+              {fallo ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Reintentar cargar foto ${index + 1}`}
+                  onPress={() => reintentarCarga(key)}
+                  style={[
+                    styles.miniatura,
+                    styles.miniaturaError,
+                    { backgroundColor: colors.surfaceSunken, borderColor: colors.line },
+                  ]}
+                >
+                  <Text style={[styles.errorMiniaturaTexto, { color: colors.inkMuted }]}>
+                    No se pudo cargar{'\n'}Toca para reintentar
+                  </Text>
+                </Pressable>
+              ) : (
+                <Image
+                  key={intento}
+                  source={{ uri: url }}
+                  style={[
+                    styles.miniatura,
+                    { backgroundColor: colors.surfaceSunken },
+                    elevationFor(colors, 'panel'),
+                  ]}
+                  resizeMode="cover"
+                  onError={() => setFallidas((prev) => ({ ...prev, [key]: true }))}
+                />
+              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Quitar foto ${index + 1}`}
+                disabled={disabled || subiendo}
+                onPress={() => quitar(index)}
+                style={({ pressed }) => [styles.quitar, pressed ? styles.quitarPressed : null]}
+                hitSlop={6}
+              >
+                <Text style={styles.quitarTexto}>×</Text>
+              </Pressable>
+            </View>
+          );
+        })}
       </View>
 
       <View style={styles.acciones}>
@@ -223,6 +265,14 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radius.md,
   },
+  miniaturaError: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  errorMiniaturaTexto: { ...type.caption, textAlign: 'center' },
   quitar: {
     position: 'absolute',
     top: HUECO / 2 + 6,

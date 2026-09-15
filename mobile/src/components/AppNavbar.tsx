@@ -321,7 +321,7 @@ export function AppNavbar({
                 ]}
               >
                 <View style={[styles.marcadorActivo, { backgroundColor: colors.gold }]} />
-                <IconOrdenes color={colors.navy} />
+                <IconOrdenes color={colors.navyText} />
                 <Text style={[styles.filaTexto, { color: colors.ink }]}>{itemLabel}</Text>
                 <IconChevron direction="right" color={colors.inkSubtle} size={16} />
               </Pressable>

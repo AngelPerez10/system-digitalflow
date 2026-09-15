@@ -66,7 +66,7 @@ export function AccionesRapidas({ telefono, direccion }: Props) {
     <View style={styles.fila}>
       {telefono ? (
         <Accion
-          icon={<IconPhone color={colors.navy} size={14} />}
+          icon={<IconPhone color={colors.navyText} size={14} />}
           label="Llamar"
           accessibilityLabel={`Llamar al ${telefono}`}
           onPress={() => void abrirEnlace(`tel:${telefono}`, 'No se pudo iniciar la llamada.')}
@@ -74,7 +74,7 @@ export function AccionesRapidas({ telefono, direccion }: Props) {
       ) : null}
       {hayDireccion ? (
         <Accion
-          icon={<IconPin color={colors.navy} size={14} />}
+          icon={<IconPin color={colors.navyText} size={14} />}
           label="Cómo llegar"
           accessibilityLabel="Abrir la ubicación en el mapa"
           onPress={abrirMapa}

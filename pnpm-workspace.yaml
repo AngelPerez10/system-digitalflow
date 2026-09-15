@@ -7,23 +7,33 @@ packages:
 allowBuilds:
   dtrace-provider: false
   esbuild: true
+  protobufjs: true
   unrs-resolver: true
 
 # Fresh React patch releases can be younger than the default release-age gate.
 minimumReleaseAgeExclude:
   - react
   - react-dom
-  - "@types/react"
-  - "@types/react-dom"
-  - '@expo/cli@57.0.23'
+  - '@types/react'
+  - '@types/react-dom'
+  - '@expo/cli@57.0.23 || 57.0.25'
   - '@expo/metro-file-map@57.0.3'
-  - babel-preset-expo@57.0.11
+  - babel-preset-expo@57.0.11 || 57.0.12
   - expo-modules-core@57.0.17
   - expo-modules-jsi@57.1.0
-  - expo@57.0.21
+  - expo@57.0.21 || 57.0.23
   - '@expo/ui@57.0.17'
   - expo-glass-effect@57.0.2
   - expo-router@57.0.20
+  - '@expo/router-server@57.0.10'
+  - expo-image-manipulator@57.0.18
+  - expo-image-picker@57.0.18
+  - expo-notifications@57.0.19
+  - '@expo/apple-utils@2.2.1'
+  - '@expo/eas-build-job@24.5.0'
+  - '@expo/eas-json@24.5.0'
+  - '@expo/steps@24.5.0'
+  - eas-cli@24.6.0
 
 # Settings moved out of package.json#pnpm (ignored since pnpm 10.33 / required in v11).
 # https://pnpm.io/settings

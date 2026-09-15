@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { View } from 'react-native';
-import { Redirect, Stack, usePathname, useRouter } from 'expo-router';
+import { Redirect, Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { nombreUsuarioDisplay } from '@/auth/nombreUsuario';
 import { portalAcceso } from '@/auth/portalAcceso';
 import { useSession } from '@/auth/SessionProvider';
@@ -18,6 +18,7 @@ export default function ClienteLayout() {
   const { colors } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
+  const segments = useSegments();
   const reduced = useReducedMotion();
 
   const salir = useCallback(async () => {
@@ -40,7 +41,11 @@ export default function ClienteLayout() {
   // La barra global (hamburguesa + drawer con tema y salir) solo en el listado.
   // El detalle trae su propia cabecera marina con chevron de vuelta, y el cambio
   // de contraseña es una pantalla completa sin sesión visible todavía.
-  const enInicio = pathname === '/cliente' || pathname === '/cliente/index';
+  //
+  // Contra segmentos de ruta, no el pathname resuelto: al entrar por deep link
+  // directo a una orden el pathname puede no coincidir de forma fiable con
+  // '/cliente' en el primer render.
+  const enInicio = segments.length === 1 && segments[0] === 'cliente';
   const nombre = nombreUsuarioDisplay(user, 'Cliente');
   // El backend crea la cuenta con `username = portal_username` (el número que
   // llega por correo), así que `user.username` es el número de usuario. Si el

@@ -103,7 +103,7 @@ export function OrdenClienteCard({ orden, onPress }: Props) {
           <View style={styles.filasInfo}>
             {orden.direccion ? (
               <Fila
-                icon={<IconPin color={colors.navy} size={12} />}
+                icon={<IconPin color={colors.navyText} size={12} />}
                 texto={orden.direccion}
                 colors={colors}
               />

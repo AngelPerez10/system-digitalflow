@@ -67,14 +67,14 @@ function FilaUbicacion({ direccion, colors }: { direccion: string; colors: Theme
         hitSlop={4}
       >
         <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>
-          <IconPin color={colors.navy} size={12} />
+          <IconPin color={colors.navyText} size={12} />
         </View>
-        <Text style={[styles.enlaceUbicacion, { color: colors.navy }]}>Ver ubicación en el mapa</Text>
+        <Text style={[styles.enlaceUbicacion, { color: colors.navyText }]}>Ver ubicación en el mapa</Text>
       </Pressable>
     );
   }
   return (
-    <FilaDato icon={<IconPin color={colors.navy} size={12} />} colors={colors}>
+    <FilaDato icon={<IconPin color={colors.navyText} size={12} />} colors={colors}>
       {direccion}
     </FilaDato>
   );
@@ -98,10 +98,10 @@ function FilaTelefono({
       hitSlop={4}
     >
       <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>
-        <IconPhone color={colors.navy} size={12} />
+        <IconPhone color={colors.navyText} size={12} />
       </View>
       <Text style={[styles.filaTexto, { color: colors.inkMuted }]}>
-        <Text style={[styles.enlaceUbicacion, { color: colors.navy }]}>{telefono}</Text>
+        <Text style={[styles.enlaceUbicacion, { color: colors.navyText }]}>{telefono}</Text>
         {contacto ? <Text style={{ color: colors.inkSubtle }}> ({contacto})</Text> : null}
       </Text>
     </Pressable>

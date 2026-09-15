@@ -69,7 +69,7 @@ export function PoolOrdenCard({ orden, tomando, onTomar }: Props) {
         {orden.direccion ? (
           <View style={styles.fila}>
             <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>
-              <IconPin color={colors.navy} size={12} />
+              <IconPin color={colors.navyText} size={12} />
             </View>
             <Text style={[styles.filaTexto, { color: colors.inkMuted }]} numberOfLines={2}>
               {orden.direccion}

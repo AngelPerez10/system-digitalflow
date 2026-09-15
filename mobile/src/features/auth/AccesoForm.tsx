@@ -253,7 +253,7 @@ export function AccesoForm({
                     hitSlop={12}
                     style={styles.ayuda}
                   >
-                    <Text style={[styles.ayudaTexto, { color: colors.navy }]}>¿No puedes entrar?</Text>
+                    <Text style={[styles.ayudaTexto, { color: colors.navyText }]}>¿No puedes entrar?</Text>
                   </Pressable>
 
                   {onRegistro ? (
@@ -266,7 +266,7 @@ export function AccesoForm({
                     >
                       <Text style={[styles.registroTexto, { color: colors.inkMuted }]}>
                         ¿No tienes cuenta?{' '}
-                        <Text style={{ color: colors.navy, fontFamily: font.semibold }}>Regístrate</Text>
+                        <Text style={{ color: colors.navyText, fontFamily: font.semibold }}>Regístrate</Text>
                       </Text>
                     </Pressable>
                   ) : null}

@@ -43,11 +43,12 @@
           }
         }
       ],
-  [
+      [
         "expo-image-picker",
         {
           "photosPermission": "SertelPro necesita acceso a tus fotos para adjuntar evidencia a la orden.",
-          "cameraPermission": "SertelPro necesita la cámara para fotografiar la evidencia en sitio."
+          "cameraPermission": "SertelPro necesita la cámara para fotografiar la evidencia en sitio.",
+          "microphonePermission": false
         }
       ],
       "expo-font",
@@ -67,8 +68,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "664db378-1f90-45b2-a41e-4dac3714b23e"
+        "projectId": "960ee9a0-28e6-4523-81a8-a66dac144993"
       }
-    }
+    },
+    "owner": "angelperez10"
   }
 }

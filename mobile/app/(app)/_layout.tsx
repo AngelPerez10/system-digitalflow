@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Redirect, Stack, usePathname, useRouter } from 'expo-router';
+import { Redirect, Stack, useRouter, useSegments } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { nombreUsuarioDisplay } from '@/auth/nombreUsuario';
 import { useSession } from '@/auth/SessionProvider';
@@ -23,13 +23,19 @@ export default function AppLayout() {
   const { status, user, permissions, signOut } = useSession();
   const { colors } = useTheme();
   const router = useRouter();
-  const pathname = usePathname();
+  const segments = useSegments();
   const reduced = useReducedMotion();
 
   // La barra global (hamburguesa + marca) solo en el listado. El detalle y la
   // edición traen su propia cabecera marina con chevron de vuelta; la barra
   // encima sería una segunda cabecera redundante.
-  const mostrarNavbar = pathname === '/ordenes' || pathname === '/(app)/ordenes';
+  //
+  // Se compara contra los segmentos de ruta (plantilla de carpetas), no el
+  // pathname resuelto: al entrar por deep link directo a una orden (p. ej.
+  // desde un QR o una notificación push) el pathname resuelto puede no
+  // coincidir de forma fiable con '/ordenes' en el primer render, dejando la
+  // barra global pegada encima de la cabecera propia del detalle.
+  const mostrarNavbar = segments.length === 2 && segments[1] === 'ordenes';
 
   const nombre = user ? nombreUsuarioDisplay(user) : undefined;
 

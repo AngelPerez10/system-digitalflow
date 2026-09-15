@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   PanResponder,
@@ -107,6 +108,17 @@ export function SignaturePad({ value, onChange, disabled = false }: Props) {
   const [abierto, setAbierto] = useState(false);
   const hayFirma = Boolean(value.trim());
 
+  const borrarFirma = () => {
+    Alert.alert(
+      'Borrar firma',
+      '¿Seguro que quieres borrar esta firma? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Borrar', style: 'destructive', onPress: () => onChange('') },
+      ],
+    );
+  };
+
   return (
     <View style={styles.wrap}>
       {hayFirma ? (
@@ -158,7 +170,7 @@ export function SignaturePad({ value, onChange, disabled = false }: Props) {
               accessibilityRole="button"
               accessibilityLabel="Borrar firma del cliente"
               disabled={disabled}
-              onPress={() => onChange('')}
+              onPress={borrarFirma}
               style={({ pressed }) => [
                 styles.botonSec,
                 { borderColor: colors.line, backgroundColor: colors.surface },

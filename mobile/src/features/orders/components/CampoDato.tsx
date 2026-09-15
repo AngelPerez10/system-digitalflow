@@ -48,11 +48,11 @@ export function CampoUbicacion({ label, direccion }: { label: string; direccion:
         hitSlop={4}
       >
         <View style={[styles.iconoPlaca, { backgroundColor: colors.surface }]}>
-          <IconPin color={colors.navy} size={12} />
+          <IconPin color={colors.navyText} size={12} />
         </View>
         <View style={styles.textos}>
           <Text style={[styles.label, { color: colors.inkSubtle }]}>{label}</Text>
-          <Text style={[styles.valor, styles.enlace, { color: colors.navy }]}>
+          <Text style={[styles.valor, styles.enlace, { color: colors.navyText }]}>
             Ver ubicación en el mapa
           </Text>
         </View>
@@ -78,11 +78,11 @@ export function CampoTelefono({ label, telefono }: { label: string; telefono: st
       hitSlop={4}
     >
       <View style={[styles.iconoPlaca, { backgroundColor: colors.surface }]}>
-        <IconPhone color={colors.navy} size={12} />
+        <IconPhone color={colors.navyText} size={12} />
       </View>
       <View style={styles.textos}>
         <Text style={[styles.label, { color: colors.inkSubtle }]}>{label}</Text>
-        <Text style={[styles.valor, styles.enlace, { color: colors.navy }]}>{telefono}</Text>
+        <Text style={[styles.valor, styles.enlace, { color: colors.navyText }]}>{telefono}</Text>
       </View>
     </Pressable>
   );
