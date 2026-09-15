@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "mx.sertel.digitalflow.tecnico",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -71,6 +71,12 @@
         "projectId": "960ee9a0-28e6-4523-81a8-a66dac144993"
       }
     },
-    "owner": "angelperez10"
+    "owner": "angelperez10",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/960ee9a0-28e6-4523-81a8-a66dac144993"
+    }
   }
 }
