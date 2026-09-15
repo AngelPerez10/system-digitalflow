@@ -11,6 +11,7 @@ import {
   erpDeleteModalClass,
   erpDeleteModalPanelClass,
 } from "../OrdenesTrabajo/ordenTrabajoStyles";
+import { OrdenPhotoPreviewModal } from "../OrdenesTrabajo/OrdenTrabajoModals";
 import {
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
@@ -43,6 +44,7 @@ import {
   countSeccionFotos,
   emptyReporteDraft,
   newSeccion,
+  REPORTE_MAX_FOTOS_POR_LADO,
   type ReporteDraft,
   type ReporteSeccion,
 } from "./reporteTypes";
@@ -128,6 +130,7 @@ export default function ReporteMantenimientoEditorPage() {
   const [seccionToDelete, setSeccionToDelete] = useState<ReporteSeccion | null>(null);
   const [deletingSeccion, setDeletingSeccion] = useState(false);
   const [activeStep, setActiveStep] = useState<StepId>(1);
+  const [photoPreview, setPhotoPreview] = useState<{ urls: string[]; index: number } | null>(null);
   const [alert, setAlert] = useState<{
     show: boolean;
     variant: "success" | "warning" | "error";
@@ -259,41 +262,78 @@ export default function ReporteMantenimientoEditorPage() {
     setDraft((p) => ({ ...p, secciones: [...p.secciones, newSeccion()] }));
   };
 
-  const setSeccionFoto = (secId: string, kind: "antes" | "despues", urls: string[]) => {
+  const setSeccionFotos = (
+    secId: string,
+    kind: "antes" | "despues",
+    updater: (prev: string[]) => string[]
+  ) => {
     setDraft((prev) => ({
       ...prev,
-      secciones: prev.secciones.map((s) =>
-        s.id === secId
-          ? kind === "antes"
-            ? { ...s, fotos_antes: urls }
-            : { ...s, fotos_despues: urls }
-          : s
-      ),
+      secciones: prev.secciones.map((s) => {
+        if (s.id !== secId) return s;
+        return kind === "antes"
+          ? { ...s, fotos_antes: updater(s.fotos_antes) }
+          : { ...s, fotos_despues: updater(s.fotos_despues) };
+      }),
     }));
   };
 
   const handleUploadSeccion = async (
-    file: File | null | undefined,
+    files: File[],
     kind: "antes" | "despues",
     secId: string
   ) => {
-    if (!file) return;
-    setUploadingKey(`${kind}-${secId}`);
-    try {
-      const url = await uploadReporteFile(file);
-      setSeccionFoto(secId, kind, [url]);
-      showAlert("success", "Imagen subida", "La foto se adjuntó correctamente.");
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : isReporteApiError(err)
-            ? err.message
-            : "No se pudo subir la imagen.";
-      showAlert("error", "Error al subir", message, 5000);
-    } finally {
-      setUploadingKey(null);
+    if (!files.length) return;
+    const sec = draft.secciones.find((s) => s.id === secId);
+    const current = sec ? (kind === "antes" ? sec.fotos_antes : sec.fotos_despues) : [];
+    const remaining = REPORTE_MAX_FOTOS_POR_LADO - current.length;
+    if (remaining <= 0) {
+      showAlert(
+        "warning",
+        "Límite alcanzado",
+        `Ya tienes ${REPORTE_MAX_FOTOS_POR_LADO} fotos de "${kind === "antes" ? "Antes" : "Después"}" en esta zona.`
+      );
+      return;
     }
+    const toUpload = files.slice(0, remaining);
+    if (files.length > toUpload.length) {
+      showAlert(
+        "warning",
+        "Algunas fotos no se subieron",
+        `Solo caben ${remaining} foto${remaining === 1 ? "" : "s"} más en "${kind === "antes" ? "Antes" : "Después"}".`
+      );
+    }
+    setUploadingKey(`${kind}-${secId}`);
+    let uploaded = 0;
+    let lastError = "";
+    for (const file of toUpload) {
+      try {
+        const url = await uploadReporteFile(file);
+        setSeccionFotos(secId, kind, (prev) => [...prev, url]);
+        uploaded += 1;
+      } catch (err) {
+        lastError =
+          err instanceof Error
+            ? err.message
+            : isReporteApiError(err)
+              ? err.message
+              : "No se pudo subir la imagen.";
+      }
+    }
+    setUploadingKey(null);
+    if (uploaded > 0 && !lastError) {
+      showAlert(
+        "success",
+        "Imagen subida",
+        uploaded === 1 ? "La foto se adjuntó correctamente." : `${uploaded} fotos se adjuntaron correctamente.`
+      );
+    } else if (lastError) {
+      showAlert("error", "Error al subir", lastError, 5000);
+    }
+  };
+
+  const handleRemoveSeccionFoto = (secId: string, kind: "antes" | "despues", url: string) => {
+    setSeccionFotos(secId, kind, (prev) => prev.filter((u) => u !== url));
   };
 
   const handleUploadFotoOrden = async (file: File | null | undefined) => {
@@ -502,6 +542,11 @@ export default function ReporteMantenimientoEditorPage() {
             busy={uploadingKey === "foto-orden"}
             onPick={(file) => void handleUploadFotoOrden(file)}
             onClear={() => setDraft((prev) => ({ ...prev, foto_orden_url: "" }))}
+            onPreview={
+              draft.foto_orden_url
+                ? () => setPhotoPreview({ urls: [draft.foto_orden_url], index: 0 })
+                : undefined
+            }
           />
           <p className="mt-1.5 text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
             Aparece en el PDF junto a los datos de la orden.
@@ -548,7 +593,7 @@ export default function ReporteMantenimientoEditorPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className={helpTextClass}>
-          Una zona por área (Cámara entrada, DVR, Patio…). Una foto Antes y una Después por zona.
+          Una zona por área (Cámara entrada, DVR, Patio…). Agrega una o varias fotos de Antes y Después por zona.
         </p>
         {draft.secciones.length > 0 ? (
           <button
@@ -637,23 +682,23 @@ export default function ReporteMantenimientoEditorPage() {
                   <div className="mt-1.5 flex items-center gap-1.5 pl-9">
                     <span
                       className={cn(
-                        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                        sec.fotos_antes[0]
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+                        sec.fotos_antes.length > 0
                           ? "bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:text-[#E6A23C]"
                           : "bg-[#F4F4F5] text-[#A1A1AA] dark:bg-white/6 dark:text-[#6E6E77]"
                       )}
                     >
-                      {sec.fotos_antes[0] ? "Antes ✓" : "Antes —"}
+                      Antes {sec.fotos_antes.length > 0 ? `· ${sec.fotos_antes.length}` : "—"}
                     </span>
                     <span
                       className={cn(
-                        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                        sec.fotos_despues[0]
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+                        sec.fotos_despues.length > 0
                           ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
                           : "bg-[#F4F4F5] text-[#A1A1AA] dark:bg-white/6 dark:text-[#6E6E77]"
                       )}
                     >
-                      {sec.fotos_despues[0] ? "Después ✓" : "Después —"}
+                      Después {sec.fotos_despues.length > 0 ? `· ${sec.fotos_despues.length}` : "—"}
                     </span>
                   </div>
                 </div>
@@ -663,23 +708,25 @@ export default function ReporteMantenimientoEditorPage() {
                     aria-hidden
                     className="pointer-events-none absolute inset-y-4 left-1/2 hidden w-px -translate-x-1/2 bg-linear-to-b from-[rgba(230,162,60,0.5)] via-[#E7E7EA] to-emerald-400/50 sm:block dark:via-[#273244]"
                   />
-                  <SinglePhoto
+                  <PhotoGroup
                     accent="antes"
                     title="Antes"
-                    header
-                    url={sec.fotos_antes[0] || ""}
+                    urls={sec.fotos_antes}
+                    max={REPORTE_MAX_FOTOS_POR_LADO}
                     busy={uploadingKey === `antes-${sec.id}`}
-                    onPick={(file) => void handleUploadSeccion(file, "antes", sec.id)}
-                    onClear={() => setSeccionFoto(sec.id, "antes", [])}
+                    onAdd={(files) => void handleUploadSeccion(files, "antes", sec.id)}
+                    onRemove={(url) => handleRemoveSeccionFoto(sec.id, "antes", url)}
+                    onPreview={(index) => setPhotoPreview({ urls: sec.fotos_antes, index })}
                   />
-                  <SinglePhoto
+                  <PhotoGroup
                     accent="despues"
                     title="Después"
-                    header
-                    url={sec.fotos_despues[0] || ""}
+                    urls={sec.fotos_despues}
+                    max={REPORTE_MAX_FOTOS_POR_LADO}
                     busy={uploadingKey === `despues-${sec.id}`}
-                    onPick={(file) => void handleUploadSeccion(file, "despues", sec.id)}
-                    onClear={() => setSeccionFoto(sec.id, "despues", [])}
+                    onAdd={(files) => void handleUploadSeccion(files, "despues", sec.id)}
+                    onRemove={(url) => handleRemoveSeccionFoto(sec.id, "despues", url)}
+                    onPreview={(index) => setPhotoPreview({ urls: sec.fotos_despues, index })}
                   />
                 </div>
               </li>
@@ -935,7 +982,7 @@ export default function ReporteMantenimientoEditorPage() {
                       ? "Vincula la orden de servicio; opcionalmente adjunta una imagen de la ODT."
                       : currentStep.id === 2
                         ? "Fecha y técnico responsables del mantenimiento."
-                        : "Sube una foto Antes y una Después en cada zona intervenida."}
+                        : "Sube una o varias fotos de Antes y Después en cada zona intervenida."}
                   </p>
                 </div>
               </div>
@@ -1071,6 +1118,33 @@ export default function ReporteMantenimientoEditorPage() {
             </div>
           </div>
         </Modal>
+
+        {/* Vista ampliada de fotos (Antes/Después/Orden) */}
+        <OrdenPhotoPreviewModal
+          open={Boolean(photoPreview)}
+          url={photoPreview ? photoPreview.urls[photoPreview.index] || null : null}
+          index={photoPreview?.index}
+          total={photoPreview?.urls.length}
+          onClose={() => setPhotoPreview(null)}
+          onPrev={
+            photoPreview && photoPreview.urls.length > 1
+              ? () =>
+                  setPhotoPreview((prev) =>
+                    prev
+                      ? { ...prev, index: (prev.index - 1 + prev.urls.length) % prev.urls.length }
+                      : prev
+                  )
+              : undefined
+          }
+          onNext={
+            photoPreview && photoPreview.urls.length > 1
+              ? () =>
+                  setPhotoPreview((prev) =>
+                    prev ? { ...prev, index: (prev.index + 1) % prev.urls.length } : prev
+                  )
+              : undefined
+          }
+        />
       </div>
     </div>
   );
@@ -1080,6 +1154,153 @@ export default function ReporteMantenimientoEditorPage() {
 /*  Subcomponentes                                                            */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Antes/Después de una zona: no siempre es 1+1 — algunas zonas necesitan una
+ * sola foto por lado y otras varios ángulos, así que cada lado es una
+ * cuadrícula independiente hasta `max` fotos (REPORTE_MAX_FOTOS_POR_LADO).
+ */
+function PhotoGroup({
+  accent,
+  title,
+  urls,
+  max,
+  busy,
+  onAdd,
+  onRemove,
+  onPreview,
+}: {
+  accent: Accent;
+  title: string;
+  urls: string[];
+  max: number;
+  busy: boolean;
+  onAdd: (files: File[]) => void;
+  onRemove: (url: string) => void;
+  onPreview: (index: number) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const a = ACCENT[accent];
+  const isAntes = accent === "antes";
+  const canAddMore = urls.length < max;
+
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!busy && canAddMore) setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        if (busy || !canAddMore) return;
+        const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+        if (files.length) onAdd(files);
+      }}
+      className={cn(
+        "rounded-[14px] border p-3 transition-colors dark:bg-[#111827]",
+        dragOver
+          ? "border-[#1B5CFF] bg-[rgba(27,92,255,0.04)] dark:border-[#4B7CFF]"
+          : "border-[#E7E7EA] bg-white dark:border-[#273244]"
+      )}
+    >
+      <div className="mb-2.5 flex items-center justify-between">
+        <span className={cn("inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest", a.label)}>
+          <span className={cn("inline-flex size-5 items-center justify-center rounded-[6px]", a.chip)} aria-hidden>
+            {isAntes ? (
+              <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+                <path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" aria-hidden>
+                <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
+          {title}
+        </span>
+        <span className="text-[10px] font-semibold tabular-nums text-[#A1A1AA] dark:text-[#6E7A91]">
+          {urls.length}/{max}
+        </span>
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+        className="sr-only"
+        onChange={(e) => {
+          const files = Array.from(e.target.files || []);
+          if (files.length) onAdd(files);
+          e.target.value = "";
+        }}
+      />
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {urls.map((url, i) => (
+          <div key={`${url}-${i}`} className={cn("group relative aspect-square overflow-hidden rounded-[10px] ring-1", a.ring)}>
+            <button
+              type="button"
+              onClick={() => onPreview(i)}
+              aria-label={`Ver foto ${i + 1} de ${title} en tamaño completo`}
+              className="block h-full w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF]"
+            >
+              <img
+                src={url}
+                alt={`${title} ${i + 1}`}
+                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+              />
+            </button>
+            <button
+              type="button"
+              onClick={() => onRemove(url)}
+              disabled={busy}
+              aria-label={`Quitar foto ${i + 1} de ${title}`}
+              className="absolute right-1 top-1 z-1 inline-flex size-6 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-[#C22B2B] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white active:scale-95 disabled:opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
+            >
+              <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+                <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
+              </svg>
+            </button>
+            <span className="pointer-events-none absolute bottom-1 left-1 inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-black/55 px-1 text-[9px] font-semibold tabular-nums text-white">
+              {i + 1}
+            </span>
+          </div>
+        ))}
+
+        {canAddMore ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+            className={cn(
+              "flex aspect-square flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-[#D3D3D8] bg-[#FAFAFA] text-[11px] text-[#6E6E77] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-60 dark:border-[#3A4661] dark:bg-[#1B2539] dark:text-[#8EA0B8]",
+              a.add
+            )}
+          >
+            {busy ? (
+              <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+            ) : (
+              <span className={cn("inline-flex size-6 items-center justify-center rounded-[7px]", a.chip)} aria-hidden>
+                <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                </svg>
+              </span>
+            )}
+            <span className="font-medium">{busy ? "Subiendo…" : "Agregar"}</span>
+          </button>
+        ) : null}
+      </div>
+
+      {urls.length === 0 ? (
+        <p className="mt-1.5 text-[10px] text-[#A1A1AA] dark:text-[#6E7A91]">Arrastra imágenes o haz clic en Agregar.</p>
+      ) : null}
+    </div>
+  );
+}
+
 function SinglePhoto({
   accent,
   title,
@@ -1088,6 +1309,7 @@ function SinglePhoto({
   header = false,
   onPick,
   onClear,
+  onPreview,
 }: {
   accent: Accent;
   title: string;
@@ -1096,6 +1318,7 @@ function SinglePhoto({
   header?: boolean;
   onPick: (file: File) => void;
   onClear: () => void;
+  onPreview?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -1174,11 +1397,19 @@ function SinglePhoto({
 
       {url ? (
         <div className={cn("group relative overflow-hidden rounded-[10px] ring-1", a.ring)}>
-          <img
-            src={url}
-            alt={title}
-            className="aspect-4/3 w-full object-cover transition-transform duration-200 group-hover:scale-105"
-          />
+          <button
+            type="button"
+            onClick={onPreview}
+            disabled={!onPreview}
+            aria-label={`Ver ${title} en tamaño completo`}
+            className={cn("block w-full", onPreview && "cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF]")}
+          >
+            <img
+              src={url}
+              alt={title}
+              className="aspect-4/3 w-full object-cover transition-transform duration-200 group-hover:scale-105"
+            />
+          </button>
           <div className="absolute inset-x-0 bottom-0 flex justify-end gap-1.5 bg-linear-to-t from-black/60 to-transparent p-2">
             <button
               type="button"
