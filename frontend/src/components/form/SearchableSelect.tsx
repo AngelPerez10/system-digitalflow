@@ -1,27 +1,38 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useDeferredValue,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import Label from "@/components/form/Label";
 import { cn } from "@/lib/utils";
 
-/** Acento eléctrico del ERP (no naranja legado de erpPageStyles). */
+/** Acento eléctrico del ERP (alineado al resto del formulario de órdenes). */
 const selectInputClass =
-  "w-full min-h-[44px] rounded-[10px] border border-[#E7E7EA] bg-white px-3.5 py-2 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] sm:py-2.5";
+  "w-full min-h-11 rounded-[10px] border border-[#E7E7EA] bg-white py-2.5 pl-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
 
-const optionSelectedClass =
-  "bg-[rgba(27,92,255,0.10)] font-medium text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]";
-
-type Option = {
+export type SearchableSelectOption = {
   value: string;
   label: string;
   /** Prefijo en azul (p. ej. user_id Wialon); se muestra antes de `label`. */
   accentPrefix?: string;
+  /** Segunda línea (teléfono, email, etc.). También entra en el filtro local. */
+  description?: string;
+  /** Resalta acciones como «Nuevo…» / «Crear…». */
+  isAction?: boolean;
 };
 
 type SearchableSelectProps = {
-  label: string;
+  label: ReactNode;
   value: string;
   onChange: (v: string) => void;
-  options: Option[];
+  options: SearchableSelectOption[];
   disabled?: boolean;
   required?: boolean;
   placeholder?: string;
@@ -32,6 +43,18 @@ type SearchableSelectProps = {
   onSearchChange?: (query: string) => void;
   /** Si es false, no filtra localmente (options ya vienen filtradas). Default true. */
   filterLocally?: boolean;
+  emptyMessage?: string;
+  loading?: boolean;
+  /**
+   * Tope de filas en el DOM (PCs lentos). Default 80.
+   * Si hay más coincidencias, se pide refinar la búsqueda.
+   */
+  maxVisibleItems?: number;
+  /** Muestra la fila que limpia el valor. Default true. */
+  allowClearOption?: boolean;
+  clearOptionLabel?: string;
+  /** Aria-label del botón chevron. */
+  triggerAriaLabel?: string;
 };
 
 type MenuCoords = {
@@ -42,8 +65,67 @@ type MenuCoords = {
   maxHeight: number;
 };
 
-/** Por encima del Modal (z-99999) para que el listado no quede oculto. */
 const MENU_Z_INDEX = 100050;
+const DEFAULT_MAX_VISIBLE = 80;
+
+function optionMatchesQuery(o: SearchableSelectOption, q: string): boolean {
+  return (
+    o.label.toLowerCase().includes(q) ||
+    o.value.toLowerCase().includes(q) ||
+    (o.accentPrefix ?? "").toLowerCase().includes(q) ||
+    (o.description ?? "").toLowerCase().includes(q)
+  );
+}
+
+function initialFromLabel(label: string): string {
+  const trimmed = label.trim();
+  if (!trimmed) return "?";
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+  }
+  return trimmed.slice(0, 2).toUpperCase();
+}
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ open, className }: { open: boolean; className?: string }) {
+  return (
+    <svg
+      className={cn(className, open && "rotate-180")}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden
+    >
+      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+      <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ClearIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export default function SearchableSelect({
   label,
@@ -58,16 +140,29 @@ export default function SearchableSelect({
   describedBy,
   onSearchChange,
   filterLocally = true,
+  emptyMessage = "Sin resultados. Prueba otro término.",
+  loading = false,
+  maxVisibleItems = DEFAULT_MAX_VISIBLE,
+  allowClearOption = true,
+  clearOptionLabel = "Quitar selección",
+  triggerAriaLabel,
 }: SearchableSelectProps) {
   const autoId = useId();
   const inputId = id || autoId;
   const listboxId = `${inputId}-listbox`;
+  const statusId = `${inputId}-status`;
+  const labelText = typeof label === "string" ? label : "Opciones";
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const [menuCoords, setMenuCoords] = useState<MenuCoords | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputWrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  /** Dirección fijada al abrir: evita que el menú “salte” arriba/abajo al filtrar. */
+  const placementRef = useRef<"up" | "down">("down");
 
   const selected = options.find((o) => o.value === value);
   const selectedDisplay = selected
@@ -78,17 +173,32 @@ export default function SearchableSelect({
 
   const filtered = useMemo(() => {
     if (!filterLocally) return options;
-    if (!search.trim()) return options;
-    const q = search.toLowerCase();
-    return options.filter(
-      (o) =>
-        o.label.toLowerCase().includes(q) ||
-        o.value.toLowerCase().includes(q) ||
-        (o.accentPrefix ?? "").toLowerCase().includes(q)
-    );
-  }, [search, options, filterLocally]);
+    const q = deferredSearch.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => optionMatchesQuery(o, q));
+  }, [deferredSearch, options, filterLocally]);
 
-  const updateMenuPosition = () => {
+  const visible = useMemo(
+    () => filtered.slice(0, Math.max(1, maxVisibleItems)),
+    [filtered, maxVisibleItems],
+  );
+  const truncated = filtered.length > visible.length;
+
+  const closeMenu = () => {
+    setOpen(false);
+    setSearch("");
+    setActiveIndex(-1);
+  };
+
+  const openMenu = () => {
+    if (disabled) return;
+    setOpen(true);
+    // Lista completa al abrir; el valor actual queda como placeholder hasta que escriban.
+    setSearch("");
+    onSearchChange?.("");
+  };
+
+  const updateMenuPosition = (lockPlacement = false) => {
     if (!inputWrapRef.current) {
       setMenuCoords(null);
       return;
@@ -96,23 +206,29 @@ export default function SearchableSelect({
     const rect = inputWrapRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom - 8;
     const spaceAbove = rect.top - 8;
-    const preferred = Math.min(280, 48 + Math.max(filtered.length, 1) * 40);
-    const openUp = spaceBelow < Math.min(preferred, 160) && spaceAbove > spaceBelow;
-    const maxHeight = Math.max(140, Math.min(280, openUp ? spaceAbove : spaceBelow));
+    const viewportCap = Math.min(360, Math.floor(window.innerHeight * 0.48));
+
+    if (lockPlacement) {
+      placementRef.current =
+        spaceBelow < 180 && spaceAbove > spaceBelow ? "up" : "down";
+    }
+
+    const openUp = placementRef.current === "up";
+    const maxHeight = Math.max(160, Math.min(viewportCap, openUp ? spaceAbove : spaceBelow));
     setMenuCoords(
       openUp
         ? {
-            bottom: window.innerHeight - rect.top + 4,
-            left: rect.left,
-            width: rect.width,
+            bottom: window.innerHeight - rect.top + 6,
+            left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
+            width: Math.min(rect.width, window.innerWidth - 16),
             maxHeight,
           }
         : {
-            top: rect.bottom + 4,
-            left: rect.left,
-            width: rect.width,
+            top: rect.bottom + 6,
+            left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
+            width: Math.min(rect.width, window.innerWidth - 16),
             maxHeight,
-          }
+          },
     );
   };
 
@@ -121,24 +237,32 @@ export default function SearchableSelect({
       setMenuCoords(null);
       return;
     }
-    updateMenuPosition();
-    // filtered.length cambia al buscar; reposicionar altura
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- updateMenuPosition lee filtered.length vía closure fresco
-  }, [open, filtered.length]);
+    updateMenuPosition(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updateMenuPosition(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible.length, truncated, loading]);
 
   useEffect(() => {
     if (!open) return;
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
       if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-      setOpen(false);
+      closeMenu();
     };
-    const handleViewportChange = () => {
+    const handleViewportChange = (event?: Event) => {
+      // No reposicionar al scrollear la propia lista (evita que el menú “salte” arriba/abajo).
+      if (event?.type === "scroll" && event.target instanceof Node && menuRef.current?.contains(event.target)) {
+        return;
+      }
       updateMenuPosition();
     };
     document.addEventListener("mousedown", handleClickOutside);
     window.addEventListener("resize", handleViewportChange);
-    // Solo scroll de ventanas/ancestros — no cerrar al scrollear el propio menú
     window.addEventListener("scroll", handleViewportChange, true);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -146,7 +270,113 @@ export default function SearchableSelect({
       window.removeEventListener("scroll", handleViewportChange, true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, filtered.length]);
+  }, [open, visible.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    setActiveIndex((prev) => {
+      if (visible.length === 0) return -1;
+      if (prev < 0) {
+        const selectedIdx = visible.findIndex((o) => o.value === value);
+        return selectedIdx >= 0 ? selectedIdx : 0;
+      }
+      return Math.min(prev, visible.length - 1);
+    });
+  }, [open, visible, value]);
+
+  const scrollActiveOptionIntoView = (index: number) => {
+    const el = menuRef.current?.querySelector<HTMLElement>(`[data-option-index="${index}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  };
+
+  const commitOption = (next: string) => {
+    onChange(next);
+    closeMenu();
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return;
+
+    if (e.key === "Escape") {
+      if (open) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeMenu();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) {
+        openMenu();
+        return;
+      }
+      setActiveIndex((i) => {
+        if (visible.length === 0) return -1;
+        const next = i < 0 ? 0 : Math.min(i + 1, visible.length - 1);
+        requestAnimationFrame(() => scrollActiveOptionIntoView(next));
+        return next;
+      });
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) {
+        openMenu();
+        return;
+      }
+      setActiveIndex((i) => {
+        if (visible.length === 0) return -1;
+        const next = i <= 0 ? 0 : i - 1;
+        requestAnimationFrame(() => scrollActiveOptionIntoView(next));
+        return next;
+      });
+      return;
+    }
+
+    if (e.key === "Home" && open) {
+      e.preventDefault();
+      if (visible.length) {
+        setActiveIndex(0);
+        requestAnimationFrame(() => scrollActiveOptionIntoView(0));
+      }
+      return;
+    }
+
+    if (e.key === "End" && open) {
+      e.preventDefault();
+      if (visible.length) {
+        const last = visible.length - 1;
+        setActiveIndex(last);
+        requestAnimationFrame(() => scrollActiveOptionIntoView(last));
+      }
+      return;
+    }
+
+    if (e.key === "Enter" && open) {
+      e.preventDefault();
+      if (activeIndex >= 0 && visible[activeIndex]) {
+        commitOption(visible[activeIndex].value);
+      }
+      return;
+    }
+  };
+
+  const statusText = loading
+    ? "Buscando…"
+    : open
+      ? truncated
+        ? `${filtered.length} coincidencias; mostrando ${visible.length}. Refina la búsqueda.`
+        : `${filtered.length} ${filtered.length === 1 ? "resultado" : "resultados"}`
+      : "";
+
+  const activeOptionId =
+    open && activeIndex >= 0 ? `${listboxId}-opt-${activeIndex}` : undefined;
+
+  const chevronLabel = triggerAriaLabel || (open ? `Cerrar lista de ${labelText}` : `Mostrar lista de ${labelText}`);
 
   const menu =
     open && menuCoords && typeof document !== "undefined"
@@ -155,7 +385,8 @@ export default function SearchableSelect({
             ref={menuRef}
             id={listboxId}
             role="listbox"
-            className="fixed overflow-auto rounded-[10px] border border-[#E7E7EA] bg-white shadow-lg dark:border-[#273244] dark:bg-[#111827]"
+            aria-label={labelText}
+            className="fixed overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-[#E7E7EA] bg-white p-1.5 shadow-[0_20px_48px_-18px_rgba(9,9,11,0.42)] dark:border-[#273244] dark:bg-[#0F172A] dark:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.65)]"
             style={{
               top: menuCoords.top,
               bottom: menuCoords.bottom,
@@ -165,58 +396,107 @@ export default function SearchableSelect({
               zIndex: MENU_Z_INDEX,
             }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                onChange("");
-                setSearch("");
-                setOpen(false);
-              }}
-              className="w-full min-h-[44px] px-3 py-2.5 text-left text-sm text-[#A1A1AA] hover:bg-[#F1F5FF] dark:text-[#8EA0B8] dark:hover:bg-white/[0.06]"
-            >
-              — Seleccionar —
-            </button>
-            {filtered.map((o) => {
-              const isSelected = Boolean(value) && o.value === value;
-              return (
+            {allowClearOption && value ? (
               <button
-                key={o.value}
                 type="button"
-                role="option"
-                aria-selected={isSelected}
-                onClick={() => {
-                  onChange(o.value);
-                  setSearch("");
-                  setOpen(false);
-                }}
-                className={cn(
-                  "w-full min-h-[44px] px-3 py-2.5 text-left text-sm transition-colors hover:bg-[#F1F5FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-white/[0.06]",
-                  isSelected
-                    ? optionSelectedClass
-                    : "text-[#09090B] dark:text-[#F8FAFC]"
-                )}
+                onClick={() => commitOption("")}
+                className="mb-1 flex w-full min-h-11 items-center gap-2 rounded-lg px-2.5 text-left text-sm text-[#6E6E77] hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/40 dark:text-[#8EA0B8] dark:hover:bg-white/[0.06]"
               >
-                {o.accentPrefix ? (
-                  <>
-                    <span className="font-mono tabular-nums text-[#1B5CFF] dark:text-[#4B7CFF]">
-                      {o.accentPrefix}
-                    </span>
-                    <span className="text-[#A1A1AA] dark:text-[#8EA0B8]"> · </span>
-                    <span>{o.label}</span>
-                  </>
-                ) : (
-                  o.label
-                )}
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F4F4F5] dark:bg-white/[0.06]">
+                  <ClearIcon className="h-3.5 w-3.5" />
+                </span>
+                <span>{clearOptionLabel}</span>
               </button>
-              );
-            })}
-            {filtered.length === 0 ? (
-              <div className="px-3 py-2.5 text-center text-xs text-[#A1A1AA] dark:text-[#8EA0B8]">
-                Sin resultados
+            ) : null}
+
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 px-3 py-4 text-sm text-[#6E6E77] dark:text-[#8EA0B8]" role="status">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#1B5CFF]/25 border-t-[#1B5CFF] motion-reduce:animate-none" aria-hidden />
+                Buscando…
+              </div>
+            ) : null}
+
+            {!loading &&
+              visible.map((o, index) => {
+                const isSelected = Boolean(value) && o.value === value;
+                const isActive = index === activeIndex;
+                const avatar = o.isAction ? "+" : initialFromLabel(o.label);
+                return (
+                  <button
+                    key={o.value}
+                    id={`${listboxId}-opt-${index}`}
+                    type="button"
+                    role="option"
+                    data-option-index={index}
+                    aria-selected={isSelected}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onClick={() => commitOption(o.value)}
+                    className={cn(
+                      "flex w-full min-h-11 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/40",
+                      isSelected && "bg-[rgba(27,92,255,0.10)] dark:bg-[rgba(75,124,255,0.16)]",
+                      isActive && !isSelected && "bg-[#F1F5FF] dark:bg-white/[0.08]",
+                      !isSelected && !isActive && "hover:bg-[#F8FAFC] dark:hover:bg-white/[0.04]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tracking-wide",
+                        o.isAction
+                          ? "bg-[rgba(27,92,255,0.12)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.2)] dark:text-[#4B7CFF]"
+                          : isSelected
+                            ? "bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]"
+                            : "bg-[#EEF2FF] text-[#1B5CFF] dark:bg-[#1E293B] dark:text-[#93B4FF]",
+                      )}
+                      aria-hidden
+                    >
+                      {avatar}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={cn(
+                          "block truncate text-[14px] leading-5",
+                          isSelected || o.isAction
+                            ? "font-medium text-[#1B5CFF] dark:text-[#4B7CFF]"
+                            : "font-medium text-[#09090B] dark:text-[#F8FAFC]",
+                        )}
+                      >
+                        {o.accentPrefix ? (
+                          <>
+                            <span className="font-mono tabular-nums">{o.accentPrefix}</span>
+                            <span className="text-[#A1A1AA] dark:text-[#8EA0B8]"> · </span>
+                          </>
+                        ) : null}
+                        {o.label}
+                      </span>
+                      {o.description ? (
+                        <span className="mt-0.5 block truncate text-[12px] leading-4 text-[#6E6E77] dark:text-[#8EA0B8]">
+                          {o.description}
+                        </span>
+                      ) : null}
+                    </span>
+                    {isSelected ? (
+                      <CheckIcon className="h-4 w-4 shrink-0 text-[#1B5CFF] dark:text-[#4B7CFF]" />
+                    ) : (
+                      <span className="h-4 w-4 shrink-0" aria-hidden />
+                    )}
+                  </button>
+                );
+              })}
+
+            {!loading && visible.length === 0 ? (
+              <div className="px-3 py-5 text-center">
+                <p className="text-sm font-medium text-[#3F3F46] dark:text-[#E2E8F0]">Sin coincidencias</p>
+                <p className="mt-1 text-xs text-[#6E6E77] dark:text-[#8EA0B8]">{emptyMessage}</p>
+              </div>
+            ) : null}
+
+            {!loading && truncated ? (
+              <div className="mt-1 border-t border-[#E7E7EA] px-2.5 py-2 text-center text-[11px] text-[#6E6E77] dark:border-[#273244] dark:text-[#8EA0B8]">
+                Mostrando {visible.length} de {filtered.length}. Escribe para filtrar.
               </div>
             ) : null}
           </div>,
-          document.body
+          document.body,
         )
       : null;
 
@@ -224,39 +504,113 @@ export default function SearchableSelect({
     <div className="min-w-0 w-full" ref={rootRef}>
       <Label
         htmlFor={inputId}
-        className="!mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 sm:!text-xs"
+        className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]"
       >
-        {label} {required && <span className="text-[#C22B2B] dark:text-[#F87171]" aria-hidden>*</span>}
+        {label}
+        {required ? (
+          <span className="text-[#C22B2B] dark:text-[#F87171]" aria-hidden>
+            {" "}
+            *
+          </span>
+        ) : null}
       </Label>
       <div className="relative" ref={inputWrapRef}>
+        <span
+          className={cn(
+            "pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[#A1A1AA] dark:text-[#8EA0B8]",
+            open && "text-[#1B5CFF] dark:text-[#4B7CFF]",
+          )}
+          aria-hidden
+        >
+          <SearchIcon className="h-4 w-4" />
+        </span>
         <input
+          ref={inputRef}
           id={inputId}
           type="text"
           role="combobox"
           autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={open ? search : selectedDisplay}
           onChange={(e) => {
-            setSearch(e.target.value);
+            const next = e.target.value;
+            setSearch(next);
             setOpen(true);
-            onSearchChange?.(e.target.value);
+            setActiveIndex(0);
+            onSearchChange?.(next);
           }}
           onFocus={() => {
-            setSearch("");
-            setOpen(true);
-            onSearchChange?.("");
+            if (disabled) return;
+            openMenu();
           }}
+          onKeyDown={handleKeyDown}
           disabled={disabled}
-          placeholder={placeholder || "Buscar..."}
-          className={selectInputClass}
-          readOnly={!open}
+          placeholder={
+            open && selectedDisplay
+              ? selectedDisplay
+              : placeholder || "Buscar…"
+          }
+          className={cn(
+            selectInputClass,
+            allowClearOption && value ? "pr-20" : "pr-12",
+            invalid && "border-[#C22B2B] focus:border-[#C22B2B] focus:ring-[rgba(194,43,43,0.18)]",
+          )}
           aria-expanded={open}
           aria-haspopup="listbox"
           aria-controls={open ? listboxId : undefined}
+          aria-activedescendant={activeOptionId}
           aria-autocomplete="list"
           aria-required={required || undefined}
           aria-invalid={invalid || undefined}
-          aria-describedby={describedBy}
+          aria-busy={loading || undefined}
+          aria-describedby={[describedBy, statusId].filter(Boolean).join(" ") || undefined}
         />
+        <div className="absolute right-1.5 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5">
+          {allowClearOption && value && !disabled ? (
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label="Limpiar selección"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                commitOption("");
+                onSearchChange?.("");
+              }}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#A1A1AA] hover:bg-[#F4F4F5] hover:text-[#52525B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-white/[0.06] dark:hover:text-[#E2E8F0]"
+            >
+              <ClearIcon className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label={chevronLabel}
+            aria-expanded={open}
+            aria-controls={listboxId}
+            disabled={disabled}
+            onMouseDown={(e) => {
+              // Evita blur del input antes del toggle.
+              e.preventDefault();
+            }}
+            onClick={() => {
+              if (disabled) return;
+              if (open) {
+                closeMenu();
+                return;
+              }
+              openMenu();
+              inputRef.current?.focus();
+            }}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#6E6E77] hover:bg-[#F4F4F5] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-50 dark:text-[#8EA0B8] dark:hover:bg-white/[0.06] dark:hover:text-[#F8FAFC]"
+          >
+            <ChevronIcon open={open} className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+      <div id={statusId} className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+        {statusText}
       </div>
       {menu}
     </div>

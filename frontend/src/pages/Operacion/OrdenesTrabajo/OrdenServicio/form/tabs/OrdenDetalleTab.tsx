@@ -3,7 +3,8 @@ import DatePicker from "@/components/form/date-picker";
 import type { CotizacionResumen } from "@/pages/Operacion/Proyectos/shared/proyectoTypes";
 import LevantamientoForm from "../../../OrdenLevantamiento/LevantamientoForm";
 import OrdenAdminCotizacionesField from "../fields/OrdenAdminCotizacionesField";
-import OrdenHeroComboBox, { type OrdenComboItem } from "../fields/OrdenHeroComboBox";
+import SearchableSelect, { type SearchableSelectOption } from "@/components/form/SearchableSelect";
+import type { OrdenComboItem } from "../fields/OrdenHeroComboBox";
 import type { OrdenStatusAdministrativo } from "../../shared/ordenesPageTypes";
 import { COMENTARIO_TECNICO_MIN_LENGTH } from "../../shared/ordenesPageTypes";
 import type { OrdenFormData } from "../useOrdenFormDraft";
@@ -103,6 +104,15 @@ export function OrdenDetalleTab({
     return opts;
   }, [serviciosDisponibles, selectedServicio, servicioSearch, serviciosLocked]);
 
+  const servicioSelectOptions = useMemo((): SearchableSelectOption[] => {
+    return servicioOptions.map((item) => ({
+      value: item.id,
+      label: item.label,
+      description: item.description,
+      isAction: item.id.startsWith(SERVICIO_CREAR_PREFIX),
+    }));
+  }, [servicioOptions]);
+
   const handleServicioChange = (value: string) => {
     if (serviciosLocked) return;
     if (!value) {
@@ -196,35 +206,32 @@ export function OrdenDetalleTab({
               </div>
 
               <div>
-                <OrdenHeroComboBox
-                  name="serviciosRealizados"
-                  inputId="orden-servicios-realizados"
-                  label={
-                    <>
-                      Servicios realizados
-                      <RequiredMark />
-                    </>
-                  }
+                <SearchableSelect
+                  id="orden-servicios-realizados"
+                  label="Servicios realizados"
+                  required
                   placeholder={
                     serviciosLocked && variant === "tecnico"
                       ? "Servicios (solo lectura)"
                       : "Buscar o crear servicio…"
                   }
                   triggerAriaLabel="Mostrar lista de servicios"
-                  items={servicioOptions}
-                  selectedKey={selectedServicio || null}
-                  inputValue={servicioSearch || selectedServicio}
-                  onSelectionChange={(key) => handleServicioChange(key ?? "")}
-                  onInputChange={(value) => {
+                  value={selectedServicio || ""}
+                  onChange={(v) => handleServicioChange(v)}
+                  options={servicioSelectOptions}
+                  onSearchChange={(value) => {
                     if (serviciosLocked) return;
                     setServicioSearch(value);
                   }}
-                  isDisabled={serviciosLocked}
-                  isRequired
-                  skipLocalFilter
-                  description="Elige uno de la lista o escribe un nombre nuevo para crearlo."
+                  disabled={serviciosLocked}
+                  allowClearOption={false}
                   emptyMessage="No hay servicios. Escribe un nombre para crear uno."
+                  describedBy="orden-servicios-hint"
+                  maxVisibleItems={60}
                 />
+                <p id="orden-servicios-hint" className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
+                  Elige uno de la lista o escribe un nombre nuevo para crearlo.
+                </p>
               </div>
 
               <div>

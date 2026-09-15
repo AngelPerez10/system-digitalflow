@@ -231,7 +231,7 @@ export default function OrdenesListFiltersPopover({
                 {serviciosFiltrados.length === 0 ? (
                   <p className="px-1 py-2 text-xs text-[#6E6E77] dark:text-[#8ea0b8]" role="status">
                     {serviciosDisponibles.length === 0
-                      ? "No hay servicios en el catálogo."
+                      ? "Sin servicios activos en el catálogo. Agrégalos en Productos y servicios."
                       : "Ningún servicio coincide con la búsqueda."}
                   </p>
                 ) : (

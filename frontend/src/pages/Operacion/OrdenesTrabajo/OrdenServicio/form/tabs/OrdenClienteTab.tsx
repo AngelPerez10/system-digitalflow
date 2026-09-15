@@ -14,8 +14,9 @@ import {
   OrdenPhotoPreviewModal,
 } from "../../../OrdenTrabajoModals";
 import type { OrdenFormData } from "../useOrdenFormDraft";
-import OrdenHeroComboBox, { type OrdenComboItem } from "../fields/OrdenHeroComboBox";
+import SearchableSelect, { type SearchableSelectOption } from "@/components/form/SearchableSelect";
 import { clienteComboSelectedKey, comboSelectedKeyInItems, usuarioComboLabel, withSelectedComboItem } from "../fields/ordenHeroComboBoxUtils";
+import type { OrdenComboItem } from "../fields/OrdenHeroComboBox";
 import { formatOrdenPhotoProgress } from "../../shared/ordenImageUpload";
 import { formatYmdToDMY } from "../../shared/ordenesPageUtils";
 import {
@@ -283,6 +284,23 @@ export function OrdenClienteTab({
 
   const tecnicoItemIds = useMemo(() => tecnicoItems.map((item) => item.id), [tecnicoItems]);
 
+  const clienteSelectOptions = useMemo((): SearchableSelectOption[] => {
+    return clienteItems.map((item) => ({
+      value: item.id,
+      label: item.label,
+      description: item.description,
+      isAction: item.id === "__new__",
+    }));
+  }, [clienteItems]);
+
+  const tecnicoSelectOptions = useMemo((): SearchableSelectOption[] => {
+    return tecnicoItems.map((item) => ({
+      value: item.id,
+      label: item.label,
+      description: item.description,
+    }));
+  }, [tecnicoItems]);
+
   const handleClienteSelect = (action: { id?: string | number; label?: string; __contacto?: { id?: number; celular?: string; nombre_apellido?: string } }) => {
     if (variant === "admin") {
       if (clienteLocked) return;
@@ -365,30 +383,21 @@ export function OrdenClienteTab({
       >
         <div className="flex items-start gap-2">
           <div className="flex-1">
-            <OrdenHeroComboBox
-              name="clienteId"
-              inputId="orden-elegir-cliente"
-              label={
-                <>
-                  Cliente
-                </>
-              }
-              placeholder="Buscar cliente por nombre o teléfono..."
+            <SearchableSelect
+              id="orden-elegir-cliente"
+              label="Cliente"
+              required
+              placeholder="Buscar cliente por nombre o teléfono…"
               triggerAriaLabel="Mostrar lista de clientes"
-              items={clienteItems}
-              selectedKey={clienteSelectedKey}
-              inputValue={clienteSearch}
-              onSelectionChange={onClienteComboSelect}
-              onInputChange={onClienteQueryChange}
-              isDisabled={clienteLocked}
-              isRequired
-              skipLocalFilter
-              emptyMessage="No hay contactos para mostrar. Escríbelos o crea uno nuevo."
-              liveRegionText={
-                clienteSearch.trim()
-                  ? `${clienteItems.filter((i) => i.id !== "__new__").length} contactos encontrados`
-                  : ""
-              }
+              value={clienteSelectedKey || ""}
+              onChange={(v) => onClienteComboSelect(v || null)}
+              options={clienteSelectOptions}
+              filterLocally={false}
+              onSearchChange={onClienteQueryChange}
+              disabled={clienteLocked}
+              allowClearOption={false}
+              emptyMessage="No hay contactos. Escribe para buscar o crea uno nuevo."
+              maxVisibleItems={60}
             />
           </div>
           {(formData.cliente_id || formData.cliente) && !clienteLocked && (
@@ -525,22 +534,24 @@ export function OrdenClienteTab({
 
         <div className="flex items-start gap-2">
           <div className="flex-1">
-            <OrdenHeroComboBox
-              name="tecnicoAsignado"
-              inputId="orden-tecnico-asignado"
+            <SearchableSelect
+              id="orden-tecnico-asignado"
               label="Técnico asignado"
-              placeholder="Buscar técnico..."
+              placeholder="Buscar técnico…"
               triggerAriaLabel="Mostrar lista de técnicos"
-              items={tecnicoItems}
-              selectedKey={comboSelectedKeyInItems(
-                formData.tecnico_asignado != null ? String(formData.tecnico_asignado) : null,
-                tecnicoItemIds,
-              )}
-              inputValue={tecnicoSearch}
-              onSelectionChange={(key) => onUsuarioComboSelect(key, tecnicoLocked, selectTecnico)}
-              onInputChange={onTecnicoAsignadoQueryChange}
-              isDisabled={tecnicoLocked}
+              value={
+                comboSelectedKeyInItems(
+                  formData.tecnico_asignado != null ? String(formData.tecnico_asignado) : null,
+                  tecnicoItemIds,
+                ) || ""
+              }
+              onChange={(v) => onUsuarioComboSelect(v || null, tecnicoLocked, selectTecnico)}
+              options={tecnicoSelectOptions}
+              onSearchChange={onTecnicoAsignadoQueryChange}
+              disabled={tecnicoLocked}
+              allowClearOption={false}
               emptyMessage="No hay técnicos para mostrar."
+              maxVisibleItems={60}
             />
           </div>
           {formData.tecnico_asignado && !tecnicoLocked && (
@@ -551,22 +562,24 @@ export function OrdenClienteTab({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="flex items-start gap-2">
             <div className="flex-1">
-              <OrdenHeroComboBox
-                name="quienInstalo"
-                inputId="orden-quien-instalo"
+              <SearchableSelect
+                id="orden-quien-instalo"
                 label="¿Quién instaló?"
-                placeholder="Buscar técnico..."
+                placeholder="Buscar técnico…"
                 triggerAriaLabel="Mostrar lista de quién instaló"
-                items={tecnicoItems}
-                selectedKey={comboSelectedKeyInItems(
-                  formData.quien_instalo != null ? String(formData.quien_instalo) : null,
-                  tecnicoItemIds,
-                )}
-                inputValue={quienInstaloSearch}
-                onSelectionChange={(key) => onUsuarioComboSelect(key, quienInstaloLocked, selectQuienInstalo)}
-                onInputChange={onQuienInstaloQueryChange}
-                isDisabled={quienInstaloLocked}
+                value={
+                  comboSelectedKeyInItems(
+                    formData.quien_instalo != null ? String(formData.quien_instalo) : null,
+                    tecnicoItemIds,
+                  ) || ""
+                }
+                onChange={(v) => onUsuarioComboSelect(v || null, quienInstaloLocked, selectQuienInstalo)}
+                options={tecnicoSelectOptions}
+                onSearchChange={onQuienInstaloQueryChange}
+                disabled={quienInstaloLocked}
+                allowClearOption={false}
                 emptyMessage="No hay técnicos para mostrar."
+                maxVisibleItems={60}
               />
             </div>
             {formData.quien_instalo && !quienInstaloLocked && (
@@ -575,22 +588,24 @@ export function OrdenClienteTab({
           </div>
           <div className="flex items-start gap-2">
             <div className="flex-1">
-              <OrdenHeroComboBox
-                name="quienEntrego"
-                inputId="orden-quien-entrego"
+              <SearchableSelect
+                id="orden-quien-entrego"
                 label="¿Quién entregó?"
-                placeholder="Buscar técnico..."
+                placeholder="Buscar técnico…"
                 triggerAriaLabel="Mostrar lista de quién entregó"
-                items={tecnicoItems}
-                selectedKey={comboSelectedKeyInItems(
-                  formData.quien_entrego != null ? String(formData.quien_entrego) : null,
-                  tecnicoItemIds,
-                )}
-                inputValue={quienEntregoSearch}
-                onSelectionChange={(key) => onUsuarioComboSelect(key, quienEntregoLocked, selectQuienEntrego)}
-                onInputChange={onQuienEntregoQueryChange}
-                isDisabled={quienEntregoLocked}
+                value={
+                  comboSelectedKeyInItems(
+                    formData.quien_entrego != null ? String(formData.quien_entrego) : null,
+                    tecnicoItemIds,
+                  ) || ""
+                }
+                onChange={(v) => onUsuarioComboSelect(v || null, quienEntregoLocked, selectQuienEntrego)}
+                options={tecnicoSelectOptions}
+                onSearchChange={onQuienEntregoQueryChange}
+                disabled={quienEntregoLocked}
+                allowClearOption={false}
                 emptyMessage="No hay técnicos para mostrar."
+                maxVisibleItems={60}
               />
             </div>
             {formData.quien_entrego && !quienEntregoLocked && (

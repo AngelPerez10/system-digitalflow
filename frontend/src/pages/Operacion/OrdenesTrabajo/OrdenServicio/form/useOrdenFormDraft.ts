@@ -18,7 +18,6 @@ import {
   type OrdenCotizacionAdjunta,
   type OrdenEquipoInventarioLinea,
   type OrdenStatusAdministrativo,
-  type ServicioCatalogo,
   type Usuario,
 } from "../shared/ordenesPageTypes";
 import {
@@ -459,7 +458,17 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
   const [fechaEnvioAdmin, setFechaEnvioAdmin] = useState("");
   const [cotizacionesAdmin, setCotizacionesAdmin] = useState<CotizacionResumen[]>([]);
 
-  const [serviciosDisponibles, setServiciosDisponibles] = useState<string[]>([]);
+  const [serviciosDisponibles, setServiciosDisponibles] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("servicios_disponibles");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((s): s is string => typeof s === "string" && s.trim().length > 0);
+    } catch {
+      return [];
+    }
+  });
 
   const [clienteSearch, setClienteSearch] = useState("");
   const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
@@ -634,46 +643,17 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       return;
     }
 
-    const fallbackServicios = [
-      "ALARMAS",
-      "RASTREO",
-      "INTERNET",
-      "GPS",
-      "SENSOR DE GASOLINA",
-      "SENSOR DE TEMPERATURA",
-      "CAMARA",
-      "DASHCAM",
-      "VENTA DE PRODUCTO",
-    ];
-
-    if (variant === "admin") {
-      const names = await fetchServiciosApi(fallbackServicios);
-      const merged = Array.from(new Set(names));
-      setServiciosDisponibles(merged);
-      localStorage.setItem("servicios_disponibles", JSON.stringify(merged));
-      return;
-    }
-
+    // Catálogo de Productos y Servicios (`/api/servicios/`). Misma fuente que
+    // ServiciosPage; GET permitido con acceso a órdenes (ServiciosPermission).
+    const names = await fetchServiciosApi([]);
+    const merged = Array.from(new Set(names));
+    setServiciosDisponibles(merged);
     try {
-      const res = await fetchApi("/api/servicios/?page=1&page_size=500&ordering=idx", {
-        cache: "no-store" as RequestCache,
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setServiciosDisponibles([]);
-        return;
-      }
-      const results = Array.isArray((data as { results?: ServicioCatalogo[] })?.results)
-        ? ((data as { results: ServicioCatalogo[] }).results)
-        : [];
-      const names = results
-        .filter((s) => s && typeof s.nombre === "string" && s.nombre.trim() && s.activo !== false)
-        .map((s) => s.nombre.trim());
-      setServiciosDisponibles(Array.from(new Set(names)));
+      localStorage.setItem("servicios_disponibles", JSON.stringify(merged));
     } catch {
-      setServiciosDisponibles([]);
+      // Quota / modo privado: el listado en memoria basta.
     }
-  }, [isAuthenticated, variant]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedClienteSearch(clienteSearch), 400);
@@ -685,13 +665,19 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     void fetchClientes(debouncedClienteSearch);
   }, [open, isAuthenticated, debouncedClienteSearch, fetchClientes]);
 
+  // Técnicos del filtro del listado (admin) y del formulario: cargar al entrar a la página.
   useEffect(() => {
-    if (!open || !isAuthenticated) return;
+    if (!isAuthenticated) return;
     void fetchUsuarios();
-  }, [open, isAuthenticated, fetchUsuarios]);
+  }, [isAuthenticated, fetchUsuarios]);
 
+  // Cargar catálogo al entrar al listado (no solo al abrir el modal): el popover
+  // de filtros usa la misma lista y antes quedaba vacío hasta editar una orden.
   useEffect(() => {
-    if (!open || !isAuthenticated) return;
+    if (!isAuthenticated) {
+      setServiciosDisponibles([]);
+      return;
+    }
     const now = Date.now();
     if (variant === "admin") {
       if (now - adminServiciosLastLoadAt < ORDENES_PAGE_INIT_THROTTLE_MS) return;
@@ -701,7 +687,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       tecnicoServiciosLastLoadAt = now;
     }
     void loadServiciosDisponibles();
-  }, [open, isAuthenticated, variant, loadServiciosDisponibles]);
+  }, [isAuthenticated, variant, loadServiciosDisponibles]);
 
   const loadTecnicoSignature = useCallback(
     async (tecUserId: number | null) => {

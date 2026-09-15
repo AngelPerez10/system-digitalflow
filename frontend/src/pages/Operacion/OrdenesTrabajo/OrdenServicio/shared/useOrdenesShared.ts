@@ -441,19 +441,50 @@ export const fetchTodosLosUsuariosApi = async (): Promise<Usuario[]> => {
 
 export const fetchServiciosApi = async (fallbackServicios: string[] = []) => {
   try {
-    const res = await fetchApi('/api/servicios/?page=1&page_size=500&ordering=idx', {
-      method: 'GET',
-      cache: 'no-store' as RequestCache,
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) return fallbackServicios;
+    // El ViewSet limita page_size a 200; recorrer páginas para no truncar el catálogo.
+    const pageSize = 200;
+    const all: ServicioCatalogo[] = [];
+    let page = 1;
+    let guard = 0;
 
-    const results = unwrapListResults<ServicioCatalogo>(data);
-    const names = results
-      .filter((s) => s && typeof s.nombre === 'string' && s.nombre.trim() && s.activo !== false)
+    while (guard < 25) {
+      guard += 1;
+      const res = await fetchApi(
+        `/api/servicios/?page=${page}&page_size=${pageSize}&ordering=idx`,
+        {
+          method: "GET",
+          cache: "no-store" as RequestCache,
+        },
+      );
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        return all.length
+          ? Array.from(
+              new Set(
+                all
+                  .filter((s) => s && typeof s.nombre === "string" && s.nombre.trim() && s.activo !== false)
+                  .map((s) => s.nombre.trim()),
+              ),
+            )
+          : fallbackServicios;
+      }
+
+      const results = unwrapListResults<ServicioCatalogo>(data);
+      all.push(...results);
+
+      const next =
+        data && typeof data === "object" && "next" in data
+          ? (data as { next?: string | null }).next
+          : null;
+      if (!next || results.length === 0) break;
+      page += 1;
+    }
+
+    const names = all
+      .filter((s) => s && typeof s.nombre === "string" && s.nombre.trim() && s.activo !== false)
       .map((s) => s.nombre.trim());
 
-    return Array.from(new Set([...(names.length ? names : fallbackServicios)]));
+    return Array.from(new Set(names.length ? names : fallbackServicios));
   } catch {
     return fallbackServicios;
   }

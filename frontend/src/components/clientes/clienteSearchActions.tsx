@@ -59,7 +59,12 @@ export function buildClienteSearchActions(
         const labelBase = (c.nombre || "-").toString();
         const contactoNombre = String(ct?.nombre_apellido || "").trim();
         const contactoTel = String(ct?.celular || "").trim();
-        const label = contactoNombre ? `${labelBase} - ${contactoNombre}` : labelBase;
+        // Evitar "PEPE - PEPE" cuando el contacto es el mismo nombre del cliente.
+        const sameName =
+          contactoNombre &&
+          contactoNombre.localeCompare(labelBase, "es", { sensitivity: "accent" }) === 0;
+        const label =
+          contactoNombre && !sameName ? `${labelBase} — ${contactoNombre}` : labelBase;
 
         return {
           id: `${String(c.id)}::${String(ct?.id ?? idx)}`,
