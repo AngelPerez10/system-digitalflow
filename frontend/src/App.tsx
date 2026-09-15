@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, Routes, Route } from "react-router-dom";
 // Eager: necesarios para el primer render (login, layout, guards de permisos).
 import SignIn from "@/pages/AuthPages/SignIn";
 import AppLayout from "@/layout/AppLayout";
@@ -39,9 +39,6 @@ const ReportePdfPage = lazy(
   () => import("@/pages/Operacion/ReportesMantenimiento/ReportePdfPage"),
 );
 const Clientes = lazy(() => import("@/pages/ContactosNegocio/Clientes/ClientesPage"));
-const EmpresaPage = lazy(() => import("@/pages/ContactosNegocio/Clientes/EmpresaPage"));
-const PersonasPage = lazy(() => import("@/pages/ContactosNegocio/Clientes/PersonasPage"));
-const ProveedoresPage = lazy(() => import("@/pages/ContactosNegocio/Clientes/ProveedoresPage"));
 const Productos = lazy(() => import("@/pages/ProductosYServicios/ProductosPage"));
 const Servicios = lazy(() => import("@/pages/ProductosYServicios/ServiciosPage"));
 const CorreoPage = lazy(() => import("@/pages/MiEscritorio/CorreoPage"));
@@ -158,9 +155,9 @@ export default function App() {
             />
             <Route path="/inventario" element={<RequirePermission module="inventario" required="view"><InventarioPage /></RequirePermission>} />
             <Route path="/clientes" element={<RequirePermission module="clientes" required="view"><Clientes /></RequirePermission>} />
-            <Route path="/empresas" element={<RequirePermission module="clientes" required="view"><EmpresaPage /></RequirePermission>} />
-            <Route path="/personas" element={<RequirePermission module="clientes" required="view"><PersonasPage /></RequirePermission>} />
-            <Route path="/proveedores" element={<RequirePermission module="clientes" required="view"><ProveedoresPage /></RequirePermission>} />
+            <Route path="/empresas" element={<RequirePermission module="clientes" required="view"><Navigate to="/clientes?tipo=EMPRESA" replace /></RequirePermission>} />
+            <Route path="/personas" element={<RequirePermission module="clientes" required="view"><Navigate to="/clientes?tipo=PERSONA_FISICA" replace /></RequirePermission>} />
+            <Route path="/proveedores" element={<RequirePermission module="clientes" required="view"><Navigate to="/clientes?tipo=PROVEEDOR" replace /></RequirePermission>} />
             <Route path="/productos" element={<RequirePermission module="productos" required="view"><Productos /></RequirePermission>} />
             <Route path="/servicios" element={<RequirePermission module="servicios" required="view"><Servicios /></RequirePermission>} />
             <Route path="/cotizacion" element={<RequirePermission module="cotizaciones" required="view"><CotizacionesPage /></RequirePermission>} />

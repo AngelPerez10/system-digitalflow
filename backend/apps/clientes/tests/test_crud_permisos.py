@@ -298,6 +298,16 @@ class ClientesCrudTests(APITestCase):
         nombres = {c["nombre"] for c in response.data["results"]}
         self.assertEqual(nombres, {"SYSCOM", "TVC"})
 
+    def test_filtro_por_varios_tipos(self):
+        Cliente.objects.create(nombre="SYSCOM", tipo="PROVEEDOR")
+        Cliente.objects.create(nombre="Acme", tipo="EMPRESA")
+        Cliente.objects.create(nombre="Ana", tipo="PERSONA_FISICA")
+
+        response = self.client.get(f"{CLIENTES_URL}?tipo=EMPRESA,PERSONA_FISICA")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        nombres = {c["nombre"] for c in response.data["results"]}
+        self.assertEqual(nombres, {"Acme", "Ana"})
+
     def test_correo_invalido_es_rechazado(self):
         response = self.client.post(
             CLIENTES_URL, {"nombre": "Correo malo", "correo": "no-es-correo"}, format="json"

@@ -144,16 +144,10 @@ export default function AppSidebar() {
         ],
       });
 
-      const contactosSub: SidebarSubItem[] = [
-        { name: "Todos", path: "/clientes", pro: false },
-        { name: "Empresas", path: "/empresas", pro: false },
-        { name: "Personas", path: "/personas", pro: false },
-        { name: "Proveedores", path: "/proveedores", pro: false },
-      ];
       items.push({
         icon: <UserCircleIcon />,
-        name: "Contactos de Negocio",
-        subItems: contactosSub,
+        name: "Contactos de negocio",
+        path: "/clientes",
       });
 
       const productosServiciosSub: SidebarSubItem[] = [];
@@ -279,13 +273,8 @@ export default function AppSidebar() {
       if (permissions?.clientes?.view === true) {
         items.push({
           icon: <UserCircleIcon />,
-          name: "Contactos de Negocio",
-          subItems: [
-            { name: "Todos", path: "/clientes", pro: false },
-            { name: "Empresas", path: "/empresas", pro: false },
-            { name: "Personas", path: "/personas", pro: false },
-            { name: "Proveedores", path: "/proveedores", pro: false },
-          ],
+          name: "Contactos de negocio",
+          path: "/clientes",
         });
       }
 

@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useId } from "react";
 
 import { useAuth } from "@/context/AuthContext";
 import PageMeta from "@/components/common/PageMeta";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import ClientesListFiltersPopover from "./ClientesListFiltersPopover";
+import { activeTipoFilterCount, parseFilterTipos, tiposQueryValue } from "./clientesListFilters";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
@@ -299,35 +301,17 @@ function initialsFromName(name: string): string {
 
 const CLIENTES_MAP_CONTAINER_ID = "clientes-leaflet-map";
 
-type ClientesPageProps = {
-  fixedTipo?: ClienteTipo;
-};
-
-const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
+const ClientesPage = () => {
   const { permissions, isAdmin } = useAuth();
-  const viewPlural = fixedTipo === 'EMPRESA'
-    ? 'Empresas'
-    : fixedTipo === 'PROVEEDOR'
-      ? 'Proveedores'
-      : fixedTipo === 'PERSONA_FISICA'
-        ? 'Personas Físicas'
-        : 'Clientes';
-
-  const viewSingular = fixedTipo === 'EMPRESA'
-    ? 'Empresa'
-    : fixedTipo === 'PROVEEDOR'
-      ? 'Proveedor'
-      : fixedTipo === 'PERSONA_FISICA'
-        ? 'Persona Física'
-        : 'Cliente';
-
-  const nombreColHeader = fixedTipo === 'EMPRESA'
-    ? 'Empresa'
-    : fixedTipo === 'PROVEEDOR'
-      ? 'Proveedor'
-      : fixedTipo === 'PERSONA_FISICA'
-        ? 'Persona'
-        : 'Empresa';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchInputId = useId();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterTipos = parseFilterTipos(searchParams);
+  const viewPlural = "Contactos";
+  const viewSingular = "contacto";
+  const nombreColHeader = "Nombre";
+  const tipoFilterKey = tiposQueryValue(filterTipos) || "";
+  const tipoFilterCount = activeTipoFilterCount(filterTipos);
 
   const canClientesView = isAdmin || permissions?.clientes?.view === true;
   const canClientesCreate = isAdmin || permissions?.clientes?.create === true;
@@ -358,7 +342,29 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, tipoFilterKey]);
+
+  const applyFilterTipos = useCallback(
+    (next: ClienteTipo[] | ((prev: ClienteTipo[]) => ClienteTipo[])) => {
+      setSearchParams(
+        (params) => {
+          const current = parseFilterTipos(params);
+          const resolved = typeof next === "function" ? next(current) : next;
+          const updated = new URLSearchParams(params);
+          const q = tiposQueryValue(resolved);
+          if (q) updated.set("tipo", q);
+          else updated.delete("tipo");
+          return updated;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const clearFilters = useCallback(() => {
+    applyFilterTipos([]);
+  }, [applyFilterTipos]);
 
   // Alert state
   const [alert, setAlert] = useState<{
@@ -375,13 +381,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  const [formData, setFormData] = useState<Record<string, unknown>>(emptyFormData(fixedTipo));
-
-  useEffect(() => {
-    if (!fixedTipo) return;
-    setFormData((prev) => ({ ...prev, tipo: fixedTipo }));
-
-  }, [fixedTipo]);
+  const [formData, setFormData] = useState<Record<string, unknown>>(emptyFormData());
 
   const fetchClientes = useCallback(async (page = 1, search = "") => {
     if (!canClientesView) return;
@@ -392,7 +392,8 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
         page_size: "20",
         search: search.trim(),
       });
-      if (fixedTipo) params.set("tipo", fixedTipo);
+      const tipoQuery = tipoFilterKey || null;
+      if (tipoQuery) params.set("tipo", tipoQuery);
       const res = await fetchApi(`/api/clientes/?${params.toString()}`);
       const data = await res.json().catch(() => ({ results: [], count: 0 }));
       if (!res.ok) { setClientes([]); setTotalCount(0); return; }
@@ -405,21 +406,21 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
     } finally {
       setLoading(false);
     }
-  }, [canClientesView, fixedTipo]);
+  }, [canClientesView, tipoFilterKey]);
 
   useEffect(() => {
     if (!canClientesView) {
       setLoading(false);
       return;
     }
-    const key = `${currentPage}::${debouncedSearch.trim()}::${fixedTipo || ''}`;
+    const key = `${currentPage}::${debouncedSearch.trim()}::${tipoFilterKey}`;
     if (clientesFetchInFlightRef.current && lastClientesFetchKeyRef.current === key) return;
     lastClientesFetchKeyRef.current = key;
     clientesFetchInFlightRef.current = true;
     Promise.resolve(fetchClientes(currentPage, debouncedSearch)).finally(() => {
       clientesFetchInFlightRef.current = false;
     });
-  }, [canClientesView, currentPage, debouncedSearch, fixedTipo, fetchClientes]);
+  }, [canClientesView, currentPage, debouncedSearch, tipoFilterKey, fetchClientes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -457,7 +458,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
       const response = await fetchApi(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildClientePayload(formData, fixedTipo, isEditing)),
+        body: JSON.stringify(buildClientePayload(formData, undefined, isEditing)),
       });
 
       if (!response.ok) {
@@ -491,7 +492,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
 
       await fetchClientes();
       setShowModal(false);
-      setFormData(emptyFormData(fixedTipo));
+      setFormData(emptyFormData());
       setActiveTab("general");
       setEditingCliente(null);
 
@@ -557,7 +558,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
     setEditingCliente(cliente);
     setModalError("");
     setActiveTab("general");
-    setFormData(formDataFromCliente(cliente as Parameters<typeof formDataFromCliente>[0], fixedTipo));
+    setFormData(formDataFromCliente(cliente as Parameters<typeof formDataFromCliente>[0]));
     setShowModal(true);
   };
 
@@ -566,14 +567,14 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
     setEditingCliente(null);
     setModalError("");
     setActiveTab("general");
-    setFormData(emptyFormData(fixedTipo));
+    setFormData(emptyFormData());
   };
 
   const openCreate = () => {
     setEditingCliente(null);
     setModalError("");
     setActiveTab("general");
-    setFormData(emptyFormData(fixedTipo));
+    setFormData(emptyFormData());
     setShowModal(true);
   };
 
@@ -671,14 +672,20 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="relative min-w-0 flex-1">
+                  <label htmlFor={searchInputId} className="sr-only">
+                    Buscar contactos
+                  </label>
                   <svg {...iconSvgProps} className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#A1A1AA]">
                     <circle cx="11" cy="11" r="7" />
                     <path d="m20 20-3.5-3.5" />
                   </svg>
                   <input
+                    id={searchInputId}
+                    type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder={`Buscar ${viewPlural.toLowerCase()}…`}
+                    placeholder="Buscar contactos…"
+                    autoComplete="off"
                     className={searchInputClass}
                   />
                   {searchTerm && (
@@ -709,22 +716,32 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                   <svg {...iconSvgProps} className="size-4.5" strokeWidth={2}>
                     <path d="M12 5v14M5 12h14" />
                   </svg>
-                  Nuevo {viewSingular}
+                  Nuevo contacto
                 </button>
               </div>
 
               <section className={panelClass} aria-labelledby="clientes-list-heading">
                 <div className="border-b border-[#E7E7EA] px-5 py-4 dark:border-[#273244] sm:px-6">
-                  <div className="flex items-center gap-2.5">
-                    <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
-                      <svg {...iconSvgProps} className="size-4">
-                        <rect x="3" y="4" width="18" height="17" rx="2.2" />
-                        <path d="M3 9.5h18" />
-                      </svg>
-                    </span>
-                    <h2 id="clientes-list-heading" className={sectionLabelClass}>
-                      Listado de {viewPlural.toLowerCase()}
-                    </h2>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className="inline-flex size-7 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
+                        <svg {...iconSvgProps} className="size-4">
+                          <rect x="3" y="4" width="18" height="17" rx="2.2" />
+                          <path d="M3 9.5h18" />
+                        </svg>
+                      </span>
+                      <h2 id="clientes-list-heading" className={sectionLabelClass}>
+                        Listado de {viewPlural.toLowerCase()}
+                      </h2>
+                    </div>
+                    <ClientesListFiltersPopover
+                      open={filtersOpen}
+                      onOpenChange={setFiltersOpen}
+                      filterTipos={filterTipos}
+                      setFilterTipos={applyFilterTipos}
+                      activeFilterCount={tipoFilterCount}
+                      onClear={clearFilters}
+                    />
                   </div>
                 </div>
 
@@ -760,13 +777,11 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                                 <p className="truncate text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
                                   {cliente.nombre}
                                 </p>
-                                {!fixedTipo && (
-                                  <span
-                                    className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${tipoBadgeClass(cliente.tipo)}`}
-                                  >
-                                    {getTipoLabel(cliente.tipo)}
-                                  </span>
-                                )}
+                                <span
+                                  className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${tipoBadgeClass(cliente.tipo)}`}
+                                >
+                                  {getTipoLabel(cliente.tipo)}
+                                </span>
                               </div>
                               <RowActions
                                 name={cliente.nombre}
@@ -829,13 +844,11 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                                     <p className="truncate text-[13.5px] font-semibold text-[#09090B] dark:text-[#F8FAFC]" title={cliente.nombre}>
                                       {cliente.nombre}
                                     </p>
-                                    {!fixedTipo && (
-                                      <span
-                                        className={`mt-0.5 inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-semibold ${tipoBadgeClass(cliente.tipo)}`}
-                                      >
-                                        {getTipoLabel(cliente.tipo)}
-                                      </span>
-                                    )}
+                                    <span
+                                      className={`mt-0.5 inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-semibold ${tipoBadgeClass(cliente.tipo)}`}
+                                    >
+                                      {getTipoLabel(cliente.tipo)}
+                                    </span>
                                   </div>
                                 </div>
                               </TableCell>
@@ -1035,9 +1048,9 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                   </svg>
                 </span>
                 <div className="min-w-0">
-                  <p className={modalEyebrowClass}>Contactos · {viewPlural}</p>
+                  <p className={modalEyebrowClass}>Contactos de negocio</p>
                   <h3 className={`mt-1 ${modalTitleClass}`}>
-                    {editingCliente ? `Editar ${viewSingular}` : `Nuevo ${viewSingular}`}
+                    {editingCliente ? "Editar contacto" : "Nuevo contacto"}
                   </h3>
                   <p className={modalSubtitleClass}>Captura y revisa los datos antes de guardar.</p>
                 </div>
@@ -1059,7 +1072,6 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                   setFormData={setFormData}
                   activeTab={activeTab}
                   setActiveTab={setActiveTab}
-                  fixedTipo={fixedTipo}
                   editingCliente={editingCliente}
                   onOpenMap={() => setShowMapModal(true)}
                 />
@@ -1117,7 +1129,7 @@ const ClientesPage = ({ fixedTipo }: ClientesPageProps) => {
                 </span>
                 <div>
                   <h3 className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
-                    Eliminar {viewSingular}
+                    Eliminar contacto
                   </h3>
                   <p className="mt-1 text-[14px] leading-5 text-[#52525B] dark:text-[#B7C1D1]">Esta acción no se puede deshacer.</p>
                 </div>

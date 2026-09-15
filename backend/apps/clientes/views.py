@@ -27,6 +27,21 @@ from .serializers import (
 
 logger = logging.getLogger(__name__)
 
+ALLOWED_CLIENTE_TIPOS = frozenset(code for code, _label in Cliente.TIPO_CHOICES)
+
+
+def parse_tipo_query(query_params) -> list[str]:
+    """Acepta `?tipo=EMPRESA` o `?tipo=EMPRESA,PROVEEDOR` (y repeticiones)."""
+    tipos: list[str] = []
+    seen: set[str] = set()
+    for raw in query_params.getlist("tipo"):
+        for part in str(raw).split(","):
+            tipo = part.strip().upper()
+            if tipo in ALLOWED_CLIENTE_TIPOS and tipo not in seen:
+                seen.add(tipo)
+                tipos.append(tipo)
+    return tipos
+
 
 class ClientesModulePermission(ModulePermission):
     """Permisos estrictos del módulo clientes (contactos, documentos)."""
@@ -91,9 +106,9 @@ class ClienteViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        tipo = (self.request.query_params.get('tipo') or '').strip()
-        if tipo:
-            qs = qs.filter(tipo=tipo)
+        tipos = parse_tipo_query(self.request.query_params)
+        if tipos and len(tipos) < len(ALLOWED_CLIENTE_TIPOS):
+            qs = qs.filter(tipo__in=tipos) if len(tipos) > 1 else qs.filter(tipo=tipos[0])
         return qs
 
     def create(self, request, *args, **kwargs):
