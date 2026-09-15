@@ -54,7 +54,6 @@ export type OrdenClienteTabProps = {
   setFormData: React.Dispatch<React.SetStateAction<OrdenFormData>>;
   ro: (field: OrdenFieldKey) => boolean;
   inputLockedClass: (field: OrdenFieldKey) => string;
-  clienteSearch: string;
   setClienteSearch: (q: string) => void;
   clientes: Cliente[];
   selectCliente: (c: Cliente | null) => void;
@@ -102,7 +101,6 @@ export function OrdenClienteTab({
   setFormData,
   ro,
   inputLockedClass,
-  clienteSearch,
   setClienteSearch,
   clientes,
   selectCliente,
@@ -202,8 +200,10 @@ export function OrdenClienteTab({
   };
 
   const clienteActions = useMemo(
-    () => buildClienteSearchActions(clientes, clienteSearch, { includeNew: !clienteLocked }),
-    [clientes, clienteSearch, clienteLocked],
+    // Sin filtrar por tecla: SearchableSelect filtra en local (useDeferredValue).
+    // El padre solo refresca opciones cuando llega el catálogo remoto.
+    () => buildClienteSearchActions(clientes, "", { includeNew: !clienteLocked }),
+    [clientes, clienteLocked],
   );
 
   const clienteItems = useMemo((): OrdenComboItem[] => {
@@ -392,7 +392,8 @@ export function OrdenClienteTab({
               value={clienteSelectedKey || ""}
               onChange={(v) => onClienteComboSelect(v || null)}
               options={clienteSelectOptions}
-              filterLocally={false}
+              filterLocally
+              searchDebounceMs={280}
               onSearchChange={onClienteQueryChange}
               disabled={clienteLocked}
               allowClearOption={false}

@@ -12,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import Label from "@/components/form/Label";
 import { cn } from "@/lib/utils";
+import { shouldKeepComboboxFocusAfterCommit } from "./searchableSelectCommit";
 
 /** Acento eléctrico del ERP (alineado al resto del formulario de órdenes). */
 const selectInputClass =
@@ -50,6 +51,12 @@ type SearchableSelectProps = {
    * Si hay más coincidencias, se pide refinar la búsqueda.
    */
   maxVisibleItems?: number;
+  /**
+   * Debounce (ms) antes de avisar al padre con `onSearchChange`.
+   * El texto del input se actualiza al instante; el fetch remoto no.
+   * Default 0 (inmediato). Usar ~250–300 en combos con catálogo API.
+   */
+  searchDebounceMs?: number;
   /** Muestra la fila que limpia el valor. Default true. */
   allowClearOption?: boolean;
   clearOptionLabel?: string;
@@ -143,6 +150,7 @@ export default function SearchableSelect({
   emptyMessage = "Sin resultados. Prueba otro término.",
   loading = false,
   maxVisibleItems = DEFAULT_MAX_VISIBLE,
+  searchDebounceMs = 0,
   allowClearOption = true,
   clearOptionLabel = "Quitar selección",
   triggerAriaLabel,
@@ -163,6 +171,7 @@ export default function SearchableSelect({
   const inputRef = useRef<HTMLInputElement>(null);
   /** Dirección fijada al abrir: evita que el menú “salte” arriba/abajo al filtrar. */
   const placementRef = useRef<"up" | "down">("down");
+  const searchNotifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selected = options.find((o) => o.value === value);
   const selectedDisplay = selected
@@ -171,11 +180,37 @@ export default function SearchableSelect({
       : selected.label
     : "";
 
+  const notifySearchChange = (query: string, immediate = false) => {
+    if (!onSearchChange) return;
+    if (searchNotifyTimerRef.current) {
+      clearTimeout(searchNotifyTimerRef.current);
+      searchNotifyTimerRef.current = null;
+    }
+    if (immediate || searchDebounceMs <= 0) {
+      onSearchChange(query);
+      return;
+    }
+    searchNotifyTimerRef.current = setTimeout(() => {
+      searchNotifyTimerRef.current = null;
+      onSearchChange(query);
+    }, searchDebounceMs);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (searchNotifyTimerRef.current) {
+        clearTimeout(searchNotifyTimerRef.current);
+        searchNotifyTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const filtered = useMemo(() => {
     if (!filterLocally) return options;
     const q = deferredSearch.trim().toLowerCase();
     if (!q) return options;
-    return options.filter((o) => optionMatchesQuery(o, q));
+    // Acciones («Nuevo…») siempre visibles: el padre las usa como atajo.
+    return options.filter((o) => o.isAction || optionMatchesQuery(o, q));
   }, [deferredSearch, options, filterLocally]);
 
   const visible = useMemo(
@@ -195,7 +230,7 @@ export default function SearchableSelect({
     setOpen(true);
     // Lista completa al abrir; el valor actual queda como placeholder hasta que escriban.
     setSearch("");
-    onSearchChange?.("");
+    notifySearchChange("", true);
   };
 
   const updateMenuPosition = (lockPlacement = false) => {
@@ -290,8 +325,15 @@ export default function SearchableSelect({
   };
 
   const commitOption = (next: string) => {
+    const selectedOption = options.find((o) => o.value === next);
     onChange(next);
     closeMenu();
+    if (!shouldKeepComboboxFocusAfterCommit(selectedOption)) {
+      // Acciones como «Nuevo Cliente» abren otro modal: no re-enfocar o el
+      // listbox (portal z>modal) se reabre encima del diálogo.
+      inputRef.current?.blur();
+      return;
+    }
     inputRef.current?.focus();
   };
 
@@ -400,9 +442,9 @@ export default function SearchableSelect({
               <button
                 type="button"
                 onClick={() => commitOption("")}
-                className="mb-1 flex w-full min-h-11 items-center gap-2 rounded-lg px-2.5 text-left text-sm text-[#6E6E77] hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/40 dark:text-[#8EA0B8] dark:hover:bg-white/[0.06]"
+                className="mb-1 flex w-full min-h-11 items-center gap-2 rounded-lg px-2.5 text-left text-sm text-[#6E6E77] hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/40 dark:text-[#8EA0B8] dark:hover:bg-white/6"
               >
-                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F4F4F5] dark:bg-white/[0.06]">
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F4F4F5] dark:bg-white/6">
                   <ClearIcon className="h-3.5 w-3.5" />
                 </span>
                 <span>{clearOptionLabel}</span>
@@ -434,8 +476,8 @@ export default function SearchableSelect({
                     className={cn(
                       "flex w-full min-h-11 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/40",
                       isSelected && "bg-[rgba(27,92,255,0.10)] dark:bg-[rgba(75,124,255,0.16)]",
-                      isActive && !isSelected && "bg-[#F1F5FF] dark:bg-white/[0.08]",
-                      !isSelected && !isActive && "hover:bg-[#F8FAFC] dark:hover:bg-white/[0.04]",
+                      isActive && !isSelected && "bg-[#F1F5FF] dark:bg-white/8",
+                      !isSelected && !isActive && "hover:bg-[#F8FAFC] dark:hover:bg-white/4",
                     )}
                   >
                     <span
@@ -538,7 +580,7 @@ export default function SearchableSelect({
             setSearch(next);
             setOpen(true);
             setActiveIndex(0);
-            onSearchChange?.(next);
+            notifySearchChange(next);
           }}
           onFocus={() => {
             if (disabled) return;
@@ -576,9 +618,9 @@ export default function SearchableSelect({
                 e.preventDefault();
                 e.stopPropagation();
                 commitOption("");
-                onSearchChange?.("");
+                notifySearchChange("", true);
               }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#A1A1AA] hover:bg-[#F4F4F5] hover:text-[#52525B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-white/[0.06] dark:hover:text-[#E2E8F0]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#A1A1AA] hover:bg-[#F4F4F5] hover:text-[#52525B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-white/6 dark:hover:text-[#E2E8F0]"
             >
               <ClearIcon className="h-3.5 w-3.5" />
             </button>
@@ -603,7 +645,7 @@ export default function SearchableSelect({
               openMenu();
               inputRef.current?.focus();
             }}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#6E6E77] hover:bg-[#F4F4F5] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-50 dark:text-[#8EA0B8] dark:hover:bg-white/[0.06] dark:hover:text-[#F8FAFC]"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#6E6E77] hover:bg-[#F4F4F5] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-50 dark:text-[#8EA0B8] dark:hover:bg-white/6 dark:hover:text-[#F8FAFC]"
           >
             <ChevronIcon open={open} className="h-4 w-4" />
           </button>

@@ -22,7 +22,7 @@ const erpCardShellMutedClass =
 import { displayProyectoFolio } from "./shared/proyectoFormUtils";
 
 const viewerFrameClass =
-  "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
+  "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-140 lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
 
 const iconClass = "h-4 w-4 shrink-0";
 
@@ -59,7 +59,7 @@ const retryIcon = (
 );
 
 const fileIcon = (
-  <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+  <svg className="h-4.5 w-4.5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
     <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
@@ -278,7 +278,7 @@ export default function ProyectoPdfPage() {
         >
           <Link
             to="/"
-            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/3 hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Inicio
           </Link>
@@ -287,7 +287,7 @@ export default function ProyectoPdfPage() {
           </span>
           <Link
             to="/proyectos"
-            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/3 hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Proyectos
           </Link>
@@ -307,7 +307,7 @@ export default function ProyectoPdfPage() {
           className={`relative flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}
         >
           <div className="pointer-events-none absolute inset-y-0 right-0 w-2/5 bg-[radial-gradient(circle_at_80%_20%,rgba(27,92,255,0.14),transparent_58%)]" />
-          <div className="relative z-[1] flex min-w-0 items-center gap-3 sm:gap-4">
+          <div className="relative z-1 flex min-w-0 items-center gap-3 sm:gap-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] text-white shadow-[0_10px_24px_-12px_rgba(27,92,255,0.9)] sm:h-11 sm:w-11">
               {fileIcon}
             </div>
@@ -331,10 +331,10 @@ export default function ProyectoPdfPage() {
                   ? `Documento operativo de ${clienteNombre}: bitácora por jornada, equipo de campo, firmas y evidencias.`
                   : "Revise el documento en el panel; el lateral abre otra pestaña o descarga el archivo."}
               </p>
-              <div className="mt-3 h-px w-full max-w-xl bg-gradient-to-r from-[#1B5CFF]/35 via-[#4B7CFF]/30 to-transparent dark:from-[#4B7CFF]/35 dark:via-[#64748b]/25 dark:to-transparent" />
+              <div className="mt-3 h-px w-full max-w-xl bg-linear-to-r from-[#1B5CFF]/35 via-[#4B7CFF]/30 to-transparent dark:from-[#4B7CFF]/35 dark:via-[#64748b]/25 dark:to-transparent" />
             </div>
           </div>
-          <div className="relative z-[1] flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
+          <div className="relative z-1 flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
             <button
               type="button"
               onClick={() => navigate(returnPath)}
@@ -375,7 +375,7 @@ export default function ProyectoPdfPage() {
               <div className="flex min-h-0 flex-1 flex-col bg-[#FAFAFA] p-2 dark:bg-[#0f172a] sm:p-3">
                 {loading ? (
                   <div
-                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
+                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-140 lg:min-h-[calc(100vh-13.5rem)]"
                     role="status"
                     aria-busy="true"
                     aria-live="polite"
@@ -481,7 +481,7 @@ export default function ProyectoPdfPage() {
                   <button
                     type="button"
                     disabled={!pdfDownloadUrl}
-                    className={`${erpPrimaryBtnClass} !min-h-[48px] sm:!min-h-0`}
+                    className={`${erpPrimaryBtnClass} min-h-12! sm:min-h-0!`}
                     onClick={() => {
                       if (!pdfDownloadUrl) return;
                       const a = document.createElement("a");

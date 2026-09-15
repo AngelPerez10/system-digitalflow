@@ -19,8 +19,11 @@ function clientePhoneLabel(c: Cliente) {
 }
 
 /**
- * Opciones para ActionSearchBar (órdenes, levantamientos, etc.).
+ * Opciones para ActionSearchBar / SearchableSelect (órdenes, levantamientos, …).
  * Sin contactos anidados usa representante / celular del cliente simplificado.
+ *
+ * `searchQuery` vacío: el caller filtra en el combobox (más fluido al teclear).
+ * Con query: filtra aquí (listas que no usan filtro local del select).
  */
 export function buildClienteSearchActions(
   clientes: Cliente[],
@@ -41,11 +44,7 @@ export function buildClienteSearchActions(
           {
             id: String(c.id),
             label,
-            icon: (
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-sky-100 text-[11px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
-                {(labelBase || "?").slice(0, 1).toUpperCase()}
-              </span>
-            ),
+            icon: null,
             description: clientePhoneLabel(c),
             short: "",
             end: "",
@@ -55,32 +54,43 @@ export function buildClienteSearchActions(
         ];
       }
 
-      return contactos.map((ct, idx) => {
-        const labelBase = (c.nombre || "-").toString();
-        const contactoNombre = String(ct?.nombre_apellido || "").trim();
-        const contactoTel = String(ct?.celular || "").trim();
-        // Evitar "PEPE - PEPE" cuando el contacto es el mismo nombre del cliente.
-        const sameName =
-          contactoNombre &&
-          contactoNombre.localeCompare(labelBase, "es", { sensitivity: "accent" }) === 0;
-        const label =
-          contactoNombre && !sameName ? `${labelBase} — ${contactoNombre}` : labelBase;
+      // Dedupe contactos duplicados dentro del mismo cliente (mismo nombre + celular
+      // capturados más de una vez): sin esto, un cliente con contactos repetidos
+      // muestra la misma fila varias veces en el buscador.
+      const seenContactoKeys = new Set<string>();
 
-        return {
-          id: `${String(c.id)}::${String(ct?.id ?? idx)}`,
-          label,
-          icon: (
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-sky-100 text-[11px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
-              {(labelBase || "?").slice(0, 1).toUpperCase()}
-            </span>
-          ),
-          description: contactoTel || clientePhoneLabel(c),
-          short: "",
-          end: "",
-          __cliente: c,
-          __contacto: ct as Record<string, unknown>,
-        };
-      });
+      return contactos
+        .filter((ct) => {
+          const nombre = String(ct?.nombre_apellido || "").trim().toLowerCase();
+          const tel = String(ct?.celular || "").replace(/\D/g, "");
+          if (!nombre && !tel) return true;
+          const key = `${nombre}::${tel}`;
+          if (seenContactoKeys.has(key)) return false;
+          seenContactoKeys.add(key);
+          return true;
+        })
+        .map((ct, idx) => {
+          const labelBase = (c.nombre || "-").toString();
+          const contactoNombre = String(ct?.nombre_apellido || "").trim();
+          const contactoTel = String(ct?.celular || "").trim();
+          // Evitar "PEPE - PEPE" cuando el contacto es el mismo nombre del cliente.
+          const sameName =
+            contactoNombre &&
+            contactoNombre.localeCompare(labelBase, "es", { sensitivity: "accent" }) === 0;
+          const label =
+            contactoNombre && !sameName ? `${labelBase} — ${contactoNombre}` : labelBase;
+
+          return {
+            id: `${String(c.id)}::${String(ct?.id ?? idx)}`,
+            label,
+            icon: null,
+            description: contactoTel || clientePhoneLabel(c),
+            short: "",
+            end: "",
+            __cliente: c,
+            __contacto: ct as Record<string, unknown>,
+          };
+        });
     }).filter((a: ClienteSearchAction) => {
       if (!q) return true;
       const label = String(a.label || "").toLowerCase();
@@ -92,15 +102,9 @@ export function buildClienteSearchActions(
 
   const newAction: ClienteSearchAction = {
     id: "__new__",
-    label: "Nuevo Cliente",
-    icon: (
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#fff3e8] text-[#ea580c] dark:bg-[#ff801f]/20 dark:text-[#fb923c]">
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-        </svg>
-      </span>
-    ),
-    description: "Crear cliente",
+    label: "Nuevo contacto",
+    icon: null,
+    description: "Crear contacto",
     short: "",
     end: "",
   };

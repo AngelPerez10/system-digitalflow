@@ -1,18 +1,19 @@
-import type { Dispatch, SetStateAction, ReactNode } from "react";
+import type { Dispatch, SetStateAction, ReactNode, InputHTMLAttributes } from "react";
 import { useId } from "react";
 import Label from "@/components/form/Label";
-import Input from "@/components/form/input/InputField";
 import SearchableSelect from "@/components/form/SearchableSelect";
-import { estadosPorPais, paisOptions } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
+import { estadosPorPais, paisOptions, phoneCountryOptions } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
 import type { Cliente } from "@/types/cliente";
+import { ClienteContactosManager } from "./ClienteContactosManager";
 import { ClienteDireccionesManager } from "./ClienteDireccionesManager";
 import {
   type ClienteFormTab,
   ClienteTipo,
   TIPO_OPTIONS,
-  getNoClienteLabelByTipo,
   isGoogleMapsLink,
+  modalInputClass,
   modalPanelClass,
+  modalPhoneShellClass,
   modalSectionTitleClass,
   modalTabBaseClass,
   modalTextareaClass,
@@ -42,10 +43,42 @@ type Props = {
   };
 };
 
-const TABS: { id: ClienteFormTab; label: string }[] = [
-  { id: "general", label: "Datos Básicos" },
-  { id: "contacto", label: "Contacto" },
-  { id: "more", label: "Datos Facturación" },
+function ModalInput({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={`${modalInputClass}${className ? ` ${className}` : ""}`} />;
+}
+
+const TABS: { id: ClienteFormTab; label: string; icon: ReactNode }[] = [
+  {
+    id: "general",
+    label: "Datos Básicos",
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="5" width="18" height="14" rx="2.2" />
+        <circle cx="9" cy="11" r="2" />
+        <path d="M9 15.5c-1.9 0-3.4.9-3.4 2M14 10h5M14 13.5h5" />
+      </svg>
+    ),
+  },
+  {
+    id: "contacto",
+    label: "Contacto",
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M6.5 4.5h3l1.3 4-2 1.5a11 11 0 0 0 5.2 5.2l1.5-2 4 1.3v3a2 2 0 0 1-2.2 2 17.5 17.5 0 0 1-15.3-15.3 2 2 0 0 1 2-2.2Z" />
+      </svg>
+    ),
+  },
+  {
+    id: "more",
+    label: "Datos Facturación",
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 19.5V4a2 2 0 0 1 2-2h10l4 4v13.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+        <path d="M14 2v4h4" />
+        <path d="M8 10h8M8 14h5" />
+      </svg>
+    ),
+  },
 ];
 
 const iconSvgProps = {
@@ -83,14 +116,14 @@ function FieldGroup({
 }) {
   return (
     <div className={`${modalPanelClass} space-y-4`}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5">
-          <span className={`inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] ${sectionIconTone[tone]}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[#E7E7EA]/70 pb-4 dark:border-[#273244]/70">
+        <div className="flex items-center gap-3">
+          <span className={`inline-flex size-8 shrink-0 items-center justify-center rounded-[10px] ${sectionIconTone[tone]}`}>
             {icon}
           </span>
           <div className="min-w-0">
             <p className={modalSectionTitleClass}>{title}</p>
-            {hint ? <p className="mt-0.5 text-[12px] leading-relaxed text-[#6E6E77] dark:text-[#8EA0B8]">{hint}</p> : null}
+            {hint ? <p className="mt-1 text-[12px] leading-relaxed text-[#6E6E77] dark:text-[#8EA0B8]">{hint}</p> : null}
           </div>
         </div>
         {extra}
@@ -113,17 +146,16 @@ export function ClienteSimplifiedFormFields({
   representanteSelect,
 }: Props) {
   const tabsId = useId();
-  const noClienteLabel = getNoClienteLabelByTipo(fixedTipo || (formData.tipo as ClienteTipo));
   const estadosOptions =
     estadosPorPais[String(formData.pais || "México")] || estadosPorPais["México"] || [];
 
   return (
-    <>
+    <div className={hideTabs ? "" : "md:flex md:items-start md:gap-5"}>
       {!hideTabs ? (
         <div
           role="tablist"
           aria-label="Secciones del formulario de cliente"
-          className="inline-flex flex-wrap items-center gap-1 rounded-[12px] border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#273244] dark:bg-[#1B2539]"
+          className="mb-4 flex gap-1 overflow-x-auto rounded-[14px] border border-[#E7E7EA] bg-white p-1.5 dark:border-[#273244] dark:bg-[#111827] md:sticky md:top-0 md:mb-0 md:w-52 md:shrink-0 md:flex-col md:gap-0.5 md:overflow-visible"
         >
           {TABS.map((tab) => {
             const selected = activeTab === tab.id;
@@ -137,25 +169,27 @@ export function ClienteSimplifiedFormFields({
                 aria-controls={`${tabsId}-panel-${tab.id}`}
                 tabIndex={selected ? 0 : -1}
                 onClick={() => setActiveTab(tab.id)}
-                className={`${modalTabBaseClass} border ${
+                className={`${modalTabBaseClass} flex shrink-0 items-center justify-start gap-2.5 border-l-[3px] md:w-full ${
                   selected
-                    ? "border-[#1B5CFF] bg-[#1B5CFF] text-white dark:border-[#4B7CFF] dark:bg-[#4B7CFF]"
-                    : "border-transparent bg-transparent text-[#52525B] hover:bg-white dark:text-[#B7C1D1] dark:hover:bg-white/[0.06]"
+                    ? "border-l-[#1B5CFF] bg-[rgba(27,92,255,0.06)] text-[#17235B] dark:border-l-[#4B7CFF] dark:bg-[rgba(75,124,255,0.10)] dark:text-[#F8FAFC]"
+                    : "border-l-transparent bg-transparent text-[#6E6E77] hover:bg-[#FAFAFA] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/[0.04] dark:hover:text-[#F8FAFC]"
                 }`}
               >
-                {tab.label}
+                <span className={selected ? "text-[#1B5CFF] dark:text-[#4B7CFF]" : "text-[#9A9AA2] dark:text-[#6E7A91]"}>{tab.icon}</span>
+                <span className="truncate">{tab.label}</span>
               </button>
             );
           })}
         </div>
       ) : null}
 
+      <div className={hideTabs ? "" : "min-w-0 flex-1"}>
       {activeTab === "general" && (
         <div
           role="tabpanel"
           id={`${tabsId}-panel-general`}
           aria-labelledby={`${tabsId}-general`}
-          className="space-y-4"
+          className="space-y-5"
         >
           {/* Identificación: cómo se registra este contacto en el sistema. */}
           <FieldGroup
@@ -170,46 +204,34 @@ export function ClienteSimplifiedFormFields({
                 </svg>
               }
             >
-              {!hideContactMeta && !fixedTipo && (
-                <div className="grid grid-cols-1 gap-3 md:max-w-md">
-                  <div>
-                    <Label>Tipo de contacto</Label>
-                    <select
-                      value={String(formData.tipo || "EMPRESA")}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          tipo: e.target.value as ClienteTipo,
-                        })
-                      }
-                      className={selectLikeClassName}
-                    >
-                      {TIPO_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
               {!hideContactMeta ? (
-                <div className={`grid grid-cols-1 gap-3 ${editingCliente ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"}`}>
-                  {editingCliente ? (
+                <div
+                  className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${fixedTipo ? "" : "lg:grid-cols-3"}`}
+                >
+                  {!fixedTipo ? (
                     <div>
-                      <Label>{noClienteLabel}</Label>
-                      <Input
-                        value={String(formData.no_cliente || editingCliente.idx || "")}
-                        disabled
-                        className="opacity-70"
-                      />
-                      <p className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">Número interno del sistema.</p>
+                      <Label>Tipo de contacto</Label>
+                      <select
+                        value={String(formData.tipo || "EMPRESA")}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            tipo: e.target.value as ClienteTipo,
+                          })
+                        }
+                        className={selectLikeClassName}
+                      >
+                        {TIPO_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   ) : null}
                   <div>
                     <Label>Clave</Label>
-                    <Input
+                    <ModalInput
                       value={String(formData.clave || "")}
                       onChange={(e) => setFormData({ ...formData, clave: e.target.value })}
                     />
@@ -243,7 +265,7 @@ export function ClienteSimplifiedFormFields({
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
                     <Label>No. de Cliente</Label>
-                    <Input
+                    <ModalInput
                       value={String(formData.no_cliente || "")}
                       disabled
                       className="opacity-70"
@@ -252,7 +274,7 @@ export function ClienteSimplifiedFormFields({
                   </div>
                   <div>
                     <Label>Clave</Label>
-                    <Input
+                    <ModalInput
                       value={String(formData.clave || "")}
                       disabled
                       className="opacity-70"
@@ -289,18 +311,18 @@ export function ClienteSimplifiedFormFields({
                 ) : (
                   <>
                     <Label>Representante</Label>
-                    <Input
+                    <ModalInput
                       value={String(formData.representante || "")}
-                      onChange={(e) => setFormData({ ...formData, representante: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, representante: e.target.value.toUpperCase() })}
                     />
                   </>
                 )}
               </div>
               <div>
                 <Label>Nombre</Label>
-                <Input
+                <ModalInput
                   value={String(formData.nombre || "")}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value.toUpperCase() })}
                 />
               </div>
             </div>
@@ -308,11 +330,11 @@ export function ClienteSimplifiedFormFields({
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <Label>RFC</Label>
-                <Input value={String(formData.rfc || "")} onChange={(e) => setFormData({ ...formData, rfc: e.target.value })} />
+                <ModalInput value={String(formData.rfc || "")} onChange={(e) => setFormData({ ...formData, rfc: e.target.value })} />
               </div>
               <div>
                 <Label>CURP</Label>
-                <Input value={String(formData.curp || "")} onChange={(e) => setFormData({ ...formData, curp: e.target.value })} />
+                <ModalInput value={String(formData.curp || "")} onChange={(e) => setFormData({ ...formData, curp: e.target.value })} />
               </div>
             </div>
           </FieldGroup>
@@ -330,16 +352,52 @@ export function ClienteSimplifiedFormFields({
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <Label>Teléfono</Label>
-                <Input
-                  value={String(formData.telefono || "")}
-                  onChange={(e) =>
-                    setFormData({ ...formData, telefono: (e.target.value || "").replace(/\D/g, "") })
-                  }
-                />
+                <div className={modalPhoneShellClass}>
+                  <div className="relative shrink-0 border-r border-[#E7E7EA] dark:border-[#273244]">
+                    <select
+                      aria-label="País del teléfono"
+                      value={String(formData.telefono_pais || "MX")}
+                      onChange={(e) => setFormData({ ...formData, telefono_pais: e.target.value })}
+                      className="h-full appearance-none bg-transparent py-2.5 pl-3 pr-8 text-[14px] font-medium text-[#09090B] outline-none dark:text-[#F8FAFC]"
+                    >
+                      {phoneCountryOptions.map((c) => (
+                        <option key={c.code} value={c.code} className="bg-white text-[#09090B] dark:bg-[#111827] dark:text-[#F8FAFC]">
+                          {c.shortLabel} {c.dial}
+                        </option>
+                      ))}
+                    </select>
+                    <svg
+                      className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[#A1A1AA] dark:text-[#8EA0B8]"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="m5 7.5 5 5 5-5" />
+                    </svg>
+                  </div>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    value={String(formData.telefono || "")}
+                    onChange={(e) =>
+                      setFormData({ ...formData, telefono: (e.target.value || "").replace(/\D/g, "").slice(0, 10) })
+                    }
+                    placeholder="10 dígitos"
+                    className="w-full min-w-0 flex-1 bg-transparent px-3 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none placeholder:text-[#A1A1AA] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8]"
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  Selecciona el país para anteponer el código correcto ({phoneCountryOptions.map((c) => c.dial).filter((v, i, a) => a.indexOf(v) === i).join(" / ")}).
+                </p>
               </div>
               <div>
                 <Label>Celular</Label>
-                <Input
+                <ModalInput
                   value={String(formData.celular || "")}
                   onChange={(e) =>
                     setFormData({ ...formData, celular: (e.target.value || "").replace(/\D/g, "") })
@@ -350,7 +408,7 @@ export function ClienteSimplifiedFormFields({
 
             <div>
               <Label>Correo</Label>
-              <Input
+              <ModalInput
                 type="email"
                 value={String(formData.correo || "")}
                 onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
@@ -384,7 +442,7 @@ export function ClienteSimplifiedFormFields({
               </div>
               <div>
                 <Label>Límite Crédito</Label>
-                <Input
+                <ModalInput
                   type="number"
                   value={String(formData.limite_credito ?? "")}
                   onChange={(e) => setFormData({ ...formData, limite_credito: e.target.value })}
@@ -392,7 +450,7 @@ export function ClienteSimplifiedFormFields({
               </div>
               <div>
                 <Label>Días crédito</Label>
-                <Input
+                <ModalInput
                   type="number"
                   value={String(formData.dias_credito ?? "")}
                   onChange={(e) => setFormData({ ...formData, dias_credito: e.target.value })}
@@ -418,12 +476,16 @@ export function ClienteSimplifiedFormFields({
           role="tabpanel"
           id={`${tabsId}-panel-contacto`}
           aria-labelledby={`${tabsId}-contacto`}
-          className="space-y-4"
+          className="space-y-5"
         >
           <FieldGroup
             tone="dorado"
             title="Contacto de negocio"
-            hint="Persona de contacto que se guardará con este cliente (cotizaciones, órdenes y listados)."
+            hint={
+              editingCliente?.id
+                ? "Este cliente puede tener varios contactos — marca uno como principal."
+                : "Persona de contacto que se guardará con este cliente (cotizaciones, órdenes y listados)."
+            }
             icon={
               <svg {...iconSvgProps} className="size-4">
                 <path d="M20 21v-1.6a4.4 4.4 0 0 0-4.4-4.4H8.4A4.4 4.4 0 0 0 4 19.4V21" />
@@ -431,7 +493,7 @@ export function ClienteSimplifiedFormFields({
               </svg>
             }
             extra={
-              formData.contacto_id ? (
+              editingCliente?.id ? null : formData.contacto_id ? (
                 <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-[rgba(4,114,77,0.10)] px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#04724D] dark:bg-[rgba(74,222,128,0.14)] dark:text-[#4ADE80]">
                   Principal
                 </span>
@@ -442,76 +504,82 @@ export function ClienteSimplifiedFormFields({
               )
             }
           >
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <Label htmlFor={`${tabsId}-contacto-nombre`}>Nombre completo</Label>
-                <Input
-                  id={`${tabsId}-contacto-nombre`}
-                  value={String(formData.contacto_nombre || "")}
-                  onChange={(e) => setFormData({ ...formData, contacto_nombre: e.target.value })}
-                  placeholder="Nombre y apellido"
-                />
-              </div>
-              <div>
-                <Label htmlFor={`${tabsId}-contacto-puesto`}>Puesto</Label>
-                <Input
-                  id={`${tabsId}-contacto-puesto`}
-                  value={String(formData.contacto_puesto || "")}
-                  onChange={(e) => setFormData({ ...formData, contacto_puesto: e.target.value })}
-                  placeholder="Ej. Gerente de compras"
-                />
-              </div>
-              <div>
-                <Label htmlFor={`${tabsId}-contacto-telefono`}>Teléfono</Label>
-                <Input
-                  id={`${tabsId}-contacto-telefono`}
-                  type="tel"
-                  value={String(formData.contacto_telefono || "")}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      contacto_telefono: (e.target.value || "").replace(/\D/g, ""),
-                    })
-                  }
-                  placeholder="10 dígitos"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label htmlFor={`${tabsId}-contacto-correo`}>Correo</Label>
-                <Input
-                  id={`${tabsId}-contacto-correo`}
-                  type="email"
-                  value={String(formData.contacto_correo || "")}
-                  onChange={(e) => setFormData({ ...formData, contacto_correo: e.target.value })}
-                  placeholder="correo@empresa.com"
-                />
-              </div>
-            </div>
+            {editingCliente?.id ? (
+              <ClienteContactosManager clienteId={editingCliente.id} />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <Label htmlFor={`${tabsId}-contacto-nombre`}>Nombre completo</Label>
+                    <ModalInput
+                      id={`${tabsId}-contacto-nombre`}
+                      value={String(formData.contacto_nombre || "")}
+                      onChange={(e) => setFormData({ ...formData, contacto_nombre: e.target.value.toUpperCase() })}
+                      placeholder="Nombre y apellido"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`${tabsId}-contacto-puesto`}>Puesto</Label>
+                    <ModalInput
+                      id={`${tabsId}-contacto-puesto`}
+                      value={String(formData.contacto_puesto || "")}
+                      onChange={(e) => setFormData({ ...formData, contacto_puesto: e.target.value })}
+                      placeholder="Ej. Gerente de compras"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`${tabsId}-contacto-telefono`}>Teléfono</Label>
+                    <ModalInput
+                      id={`${tabsId}-contacto-telefono`}
+                      type="tel"
+                      value={String(formData.contacto_telefono || "")}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contacto_telefono: (e.target.value || "").replace(/\D/g, ""),
+                        })
+                      }
+                      placeholder="10 dígitos"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor={`${tabsId}-contacto-correo`}>Correo</Label>
+                    <ModalInput
+                      id={`${tabsId}-contacto-correo`}
+                      type="email"
+                      value={String(formData.contacto_correo || "")}
+                      onChange={(e) => setFormData({ ...formData, contacto_correo: e.target.value })}
+                      placeholder="correo@empresa.com"
+                    />
+                  </div>
+                </div>
 
-            <div className="rounded-[12px] border border-dashed border-[#D3D3D8] bg-white px-3 py-2.5 dark:border-[#3A4661] dark:bg-[#111827]">
-              <p className="text-[11px] leading-relaxed text-[#6E6E77] dark:text-[#8EA0B8]">
-                Si dejas el nombre vacío, no se crea ni actualiza un contacto. Con nombre, se guarda como contacto principal del cliente.
-              </p>
-              <button
-                type="button"
-                className="mt-2 text-[11px] font-semibold text-[#1B5CFF] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:text-[#4B7CFF]"
-                onClick={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    contacto_nombre:
-                      String(prev.contacto_nombre || "").trim() ||
-                      String(prev.representante || prev.nombre || "").trim(),
-                    contacto_telefono:
-                      String(prev.contacto_telefono || "").trim() ||
-                      String(prev.celular || prev.telefono || "").replace(/\D/g, ""),
-                    contacto_correo:
-                      String(prev.contacto_correo || "").trim() || String(prev.correo || "").trim(),
-                  }))
-                }
-              >
-                Rellenar desde datos básicos
-              </button>
-            </div>
+                <div className="rounded-[12px] border border-dashed border-[#D3D3D8] bg-white px-3 py-2.5 dark:border-[#3A4661] dark:bg-[#111827]">
+                  <p className="text-[11px] leading-relaxed text-[#6E6E77] dark:text-[#8EA0B8]">
+                    Si dejas el nombre vacío, no se crea ni actualiza un contacto. Con nombre, se guarda como contacto principal del cliente. Podrás agregar más contactos una vez guardado.
+                  </p>
+                  <button
+                    type="button"
+                    className="mt-2 text-[11px] font-semibold text-[#1B5CFF] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:text-[#4B7CFF]"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        contacto_nombre:
+                          String(prev.contacto_nombre || "").trim() ||
+                          String(prev.representante || prev.nombre || "").trim(),
+                        contacto_telefono:
+                          String(prev.contacto_telefono || "").trim() ||
+                          String(prev.celular || prev.telefono || "").replace(/\D/g, ""),
+                        contacto_correo:
+                          String(prev.contacto_correo || "").trim() || String(prev.correo || "").trim(),
+                      }))
+                    }
+                  >
+                    Rellenar desde datos básicos
+                  </button>
+                </div>
+              </>
+            )}
           </FieldGroup>
         </div>
       )}
@@ -521,7 +589,7 @@ export function ClienteSimplifiedFormFields({
           role="tabpanel"
           id={`${tabsId}-panel-more`}
           aria-labelledby={`${tabsId}-more`}
-          className="space-y-4"
+          className="space-y-5"
         >
           {/* Información fiscal: identificadores para facturación CFDI.
               RFC y CURP viven una sola vez, en "Datos generales" — aquí solo
@@ -541,25 +609,25 @@ export function ClienteSimplifiedFormFields({
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <Label>idCIF</Label>
-                <Input value={String(formData.idcif || "")} onChange={(e) => setFormData({ ...formData, idcif: e.target.value })} />
+                <ModalInput value={String(formData.idcif || "")} onChange={(e) => setFormData({ ...formData, idcif: e.target.value })} />
               </div>
               <div>
                 <Label>Razón Social</Label>
-                <Input
+                <ModalInput
                   value={String(formData.razon_social || "")}
                   onChange={(e) => setFormData({ ...formData, razon_social: e.target.value })}
                 />
               </div>
               <div>
                 <Label>Régimen Fiscal</Label>
-                <Input
+                <ModalInput
                   value={String(formData.regimen_fiscal || "")}
                   onChange={(e) => setFormData({ ...formData, regimen_fiscal: e.target.value })}
                 />
               </div>
               <div>
                 <Label>Uso CFDI</Label>
-                <Input
+                <ModalInput
                   value={String(formData.uso_cfdi || "")}
                   onChange={(e) => setFormData({ ...formData, uso_cfdi: e.target.value })}
                 />
@@ -652,42 +720,42 @@ export function ClienteSimplifiedFormFields({
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
                     <Label>No. Ext</Label>
-                    <Input
+                    <ModalInput
                       value={String(formData.numero_exterior || "")}
                       onChange={(e) => setFormData({ ...formData, numero_exterior: e.target.value })}
                     />
                   </div>
                   <div>
                     <Label>No. Int</Label>
-                    <Input
+                    <ModalInput
                       value={String(formData.interior || "")}
                       onChange={(e) => setFormData({ ...formData, interior: e.target.value })}
                     />
                   </div>
                   <div>
                     <Label>Código Postal</Label>
-                    <Input
+                    <ModalInput
                       value={String(formData.codigo_postal || "")}
                       onChange={(e) => setFormData({ ...formData, codigo_postal: e.target.value })}
                     />
                   </div>
                   <div>
                     <Label>Colonia</Label>
-                    <Input
+                    <ModalInput
                       value={String(formData.colonia || "")}
                       onChange={(e) => setFormData({ ...formData, colonia: e.target.value })}
                     />
                   </div>
                   <div>
                     <Label>Ciudad</Label>
-                    <Input
+                    <ModalInput
                       value={String(formData.ciudad || "")}
                       onChange={(e) => setFormData({ ...formData, ciudad: e.target.value })}
                     />
                   </div>
                   <div>
                     <Label>Localidad</Label>
-                    <Input
+                    <ModalInput
                       value={String(formData.localidad || "")}
                       onChange={(e) => setFormData({ ...formData, localidad: e.target.value })}
                     />
@@ -734,6 +802,7 @@ export function ClienteSimplifiedFormFields({
           </FieldGroup>
         </div>
       )}
-    </>
+      </div>
+    </div>
   );
 }

@@ -383,6 +383,51 @@ const ClientesPage = () => {
 
   const [formData, setFormData] = useState<Record<string, unknown>>(emptyFormData());
 
+  // Aviso de posibles duplicados: solo al crear (no al editar), buscando por
+  // nombre normalizado o teléfono exacto antes de que el usuario guarde.
+  const [duplicateMatches, setDuplicateMatches] = useState<Cliente[]>([]);
+  const duplicateCheckSeqRef = useRef(0);
+
+  useEffect(() => {
+    if (!showModal || editingCliente) {
+      setDuplicateMatches([]);
+      return;
+    }
+    const nombre = trimOrEmpty(formData.nombre);
+    const telefonoDigits = String(formData.telefono || "").replace(/\D/g, "");
+    const normalizedNombre = nombre.toLowerCase().replace(/\s+/g, " ").trim();
+    if (normalizedNombre.length < 3 && telefonoDigits.length !== 10) {
+      setDuplicateMatches([]);
+      return;
+    }
+    const seq = ++duplicateCheckSeqRef.current;
+    const timer = setTimeout(async () => {
+      try {
+        const query = normalizedNombre.length >= 3 ? nombre : telefonoDigits;
+        const res = await fetchApi(`/api/clientes/?search=${encodeURIComponent(query)}&page_size=5`);
+        const data = await res.json().catch(() => ({ results: [] }));
+        if (seq !== duplicateCheckSeqRef.current || !res.ok) return;
+        const rows: Cliente[] = Array.isArray(data) ? data : (data.results || []);
+        const matches = rows.filter((c) => {
+          const cNombre = String(c.nombre || "").toLowerCase().replace(/\s+/g, " ").trim();
+          const cTelefono = String(c.telefono || "").replace(/\D/g, "").slice(-10);
+          const nameMatch = normalizedNombre.length >= 3 && cNombre === normalizedNombre;
+          const phoneMatch = telefonoDigits.length === 10 && cTelefono === telefonoDigits;
+          return nameMatch || phoneMatch;
+        });
+        setDuplicateMatches(matches);
+      } catch {
+        if (seq === duplicateCheckSeqRef.current) setDuplicateMatches([]);
+      }
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [showModal, editingCliente, formData.nombre, formData.telefono]);
+
+  const handleUseDuplicate = (cliente: Cliente) => {
+    setDuplicateMatches([]);
+    handleEdit(cliente);
+  };
+
   const fetchClientes = useCallback(async (page = 1, search = "") => {
     if (!canClientesView) return;
     setLoading(true);
@@ -1038,7 +1083,7 @@ const ClientesPage = () => {
           ariaLabel="Formulario de cliente"
           className={modalShellClass}
         >
-          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden" style={sheetFontStyle}>
             <header className={modalHeaderClass}>
               <div className="flex min-w-0 items-start gap-3.5">
                 <span className={modalHeaderIconClass}>
@@ -1058,13 +1103,69 @@ const ClientesPage = () => {
             </header>
 
             <form onSubmit={handleSubmit} className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-              <div className="custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-white p-4 dark:bg-[#111827] sm:p-6">
+              <div className="custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#FAFAFA] p-4 dark:bg-[#0d1420] sm:p-6">
                 {modalError && (
                   <InlineAlert
                     variant={String(modalError).startsWith('Campos requeridos faltantes:') ? 'warning' : 'error'}
                     title={String(modalError).startsWith('Campos requeridos faltantes:') ? 'Faltan campos' : 'Error'}
                     message={modalError}
                   />
+                )}
+
+                {!editingCliente && duplicateMatches.length > 0 && (
+                  <div
+                    role="alert"
+                    className="overflow-hidden rounded-[16px] border border-[#E7E7EA] bg-white shadow-[0_1px_3px_rgba(9,9,11,0.05)] dark:border-[#273244] dark:bg-[#161f33]"
+                  >
+                    <div className="flex items-start gap-3 border-l-2 border-l-[#E6A23C] px-4 py-3.5 sm:px-5">
+                      <span className="mt-px inline-flex size-5 shrink-0 items-center justify-center text-[#B4801F] dark:text-[#E6A23C]">
+                        <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M12 9v4M12 17h.01" />
+                          <path d="M10.29 3.86 1.82 18a1.5 1.5 0 0 0 1.29 2.25h17.78A1.5 1.5 0 0 0 22.18 18L13.71 3.86a1.5 1.5 0 0 0-2.42 0Z" />
+                        </svg>
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13.5px] font-semibold leading-[1.35] tracking-[-0.1px] text-[#09090B] dark:text-[#F8FAFC]">
+                          Posible contacto duplicado
+                        </p>
+                        <p className="mt-0.5 text-[12.5px] leading-snug text-[#6E6E77] dark:text-[#8EA0B8]">
+                          {duplicateMatches.length === 1
+                            ? "Encontramos un registro con datos parecidos."
+                            : `Encontramos ${duplicateMatches.length} registros con datos parecidos.`}{" "}
+                          Revísalos antes de guardar para no duplicar al cliente.
+                        </p>
+                      </div>
+                    </div>
+
+                    <ul className="divide-y divide-[#EFEFF1] dark:divide-[#232e45]">
+                      {duplicateMatches.map((m) => (
+                        <li
+                          key={m.id}
+                          className="group flex items-center gap-3 py-2.5 pl-[19px] pr-3.5 transition-colors hover:bg-[#FAFAFA] dark:hover:bg-white/[0.025] sm:pr-4.5"
+                        >
+                          <span
+                            className={`inline-flex size-7.5 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold ${avatarToneClass(m.tipo)}`}
+                            aria-hidden
+                          >
+                            {initialsFromName(m.nombre)}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{m.nombre}</p>
+                            <p className="truncate text-[11.5px] text-[#8E8B82] dark:text-[#8EA0B8]">
+                              {[m.telefono, m.ciudad].filter(Boolean).join(" · ") || "Sin más datos capturados"}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleUseDuplicate(m)}
+                            className="shrink-0 rounded-lg px-2 py-1 text-[12px] font-semibold text-[#1244D1] underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:text-[#4B7CFF]"
+                          >
+                            Editar este
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
 
                 <ClienteSimplifiedFormFields
@@ -1117,7 +1218,7 @@ const ClientesPage = () => {
             ariaLabel="Confirmar eliminación de cliente"
             className={modalSmallShellClass}
           >
-            <div className="bg-white p-6 dark:bg-[#111827]">
+            <div className="bg-white p-6 dark:bg-[#111827]" style={sheetFontStyle}>
               <div className="mb-5 flex items-start gap-3.5">
                 <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]">
                   <svg {...iconSvgProps} className="size-5">

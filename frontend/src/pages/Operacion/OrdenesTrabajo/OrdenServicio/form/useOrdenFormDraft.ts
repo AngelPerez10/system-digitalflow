@@ -615,12 +615,22 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     }));
   }, []);
 
+  const fetchClientesAbortRef = useRef<AbortController | null>(null);
+
   const fetchClientes = useCallback(
     async (search = "") => {
+      // Cancela la búsqueda anterior en vuelo: evita que una respuesta lenta y
+      // obsoleta reemplace los resultados de una búsqueda más reciente
+      // (la causa del "parpadeo" al escribir rápido).
+      fetchClientesAbortRef.current?.abort();
+      const controller = new AbortController();
+      fetchClientesAbortRef.current = controller;
       try {
-        const rows = await fetchClientesCatalog(search, 50);
+        const rows = await fetchClientesCatalog(search, 50, controller.signal);
+        if (controller.signal.aborted) return;
         setClientes(rows);
       } catch (error) {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
         console.error("Error al cargar clientes:", error);
         setClientes([]);
       }
@@ -656,8 +666,8 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedClienteSearch(clienteSearch), 400);
-    return () => clearTimeout(timer);
+    // SearchableSelect ya debounceda onSearchChange (~280ms); no sumar otro delay.
+    setDebouncedClienteSearch(clienteSearch);
   }, [clienteSearch]);
 
   useEffect(() => {

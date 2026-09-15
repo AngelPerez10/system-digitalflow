@@ -1,6 +1,5 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { Modal } from "@/components/ui/modal";
-import Alert from "@/components/ui/alert/Alert";
 import { fetchApi } from "@/config/api";
 import type { Cliente } from "@/types/cliente";
 import { onlyDigits10 } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
@@ -17,16 +16,75 @@ import {
   upsertClienteContactoFromForm,
 } from "./clienteFormShared";
 
-const claudeSectionHeadingClass =
-  "[font-family:Georgia,'Times_New_Roman',serif] text-[clamp(1.4rem,2vw,2rem)] font-medium leading-[1.2] text-gray-900 dark:text-white";
+/* --------------------------------------------------------------------------
+   Mismo cascarón que `ClientesPage`: cabecera marina, cuerpo en lienzo,
+   pie hundido, azul eléctrico como acento de acción (no naranja legacy).
+   -------------------------------------------------------------------------- */
 
-const claudeCaptionClass = "text-sm font-normal leading-relaxed text-[#57534e] dark:text-[#8ea0b8]";
+const modalShellClass =
+  "flex max-h-[min(92vh,860px)] w-full max-w-5xl flex-col overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827]";
 
-const sectionLabelClass =
-  "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78716c] dark:text-[#8ea0b8] sm:text-xs";
+const modalHeaderClass = "relative shrink-0 bg-[#17235B] px-6 py-5 pr-16 dark:bg-[#1B2A63]";
+const modalHeaderIconClass =
+  "inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]";
+const modalEyebrowClass = "text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55";
+const modalTitleClass = "text-[20px] font-semibold leading-[1.25] tracking-[-0.5px] text-white";
+const modalSubtitleClass = "mt-1 text-[14px] leading-5 text-white/70";
+const modalFooterClass =
+  "shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:px-6";
 
-const actionButtonClass =
-  "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:w-auto";
+const primaryBtnClass =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#1B5CFF] bg-[#1B5CFF] px-6 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,border-color,transform] duration-150 hover:border-[#1244D1] hover:bg-[#1244D1] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:border-[#3B6AF0] dark:hover:bg-[#3B6AF0] dark:disabled:border-[#1A2748] dark:disabled:bg-[#1A2748] dark:disabled:text-[#9BB0F0] max-sm:w-full sm:h-11";
+
+const secondaryBtnClass =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-5 text-[15px] font-medium tracking-[-0.1px] text-[#09090B] transition-[background-color,border-color,transform] duration-150 hover:border-[#D3D3D8] hover:bg-[#FAFAFA] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048] max-sm:w-full sm:h-11";
+
+type AlertVariant = "error" | "warning";
+
+const alertTone: Record<AlertVariant, { border: string; bg: string; dot: string; title: string; msg: string }> = {
+  error: {
+    border: "border-[#F6CFCF] dark:border-[#7F1D1D]",
+    bg: "bg-[#FEF2F2] dark:bg-[#3F1518]",
+    dot: "bg-[#C22B2B] dark:bg-[#F87171]",
+    title: "text-[#C22B2B] dark:text-[#F87171]",
+    msg: "text-[#C22B2B]/85 dark:text-[#F87171]/80",
+  },
+  warning: {
+    border: "border-[rgba(230,162,60,0.4)] dark:border-[rgba(230,162,60,0.3)]",
+    bg: "bg-[rgba(230,162,60,0.10)] dark:bg-[rgba(230,162,60,0.10)]",
+    dot: "bg-[#9A6B15] dark:bg-[#E6A23C]",
+    title: "text-[#9A6B15] dark:text-[#E6A23C]",
+    msg: "text-[#9A6B15]/85 dark:text-[#E6A23C]/85",
+  },
+};
+
+function InlineAlert({
+  variant,
+  title,
+  message,
+  id,
+}: {
+  variant: AlertVariant;
+  title: string;
+  message: string;
+  id?: string;
+}) {
+  const tone = alertTone[variant];
+  return (
+    <div
+      id={id}
+      role="alert"
+      aria-live="assertive"
+      className={`flex items-start gap-3 rounded-[14px] border px-4 py-3 ${tone.border} ${tone.bg}`}
+    >
+      <span className={`mt-1.5 size-1.75 shrink-0 rounded-full ${tone.dot}`} aria-hidden />
+      <div className="min-w-0">
+        <p className={`text-[15px] font-medium ${tone.title}`}>{title}</p>
+        <p className={`mt-0.5 text-[13px] ${tone.msg}`}>{message}</p>
+      </div>
+    </div>
+  );
+}
 
 const trimOrEmpty = (value: unknown) => String(value ?? "").trim();
 
@@ -54,7 +112,7 @@ export function ClienteFormModal({
   editingCliente = null,
   permissions,
   fixedTipo,
-  sectionTitle = "Clientes",
+  sectionTitle = "Contactos de negocio",
 }: ClienteFormModalProps) {
   const titleId = useId();
   const descId = useId();
@@ -73,12 +131,12 @@ export function ClienteFormModal({
 
   const viewSingular =
     fixedTipo === "EMPRESA"
-      ? "Empresa"
+      ? "empresa"
       : fixedTipo === "PERSONA_FISICA"
-        ? "Persona física"
+        ? "persona física"
         : fixedTipo === "PROVEEDOR"
-          ? "Proveedor"
-          : "Cliente";
+          ? "proveedor"
+          : "contacto";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -203,17 +261,13 @@ export function ClienteFormModal({
         closeOnEscape={!saving}
         ariaLabelledBy={titleId}
         ariaDescribedBy={descId}
-        className="w-full max-w-5xl overflow-hidden rounded-2xl border border-[#e7ded0] bg-[#fffdfa] p-0 shadow-[0_30px_90px_-45px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111a2b]"
+        className={modalShellClass}
       >
-        <div className="bg-[#fffdfa] dark:bg-[#111a2b]">
-          <header className="relative shrink-0 border-b border-[#e7ded0] bg-gradient-to-r from-[#fcfaf6] via-[#fffaf3] to-[#fffdfa] px-6 py-5 pr-14 dark:border-[#334155] dark:bg-none dark:from-[#111827] dark:via-[#111827] dark:to-[#111827] sm:pr-16">
-            <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#ff801f]" aria-hidden />
-            <div className="flex min-w-0 items-start gap-3">
-              <span
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff801f] text-black shadow-sm"
-                aria-hidden
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden" style={{ fontFamily: "Geist, Outfit, system-ui, sans-serif" }}>
+          <header className={modalHeaderClass}>
+            <div className="flex min-w-0 items-start gap-3.5">
+              <span className={modalHeaderIconClass}>
+                <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden>
                   <path
                     fillRule="evenodd"
                     clipRule="evenodd"
@@ -229,12 +283,12 @@ export function ClienteFormModal({
                 </svg>
               </span>
               <div className="min-w-0">
-                <p className={sectionLabelClass}>Contactos · {sectionTitle}</p>
-                <h3 id={titleId} className={`mt-1 ${claudeSectionHeadingClass}`}>
+                <p className={modalEyebrowClass}>{sectionTitle}</p>
+                <h3 id={titleId} className={`mt-1 ${modalTitleClass}`}>
                   {editingCliente ? `Editar ${viewSingular}` : `Nuevo ${viewSingular}`}
                 </h3>
-                <p id={descId} className={claudeCaptionClass}>
-                  Captura y revisa los datos antes de guardar
+                <p id={descId} className={modalSubtitleClass}>
+                  Captura y revisa los datos antes de guardar.
                 </p>
               </div>
             </div>
@@ -242,59 +296,55 @@ export function ClienteFormModal({
 
           <form
             onSubmit={handleSubmit}
-            className="custom-scrollbar max-h-[78vh] space-y-4 overflow-y-auto p-4 sm:p-5"
+            className="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
             aria-busy={saving}
             noValidate
           >
-            {modalError && (
-              <div id={errorId} role="alert" aria-live="assertive">
-                <Alert
+            <div className="custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#FAFAFA] p-4 dark:bg-[#0d1420] sm:p-6">
+              {modalError ? (
+                <InlineAlert
+                  id={errorId}
                   variant={isValidationWarning ? "warning" : "error"}
                   title={isValidationWarning ? "Faltan campos" : "Error"}
                   message={modalError}
-                  showLink={false}
-                  placement="inline"
                 />
-              </div>
-            )}
+              ) : null}
 
-            {mapError && (
-              <div role="alert" aria-live="polite">
-                <Alert variant="error" title="Error de mapa" message={mapError} showLink={false} placement="inline" />
-              </div>
-            )}
+              {mapError ? (
+                <InlineAlert variant="error" title="Error de mapa" message={mapError} />
+              ) : null}
 
-            <ClienteSimplifiedFormFields
-              formData={formData}
-              setFormData={setFormData}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              fixedTipo={fixedTipo}
-              editingCliente={editingCliente}
-              onOpenMap={() => setShowMapModal(true)}
-            />
+              <ClienteSimplifiedFormFields
+                formData={formData}
+                setFormData={setFormData}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                fixedTipo={fixedTipo}
+                editingCliente={editingCliente}
+                onOpenMap={() => setShowMapModal(true)}
+              />
+            </div>
 
-            <div className="sticky bottom-[-1rem] z-20 -mx-4 border-t border-[#e7ded0] bg-[#fcfaf6] px-4 py-3 shadow-[0_-10px_24px_-20px_rgba(28,25,23,0.55)] before:absolute before:-bottom-3 before:left-0 before:h-3 before:w-full before:bg-[#fcfaf6] before:content-[''] dark:border-[#334155] dark:bg-[#0f172a] dark:before:bg-[#0f172a] sm:-mx-5 sm:bottom-[-1.25rem] sm:px-5">
-              <div className="flex flex-col justify-end gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  disabled={saving}
-                  className={`${actionButtonClass} border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus-visible:outline-gray-400 disabled:opacity-50 dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#f0f0f0] dark:hover:bg-white/[0.06]`}
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                    <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
-                  </svg>
+            <div className={modalFooterClass}>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                <button type="button" onClick={handleClose} disabled={saving} className={secondaryBtnClass}>
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   aria-describedby={modalError ? errorId : undefined}
-                  className={`${actionButtonClass} bg-[#ff801f] text-black hover:bg-[#ff6a00] focus-visible:outline-[#ff801f] disabled:cursor-not-allowed disabled:opacity-50`}
+                  className={primaryBtnClass}
                 >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                    <path d="M5 12l4 4L19 6" strokeLinecap="round" />
+                  <svg
+                    className="size-4.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden
+                  >
+                    <path d="m5 12.5 4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   {saving ? "Guardando…" : editingCliente ? "Actualizar" : "Guardar"}
                 </button>

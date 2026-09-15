@@ -538,7 +538,7 @@ export default function AppSidebar() {
                         aria-expanded={isOpen}
                         aria-controls={nestedPanelId}
                         onClick={() => toggleNestedSubmenu(nestedKey)}
-                        className={`menu-dropdown-item w-full justify-between gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] ${
+                        className={`menu-dropdown-item w-full justify-between gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] ${
                           isOpen || hasActiveChild
                             ? "menu-dropdown-item-active"
                             : "menu-dropdown-item-inactive"
@@ -594,12 +594,12 @@ export default function AppSidebar() {
 
   return (
     <aside
-      className={`fixed bottom-0 left-0 top-16 z-50 flex flex-col border-r border-[#e7ded0] bg-[#f9f7f3] px-4 text-[#09090B] shadow-[0_18px_45px_-34px_rgba(28,25,23,0.30)] transition-[width,transform] duration-300 ease-in-out motion-reduce:transition-none dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#F8FAFC] dark:shadow-[0_18px_45px_-34px_rgba(0,0,0,0.8)] lg:top-0 [font-family:'Geist','Outfit',system-ui,sans-serif]
+      className={`fixed bottom-0 left-0 top-16 z-50 flex flex-col border-r border-[#e7ded0] bg-[#f9f7f3] px-4 text-[#09090B] shadow-[0_18px_45px_-34px_rgba(28,25,23,0.30)] transition-[width,transform] duration-300 ease-in-out motion-reduce:transition-none dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#F8FAFC] dark:shadow-[0_18px_45px_-34px_rgba(0,0,0,0.8)] lg:top-0 font-['Geist','Outfit',system-ui,sans-serif]
         ${isExpanded || isMobileOpen
-          ? "w-[290px]"
+          ? "w-72.5"
           : isHovered
-            ? "w-[290px]"
-            : "w-[90px]"
+            ? "w-72.5"
+            : "w-22.5"
         }
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
@@ -647,7 +647,7 @@ export default function AppSidebar() {
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-4 duration-300 ease-linear no-scrollbar">
           <nav aria-label="Navegación principal">
             <h2
-              className={`mb-4 flex text-[11px] font-semibold uppercase leading-[20px] tracking-[0.16em] text-[#6E6E77] dark:text-[#8EA0B8] ${!isExpanded && !isHovered
+              className={`mb-4 flex text-[11px] font-semibold uppercase leading-5 tracking-[0.16em] text-[#6E6E77] dark:text-[#8EA0B8] ${!isExpanded && !isHovered
                 ? "lg:justify-center"
                 : "justify-start"
                 }`}

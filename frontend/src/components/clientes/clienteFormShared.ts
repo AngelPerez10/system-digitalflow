@@ -22,11 +22,19 @@ export const TIPO_OPTIONS: { value: ClienteTipo; label: string }[] = [
 export const selectLikeClassName =
   "h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
 
+/** Inputs de texto/número dentro del formulario de contacto (mismo token que selects). */
+export const modalInputClass =
+  "h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
+
+/** Contenedor teléfono (código país + dígitos) alineado al input nuevo. */
+export const modalPhoneShellClass =
+  "flex h-11 w-full items-stretch overflow-hidden rounded-[10px] border border-[#E7E7EA] bg-white transition-colors focus-within:border-[#1B5CFF] focus-within:ring-4 focus-within:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:focus-within:border-[#4B7CFF] dark:focus-within:ring-[rgba(75,124,255,0.28)]";
+
 export const modalPanelClass =
-  "rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#1B2539] sm:p-5";
+  "rounded-[16px] border border-[#E7E7EA] bg-white p-5 shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#1B2539] sm:p-6";
 
 export const modalSectionTitleClass =
-  "text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]";
+  "text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6E6E77] dark:text-[#8EA0B8]";
 
 export const modalTextareaClass =
   "w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 py-2.5 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] resize-none";
@@ -120,8 +128,8 @@ export const buildClientePayload = (
   isEditing = false
 ): Record<string, unknown> => ({
   clave: trimOrEmpty(formData.clave),
-  representante: trimOrEmpty(formData.representante),
-  nombre: trimOrEmpty(formData.nombre),
+  representante: trimOrEmpty(formData.representante).toUpperCase(),
+  nombre: trimOrEmpty(formData.nombre).toUpperCase(),
   telefono: formatPhoneE164(
     String(formData.telefono_pais || "MX"),
     String(formData.telefono || "")
@@ -179,9 +187,9 @@ export const formDataFromCliente = (cliente: Cliente, fixedTipo?: ClienteTipo) =
     ...emptyFormData(fixedTipo),
     no_cliente: cliente.idx != null ? String(cliente.idx) : "",
     clave: cliente.clave || "",
-    representante: cliente.representante || "",
+    representante: (cliente.representante || "").toUpperCase(),
     celular: cliente.celular || "",
-    nombre: cliente.nombre || "",
+    nombre: (cliente.nombre || "").toUpperCase(),
     telefono_pais: phoneParsed.phoneCountry,
     telefono: phoneParsed.phoneNational,
     direccion: cliente.direccion || "",
@@ -226,7 +234,7 @@ export const formDataFromCliente = (cliente: Cliente, fixedTipo?: ClienteTipo) =
       const ct = pickPrincipalContacto(cliente);
       return {
         contacto_id: ct?.id ?? null,
-        contacto_nombre: String(ct?.nombre_apellido || "").trim(),
+        contacto_nombre: String(ct?.nombre_apellido || "").trim().toUpperCase(),
         contacto_correo: String(ct?.correo || "").trim(),
         contacto_telefono: String(ct?.celular || "").trim(),
         contacto_puesto: String(ct?.area_puesto || "").trim(),
@@ -245,7 +253,7 @@ export const upsertClienteContactoFromForm = async (
 
   const body = {
     cliente: clienteId,
-    nombre_apellido: nombre.slice(0, 200),
+    nombre_apellido: nombre.slice(0, 200).toUpperCase(),
     titulo: "",
     area_puesto: trimOrEmpty(formData.contacto_puesto).slice(0, 150),
     celular: trimOrEmpty(formData.contacto_telefono).replace(/\D/g, "").slice(0, 25),

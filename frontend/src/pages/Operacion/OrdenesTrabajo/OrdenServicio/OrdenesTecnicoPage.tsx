@@ -223,7 +223,6 @@ export default function OrdenesTecnico() {
     fetchClientes,
     serviciosDisponibles,
     setServiciosDisponibles,
-    clienteSearch,
     setClienteSearch,
     tecnicoSearch,
     setTecnicoSearch,
@@ -1202,7 +1201,6 @@ export default function OrdenesTecnico() {
             setFormData={setFormData}
             ro={ro}
             inputLockedClass={inputLockedClass}
-            clienteSearch={clienteSearch}
             setClienteSearch={setClienteSearch}
             clientes={clientes}
             selectCliente={selectCliente}

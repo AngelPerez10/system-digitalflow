@@ -114,18 +114,21 @@ export const estadosPorPais: Record<string, readonly string[]> = {
 };
 
 export const phoneCountryOptions = [
-  { code: "MX", label: "México (+52)", dial: "+52" },
-  { code: "USCA", label: "USA/Canadá (+1)", dial: "+1" },
+  { code: "MX", label: "México", shortLabel: "MX", dial: "+52" },
+  { code: "US", label: "Estados Unidos", shortLabel: "US", dial: "+1" },
+  { code: "CA", label: "Canadá", shortLabel: "CA", dial: "+1" },
 ] as const;
 
 const getDialFromPhoneCountry = (code: string): string => {
-  if (code === "USCA") return "+1";
-  return "+52";
+  const match = phoneCountryOptions.find((c) => c.code === code);
+  return match ? match.dial : "+52";
 };
 
 export const parsePhoneToForm = (raw: string | null | undefined): { phoneCountry: string; phoneNational: string } => {
   const s = String(raw || "").trim();
-  if (s.startsWith("+1")) return { phoneCountry: "USCA", phoneNational: onlyDigits10(s.slice(2)) };
+  // "USCA" es el valor heredado de antes de separar Estados Unidos y Canadá:
+  // ambos comparten +1, así que un número existente no distingue cuál era.
+  if (s.startsWith("+1")) return { phoneCountry: "US", phoneNational: onlyDigits10(s.slice(2)) };
   if (s.startsWith("+52")) return { phoneCountry: "MX", phoneNational: onlyDigits10(s.slice(3)) };
   return { phoneCountry: "MX", phoneNational: onlyDigits10(s) };
 };

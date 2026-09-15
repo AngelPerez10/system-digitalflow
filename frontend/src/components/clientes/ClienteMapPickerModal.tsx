@@ -179,7 +179,7 @@ export function ClienteMapPickerModal({
       ariaLabel="Seleccionar ubicación en el mapa"
       className="w-[94vw] max-w-3xl overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827]"
     >
-      <div>
+      <div style={{ fontFamily: "Geist, Outfit, system-ui, sans-serif" }}>
         <div className="relative bg-[#17235B] px-5 pb-4 pt-5 dark:bg-[#1B2A63]">
           <div className="flex items-center gap-3">
             <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]">

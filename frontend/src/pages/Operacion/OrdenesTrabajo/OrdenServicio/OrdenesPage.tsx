@@ -372,7 +372,6 @@ export default function Ordenes() {
     fetchClientes,
     serviciosDisponibles,
     setServiciosDisponibles,
-    clienteSearch,
     setClienteSearch,
     tecnicoSearch,
     setTecnicoSearch,
@@ -1686,7 +1685,6 @@ export default function Ordenes() {
               setFormData={setFormData}
               ro={ro}
               inputLockedClass={inputLockedClass}
-              clienteSearch={clienteSearch}
               setClienteSearch={setClienteSearch}
               clientes={clientes}
               selectCliente={selectCliente}

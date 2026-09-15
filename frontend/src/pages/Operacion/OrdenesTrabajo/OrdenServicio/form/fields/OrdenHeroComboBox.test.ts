@@ -22,7 +22,7 @@ describe("clienteComboSelectedKey", () => {
 describe("withSelectedComboItem", () => {
   it("injects the selected row when the catalog no longer contains it", () => {
     const items = [
-      { id: "__new__", label: "Nuevo Cliente" },
+      { id: "__new__", label: "Nuevo contacto" },
       { id: "9", label: "Otro" },
     ];
     expect(

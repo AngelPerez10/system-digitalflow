@@ -64,7 +64,7 @@ const htmlIcon = (
 
 /** Altura del visor: una sola vista útil (viewport menos cabecera del layout + migas + header de página). */
 const viewerFrameClass =
-  "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-[560px] lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
+  "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-140 lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
 
 type AlertState = {
   show: boolean;
@@ -507,8 +507,8 @@ export default function CotizacionPdfPage() {
           <div className="p-7 sm:p-8" aria-busy="true" aria-live="polite">
             <div className="flex flex-col items-center justify-center text-center">
               <div className="relative mb-6">
-                <div className="relative flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827]/90">
-                  <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#E7E7EA] bg-[#ffffff] dark:border-[#273244] dark:bg-[#0f172a]">
+                <div className="relative flex h-19 w-19 items-center justify-center rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827]/90">
+                  <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#0f172a]">
                     <div
                       className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#1B5CFF] dark:border-t-[#4B7CFF]"
                       aria-hidden
@@ -559,7 +559,7 @@ export default function CotizacionPdfPage() {
         >
           <Link
             to="/"
-            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/3 hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Inicio
           </Link>
@@ -568,7 +568,7 @@ export default function CotizacionPdfPage() {
           </span>
           <Link
             to="/cotizacion"
-            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/[0.03] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/3 hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
           >
             Cotizaciones
           </Link>
@@ -604,7 +604,7 @@ export default function CotizacionPdfPage() {
                   )}
                 </div>
                 <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]">Vista PDF</h1>
-                <p className="mt-1.5 max-w-[62ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70 sm:mt-2">
+                <p className="mt-1.5 max-w-[62ch] text-[15px] leading-5.5 tracking-[-0.1px] text-white/70 sm:mt-2">
                   Revise el documento en el panel principal y use el lateral para abrir en otra pestaña o descargar.
                 </p>
               </div>
@@ -613,7 +613,7 @@ export default function CotizacionPdfPage() {
               <button
                 type="button"
                 onClick={() => navigate(cotizacionListPath(listSearchFromLocationState(location.state)))}
-                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[10px] border border-white/20 bg-white/10 px-4 text-sm font-medium text-white transition-colors hover:bg-white/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:w-auto"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-white/20 bg-white/10 px-4 text-sm font-medium text-white transition-colors hover:bg-white/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:w-auto"
                 aria-label="Regresar a cotizaciones"
               >
                 <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -643,7 +643,7 @@ export default function CotizacionPdfPage() {
               <div className="flex min-h-0 flex-1 flex-col bg-[#FAFAFA] p-2 dark:bg-[#0f172a] sm:p-3">
                 {loading ? (
                   <div
-                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-[560px] lg:min-h-[calc(100vh-13.5rem)]"
+                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-140 lg:min-h-[calc(100vh-13.5rem)]"
                     aria-busy="true"
                     aria-live="polite"
                     aria-label="Cargando documento"
@@ -718,7 +718,7 @@ export default function CotizacionPdfPage() {
               <div className="space-y-4 px-4 py-5 sm:px-5">
                 <div className={`${erpCardShellMutedClass} px-3 py-2.5`}>
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">Nombre de archivo</p>
-                  <code className="mt-1 block break-all rounded-md border border-[#E7E7EA] bg-[#ffffff] px-2.5 py-1.5 text-xs font-medium text-[#09090B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
+                  <code className="mt-1 block break-all rounded-md border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-xs font-medium text-[#09090B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
                     {filename}
                   </code>
                 </div>
@@ -743,7 +743,7 @@ export default function CotizacionPdfPage() {
                   <button
                     type="button"
                     disabled={!pdfDownloadUrl}
-                    className={`${erpPrimaryBtnClass} !min-h-[48px] sm:!min-h-0`}
+                    className={`${erpPrimaryBtnClass} min-h-12! sm:min-h-0!`}
                     onClick={() => {
                       if (!pdfDownloadUrl) return;
                       const a = document.createElement("a");
@@ -760,14 +760,14 @@ export default function CotizacionPdfPage() {
 
                   {hasError && (
                     <>
-                      <button type="button" className={`${erpSecondaryBtnClass} !min-h-[48px] sm:!min-h-0`} onClick={handleRetry}>
+                      <button type="button" className={`${erpSecondaryBtnClass} min-h-12! sm:min-h-0!`} onClick={handleRetry}>
                         {retryIcon}
                         Reintentar
                       </button>
                       {!isPreviewMode && (
                         <button
                           type="button"
-                          className={`${erpSecondaryBtnClass} !min-h-[48px] sm:!min-h-0`}
+                          className={`${erpSecondaryBtnClass} min-h-12! sm:min-h-0!`}
                           onClick={() => void handleDownloadHtmlFallback()}
                         >
                           {htmlIcon}
