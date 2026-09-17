@@ -8,8 +8,6 @@ from django.http import HttpResponse
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
-
-from apps.users.permissions import PolizasPermission
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,6 +16,7 @@ from apps.clientes.models import Cliente
 from apps.common.document_folio import FOLIO_SERIE_COT, format_document_folio
 from apps.common.pdf_html import request_wants_html_preview
 from apps.cotizaciones.models import Cotizacion
+from apps.users.permissions import PolizasPermission
 
 from .models import PolizaMantenimiento
 from .pdf_templates.poliza_cctv import (
