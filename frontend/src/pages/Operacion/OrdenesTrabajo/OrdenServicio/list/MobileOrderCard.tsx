@@ -203,6 +203,11 @@ export function MobileOrderCard({
         <h3 className="truncate text-[15px] font-semibold leading-snug text-[#09090B] dark:text-white">
           {orden.cliente || "Sin cliente"}
         </h3>
+        {orden.cliente_direccion_etiqueta ? (
+          <p className="truncate text-[12px] font-medium text-[#52525B] dark:text-[#8EA0B8]">
+            {orden.cliente_direccion_etiqueta}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           {orden.telefono_cliente ? (

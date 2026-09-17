@@ -7,6 +7,7 @@ import Input from "@/components/form/input/InputField";
 import SignaturePad from "@/components/ui/signature/SignaturePad";
 import { TimeIcon } from "@/icons";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
+import { direccionParaOrden, direccionResumen } from "@/components/clientes/clienteFormShared";
 import { Cliente } from "@/types/cliente";
 import { ORDEN_BASE_MAX_FOTOS, type FotosExtraMax, type Usuario } from "../../shared/ordenesPageTypes";
 import {
@@ -319,6 +320,46 @@ export function OrdenClienteTab({
     }));
   }, [tecnicoItems]);
 
+  const selectedCliente = useMemo(() => {
+    const cid = formData.cliente_id;
+    if (cid == null) return null;
+    return clientes.find((c) => Number(c.id) === Number(cid)) ?? null;
+  }, [clientes, formData.cliente_id]);
+
+  const direccionSelectOptions = useMemo((): SearchableSelectOption[] => {
+    const dirs = selectedCliente?.direcciones || [];
+    return dirs.map((d) => ({
+      value: String(d.id),
+      label: d.etiqueta.trim() || "Sin nombre",
+      description: [
+        d.is_principal ? "Predeterminada" : null,
+        direccionResumen(d),
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    }));
+  }, [selectedCliente]);
+
+  const selectClienteDireccion = (direccionId: string | null) => {
+    if (clienteLocked || ro("direccion")) return;
+    if (!direccionId || !selectedCliente) {
+      setFormData((prev) => ({
+        ...prev,
+        cliente_direccion_id: null,
+      }));
+      return;
+    }
+    const d = (selectedCliente.direcciones || []).find(
+      (x) => Number(x.id) === Number(direccionId)
+    );
+    if (!d) return;
+    setFormData((prev) => ({
+      ...prev,
+      cliente_direccion_id: Number(d.id),
+      direccion: direccionParaOrden(d),
+    }));
+  };
+
   const handleClienteSelect = (action: { id?: string | number; label?: string; __contacto?: { id?: number; celular?: string; nombre_apellido?: string } }) => {
     if (variant === "admin") {
       if (clienteLocked) return;
@@ -338,12 +379,18 @@ export function OrdenClienteTab({
 
     const contacto = action?.__contacto;
     if (contacto) {
+      const direcciones = c.direcciones || [];
+      const dirPrincipal =
+        direcciones.find((d) => d.is_principal) || direcciones[0] || null;
       setFormData({
         ...formData,
         cliente_id: c.id,
         contacto_id: contacto?.id != null ? Number(contacto.id) : null,
+        cliente_direccion_id: dirPrincipal?.id != null ? Number(dirPrincipal.id) : null,
         cliente: c.nombre,
-        direccion: c.direccion,
+        direccion: dirPrincipal
+          ? direccionParaOrden(dirPrincipal)
+          : String(c.direccion || ""),
         telefono_cliente: String(contacto?.celular || c.telefono || ""),
         nombre_cliente: String(contacto?.nombre_apellido || ""),
       });
@@ -423,6 +470,38 @@ export function OrdenClienteTab({
             <ClearSelectionButton onClick={() => selectCliente(null)} />
           )}
         </div>
+
+        {formData.cliente_id ? (
+          <div>
+            {(selectedCliente?.direcciones?.length ?? 0) > 0 ? (
+              <SearchableSelect
+                id="orden-elegir-sucursal"
+                label="Sucursal / domicilio"
+                placeholder="Elegir a qué dirección pertenece…"
+                triggerAriaLabel="Mostrar sucursales o domicilios del cliente"
+                value={
+                  formData.cliente_direccion_id != null
+                    ? String(formData.cliente_direccion_id)
+                    : ""
+                }
+                onChange={(v) => selectClienteDireccion(v || null)}
+                options={direccionSelectOptions}
+                filterLocally
+                disabled={clienteLocked || ro("direccion")}
+                allowClearOption={false}
+                emptyMessage="No hay direcciones en la libreta."
+                maxVisibleItems={40}
+              />
+            ) : (
+              <p className="rounded-[10px] border border-dashed border-[#D3D3D8] bg-[#FAFAFA] px-3 py-2.5 text-[13px] text-[#6E6E77] dark:border-[#3A4661] dark:bg-[#0d1420] dark:text-[#8EA0B8]">
+                Este cliente no tiene direcciones en la libreta. Agrégalas en Contactos → Domicilio.
+              </p>
+            )}
+            <p id="orden-sucursal-hint" className="mt-1.5 text-[12px] text-[#8E8B82] dark:text-[#8EA0B8]">
+              A qué dirección del cliente pertenece este servicio.
+            </p>
+          </div>
+        ) : null}
 
         <div>
           <label htmlFor={nombreClienteId} className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">

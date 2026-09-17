@@ -1,6 +1,6 @@
 import { fetchApi } from "@/config/api";
 import { formatPhoneE164, parsePhoneToForm } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
-import type { Cliente } from "@/types/cliente";
+import type { Cliente, ClienteDireccion } from "@/types/cliente";
 
 export type ClienteTipo = "EMPRESA" | "PERSONA_FISICA" | "PROVEEDOR";
 
@@ -310,6 +310,36 @@ export const isGoogleMapsLink = (value: string | null | undefined) => {
     return false;
   }
 };
+
+/** Resumen legible de una dirección de la libreta (calle / colonia / ciudad). */
+export function direccionResumen(
+  d: Pick<
+    ClienteDireccion,
+    "calle" | "numero_exterior" | "colonia" | "ciudad" | "estado" | "direccion"
+  >
+): string {
+  const linea1 = [d.calle, d.numero_exterior].filter(Boolean).join(" ");
+  const linea2 = [d.colonia, d.ciudad, d.estado].filter(Boolean).join(", ");
+  const resumen = [linea1, linea2].filter(Boolean).join(" — ");
+  if (resumen) return resumen;
+  return String(d.direccion || "").trim() || "Sin datos capturados";
+}
+
+/**
+ * Valor a copiar en `Orden.direccion` al elegir una sucursal:
+ * preferir Maps URL o texto libre; si no, el resumen estructurado.
+ */
+export function direccionParaOrden(
+  d: Pick<
+    ClienteDireccion,
+    "calle" | "numero_exterior" | "colonia" | "ciudad" | "estado" | "direccion"
+  >
+): string {
+  const raw = String(d.direccion || "").trim();
+  if (raw && (isGoogleMapsLink(raw) || raw.length > 0)) return raw;
+  const resumen = direccionResumen(d);
+  return resumen === "Sin datos capturados" ? "" : resumen;
+}
 
 export const formatApiErrors = (txt: string) => {
   if (!txt) return "";

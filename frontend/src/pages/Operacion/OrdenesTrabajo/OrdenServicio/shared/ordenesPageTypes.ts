@@ -46,6 +46,10 @@ export interface Orden {
   folio?: string | null;
   cliente_id: number | null;
   cliente: string;
+  /** PK de ClienteDireccion (sucursal / domicilio). */
+  cliente_direccion?: number | null;
+  /** Etiqueta de la sucursal (solo lectura desde API). */
+  cliente_direccion_etiqueta?: string | null;
   direccion: string;
   telefono_cliente: string;
   problematica: string;

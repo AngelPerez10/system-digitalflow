@@ -684,6 +684,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 self.queryset.all()
                 .select_related(
                     'cliente_id',
+                    'cliente_direccion',
                     'tecnico_asignado',
                     'tecnico_asignado__permissions_profile',
                     'creado_por',
@@ -708,6 +709,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         else:
             related = [
                 'cliente_id',
+                'cliente_direccion',
                 'tecnico_asignado',
                 'tecnico_asignado__permissions_profile',
                 'creado_por',

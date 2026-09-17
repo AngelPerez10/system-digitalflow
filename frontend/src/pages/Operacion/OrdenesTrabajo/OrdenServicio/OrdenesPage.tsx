@@ -1098,6 +1098,14 @@ export default function Ordenes() {
                               <div className="font-medium truncate">
                                 {orden.cliente || "Sin cliente"}
                               </div>
+                              {orden.cliente_direccion_etiqueta ? (
+                                <span
+                                  className="block text-[11px] font-medium text-[#52525B] dark:text-[#8EA0B8] truncate"
+                                  title={orden.cliente_direccion_etiqueta}
+                                >
+                                  {orden.cliente_direccion_etiqueta}
+                                </span>
+                              ) : null}
                               {orden.direccion &&
                                 (isGoogleMapsUrl(orden.direccion) ? (
                                   <a

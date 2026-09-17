@@ -37,7 +37,7 @@ class OrdenesSmokeTests(APITestCase):
             "cliente": "Cliente orden",
             "direccion": "Calle 1",
             "telefono_cliente": "5551234567",
-            "servicios_realizados": ["Instalación"],
+            "servicios_realizados": ["InstalaciÃ³n"],
             "status": "pendiente",
             "fecha_inicio": "2026-06-05",
             "tipo_orden": "servicio_tecnico",
@@ -61,7 +61,7 @@ class OrdenesSmokeTests(APITestCase):
                 "cliente": "Cliente cancel",
                 "direccion": "Calle 1",
                 "telefono_cliente": "5551234567",
-                "servicios_realizados": ["Instalación"],
+                "servicios_realizados": ["InstalaciÃ³n"],
                 "status": "pendiente",
                 "fecha_inicio": "2026-06-05",
                 "tipo_orden": "servicio_tecnico",
@@ -72,7 +72,7 @@ class OrdenesSmokeTests(APITestCase):
         oid = create.data["id"]
         response = self.client.patch(
             f"/api/ordenes/{oid}/",
-            {"status": "cancelada", "motivo_cancelacion": "Cliente desistió"},
+            {"status": "cancelada", "motivo_cancelacion": "Cliente desistiÃ³"},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -96,7 +96,7 @@ class OrdenesSmokeTests(APITestCase):
                 "cliente": "Cliente cancel admin",
                 "direccion": "Calle 1",
                 "telefono_cliente": "5551234567",
-                "servicios_realizados": ["Instalación"],
+                "servicios_realizados": ["InstalaciÃ³n"],
                 "status": "pendiente",
                 "fecha_inicio": "2026-06-05",
                 "tipo_orden": "servicio_tecnico",
@@ -192,7 +192,7 @@ class OrdenesListFilterTests(APITestCase):
             cliente="Lev",
             direccion="Calle V",
             telefono_cliente="5550003",
-            servicios_realizados=["Cámara"],
+            servicios_realizados=["CÃ¡mara"],
             fecha_inicio="2026-07-20",
             creado_por=self.user,
         )
@@ -238,7 +238,7 @@ class OrdenesListFilterTests(APITestCase):
 
 
 class OrdenesOwnOnlyScopeTests(APITestCase):
-    """Non-staff técnico: own_only controls list/detail scope (not is_staff)."""
+    """Non-staff tÃ©cnico: own_only controls list/detail scope (not is_staff)."""
 
     def setUp(self):
         self.tecnico = User.objects.create_user(username="tecnico_scope", password="test-pass-123")
@@ -325,10 +325,10 @@ class OrdenesOwnOnlyScopeTests(APITestCase):
 
 
 class OrdenesVerTodasEditTests(APITestCase):
-    """Técnico con «Ver todas las órdenes» (``own_only=False``) + ``edit``.
+    """TÃ©cnico con Â«Ver todas las Ã³rdenesÂ» (``own_only=False``) + ``edit``.
 
-    Con esa combinación la edición de órdenes ajenas es **completa**: puede
-    tocar cliente, levantamiento y demás campos, no solo problemática/estado/
+    Con esa combinaciÃ³n la ediciÃ³n de Ã³rdenes ajenas es **completa**: puede
+    tocar cliente, levantamiento y demÃ¡s campos, no solo problemÃ¡tica/estado/
     fotos. Ver `user_has_full_orden_edit` en ``apps/ordenes/edit_scope.py``.
     """
 
@@ -351,7 +351,7 @@ class OrdenesVerTodasEditTests(APITestCase):
             cliente="Cliente ajeno",
             direccion="Calle remota",
             telefono_cliente="5551112233",
-            servicios_realizados=["Instalación"],
+            servicios_realizados=["InstalaciÃ³n"],
             tecnico_asignado=self.otro,
             creado_por=self.otro,
         )
@@ -411,7 +411,7 @@ class OrdenesVerTodasEditTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_patch_cliente_allowed_con_ver_todas(self):
-        """Con «Ver todas» la edición es completa: cliente incluido."""
+        """Con Â«Ver todasÂ» la ediciÃ³n es completa: cliente incluido."""
         response = self.client.patch(
             f"/api/ordenes/{self.orden_ajena.id}/",
             {"cliente": "Cliente modificado"},
@@ -430,7 +430,7 @@ class OrdenesVerTodasEditTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_levantamiento_allowed_con_ver_todas(self):
-        """El levantamiento de una orden ajena también es editable con «Ver todas»."""
+        """El levantamiento de una orden ajena tambiÃ©n es editable con Â«Ver todasÂ»."""
         response = self.client.put(
             f"/api/ordenes/{self.orden_ajena.id}/levantamiento/",
             {"payload": {"tipo": "cerco"}, "dibujo_url": ""},
@@ -518,7 +518,7 @@ class OrdenesFirmaEncargadoTests(APITestCase):
             cliente="Cliente firma",
             direccion="Calle 1",
             telefono_cliente="5550001111",
-            servicios_realizados=["Instalación"],
+            servicios_realizados=["InstalaciÃ³n"],
             tecnico_asignado=self.tecnico,
             creado_por=self.tecnico,
             firma_encargado_url=self.ADMIN_SIG,
@@ -542,7 +542,7 @@ class OrdenesFirmaEncargadoTests(APITestCase):
                 "cliente": "Cliente nuevo",
                 "direccion": "Calle 2",
                 "telefono_cliente": "5550002222",
-                "servicios_realizados": ["Revisión"],
+                "servicios_realizados": ["RevisiÃ³n"],
                 "status": "pendiente",
                 "fecha_inicio": "2026-08-11",
                 "tipo_orden": "servicio_tecnico",
@@ -576,7 +576,7 @@ class OrdenesFirmaEncargadoTests(APITestCase):
                 "cliente": "Cliente sin firma tec",
                 "direccion": "Calle 3",
                 "telefono_cliente": "5550003333",
-                "servicios_realizados": ["Revisión"],
+                "servicios_realizados": ["RevisiÃ³n"],
                 "status": "pendiente",
                 "fecha_inicio": "2026-08-11",
                 "tipo_orden": "servicio_tecnico",
@@ -801,3 +801,70 @@ class OrdenesEnviarPdfTests(APITestCase):
         self.assertEqual(mail.outbox[0].to, ["nuevo@example.com"])
         self.assertEqual(mail.outbox[0].from_email, "tecnico@example.com")
         self.assertEqual(len(mail.outbox[0].attachments), 1)
+
+
+class OrdenClienteDireccionTests(APITestCase):
+    def setUp(self):
+        from apps.clientes.models import Cliente, ClienteDireccion
+
+        self.user = User.objects.create_user(username="tecnico_dir", password="test-pass-123")
+        UserPermissions.objects.create(
+            user=self.user,
+            permissions={
+                "ordenes": {"view": True, "create": True, "edit": True, "delete": False},
+            },
+        )
+        self.client.force_authenticate(user=self.user)
+        self.cliente_a = Cliente.objects.create(nombre="Cliente A", direccion="Calle A")
+        self.cliente_b = Cliente.objects.create(nombre="Cliente B", direccion="Calle B")
+        self.dir_a = ClienteDireccion.objects.create(
+            cliente=self.cliente_a,
+            etiqueta="Sucursal Norte",
+            direccion="https://maps.google.com/?q=norte",
+            is_principal=True,
+        )
+        self.dir_b = ClienteDireccion.objects.create(
+            cliente=self.cliente_b,
+            etiqueta="Casa",
+            direccion="Calle B 1",
+            is_principal=True,
+        )
+
+    def test_create_orden_with_cliente_direccion(self):
+        response = self.client.post(
+            "/api/ordenes/",
+            {
+                "cliente": "Cliente A",
+                "cliente_id": self.cliente_a.id,
+                "cliente_direccion": self.dir_a.id,
+                "direccion": "https://maps.google.com/?q=norte",
+                "servicios_realizados": ["Instalacion"],
+                "status": "pendiente",
+                "fecha_inicio": "2026-09-17",
+                "tipo_orden": "servicio_tecnico",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data.get("cliente_direccion"), self.dir_a.id)
+        self.assertEqual(response.data.get("cliente_direccion_etiqueta"), "Sucursal Norte")
+        orden = Orden.objects.get(pk=response.data["id"])
+        self.assertEqual(orden.cliente_direccion_id, self.dir_a.id)
+
+    def test_reject_cliente_direccion_of_other_cliente(self):
+        response = self.client.post(
+            "/api/ordenes/",
+            {
+                "cliente": "Cliente A",
+                "cliente_id": self.cliente_a.id,
+                "cliente_direccion": self.dir_b.id,
+                "direccion": "Calle B 1",
+                "servicios_realizados": ["Instalacion"],
+                "status": "pendiente",
+                "fecha_inicio": "2026-09-17",
+                "tipo_orden": "servicio_tecnico",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cliente_direccion", response.data)

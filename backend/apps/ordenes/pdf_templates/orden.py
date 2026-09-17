@@ -199,6 +199,9 @@ def generate_orden_pdf_html(orden) -> str:
     <div class='card'>
       <h3>Datos del cliente</h3>
       <div class='label'>Dirección</div>
+      {f'''
+      <div class='value' style='margin-bottom: 4px; font-weight: 600;'>{esc(getattr(getattr(orden, "cliente_direccion", None), "etiqueta", None) or "")}</div>
+      ''' if str(getattr(getattr(orden, "cliente_direccion", None), "etiqueta", None) or "").strip() else ""}
       <div class='value pre'>{esc(orden.direccion or '-')}</div>
       <div class='row' style='margin-top: 10px;'>
         <div class='col'>

@@ -175,6 +175,11 @@ export default function SearchableSelect({
   /** Dirección fijada al abrir: evita que el menú “salte” arriba/abajo al filtrar. */
   const placementRef = useRef<"up" | "down">("down");
   const searchNotifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Tras elegir una opción normal re-enfocamos el input (ARIA: foco en el
+   * combobox). Sin este flag, `onFocus` volvería a abrir el listbox.
+   */
+  const suppressOpenOnFocusRef = useRef(false);
 
   const selected = options.find((o) => o.value === value);
   const selectedDisplay = selected
@@ -337,6 +342,7 @@ export default function SearchableSelect({
       inputRef.current?.blur();
       return;
     }
+    suppressOpenOnFocusRef.current = true;
     inputRef.current?.focus();
   };
 
@@ -588,6 +594,10 @@ export default function SearchableSelect({
           }}
           onFocus={() => {
             if (disabled) return;
+            if (suppressOpenOnFocusRef.current) {
+              suppressOpenOnFocusRef.current = false;
+              return;
+            }
             openMenu();
           }}
           onKeyDown={handleKeyDown}

@@ -12,7 +12,7 @@ import {
   listClienteDirecciones,
   updateClienteDireccion,
 } from "./clienteDireccionesApi";
-import { isGoogleMapsLink, modalTextareaClass, selectLikeClassName } from "./clienteFormShared";
+import { isGoogleMapsLink, direccionResumen, modalTextareaClass, selectLikeClassName } from "./clienteFormShared";
 
 const pinIconSvgProps = {
   viewBox: "0 0 24 24",
@@ -35,14 +35,6 @@ function PinIcon({ className }: { className?: string }) {
 type Props = {
   clienteId: number;
 };
-
-function direccionResumen(d: ClienteDireccion): string {
-  const linea1 = [d.calle, d.numero_exterior].filter(Boolean).join(" ");
-  const linea2 = [d.colonia, d.ciudad, d.estado].filter(Boolean).join(", ");
-  const resumen = [linea1, linea2].filter(Boolean).join(" — ");
-  if (resumen) return resumen;
-  return d.direccion.trim() || "Sin datos capturados";
-}
 
 function draftFromDireccion(d: ClienteDireccion): ClienteDireccionInput {
   return {

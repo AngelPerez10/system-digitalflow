@@ -26,6 +26,9 @@ def _equipos_inventario_counts(equipos) -> tuple[int, int, int]:
 
 class OrdenSerializer(serializers.ModelSerializer):
     cliente_nombre = serializers.CharField(source='cliente_id.nombre', read_only=True)
+    cliente_direccion_etiqueta = serializers.CharField(
+        source='cliente_direccion.etiqueta', read_only=True, allow_null=True
+    )
     tecnico_asignado_username = serializers.CharField(source='tecnico_asignado.username', read_only=True)
     tecnico_asignado_full_name = serializers.SerializerMethodField()
     tecnico_asignado_avatar_url = serializers.SerializerMethodField()
@@ -124,6 +127,32 @@ class OrdenSerializer(serializers.ModelSerializer):
             if not str(motivo_cancel or "").strip():
                 raise serializers.ValidationError(
                     {"motivo_cancelacion": "Indique el motivo de cancelación de la orden."}
+                )
+
+        # La sucursal/domicilio debe pertenecer al mismo cliente de la orden.
+        if "cliente_direccion" in attrs:
+            direccion_obj = attrs.get("cliente_direccion")
+        else:
+            direccion_obj = (
+                getattr(self.instance, "cliente_direccion", None) if self.instance else None
+            )
+
+        if direccion_obj is not None:
+            if "cliente_id" in attrs:
+                cliente_fk = attrs.get("cliente_id")
+            else:
+                cliente_fk = (
+                    getattr(self.instance, "cliente_id", None) if self.instance else None
+                )
+            cliente_pk = getattr(cliente_fk, "pk", cliente_fk) if cliente_fk is not None else None
+            dir_cliente_id = getattr(direccion_obj, "cliente_id", None)
+            if cliente_pk is None or dir_cliente_id != cliente_pk:
+                raise serializers.ValidationError(
+                    {
+                        "cliente_direccion": (
+                            "La sucursal/domicilio no pertenece al cliente de esta orden."
+                        )
+                    }
                 )
         return attrs
 
@@ -280,6 +309,8 @@ class OrdenSerializer(serializers.ModelSerializer):
             'cliente_id',
             'cliente_nombre',
             'cliente',
+            'cliente_direccion',
+            'cliente_direccion_etiqueta',
             'direccion',
             'telefono_cliente',
             'problematica',
@@ -345,6 +376,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'tipo_orden',
             'levantamiento_tipo',
             'cliente_nombre',
+            'cliente_direccion_etiqueta',
             'tecnico_asignado_username',
             'tecnico_asignado_full_name',
             'tecnico_asignado_avatar_url',
@@ -405,6 +437,8 @@ class OrdenListSerializer(OrdenSerializer):
             'cliente_id',
             'cliente_nombre',
             'cliente',
+            'cliente_direccion',
+            'cliente_direccion_etiqueta',
             'direccion',
             'telefono_cliente',
             'problematica',
@@ -457,6 +491,7 @@ class OrdenListSerializer(OrdenSerializer):
             'tipo_orden',
             'levantamiento_tipo',
             'cliente_nombre',
+            'cliente_direccion_etiqueta',
             'calificacion_cliente',
             'prioridad_pool_efectiva',
             'tecnico_asignado_username',

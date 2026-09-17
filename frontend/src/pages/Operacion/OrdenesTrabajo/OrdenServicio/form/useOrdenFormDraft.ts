@@ -5,6 +5,7 @@ import { fetchMarcaPublic } from "@/config/marcaApi";
 import { MARCA_NOMBRE_DEFAULT } from "@/config/marcaIniciales";
 import { terminosCotizacionDefault } from "@/pages/Ventas/Cotizacion/shared/terminosCotizacionDefault";
 import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
+import { direccionParaOrden } from "@/components/clientes/clienteFormShared";
 import type { Cliente } from "@/types/cliente";
 import type { CotizacionResumen } from "@/pages/Operacion/Proyectos/shared/proyectoTypes";
 import {
@@ -55,6 +56,8 @@ export type OrdenFormData = {
   folio: string;
   cliente_id: number | null;
   contacto_id: number | null;
+  /** FK a ClienteDireccion (sucursal / domicilio de la libreta). */
+  cliente_direccion_id: number | null;
   cliente: string;
   direccion: string;
   telefono_cliente: string;
@@ -91,6 +94,7 @@ export function createEmptyOrdenFormData(): OrdenFormData {
     folio: "",
     cliente_id: null,
     contacto_id: null,
+    cliente_direccion_id: null,
     cliente: "",
     direccion: "",
     telefono_cliente: "",
@@ -154,6 +158,12 @@ export function buildOrdenWritePayload(opts: {
   const payload: Record<string, unknown> = { ...formData };
   delete payload.firma_encargado_url;
   delete payload.contacto_id;
+
+  // API espera `cliente_direccion` (PK), no `cliente_direccion_id`.
+  const dirId = formData.cliente_direccion_id;
+  delete payload.cliente_direccion_id;
+  payload.cliente_direccion =
+    dirId == null || dirId === ("" as unknown) ? null : Number(dirId);
 
   // FK opcionales: mandar `null` para desasignar. Si se omite la clave, el PATCH
   // deja el valor anterior y el técnico/instalador/entregador no se puede quitar.
@@ -526,6 +536,8 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         folio: (orden.folio ?? "").toString(),
         cliente_id: orden.cliente_id || null,
         contacto_id: null,
+        cliente_direccion_id:
+          orden.cliente_direccion != null ? Number(orden.cliente_direccion) : null,
         cliente: orden.cliente || "",
         direccion: orden.direccion || "",
         telefono_cliente: orden.telefono_cliente || "",
@@ -1217,13 +1229,20 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         String(contactoPrincipal?.celular || "").trim() ||
         String(cliente.celular || "").trim() ||
         String(cliente.telefono || "").trim();
+      const direcciones = cliente.direcciones || [];
+      const dirPrincipal =
+        direcciones.find((d) => d.is_principal) || direcciones[0] || null;
+      const direccionTexto = dirPrincipal
+        ? direccionParaOrden(dirPrincipal)
+        : String(cliente.direccion || "").trim();
 
       setFormData((prev) => ({
         ...prev,
         cliente_id: cliente.id,
         contacto_id: contactoPrincipal?.id != null ? Number(contactoPrincipal.id) : null,
+        cliente_direccion_id: dirPrincipal?.id != null ? Number(dirPrincipal.id) : null,
         cliente: cliente.nombre,
-        direccion: cliente.direccion,
+        direccion: direccionTexto,
         telefono_cliente: telefonoCliente,
         nombre_cliente: nombreContacto,
       }));
@@ -1233,6 +1252,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         ...prev,
         cliente_id: null,
         contacto_id: null,
+        cliente_direccion_id: null,
         cliente: "",
         nombre_cliente: "",
         direccion: "",

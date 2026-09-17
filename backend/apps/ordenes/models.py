@@ -41,6 +41,14 @@ class Orden(models.Model):
         related_name='ordenes',
     )
     cliente = models.CharField(max_length=100, blank=True, null=True)
+    # Sucursal / domicilio de la libreta del cliente al que pertenece el servicio.
+    cliente_direccion = models.ForeignKey(
+        'clientes.ClienteDireccion',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ordenes',
+    )
     direccion = models.TextField(blank=True, null=True)
     telefono_cliente = models.CharField(max_length=15, blank=True, null=True)
 

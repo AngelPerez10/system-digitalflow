@@ -846,6 +846,14 @@ export default function OrdenesTecnico() {
                       </TableCell>
                       <TableCell className="px-3 py-2 text-[#09090B] dark:text-white w-1/5 min-w-55">
                         <div className="font-medium truncate">{orden.cliente || 'Sin cliente'}</div>
+                        {orden.cliente_direccion_etiqueta ? (
+                          <span
+                            className="block text-[11px] font-medium text-[#52525B] dark:text-[#8EA0B8] truncate"
+                            title={orden.cliente_direccion_etiqueta}
+                          >
+                            {orden.cliente_direccion_etiqueta}
+                          </span>
+                        ) : null}
                         {orden.direccion && (
                           <a href={orden.direccion} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-600 dark:text-blue-400 hover:underline truncate">{orden.direccion}</a>
                         )}

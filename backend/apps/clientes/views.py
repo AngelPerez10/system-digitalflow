@@ -81,7 +81,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
 
     Provides CRUD operations for clients with permission-based access control.
     """
-    queryset = Cliente.objects.prefetch_related('contactos').select_related('documento').all()
+    queryset = Cliente.objects.prefetch_related('contactos', 'direcciones').select_related('documento').all()
     serializer_class = ClienteSerializer
     permission_classes = [ClientesCatalogPermission]
     pagination_class = ClientePagination

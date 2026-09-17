@@ -5,6 +5,7 @@ const baseForm: OrdenFormData = {
   folio: "ODT-1",
   cliente_id: 10,
   contacto_id: 5,
+  cliente_direccion_id: 22,
   cliente: "Acme",
   direccion: "Calle 1",
   telefono_cliente: "555",
@@ -62,6 +63,17 @@ describe("buildOrdenWritePayload", () => {
     ]);
     expect(payload).not.toHaveProperty("contacto_id");
     expect(payload).not.toHaveProperty("firma_encargado_url");
+    expect(payload).not.toHaveProperty("cliente_direccion_id");
+    expect(payload.cliente_direccion).toBe(22);
+  });
+
+  it("sends null cliente_direccion when unset", () => {
+    const payload = buildOrdenWritePayload({
+      formData: { ...baseForm, cliente_direccion_id: null },
+      variant: "admin",
+      isAdmin: true,
+    });
+    expect(payload.cliente_direccion).toBeNull();
   });
 
   it("tecnico omits admin seguimiento fields", () => {
