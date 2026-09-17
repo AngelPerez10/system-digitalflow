@@ -1,8 +1,10 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useVisorFotos } from '@/components/VisorFotos';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, type } from '@/theme/tokens';
 import type { ProyectoEquipoLinea } from '@/types/proyecto';
+import { agruparEquiposPorProducto } from '../proyectoFormat';
 import { IconAlerta, IconBox } from '@/features/orders/components/icons';
 
 /** Píldora de estado — el texto cambia con el estado, no solo el color: un
@@ -15,7 +17,15 @@ function Estado({ tono, texto }: { tono: { bg: string; text: string }; texto: st
   );
 }
 
-function Miniatura({ url }: { url?: string }) {
+function Miniatura({
+  url,
+  nombre,
+  onPress,
+}: {
+  url?: string;
+  nombre: string;
+  onPress: () => void;
+}) {
   const { colors } = useTheme();
   if (!url) {
     return (
@@ -25,24 +35,30 @@ function Miniatura({ url }: { url?: string }) {
     );
   }
   return (
-    <View style={[styles.miniaturaWrap, { borderColor: colors.line }]}>
+    <Pressable
+      accessibilityRole="imagebutton"
+      accessibilityLabel={`Ver foto de ${nombre} en grande`}
+      onPress={onPress}
+      style={[styles.miniaturaWrap, { borderColor: colors.line }]}
+    >
       <Image source={{ uri: url }} style={styles.miniatura} resizeMode="contain" />
-    </View>
+    </Pressable>
   );
 }
 
-function EquipoFila({ equipo }: { equipo: ProyectoEquipoLinea }) {
+function EquipoFila({ equipo, onVerFoto }: { equipo: ProyectoEquipoLinea; onVerFoto: (url: string) => void }) {
   const { colors } = useTheme();
   const instalado = equipo.estadoInstalacion === 'instalado';
+  const nombre = equipo.modelo || equipo.modeloOriginal || 'Equipo';
 
   return (
     <View style={styles.fila}>
-      <Miniatura url={equipo.imagenUrl} />
+      <Miniatura url={equipo.imagenUrl} nombre={nombre} onPress={() => onVerFoto(equipo.imagenUrl ?? '')} />
       <View style={styles.contenido}>
         <View style={styles.filaSuperior}>
           <View style={styles.textos}>
             <Text style={[styles.nombre, { color: colors.ink }]} numberOfLines={2}>
-              {equipo.modelo || equipo.modeloOriginal || 'Equipo'}
+              {nombre}
             </Text>
             {equipo.marca ? (
               <Text style={[styles.detalle, { color: colors.inkSubtle }]} numberOfLines={1}>
@@ -79,6 +95,7 @@ function EquipoFila({ equipo }: { equipo: ProyectoEquipoLinea }) {
 /** Lista de equipos en lectura (resumen). La edición vive en `EquiposProyectoEditor`. */
 export function EquiposProyectoLista({ equipos }: { equipos: ProyectoEquipoLinea[] }) {
   const { colors } = useTheme();
+  const { abrir, visor } = useVisorFotos();
   if (equipos.length === 0) {
     return (
       <Text style={[styles.vacio, { color: colors.inkSubtle }]}>
@@ -86,14 +103,16 @@ export function EquiposProyectoLista({ equipos }: { equipos: ProyectoEquipoLinea
       </Text>
     );
   }
+  const agrupados = agruparEquiposPorProducto(equipos);
   return (
     <View style={styles.lista}>
-      {equipos.map((equipo, index) => (
-        <React.Fragment key={equipo.lineaId}>
+      {agrupados.map((equipo, index) => (
+        <React.Fragment key={equipo.lineaIds.join(',')}>
           {index > 0 ? <View style={[styles.separador, { backgroundColor: colors.line }]} /> : null}
-          <EquipoFila equipo={equipo} />
+          <EquipoFila equipo={equipo} onVerFoto={(url) => abrir([url], 0)} />
         </React.Fragment>
       ))}
+      {visor}
     </View>
   );
 }

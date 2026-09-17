@@ -7,6 +7,8 @@ interface Props {
   titulo: string;
   /** Punto de color a la izquierda de la etiqueta — el tono sólido del estatus. */
   tono?: string;
+  /** Ícono en placa a la izquierda de la etiqueta — sustituye al punto cuando viene. */
+  icon?: React.ReactNode;
   /** Contador a la derecha de la etiqueta («Fotos · 3»). */
   conteo?: number;
   children: React.ReactNode;
@@ -17,7 +19,7 @@ interface Props {
  * sección compartido entre el portal del cliente y las vistas del técnico. Vive
  * aquí para que ninguno de los dos lados pueda divergir del otro.
  */
-export function SeccionCard({ titulo, tono, conteo, children }: Props) {
+export function SeccionCard({ titulo, tono, icon, conteo, children }: Props) {
   const { colors } = useTheme();
   return (
     <View
@@ -25,7 +27,13 @@ export function SeccionCard({ titulo, tono, conteo, children }: Props) {
     >
       <View style={styles.encabezado}>
         <View style={styles.tituloFila}>
-          {tono ? <View style={[styles.punto, { backgroundColor: tono }]} /> : null}
+          {icon ? (
+            <View style={[styles.iconoPlaca, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+              {icon}
+            </View>
+          ) : tono ? (
+            <View style={[styles.punto, { backgroundColor: tono }]} />
+          ) : null}
           <Text style={[styles.titulo, { color: colors.inkSubtle }]} accessibilityRole="header">
             {titulo}
           </Text>
@@ -54,6 +62,14 @@ const styles = StyleSheet.create({
   },
   tituloFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
   punto: { width: 7, height: 7, borderRadius: 4 },
+  iconoPlaca: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   titulo: {
     ...type.caption,
     fontSize: 11,

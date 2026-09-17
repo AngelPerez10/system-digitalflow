@@ -74,7 +74,7 @@ export function OrdenFormModalHeader({
           </div>
           <h2
             id={titleId}
-            className="mt-1 text-[20px] font-semibold leading-[1.25] tracking-[-0.5px] text-white"
+            className="mt-1 text-[20px] font-semibold leading-tight tracking-[-0.5px] text-white"
           >
             {title}
           </h2>
@@ -229,9 +229,9 @@ export function OrdenPhotoPreviewModal({
       closeOnBackdropClick
       showCloseButton={false}
       ariaLabel={label}
-      className="z-[100001] flex h-[100dvh] max-h-[100dvh] w-[100vw] max-w-[100vw] flex-col overflow-hidden rounded-none border-0 !bg-[#0B0B0F] p-0 shadow-2xl dark:!bg-[#0B0B0F] sm:mx-2 sm:h-auto sm:max-h-[96vh] sm:w-[min(96vw,60rem)] sm:max-w-[min(96vw,60rem)] sm:rounded-[20px] sm:border sm:border-white/10"
+      className="z-100001 flex h-dvh max-h-dvh w-screen max-w-[100vw] flex-col overflow-hidden rounded-none border-0 bg-[#0B0B0F]! p-0 shadow-2xl dark:bg-[#0B0B0F]! sm:mx-2 sm:h-auto sm:max-h-[96vh] sm:w-[min(96vw,60rem)] sm:max-w-[min(96vw,60rem)] sm:rounded-4xl sm:border sm:border-white/10"
     >
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-white/[0.03] px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-sm sm:px-5 sm:py-3">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-white/3 px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-sm sm:px-5 sm:py-3">
         <span className="inline-flex min-w-0 items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white/85 sm:text-xs">
           <svg className="h-3.5 w-3.5 shrink-0 text-[#E6A23C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -244,7 +244,7 @@ export function OrdenPhotoPreviewModal({
           type="button"
           onClick={onClose}
           aria-label="Cerrar vista ampliada"
-          className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[#faf9f5] backdrop-blur-sm transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-[0.98]"
+          className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[#faf9f5] backdrop-blur-sm transition-colors hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-[0.98]"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
@@ -268,7 +268,7 @@ export function OrdenPhotoPreviewModal({
               type="button"
               onClick={onPrev}
               aria-label="Foto anterior"
-              className="absolute left-2 top-1/2 inline-flex h-11 w-11 min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-sm transition hover:bg-black/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white active:scale-95 sm:left-4"
+              className="absolute left-2 top-1/2 inline-flex h-11 w-11 min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-sm transition hover:bg-black/70 focus-visible:outline-2 focus-visible:outline-white active:scale-95 sm:left-4"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                 <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
@@ -278,7 +278,7 @@ export function OrdenPhotoPreviewModal({
               type="button"
               onClick={onNext}
               aria-label="Foto siguiente"
-              className="absolute right-2 top-1/2 inline-flex h-11 w-11 min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-sm transition hover:bg-black/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white active:scale-95 sm:right-4"
+              className="absolute right-2 top-1/2 inline-flex h-11 w-11 min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-sm transition hover:bg-black/70 focus-visible:outline-2 focus-visible:outline-white active:scale-95 sm:right-4"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                 <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
@@ -289,7 +289,7 @@ export function OrdenPhotoPreviewModal({
       </div>
 
       {hasNav && total != null && (
-        <div className="flex shrink-0 items-center justify-center gap-1.5 border-t border-white/10 bg-white/[0.02] px-3 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+        <div className="flex shrink-0 items-center justify-center gap-1.5 border-t border-white/10 bg-white/2 px-3 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
           {Array.from({ length: total }).map((_, i) => (
             <span
               key={i}
@@ -317,7 +317,7 @@ export function OrdenPhotoDeleteModal({ open, deleting, onCancel, onConfirm }: O
       }}
       closeOnBackdropClick={false}
       showCloseButton={!deleting}
-      className={`${erpDeleteModalClass} z-[100000]`}
+      className={`${erpDeleteModalClass} z-100000`}
       ariaLabelledBy={titleId}
     >
       <div className={erpDeleteModalPanelClass}>
@@ -335,10 +335,10 @@ export function OrdenPhotoDeleteModal({ open, deleting, onCancel, onConfirm }: O
           </p>
         </div>
         <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-center sm:gap-3">
-          <button type="button" disabled={deleting} onClick={onCancel} className={`${erpModalSecondaryBtnClass} sm:min-w-[7rem]`}>
+          <button type="button" disabled={deleting} onClick={onCancel} className={`${erpModalSecondaryBtnClass} sm:min-w-28`}>
             Cancelar
           </button>
-          <button type="button" disabled={deleting} onClick={onConfirm} className={`${erpDangerBtnClass} sm:min-w-[7rem]`}>
+          <button type="button" disabled={deleting} onClick={onConfirm} className={`${erpDangerBtnClass} sm:min-w-28`}>
             {deleting ? "Eliminando…" : "Eliminar"}
           </button>
         </div>

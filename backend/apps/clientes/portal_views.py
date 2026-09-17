@@ -164,8 +164,10 @@ def portal_orden_detalle_view(request, orden_id: int):
 def portal_orden_calificar_view(request, orden_id: int):
     """El cliente califica al técnico de una orden suya: estrellas + comentario.
 
-    Como al terminar un viaje: solo cuando el servicio está **resuelto** y solo
-    **una vez**. La orden ajena es 404, igual que en el detalle.
+    Solo cuando el servicio está **resuelto**. El cliente puede cambiar su
+    calificación después de enviarla (la orden ajena es 404, igual que en el
+    detalle) — se sobrescriben estrellas y comentario sobre el mismo registro,
+    no se acumulan calificaciones por orden.
     """
     orden = (
         _ordenes_del_cliente(request)
@@ -181,14 +183,19 @@ def portal_orden_calificar_view(request, orden_id: int):
             {'detail': 'Podrás calificar cuando el servicio esté resuelto.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
-    if getattr(orden, 'calificacion', None) is not None:
-        return Response(
-            {'detail': 'Este servicio ya fue calificado.'},
-            status=status.HTTP_409_CONFLICT,
-        )
 
     serializer = PortalCalificarSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
+
+    calificacion_existente = getattr(orden, 'calificacion', None)
+    if calificacion_existente is not None:
+        calificacion_existente.estrellas = serializer.validated_data['estrellas']
+        calificacion_existente.comentario = (serializer.validated_data.get('comentario') or '').strip()
+        calificacion_existente.save(update_fields=['estrellas', 'comentario'])
+        return Response(
+            PortalCalificacionSerializer(calificacion_existente).data,
+            status=status.HTTP_200_OK,
+        )
 
     calificacion = OrdenCalificacion.objects.create(
         orden=orden,

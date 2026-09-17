@@ -216,7 +216,7 @@ export default function InventarioScanBar({
         id={statusId}
         role="status"
         aria-live="polite"
-        className="mt-4 min-h-[1.5rem] text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]"
+        className="mt-4 min-h-6 text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]"
       >
         {scanning ? "Procesando escaneo…" : statusMessage}
       </p>

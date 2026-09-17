@@ -1,5 +1,44 @@
 import { lightColors, type ThemeColors } from '@/theme/tokens';
-import type { OrdenListItem, OrdenStatus, TipoOrden } from '@/types/orden';
+import type { EquipoInventarioItem, OrdenListItem, OrdenStatus, TipoOrden } from '@/types/orden';
+
+export interface EquipoInventarioAgrupado extends EquipoInventarioItem {
+  /** Todas las `lineaId` originales que se colapsaron en esta fila. */
+  lineaIds: string[];
+}
+
+/**
+ * Colapsa líneas del mismo producto (nombre + marca + modelo + imagen) que
+ * además comparten estatus de entrega/instalación en una sola fila con la
+ * cantidad sumada — el ERP a veces manda una línea por unidad en vez de una
+ * con `cantidad: 8`, y verlas repetidas 8 veces parecía un error de captura.
+ * Si el estatus difiere entre unidades del mismo producto, se muestran en
+ * filas separadas (no se oculta esa diferencia).
+ */
+export function agruparEquiposPorProducto(
+  equipos: readonly EquipoInventarioItem[],
+): EquipoInventarioAgrupado[] {
+  const grupos = new Map<string, EquipoInventarioAgrupado>();
+  const orden: string[] = [];
+  for (const eq of equipos) {
+    const key = [
+      eq.nombre.trim().toLowerCase(),
+      eq.marca.trim().toLowerCase(),
+      eq.modelo.trim().toLowerCase(),
+      eq.imagenUrl,
+      eq.equipoEntregado ? '1' : '0',
+      eq.estadoInstalacion,
+    ].join('|');
+    const existente = grupos.get(key);
+    if (existente) {
+      existente.cantidad += eq.cantidad;
+      existente.lineaIds.push(eq.lineaId);
+    } else {
+      grupos.set(key, { ...eq, lineaIds: [eq.lineaId] });
+      orden.push(key);
+    }
+  }
+  return orden.map((key) => grupos.get(key)!);
+}
 
 const STATUS_LABEL: Record<OrdenStatus, string> = {
   pendiente: 'Pendiente',

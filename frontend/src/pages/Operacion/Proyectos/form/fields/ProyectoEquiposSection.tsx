@@ -163,7 +163,7 @@ export function ProyectoEquiposSection({
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <span
-                      className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#1B5CFF]/15 px-2 text-[11px] font-bold tabular-nums text-[#1244D1] dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]"
+                      className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#1B5CFF]/15 px-2 text-[11px] font-bold tabular-nums text-[#1244D1] dark:menu-dropdown-badge-active dark:text-[#4B7CFF]"
                       aria-hidden
                     >
                       {bloque.orden}
@@ -179,7 +179,7 @@ export function ProyectoEquiposSection({
                 </div>
 
                 <div
-                  className="flex min-w-[11rem] flex-1 flex-col gap-1.5 sm:max-w-[14rem] sm:flex-none"
+                  className="flex min-w-44 flex-1 flex-col gap-1.5 sm:max-w-56 sm:flex-none"
                   aria-label={`Avance cotización ${bloque.orden}: ${prog.entregados} entregados, ${prog.instalados} instalados de ${prog.total}`}
                 >
                   <div className="flex items-center justify-between gap-2 text-[10px] font-medium tabular-nums text-[#6E6E77] dark:text-[#8ea0b8]">
@@ -406,7 +406,7 @@ export function ProyectoEquiposSection({
                                 <button
                                   type="button"
                                   disabled={!presupuestoCargado}
-                                  className={`${erpSecondaryBtnClass} !px-3 !py-1.5 !text-xs`}
+                                  className={`${erpSecondaryBtnClass} px-3! py-1.5! text-xs!`}
                                   onClick={() => onCambiarModelo(eq.lineaId)}
                                   aria-label={`Cambiar modelo de catálogo de ${title}`}
                                 >

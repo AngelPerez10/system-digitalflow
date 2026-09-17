@@ -1,14 +1,22 @@
 import React, { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useVisorFotos } from '@/components/VisorFotos';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
 import type { EquipoEstadoInstalacion, ProyectoEquipoLinea } from '@/types/proyecto';
+import { agruparEquiposPorProducto } from '../proyectoFormat';
 import { IconBox } from '@/features/orders/components/icons';
 
 interface Props {
   equipos: ProyectoEquipoLinea[];
   disabled?: boolean;
-  onChangeEquipo: (lineaId: string, patch: Partial<ProyectoEquipoLinea>) => void;
+  /**
+   * Recibe todas las `lineaId` agrupadas de golpe (no una función por línea):
+   * el formulario de campo guarda `equipos` con un `setForm` no funcional, así
+   * que aplicar el cambio a varias líneas requiere un solo pase sobre el
+   * arreglo — llamar el callback varias veces seguidas pisaría cambios entre sí.
+   */
+  onChangeGrupo: (lineaIds: string[], patch: Partial<ProyectoEquipoLinea>) => void;
 }
 
 const OPCIONES_INSTALACION: { value: EquipoEstadoInstalacion; label: string }[] = [
@@ -16,7 +24,15 @@ const OPCIONES_INSTALACION: { value: EquipoEstadoInstalacion; label: string }[] 
   { value: 'no_instalado', label: 'No instalado' },
 ];
 
-function Miniatura({ url }: { url?: string }) {
+function Miniatura({
+  url,
+  nombre,
+  onPress,
+}: {
+  url?: string;
+  nombre: string;
+  onPress: () => void;
+}) {
   const { colors } = useTheme();
   if (!url) {
     return (
@@ -26,9 +42,14 @@ function Miniatura({ url }: { url?: string }) {
     );
   }
   return (
-    <View style={[styles.miniaturaWrap, { borderColor: colors.line }]}>
+    <Pressable
+      accessibilityRole="imagebutton"
+      accessibilityLabel={`Ver foto de ${nombre} en grande`}
+      onPress={onPress}
+      style={[styles.miniaturaWrap, { borderColor: colors.line }]}
+    >
       <Image source={{ uri: url }} style={styles.miniatura} resizeMode="contain" />
-    </View>
+    </Pressable>
   );
 }
 
@@ -115,10 +136,12 @@ function EquipoFila({
   equipo,
   disabled,
   onChange,
+  onVerFoto,
 }: {
   equipo: ProyectoEquipoLinea;
   disabled?: boolean;
   onChange: (patch: Partial<ProyectoEquipoLinea>) => void;
+  onVerFoto: (url: string) => void;
 }) {
   const { colors } = useTheme();
   const titulo = equipo.modelo || equipo.modeloOriginal || 'Equipo';
@@ -129,7 +152,7 @@ function EquipoFila({
       <View style={[styles.accento, { backgroundColor: instalado ? colors.primary : colors.statusPendienteText }]} />
       <View style={styles.cuerpo}>
         <View style={styles.filaSuperior}>
-          <Miniatura url={equipo.imagenUrl} />
+          <Miniatura url={equipo.imagenUrl} nombre={titulo} onPress={() => onVerFoto(equipo.imagenUrl ?? '')} />
           <View style={styles.textos}>
             <View style={styles.badges}>
               <View
@@ -190,8 +213,9 @@ function EquipoFila({
  * como solo lectura / tarea de oficina. No se puede instalar lo que no está
  * entregado.
  */
-export function EquiposProyectoEditor({ equipos, disabled, onChangeEquipo }: Props) {
+export function EquiposProyectoEditor({ equipos, disabled, onChangeGrupo }: Props) {
   const { colors } = useTheme();
+  const { abrir, visor } = useVisorFotos();
 
   const grupos = useMemo(() => {
     const map = new Map<string, ProyectoEquipoLinea[]>();
@@ -223,17 +247,19 @@ export function EquiposProyectoEditor({ equipos, disabled, onChangeEquipo }: Pro
           key !== 'sin-cotizacion' && primero?.cotizacionFolio
             ? `Cotización ${primero.cotizacionOrden ?? ''} · ${primero.cotizacionFolio}`
             : 'Sin cotización vinculada';
+        const productos = agruparEquiposPorProducto(lista);
         return (
           <View key={key} style={styles.grupo}>
             <Text style={[styles.grupoTitulo, { color: colors.inkSubtle }]}>{encabezado}</Text>
             <View style={styles.lista}>
-              {lista.map((equipo, index) => (
-                <React.Fragment key={equipo.lineaId}>
+              {productos.map((equipo, index) => (
+                <React.Fragment key={equipo.lineaIds.join(',')}>
                   {index > 0 ? <View style={[styles.separador, { backgroundColor: colors.line }]} /> : null}
                   <EquipoFila
                     equipo={equipo}
                     disabled={disabled}
-                    onChange={(patch) => onChangeEquipo(equipo.lineaId, patch)}
+                    onChange={(patch) => onChangeGrupo(equipo.lineaIds, patch)}
+                    onVerFoto={(url) => abrir([url], 0)}
                   />
                 </React.Fragment>
               ))}
@@ -241,6 +267,7 @@ export function EquiposProyectoEditor({ equipos, disabled, onChangeEquipo }: Pro
           </View>
         );
       })}
+      {visor}
     </View>
   );
 }

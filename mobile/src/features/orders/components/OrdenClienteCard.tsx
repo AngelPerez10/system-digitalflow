@@ -4,10 +4,12 @@ import { inicialesUsuarioDisplay } from '@/auth/nombreUsuario';
 import { Avatar } from '@/components/Avatar';
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, radius, spacing, type } from '@/theme/tokens';
-import type { OrdenListItem } from '@/types/orden';
+import type { OrdenListItem, OrdenStatus } from '@/types/orden';
+import { abrirEnlace } from '@/utils/abrirEnlace';
 import { formatFecha } from '@/utils/fecha';
 import { useReducedMotion } from '@/utils/useReducedMotion';
 import {
+  esEnlaceUbicacion,
   folioDisplay,
   statusLabel,
   statusSolid,
@@ -15,7 +17,13 @@ import {
   tipoOrdenLabel,
 } from '../ordenFormat';
 import { FallaBox } from './FallaBox';
-import { IconCalendar, IconFlecha, IconPin, TipoOrdenIcon } from './icons';
+import { IconCalendar, IconClock, IconFlecha, IconPause, IconPin, IconVisto, TipoOrdenIcon } from './icons';
+
+const STATUS_ICON: Record<OrdenStatus, (color: string) => React.ReactNode> = {
+  pendiente: (color) => <IconClock color={color} size={11} />,
+  pausado: (color) => <IconPause color={color} size={11} />,
+  resuelto: (color) => <IconVisto color={color} size={11} />,
+};
 
 interface Props {
   orden: OrdenListItem;
@@ -82,6 +90,7 @@ export function OrdenClienteCard({ orden, onPress }: Props) {
               </View>
             </View>
             <View style={[styles.statusPill, { backgroundColor: tono.bg }]}>
+              {STATUS_ICON[orden.status](tono.text)}
               <Text style={[styles.statusTexto, { color: tono.text }]}>
                 {statusLabel(orden.status)}
               </Text>
@@ -101,13 +110,7 @@ export function OrdenClienteCard({ orden, onPress }: Props) {
           ) : null}
 
           <View style={styles.filasInfo}>
-            {orden.direccion ? (
-              <Fila
-                icon={<IconPin color={colors.navyText} size={12} />}
-                texto={orden.direccion}
-                colors={colors}
-              />
-            ) : null}
+            {orden.direccion ? <FilaUbicacion direccion={orden.direccion} colors={colors} /> : null}
             {orden.tecnico_asignado_full_name ? (
               <View style={styles.filaDato}>
                 <Avatar
@@ -163,6 +166,40 @@ function Fila({
   );
 }
 
+/**
+ * Igual que `FilaUbicacion` de `OrdenCard` (técnico): si `direccion` es en
+ * realidad un enlace de Google Maps, se muestra como acción tocable en vez
+ * de la URL cruda. Este mismo dato entraba sin filtrar en la tarjeta del
+ * cliente — mostraba el link tal cual.
+ */
+function FilaUbicacion({
+  direccion,
+  colors,
+}: {
+  direccion: string;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  if (esEnlaceUbicacion(direccion)) {
+    return (
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="Ver ubicación en el mapa"
+        onPress={() =>
+          void abrirEnlace(direccion, 'No se pudo abrir el mapa. Verifica que tengas una app de mapas instalada.')
+        }
+        style={styles.filaDato}
+        hitSlop={4}
+      >
+        <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>
+          <IconPin color={colors.navyText} size={12} />
+        </View>
+        <Text style={[styles.enlaceUbicacion, { color: colors.navyText }]}>Ver ubicación en el mapa</Text>
+      </Pressable>
+    );
+  }
+  return <Fila icon={<IconPin color={colors.navyText} size={12} />} texto={direccion} colors={colors} />;
+}
+
 const styles = StyleSheet.create({
   tarjeta: {
     flexDirection: 'row',
@@ -202,7 +239,14 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   tipoTexto: { ...type.caption, fontSize: 11 },
-  statusPill: { borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
   statusTexto: { ...type.caption, fontSize: 11, fontFamily: type.label.fontFamily },
   filasInfo: { gap: spacing.sm },
   filaDato: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -214,6 +258,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   filaTexto: { ...type.caption, flex: 1, flexShrink: 1 },
+  enlaceUbicacion: { ...type.label, fontSize: 13 },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',

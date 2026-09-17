@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useVisorFotos } from '@/components/VisorFotos';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, type } from '@/theme/tokens';
 import type { ProyectoNotaDia } from '@/types/proyecto';
@@ -8,6 +9,7 @@ const FOTO_TAM = 56;
 
 export function NotasPorDiaLista({ notas }: { notas: ProyectoNotaDia[] }) {
   const { colors } = useTheme();
+  const { abrir, visor } = useVisorFotos();
   const conContenido = notas.filter((n) => n.nota.trim() || n.imagenesUrls.length > 0);
 
   if (conContenido.length === 0) {
@@ -27,18 +29,25 @@ export function NotasPorDiaLista({ notas }: { notas: ProyectoNotaDia[] }) {
             {nota.imagenesUrls.length > 0 ? (
               <View style={styles.fotos}>
                 {nota.imagenesUrls.map((url, i) => (
-                  <Image
+                  <Pressable
                     key={`${url}-${i}`}
-                    source={{ uri: url }}
-                    style={[styles.foto, { backgroundColor: colors.surfaceSunken }]}
-                    resizeMode="cover"
-                  />
+                    accessibilityRole="imagebutton"
+                    accessibilityLabel={`Ver foto ${i + 1} del día ${index + 1}`}
+                    onPress={() => abrir(nota.imagenesUrls, i)}
+                  >
+                    <Image
+                      source={{ uri: url }}
+                      style={[styles.foto, { backgroundColor: colors.surfaceSunken }]}
+                      resizeMode="cover"
+                    />
+                  </Pressable>
                 ))}
               </View>
             ) : null}
           </View>
         );
       })}
+      {visor}
     </View>
   );
 }

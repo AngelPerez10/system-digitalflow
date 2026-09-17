@@ -285,10 +285,12 @@ export default function EditarProyectoScreen() {
                 <EquiposProyectoEditor
                   equipos={form.equipos}
                   disabled={guardando}
-                  onChangeEquipo={(lineaId, patchEquipo) =>
+                  onChangeGrupo={(lineaIds, patchEquipo) =>
                     actualizar(
                       'equipos',
-                      form.equipos.map((eq) => (eq.lineaId === lineaId ? { ...eq, ...patchEquipo } : eq)),
+                      form.equipos.map((eq) =>
+                        lineaIds.includes(eq.lineaId) ? { ...eq, ...patchEquipo } : eq,
+                      ),
                     )
                   }
                 />

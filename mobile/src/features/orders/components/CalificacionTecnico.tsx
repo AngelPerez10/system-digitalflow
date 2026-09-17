@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { toUserMessage } from '@/api/errors';
 import { calificarOrdenCliente } from '@/api/portalClienteApi';
 import { InlineError } from '@/components/StateViews';
@@ -12,6 +13,21 @@ import { useReducedMotion } from '@/utils/useReducedMotion';
 import { IconEstrella } from './icons';
 
 const ESTRELLAS = [1, 2, 3, 4, 5] as const;
+
+function IconEditar({ color, size = 14 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M14 7.5 16.5 10" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 /** El adjetivo que acompaña a cada nota: convierte el número en una respuesta. */
 const LEYENDA: Record<number, string> = {
@@ -34,8 +50,11 @@ interface Props {
 
 /**
  * Calificación del técnico al cierre del servicio — como al terminar un viaje:
- * cinco estrellas y un comentario opcional, una sola vez. Tres estados:
- * ya calificada (resumen), calificable (formulario) o todavía no (aviso).
+ * cinco estrellas y un comentario opcional. El cliente puede cambiarla
+ * después: «Editar calificación» reabre el mismo formulario, precargado, y
+ * el backend sobrescribe el registro (no acumula calificaciones por orden).
+ * Tres estados: ya calificada (resumen o edición), calificable (formulario
+ * de primera vez) o todavía no (aviso).
  */
 export function CalificacionTecnico({
   ordenId,
@@ -47,12 +66,25 @@ export function CalificacionTecnico({
 }: Props) {
   const { colors } = useTheme();
   const reduced = useReducedMotion();
+  const [editando, setEditando] = useState(false);
   const [estrellas, setEstrellas] = useState(0);
   const [comentario, setComentario] = useState('');
   const [fase, setFase] = useState<SubmitPhase>('idle');
   const [error, setError] = useState<string | null>(null);
 
   const enviando = fase !== 'idle';
+
+  const iniciarEdicion = () => {
+    setEstrellas(calificacion?.estrellas ?? 0);
+    setComentario(calificacion?.comentario ?? '');
+    setError(null);
+    setEditando(true);
+  };
+
+  const cancelarEdicion = () => {
+    setError(null);
+    setEditando(false);
+  };
 
   const onSubmit = async () => {
     if (estrellas < 1 || enviando) return;
@@ -62,6 +94,7 @@ export function CalificacionTecnico({
       const guardada = await calificarOrdenCliente(ordenId, estrellas, comentario);
       setFase('success');
       await new Promise((resolve) => setTimeout(resolve, reduced ? 0 : MOTION.success));
+      setEditando(false);
       onCalificada(guardada);
     } catch (err) {
       setError(toUserMessage(err));
@@ -69,8 +102,9 @@ export function CalificacionTecnico({
     }
   };
 
-  // 1) Ya calificada: se muestra lo que dejó el cliente, sin volver a pedirlo.
-  if (calificacion) {
+  // 1) Ya calificada y no está editando: se muestra lo que dejó el cliente,
+  //    con la opción de cambiarla.
+  if (calificacion && !editando) {
     return (
       <Bloque titulo="Tu calificación">
         <View style={[styles.tarjeta, { backgroundColor: colors.surfaceSunken, borderColor: colors.line }]}>
@@ -95,13 +129,23 @@ export function CalificacionTecnico({
           <Text style={[styles.gracias, { color: colors.inkSubtle }]}>
             Gracias por calificar. Tu opinión llega al equipo de Sertel.
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Editar tu calificación"
+            onPress={iniciarEdicion}
+            style={({ pressed }) => [styles.editarBoton, pressed ? { opacity: 0.6 } : null]}
+            hitSlop={6}
+          >
+            <IconEditar color={colors.navyText} size={13} />
+            <Text style={[styles.editarTexto, { color: colors.navyText }]}>Editar calificación</Text>
+          </Pressable>
         </View>
       </Bloque>
     );
   }
 
   // 2) Todavía no se puede: se anuncia, no se esconde.
-  if (!puedeCalificar) {
+  if (!calificacion && !puedeCalificar) {
     return (
       <Bloque titulo="Calificar al técnico">
         <View style={[styles.tarjeta, { backgroundColor: colors.surfaceSunken, borderColor: colors.line }]}>
@@ -113,9 +157,9 @@ export function CalificacionTecnico({
     );
   }
 
-  // 3) Formulario.
+  // 3) Formulario — de primera vez, o editando una calificación existente.
   return (
-    <Bloque titulo="Calificar al técnico">
+    <Bloque titulo={calificacion ? 'Editar tu calificación' : 'Calificar al técnico'}>
       <View style={[styles.tarjeta, { backgroundColor: colors.surfaceSunken, borderColor: colors.line }]}>
         <Text style={[styles.pregunta, { color: colors.ink }]}>
           {tecnico ? `¿Cómo te atendió ${tecnico}?` : '¿Cómo te atendieron?'}
@@ -158,7 +202,7 @@ export function CalificacionTecnico({
         {error ? <InlineError message={error} /> : null}
 
         <SubmitButton
-          label="Enviar calificación"
+          label={calificacion ? 'Guardar cambios' : 'Enviar calificación'}
           phase={fase}
           disabled={estrellas < 1 && !enviando}
           onPress={() => void onSubmit()}
@@ -167,6 +211,22 @@ export function CalificacionTecnico({
           tintPressed={colors.navyDeep}
           tintDisabled={colors.navyDisabled}
         />
+
+        {calificacion ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cancelar edición"
+            disabled={enviando}
+            onPress={cancelarEdicion}
+            style={({ pressed }) => [
+              styles.cancelarBoton,
+              pressed && !enviando ? { opacity: 0.6 } : null,
+              enviando ? { opacity: 0.4 } : null,
+            ]}
+          >
+            <Text style={[styles.cancelarTexto, { color: colors.inkMuted }]}>Cancelar</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Bloque>
   );
@@ -257,4 +317,15 @@ const styles = StyleSheet.create({
   comentario: { ...type.body, fontStyle: 'italic', lineHeight: 21 },
   gracias: { ...type.caption, lineHeight: 18 },
   aviso: { ...type.caption, lineHeight: 18 },
+  editarBoton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    minHeight: TOUCH_TARGET - 12,
+    marginTop: -spacing.xs,
+  },
+  editarTexto: { ...type.label, fontSize: 13 },
+  cancelarBoton: { alignItems: 'center', minHeight: TOUCH_TARGET - 12, justifyContent: 'center' },
+  cancelarTexto: { ...type.label, fontSize: 13 },
 });

@@ -11,6 +11,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { toUserMessage } from '@/api/errors';
 import { uploadOrdenImage } from '@/api/ordenesApi';
+import { useVisorFotos } from '@/components/VisorFotos';
 import { comprimirFotoParaSubida } from '@/features/orders/comprimirFoto';
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
@@ -46,6 +47,7 @@ export function FotosEditor({
   subirFoto = (dataUrl) => uploadOrdenImage(dataUrl, 'ordenes/fotos'),
 }: Props) {
   const { colors } = useTheme();
+  const { abrir, visor } = useVisorFotos();
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fallidas, setFallidas] = useState<Record<string, boolean>>({});
@@ -175,17 +177,24 @@ export function FotosEditor({
                   </Text>
                 </Pressable>
               ) : (
-                <Image
-                  key={intento}
-                  source={{ uri: url }}
-                  style={[
-                    styles.miniatura,
-                    { backgroundColor: colors.surfaceSunken },
-                    elevationFor(colors, 'panel'),
-                  ]}
-                  resizeMode="cover"
-                  onError={() => setFallidas((prev) => ({ ...prev, [key]: true }))}
-                />
+                <Pressable
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={`Ver foto ${index + 1} de ${urls.length}`}
+                  onPress={() => abrir(urls, index)}
+                  style={styles.miniaturaTouch}
+                >
+                  <Image
+                    key={intento}
+                    source={{ uri: url }}
+                    style={[
+                      styles.miniatura,
+                      { backgroundColor: colors.surfaceSunken },
+                      elevationFor(colors, 'panel'),
+                    ]}
+                    resizeMode="cover"
+                    onError={() => setFallidas((prev) => ({ ...prev, [key]: true }))}
+                  />
+                </Pressable>
               )}
               <Pressable
                 accessibilityRole="button"
@@ -258,6 +267,8 @@ export function FotosEditor({
           Límite de fotos alcanzado para esta orden.
         </Text>
       ) : null}
+
+      {visor}
     </View>
   );
 }
@@ -271,6 +282,7 @@ const styles = StyleSheet.create({
     aspectRatio: 4 / 3,
     padding: HUECO / 2,
   },
+  miniaturaTouch: { flex: 1 },
   miniatura: {
     flex: 1,
     borderRadius: radius.md,

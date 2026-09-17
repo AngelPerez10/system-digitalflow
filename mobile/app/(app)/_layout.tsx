@@ -48,6 +48,14 @@ export default function AppLayout() {
   if (status === 'loading') return <LoadingState label="Restaurando sesión…" />;
   if (status === 'signedOut') return <Redirect href="/bienvenida" />;
 
+  // Espejo del guard de `ClienteLayout` (que manda a `/ordenes` a quien no es
+  // cliente): una cuenta del portal cliente que caiga aquí (deep link, portal
+  // recordado) va a lo suyo — nunca debe llegar a ver Proyectos ni el listado
+  // de Órdenes de oficina, sin depender solo de que `permissions` venga vacío.
+  if (user && user.account_type === 'cliente') {
+    return <Redirect href="/cliente" />;
+  }
+
   if (!puedeOrdenes && !puedeProyectos) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]} edges={['bottom']}>

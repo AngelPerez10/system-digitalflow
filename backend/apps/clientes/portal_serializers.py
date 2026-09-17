@@ -197,7 +197,9 @@ class PortalOrdenDetalleSerializer(PortalOrdenListSerializer):
         return PortalCalificacionSerializer(calificacion).data
 
     def get_puede_calificar(self, obj) -> bool:
-        """Como en un viaje: se califica al terminar, y una sola vez."""
+        """Solo indica si aún no hay calificación — una vez que existe, el
+        cliente la cambia desde el bloque de «ya calificada», no desde aquí
+        (ver `portal_orden_calificar_view`, que sobrescribe en vez de crear)."""
         return obj.status == 'resuelto' and getattr(obj, 'calificacion', None) is None
 
 

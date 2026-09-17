@@ -210,11 +210,23 @@ class PortalCalificacionTests(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(OrdenCalificacion.objects.filter(orden=self.pendiente).exists())
 
-    def test_no_se_califica_dos_veces(self):
-        self.client.post(self._url(self.resuelta.id), {'estrellas': 5}, format='json')
-        repetida = self.client.post(self._url(self.resuelta.id), {'estrellas': 1}, format='json')
-        self.assertEqual(repetida.status_code, status.HTTP_409_CONFLICT)
-        self.assertEqual(OrdenCalificacion.objects.get(orden=self.resuelta).estrellas, 5)
+    def test_el_cliente_puede_cambiar_su_calificacion(self):
+        primera = self.client.post(
+            self._url(self.resuelta.id), {'estrellas': 5, 'comentario': 'Excelente'}, format='json'
+        )
+        self.assertEqual(primera.status_code, status.HTTP_201_CREATED)
+
+        segunda = self.client.post(
+            self._url(self.resuelta.id), {'estrellas': 1, 'comentario': 'Cambié de opinión'}, format='json'
+        )
+        self.assertEqual(segunda.status_code, status.HTTP_200_OK)
+        self.assertEqual(segunda.data['estrellas'], 1)
+
+        # Se sobrescribe el mismo registro, no se acumulan calificaciones.
+        self.assertEqual(OrdenCalificacion.objects.filter(orden=self.resuelta).count(), 1)
+        calificacion = OrdenCalificacion.objects.get(orden=self.resuelta)
+        self.assertEqual(calificacion.estrellas, 1)
+        self.assertEqual(calificacion.comentario, 'Cambié de opinión')
 
     def test_estrellas_fuera_de_rango(self):
         for valor in (0, 6, -1):

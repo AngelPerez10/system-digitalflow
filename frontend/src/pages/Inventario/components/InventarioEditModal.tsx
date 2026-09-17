@@ -569,7 +569,7 @@ export default function InventarioEditModal({
               icon={<BarcodeIcon className={inventarioSectionIconClass} />}
             >
               <div
-                className="overflow-hidden rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]"
+                className="overflow-hidden rounded-3xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]"
                 role="group"
                 aria-labelledby={`${titleId}-existencia-label`}
               >
@@ -583,7 +583,7 @@ export default function InventarioEditModal({
                     </p>
                     <div className="mt-2 flex flex-wrap items-end gap-3">
                       <span
-                        className={`${existenciaBadgeClass(cantidad)} !min-w-[3.25rem] !rounded-xl !px-3 !py-1.5 !text-2xl !leading-none`}
+                        className={`${existenciaBadgeClass(cantidad)} min-w-13! rounded-xl! px-3! py-1.5! text-2xl! leading-none!`}
                         aria-live="polite"
                         aria-atomic="true"
                       >
@@ -609,7 +609,7 @@ export default function InventarioEditModal({
                     <div className="flex w-full gap-2 sm:w-auto sm:shrink-0">
                       <button
                         type="button"
-                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#E6A23C]/40 bg-[rgba(230,162,60,0.10)] px-4 text-sm font-semibold text-[#9A6B15] transition-colors hover:bg-[rgba(230,162,60,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E6A23C]/40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#E6A23C]/30 dark:bg-[rgba(230,162,60,0.12)] dark:text-[#E6A23C] dark:hover:bg-[rgba(230,162,60,0.2)] sm:flex-none sm:min-w-[8.5rem]"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#E6A23C]/40 bg-[rgba(230,162,60,0.10)] px-4 text-sm font-semibold text-[#9A6B15] transition-colors hover:bg-[rgba(230,162,60,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E6A23C]/40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#E6A23C]/30 dark:bg-[rgba(230,162,60,0.12)] dark:text-[#E6A23C] dark:hover:bg-[rgba(230,162,60,0.2)] sm:flex-none sm:min-w-34"
                         onClick={() => ajustarExistenciaLocal(-1)}
                         disabled={busy || !item || cantidad <= 0}
                         aria-label="Salida: restar una unidad (se aplica al guardar)"
@@ -620,7 +620,7 @@ export default function InventarioEditModal({
                       </button>
                       <button
                         type="button"
-                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#04724D] bg-[#04724D] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#035c3e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#04724D]/40 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:min-w-[8.5rem]"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#04724D] bg-[#04724D] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#035c3e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#04724D]/40 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:min-w-34"
                         onClick={() => ajustarExistenciaLocal(1)}
                         disabled={busy || !item}
                         aria-label="Entrada: sumar una unidad (se aplica al guardar)"
@@ -726,7 +726,7 @@ export default function InventarioEditModal({
                     {imagenUrl ? (
                       <button
                         type="button"
-                        className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-[#C22B2B] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(194,43,43,0.3)] dark:text-[#F87171] sm:min-h-0 sm:py-2"
+                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-[#C22B2B] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(194,43,43,0.3)] dark:text-[#F87171] sm:min-h-0 sm:py-2"
                         onClick={() => setImagenUrl("")}
                         disabled={saving || subiendoImagen}
                       >
@@ -782,7 +782,7 @@ export default function InventarioEditModal({
               </p>
 
               {vinculado ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-[#BFE6D4] bg-[#E9F8F0] px-3 py-2 dark:border-[#1E5A42] dark:bg-[#0F2A1C]">
+                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#BFE6D4] bg-[#E9F8F0] px-3 py-2 dark:border-[#1E5A42] dark:bg-[#0F2A1C]">
                   <span className="text-[#04724D] dark:text-[#4ADE80]" aria-hidden="true">
                     <CheckIcon className="h-4 w-4" />
                   </span>
@@ -793,7 +793,7 @@ export default function InventarioEditModal({
                   <div className="ml-auto flex items-center gap-1">
                     <button
                       type="button"
-                      className="inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#04724D] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#04724D]/35 disabled:opacity-60 dark:text-[#4ADE80]"
+                      className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#04724D] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#04724D]/35 disabled:opacity-60 dark:text-[#4ADE80]"
                       onClick={() => void refrescarCatalogo()}
                       disabled={saving || refrescando}
                     >
@@ -802,7 +802,7 @@ export default function InventarioEditModal({
                     </button>
                     <button
                       type="button"
-                      className="inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#C22B2B] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(194,43,43,0.3)] dark:text-[#F87171]"
+                      className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#C22B2B] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(194,43,43,0.3)] dark:text-[#F87171]"
                       onClick={desvincular}
                       disabled={saving}
                     >
@@ -842,7 +842,7 @@ export default function InventarioEditModal({
                       }
                     }}
                     placeholder="Ej. DS-2CD1023G0E-I o videoportero"
-                    className={`${invInputLikeClass} !pl-10`}
+                    className={`${invInputLikeClass} pl-10!`}
                     disabled={saving}
                   />
                 </div>
@@ -872,7 +872,7 @@ export default function InventarioEditModal({
               <div aria-live="polite" aria-atomic="true">
                 {buscando ? (
                   <div
-                    className="relative overflow-hidden rounded-[12px] border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#0f172a]"
+                    className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#0f172a]"
                     role="status"
                     aria-busy="true"
                   >
@@ -880,11 +880,11 @@ export default function InventarioEditModal({
                     <div className="flex items-start gap-3 px-4 py-3.5 pl-5">
                       <span className="relative mt-0.5 flex size-10 shrink-0 items-center justify-center">
                         <span
-                          className="absolute -inset-0.5 rounded-[12px] border-2 border-[#1B5CFF]/45 motion-safe:animate-ping"
+                          className="absolute -inset-0.5 rounded-2xl border-2 border-[#1B5CFF]/45 motion-safe:animate-ping"
                           aria-hidden
                         />
                         <span
-                          className="relative flex size-10 items-center justify-center rounded-[12px] bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]"
+                          className="relative flex size-10 items-center justify-center rounded-2xl bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]"
                           aria-hidden
                         >
                           <SearchIcon className="h-4 w-4" />
@@ -1046,7 +1046,7 @@ export default function InventarioEditModal({
                     {vinculado ? (
                       <button
                         type="button"
-                        className="inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#1B5CFF] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] disabled:opacity-60 dark:text-[#4B7CFF]"
+                        className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#1B5CFF] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] disabled:opacity-60 dark:text-[#4B7CFF]"
                         onClick={() => void traerCaracteristicas()}
                         disabled={saving || trayendoFicha}
                       >

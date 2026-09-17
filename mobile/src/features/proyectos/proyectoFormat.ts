@@ -1,9 +1,48 @@
 import { lightColors, type ThemeColors } from '@/theme/tokens';
 import type {
   EquipoEstadoInstalacion,
+  ProyectoEquipoLinea,
   ProyectoListItem,
   ProyectoStatus,
 } from '@/types/proyecto';
+
+export interface ProyectoEquipoAgrupado extends ProyectoEquipoLinea {
+  /** Todas las `lineaId` originales que se colapsaron en esta fila. */
+  lineaIds: string[];
+}
+
+/**
+ * Colapsa líneas del mismo producto (modelo + marca + imagen) que además
+ * comparten estatus de entrega/instalación en una sola fila con la cantidad
+ * sumada — mismo criterio que `agruparEquiposPorProducto` de Órdenes. Llamar
+ * por bloque de cotización, no sobre la lista completa, para no mezclar
+ * cotizaciones distintas en una sola fila.
+ */
+export function agruparEquiposPorProducto(
+  equipos: readonly ProyectoEquipoLinea[],
+): ProyectoEquipoAgrupado[] {
+  const grupos = new Map<string, ProyectoEquipoAgrupado>();
+  const orden: string[] = [];
+  for (const eq of equipos) {
+    const key = [
+      eq.modelo.trim().toLowerCase(),
+      eq.modeloOriginal.trim().toLowerCase(),
+      (eq.marca ?? '').trim().toLowerCase(),
+      eq.imagenUrl ?? '',
+      eq.equipoEntregado ? '1' : '0',
+      eq.estadoInstalacion,
+    ].join('|');
+    const existente = grupos.get(key);
+    if (existente) {
+      existente.cantidad += eq.cantidad;
+      existente.lineaIds.push(eq.lineaId);
+    } else {
+      grupos.set(key, { ...eq, lineaIds: [eq.lineaId] });
+      orden.push(key);
+    }
+  }
+  return orden.map((key) => grupos.get(key)!);
+}
 
 const STATUS_LABEL: Record<ProyectoStatus, string> = {
   en_proceso: 'En proceso',

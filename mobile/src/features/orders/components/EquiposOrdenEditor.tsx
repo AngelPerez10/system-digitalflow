@@ -1,8 +1,10 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useVisorFotos } from '@/components/VisorFotos';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
 import type { EquipoInventarioItem, EstadoInstalacionEquipo } from '@/types/orden';
+import { agruparEquiposPorProducto } from '../ordenFormat';
 import { IconBox } from './icons';
 
 interface Props {
@@ -17,7 +19,7 @@ const OPCIONES_INSTALACION: { value: EstadoInstalacionEquipo; label: string }[] 
   { value: 'no_instalado', label: 'No instalado' },
 ];
 
-function Miniatura({ url }: { url: string }) {
+function Miniatura({ url, nombre, onPress }: { url: string; nombre: string; onPress: () => void }) {
   const { colors } = useTheme();
   if (!url) {
     return (
@@ -27,9 +29,14 @@ function Miniatura({ url }: { url: string }) {
     );
   }
   return (
-    <View style={[styles.miniaturaWrap, { borderColor: colors.line }]}>
+    <Pressable
+      accessibilityRole="imagebutton"
+      accessibilityLabel={`Ver foto de ${nombre} en grande`}
+      onPress={onPress}
+      style={[styles.miniaturaWrap, { borderColor: colors.line }]}
+    >
       <Image source={{ uri: url }} style={styles.miniatura} resizeMode="contain" />
-    </View>
+    </Pressable>
   );
 }
 
@@ -112,11 +119,13 @@ function EquipoFila({
   canMarkInstalacion,
   disabled,
   onChangeInstalacion,
+  onVerFoto,
 }: {
   equipo: EquipoInventarioItem;
   canMarkInstalacion: boolean;
   disabled?: boolean;
   onChangeInstalacion: (estado: EstadoInstalacionEquipo) => void;
+  onVerFoto: (url: string) => void;
 }) {
   const { colors } = useTheme();
   const titulo = equipo.nombre || equipo.modelo || 'Equipo';
@@ -128,7 +137,7 @@ function EquipoFila({
       <View style={[styles.accento, { backgroundColor: instalado ? colors.primary : colors.statusPendienteText }]} />
       <View style={styles.cuerpo}>
         <View style={styles.filaSuperior}>
-          <Miniatura url={equipo.imagenUrl} />
+          <Miniatura url={equipo.imagenUrl} nombre={titulo} onPress={() => onVerFoto(equipo.imagenUrl)} />
           <View style={styles.textos}>
             <View style={styles.badges}>
               <View
@@ -192,6 +201,7 @@ function EquipoFila({
  */
 export function EquiposOrdenEditor({ equipos, canMarkInstalacion, disabled, onChangeInstalacion }: Props) {
   const { colors } = useTheme();
+  const { abrir, visor } = useVisorFotos();
 
   if (equipos.length === 0) {
     return (
@@ -207,16 +217,24 @@ export function EquiposOrdenEditor({ equipos, canMarkInstalacion, disabled, onCh
     );
   }
 
+  const agrupados = agruparEquiposPorProducto(equipos);
+
   return (
     <View style={styles.lista}>
-      {equipos.map((equipo, index) => (
-        <React.Fragment key={equipo.lineaId}>
+      {agrupados.map((equipo, index) => (
+        <React.Fragment key={equipo.lineaIds.join(',')}>
           {index > 0 ? <View style={[styles.separador, { backgroundColor: colors.line }]} /> : null}
           <EquipoFila
             equipo={equipo}
             canMarkInstalacion={canMarkInstalacion}
             disabled={disabled}
-            onChangeInstalacion={(estado) => onChangeInstalacion(equipo.lineaId, estado)}
+            onChangeInstalacion={(estado) => {
+              // Fan-out seguro: `onChangeInstalacion` del padre usa `setForm`
+              // funcional, así que llamarla varias veces seguidas (una por
+              // línea agrupada) no pisa cambios entre sí.
+              for (const lineaId of equipo.lineaIds) onChangeInstalacion(lineaId, estado);
+            }}
+            onVerFoto={(url) => abrir([url], 0)}
           />
         </React.Fragment>
       ))}
@@ -225,6 +243,7 @@ export function EquiposOrdenEditor({ equipos, canMarkInstalacion, disabled, onCh
           Solo puedes consultar el estado de los equipos en esta orden.
         </Text>
       ) : null}
+      {visor}
     </View>
   );
 }

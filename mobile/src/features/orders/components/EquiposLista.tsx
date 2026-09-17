@@ -1,8 +1,10 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useVisorFotos } from '@/components/VisorFotos';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, type } from '@/theme/tokens';
 import type { EquipoInventarioItem } from '@/types/orden';
+import { agruparEquiposPorProducto } from '../ordenFormat';
 import { IconBox } from './icons';
 
 function Estado({ activo, texto }: { activo: boolean; texto: string }) {
@@ -36,7 +38,7 @@ function Estado({ activo, texto }: { activo: boolean; texto: string }) {
  * (SYSCOM/TVC) vienen recortadas sobre blanco y sobre un fondo oscuro se
  * verían con un halo.
  */
-function Miniatura({ url }: { url: string }) {
+function Miniatura({ url, nombre, onPress }: { url: string; nombre: string; onPress: () => void }) {
   const { colors } = useTheme();
   if (!url) {
     return (
@@ -51,24 +53,30 @@ function Miniatura({ url }: { url: string }) {
     );
   }
   return (
-    <View style={[styles.miniaturaWrap, { borderColor: colors.line }]}>
+    <Pressable
+      accessibilityRole="imagebutton"
+      accessibilityLabel={`Ver foto de ${nombre} en grande`}
+      onPress={onPress}
+      style={[styles.miniaturaWrap, { borderColor: colors.line }]}
+    >
       <Image source={{ uri: url }} style={styles.miniatura} resizeMode="contain" />
-    </View>
+    </Pressable>
   );
 }
 
-function EquipoFila({ equipo }: { equipo: EquipoInventarioItem }) {
+function EquipoFila({ equipo, onVerFoto }: { equipo: EquipoInventarioItem; onVerFoto: (url: string) => void }) {
   const { colors } = useTheme();
   const detalle = [equipo.marca, equipo.modelo].filter(Boolean).join(' · ');
+  const nombre = equipo.nombre || 'Equipo sin nombre';
   return (
     <View style={styles.fila}>
-      <Miniatura url={equipo.imagenUrl} />
+      <Miniatura url={equipo.imagenUrl} nombre={nombre} onPress={() => onVerFoto(equipo.imagenUrl)} />
 
       <View style={styles.contenido}>
         <View style={styles.filaSuperior}>
           <View style={styles.textos}>
             <Text style={[styles.nombre, { color: colors.ink }]} numberOfLines={2}>
-              {equipo.nombre || 'Equipo sin nombre'}
+              {nombre}
             </Text>
             {detalle ? (
               <Text style={[styles.detalle, { color: colors.inkSubtle }]} numberOfLines={1}>
@@ -96,6 +104,7 @@ function EquipoFila({ equipo }: { equipo: EquipoInventarioItem }) {
  */
 export function EquiposLista({ equipos }: { equipos: EquipoInventarioItem[] }) {
   const { colors } = useTheme();
+  const { abrir, visor } = useVisorFotos();
   if (equipos.length === 0) {
     return (
       <Text style={[styles.vacio, { color: colors.inkSubtle }]}>
@@ -103,16 +112,18 @@ export function EquiposLista({ equipos }: { equipos: EquipoInventarioItem[] }) {
       </Text>
     );
   }
+  const agrupados = agruparEquiposPorProducto(equipos);
   return (
     <View style={styles.lista}>
-      {equipos.map((equipo, index) => (
-        <React.Fragment key={equipo.lineaId}>
+      {agrupados.map((equipo, index) => (
+        <React.Fragment key={equipo.lineaIds.join(',')}>
           {index > 0 ? (
             <View style={[styles.separador, { backgroundColor: colors.line }]} />
           ) : null}
-          <EquipoFila equipo={equipo} />
+          <EquipoFila equipo={equipo} onVerFoto={(url) => abrir([url], 0)} />
         </React.Fragment>
       ))}
+      {visor}
     </View>
   );
 }

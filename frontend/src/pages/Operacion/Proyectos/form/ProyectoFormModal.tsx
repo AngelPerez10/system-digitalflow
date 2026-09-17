@@ -516,7 +516,7 @@ export default function ProyectoFormModal({
         closeOnBackdropClick={false}
         closeOnEscape
         ariaLabelledBy={clearCotizacionesTitleId}
-        className={`${erpDeleteModalClass} z-[100000]`}
+        className={`${erpDeleteModalClass} z-100000`}
       >
         <div className={erpDeleteModalPanelClass}>
           <div className="mb-4 flex flex-col items-center text-center">
@@ -545,14 +545,14 @@ export default function ProyectoFormModal({
             <button
               type="button"
               onClick={() => setConfirmClearCotizaciones(false)}
-              className={`${erpSecondaryBtnClass} sm:min-w-[7rem]`}
+              className={`${erpSecondaryBtnClass} sm:min-w-28`}
             >
               Cancelar
             </button>
             <button
               type="button"
               onClick={handleLimpiarPresupuesto}
-              className={`${erpDangerBtnClass} sm:min-w-[7rem] sm:flex-none`}
+              className={`${erpDangerBtnClass} sm:min-w-28 sm:flex-none`}
             >
               Sí, quitar todas
             </button>

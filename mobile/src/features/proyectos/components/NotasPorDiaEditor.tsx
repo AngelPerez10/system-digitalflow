@@ -7,6 +7,7 @@ import { uploadProyectoImage } from '@/api/proyectosApi';
 import { comprimirFotoParaSubida } from '@/features/orders/comprimirFoto';
 import { IconCamera, IconNote } from '@/features/orders/components/icons';
 import { TextField } from '@/components/TextField';
+import { useVisorFotos } from '@/components/VisorFotos';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
 import type { ProyectoNotaDia } from '@/types/proyecto';
@@ -92,6 +93,7 @@ function FotosDia({
   onChange: (urls: string[]) => void;
 }) {
   const { colors } = useTheme();
+  const { abrir, visor } = useVisorFotos();
   const [subiendo, setSubiendo] = useState(false);
   const cupo = MAX_FOTOS_DIA - urls.length;
 
@@ -158,7 +160,13 @@ function FotosDia({
         <View style={styles.fotosFila}>
           {urls.map((url, index) => (
             <View key={`${url}-${index}`} style={styles.fotoCelda}>
-              <Image source={{ uri: url }} style={[styles.foto, { backgroundColor: colors.surfaceSunken }]} resizeMode="cover" />
+              <Pressable
+                accessibilityRole="imagebutton"
+                accessibilityLabel={`Ver foto ${index + 1} de ${urls.length}`}
+                onPress={() => abrir(urls, index)}
+              >
+                <Image source={{ uri: url }} style={[styles.foto, { backgroundColor: colors.surfaceSunken }]} resizeMode="cover" />
+              </Pressable>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Quitar foto ${index + 1}`}
@@ -210,6 +218,7 @@ function FotosDia({
           </Pressable>
         </View>
       ) : null}
+      {visor}
     </View>
   );
 }

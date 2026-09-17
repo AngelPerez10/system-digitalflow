@@ -20,16 +20,23 @@ import { IconChevron } from '@/components/icons';
 import { SkeletonPanel, SkeletonRegion } from '@/components/Skeleton';
 import { InlineError } from '@/components/StateViews';
 import { CalificacionTecnico } from '@/features/orders/components/CalificacionTecnico';
+import { CampoUbicacion } from '@/features/orders/components/CampoDato';
 import { EquiposLista } from '@/features/orders/components/EquiposLista';
 import { FirmasTarjeta } from '@/features/orders/components/FirmasTarjeta';
 import { FotosGaleria } from '@/features/orders/components/FotosGaleria';
 import { SeccionCard } from '@/features/orders/components/SeccionCard';
 import {
+  IconAlerta,
+  IconBox,
+  IconCalendar,
+  IconCamera,
+  IconClipboard,
   IconClock,
   IconEstrella,
   IconPause,
-  IconPin,
+  IconSignature,
   IconVisto,
+  IconWrench,
 } from '@/features/orders/components/icons';
 import {
   folioDisplay,
@@ -203,9 +210,12 @@ export default function ClienteOrdenScreen() {
                     { backgroundColor: colors.statusPausadoBg, borderColor: colors.statusPausadoText },
                   ]}
                 >
-                  <Text style={[styles.avisoTitulo, { color: colors.statusPausadoText }]}>
-                    Servicio en pausa
-                  </Text>
+                  <View style={styles.avisoTituloFila}>
+                    <IconPause color={colors.statusPausadoText} size={14} />
+                    <Text style={[styles.avisoTitulo, { color: colors.statusPausadoText }]}>
+                      Servicio en pausa
+                    </Text>
+                  </View>
                   <Text style={[styles.avisoTexto, { color: colors.statusPausadoText }]}>
                     {orden.motivo_pausa}
                   </Text>
@@ -213,13 +223,12 @@ export default function ClienteOrdenScreen() {
               ) : null}
 
               <Animated.View style={entrance(3)}>
-                <SeccionCard titulo="Datos del servicio" tono={tonoSolido}>
-                  {orden.direccion ? (
-                    <Dato
-                      icono={<IconPin color={colors.inkSubtle} size={14} />}
-                      valor={orden.direccion}
-                    />
-                  ) : null}
+                <SeccionCard
+                  titulo="Datos del servicio"
+                  tono={tonoSolido}
+                  icon={<IconClipboard color={colors.navyText} size={13} />}
+                >
+                  {orden.direccion ? <CampoUbicacion label="Dirección" direccion={orden.direccion} /> : null}
                   {orden.nombre_encargado ? (
                     <Dato
                       icono={<IconVisto color={colors.inkSubtle} size={13} />}
@@ -232,7 +241,11 @@ export default function ClienteOrdenScreen() {
 
               {orden.problematica ? (
                 <Animated.View style={entrance(4)}>
-                  <SeccionCard titulo="Lo que reportaste" tono={tonoSolido}>
+                  <SeccionCard
+                    titulo="Lo que reportaste"
+                    tono={tonoSolido}
+                    icon={<IconAlerta color={colors.statusPendienteText} size={13} />}
+                  >
                     <Text style={[styles.parrafo, { color: colors.inkMuted }]}>
                       {orden.problematica}
                     </Text>
@@ -242,7 +255,11 @@ export default function ClienteOrdenScreen() {
 
               {orden.servicios_realizados.length > 0 || orden.comentario_tecnico ? (
                 <Animated.View style={entrance(5)}>
-                  <SeccionCard titulo="Lo que se hizo" tono={tonoSolido}>
+                  <SeccionCard
+                    titulo="Lo que se hizo"
+                    tono={tonoSolido}
+                    icon={<IconWrench color={colors.statusResueltoText} size={13} />}
+                  >
                     {orden.servicios_realizados.map((servicio, i) => (
                       <View key={`${servicio}-${i}`} style={styles.vinieta}>
                         <View style={[styles.punto, { backgroundColor: colors.gold }]} />
@@ -265,6 +282,7 @@ export default function ClienteOrdenScreen() {
                   <SeccionCard
                     titulo="Equipos"
                     tono={tonoSolido}
+                    icon={<IconBox color={colors.navyText} size={13} />}
                     conteo={orden.equipos_inventario.length}
                   >
                     <EquiposLista equipos={orden.equipos_inventario} />
@@ -274,7 +292,12 @@ export default function ClienteOrdenScreen() {
 
               {orden.fotos_urls.length > 0 ? (
                 <Animated.View style={entrance(7)}>
-                  <SeccionCard titulo="Fotos" tono={tonoSolido} conteo={orden.fotos_urls.length}>
+                  <SeccionCard
+                    titulo="Fotos"
+                    tono={tonoSolido}
+                    icon={<IconCamera color={colors.navyText} size={13} />}
+                    conteo={orden.fotos_urls.length}
+                  >
                     <FotosGaleria urls={orden.fotos_urls} />
                   </SeccionCard>
                 </Animated.View>
@@ -282,7 +305,11 @@ export default function ClienteOrdenScreen() {
 
               {orden.firma_cliente_url || orden.firma_encargado_url ? (
                 <Animated.View style={entrance(8)}>
-                  <SeccionCard titulo="Firmas" tono={tonoSolido}>
+                  <SeccionCard
+                    titulo="Firmas"
+                    tono={tonoSolido}
+                    icon={<IconSignature color={colors.navyText} size={13} />}
+                  >
                     <FirmasTarjeta
                       firmaCliente={orden.firma_cliente_url}
                       firmaEncargado={orden.firma_encargado_url}
@@ -292,7 +319,11 @@ export default function ClienteOrdenScreen() {
               ) : null}
 
               <Animated.View style={entrance(9)}>
-                <SeccionCard titulo="Programación" tono={tonoSolido}>
+                <SeccionCard
+                  titulo="Programación"
+                  tono={tonoSolido}
+                  icon={<IconCalendar color={colors.navyText} size={13} />}
+                >
                   <View style={styles.placasFila}>
                     <PlacaFecha
                       label="Inicio"
@@ -435,6 +466,7 @@ const styles = StyleSheet.create({
   miniEstrellas: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   miniEstrellasTexto: { ...type.label, fontFamily: font.semibold },
   aviso: { borderWidth: 1, borderRadius: radius.md, padding: spacing.lg, gap: spacing.xs },
+  avisoTituloFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   avisoTitulo: { ...type.label, fontFamily: font.semibold },
   avisoTexto: { ...type.caption, lineHeight: 18 },
   parrafo: { ...type.body, lineHeight: 21 },

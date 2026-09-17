@@ -1,12 +1,14 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '@/components/AppButton';
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, radius, spacing, type } from '@/theme/tokens';
 import type { OrdenListItem } from '@/types/orden';
+import { abrirEnlace } from '@/utils/abrirEnlace';
 import { formatFecha } from '@/utils/fecha';
 import {
   clienteDisplay,
+  esEnlaceUbicacion,
   folioDisplay,
   prioridadLabel,
   prioridadTone,
@@ -66,16 +68,7 @@ export function PoolOrdenCard({ orden, tomando, onTomar }: Props) {
           <FallaBox titulo="Falla reportada" texto={orden.problematica} numberOfLines={3} />
         ) : null}
 
-        {orden.direccion ? (
-          <View style={styles.fila}>
-            <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>
-              <IconPin color={colors.navyText} size={12} />
-            </View>
-            <Text style={[styles.filaTexto, { color: colors.inkMuted }]} numberOfLines={2}>
-              {orden.direccion}
-            </Text>
-          </View>
-        ) : null}
+        {orden.direccion ? <FilaUbicacion direccion={orden.direccion} colors={colors} /> : null}
 
         <View style={[styles.pie, { borderTopColor: colors.line }]}>
           {fecha ? (
@@ -94,6 +87,45 @@ export function PoolOrdenCard({ orden, tomando, onTomar }: Props) {
           />
         </View>
       </View>
+    </View>
+  );
+}
+
+/** Igual que `FilaUbicacion` de `OrdenCard`: si `direccion` es un enlace de
+ *  Google Maps, se muestra como acción tocable en vez de la URL cruda. */
+function FilaUbicacion({
+  direccion,
+  colors,
+}: {
+  direccion: string;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  if (esEnlaceUbicacion(direccion)) {
+    return (
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="Ver ubicación en el mapa"
+        onPress={() =>
+          void abrirEnlace(direccion, 'No se pudo abrir el mapa. Verifica que tengas una app de mapas instalada.')
+        }
+        style={styles.fila}
+        hitSlop={4}
+      >
+        <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>
+          <IconPin color={colors.navyText} size={12} />
+        </View>
+        <Text style={[styles.enlaceUbicacion, { color: colors.navyText }]}>Ver ubicación en el mapa</Text>
+      </Pressable>
+    );
+  }
+  return (
+    <View style={styles.fila}>
+      <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>
+        <IconPin color={colors.navyText} size={12} />
+      </View>
+      <Text style={[styles.filaTexto, { color: colors.inkMuted }]} numberOfLines={2}>
+        {direccion}
+      </Text>
     </View>
   );
 }
@@ -147,6 +179,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   filaTexto: { ...type.caption, flex: 1, flexShrink: 1 },
+  enlaceUbicacion: { ...type.label, fontSize: 13 },
   pie: {
     flexDirection: 'row',
     alignItems: 'center',
